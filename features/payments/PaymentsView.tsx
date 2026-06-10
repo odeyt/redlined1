@@ -1,0 +1,402 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Panel } from '@/components/Panel';
+import {
+  fetchPayments, createPayment, updatePayment, deletePayment,
+  PAYMENT_METHODS, type Payment,
+} from '@/services/paymentService';
+import { fetchInvoices, formatMoney, CURRENCIES } from '@/services/invoiceService';
+import { fetchCustomerNames } from '@/services/vehicleService';
+
+const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
+const fmtTime = (d: string) => d ? new Date(d).toLocaleString() : '—';
+
+const STATUS_COLORS: Record<string, string> = {
+  Recorded: '#2196f3', Verified: '#4caf50', Refunded: '#f44336', Void: '#888',
+};
+
+const EMPTY_FORM = {
+  invoiceNumber: '',
+  customerName: '',
+  customerId: '',
+  amount: 0,
+  method: 'Cash',
+  methodDetail: '',
+  status: 'Recorded',
+  notes: '',
+  currency: 'USD',
+  referenceNumber: '',
+  paymentDate: new Date().toISOString().slice(0, 16),
+};
+
+// Group payment methods for the select
+const METHOD_GROUPS = Array.from(new Set(PAYMENT_METHODS.map(m => m.group)));
+
+export function PaymentsView() {
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [saving, setSaving] = useState(false);
+  const [invoices, setInvoices] = useState<{ number: string; customerName: string; total: number; currency: string }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [search, setSearch] = useState('');
+  const [filterMethod, setFilterMethod] = useState('All');
+
+  useEffect(() => {
+    load();
+    fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchInvoices().then(invs => setInvoices(invs.map(i => ({
+      number: i.invoiceNumber,
+      customerName: i.customerName,
+      total: i.lines.reduce((s, l) => s + l.qty * l.rate, 0),
+      currency: i.currency,
+    })))).catch(() => {});
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await fetchPayments();
+      setPayments(data);
+    } catch (e: unknown) {
+      setError('Load error: ' + (e instanceof Error ? e.message : ''));
+    } finally { setLoading(false); }
+  }
+
+  function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  function openNew() {
+    setForm({ ...EMPTY_FORM, paymentDate: new Date().toISOString().slice(0, 16) });
+    setEditingId(null);
+    setShowForm(true);
+  }
+
+  function openEdit(p: Payment) {
+    setForm({
+      invoiceNumber: p.invoiceNumber,
+      customerName: p.customerName,
+      customerId: p.customerId,
+      amount: p.amount,
+      method: p.method,
+      methodDetail: p.methodDetail,
+      status: p.status,
+      notes: p.notes,
+      currency: p.currency,
+      referenceNumber: p.referenceNumber,
+      paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+    });
+    setEditingId(p.id);
+    setShowForm(true);
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.customerName) return setError('Customer name is required.');
+    if (form.amount <= 0) return setError('Amount must be greater than 0.');
+    setSaving(true); setError('');
+    try {
+      if (editingId) {
+        await updatePayment(editingId, { ...form, paymentDate: new Date(form.paymentDate).toISOString() });
+        setPayments(prev => prev.map(p => p.id === editingId ? { ...p, ...form, id: editingId, createdAt: p.createdAt } : p));
+        notify('Payment updated.');
+      } else {
+        const saved = await createPayment({ ...form, paymentDate: new Date(form.paymentDate).toISOString() });
+        setPayments(prev => [saved, ...prev]);
+        notify(`Payment of ${formatMoney(saved.amount, saved.currency)} recorded.`);
+      }
+      setShowForm(false); setEditingId(null);
+    } catch (e: unknown) {
+      setError('Save failed: ' + (e instanceof Error ? e.message : ''));
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(p: Payment) {
+    if (!confirm(`Delete this payment of ${formatMoney(p.amount, p.currency)}?`)) return;
+    try {
+      await deletePayment(p.id);
+      setPayments(prev => prev.filter(x => x.id !== p.id));
+      notify('Payment deleted.');
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
+  // When invoice is selected, auto-fill customer and amount
+  function handleInvoiceSelect(invNumber: string) {
+    const inv = invoices.find(i => i.number === invNumber);
+    setForm(f => ({
+      ...f,
+      invoiceNumber: invNumber,
+      customerName: inv?.customerName ?? f.customerName,
+      amount: inv?.total ?? f.amount,
+      currency: inv?.currency ?? f.currency,
+    }));
+  }
+
+  const filtered = payments.filter(p => {
+    const matchMethod = filterMethod === 'All' || p.method === filterMethod;
+    const matchSearch = !search || [p.customerName, p.invoiceNumber, p.referenceNumber, p.method]
+      .some(v => v.toLowerCase().includes(search.toLowerCase()));
+    return matchMethod && matchSearch;
+  });
+
+  const totalCollected = payments.filter(p => p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0);
+  const totalRefunded = payments.filter(p => p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
+  const todayCount = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString()).length;
+
+  // Breakdown by method
+  const methodTotals = PAYMENT_METHODS.reduce((acc, m) => {
+    const total = payments.filter(p => p.method === m.value && p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0);
+    if (total > 0) acc[m.value] = total;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return (
+    <>
+      {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* Stats */}
+      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Collected</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Payments</div>
+          <div style={{ fontSize: 28, fontWeight: 700 }}>{payments.length}</div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Today</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#2196f3' }}>{todayCount}</div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Refunded</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#f44336' }}>${totalRefunded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+      </div>
+
+      {error && (
+        <p style={{ color: 'var(--danger)', padding: '10px 14px', background: '#fff0f0', borderRadius: 6, marginBottom: 12 }}>
+          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>✕</button>
+        </p>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.6fr', gap: 16, alignItems: 'start' }}>
+
+        {/* ── Left: Record Payment + Method Breakdown ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Panel title={editingId ? 'Edit Payment' : 'Record Payment'} hint="Log a payment against an invoice or customer">
+            {!showForm ? (
+              <button className="btn btn-primary" style={{ width: '100%', padding: 14, fontSize: 15 }} onClick={openNew}>
+                + Record New Payment
+              </button>
+            ) : (
+              <form onSubmit={handleSave}>
+                {/* Invoice picker */}
+                <div className="login-field" style={{ marginBottom: 10 }}>
+                  <label>Link to Invoice (optional)</label>
+                  <select value={form.invoiceNumber} onChange={e => handleInvoiceSelect(e.target.value)}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                    <option value="">— no invoice —</option>
+                    {invoices.map(i => <option key={i.number} value={i.number}>{i.number} · {i.customerName}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Customer</label>
+                    <select value={form.customerId} onChange={e => {
+                      const c = customers.find(c => c.id === e.target.value);
+                      setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
+                    }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                      <option value="">— select —</option>
+                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="login-field">
+                    <label>Customer Name</label>
+                    <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
+                  </div>
+                  <div className="login-field">
+                    <label>Amount</label>
+                    <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} min="0.01" step="0.01" required />
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="login-field" style={{ marginBottom: 10 }}>
+                  <label>Payment Method</label>
+                  <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                    {METHOD_GROUPS.map(group => (
+                      <optgroup key={group} label={group}>
+                        {PAYMENT_METHODS.filter(m => m.group === group).map(m => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Card / Crypto detail */}
+                {(form.method.includes('Card') || form.method === 'Credit Card' || form.method === 'Debit Card' || form.method.includes('Crypto') || form.method === 'Bitcoin' || form.method === 'Ethereum' || form.method === 'USDC') && (
+                  <div className="login-field" style={{ marginBottom: 10 }}>
+                    <label>{form.method.includes('Crypto') || form.method === 'Bitcoin' || form.method === 'Ethereum' || form.method === 'USDC' ? 'Wallet / TX Hash' : 'Last 4 digits'}</label>
+                    <input value={form.methodDetail} onChange={e => setForm(f => ({ ...f, methodDetail: e.target.value }))}
+                      placeholder={form.method.includes('Crypto') || form.method === 'Bitcoin' || form.method === 'Ethereum' ? 'Transaction hash or wallet address' : '•••• 1234'} />
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div className="login-field">
+                    <label>Currency</label>
+                    <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                      style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>)}
+                    </select>
+                  </div>
+                  <div className="login-field">
+                    <label>Status</label>
+                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                      style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                      {['Recorded', 'Verified', 'Refunded', 'Void'].map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="login-field">
+                    <label>Reference # (optional)</label>
+                    <input value={form.referenceNumber} onChange={e => setForm(f => ({ ...f, referenceNumber: e.target.value }))} placeholder="Check #, TX ID…" />
+                  </div>
+                  <div className="login-field">
+                    <label>Payment Date & Time</label>
+                    <input type="datetime-local" value={form.paymentDate} onChange={e => setForm(f => ({ ...f, paymentDate: e.target.value }))}
+                      style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }} />
+                  </div>
+                </div>
+
+                <div className="login-field" style={{ marginBottom: 12 }}>
+                  <label>Notes</label>
+                  <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2}
+                    placeholder="Any additional details…"
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Record Payment'}</button>
+                </div>
+              </form>
+            )}
+          </Panel>
+
+          {/* Method Breakdown */}
+          {Object.keys(methodTotals).length > 0 && (
+            <Panel title="Collected by Method" hint="Breakdown of all recorded payments">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {Object.entries(methodTotals).sort((a, b) => b[1] - a[1]).map(([method, total]) => {
+                  const methodInfo = PAYMENT_METHODS.find(m => m.value === method);
+                  const pct = totalCollected > 0 ? (total / totalCollected) * 100 : 0;
+                  return (
+                    <div key={method}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                        <span>{methodInfo?.label || method}</span>
+                        <span style={{ fontWeight: 600 }}>${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div style={{ height: 6, background: 'var(--line)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent)', borderRadius: 3, transition: 'width 0.4s' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
+        </div>
+
+        {/* ── Right: Payment Register ── */}
+        <Panel title="Payment Register" hint="All recorded payments — click Edit to modify">
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customer, invoice, ref…" className="search" style={{ flex: 1, minWidth: 150 }} />
+            <select value={filterMethod} onChange={e => setFilterMethod(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
+              <option value="All">All Methods</option>
+              {METHOD_GROUPS.map(group => (
+                <optgroup key={group} label={group}>
+                  {PAYMENT_METHODS.filter(m => m.group === group).map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {loading && <p style={{ color: 'var(--muted)' }}>Loading payments…</p>}
+          {!loading && filtered.length === 0 && (
+            <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>
+              {payments.length === 0 ? 'No payments recorded yet.' : 'No payments match your search.'}
+            </p>
+          )}
+
+          {filtered.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Invoice</th>
+                  <th>Method</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => {
+                  const methodInfo = PAYMENT_METHODS.find(m => m.value === p.method);
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <strong>{p.customerName}</strong>
+                        {p.referenceNumber && <div className="meta">Ref: {p.referenceNumber}</div>}
+                        {p.methodDetail && <div className="meta">{p.methodDetail}</div>}
+                      </td>
+                      <td>{p.invoiceNumber ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{p.invoiceNumber}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}</td>
+                      <td style={{ fontSize: 13 }}>{methodInfo?.label || p.method}</td>
+                      <td style={{ fontWeight: 700, color: p.status === 'Refunded' ? '#f44336' : '#4caf50' }}>
+                        {formatMoney(p.amount, p.currency)}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: (STATUS_COLORS[p.status] || '#888') + '22', color: STATUS_COLORS[p.status] || '#888' }}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: 'var(--muted)' }}>{fmt(p.paymentDate)}</td>
+                      <td>
+                        <div className="row-actions">
+                          <button className="mini-btn" onClick={() => openEdit(p)}>Edit</button>
+                          <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(p)}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {/* Daily total footer */}
+          {filtered.length > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 13 }}>
+              <span style={{ color: 'var(--muted)' }}>Showing {filtered.length} payment{filtered.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontWeight: 700 }}>
+                Subtotal: ${filtered.filter(p => p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+}

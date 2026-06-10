@@ -1,0 +1,200 @@
+import type { User, Customer, Vehicle, JobCard, RepairOrder, AppointmentRow, Invoice, Message, Inspection, Estimate, TechnicianTask, Payment, AuditLog, Plan, AiInsight } from './types';
+import { initialPartsInventory } from '@/services/partsInventoryService';
+
+export { initialPartsInventory };
+
+export const initialUsers: User[] = [
+  { id: 'U-1', name: 'Sam Owner', email: 'owner@redlined1.example', role: 'Owner', status: 'Active', lastLogin: 'Today' },
+  { id: 'U-2', name: 'Avery Advisor', email: 'advisor@redlined1.example', role: 'Service Advisor', status: 'Active', lastLogin: 'Today' },
+  { id: 'U-3', name: 'Priya Shah', email: 'priya@redlined1.example', role: 'Technician', status: 'Active', lastLogin: 'Yesterday' },
+  { id: 'U-4', name: 'Morgan Parts', email: 'parts@redlined1.example', role: 'Parts Manager', status: 'Invited', lastLogin: 'Never' },
+];
+
+export const planCatalog: Record<string, Plan> = {
+  Free: {
+    price: '$0',
+    limits: { users: 2, locations: 1, customers: 25, vehicles: 25, jobs: 20, invoices: 10, aiCredits: 0 },
+    features: ['Basic CRM', 'Basic scheduling', 'Manual invoices', 'Mock VIN/DTC', 'Simulated scan tool'],
+  },
+  Starter: {
+    price: '$39/mo',
+    limits: { users: 4, locations: 1, customers: 250, vehicles: 250, jobs: 150, invoices: 100, aiCredits: 50 },
+    features: ['Digital inspections', 'Estimate approvals', 'Communication templates', 'Basic AI'],
+  },
+  Pro: {
+    price: '$99/mo',
+    limits: { users: 12, locations: 3, customers: 2000, vehicles: 3000, jobs: 1000, invoices: 750, aiCredits: 500 },
+    features: ['Parts inventory', 'Payments', 'SMS/email integrations', 'VIN/DTC provider ready', 'Advanced reports'],
+  },
+  'Pro Trial': {
+    price: 'Trial',
+    limits: { users: 12, locations: 3, customers: 2000, vehicles: 3000, jobs: 1000, invoices: 750, aiCredits: 500 },
+    features: ['All Pro MVP features enabled for demo'],
+  },
+  Enterprise: {
+    price: 'Custom',
+    limits: { users: 999, locations: 999, customers: 999999, vehicles: 999999, jobs: 999999, invoices: 999999, aiCredits: 5000 },
+    features: ['Multi-location', 'Fleet accounts', 'PO rules', 'SLA tracking', 'API access', 'Audit logs'],
+  },
+};
+
+export const initialCustomers: Customer[] = [
+  { id: 'C-1042', name: 'Northline Fleet Services', type: 'Fleet', phone: '(555) 013-4881', email: 'ops@northline.example', address: '2100 Harbor Industrial Pkwy', tags: ['Priority', 'Net 30'], followUp: 'Brake invoice ready for payment', portalToken: null },
+  { id: 'C-1088', name: 'Maya Rodriguez', type: 'Retail', phone: '(555) 014-2990', email: 'maya.r@example.com', address: '84 Briar Lane', tags: ['Mobile', 'SMS OK'], followUp: 'Approve 60k mobile service estimate', portalToken: null },
+  { id: 'C-1170', name: 'Westside Auto Group', type: 'Dealer', phone: '(555) 018-0033', email: 'parts@westside.example', address: '700 Market Street', tags: ['Wholesale', 'Multi-location'], followUp: 'Diagnostic estimate review', portalToken: null },
+  { id: 'C-1194', name: 'Apex Logistics Group', type: 'Enterprise Fleet', phone: '(555) 017-8220', email: 'fleet@apex.example', address: '8 regional depots', tags: ['National', 'PO Required'], followUp: 'Quarterly SLA report due', portalToken: null },
+];
+
+export const initialVehicles: Vehicle[] = [
+  { customerId: 'C-1042', vin: '1FTFW1E85PFA24680', label: '2023 Ford F-150 XL', trim: 'SuperCrew 4WD', engine: '3.5L EcoBoost', transmission: '10-speed automatic', mileage: '48,221', plate: 'FLT-2048', status: 'Open Job', recommendation: 'Front pads and rotors' },
+  { customerId: 'C-1088', vin: '2T3P1RFV7MW123456', label: '2021 Toyota RAV4 XLE', trim: 'AWD', engine: '2.5L I4', transmission: '8-speed automatic', mileage: '61,004', plate: 'MRA-418', status: 'Mobile Dispatch', recommendation: '60k service package' },
+  { customerId: 'C-1170', vin: 'WBA5R1C05LFH11223', label: '2020 BMW 330i', trim: 'Sport Line', engine: '2.0L turbo', transmission: '8-speed automatic', mileage: '37,900', plate: 'DLR-330', status: 'Diagnostic', recommendation: 'DTC P0420 inspection' },
+];
+
+export const initialJobCards: JobCard[] = [
+  {
+    id: 'JC-3108', ro: 'RO-24019', invoice: 'INV-10091', customer: 'Northline Fleet Services', vehicle: '2023 Ford F-150',
+    serviceType: 'Fleet brake service', channel: 'Shop bay', location: 'Downtown Branch / Bay 2', technician: 'Jordan Lee',
+    status: 'Ready to Invoice', priority: 'High', approval: 'Approved', laborHours: 2.1, partsTotal: 365.5,
+    workflow: ['Booked', 'Inspected', 'Approved', 'Parts Picked', 'Work Complete', 'Invoice Created'],
+    nextAction: 'Collect payment or post to fleet account',
+  },
+  {
+    id: 'JC-3109', ro: 'RO-24020', invoice: 'INV-10092', customer: 'Maya Rodriguez', vehicle: '2021 Toyota RAV4',
+    serviceType: '60k maintenance', channel: 'Mobile mechanic', location: 'Customer driveway - 84 Briar Lane', technician: 'Priya Shah',
+    status: 'Awaiting Approval', priority: 'Normal', approval: 'Pending', laborHours: 1.7, partsTotal: 112.45,
+    workflow: ['Booked', 'Dispatched', 'Inspection Sent', 'Awaiting Approval'],
+    nextAction: 'Customer approval by SMS',
+  },
+  {
+    id: 'JC-3110', ro: 'RO-24021', invoice: null, customer: 'Westside Auto Group', vehicle: '2020 BMW 330i',
+    serviceType: 'Check engine diagnostic', channel: 'Dealer wholesale', location: 'North Branch / Diagnostic Bay', technician: 'Alex Kim',
+    status: 'Diagnostic', priority: 'Normal', approval: 'Internal', laborHours: 1.2, partsTotal: 0,
+    workflow: ['Booked', 'Checked In', 'Scan Tool Connected', 'DTC Report Saved'],
+    nextAction: 'Convert diagnostic findings to estimate',
+  },
+];
+
+export const initialRepairOrders: RepairOrder[] = [
+  { ro: 'RO-24019', jobCard: 'JC-3108', customer: 'Northline Fleet Services', vehicle: '2023 Ford F-150', concern: 'Brake noise and vibration', cause: 'Front rotors below spec, pads glazed', correction: 'Replace front pads and rotors, road test', tech: 'Jordan Lee', status: 'Waiting on Parts', approval: 'Approved', total: 842.5 },
+  { ro: 'RO-24020', jobCard: 'JC-3109', customer: 'Maya Rodriguez', vehicle: '2021 Toyota RAV4', concern: 'Maintenance service', cause: 'Scheduled 60k interval', correction: 'Oil, filters, inspection, tire rotation', tech: 'Priya Shah', status: 'Scheduled', approval: 'Pending', total: 389.95 },
+  { ro: 'RO-24021', jobCard: 'JC-3110', customer: 'Westside Auto Group', vehicle: '2020 BMW 330i', concern: 'Check engine light', cause: 'Catalyst efficiency fault stored', correction: 'Perform smoke test and oxygen sensor graphing', tech: 'Alex Kim', status: 'In Progress', approval: 'Internal', total: 210 },
+];
+
+export const initialAppointments: AppointmentRow[] = [
+  ['8:00 AM', 'Northline Fleet', 'Ford F-150', 'Brakes', 'JC-3108', 'Bay 2', 'Confirmed'],
+  ['10:30 AM', 'Maya Rodriguez', 'Toyota RAV4', '60k mobile service', 'JC-3109', 'Mobile Route 1', 'Reminder sent'],
+  ['1:00 PM', 'Apex Logistics', 'Transit 250', 'No start', 'New Job', 'Depot Dispatch', 'Awaiting tow'],
+  ['3:30 PM', 'Westside Auto Group', 'BMW 330i', 'CEL diagnostic', 'JC-3110', 'Bay 3', 'Checked in'],
+];
+
+export const initialInvoices: Invoice[] = [
+  {
+    number: 'INV-10091', jobCard: 'JC-3108', customer: 'Northline Fleet Services', vehicle: '2023 Ford F-150', status: 'Unpaid',
+    lines: [['Front brake labor', 2.1, 145], ['Brake pads premium', 1, 129.5], ['Front rotors', 2, 118]],
+    discount: 25, shopSupplies: 19.5, taxRate: 0.0825,
+  },
+  {
+    number: 'INV-10092', jobCard: 'JC-3109', customer: 'Maya Rodriguez', vehicle: '2021 Toyota RAV4', status: 'Draft',
+    lines: [['60k mobile service labor', 1.7, 145], ['Synthetic oil kit', 1, 72.5], ['Cabin air filter', 1, 39.95], ['Mobile service call', 1, 65]],
+    discount: 0, shopSupplies: 12, taxRate: 0.0825,
+  },
+];
+
+export const initialMessages: Message[] = [
+  { id: 'MSG-1', customer: 'Maya Rodriguez', channel: 'SMS', subject: 'Estimate approval', status: 'Draft', body: 'Your 60k mobile service estimate is ready for approval.' },
+  { id: 'MSG-2', customer: 'Northline Fleet Services', channel: 'Email', subject: 'Invoice payment link', status: 'Queued', body: 'Invoice INV-10091 is ready with fleet account terms.' },
+  { id: 'MSG-3', customer: 'Westside Auto Group', channel: 'Email', subject: 'Diagnostic findings', status: 'Sent', body: 'P0420 diagnostic summary attached to JC-3110.' },
+];
+
+export const initialInspections: Inspection[] = [
+  { id: 'DI-2201', jobCard: 'JC-3109', vehicle: '2021 Toyota RAV4', technician: 'Priya Shah', status: 'In Progress', items: [['Tires', 'Pass'], ['Brakes', 'Attention'], ['Fluids', 'Pass'], ['Battery', 'Pass'], ['Photos', '2 attached']] },
+  { id: 'DI-2202', jobCard: 'JC-3110', vehicle: '2020 BMW 330i', technician: 'Alex Kim', status: 'Review', items: [['MIL / CEL', 'Fail'], ['Exhaust leak check', 'Attention'], ['O2 graph', 'Pending'], ['Freeze frame', 'Captured']] },
+];
+
+export const initialEstimates: Estimate[] = [
+  { id: 'EST-5007', jobCard: 'JC-3109', customer: 'Maya Rodriguez', vehicle: '2021 Toyota RAV4', status: 'Pending Approval', total: 389.95, lines: ['60k mobile service', 'Synthetic oil kit', 'Cabin air filter', 'Mobile service call'] },
+  { id: 'EST-5008', jobCard: 'JC-3110', customer: 'Westside Auto Group', vehicle: '2020 BMW 330i', status: 'Draft', total: 210, lines: ['Diagnostic labor', 'O2 sensor graphing', 'Smoke test'] },
+];
+
+export const initialTechnicianTasks: TechnicianTask[] = [
+  { id: 'TASK-80', jobCard: 'JC-3108', technician: 'Jordan Lee', task: 'Install front brake pads and rotors', status: 'Assigned', time: '2.1h' },
+  { id: 'TASK-81', jobCard: 'JC-3109', technician: 'Priya Shah', task: 'Perform 60k mobile service', status: 'Waiting Approval', time: '1.7h' },
+  { id: 'TASK-82', jobCard: 'JC-3110', technician: 'Alex Kim', task: 'Complete P0420 diagnostic workflow', status: 'In Progress', time: '1.2h' },
+];
+
+export const initialPayments: Payment[] = [
+  { id: 'PAY-7001', invoice: 'INV-10092', customer: 'Maya Rodriguez', amount: 491.94, method: 'Manual card', status: 'Recorded', date: 'Today' },
+];
+
+export const initialAuditLogs: AuditLog[] = [
+  { action: 'User login', user: 'Sam Owner', entity: 'Session', time: 'Today' },
+  { action: 'Plan enabled', user: 'Sam Owner', entity: 'Pro Trial', time: 'Today' },
+  { action: 'Invoice linked', user: 'System', entity: 'INV-10091', time: 'Today' },
+];
+
+export const reports: [string, string, string][] = [
+  ['Revenue', '$48,620', '+11.8% vs last month'],
+  ['Outstanding invoices', '$9,430', '14 invoices pending'],
+  ['Job cycle time', '1.8 days', 'Booked to paid'],
+  ['Mobile route revenue', '$7,880', '6 jobs this week'],
+  ['Technician productivity', '86%', 'Target 82%'],
+  ['Fleet retention', '93%', '6 active fleet accounts'],
+];
+
+export const aiInsights: AiInsight[] = [
+  { area: 'Job triage', recommendation: 'Move JC-3109 to the first mobile route stop because parts are in stock and approval is one SMS away.', impact: 'Reduces same-day route idle time' },
+  { area: 'Invoice review', recommendation: 'INV-10091 has labor, parts, shop supplies, and fleet terms captured. Add PO before sending.', impact: 'Prevents enterprise payment delay' },
+  { area: 'Diagnostic assist', recommendation: 'P0420 on JC-3110 should include oxygen sensor graphing and exhaust leak inspection before catalyst quote.', impact: 'Improves first-time authorization' },
+  { area: 'Customer follow-up', recommendation: 'Send Maya Rodriguez a short approval message with mobile ETA, total estimate, and payment link.', impact: 'Improves approval conversion' },
+];
+
+export const navItems: [string, string, string, string][] = [
+  ['dashboard', 'dashboard', 'Dashboard', '12'],
+  ['access', 'userkey', 'Login & Roles', '4'],
+  ['subscriptions', 'shield', 'Plans & Gates', 'Pro Trial'],
+  ['ai', 'ai', 'AI Copilot', '4'],
+  ['customers', 'customers', 'Customers', '138'],
+  ['vehicles', 'vehicle', 'Vehicles', '312'],
+  ['job-cards', 'clipboard', 'Job Cards', '18'],
+  ['scheduling', 'calendar', 'Scheduling', '9'],
+  ['inspections', 'inspection', 'Inspections', '2'],
+  ['communication', 'message', 'Communication', '3'],
+  ['estimates', 'estimate', 'Estimates', '2'],
+  ['repair-orders', 'wrench', 'Repair Orders', '21'],
+  ['invoices', 'invoice', 'Invoicing', '14'],
+  ['payments', 'payment', 'Payments', '1'],
+  ['parts', 'parts', 'Parts', '486'],
+  ['technicians', 'technician', 'Tech Workflow', '3'],
+  ['vin', 'vin', 'VIN Decode', ''],
+  ['dtc', 'warning', 'DTC Lookup', ''],
+  ['diagnostics', 'scan', 'Diagnostics', '3'],
+  ['appointments', 'calendar', 'Appointments', '9'],
+  ['reports', 'chart', 'Reports', ''],
+  ['settings', 'settings', 'Settings', ''],
+];
+
+export const moduleTitles: Record<string, [string, string]> = {
+  dashboard: ['Operations Dashboard', 'Live view of job cards, repair orders, invoices, parts, and diagnostics'],
+  access: ['Login and Role Control', 'User authentication, invitations, sessions, roles, and staff permissions'],
+  subscriptions: ['Subscriptions and Feature Gates', 'Free plan restrictions, paid subscriber controls, limits, and upgrade path'],
+  ai: ['AI Copilot', 'Artificial intelligence for estimates, diagnostics, invoices, routing, and customer follow-up'],
+  customers: ['Customer CRM', 'Customer accounts, communications, reminders, vehicles, and history'],
+  vehicles: ['Vehicle Management', 'VIN, mileage, drivetrain, service history, diagnostics, and recommendations'],
+  'job-cards': ['Job Cards', 'Dispatch, inspect, approve, complete, and invoice every service job'],
+  scheduling: ['Scheduling', 'Calendar, route, bay, technician, appointment, and reminder workflow'],
+  inspections: ['Digital Inspections', 'Guided inspection checklists, findings, photos, approvals, and customer reports'],
+  communication: ['Customer Communication', 'SMS, email, approvals, payment links, reminders, and follow-up history'],
+  estimates: ['Estimates', 'Build, approve, decline, and convert estimates into repair orders and invoices'],
+  'repair-orders': ['Repair Orders', 'Complaint, cause, correction, labor, parts, approvals, and workflow'],
+  invoices: ['Invoicing', 'Invoices generated from approved job cards, labor, parts, diagnostics, and fees'],
+  payments: ['Payments', 'Manual payment recording, balances, paid status, and future Stripe-ready workflow'],
+  parts: ['Parts Inventory', 'Inventory, suppliers, bin locations, margins, and parts sales'],
+  technicians: ['Technician Workflow', 'Assigned work, labor time, inspection findings, diagnostics, and completion status'],
+  vin: ['VIN Decoder', 'Mock VIN decode flow structured for future provider integration'],
+  dtc: ['DTC Lookup', 'Diagnostic trouble code knowledge base and service guidance'],
+  diagnostics: ['Scan Tool Interface', 'Simulated OBD-II session designed for future hardware integration'],
+  appointments: ['Appointments', 'Schedule, route, bay assignment, technician workload, and reminders'],
+  reports: ['Reports', 'Revenue, inventory, productivity, diagnostics, retention, and job cycle reporting'],
+  settings: ['Settings', 'Shop profile, mobile operations, branches, roles, numbering, and integration placeholders'],
+};
