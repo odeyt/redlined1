@@ -10,6 +10,8 @@ import {
 } from '@/services/invoiceService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { usePlan, } from '@/lib/usePlan';
+import { needsWatermark } from '@/lib/planGate';
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,6 +38,7 @@ const EMPTY_FORM = {
 };
 
 export function InvoicesView() {
+  const { status: planStatus } = usePlan();
   const [invoices, setInvoices] = useState<InvoiceFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -661,6 +664,13 @@ export function InvoicesView() {
               {shopSettings?.phone && ` · ${shopSettings.phone}`}
               {shopSettings?.email && ` · ${shopSettings.email}`}
             </div>
+
+            {/* Free plan watermark */}
+            {needsWatermark(planStatus) && (
+              <div style={{ marginTop: 18, padding: '10px 16px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 8, textAlign: 'center', fontSize: 12, color: '#856404', fontWeight: 600 }}>
+                Generated with <span style={{ color: '#cc0000' }}>Redlined1</span> · Free Plan — <a href="/signup" style={{ color: '#cc0000' }}>Upgrade to remove this</a>
+              </div>
+            )}
           </div>
         </div>
       )}

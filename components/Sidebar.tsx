@@ -9,11 +9,14 @@ import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { usePlan } from '@/lib/usePlan';
+import { canAccess } from '@/lib/planGate';
 
 export function Sidebar() {
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { status: planStatus, daysLeft } = usePlan();
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
   const [companyName, setCompanyName] = useState('Redlined1');
   const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
@@ -100,20 +103,35 @@ export function Sidebar() {
           <span>{tagline}</span>
         </div>
       </div>
+      {/* Trial / free plan banner */}
+      {planStatus === 'trial' && daysLeft !== null && daysLeft <= 3 && (
+        <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.4)', borderRadius: 8, fontSize: 11, color: '#ffc107', textAlign: 'center' }}>
+          ⏳ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in trial
+        </div>
+      )}
+      {planStatus === 'free' && (
+        <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 8, fontSize: 11, color: '#ff6b6b', textAlign: 'center' }}>
+          Free Plan · <a href="/signup" style={{ color: '#ff6b6b', fontWeight: 700 }}>Upgrade</a>
+        </div>
+      )}
+
       <nav className="nav">
-        {visibleNav.map(([id, icon, label, count]) => (
-          <button
-            key={id}
-            className={activeModule === id ? 'active' : ''}
-            title={label}
-            style={{ '--icon-color': iconColors[id] || '#9eb2c2' } as React.CSSProperties}
-            onClick={() => dispatch({ type: 'SET_MODULE', module: id })}
-          >
-            <Icon name={icon} style={{ color: iconColors[id] || '#9eb2c2' }} />
-            <span className="label">{label}</span>
-            {count && <span className="count">{getCount(id, count)}</span>}
-          </button>
-        ))}
+        {visibleNav.map(([id, icon, label, count]) => {
+          const locked = !canAccess(id, planStatus);
+          return (
+            <button
+              key={id}
+              className={activeModule === id ? 'active' : ''}
+              title={locked ? `${label} — Upgrade to unlock` : label}
+              style={{ '--icon-color': locked ? '#555' : (iconColors[id] || '#9eb2c2'), opacity: locked ? 0.5 : 1 } as React.CSSProperties}
+              onClick={() => locked ? null : dispatch({ type: 'SET_MODULE', module: id })}
+            >
+              <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
+              <span className="label">{label}</span>
+              {locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : count && <span className="count">{getCount(id, count)}</span>}
+            </button>
+          );
+        })}
       </nav>
       <button
         onClick={handleSignOut}
