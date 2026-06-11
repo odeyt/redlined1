@@ -66,13 +66,20 @@ const MOBILE_FEATURES = [
 ];
 
 const TECHS = [
-  { name: 'Marcus J.', role: 'Master Technician', img: 'https://images.unsplash.com/photo-1615906655593-ad0386982a0f?auto=format&fit=crop&w=400&h=500&q=80', color: '#cc0000' },
-  { name: 'Tina S.',   role: 'Service Advisor',   img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&h=500&q=80', color: '#e05500' },
-  { name: 'Rico K.',   role: 'Lead Mechanic',      img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&h=500&q=80', color: '#9900cc' },
-  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&h=500&q=80', color: '#0066cc' },
-  { name: 'Priya W.',  role: 'Shop Manager',       img: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=400&h=500&q=80', color: '#00997a' },
-  { name: 'Damien R.', role: 'Transmission Tech',  img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&h=500&q=80', color: '#bb6600' },
+  { name: 'Marcus J.', role: 'Master Technician', img: 'https://images.unsplash.com/photo-1581092335397-9583eb92d232?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#cc0000' },
+  { name: 'Tina S.',   role: 'Service Advisor',   img: 'https://images.unsplash.com/photo-1594381898411-846e7d193883?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#e05500' },
+  { name: 'Rico K.',   role: 'Lead Mechanic',      img: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#9900cc' },
+  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: 'https://images.unsplash.com/photo-1632823470826-8b87dab9e84e?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#0066cc' },
+  { name: 'Priya W.',  role: 'Shop Manager',       img: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#00997a' },
+  { name: 'Damien R.', role: 'Transmission Tech',  img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#bb6600' },
 ];
+
+const MOBILE_TECH = {
+  name: 'Carlos M.',
+  role: 'Mobile Mechanic Specialist',
+  vanImg: 'https://images.unsplash.com/photo-1558618047-3c8c76de93a3?auto=format&fit=crop&w=900&h=340&q=80',
+  personImg: 'https://images.unsplash.com/photo-1611618967773-c52b2a612bdd?auto=format&fit=crop&w=260&h=340&crop=top&q=80',
+};
 
 const TESTIMONIALS = [
   { name: 'James T.', shop: 'T-Bone Auto Works',   text: 'Redlined1 cut our invoice time in half. Our customers love getting professional reports straight to their phones.', img: 'https://randomuser.me/api/portraits/men/41.jpg' },
@@ -206,6 +213,32 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
+
+            {/* Mobile Mechanic featured card */}
+            <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(204,0,0,0.5)', background: '#0d0d10' }}>
+              <div style={{ height: 120, overflow: 'hidden', position: 'relative' }}>
+                <img src={MOBILE_TECH.vanImg} alt="Mobile service van" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6)' }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
+                {/* Red accent top bar */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#cc0000' }} />
+                {/* Mobile badge */}
+                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(204,0,0,0.9)', borderRadius: 6, padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: 1, color: '#fff', textTransform: 'uppercase' }}>📱 Mobile Mechanic</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid #cc0000', overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 14px rgba(204,0,0,0.4)' }}>
+                  <img src={MOBILE_TECH.personImg} alt={MOBILE_TECH.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800 }}>{MOBILE_TECH.name}</div>
+                  <div style={{ fontSize: 10, color: '#cc0000', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{MOBILE_TECH.role}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
+                  <span style={{ fontSize: 9, color: '#22c55e' }}>Active</span>
+                </div>
+              </div>
+            </div>
+
             {/* Stats */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
               {[['4,000+','Shops Active'],['1.2M+','Invoices Sent'],['50+','Countries']].map(([v,l],i) => (
