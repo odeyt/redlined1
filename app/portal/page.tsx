@@ -136,8 +136,7 @@ export default function LandingPage() {
       {/* ── NAV ───────────────────────────────────────────────── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.93)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 6%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 66 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: '#cc0000', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13 }}>R1</div>
-          <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.5px' }}>REDLINED<span style={{ color: '#cc0000' }}>1</span></span>
+          <img src="/logo.png" alt="Redlined1" style={{ height: 42, width: 'auto', objectFit: 'contain' }} />
         </div>
         <div style={{ display: 'flex', gap: 36, fontSize: 14, color: '#999' }}>
           {['#features', '#pricing', '#testimonials'].map((h, i) => (
@@ -158,6 +157,12 @@ export default function LandingPage() {
 
           {/* Left */}
           <div style={{ opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(18px)', transition: 'opacity 0.4s ease,transform 0.4s ease' }}>
+            {/* Hero logo — only on first slide */}
+            {slide === 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <img src="/logo.png" alt="Redlined1" style={{ height: 72, width: 'auto', objectFit: 'contain' }} />
+              </div>
+            )}
             {cur.tag && (
               <span style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '4px 14px', borderRadius: 6, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: 2, textTransform: 'uppercase' }}>
                 {cur.tag}
@@ -448,8 +453,7 @@ export default function LandingPage() {
       {/* ── FOOTER ────────────────────────────────────────────── */}
       <footer style={{ background: '#040406', borderTop: '1px solid rgba(255,255,255,0.05)', padding: '40px 6%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 30, height: 30, background: '#cc0000', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11 }}>R1</div>
-          <span style={{ fontWeight: 700, fontSize: 15 }}>REDLINED<span style={{ color: '#cc0000' }}>1</span></span>
+          <img src="/logo.png" alt="Redlined1" style={{ height: 36, width: 'auto', objectFit: 'contain' }} />
         </div>
         <div style={{ color: '#444', fontSize: 13 }}>© 2026 Redlined1. All rights reserved.</div>
         <div style={{ display: 'flex', gap: 22, fontSize: 13 }}>

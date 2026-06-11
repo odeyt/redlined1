@@ -291,8 +291,7 @@ export default function HelpPage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.95)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 62 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Link href="/portal" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <div style={{ width: 32, height: 32, background: '#cc0000', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12 }}>R1</div>
-            <span style={{ fontWeight: 800, fontSize: 16, color: '#fff' }}>REDLINED<span style={{ color: '#cc0000' }}>1</span></span>
+            <img src="/logo.png" alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
           </Link>
           <span style={{ color: '#444', fontSize: 14 }}>/</span>
           <span style={{ color: '#888', fontSize: 14 }}>Help & Manual</span>
