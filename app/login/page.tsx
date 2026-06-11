@@ -64,6 +64,10 @@ export default function LoginPage() {
 
           {error && <p className="login-error">{error}</p>}
 
+          <div style={{ textAlign: 'right', marginBottom: 4 }}>
+            <a href="/forgot-password" style={{ fontSize: 12, color: '#cc0000', textDecoration: 'none' }}>Forgot password?</a>
+          </div>
+
           <button type="submit" className="login-btn" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
