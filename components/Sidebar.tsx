@@ -97,7 +97,7 @@ export function Sidebar() {
       <div className="brand">
         {logoUrl
           ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3 }} unoptimized />
-          : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
+          : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'screen' }} />
         }
         <div>
           <strong>{companyName}</strong>

@@ -67,7 +67,7 @@ export default function SignupPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 90, width: 'auto', objectFit: 'contain', marginBottom: 8 }} />
+          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 110, width: 'auto', objectFit: 'contain', mixBlendMode: 'screen' }} />
           <span className="login-logo-sub">Start your free 7-day trial</span>
         </div>
 
