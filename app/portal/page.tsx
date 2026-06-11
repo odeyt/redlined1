@@ -133,21 +133,69 @@ const MEGA_FEATURES = [
   { icon: '📱', title: 'Mobile Mechanic',      desc: 'Invoice, inspect, and get paid straight from the field', module: 'mobile' },
 ];
 
+const INTEGRATIONS = [
+  {
+    category: 'Payments & Finance',
+    color: '#22c55e',
+    icon: '💳',
+    items: [
+      { logo: '🟦', name: 'Stripe',      desc: 'Accept cards, Apple Pay & ACH online',   module: 'payments',  status: 'active' },
+      { logo: '⬛', name: 'Square',      desc: 'In-person & mobile card payments',        module: 'payments',  status: 'active' },
+      { logo: '🅿️', name: 'PayPal',      desc: 'Invoice pay via PayPal & Venmo',          module: 'payments',  status: 'coming' },
+      { logo: '📒', name: 'QuickBooks',  desc: 'Sync invoices & expenses automatically',  module: 'reports',   status: 'coming' },
+    ],
+  },
+  {
+    category: 'Parts & Suppliers',
+    color: '#f59e0b',
+    icon: '🧰',
+    items: [
+      { logo: '🔴', name: 'AutoZone Pro', desc: 'Order parts & check inventory live',     module: 'parts',     status: 'active' },
+      { logo: '🟢', name: "O'Reilly Auto", desc: 'Real-time pricing & part lookup',       module: 'parts',     status: 'active' },
+      { logo: '🔵', name: 'NAPA Auto',    desc: 'Commercial account ordering & pricing',  module: 'parts',     status: 'coming' },
+      { logo: '⚙️', name: 'RockAuto',    desc: 'Catalog search & part number lookup',     module: 'parts',     status: 'coming' },
+    ],
+  },
+  {
+    category: 'Communication',
+    color: '#818cf8',
+    icon: '💬',
+    items: [
+      { logo: '📱', name: 'Twilio SMS',   desc: 'Send job updates & reminders via SMS',   module: 'communication', status: 'active' },
+      { logo: '📧', name: 'SendGrid',     desc: 'Branded email for invoices & estimates', module: 'communication', status: 'active' },
+      { logo: '🟩', name: 'WhatsApp',     desc: 'Customer updates over WhatsApp',         module: 'communication', status: 'coming' },
+      { logo: '📣', name: 'Google Reviews', desc: 'Auto-request reviews after service',   module: 'communication', status: 'coming' },
+    ],
+  },
+  {
+    category: 'Vehicle & Diagnostics',
+    color: '#cc0000',
+    icon: '🚗',
+    items: [
+      { logo: '🦊', name: 'CARFAX',       desc: 'Pull vehicle history reports instantly', module: 'vehicles',  status: 'active' },
+      { logo: '🔡', name: 'VIN Solutions', desc: 'Decode any VIN & auto-fill details',    module: 'vin',       status: 'active' },
+      { logo: '🔧', name: 'AllData',       desc: 'OEM repair data & labor times',          module: 'dtc',       status: 'coming' },
+      { logo: '📡', name: 'OBD Connect',   desc: 'Live OBD-II scanner integration',        module: 'diagnostics', status: 'coming' },
+    ],
+  },
+];
+
 /* ── COMPONENT ────────────────────────────────────────────────── */
 
 export default function LandingPage() {
   const [slide, setSlide]           = useState(0);
   const [fade, setFade]             = useState(true);
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
-  const [featuresOpen, setFeaturesOpen] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
+  const [featuresOpen, setFeaturesOpen]         = useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const featuresRef      = useRef<HTMLDivElement>(null);
+  const integrationsRef  = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (featuresRef.current && !featuresRef.current.contains(e.target as Node)) {
-        setFeaturesOpen(false);
-      }
+      if (featuresRef.current && !featuresRef.current.contains(e.target as Node)) setFeaturesOpen(false);
+      if (integrationsRef.current && !integrationsRef.current.contains(e.target as Node)) setIntegrationsOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -182,7 +230,7 @@ export default function LandingPage() {
           {/* Features dropdown trigger */}
           <div ref={featuresRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => setFeaturesOpen(o => !o)}
+              onClick={() => { setFeaturesOpen(o => !o); setIntegrationsOpen(false); }}
               style={{ background: 'none', border: 'none', color: featuresOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
             >
               Features
@@ -224,6 +272,71 @@ export default function LandingPage() {
                           <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{f.desc}</div>
                         </div>
                       </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Integrations dropdown */}
+          <div ref={integrationsRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setIntegrationsOpen(o => !o); setFeaturesOpen(false); }}
+              style={{ background: 'none', border: 'none', color: integrationsOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
+            >
+              Integrations
+              <span style={{ fontSize: 10, transition: 'transform 0.2s', display: 'inline-block', transform: integrationsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+            </button>
+
+            {integrationsOpen && (
+              <div style={{
+                position: 'fixed', top: 74, left: 0, right: 0,
+                background: 'rgba(8,6,10,0.97)', backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(204,0,0,0.25)',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+                padding: '36px 6%', zIndex: 200,
+                animation: 'megaDrop 0.22s ease',
+              }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#cc0000', letterSpacing: 2, textTransform: 'uppercase' }}>Integrations</div>
+                      <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>Connect the tools your shop already uses</div>
+                    </div>
+                    <Link href="/signup" onClick={() => setIntegrationsOpen(false)} style={{ background: '#cc0000', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Start Free Trial →</Link>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 24 }}>
+                    {INTEGRATIONS.map((cat, ci) => (
+                      <div key={ci}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${cat.color}33` }}>
+                          <span style={{ fontSize: 15 }}>{cat.icon}</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: cat.color, letterSpacing: 1, textTransform: 'uppercase' }}>{cat.category}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {cat.items.map((item, ii) => (
+                            <Link
+                              key={ii}
+                              href={`/signup?integration=${item.name.toLowerCase().replace(/\s+/g,'-')}`}
+                              onClick={() => setIntegrationsOpen(false)}
+                              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid transparent', transition: 'all 0.18s' }}
+                              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = `rgba(204,0,0,0.08)`; el.style.borderColor = `rgba(204,0,0,0.25)`; el.style.transform = 'translateX(4px)'; }}
+                              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'transparent'; el.style.transform = 'translateX(0)'; }}
+                            >
+                              <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>{item.logo}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{item.name}</span>
+                                  <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: item.status === 'active' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.07)', color: item.status === 'active' ? '#22c55e' : '#666', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    {item.status === 'active' ? 'Live' : 'Soon'}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: 11, color: '#666', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
