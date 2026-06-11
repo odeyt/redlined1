@@ -66,19 +66,19 @@ const MOBILE_FEATURES = [
 ];
 
 const TECHS = [
-  { name: 'Marcus J.', role: 'Master Technician', img: 'https://images.unsplash.com/photo-1581092335397-9583eb92d232?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#cc0000' },
-  { name: 'Tina S.',   role: 'Service Advisor',   img: 'https://images.unsplash.com/photo-1594381898411-846e7d193883?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#e05500' },
-  { name: 'Rico K.',   role: 'Lead Mechanic',      img: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#9900cc' },
-  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: 'https://images.unsplash.com/photo-1632823470826-8b87dab9e84e?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#0066cc' },
-  { name: 'Priya W.',  role: 'Shop Manager',       img: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#00997a' },
-  { name: 'Damien R.', role: 'Transmission Tech',  img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=400&h=500&crop=top&q=80', color: '#bb6600' },
+  { name: 'Marcus J.', role: 'Master Technician', img: '/marcus-j.png',  color: '#cc0000' },
+  { name: 'Tina S.',   role: 'Service Advisor',   img: '/tina-s.png',    color: '#e05500' },
+  { name: 'Rico K.',   role: 'Lead Mechanic',      img: '/rico-k.png',    color: '#9900cc' },
+  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: '/andre-l.png',   color: '#0066cc' },
+  { name: 'Priya W.',  role: 'Shop Manager',       img: '/priya-w.png',   color: '#00997a' },
+  { name: 'Damien R.', role: 'Transmission Tech',  img: '/damien-r.png',  color: '#bb6600' },
 ];
 
 const MOBILE_TECH = {
   name: 'Carlos M.',
   role: 'Mobile Mechanic Specialist',
-  vanImg: 'https://images.unsplash.com/photo-1558618047-3c8c76de93a3?auto=format&fit=crop&w=900&h=340&q=80',
-  personImg: 'https://images.unsplash.com/photo-1611618967773-c52b2a612bdd?auto=format&fit=crop&w=260&h=340&crop=top&q=80',
+  vanImg: '/carlos-m-mobile-mechanic.png',
+  personImg: '/carlos-m-mobile-mechanic.png',
 };
 
 const TESTIMONIALS = [
