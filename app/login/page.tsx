@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { LOGO_SRC } from '@/lib/logo';
 import { useRouter } from 'next/navigation';
 import { signIn } from '@/lib/auth';
 
@@ -30,7 +31,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/logo.png" alt="Redlined1" style={{ height: 90, width: 'auto', objectFit: 'contain', marginBottom: 8 }} />
+          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 90, width: 'auto', objectFit: 'contain', marginBottom: 8 }} />
           <span className="login-logo-sub">Shop Operations</span>
         </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { LOGO_SRC } from '@/lib/logo';
 import Link from 'next/link';
 import { usePlan } from '@/lib/usePlan';
 
@@ -291,7 +292,7 @@ export default function HelpPage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.95)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 62 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Link href="/portal" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <img src="/logo.png" alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
+            <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
           </Link>
           <span style={{ color: '#444', fontSize: 14 }}>/</span>
           <span style={{ color: '#888', fontSize: 14 }}>Help & Manual</span>

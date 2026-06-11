@@ -8,6 +8,7 @@ import { Icon, iconColors } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
@@ -96,7 +97,7 @@ export function Sidebar() {
       <div className="brand">
         {logoUrl
           ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3 }} unoptimized />
-          : <img src="/logo.png" alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
+          : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain' }} />
         }
         <div>
           <strong>{companyName}</strong>
