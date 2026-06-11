@@ -24,8 +24,11 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  // If not logged in and not already on the login page, redirect to login
-  if (!session && request.nextUrl.pathname !== '/login') {
+  const publicPaths = ['/login', '/signup', '/portal'];
+  const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
+
+  // If not logged in and not on a public page, redirect to login
+  if (!session && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
