@@ -193,33 +193,23 @@ export default function LandingPage() {
           </div>
 
           {/* Right — tech photo grid */}
-          <div style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
+          <div style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {/* Floating badge — top right */}
-            <div style={{ position: 'absolute', top: -18, right: -18, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 160 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(0,200,160,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>24/7</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Customer Support</div>
-              </div>
-            </div>
-
-            {/* Floating badge — bottom left */}
-            <div style={{ position: 'absolute', bottom: 120, left: -22, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 175 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(204,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⚙️</div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>All-in-one</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Shop Management App</div>
-              </div>
-            </div>
-
-            {/* Floating badge — bottom right */}
-            <div style={{ position: 'absolute', bottom: 55, right: -14, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 175 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(0,150,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🧾</div>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>Unlimited</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Invoices &amp; Estimates</div>
-              </div>
+            {/* Badges row — above the grid */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { icon: '⚙️', label: 'All-in-one', sub: 'Shop Management' },
+                { icon: '🧾', label: 'Unlimited', sub: 'Invoices & Estimates' },
+                { icon: '💬', label: '24/7', sub: 'Customer Support' },
+              ].map((b, i) => (
+                <div key={i} style={{ flex: 1, background: 'linear-gradient(135deg, rgba(180,0,0,0.85), rgba(100,0,0,0.9))', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 12, padding: '9px 10px', display: 'flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(10px)', boxShadow: '0 4px 20px rgba(204,0,0,0.3)' }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>{b.icon}</div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 12, color: '#fff', lineHeight: 1.2 }}>{b.label}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,200,200,0.8)', marginTop: 1 }}>{b.sub}</div>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
