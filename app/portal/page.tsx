@@ -107,8 +107,8 @@ export default function LandingPage() {
   }, []);
 
   const cur = SLIDES[slide];
-  const proPrice   = billing === 'monthly' ? '$39.99' : '$33.99';
-  const plusPrice  = billing === 'monthly' ? '$59.99' : '$49.99';
+  const proPrice   = billing === 'monthly' ? '$29.99' : '$24.99';
+  const plusPrice  = billing === 'monthly' ? '$49.99' : '$41.99';
 
   return (
     <div style={{ fontFamily: "'Inter',-apple-system,sans-serif", background: '#07070a', color: '#fff', minHeight: '100vh' }}>
@@ -225,7 +225,28 @@ export default function LandingPage() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+            {/* Free */}
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(255,255,255,0.08)', padding: '20px 28px', textAlign: 'center' }}>
+                <h3 style={{ fontWeight: 800, fontSize: 20 }}>Free</h3>
+              </div>
+              <div style={{ padding: '28px 28px 32px' }}>
+                <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                  <span style={{ fontSize: 42, fontWeight: 900, color: '#aaa' }}>$0</span>
+                  <span style={{ color: '#555', fontSize: 14, marginLeft: 4 }}>/ forever</span>
+                </div>
+                {['Up to 10 customers','Basic invoices & estimates','Vehicle history','Job cards','Email support'].map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 14, color: '#aaa' }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 4, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>✓</div>
+                    {f}
+                  </div>
+                ))}
+                <Link href="/signup" style={{ display: 'block', textAlign: 'center', marginTop: 28, background: 'rgba(255,255,255,0.08)', color: '#ccc', padding: '14px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 15, border: '1px solid rgba(255,255,255,0.12)' }}>Get Started Free</Link>
+                <p style={{ color: '#444', fontSize: 12, lineHeight: 1.6, marginTop: 16, textAlign: 'center' }}>Start for free with core features. Upgrade anytime to unlock the full suite — no credit card required to sign up.</p>
+              </div>
+            </div>
+
             {/* Pro */}
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(204,0,0,0.35)', borderRadius: 18, overflow: 'hidden' }}>
               <div style={{ background: '#cc0000', padding: '20px 28px', textAlign: 'center' }}>
