@@ -137,7 +137,7 @@ export default function LandingPage() {
       {/* ── NAV ───────────────────────────────────────────────── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.93)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 6%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 66 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 42, width: 'auto', objectFit: 'contain', mixBlendMode: 'screen' }} />
+          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 42, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
         </div>
         <div style={{ display: 'flex', gap: 36, fontSize: 14, color: '#999' }}>
           {['#features', '#pricing', '#testimonials'].map((h, i) => (
@@ -161,7 +161,7 @@ export default function LandingPage() {
             {/* Hero logo — only on first slide */}
             {slide === 0 && (
               <div style={{ marginBottom: 20 }}>
-                <img src={LOGO_SRC} alt="Redlined1" style={{ height: 72, width: 'auto', objectFit: 'contain', mixBlendMode: 'screen' }} />
+                <img src={LOGO_SRC} alt="Redlined1" style={{ height: 72, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
               </div>
             )}
             {cur.tag && (
@@ -454,7 +454,7 @@ export default function LandingPage() {
       {/* ── FOOTER ────────────────────────────────────────────── */}
       <footer style={{ background: '#040406', borderTop: '1px solid rgba(255,255,255,0.05)', padding: '40px 6%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 36, width: 'auto', objectFit: 'contain', mixBlendMode: 'screen' }} />
+          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 36, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
         </div>
         <div style={{ color: '#444', fontSize: 13 }}>© 2026 Redlined1. All rights reserved.</div>
         <div style={{ display: 'flex', gap: 22, fontSize: 13 }}>
