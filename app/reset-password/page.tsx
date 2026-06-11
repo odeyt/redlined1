@@ -15,18 +15,14 @@ export default function ResetPasswordPage() {
   const [done, setDone]           = useState(false);
 
   useEffect(() => {
-    // PKCE flow: Supabase sends ?code= in the query string
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error: err }) => {
-        if (err) setError('This reset link is invalid or has expired. Please request a new one.');
-        else setReady(true);
-      });
-      return;
-    }
-    // Implicit flow fallback: token arrives via PASSWORD_RECOVERY event
+    // The /auth/callback route already exchanged the code and set the session.
+    // We just need to confirm the session exists and is a PASSWORD_RECOVERY type.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+    // Also listen for PASSWORD_RECOVERY event (implicit flow fallback)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true);
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') setReady(true);
     });
     return () => subscription.unsubscribe();
   }, []);
