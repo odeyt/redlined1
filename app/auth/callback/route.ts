@@ -3,10 +3,32 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/';
+  const tokenHash = searchParams.get('token_hash');
+  const type = searchParams.get('type');
 
+  // Handle email OTP / magic link (token_hash flow)
+  if (tokenHash && type) {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          },
+        },
+      }
+    );
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as never });
+    if (!error) return NextResponse.redirect(`${origin}${next}`);
+  }
+
+  // Handle PKCE code exchange
   if (code) {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -16,20 +38,14 @@ export async function GET(request: NextRequest) {
         cookies: {
           getAll() { return cookieStore.getAll(); },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
           },
         },
       }
     );
-
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(new URL(next, request.url));
-    }
+    if (!error) return NextResponse.redirect(`${origin}${next}`);
   }
 
-  // If something went wrong, send back to forgot-password with an error hint
-  return NextResponse.redirect(new URL('/forgot-password?error=link_expired', request.url));
+  return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
 }
