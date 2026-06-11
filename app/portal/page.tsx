@@ -114,13 +114,44 @@ const INFO_ITEMS = [
   },
 ];
 
+const MEGA_FEATURES = [
+  { icon: '👤', title: 'Customer Management', desc: 'Full CRM — history, vehicles, notes & communication', module: 'customers' },
+  { icon: '🚗', title: 'Vehicle Management',  desc: 'Complete vehicle records and full service history',    module: 'vehicles' },
+  { icon: '📋', title: 'Job Cards',           desc: 'Create & manage repair job cards with live status',     module: 'job-cards' },
+  { icon: '📄', title: 'Estimates',           desc: 'Professional quotes sent via email or SMS instantly',   module: 'estimates' },
+  { icon: '🧾', title: 'Invoicing',           desc: 'Generate invoices and collect online payment fast',     module: 'invoices' },
+  { icon: '🔍', title: 'Digital Inspections', desc: 'Photo-based reports customers view and approve online', module: 'inspections' },
+  { icon: '🧰', title: 'Parts & Inventory',   desc: 'Track parts, set reorder alerts, link to jobs',        module: 'parts' },
+  { icon: '🔧', title: 'Repair Orders',       desc: 'Full RO management from intake to final delivery',      module: 'repair-orders' },
+  { icon: '📅', title: 'Scheduling',          desc: 'Drag-and-drop scheduling with automated reminders',     module: 'scheduling' },
+  { icon: '💳', title: 'Payments',            desc: 'Accept, record & reconcile payments with ease',         module: 'payments' },
+  { icon: '👷', title: 'Tech Workflow',        desc: 'Assign techs, log hours, and track productivity',       module: 'technicians' },
+  { icon: '📊', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and performance insights',  module: 'reports' },
+  { icon: '🤖', title: 'AI Copilot',          desc: '3,000 AI credits for estimates, diagnostics & more',    module: 'ai' },
+  { icon: '🔡', title: 'VIN Decode',          desc: 'Instantly populate vehicle details from any VIN',       module: 'vin' },
+  { icon: '⚠️', title: 'DTC / Diagnostics',   desc: 'Look up fault codes and run OBD scan diagnostics',     module: 'dtc' },
+  { icon: '📱', title: 'Mobile Mechanic',      desc: 'Invoice, inspect, and get paid straight from the field', module: 'mobile' },
+];
+
 /* ── COMPONENT ────────────────────────────────────────────────── */
 
 export default function LandingPage() {
   const [slide, setSlide]           = useState(0);
   const [fade, setFade]             = useState(true);
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const featuresRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (featuresRef.current && !featuresRef.current.contains(e.target as Node)) {
+        setFeaturesOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   function goToSlide(i: number) {
     setFade(false);
@@ -147,10 +178,61 @@ export default function LandingPage() {
         <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' }}>
           <img src={LOGO_SRC} alt="Redlined1" style={{ height: 62, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(204,0,0,0.45))' }} />
         </a>
-        <div style={{ display: 'flex', gap: 36, fontSize: 14, color: '#999' }}>
-          {['#features', '#pricing', '#testimonials'].map((h, i) => (
-            <a key={i} href={h} style={{ color: '#999', textDecoration: 'none' }}>{['Features', 'Pricing', 'Reviews'][i]}</a>
-          ))}
+        <div style={{ display: 'flex', gap: 36, fontSize: 14, color: '#999', alignItems: 'center', position: 'relative' }}>
+          {/* Features dropdown trigger */}
+          <div ref={featuresRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setFeaturesOpen(o => !o)}
+              style={{ background: 'none', border: 'none', color: featuresOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
+            >
+              Features
+              <span style={{ fontSize: 10, transition: 'transform 0.2s', display: 'inline-block', transform: featuresOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+            </button>
+
+            {/* Mega-menu */}
+            {featuresOpen && (
+              <div style={{
+                position: 'fixed', top: 74, left: 0, right: 0,
+                background: 'rgba(8,6,10,0.97)', backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(204,0,0,0.25)',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+                padding: '36px 6%', zIndex: 200,
+                animation: 'megaDrop 0.22s ease',
+              }}>
+                <style>{`@keyframes megaDrop { from { opacity:0; transform:translateY(-10px) } to { opacity:1; transform:translateY(0) } }`}</style>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#cc0000', letterSpacing: 2, textTransform: 'uppercase' }}>Platform Features</div>
+                      <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>Everything your shop needs — all in one place</div>
+                    </div>
+                    <Link href="/signup" onClick={() => setFeaturesOpen(false)} style={{ background: '#cc0000', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Start Free Trial →</Link>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                    {MEGA_FEATURES.map((f, i) => (
+                      <Link
+                        key={i}
+                        href={`/signup?feature=${f.module}`}
+                        onClick={() => setFeaturesOpen(false)}
+                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid transparent', transition: 'all 0.18s', background: 'transparent' }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(204,0,0,0.08)'; el.style.borderColor = 'rgba(204,0,0,0.3)'; el.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'transparent'; el.style.transform = 'translateY(0)'; }}
+                      >
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(204,0,0,0.1)', border: '1px solid rgba(204,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 3 }}>{f.title}</div>
+                          <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{f.desc}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <a href="#pricing" style={{ color: '#999', textDecoration: 'none' }}>Pricing</a>
+          <a href="#testimonials" style={{ color: '#999', textDecoration: 'none' }}>Reviews</a>
           <Link href="/help" style={{ color: '#999', textDecoration: 'none' }}>Help</Link>
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
