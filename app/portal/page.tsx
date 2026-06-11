@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { LOGO_SRC } from '@/lib/logo';
+import { ChatWidget } from '@/components/ChatWidget';
 
 /* ── DATA ─────────────────────────────────────────────────────── */
 
@@ -192,10 +193,41 @@ export default function LandingPage() {
           </div>
 
           {/* Right — tech photo grid */}
-          <div style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease', display: 'flex', flexDirection: 'column', gap: 20, position: 'relative' }}>
+
+            {/* Floating badge — top right */}
+            <div style={{ position: 'absolute', top: -18, right: -18, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 160 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(0,200,160,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>24/7</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Customer Support</div>
+              </div>
+            </div>
+
+            {/* Floating badge — bottom left */}
+            <div style={{ position: 'absolute', bottom: 120, left: -22, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 175 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(204,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>⚙️</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>All-in-one</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Shop Management App</div>
+              </div>
+            </div>
+
+            {/* Floating badge — bottom right */}
+            <div style={{ position: 'absolute', bottom: 55, right: -14, background: 'rgba(10,10,14,0.92)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, zIndex: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', minWidth: 175 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(0,150,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🧾</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#fff' }}>Unlimited</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>Invoices &amp; Estimates</div>
+              </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {TECHS.map((t, i) => (
-                <div key={i} style={{ background: '#0d0d10', border: `1px solid ${t.color}55`, borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
+                <Link key={i} href="/signup" style={{ textDecoration: 'none', background: '#0d0d10', border: `1px solid ${t.color}55`, borderRadius: 14, overflow: 'hidden', position: 'relative', display: 'block', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${t.color}33`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+                >
                   <div style={{ aspectRatio: '3/4', overflow: 'hidden' }}>
                     <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block', filter: 'brightness(0.88) contrast(1.05)' }} />
                   </div>
@@ -210,7 +242,7 @@ export default function LandingPage() {
                   </div>
                   {/* Color accent border top */}
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: t.color }} />
-                </div>
+                </Link>
               ))}
             </div>
 
@@ -502,6 +534,7 @@ export default function LandingPage() {
           <Link href="/login" style={{ color: '#555', textDecoration: 'none' }}>Login</Link>
         </div>
       </footer>
+    <ChatWidget />
     </div>
   );
 }
