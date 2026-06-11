@@ -61,20 +61,23 @@ export function SubscriptionsView() {
         <Panel title="Feature Gates" hint="Free users are restricted; paid subscribers unlock modules">
           <table>
             <thead>
-              <tr><th>Feature</th><th>Free</th><th>Starter</th><th>Pro</th><th>Enterprise</th></tr>
+              <tr><th>Feature</th><th>Free</th><th>Pro $29.99</th><th>Pro Plus $49.99</th></tr>
             </thead>
             <tbody>
               {[
-                ['AI assistant', 'Locked', 'Basic', 'Included', 'Advanced'],
-                ['Digital inspections', 'Locked', 'Included', 'Included', 'Included'],
-                ['Parts inventory', 'Locked', 'Limited', 'Included', 'Multi-location'],
-                ['Payments', 'Manual only', 'Manual', 'Stripe-ready', 'Advanced billing'],
-                ['Multi-location', 'Locked', 'Locked', '3 locations', 'Unlimited'],
-                ['VIN/DTC integrations', 'Mock only', 'Mock', 'Provider-ready', 'API + OEM-ready'],
+                ['Invoices & Estimates', 'Limited (10)', 'Unlimited', 'Unlimited'],
+                ['Digital Inspections', 'Locked', 'Included', 'Included'],
+                ['Parts Inventory', 'Locked', 'Included', 'Included'],
+                ['Payments', 'Manual only', 'Online payments', 'Online payments'],
+                ['Scheduling', 'Basic', 'Full + Reminders', 'Full + Reminders'],
+                ['AI Credits', 'None', 'None', '3,000 / mo'],
+                ['Image Attachments', 'Locked', 'Locked', 'Included'],
+                ['Multi-user Access', '1 user', 'Up to 5', 'Up to 20'],
+                ['Priority Support', 'Email', 'Email', 'Priority'],
               ].map((row, i) => (
                 <tr key={i}>
                   <td>{row[0]}</td>
-                  {row.slice(1).map((cell, j) => <td key={j}><Badge text={cell} /></td>)}
+                  {row.slice(1).map((cell, j) => <td key={j}><Badge text={cell} variant={cell === 'Locked' || cell === 'None' ? 'muted' : cell.startsWith('Unlimited') || cell === 'Included' || cell === 'Priority' ? 'green' : 'default'} /></td>)}
                 </tr>
               ))}
             </tbody>

@@ -13,28 +13,23 @@ export const initialUsers: User[] = [
 export const planCatalog: Record<string, Plan> = {
   Free: {
     price: '$0',
-    limits: { users: 2, locations: 1, customers: 25, vehicles: 25, jobs: 20, invoices: 10, aiCredits: 0 },
-    features: ['Basic CRM', 'Basic scheduling', 'Manual invoices', 'Mock VIN/DTC', 'Simulated scan tool'],
-  },
-  Starter: {
-    price: '$39/mo',
-    limits: { users: 4, locations: 1, customers: 250, vehicles: 250, jobs: 150, invoices: 100, aiCredits: 50 },
-    features: ['Digital inspections', 'Estimate approvals', 'Communication templates', 'Basic AI'],
+    limits: { users: 1, locations: 1, customers: 10, vehicles: 10, jobs: 10, invoices: 10, aiCredits: 0 },
+    features: ['Basic CRM', 'Basic invoices', 'Vehicle history', 'Job cards', 'Email support'],
   },
   Pro: {
-    price: '$99/mo',
-    limits: { users: 12, locations: 3, customers: 2000, vehicles: 3000, jobs: 1000, invoices: 750, aiCredits: 500 },
-    features: ['Parts inventory', 'Payments', 'SMS/email integrations', 'VIN/DTC provider ready', 'Advanced reports'],
+    price: '$29.99/mo',
+    limits: { users: 5, locations: 1, customers: 1000, vehicles: 2000, jobs: 500, invoices: 500, aiCredits: 0 },
+    features: ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Scheduling', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'],
+  },
+  'Pro Plus': {
+    price: '$49.99/mo',
+    limits: { users: 20, locations: 3, customers: 999999, vehicles: 999999, jobs: 999999, invoices: 999999, aiCredits: 3000 },
+    features: ['Everything in Pro', '3,000 AI Credits/mo', 'Image Attachments', 'Priority Support', 'Multi-user Access', 'Advanced Permissions', 'Dedicated Onboarding'],
   },
   'Pro Trial': {
     price: 'Trial',
-    limits: { users: 12, locations: 3, customers: 2000, vehicles: 3000, jobs: 1000, invoices: 750, aiCredits: 500 },
-    features: ['All Pro MVP features enabled for demo'],
-  },
-  Enterprise: {
-    price: 'Custom',
-    limits: { users: 999, locations: 999, customers: 999999, vehicles: 999999, jobs: 999999, invoices: 999999, aiCredits: 5000 },
-    features: ['Multi-location', 'Fleet accounts', 'PO rules', 'SLA tracking', 'API access', 'Audit logs'],
+    limits: { users: 20, locations: 3, customers: 999999, vehicles: 999999, jobs: 999999, invoices: 999999, aiCredits: 3000 },
+    features: ['Full Pro Plus access for 7 days'],
   },
 };
 
