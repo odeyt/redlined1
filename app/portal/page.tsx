@@ -11,24 +11,35 @@ const SLIDES = [
     sub: 'From booking to payment — manage your entire shop in one place. Built for mobile mechanics, independent shops, and multi-bay operations.',
     cta: 'Start Free 7-Day Trial',
     badge: '4,000+ Shops Worldwide',
+    tag: null,
+  },
+  {
+    headline: 'Built for Mobile Mechanics — Work From Anywhere',
+    sub: 'Run your entire mobile mechanic business from your phone. Send invoices on-site, capture inspection photos, collect payment at the driveway — no office needed.',
+    cta: 'Start Free — No Office Required',
+    badge: '📱 Mobile-First Platform',
+    tag: 'MOBILE MECHANIC',
   },
   {
     headline: 'Digital Inspections That Close More Jobs',
     sub: 'Send photo-based inspection reports to customers in seconds. Build trust, increase job approvals, and grow your average repair order.',
     cta: 'See How It Works',
     badge: 'Increase ARO by 40%',
+    tag: null,
   },
   {
     headline: 'Professional Invoices — Done in Minutes',
     sub: 'Create estimates and invoices instantly, collect payment online, and keep every transaction organised in one dashboard.',
     cta: 'Start Free 7-Day Trial',
     badge: 'No Credit Card Required',
+    tag: null,
   },
   {
     headline: 'Run Your Whole Team From One Screen',
     sub: 'Assign jobs, track technician productivity, and follow every repair order in real time. Run a tighter, more profitable shop.',
     cta: 'Start Free 7-Day Trial',
     badge: '24/7 Access — Any Device',
+    tag: null,
   },
 ];
 
@@ -42,6 +53,15 @@ const FEATURES = [
   { icon: '👷', title: 'Technician Management', desc: 'Assign techs to jobs, track hours, and measure individual productivity at a glance.' },
   { icon: '💳', title: 'Payments', desc: 'Accept payments online, track outstanding balances, and reconcile accounts with ease.' },
   { icon: '📊', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and tech performance — every number you need to grow your shop.' },
+];
+
+const MOBILE_FEATURES = [
+  { icon: '📱', title: 'Phone-First Workflow', desc: 'Create job cards, capture photos, and send invoices entirely from your smartphone — no laptop, no office, no problem.' },
+  { icon: '📍', title: 'On-Site Invoicing', desc: 'Generate and send a professional invoice the moment you finish the job. Get paid on the spot via card or digital wallet.' },
+  { icon: '🗺️', title: 'Job Location Tracking', desc: 'Log service addresses per job card. Know exactly where each vehicle was serviced and track your territory coverage.' },
+  { icon: '📷', title: 'Photo Inspections On the Go', desc: 'Snap inspection photos on-site, attach them to the job, and send the customer a branded report before you leave their driveway.' },
+  { icon: '💬', title: 'SMS & Email from the Field', desc: 'Send estimates, invoices, and follow-ups via SMS or email directly from the app — no copy-pasting, no separate tools.' },
+  { icon: '🔧', title: 'Mobile Parts Lookup', desc: 'Search your parts inventory and add items to a job card while you\'re under the hood. Reorder low-stock parts on the spot.' },
 ];
 
 const TECHS = [
@@ -137,7 +157,13 @@ export default function LandingPage() {
 
           {/* Left */}
           <div style={{ opacity: fade ? 1 : 0, transform: fade ? 'translateY(0)' : 'translateY(18px)', transition: 'opacity 0.4s ease,transform 0.4s ease' }}>
-            <span style={{ display: 'inline-block', background: 'rgba(204,0,0,0.16)', border: '1px solid rgba(204,0,0,0.32)', color: '#ff7070', padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, marginBottom: 22, letterSpacing: 0.5 }}>{cur.badge}</span>
+            {cur.tag && (
+              <span style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '4px 14px', borderRadius: 6, fontSize: 11, fontWeight: 800, marginBottom: 12, letterSpacing: 2, textTransform: 'uppercase' }}>
+                {cur.tag}
+              </span>
+            )}
+            <span style={{ display: cur.tag ? 'none' : 'inline-block', background: 'rgba(204,0,0,0.16)', border: '1px solid rgba(204,0,0,0.32)', color: '#ff7070', padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, marginBottom: 22, letterSpacing: 0.5 }}>{cur.badge}</span>
+            {cur.tag && <div style={{ marginBottom: 14 }}><span style={{ background: 'rgba(204,0,0,0.16)', border: '1px solid rgba(204,0,0,0.32)', color: '#ff7070', padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>{cur.badge}</span></div>}
             <h1 style={{ fontSize: 'clamp(30px,3.8vw,54px)', fontWeight: 900, lineHeight: 1.1, marginBottom: 22, letterSpacing: '-1px' }}>{cur.headline}</h1>
             <p style={{ fontSize: 17, color: '#bbb', lineHeight: 1.7, marginBottom: 38, maxWidth: 500 }}>{cur.sub}</p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -200,6 +226,45 @@ export default function LandingPage() {
                 <p style={{ color: '#777', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── MOBILE MECHANIC ───────────────────────────────────── */}
+      <section style={{ padding: '110px 6%', background: 'linear-gradient(160deg,#0a0000 0%,#1a0000 40%,#0a0000 100%)', position: 'relative', overflow: 'hidden' }}>
+        {/* Background accent */}
+        <div style={{ position: 'absolute', top: -120, right: -120, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle,rgba(204,0,0,0.12) 0%,transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 64 }}>
+            <span style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '5px 16px', borderRadius: 6, fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 18 }}>Mobile Mechanic</span>
+            <h2 style={{ fontSize: 'clamp(26px,3.2vw,44px)', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.5px' }}>Your Entire Business Runs<br /><span style={{ color: '#cc0000' }}>From Your Phone</span></h2>
+            <p style={{ color: '#888', fontSize: 16, marginTop: 18, maxWidth: 580, margin: '18px auto 0', lineHeight: 1.7 }}>
+              No office? No problem. Redlined1 is built for mobile mechanics who work in driveways, parking lots, and roadsides. Everything you need is in your pocket.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(290px,1fr))', gap: 18, marginBottom: 60 }}>
+            {MOBILE_FEATURES.map((f, i) => (
+              <div key={i}
+                style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)', borderRadius: 16, padding: '28px 24px', transition: 'border-color 0.2s,background 0.2s', cursor: 'default' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.55)'; e.currentTarget.style.background = 'rgba(204,0,0,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.2)'; e.currentTarget.style.background = 'rgba(204,0,0,0.06)'; }}>
+                <div style={{ fontSize: 38, marginBottom: 16 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
+                <p style={{ color: '#888', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile highlight banner */}
+          <div style={{ background: 'rgba(204,0,0,0.1)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 18, padding: '36px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+            <div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Ready to go mobile?</h3>
+              <p style={{ color: '#aaa', fontSize: 15, maxWidth: 500 }}>Join hundreds of independent mobile mechanics already using Redlined1 to run a professional, paperless business from the road.</p>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+              <Link href="/signup" style={{ background: '#cc0000', color: '#fff', padding: '13px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>Start Free Trial →</Link>
+            </div>
           </div>
         </div>
       </section>
