@@ -26,14 +26,20 @@ export async function middleware(request: NextRequest) {
 
   const publicPaths = ['/login', '/signup', '/portal'];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
+  const isRoot = request.nextUrl.pathname === '/';
+
+  // Unauthenticated visitors at / → landing page
+  if (!session && isRoot) {
+    return NextResponse.redirect(new URL('/portal', request.url));
+  }
 
   // If not logged in and not on a public page, redirect to login
   if (!session && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // If logged in and on the login page, redirect to dashboard
-  if (session && request.nextUrl.pathname === '/login') {
+  // If logged in and on the login or portal page, redirect to dashboard
+  if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/portal')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
