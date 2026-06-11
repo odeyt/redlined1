@@ -77,7 +77,7 @@ export function SubscriptionsView() {
               ].map((row, i) => (
                 <tr key={i}>
                   <td>{row[0]}</td>
-                  {row.slice(1).map((cell, j) => <td key={j}><Badge text={cell} variant={cell === 'Locked' || cell === 'None' ? 'muted' : cell.startsWith('Unlimited') || cell === 'Included' || cell === 'Priority' ? 'green' : 'default'} /></td>)}
+                  {row.slice(1).map((cell, j) => <td key={j}><Badge text={cell} color={cell === 'Locked' || cell === 'None' ? 'gray' : cell.startsWith('Unlimited') || cell === 'Included' || cell === 'Priority' ? 'green' : 'blue'} /></td>)}
                 </tr>
               ))}
             </tbody>
