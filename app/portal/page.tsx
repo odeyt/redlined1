@@ -188,14 +188,17 @@ export default function LandingPage() {
   const [billing, setBilling]       = useState<'monthly' | 'yearly'>('monthly');
   const [featuresOpen, setFeaturesOpen]         = useState(false);
   const [integrationsOpen, setIntegrationsOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen]       = useState(false);
   const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null);
   const featuresRef      = useRef<HTMLDivElement>(null);
   const integrationsRef  = useRef<HTMLDivElement>(null);
+  const resourcesRef     = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (featuresRef.current && !featuresRef.current.contains(e.target as Node)) setFeaturesOpen(false);
       if (integrationsRef.current && !integrationsRef.current.contains(e.target as Node)) setIntegrationsOpen(false);
+      if (resourcesRef.current && !resourcesRef.current.contains(e.target as Node)) setResourcesOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -230,7 +233,7 @@ export default function LandingPage() {
           {/* Features dropdown trigger */}
           <div ref={featuresRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => { setFeaturesOpen(o => !o); setIntegrationsOpen(false); }}
+              onClick={() => { setFeaturesOpen(o => !o); setIntegrationsOpen(false); setResourcesOpen(false); }}
               style={{ background: 'none', border: 'none', color: featuresOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
             >
               Features
@@ -282,7 +285,7 @@ export default function LandingPage() {
           {/* Integrations dropdown */}
           <div ref={integrationsRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => { setIntegrationsOpen(o => !o); setFeaturesOpen(false); }}
+              onClick={() => { setIntegrationsOpen(o => !o); setFeaturesOpen(false); setResourcesOpen(false); }}
               style={{ background: 'none', border: 'none', color: integrationsOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
             >
               Integrations
@@ -346,7 +349,87 @@ export default function LandingPage() {
 
           <a href="#pricing" style={{ color: '#999', textDecoration: 'none' }}>Pricing</a>
           <a href="#testimonials" style={{ color: '#999', textDecoration: 'none' }}>Reviews</a>
-          <Link href="/help" style={{ color: '#999', textDecoration: 'none' }}>Help</Link>
+
+          {/* Resources dropdown */}
+          <div ref={resourcesRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setResourcesOpen(o => !o); setFeaturesOpen(false); setIntegrationsOpen(false); }}
+              style={{ background: 'none', border: 'none', color: resourcesOpen ? '#fff' : '#999', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 5, padding: 0, fontFamily: 'inherit' }}
+            >
+              Resources
+              <span style={{ fontSize: 10, transition: 'transform 0.2s', display: 'inline-block', transform: resourcesOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
+            </button>
+
+            {resourcesOpen && (
+              <div style={{
+                position: 'fixed', top: 74, left: 0, right: 0,
+                background: 'rgba(8,6,10,0.97)', backdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(204,0,0,0.25)',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+                padding: '36px 6%', zIndex: 200,
+                animation: 'megaDrop 0.22s ease',
+              }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#cc0000', letterSpacing: 2, textTransform: 'uppercase' }}>Resources</div>
+                      <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>Everything you need to get up and running</div>
+                    </div>
+                    <Link href="/signup" onClick={() => setResourcesOpen(false)} style={{ background: '#cc0000', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Get Started →</Link>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 40 }}>
+                    {/* Left: Platforms */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#cc0000', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid rgba(204,0,0,0.2)' }}>Platforms</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {[
+                          { icon: '🌐', label: 'Web (any Browser)', href: '/signup' },
+                          { icon: '🤖', label: 'Android (Google Play)', href: '/signup?platform=android' },
+                          { icon: '🍎', label: 'iOS (Apple Store)', href: '/signup?platform=ios' },
+                          { icon: '🖥️', label: 'Windows Desktop', href: '/signup?platform=windows' },
+                        ].map((p, i) => (
+                          <Link key={i} href={p.href} onClick={() => setResourcesOpen(false)}
+                            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid transparent', transition: 'all 0.18s' }}
+                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(204,0,0,0.08)'; el.style.borderColor = 'rgba(204,0,0,0.25)'; el.style.transform = 'translateX(4px)'; }}
+                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'transparent'; el.style.transform = 'translateX(0)'; }}
+                          >
+                            <span style={{ fontSize: 18 }}>{p.icon}</span>
+                            <span style={{ fontSize: 13, color: '#ccc', fontWeight: 600 }}>{p.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Right: Help & Learning */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                      {[
+                        { icon: '🚀', title: 'Get Started', desc: 'A complete guide to setting up and running your auto repair business', href: '/help' },
+                        { icon: '⚙️', title: 'Profile Setup', desc: 'Settings and configurations tailored for auto repair services', href: '/signup' },
+                        { icon: '🎮', title: 'Live Demo', desc: 'Test the features and see if Redlined1 is the right fit for you', href: '/signup?demo=1' },
+                        { icon: '🖥️', title: 'Client Portal', desc: "Let clients easily stay informed when they visit your shop", href: '/signup?feature=client-portal' },
+                        { icon: '📖', title: 'Blog', desc: 'Updates, articles, and guides for shop owners', href: '/help' },
+                        { icon: '🎬', title: 'Video Tutorials', desc: 'Step-by-step video walkthroughs of every feature', href: '/help' },
+                        { icon: '👥', title: 'Multiple Users', desc: 'How to add technicians and staff to your account', href: '/signup?feature=users' },
+                        { icon: '🏆', title: 'Case Studies', desc: 'See how real shops grow with Redlined1', href: '/help' },
+                        { icon: '📄', title: 'Online Documents', desc: 'Manage estimates, invoices, and reports digitally', href: '/signup?feature=documents' },
+                      ].map((r, i) => (
+                        <Link key={i} href={r.href} onClick={() => setResourcesOpen(false)}
+                          style={{ textDecoration: 'none', display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 12, border: '1px solid transparent', transition: 'all 0.18s' }}
+                          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(204,0,0,0.08)'; el.style.borderColor = 'rgba(204,0,0,0.3)'; el.style.transform = 'translateY(-2px)'; }}
+                          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'transparent'; el.style.transform = 'translateY(0)'; }}
+                        >
+                          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(204,0,0,0.1)', border: '1px solid rgba(204,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>{r.icon}</div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 3 }}>{r.title}</div>
+                            <div style={{ fontSize: 11, color: '#666', lineHeight: 1.5 }}>{r.desc}</div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <Link href="/login"  style={{ color: '#bbb', textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>Login</Link>
