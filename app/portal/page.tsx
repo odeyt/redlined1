@@ -47,11 +47,11 @@ const FEATURES = [
 ];
 
 const TECHS = [
-  { initials: 'MJ', name: 'Marcus J.', role: 'Master Tech', color: '#cc0000' },
-  { initials: 'TS', name: 'Tina S.', role: 'Service Advisor', color: '#e05000' },
-  { initials: 'RK', name: 'Rico K.', role: 'Lead Mechanic', color: '#9900cc' },
-  { initials: 'AL', name: 'Andre L.', role: 'Diagnostics', color: '#0066cc' },
-  { initials: 'PW', name: 'Priya W.', role: 'Shop Manager', color: '#00997a' },
+  { initials: 'MJ', name: 'Marcus J.', role: 'Master Tech', color: '#cc0000', img: 'https://randomuser.me/api/portraits/men/32.jpg' },
+  { initials: 'TS', name: 'Tina S.', role: 'Service Advisor', color: '#e05000', img: 'https://randomuser.me/api/portraits/women/44.jpg' },
+  { initials: 'RK', name: 'Rico K.', role: 'Lead Mechanic', color: '#9900cc', img: 'https://randomuser.me/api/portraits/men/85.jpg' },
+  { initials: 'AL', name: 'Andre L.', role: 'Diagnostics', color: '#0066cc', img: 'https://randomuser.me/api/portraits/men/67.jpg' },
+  { initials: 'PW', name: 'Priya W.', role: 'Shop Manager', color: '#00997a', img: 'https://randomuser.me/api/portraits/women/23.jpg' },
 ];
 
 const PLANS = [
@@ -85,9 +85,9 @@ const PLANS = [
 ];
 
 const TESTIMONIALS = [
-  { name: 'James T.', shop: 'T-Bone Auto Works', text: 'Redlined1 cut our invoice time in half. Our customers love getting professional reports on their phones.' },
-  { name: 'Sandra M.', shop: 'Metro Quick Lube', text: 'We went from paper job cards to fully digital in a week. The team picked it up fast — no training needed.' },
-  { name: 'Derek O.', shop: 'D&O Performance', text: 'The inspection tool alone pays for itself. Customers approve more work when they can see the photos.' },
+  { name: 'James T.', shop: 'T-Bone Auto Works', text: 'Redlined1 cut our invoice time in half. Our customers love getting professional reports on their phones.', img: 'https://randomuser.me/api/portraits/men/41.jpg' },
+  { name: 'Sandra M.', shop: 'Metro Quick Lube', text: 'We went from paper job cards to fully digital in a week. The team picked it up fast — no training needed.', img: 'https://randomuser.me/api/portraits/women/68.jpg' },
+  { name: 'Derek O.', shop: 'D&O Performance', text: 'The inspection tool alone pays for itself. Customers approve more work when they can see the photos.', img: 'https://randomuser.me/api/portraits/men/76.jpg' },
 ];
 
 export default function LandingPage() {
@@ -183,8 +183,8 @@ export default function LandingPage() {
                 ];
                 return (
                   <div key={i} style={{ position: 'absolute', ...positions[i], textAlign: 'center' }}>
-                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 800, border: '3px solid rgba(255,255,255,0.15)', boxShadow: `0 0 20px ${t.color}55`, margin: '0 auto 6px' }}>
-                      {t.initials}
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', border: `3px solid ${t.color}`, boxShadow: `0 0 20px ${t.color}66`, margin: '0 auto 6px', overflow: 'hidden', flexShrink: 0 }}>
+                      <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{t.name}</div>
                     <div style={{ fontSize: 10, color: '#888' }}>{t.role}</div>
@@ -263,8 +263,8 @@ export default function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {TECHS.map((t, i) => (
               <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '20px', display: 'flex', alignItems: 'center', gap: 14, gridColumn: i === 4 ? '1 / -1' : undefined }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: t.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 800, flexShrink: 0, boxShadow: `0 0 16px ${t.color}44` }}>
-                  {t.initials}
+                <div style={{ width: 52, height: 52, borderRadius: '50%', border: `2px solid ${t.color}`, boxShadow: `0 0 14px ${t.color}55`, overflow: 'hidden', flexShrink: 0 }}>
+                  <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
@@ -299,8 +299,8 @@ export default function LandingPage() {
                 </div>
                 <p style={{ color: '#ccc', fontSize: 15, lineHeight: 1.65, marginBottom: 20 }}>"{t.text}"</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#cc0000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14 }}>
-                    {t.name.split(' ').map(n => n[0]).join('')}
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #cc0000', overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
