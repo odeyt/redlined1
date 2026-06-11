@@ -135,10 +135,10 @@ export default function LandingPage() {
     <div style={{ fontFamily: "'Inter',-apple-system,sans-serif", background: '#07070a', color: '#fff', minHeight: '100vh' }}>
 
       {/* ── NAV ───────────────────────────────────────────────── */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.93)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 6%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 66 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 42, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
-        </div>
+      <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.93)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 6%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 74 }}>
+        <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer' }}>
+          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 62, width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 0 10px rgba(204,0,0,0.45))' }} />
+        </a>
         <div style={{ display: 'flex', gap: 36, fontSize: 14, color: '#999' }}>
           {['#features', '#pricing', '#testimonials'].map((h, i) => (
             <a key={i} href={h} style={{ color: '#999', textDecoration: 'none' }}>{['Features', 'Pricing', 'Reviews'][i]}</a>
