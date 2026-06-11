@@ -66,12 +66,12 @@ const MOBILE_FEATURES = [
 ];
 
 const TECHS = [
-  { name: 'Marcus J.', role: 'Master Technician', img: 'https://randomuser.me/api/portraits/men/32.jpg', color: '#cc0000' },
-  { name: 'Tina S.',   role: 'Service Advisor',   img: 'https://randomuser.me/api/portraits/women/44.jpg', color: '#e05500' },
-  { name: 'Rico K.',   role: 'Lead Mechanic',      img: 'https://randomuser.me/api/portraits/men/85.jpg',  color: '#9900cc' },
-  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: 'https://randomuser.me/api/portraits/men/67.jpg',  color: '#0066cc' },
-  { name: 'Priya W.',  role: 'Shop Manager',       img: 'https://randomuser.me/api/portraits/women/23.jpg',color: '#00997a' },
-  { name: 'Damien R.', role: 'Transmission Tech',  img: 'https://randomuser.me/api/portraits/men/54.jpg',  color: '#bb6600' },
+  { name: 'Marcus J.', role: 'Master Technician', img: 'https://images.unsplash.com/photo-1615906655593-ad0386982a0f?auto=format&fit=crop&w=400&h=500&q=80', color: '#cc0000' },
+  { name: 'Tina S.',   role: 'Service Advisor',   img: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&h=500&q=80', color: '#e05500' },
+  { name: 'Rico K.',   role: 'Lead Mechanic',      img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&h=500&q=80', color: '#9900cc' },
+  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&h=500&q=80', color: '#0066cc' },
+  { name: 'Priya W.',  role: 'Shop Manager',       img: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=400&h=500&q=80', color: '#00997a' },
+  { name: 'Damien R.', role: 'Transmission Tech',  img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&h=500&q=80', color: '#bb6600' },
 ];
 
 const TESTIMONIALS = [
@@ -186,18 +186,23 @@ export default function LandingPage() {
 
           {/* Right — tech photo grid */}
           <div style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.4s ease', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
               {TECHS.map((t, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${t.color}44`, borderRadius: 14, overflow: 'hidden', textAlign: 'center', padding: '16px 10px 14px' }}>
-                  <div style={{ width: 70, height: 70, borderRadius: '50%', border: `2.5px solid ${t.color}`, overflow: 'hidden', margin: '0 auto 10px', boxShadow: `0 0 18px ${t.color}55` }}>
-                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div key={i} style={{ background: '#0d0d10', border: `1px solid ${t.color}55`, borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
+                  <div style={{ aspectRatio: '3/4', overflow: 'hidden' }}>
+                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block', filter: 'brightness(0.88) contrast(1.05)' }} />
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{t.name}</div>
-                  <div style={{ fontSize: 10, color: '#777', marginTop: 3 }}>{t.role}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 8 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-                    <span style={{ fontSize: 10, color: '#22c55e' }}>Active</span>
+                  {/* Gradient overlay */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: `linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)`, padding: '20px 10px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>{t.name}</div>
+                    <div style={{ fontSize: 9, color: t.color, marginTop: 2, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{t.role}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 5 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
+                      <span style={{ fontSize: 9, color: '#22c55e' }}>Active</span>
+                    </div>
                   </div>
+                  {/* Color accent border top */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: t.color }} />
                 </div>
               ))}
             </div>
