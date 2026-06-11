@@ -34,6 +34,12 @@ export default function SignupPage() {
           trial_ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
           shop_name: shopName,
         });
+        // Notify sales team — fire and forget, don't block signup on failure
+        fetch('/api/signup-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, shopName, email }),
+        }).catch(() => {});
       }
       setSuccess(true);
     } catch (err: unknown) {
