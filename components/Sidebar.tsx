@@ -133,10 +133,22 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <a
+        href="/help"
+        target="_blank"
+        style={{
+          marginTop: 'auto', padding: '10px 16px', background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#666',
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          textDecoration: 'none', marginBottom: 8,
+        }}
+      >
+        <span>❓</span> Help & Manual
+      </a>
       <button
         onClick={handleSignOut}
         style={{
-          marginTop: 'auto', padding: '12px 16px', background: 'transparent',
+          padding: '12px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#aaa',
           cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
         }}

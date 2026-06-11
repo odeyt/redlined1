@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/portal'];
+  const publicPaths = ['/login', '/signup', '/portal', '/help'];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 

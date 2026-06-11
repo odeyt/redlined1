@@ -143,6 +143,7 @@ export default function LandingPage() {
           {['#features', '#pricing', '#testimonials'].map((h, i) => (
             <a key={i} href={h} style={{ color: '#999', textDecoration: 'none' }}>{['Features', 'Pricing', 'Reviews'][i]}</a>
           ))}
+          <Link href="/help" style={{ color: '#999', textDecoration: 'none' }}>Help</Link>
         </div>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <Link href="/login"  style={{ color: '#bbb', textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>Login</Link>
@@ -454,6 +455,7 @@ export default function LandingPage() {
         <div style={{ display: 'flex', gap: 22, fontSize: 13 }}>
           <a href="#" style={{ color: '#555', textDecoration: 'none' }}>Privacy</a>
           <a href="#" style={{ color: '#555', textDecoration: 'none' }}>Terms</a>
+          <Link href="/help" style={{ color: '#555', textDecoration: 'none' }}>Help</Link>
           <Link href="/login" style={{ color: '#555', textDecoration: 'none' }}>Login</Link>
         </div>
       </footer>
