@@ -5,17 +5,27 @@ import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
 import { fetchCustomers, saveCustomer, updateFollowUp } from '@/services/customerService';
+import { supabase } from '@/lib/supabase';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
+interface Vehicle { id: string; label: string; year: string; make: string; model: string; plate: string; status: string; mileage: string; }
+interface Invoice { number: string; status: string; date: string; subtotal: number; tax: number; discount: number; shop_supplies: number; }
+interface RepairOrder { ro_number: string; status: string; opened_date: string; concern: string; vehicle: string; }
+
 export function CustomersView() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState('');
+  const [customers, setCustomers]         = useState<Customer[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState('');
+  const [showForm, setShowForm]           = useState(false);
+  const [form, setForm]                   = useState(EMPTY_FORM);
+  const [saving, setSaving]               = useState(false);
+  const [toast, setToast]                 = useState('');
+  const [selected, setSelected]           = useState<Customer | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [vehicles, setVehicles]           = useState<Vehicle[]>([]);
+  const [invoices, setInvoices]           = useState<Invoice[]>([]);
+  const [ros, setRos]                     = useState<RepairOrder[]>([]);
 
   useEffect(() => {
     fetchCustomers()
@@ -24,34 +34,43 @@ export function CustomersView() {
       .finally(() => setLoading(false));
   }, []);
 
-  function notify(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
+  async function openDetail(c: Customer) {
+    setSelected(c);
+    setDetailLoading(true);
+    setVehicles([]); setInvoices([]); setRos([]);
+    try {
+      const [{ data: vData }, { data: iData }, { data: rData }] = await Promise.all([
+        supabase.from('vehicles').select('*').eq('customer_id', c.id),
+        supabase.from('invoices').select('number,status,date,subtotal,tax,discount,shop_supplies').eq('customer_id', c.id).order('created_at', { ascending: false }),
+        supabase.from('repair_orders').select('ro_number,status,opened_date,concern,vehicle').eq('customer_id', c.id).order('created_at', { ascending: false }),
+      ]);
+      setVehicles((vData ?? []).map((v: Record<string, string>) => ({
+        id: v.id, label: v.label || `${v.year} ${v.make} ${v.model}`.trim(),
+        year: v.year, make: v.make, model: v.model, plate: v.plate || v.license_plate || '',
+        status: v.status, mileage: v.mileage,
+      })));
+      setInvoices(iData ?? []);
+      setRos(rData ?? []);
+    } catch { /* show what we have */ }
+    finally { setDetailLoading(false); }
   }
+
+  function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
       const newCustomer = await saveCustomer({
-        name: form.name,
-        type: form.type,
-        phone: form.phone,
-        email: form.email,
-        address: form.address,
-        tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-        followUp: form.followUp,
-        portalToken: null,
+        name: form.name, type: form.type, phone: form.phone, email: form.email,
+        address: form.address, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+        followUp: form.followUp, portalToken: null,
       });
       setCustomers(prev => [newCustomer, ...prev]);
-      setForm(EMPTY_FORM);
-      setShowForm(false);
+      setForm(EMPTY_FORM); setShowForm(false);
       notify(`${newCustomer.name} saved.`);
-    } catch {
-      notify('Save failed. Check your connection.');
-    } finally {
-      setSaving(false);
-    }
+    } catch { notify('Save failed. Check your connection.'); }
+    finally { setSaving(false); }
   }
 
   async function handleFollowUp(customerId: string, customerName: string) {
@@ -59,115 +78,225 @@ export function CustomersView() {
     try {
       await updateFollowUp(customerId, msg);
       setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, followUp: msg } : c));
+      if (selected?.id === customerId) setSelected(s => s ? { ...s, followUp: msg } : s);
       notify(`Follow-up sent to ${customerName}.`);
-    } catch {
-      notify('Failed to send follow-up.');
-    }
+    } catch { notify('Failed to send follow-up.'); }
   }
 
+  const money = (n: number) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const calcTotal = (i: Invoice) => (i.subtotal || 0) - (i.discount || 0) + (i.tax || 0) + (i.shop_supplies || 0);
+
+  const STATUS_COLOR: Record<string, string> = {
+    Paid: '#22c55e', Sent: '#3b82f6', Draft: '#888', Void: '#ef4444',
+    Open: '#3b82f6', 'In Progress': '#f59e0b', Complete: '#22c55e', Closed: '#9e9e9e',
+    Active: '#22c55e', Inactive: '#888',
+  };
+
   return (
-    <Panel title="Customer Accounts" hint="Retail, mobile, fleet, dealer, wholesale, and enterprise relationships">
-      {toast && <div className="toast toast-visible">{toast}</div>}
+    <>
+      <Panel title="Customer Accounts" hint="Retail, mobile, fleet, dealer, wholesale, and enterprise relationships">
+        {toast && <div className="toast toast-visible">{toast}</div>}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
-          {showForm ? 'Cancel' : '+ Add Customer'}
-        </button>
-      </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+            {showForm ? 'Cancel' : '+ Add Customer'}
+          </button>
+        </div>
 
-      {showForm && (
-        <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="login-field">
-            <label>Name *</label>
-            <input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Customer or business name" />
-          </div>
-          <div className="login-field">
-            <label>Type</label>
-            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-soft)' }}>
-              <option>Retail</option>
-              <option>Fleet</option>
-              <option>Dealer</option>
-              <option>Enterprise Fleet</option>
-              <option>Wholesale</option>
-            </select>
-          </div>
-          <div className="login-field">
-            <label>Phone</label>
-            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="(555) 000-0000" />
-          </div>
-          <div className="login-field">
-            <label>Email</label>
-            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@example.com" />
-          </div>
-          <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-            <label>Address</label>
-            <input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street address" />
-          </div>
-          <div className="login-field">
-            <label>Tags (comma separated)</label>
-            <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="Priority, SMS OK, Net 30" />
-          </div>
-          <div className="login-field">
-            <label>Follow-up note</label>
-            <input value={form.followUp} onChange={e => setForm(f => ({ ...f, followUp: e.target.value }))} placeholder="e.g. Call about estimate" />
-          </div>
-          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Customer'}</button>
-          </div>
-        </form>
-      )}
+        {showForm && (
+          <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="login-field"><label>Name *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Customer or business name" /></div>
+            <div className="login-field">
+              <label>Type</label>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-soft)' }}>
+                <option>Retail</option><option>Fleet</option><option>Dealer</option><option>Enterprise Fleet</option><option>Wholesale</option>
+              </select>
+            </div>
+            <div className="login-field"><label>Phone</label><input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="(555) 000-0000" /></div>
+            <div className="login-field"><label>Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="contact@example.com" /></div>
+            <div className="login-field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="Street address" /></div>
+            <div className="login-field"><label>Tags (comma separated)</label><input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="Priority, SMS OK, Net 30" /></div>
+            <div className="login-field"><label>Follow-up note</label><input value={form.followUp} onChange={e => setForm(f => ({ ...f, followUp: e.target.value }))} placeholder="e.g. Call about estimate" /></div>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Customer'}</button>
+            </div>
+          </form>
+        )}
 
-      {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading customers…</p>}
-      {error && <p style={{ color: 'var(--danger)', padding: 16 }}>{error}</p>}
+        {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading customers…</p>}
+        {error && <p style={{ color: 'var(--danger)', padding: 16 }}>{error}</p>}
+        {!loading && customers.length === 0 && <p style={{ color: 'var(--muted)', padding: 16 }}>No customers yet. Add your first one above.</p>}
 
-      {!loading && customers.length === 0 && (
-        <p style={{ color: 'var(--muted)', padding: 16 }}>No customers yet. Add your first one above.</p>
-      )}
+        {customers.length > 0 && (
+          <table>
+            <thead>
+              <tr><th>Customer</th><th>Type</th><th>Contact</th><th>Tags</th><th>Follow-up</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              {customers.map(c => (
+                <tr key={c.id} style={{ cursor: 'pointer' }}>
+                  <td onClick={() => openDetail(c)}>
+                    <strong style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}>{c.name}</strong>
+                    <div className="meta">{c.id} — {c.address}</div>
+                  </td>
+                  <td><Badge text={c.type} /></td>
+                  <td>{c.phone}<div className="meta">{c.email}</div></td>
+                  <td>{c.tags.map((tag, i) => <Badge key={i} text={tag} />)}</td>
+                  <td>{c.followUp}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>Send follow-up</button>
+                      {c.portalToken && (
+                        <button className="mini-btn" title="Copy customer portal link"
+                          onClick={() => { const url = `${window.location.origin}/portal/${c.portalToken}`; navigator.clipboard.writeText(url).then(() => notify(`Portal link for ${c.name} copied!`)); }}>
+                          🔗 Portal Link
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Panel>
 
-      {customers.length > 0 && (
-        <table>
-          <thead>
-            <tr><th>Customer</th><th>Type</th><th>Contact</th><th>Tags</th><th>Follow-up</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            {customers.map(c => (
-              <tr key={c.id}>
-                <td>
-                  <strong>{c.name}</strong>
-                  <div className="meta">{c.id} — {c.address}</div>
-                </td>
-                <td><Badge text={c.type} /></td>
-                <td>
-                  {c.phone}
-                  <div className="meta">{c.email}</div>
-                </td>
-                <td>{c.tags.map((tag, i) => <Badge key={i} text={tag} />)}</td>
-                <td>{c.followUp}</td>
-                <td>
-                  <div className="row-actions">
-                    <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>
-                      Send follow-up
-                    </button>
-                    {c.portalToken && (
-                      <button
-                        className="mini-btn"
-                        title="Copy customer portal link to clipboard"
-                        onClick={() => {
-                          const url = `${window.location.origin}/portal/${c.portalToken}`;
-                          navigator.clipboard.writeText(url).then(() => notify(`Portal link for ${c.name} copied!`));
-                        }}
-                      >
-                        🔗 Portal Link
-                      </button>
-                    )}
+      {/* ── Customer Detail Drawer ── */}
+      {selected && (
+        <>
+          {/* Backdrop */}
+          <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300 }} />
+
+          {/* Drawer */}
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0, width: 520, maxWidth: '95vw',
+            background: 'var(--bg)', borderLeft: '1px solid var(--line)',
+            zIndex: 301, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            boxShadow: '-8px 0 32px rgba(0,0,0,0.3)',
+          }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, background: 'var(--surface-soft)' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
+                    {selected.name.charAt(0).toUpperCase()}
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>{selected.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selected.id}</div>
+                  </div>
+                </div>
+                <Badge text={selected.type} />
+              </div>
+              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', padding: 4 }}>✕</button>
+            </div>
+
+            <div style={{ padding: '20px 24px', flex: 1 }}>
+
+              {/* Contact Info */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Contact Info</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'Phone', value: selected.phone },
+                    { label: 'Email', value: selected.email },
+                    { label: 'Address', value: selected.address },
+                    { label: 'Follow-up', value: selected.followUp },
+                  ].map(({ label, value }) => value ? (
+                    <div key={label} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{value}</div>
+                    </div>
+                  ) : null)}
+                </div>
+                {selected.tags.length > 0 && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {selected.tags.map((tag, i) => <Badge key={i} text={tag} />)}
+                  </div>
+                )}
+              </div>
+
+              {detailLoading && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading records…</p>}
+
+              {/* Vehicles */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  Vehicles {vehicles.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{vehicles.length}</span>}
+                </div>
+                {vehicles.length === 0 && !detailLoading
+                  ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>No vehicles on file.</p>
+                  : vehicles.map(v => (
+                    <div key={v.id} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{v.label || `${v.year} ${v.make} ${v.model}`.trim() || 'Unknown Vehicle'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {v.plate && `Plate: ${v.plate}`}{v.mileage ? ` · ${Number(v.mileage).toLocaleString()} mi` : ''}
+                        </div>
+                      </div>
+                      {v.status && <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: (STATUS_COLOR[v.status] || '#888') + '22', color: STATUS_COLOR[v.status] || '#888' }}>{v.status}</span>}
+                    </div>
+                  ))
+                }
+              </div>
+
+              {/* Repair Orders */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  Repair Orders {ros.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{ros.length}</span>}
+                </div>
+                {ros.length === 0 && !detailLoading
+                  ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>No repair orders yet.</p>
+                  : ros.slice(0, 5).map(r => (
+                    <div key={r.ro_number} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{r.ro_number}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.vehicle}{r.concern ? ` · ${r.concern}` : ''}</div>
+                        {r.opened_date && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(r.opened_date).toLocaleDateString()}</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: (STATUS_COLOR[r.status] || '#888') + '22', color: STATUS_COLOR[r.status] || '#888', whiteSpace: 'nowrap' }}>{r.status}</span>
+                    </div>
+                  ))
+                }
+              </div>
+
+              {/* Invoices */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  Invoices {invoices.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{invoices.length}</span>}
+                </div>
+                {invoices.length === 0 && !detailLoading
+                  ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>No invoices yet.</p>
+                  : invoices.slice(0, 5).map(inv => (
+                    <div key={inv.number} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{inv.number}</div>
+                        {inv.date && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(inv.date).toLocaleDateString()}</div>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{money(calcTotal(inv))}</div>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: (STATUS_COLOR[inv.status] || '#888') + '22', color: STATUS_COLOR[inv.status] || '#888' }}>{inv.status}</span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10, background: 'var(--surface-soft)' }}>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => handleFollowUp(selected.id, selected.name)}>Send Follow-up</button>
+              {selected.portalToken && (
+                <button className="btn" onClick={() => { const url = `${window.location.origin}/portal/${selected.portalToken}`; navigator.clipboard.writeText(url).then(() => notify('Portal link copied!')); }}>
+                  🔗 Portal Link
+                </button>
+              )}
+              <button className="btn" onClick={() => setSelected(null)}>Close</button>
+            </div>
+          </div>
+        </>
       )}
-    </Panel>
+    </>
   );
 }
