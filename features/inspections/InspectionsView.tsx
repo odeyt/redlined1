@@ -8,7 +8,8 @@ import {
   INSPECTION_TEMPLATE, INSPECTION_STATUSES,
   type Inspection, type InspectionItem,
 } from '@/services/inspectionService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import type { Vehicle } from '@/lib/types';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 
@@ -30,6 +31,7 @@ export function InspectionsView() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function InspectionsView() {
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
@@ -280,7 +283,7 @@ export function InspectionsView() {
                     <label>Customer</label>
                     <select value={form.customerId} onChange={e => {
                       const c = customers.find(c => c.id === e.target.value);
-                      setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
+                      setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: '', vin: '' }));
                     }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
                       <option value="">— select —</option>
                       {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -290,13 +293,25 @@ export function InspectionsView() {
                     <label>Customer Name</label>
                     <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
                   </div>
-                  <div className="login-field">
-                    <label>Vehicle</label>
-                    <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required />
+                  <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Vehicle {form.customerId && allVehicles.filter(v => v.customerId === form.customerId).length === 0 && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(no registered vehicles — type manually below)</span>}</label>
+                    {form.customerId && allVehicles.filter(v => v.customerId === form.customerId).length > 0 ? (
+                      <select value={form.vehicle} onChange={e => {
+                        const v = allVehicles.find(v => v.label === e.target.value && v.customerId === form.customerId);
+                        setForm(f => ({ ...f, vehicle: e.target.value, vin: v?.vin ?? f.vin }));
+                      }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                        <option value="">— select vehicle —</option>
+                        {allVehicles.filter(v => v.customerId === form.customerId).map(v => (
+                          <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="e.g. 2020 Toyota Camry" style={{ width: '100%' }} />
+                    )}
                   </div>
                   <div className="login-field">
                     <label>VIN</label>
-                    <input value={form.vin} onChange={e => setForm(f => ({ ...f, vin: e.target.value }))} />
+                    <input value={form.vin} onChange={e => setForm(f => ({ ...f, vin: e.target.value }))} placeholder="Auto-filled from vehicle" />
                   </div>
                   <div className="login-field">
                     <label>Mileage</label>
