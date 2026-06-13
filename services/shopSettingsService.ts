@@ -15,7 +15,15 @@ export interface ShopSettings {
   estimatePrefix: string;
   businessType: string;
   serviceTypes: string;
+  enabledPaymentMethods: string[];
 }
+
+/* Default set that covers most auto repair shops out of the box */
+export const DEFAULT_PAYMENT_METHODS = [
+  'Cash', 'Check', 'Credit Card', 'Debit Card',
+  'Apple Pay', 'Google Pay', 'Zelle', 'Venmo',
+  'Fleet Account',
+];
 
 export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data, error } = await supabase
@@ -39,6 +47,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     estimatePrefix: data.estimate_prefix ?? 'EST-',
     businessType: data.business_type ?? 'Single repair shop',
     serviceTypes: data.service_types ?? 'Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom',
+    enabledPaymentMethods: data.enabled_payment_methods ?? DEFAULT_PAYMENT_METHODS,
   };
 }
 
@@ -58,6 +67,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.estimatePrefix !== undefined) update.estimate_prefix = settings.estimatePrefix;
   if (settings.businessType !== undefined) update.business_type = settings.businessType;
   if (settings.serviceTypes !== undefined) update.service_types = settings.serviceTypes;
+  if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
   const { error } = await supabase.from('shop_settings').update(update).eq('id', 1);
   if (error) throw error;
 }

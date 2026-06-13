@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
-import { fetchShopSettings, saveShopSettings, uploadLogo } from '@/services/shopSettingsService';
+import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS } from '@/services/shopSettingsService';
+import { PAYMENT_METHODS } from '@/services/paymentService';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -46,6 +47,7 @@ export function SettingsView() {
   const [estimatePrefix, setEstimatePrefix] = useState('EST-');
   const [businessType, setBusinessType] = useState('Single repair shop');
   const [serviceTypes, setServiceTypes] = useState('Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom');
+  const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +68,7 @@ export function SettingsView() {
       setEstimatePrefix(s.estimatePrefix ?? 'EST-');
       setBusinessType(s.businessType ?? 'Single repair shop');
       setServiceTypes(s.serviceTypes ?? '');
+      setEnabledPaymentMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS);
     }).catch(err => setError('Could not load settings: ' + err.message));
   }, []);
 
@@ -113,6 +116,7 @@ export function SettingsView() {
         estimatePrefix,
         businessType,
         serviceTypes,
+        enabledPaymentMethods,
       });
       // Tell sidebar to update immediately
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules } }));
@@ -277,6 +281,89 @@ export function SettingsView() {
               <span key={s} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 12 }}>{s}</span>
             ))}
           </div>
+        </div>
+
+        {/* Payment Methods */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Accepted Payment Methods</h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                Only checked methods appear in the payment dropdown.{' '}
+                <strong>{enabledPaymentMethods.length}</strong> of {PAYMENT_METHODS.length} enabled.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="mini-btn" onClick={() => setEnabledPaymentMethods(PAYMENT_METHODS.map(m => m.value))}>Enable All</button>
+              <button className="mini-btn" onClick={() => setEnabledPaymentMethods(DEFAULT_PAYMENT_METHODS)}>Reset to Defaults</button>
+            </div>
+          </div>
+
+          {/* Recommended banner */}
+          <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(34,197,94,.07)', border: '1px solid rgba(34,197,94,.25)', borderRadius: 8, fontSize: 12, color: 'var(--text)' }}>
+            💡 <strong>Best practice for most auto repair shops:</strong> Cash · Check · Credit Card · Debit Card · Apple Pay · Google Pay · Zelle · Fleet Account.
+            Enable crypto or wire transfer only if you actively accept them — a shorter list reduces entry errors.
+          </div>
+
+          {/* Grouped method toggles */}
+          {(['In Person', 'Card', 'Digital', 'Bank', 'Account', 'Crypto'] as const).map(group => {
+            const groupMethods = PAYMENT_METHODS.filter(m => m.group === group);
+            if (groupMethods.length === 0) return null;
+            const groupLabels: Record<string, string> = {
+              'In Person': '💵 In Person',
+              'Card':      '💳 Card',
+              'Digital':   '📱 Digital Wallets',
+              'Bank':      '🏛 Bank / Wire',
+              'Account':   '📋 Account / Net Terms',
+              'Crypto':    '₿ Cryptocurrency',
+            };
+            const allOn = groupMethods.every(m => enabledPaymentMethods.includes(m.value));
+            return (
+              <div key={group} style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{groupLabels[group]}</span>
+                  <button
+                    className="mini-btn"
+                    style={{ fontSize: 10, padding: '2px 8px' }}
+                    onClick={() => {
+                      const vals = groupMethods.map(m => m.value);
+                      if (allOn) setEnabledPaymentMethods(prev => prev.filter(v => !vals.includes(v)));
+                      else setEnabledPaymentMethods(prev => [...new Set([...prev, ...vals])]);
+                    }}
+                  >
+                    {allOn ? 'Disable group' : 'Enable group'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {groupMethods.map(m => {
+                    const on = enabledPaymentMethods.includes(m.value);
+                    return (
+                      <button
+                        key={m.value}
+                        onClick={() => setEnabledPaymentMethods(prev =>
+                          on ? prev.filter(v => v !== m.value) : [...prev, m.value]
+                        )}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 7,
+                          padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
+                          border: on ? '2px solid var(--accent)' : '1px solid var(--line)',
+                          background: on ? 'rgba(204,0,0,0.07)' : 'var(--surface-soft)',
+                          fontWeight: on ? 700 : 400,
+                          color: on ? 'var(--accent)' : 'var(--muted)',
+                          transition: 'all .12s',
+                        }}
+                      >
+                        <div style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${on ? 'var(--accent)' : 'var(--line)'}`, background: on ? 'var(--accent)' : 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                          {on && <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+                        </div>
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Module Visibility */}

@@ -9,6 +9,7 @@ import {
 } from '@/services/paymentService';
 import { fetchInvoices, formatMoney, CURRENCIES } from '@/services/invoiceService';
 import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchShopSettings, DEFAULT_PAYMENT_METHODS } from '@/services/shopSettingsService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 const fmtTime = (d: string) => d ? new Date(d).toLocaleString() : '—';
@@ -31,8 +32,16 @@ const EMPTY_FORM = {
   paymentDate: new Date().toISOString().slice(0, 16),
 };
 
-// Group payment methods for the select
-const METHOD_GROUPS = Array.from(new Set(PAYMENT_METHODS.map(m => m.group)));
+// Build grouped method list filtered to shop-enabled methods (populated after settings load)
+function buildGroups(enabled: string[]) {
+  const methods = enabled.length > 0
+    ? PAYMENT_METHODS.filter(m => enabled.includes(m.value))
+    : PAYMENT_METHODS;
+  return Array.from(new Set(methods.map(m => m.group))).map(g => ({
+    group: g,
+    methods: methods.filter(m => m.group === g),
+  }));
+}
 
 export function PaymentsView() {
   const { prefill } = useAppState();
@@ -48,11 +57,13 @@ export function PaymentsView() {
   const [invoices, setInvoices] = useState<{ number: string; customerName: string; total: number; currency: string }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
+  const [enabledMethods, setEnabledMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
   const [filterMethod, setFilterMethod] = useState('All');
 
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchShopSettings().then(s => setEnabledMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS)).catch(() => {});
     fetchInvoices().then(invs => setInvoices(invs.map(i => ({
       number: i.invoiceNumber,
       customerName: i.customerName,
@@ -243,9 +254,9 @@ export function PaymentsView() {
                   <label>Payment Method</label>
                   <select value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}
                     style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                    {METHOD_GROUPS.map(group => (
+                    {buildGroups(enabledMethods).map(({ group, methods }) => (
                       <optgroup key={group} label={group}>
-                        {PAYMENT_METHODS.filter(m => m.group === group).map(m => (
+                        {methods.map(m => (
                           <option key={m.value} value={m.value}>{m.label}</option>
                         ))}
                       </optgroup>
@@ -334,9 +345,9 @@ export function PaymentsView() {
             <select value={filterMethod} onChange={e => setFilterMethod(e.target.value)}
               style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
               <option value="All">All Methods</option>
-              {METHOD_GROUPS.map(group => (
+              {buildGroups(enabledMethods).map(({ group, methods }) => (
                 <optgroup key={group} label={group}>
-                  {PAYMENT_METHODS.filter(m => m.group === group).map(m => (
+                  {methods.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </optgroup>
