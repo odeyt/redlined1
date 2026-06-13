@@ -145,28 +145,45 @@ export const aiInsights: AiInsight[] = [
 ];
 
 export const navItems: [string, string, string, string][] = [
-  ['dashboard', 'dashboard', 'Dashboard', '12'],
-  ['access', 'userkey', 'Login & Roles', '4'],
-  ['subscriptions', 'shield', 'Plans & Gates', 'Pro Trial'],
-  ['ai', 'ai', 'AI Copilot', '4'],
-  ['customers', 'customers', 'Customers', '138'],
-  ['vehicles', 'vehicle', 'Vehicles', '312'],
-  ['job-cards', 'clipboard', 'Job Cards', '18'],
-  ['scheduling', 'calendar', 'Scheduling', '9'],
-  ['inspections', 'inspection', 'Inspections', '2'],
-  ['communication', 'message', 'Communication', '3'],
-  ['estimates', 'estimate', 'Estimates', '2'],
-  ['repair-orders', 'wrench', 'Repair Orders', '21'],
-  ['invoices', 'invoice', 'Invoicing', '14'],
-  ['payments', 'payment', 'Payments', '1'],
-  ['parts', 'parts', 'Parts', '486'],
-  ['technicians', 'technician', 'Technicians', '3'],
-  ['vin', 'vin', 'VIN Decode', ''],
-  ['dtc', 'warning', 'DTC Lookup', ''],
-  ['diagnostics', 'scan', 'Diagnostics', '3'],
-  ['appointments', 'calendar', 'Appointments', '9'],
-  ['reports', 'chart', 'Reports', ''],
-  ['settings', 'settings', 'Settings', ''],
+  // ── Overview
+  ['dashboard',     'dashboard',  'Dashboard',     '12'],
+
+  // ── Intake
+  ['customers',     'customers',  'Customers',     '138'],
+  ['vehicles',      'vehicle',    'Vehicles',      '312'],
+  ['appointments',  'calendar',   'Appointments',  '9'],
+
+  // ── Job & Dispatch
+  ['job-cards',     'clipboard',  'Job Cards',     '18'],
+  ['scheduling',    'calendar',   'Scheduling',    '9'],
+
+  // ── Inspection & Estimate
+  ['inspections',   'inspection', 'Inspections',   '2'],
+  ['estimates',     'estimate',   'Estimates',     '2'],
+
+  // ── Repair
+  ['repair-orders', 'wrench',     'Repair Orders', '21'],
+  ['technicians',   'technician', 'Technicians',   '3'],
+  ['parts',         'parts',      'Parts',         '486'],
+
+  // ── Billing
+  ['invoices',      'invoice',    'Invoicing',     '14'],
+  ['payments',      'payment',    'Payments',      '1'],
+
+  // ── Communication
+  ['communication', 'message',    'Communication', '3'],
+
+  // ── Diagnostics & Tools
+  ['vin',           'vin',        'VIN Decode',    ''],
+  ['dtc',           'warning',    'DTC Lookup',    ''],
+  ['diagnostics',   'scan',       'Diagnostics',   '3'],
+  ['ai',            'ai',         'AI Copilot',    '4'],
+
+  // ── Reports & Admin
+  ['reports',       'chart',      'Reports',       ''],
+  ['access',        'userkey',    'Login & Roles', '4'],
+  ['subscriptions', 'shield',     'Plans & Gates', 'Pro Trial'],
+  ['settings',      'settings',   'Settings',      ''],
 ];
 
 export const moduleTitles: Record<string, [string, string]> = {
