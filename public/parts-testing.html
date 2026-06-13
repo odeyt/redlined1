@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Parts Inventory — Testing Procedures</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; background: #fff; padding: 2rem 2.5rem; font-size: 13px; line-height: 1.6; max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .btn-primary:hover { background: #a93226; }
+  .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+  .sum-card { background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 20px; font-weight: 700; }
+  .sum-label { font-size: 10px; color: #666; margin-top: 2px; }
+  .tester-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .tester-field label { font-size: 11px; color: #666; display: block; margin-bottom: 4px; }
+  .tester-field input { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  .fix-banner { background: #EDE9FE; border: 1px solid #8B5CF6; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; }
+  .fix-banner ul { margin: 6px 0 0 16px; }
+  .fix-banner li { margin-bottom: 3px; }
+  .section-rule { display: flex; align-items: center; gap: 10px; margin: 24px 0 14px; }
+  .section-rule hr { flex: 1; border: none; border-top: 1px solid #e0e0e0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .tc-num { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tc-num.create   { background: #DBEAFE; color: #1E3A8A; }
+  .tc-num.edit     { background: #D1FAE5; color: #064E3B; }
+  .tc-num.photo    { background: #FCE7F3; color: #700F40; }
+  .tc-num.barcode  { background: #FEF3C7; color: #78350F; }
+  .tc-num.csv      { background: #DCFCE7; color: #14532D; }
+  .tc-num.stock    { background: #FFF7ED; color: #7C2D12; }
+  .tc-num.stats    { background: #E0F2FE; color: #075985; }
+  .tc-num.search   { background: #F3E8FF; color: #4C1D95; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-create  { background: #DBEAFE; color: #1E3A8A; }
+  .badge-edit    { background: #D1FAE5; color: #064E3B; }
+  .badge-photo   { background: #FCE7F3; color: #700F40; }
+  .badge-barcode { background: #FEF3C7; color: #78350F; }
+  .badge-csv     { background: #DCFCE7; color: #14532D; }
+  .badge-stock   { background: #FFF7ED; color: #7C2D12; }
+  .badge-stats   { background: #E0F2FE; color: #075985; }
+  .badge-search  { background: #F3E8FF; color: #4C1D95; }
+  .tc-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .tc-type { font-size: 11px; color: #666; display: flex; gap: 6px; align-items: center; }
+  ol.steps { margin: 0 0 12px 0; padding-left: 0; list-style: none; }
+  ol.steps li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  ol.steps li:last-child { border-bottom: none; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; margin-top: 1px; color: #555; }
+  .expect { background: #f8f8f8; border-radius: 7px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .expect-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 3px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .result-row { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #555; margin-top: 4px; }
+  .result-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .note-line { font-size: 11px; color: #888; margin-top: 6px; }
+  .defect-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  .defect-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .defect-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .defect-table input, .defect-table select { width: 100%; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .signoff-box { background: #f8f8f8; border-radius: 8px; padding: 14px; }
+  .signoff-box h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 10px; }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+  .field-group input, .field-group select, .field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .summary-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 5px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .summary-table input { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; text-align: center; }
+  .csv-cols { font-family: monospace; font-size: 11px; background: #f4f4f4; border-radius: 6px; padding: 8px 12px; margin-top: 6px; line-height: 2; }
+  @media print { .toolbar { display: none !important; } body { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="window.print()">&#128438; Print / Save PDF</button>
+</div>
+
+<h1>🔩 Parts Inventory — Testing Procedures</h1>
+<div class="meta">Version 1.0 &nbsp;·&nbsp; Platform: redlined1.com &nbsp;·&nbsp; Date: <span id="today"></span></div>
+
+<div class="tester-row">
+  <div class="tester-field"><label>Tester name</label><input type="text" placeholder="Full name" /></div>
+  <div class="tester-field"><label>Test date</label><input type="text" id="testdate" /></div>
+  <div class="tester-field"><label>Browser / device</label><input type="text" placeholder="Chrome 125 / Windows 11" /></div>
+</div>
+
+<div class="summary-grid">
+  <div class="sum-card"><div class="sum-num">35</div><div class="sum-label">Total tests</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Create &amp; Edit</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Photos &amp; Camera</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Barcode Scanning</div></div>
+  <div class="sum-card"><div class="sum-num">7</div><div class="sum-label">CSV Bulk Import</div></div>
+  <div class="sum-card"><div class="sum-num">11</div><div class="sum-label">Stock / Stats / Search</div></div>
+</div>
+
+<div class="fix-banner">
+  <strong>Features covered in this release:</strong>
+  <ul>
+    <li><strong>Add / Edit part</strong> — all fields, validation, margin preview, quantity inline edit</li>
+    <li><strong>Photo upload</strong> — Browse (multi-file) and Camera capture (device camera) in both the Add form and detail panel</li>
+    <li><strong>Barcode scanner</strong> — USB/Bluetooth hardware scanner, on-screen scan input, lookup by barcode or part #</li>
+    <li><strong>CSV Bulk Import</strong> — template download, file upload, row preview, progress bar, duplicate skip</li>
+    <li><strong>Low Stock alerts</strong> — threshold trigger, out-of-stock badge, stock meter, reorder note copy</li>
+    <li><strong>Stats bar</strong> — Total SKUs, Low Stock count, Cost Value, Retail Value, Margin</li>
+    <li><strong>Search &amp; filter</strong> — keyword search, category filter, combined filter</li>
+    <li><strong>Reserve unit</strong> — decrement quantity, block when zero</li>
+    <li><strong>Delete part</strong> — confirm dialog, Supabase persistence</li>
+  </ul>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION A — CREATE & EDIT
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section A — Create &amp; Edit (6 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num create">A1</div><div><div class="tc-title">Add new part — all fields happy path</div><div class="tc-type"><span class="badge badge-create">Create</span> Happy path</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click <strong>+ Add Part</strong> or the <strong>➕ Add / Edit</strong> tab.</span></li>
+    <li><div class="step-num">2</div><span>Fill: Part # = <code>TEST-001</code>, Brand = <code>Bosch</code>, Description = <code>Test Brake Pad</code>, Category = <code>Brakes</code>.</span></li>
+    <li><div class="step-num">3</div><span>Set Cost = <code>18.50</code>, Retail = <code>42.00</code>. Verify the <strong>margin preview</strong> bar appears below: "Margin: 55.9% — Cost $18.50 · Retail $42.00 · Profit $23.50 per unit".</span></li>
+    <li><div class="step-num">4</div><span>Fill Qty = <code>10</code>, Low Stock Alert At = <code>3</code>, Reorder Qty = <code>6</code>, Bin Location = <code>A-1</code>, Barcode = <code>TEST001BC</code>.</span></li>
+    <li><div class="step-num">5</div><span>Fill Supplier Name = <code>NAPA</code>, Phone = <code>(555) 111-2222</code>, Compatibility = <code>Ford F-150 2018+</code>, Notes = <code>OEM ref: 98765</code>.</span></li>
+    <li><div class="step-num">6</div><span>Click <strong>Add to Inventory</strong>. Verify toast "TEST-001 added to inventory."</span></li>
+    <li><div class="step-num">7</div><span>Click the new row in the Inventory tab. Verify the detail panel shows all entered values correctly.</span></li>
+    <li><div class="step-num">8</div><span>Reload the page. Confirm the part persists (Supabase saved).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Part created, all fields saved, detail panel matches input, persists after reload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Margin preview appears when both Cost and Retail are filled</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms part number</span></div>
+    <div class="check"><div class="box"></div><span>Part appears in the Inventory list immediately</span></div>
+    <div class="check"><div class="box"></div><span>Detail panel shows all 15+ fields correctly</span></div>
+    <div class="check"><div class="box"></div><span>Status badge shows "Available" (qty 10 &gt; threshold 3)</span></div>
+    <div class="check"><div class="box"></div><span>Part persists after page reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a1"/> Pass</label><label><input type="radio" name="a1"/> Fail</label><label><input type="radio" name="a1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num create">A2</div><div><div class="tc-title">Required field validation — part number and description</div><div class="tc-type"><span class="badge badge-create">Create</span> Validation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the Add Part form. Leave all fields blank. Click <strong>Add to Inventory</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify error "Part number is required." No part created.</span></li>
+    <li><div class="step-num">3</div><span>Fill Part # only. Click Add. Verify error "Description is required."</span></li>
+    <li><div class="step-num">4</div><span>Fill both required fields. Verify save succeeds.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Clear inline error for each missing required field. No silent failure or crash.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Empty Part # → "Part number is required."</span></div>
+    <div class="check"><div class="box"></div><span>Empty Description → "Description is required."</span></div>
+    <div class="check"><div class="box"></div><span>Error banner is dismissible (✕ button)</span></div>
+    <div class="check"><div class="box"></div><span>No part added to inventory on validation failure</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a2"/> Pass</label><label><input type="radio" name="a2"/> Fail</label><label><input type="radio" name="a2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A3</div><div><div class="tc-title">Edit part — update fields and verify Part # is locked</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click any part in the Inventory list. In the detail panel, click <strong>✏️ Edit</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Confirm the Add/Edit tab opens. Verify the <strong>Part Number field is greyed out</strong> and cannot be edited.</span></li>
+    <li><div class="step-num">3</div><span>Change the Retail price, Brand, and Location. Click <strong>Save Changes</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Verify the detail panel updates immediately with new values.</span></li>
+    <li><div class="step-num">5</div><span>Reload the page — confirm all changes persisted.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Part # locked during edit. All other fields editable. Changes saved and reflected in detail panel. Persists after reload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Part # field is disabled (greyed) in edit mode</span></div>
+    <div class="check"><div class="box"></div><span>Changes to Retail, Brand, Location save correctly</span></div>
+    <div class="check"><div class="box"></div><span>Margin preview updates as Retail changes</span></div>
+    <div class="check"><div class="box"></div><span>Detail panel reflects new values after Save</span></div>
+    <div class="check"><div class="box"></div><span>Changes persist after reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a3"/> Pass</label><label><input type="radio" name="a3"/> Fail</label><label><input type="radio" name="a3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A4</div><div><div class="tc-title">Inline quantity adjustment</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Quick edit</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the Inventory table, find a part's <strong>On Hand</strong> value. Click the underlined quantity number.</span></li>
+    <li><div class="step-num">2</div><span>Verify a small input box with ✓ and ✕ buttons appears inline (no full form open).</span></li>
+    <li><div class="step-num">3</div><span>Change the quantity to a new value. Click ✓ to save.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast "quantity updated to X." and the table cell shows the new value.</span></li>
+    <li><div class="step-num">5</div><span>Click ✕ on another row without saving. Verify quantity reverts to original.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Inline qty edit works without opening the full edit form. ✓ saves, ✕ cancels. Toast confirms.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Clicking qty number opens inline input</span></div>
+    <div class="check"><div class="box"></div><span>✓ saves and shows toast</span></div>
+    <div class="check"><div class="box"></div><span>✕ cancels with no change</span></div>
+    <div class="check"><div class="box"></div><span>Detail panel qty also updates if that part is selected</span></div>
+    <div class="check"><div class="box"></div><span>Status badge changes if new qty crosses low-stock threshold</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a4"/> Pass</label><label><input type="radio" name="a4"/> Fail</label><label><input type="radio" name="a4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A5</div><div><div class="tc-title">Reserve unit decrements quantity</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Stock action</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select a part with quantity ≥ 2. Note the current quantity.</span></li>
+    <li><div class="step-num">2</div><span>In the detail panel, click <strong>Reserve 1 Unit</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast "X reserved. Y remaining." where Y = original quantity − 1.</span></li>
+    <li><div class="step-num">4</div><span>Verify the detail panel On Hand value decremented by 1.</span></li>
+    <li><div class="step-num">5</div><span>On a part with quantity = 0, verify the Reserve button is greyed out / disabled.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Reserve 1 Unit decrements qty by 1 and updates detail panel and table row. Disabled when out of stock.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Quantity decrements by 1</span></div>
+    <div class="check"><div class="box"></div><span>Toast shows correct remaining count</span></div>
+    <div class="check"><div class="box"></div><span>Table row quantity updates immediately</span></div>
+    <div class="check"><div class="box"></div><span>Reserve button disabled when qty = 0</span></div>
+  </div>
+  <div class="note-line">Qty before: _______________ &nbsp;&nbsp; Qty after: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a5"/> Pass</label><label><input type="radio" name="a5"/> Fail</label><label><input type="radio" name="a5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A6</div><div><div class="tc-title">Delete part — confirm dialog and persistence</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Destructive</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select any part. In the detail panel, click <strong>Delete</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify the button changes to <strong>"Confirm? Yes / No"</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>No</strong>. Verify part is NOT deleted and panel returns to normal state.</span></li>
+    <li><div class="step-num">4</div><span>Click Delete again, then <strong>Yes</strong>. Verify part disappears from the list.</span></li>
+    <li><div class="step-num">5</div><span>Reload page. Verify deleted part is gone from Supabase.</span></li>
+    <li><div class="step-num">6</div><span>Repeat using the <strong>Delete Part</strong> button inside the Edit form.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Confirm step prevents accidental deletes. Confirmed delete removes part from list and Supabase permanently.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Delete button requires confirmation before acting</span></div>
+    <div class="check"><div class="box"></div><span>"No" cancels and restores normal button state</span></div>
+    <div class="check"><div class="box"></div><span>Confirmed delete removes row from Inventory list</span></div>
+    <div class="check"><div class="box"></div><span>Part absent after page reload</span></div>
+    <div class="check"><div class="box"></div><span>Delete from Edit form also works with confirm</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a6"/> Pass</label><label><input type="radio" name="a6"/> Fail</label><label><input type="radio" name="a6"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION B — PHOTOS & CAMERA
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section B — Photos &amp; Camera Capture (5 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num photo">B1</div><div><div class="tc-title">Browse and upload photos from computer (detail panel)</div><div class="tc-type"><span class="badge badge-photo">Photo</span> Existing part</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select any existing part in the Inventory list. Scroll down to the <strong>Photos</strong> section in the detail panel.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>🖼️ Browse</strong>. A file picker dialog opens.</span></li>
+    <li><div class="step-num">3</div><span>Select 2 image files (JPG or PNG) from your computer. Confirm the selection.</span></li>
+    <li><div class="step-num">4</div><span>Verify "⏳ Uploading…" state appears on the Browse button while uploading.</span></li>
+    <li><div class="step-num">5</div><span>Verify toast "2 photos uploaded." and both images appear as 80×80 thumbnails in the Photos section.</span></li>
+    <li><div class="step-num">6</div><span>Reload the page. Reselect the same part. Verify both photos are still visible (persisted to Supabase Storage).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Multiple photos upload, display as thumbnails, persist after reload. Uploading state visible during upload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>File picker accepts images (JPG, PNG, WEBP)</span></div>
+    <div class="check"><div class="box"></div><span>Uploading state shown during upload</span></div>
+    <div class="check"><div class="box"></div><span>Both thumbnails appear in Photos section</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms count uploaded</span></div>
+    <div class="check"><div class="box"></div><span>Photos count in table row updates (e.g. "📷 2 photos")</span></div>
+    <div class="check"><div class="box"></div><span>Photos still visible after page reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b1"/> Pass</label><label><input type="radio" name="b1"/> Fail</label><label><input type="radio" name="b1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num photo">B2</div><div><div class="tc-title">Camera capture in detail panel (mobile / tablet)</div><div class="tc-type"><span class="badge badge-photo">Photo</span> Camera</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the app on a <strong>mobile phone or tablet</strong>. Navigate to Parts Inventory.</span></li>
+    <li><div class="step-num">2</div><span>Select any part. In the Photos section of the detail panel, click <strong>📸 Camera</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Verify the device <strong>rear camera</strong> activates (or OS camera picker appears).</span></li>
+    <li><div class="step-num">4</div><span>Take a photo and confirm. Verify the photo uploads and thumbnail appears.</span></li>
+    <li><div class="step-num">5</div><span>On a <strong>desktop</strong>, click Camera — verify a file picker opens as fallback (desktop has no camera API).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Camera opens on mobile/tablet (rear camera preferred). Desktop falls back to file picker. Photo uploads successfully.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Mobile: Camera button activates device camera</span></div>
+    <div class="check"><div class="box"></div><span>Desktop: Camera button falls back to file picker</span></div>
+    <div class="check"><div class="box"></div><span>Captured photo appears as thumbnail</span></div>
+    <div class="check"><div class="box"></div><span>Photo persists after reload</span></div>
+  </div>
+  <div class="note-line">Tested on (device): _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b2"/> Pass</label><label><input type="radio" name="b2"/> Fail</label><label><input type="radio" name="b2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num photo">B3</div><div><div class="tc-title">Add photos during new part creation (Add Part form)</div><div class="tc-type"><span class="badge badge-photo">Photo</span> New part</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click <strong>+ Add Part</strong>. Fill Part # = <code>PHOTO-TEST-001</code> and Description = <code>Photo test part</code>.</span></li>
+    <li><div class="step-num">2</div><span>Scroll to the <strong>Photos</strong> section at the bottom of the form.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>🖼️ Browse</strong>. Select 1 image file.</span></li>
+    <li><div class="step-num">4</div><span>Verify an 80×80 thumbnail preview appears immediately (local preview before saving).</span></li>
+    <li><div class="step-num">5</div><span>Click the <strong>✕</strong> on the thumbnail. Verify it's removed from the preview.</span></li>
+    <li><div class="step-num">6</div><span>Add another image. Click <strong>Add to Inventory</strong>.</span></li>
+    <li><div class="step-num">7</div><span>Verify toast "PHOTO-TEST-001 added to inventory." Find the part and confirm the photo is attached.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Local preview shown before saving. Remove works before save. Photo uploaded immediately after part created. Visible in detail panel.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Thumbnail preview shown in form before saving</span></div>
+    <div class="check"><div class="box"></div><span>✕ removes thumbnail from preview</span></div>
+    <div class="check"><div class="box"></div><span>"X photo(s) selected" count shown in photo area</span></div>
+    <div class="check"><div class="box"></div><span>After save, photo visible in detail panel</span></div>
+    <div class="check"><div class="box"></div><span>Photo persists after reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b3"/> Pass</label><label><input type="radio" name="b3"/> Fail</label><label><input type="radio" name="b3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num photo">B4</div><div><div class="tc-title">Delete individual photo</div><div class="tc-type"><span class="badge badge-photo">Photo</span> Destructive</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select a part that has at least 2 photos. Note the current count (e.g. "📷 2 photos").</span></li>
+    <li><div class="step-num">2</div><span>In the detail panel Photos section, click the red <strong>✕</strong> badge on one thumbnail.</span></li>
+    <li><div class="step-num">3</div><span>Verify the thumbnail disappears immediately and toast "Photo removed." appears.</span></li>
+    <li><div class="step-num">4</div><span>Verify the photo count in the table row decrements (e.g. "📷 1 photo").</span></li>
+    <li><div class="step-num">5</div><span>Reload and confirm the deleted photo is gone and remaining photo is still visible.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Photo removed from UI and Supabase Storage. Count updates. Remaining photos unaffected.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Clicking ✕ removes thumbnail immediately</span></div>
+    <div class="check"><div class="box"></div><span>Toast "Photo removed." shown</span></div>
+    <div class="check"><div class="box"></div><span>Photo count in table row decrements</span></div>
+    <div class="check"><div class="box"></div><span>Deleted photo absent after reload</span></div>
+    <div class="check"><div class="box"></div><span>Remaining photos unaffected</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b4"/> Pass</label><label><input type="radio" name="b4"/> Fail</label><label><input type="radio" name="b4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num photo">B5</div><div><div class="tc-title">Photo count displayed in Inventory table</div><div class="tc-type"><span class="badge badge-photo">Photo</span> Display</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the Inventory table, find a part with 0 photos. Verify no photo indicator is shown in the row.</span></li>
+    <li><div class="step-num">2</div><span>Upload 1 photo to that part. Verify the table row now shows <strong>📷 1 photo</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Upload a second photo. Verify the count updates to <strong>📷 2 photos</strong>.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Photo indicator appears in table row and shows accurate count. Hidden when zero photos.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>No indicator shown for 0 photos</span></div>
+    <div class="check"><div class="box"></div><span>"📷 1 photo" shown after first upload</span></div>
+    <div class="check"><div class="box"></div><span>"📷 2 photos" (plural) shown after second upload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b5"/> Pass</label><label><input type="radio" name="b5"/> Fail</label><label><input type="radio" name="b5"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION C — BARCODE SCANNING
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section C — Barcode Scanning (6 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C1</div><div><div class="tc-title">On-screen barcode lookup input — found</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Happy path</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the <strong>Barcode / UPC</strong> value of any existing part (e.g. <code>TEST001BC</code>).</span></li>
+    <li><div class="step-num">2</div><span>Click the <strong>"Scan barcode or part #…"</strong> input at the top right of Parts Inventory.</span></li>
+    <li><div class="step-num">3</div><span>Type the barcode value and press <strong>Enter</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast "Found: [part description]" and the matching part is selected in the Inventory list.</span></li>
+    <li><div class="step-num">5</div><span>Verify the input clears after the lookup.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Correct part selected and detail panel opens. Input clears. Toast confirms description.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Part found by barcode value</span></div>
+    <div class="check"><div class="box"></div><span>Detail panel opens for found part</span></div>
+    <div class="check"><div class="box"></div><span>Toast shows "Found: [description]"</span></div>
+    <div class="check"><div class="box"></div><span>Input field clears after lookup</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c1"/> Pass</label><label><input type="radio" name="c1"/> Fail</label><label><input type="radio" name="c1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C2</div><div><div class="tc-title">On-screen lookup by Part Number</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Lookup</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the scan input, type a known <strong>Part Number</strong> (e.g. <code>TEST-001</code>) and press Enter.</span></li>
+    <li><div class="step-num">2</div><span>Verify the correct part is found and selected (same behavior as barcode lookup).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Lookup works by part number as well as barcode. Same result shown.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Part found by part number</span></div>
+    <div class="check"><div class="box"></div><span>Same detail panel opens as barcode search</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c2"/> Pass</label><label><input type="radio" name="c2"/> Fail</label><label><input type="radio" name="c2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C3</div><div><div class="tc-title">On-screen lookup — not found</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Not found</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Type a random string that does not exist as a barcode or part number (e.g. <code>XXXXXXXX</code>). Press Enter.</span></li>
+    <li><div class="step-num">2</div><span>Verify toast: <strong>"XXXXXXXX not found in inventory."</strong> No crash, no part selected.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Graceful "not found" message. No error state. Inventory list unchanged.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Toast "not found in inventory" shown</span></div>
+    <div class="check"><div class="box"></div><span>No part selected / detail panel unchanged</span></div>
+    <div class="check"><div class="box"></div><span>No crash or error banner</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c3"/> Pass</label><label><input type="radio" name="c3"/> Fail</label><label><input type="radio" name="c3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C4</div><div><div class="tc-title">USB/Bluetooth hardware barcode scanner</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Hardware scanner</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Connect a USB or Bluetooth barcode scanner to the computer. Do <strong>not</strong> click any input field — keep focus on the page body.</span></li>
+    <li><div class="step-num">2</div><span>Scan the barcode on a part that exists in inventory.</span></li>
+    <li><div class="step-num">3</div><span>Verify the scanner's rapid input is captured by the global keyboard listener and the part is found and selected automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast "Found: [description]."</span></li>
+    <li><div class="step-num">5</div><span>If no hardware scanner is available, simulate by rapidly pasting a barcode string into the page (not in an input) using a keyboard macro. Mark N/A if hardware is unavailable.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Hardware scanner input (rapid chars + Enter) triggers part lookup without needing to click any input field.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Global keyboard listener captures scanner input</span></div>
+    <div class="check"><div class="box"></div><span>Part found and detail panel opens</span></div>
+    <div class="check"><div class="box"></div><span>Works while focus is on page body (not in an input)</span></div>
+    <div class="check"><div class="box"></div><span>Does not interfere with normal typing in form fields</span></div>
+  </div>
+  <div class="note-line">Scanner model / type: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c4"/> Pass</label><label><input type="radio" name="c4"/> Fail</label><label><input type="radio" name="c4"/> N/A</label><label><input type="radio" name="c4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C5</div><div><div class="tc-title">Barcode displayed on part row and detail panel</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Display</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Find a part with a barcode value set. In the Inventory table row, verify <strong>🔲 [barcode]</strong> appears below the part number.</span></li>
+    <li><div class="step-num">2</div><span>Click the part. In the detail panel, verify barcode shown as <strong>🔲 Barcode: [value]</strong> in monospace font.</span></li>
+    <li><div class="step-num">3</div><span>Edit the part and clear the barcode field. Save. Verify the 🔲 indicator disappears from both locations.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Barcode shown in table row and detail panel. Hidden when blank.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>🔲 barcode shown in table row when set</span></div>
+    <div class="check"><div class="box"></div><span>Barcode shown in detail panel header section</span></div>
+    <div class="check"><div class="box"></div><span>Indicator hidden when barcode is blank</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c5"/> Pass</label><label><input type="radio" name="c5"/> Fail</label><label><input type="radio" name="c5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num barcode">C6</div><div><div class="tc-title">Barcode lookup does not trigger in form input fields</div><div class="tc-type"><span class="badge badge-barcode">Barcode</span> Isolation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the Add Part form. Click into the <strong>Barcode / UPC</strong> field.</span></li>
+    <li><div class="step-num">2</div><span>Type a barcode value rapidly (simulating a scanner) followed by Enter.</span></li>
+    <li><div class="step-num">3</div><span>Verify the barcode text is entered normally into the field. No part lookup is triggered. No toast appears.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Global barcode listener ignores keystrokes when focus is inside an input, textarea, or select.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Typing in form fields does not trigger part lookup</span></div>
+    <div class="check"><div class="box"></div><span>No "found" or "not found" toast while typing in inputs</span></div>
+    <div class="check"><div class="box"></div><span>Barcode value saved normally in the field</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c6"/> Pass</label><label><input type="radio" name="c6"/> Fail</label><label><input type="radio" name="c6"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION D — CSV BULK IMPORT
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section D — CSV Bulk Import (7 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D1</div><div><div class="tc-title">Download and inspect CSV template</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Template</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click <strong>📤 Bulk Import CSV</strong> in the Parts header. Verify the modal opens.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>⬇ Download CSV Template</strong>. Verify a file named <code>parts-import-template.csv</code> downloads.</span></li>
+    <li><div class="step-num">3</div><span>Open the file in Excel or Google Sheets. Verify the header row contains all required columns.</span></li>
+    <li><div class="step-num">4</div><span>Verify 2 sample rows are present with realistic data.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Template downloads as .csv with correct headers and 2 pre-filled sample rows.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Modal opens on Bulk Import CSV click</span></div>
+    <div class="check"><div class="box"></div><span>Template file downloads</span></div>
+    <div class="check"><div class="box"></div><span>Header row has: part_number, brand, description, category, cost, retail, quantity, location, barcode, supplier, supplier_phone, supplier_email, low_stock_threshold, reorder_qty, compatibility, notes</span></div>
+    <div class="check"><div class="box"></div><span>2 sample rows with realistic values</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d1"/> Pass</label><label><input type="radio" name="d1"/> Fail</label><label><input type="radio" name="d1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D2</div><div><div class="tc-title">Upload valid CSV — preview table shown</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Happy path</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Prepare a CSV with 5 new unique parts (use part numbers that don't exist in inventory, e.g. <code>BULK-001</code> to <code>BULK-005</code>).</span></li>
+    <li><div class="step-num">2</div><span>In the Bulk Import modal, click the file upload area and select the CSV.</span></li>
+    <li><div class="step-num">3</div><span>Verify <strong>Step 3</strong> appears: "Review 5 parts to import" with a preview table.</span></li>
+    <li><div class="step-num">4</div><span>Verify the table shows columns: #, Part #, Brand, Description, Category, Cost, Retail, Qty, Location.</span></li>
+    <li><div class="step-num">5</div><span>Verify the <strong>Import 5 Parts</strong> button is now enabled.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Preview table shows all 5 rows with correct data. Import button enabled. No import yet.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Step 3 preview appears after file selected</span></div>
+    <div class="check"><div class="box"></div><span>Correct row count shown in heading</span></div>
+    <div class="check"><div class="box"></div><span>All columns visible in preview table</span></div>
+    <div class="check"><div class="box"></div><span>Import button shows correct count and is enabled</span></div>
+    <div class="check"><div class="box"></div><span>No parts added to inventory yet at this step</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d2"/> Pass</label><label><input type="radio" name="d2"/> Fail</label><label><input type="radio" name="d2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D3</div><div><div class="tc-title">Confirm import — all rows added to inventory</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Import</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>With the 5-part preview loaded (from D2), click <strong>Import 5 Parts</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify the progress bar appears and fills from 0% to 100%.</span></li>
+    <li><div class="step-num">3</div><span>Verify the modal closes automatically when complete.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast "Bulk import done: 5 added."</span></li>
+    <li><div class="step-num">5</div><span>Verify all 5 new parts now appear in the Inventory list.</span></li>
+    <li><div class="step-num">6</div><span>Click each imported part and verify the detail panel shows correct data (description, cost, retail, category).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>All 5 rows imported. Progress bar advances. Toast confirms. All parts visible in inventory with correct data.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Progress bar shown during import</span></div>
+    <div class="check"><div class="box"></div><span>Modal closes after completion</span></div>
+    <div class="check"><div class="box"></div><span>Toast shows correct count</span></div>
+    <div class="check"><div class="box"></div><span>All 5 parts visible in Inventory tab</span></div>
+    <div class="check"><div class="box"></div><span>Spot-check: one imported part's detail panel matches CSV data</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d3"/> Pass</label><label><input type="radio" name="d3"/> Fail</label><label><input type="radio" name="d3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D4</div><div><div class="tc-title">Duplicate part numbers skipped gracefully</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Duplicate handling</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a CSV with 3 rows: 2 new unique part numbers and 1 that already exists in inventory.</span></li>
+    <li><div class="step-num">2</div><span>Upload and confirm the import.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast reads: "Bulk import done: 2 added, 1 failed (duplicates skipped)."</span></li>
+    <li><div class="step-num">4</div><span>Verify the 2 new parts are in inventory and the existing part's data was NOT overwritten.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Duplicates skipped without crashing the entire import. Other rows still succeed. Toast shows split count.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Import completes (no full crash on duplicate)</span></div>
+    <div class="check"><div class="box"></div><span>Toast shows "X added, Y failed (duplicates skipped)"</span></div>
+    <div class="check"><div class="box"></div><span>2 new parts added to inventory</span></div>
+    <div class="check"><div class="box"></div><span>Existing part's data not overwritten</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d4"/> Pass</label><label><input type="radio" name="d4"/> Fail</label><label><input type="radio" name="d4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D5</div><div><div class="tc-title">CSV missing part_number column — error shown</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Validation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a CSV with a header row that has <strong>no</strong> <code>part_number</code> column (e.g. only description, cost, retail).</span></li>
+    <li><div class="step-num">2</div><span>Upload this file in the Bulk Import modal.</span></li>
+    <li><div class="step-num">3</div><span>Verify an error message appears: "No valid rows found — every row must have a part_number."</span></li>
+    <li><div class="step-num">4</div><span>Verify the Import button remains disabled and no import occurs.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Clear error message. No import attempted. Modal remains open for user to fix and re-upload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Error message displayed in the modal</span></div>
+    <div class="check"><div class="box"></div><span>Import button stays disabled</span></div>
+    <div class="check"><div class="box"></div><span>No parts added to inventory</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d5"/> Pass</label><label><input type="radio" name="d5"/> Fail</label><label><input type="radio" name="d5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D6</div><div><div class="tc-title">CSV with quoted commas parses correctly</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Parser edge case</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a CSV where the description contains a comma: e.g. <code>"Oil Filter, Premium Grade"</code> (wrapped in double quotes in the CSV).</span></li>
+    <li><div class="step-num">2</div><span>Upload the file. Verify the preview table shows the full description with the comma intact.</span></li>
+    <li><div class="step-num">3</div><span>Import the part. Confirm the description is saved correctly in the detail panel.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Quoted CSV fields containing commas are handled correctly. Description preserved with comma.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Preview shows full description with comma</span></div>
+    <div class="check"><div class="box"></div><span>Saved description includes the comma</span></div>
+    <div class="check"><div class="box"></div><span>No column misalignment in that row</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d6"/> Pass</label><label><input type="radio" name="d6"/> Fail</label><label><input type="radio" name="d6"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num csv">D7</div><div><div class="tc-title">Cancel import modal — no data committed</div><div class="tc-type"><span class="badge badge-csv">CSV</span> Cancel flow</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the Bulk Import modal. Upload a valid CSV with new parts.</span></li>
+    <li><div class="step-num">2</div><span>Verify the preview table shows the rows.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>Cancel</strong> (or the ✕ close button) without clicking Import.</span></li>
+    <li><div class="step-num">4</div><span>Verify the modal closes and none of the CSV rows were added to inventory.</span></li>
+    <li><div class="step-num">5</div><span>Reopen the modal. Verify the preview is cleared (no stale data from the previous upload).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Cancelling clears the preview and adds nothing. Reopened modal is clean.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cancel closes modal</span></div>
+    <div class="check"><div class="box"></div><span>No parts from CSV added to inventory</span></div>
+    <div class="check"><div class="box"></div><span>Reopened modal shows no stale preview</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d7"/> Pass</label><label><input type="radio" name="d7"/> Fail</label><label><input type="radio" name="d7"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION E — STOCK ALERTS & LOW STOCK
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section E — Stock Alerts &amp; Low Stock Tab (5 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stock">E1</div><div><div class="tc-title">Status badge reflects stock level</div><div class="tc-type"><span class="badge badge-stock">Stock</span> Status logic</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Add or edit a part. Set qty = <code>10</code>, Low Stock At = <code>3</code>. Verify status badge = <strong style="color:#22c55e">Available</strong> (green).</span></li>
+    <li><div class="step-num">2</div><span>Inline-edit the quantity to <code>2</code> (below threshold 3). Verify badge changes to <strong style="color:#f59e0b">Low Stock</strong> (amber).</span></li>
+    <li><div class="step-num">3</div><span>Inline-edit quantity to <code>0</code>. Verify badge changes to <strong style="color:#ef4444">Out of Stock</strong> (red). Row opacity is reduced.</span></li>
+    <li><div class="step-num">4</div><span>Restore quantity to 10. Verify badge returns to Available.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Status badge dynamically reflects qty vs threshold. Three states: Available (green) / Low Stock (amber) / Out of Stock (red).</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Available: green badge when qty &gt; threshold</span></div>
+    <div class="check"><div class="box"></div><span>Low Stock: amber badge when qty ≤ threshold and &gt; 0</span></div>
+    <div class="check"><div class="box"></div><span>Out of Stock: red badge when qty = 0</span></div>
+    <div class="check"><div class="box"></div><span>Row opacity reduced for out-of-stock parts</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e1"/> Pass</label><label><input type="radio" name="e1"/> Fail</label><label><input type="radio" name="e1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stock">E2</div><div><div class="tc-title">Low Stock tab shows correct parts</div><div class="tc-type"><span class="badge badge-stock">Stock</span> Low Stock tab</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Ensure at least 2 parts have qty ≤ their threshold (one at 0, one above 0 but below threshold).</span></li>
+    <li><div class="step-num">2</div><span>Click the <strong>⚠️ Low Stock</strong> tab. Verify the count in the tab label matches the actual number of low-stock parts.</span></li>
+    <li><div class="step-num">3</div><span>Verify the amber summary banner shows: "X out of stock · Y below threshold · Reorder value: $Z".</span></li>
+    <li><div class="step-num">4</div><span>Verify cards are sorted lowest quantity first.</span></li>
+    <li><div class="step-num">5</div><span>Verify each card shows the stock meter bar (red for 0, amber for low).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Low Stock tab count accurate. Summary banner correct. Cards sorted by qty ascending. Stock meter visible.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Tab label count matches actual low-stock parts</span></div>
+    <div class="check"><div class="box"></div><span>Amber summary banner with correct out-of-stock and below-threshold counts</span></div>
+    <div class="check"><div class="box"></div><span>Reorder value in banner is correct</span></div>
+    <div class="check"><div class="box"></div><span>Cards sorted lowest qty first</span></div>
+    <div class="check"><div class="box"></div><span>Stock meter bar visible on each card</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e2"/> Pass</label><label><input type="radio" name="e2"/> Fail</label><label><input type="radio" name="e2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stock">E3</div><div><div class="tc-title">Copy Reorder Note to clipboard</div><div class="tc-type"><span class="badge badge-stock">Stock</span> Reorder</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>On the Low Stock tab, find a part card with a reorder qty set.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>📋 Copy Reorder Note</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast "Reorder note copied to clipboard!"</span></li>
+    <li><div class="step-num">4</div><span>Paste (Ctrl+V) into a text editor. Verify the note reads: "Reorder [qty]x [part#] ([description]) from [supplier] · [phone]".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Reorder note copied with part number, description, reorder qty, supplier, and phone. Ready to paste into email or SMS.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Toast "Reorder note copied to clipboard!"</span></div>
+    <div class="check"><div class="box"></div><span>Pasted text includes part number, description, qty, supplier</span></div>
+    <div class="check"><div class="box"></div><span>Supplier phone included if set</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e3"/> Pass</label><label><input type="radio" name="e3"/> Fail</label><label><input type="radio" name="e3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stock">E4</div><div><div class="tc-title">View button on Low Stock card navigates to detail</div><div class="tc-type"><span class="badge badge-stock">Stock</span> Navigation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>On the Low Stock tab, click <strong>View</strong> on any card.</span></li>
+    <li><div class="step-num">2</div><span>Verify navigation to the Inventory tab and the selected part's detail panel opens on the right.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>View navigates to Inventory tab and selects the correct part.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Tab switches to Inventory</span></div>
+    <div class="check"><div class="box"></div><span>Correct part's detail panel opens</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e4"/> Pass</label><label><input type="radio" name="e4"/> Fail</label><label><input type="radio" name="e4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stock">E5</div><div><div class="tc-title">All stocked — Low Stock tab shows green message</div><div class="tc-type"><span class="badge badge-stock">Stock</span> Happy state</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Set all parts' quantities to well above their thresholds (e.g. set qty = 99 for any low-stock parts).</span></li>
+    <li><div class="step-num">2</div><span>Click the Low Stock tab.</span></li>
+    <li><div class="step-num">3</div><span>Verify the tab shows: <strong>"✅ All parts are adequately stocked!"</strong> in green.</span></li>
+    <li><div class="step-num">4</div><span>Verify the Low Stock tab label shows <strong>(0)</strong>.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Green "all stocked" message when no parts are at or below threshold. Tab count = 0.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Green message shown in Low Stock tab</span></div>
+    <div class="check"><div class="box"></div><span>Tab label shows (0)</span></div>
+    <div class="check"><div class="box"></div><span>Stats bar Low Stock card also shows 0</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e5"/> Pass</label><label><input type="radio" name="e5"/> Fail</label><label><input type="radio" name="e5"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION F — STATS BAR
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section F — Stats Bar Accuracy (3 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stats">F1</div><div><div class="tc-title">Total SKUs count is accurate</div><div class="tc-type"><span class="badge badge-stats">Stats</span> Count</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Count the total number of parts visible in the Inventory list (with All Categories filter, no search).</span></li>
+    <li><div class="step-num">2</div><span>Compare to the <strong>Total SKUs</strong> stat card value.</span></li>
+    <li><div class="step-num">3</div><span>Add 1 new part. Verify Total SKUs increments by 1.</span></li>
+    <li><div class="step-num">4</div><span>Delete 1 part. Verify Total SKUs decrements by 1.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Total SKUs always equals the number of unique part numbers in the database.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Count matches inventory list</span></div>
+    <div class="check"><div class="box"></div><span>Increments after add</span></div>
+    <div class="check"><div class="box"></div><span>Decrements after delete</span></div>
+  </div>
+  <div class="note-line">Manual count: _______________ &nbsp;&nbsp; Stats bar shows: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="f1"/> Pass</label><label><input type="radio" name="f1"/> Fail</label><label><input type="radio" name="f1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stats">F2</div><div><div class="tc-title">Cost Value and Retail Value calculation</div><div class="tc-type"><span class="badge badge-stats">Stats</span> Math</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>For 3 parts note: Cost × Qty and Retail × Qty for each. Sum them manually.</span></li>
+    <li><div class="step-num">2</div><span>Compare to the <strong>Cost Value</strong> and <strong>Retail Value</strong> stat cards.</span></li>
+    <li><div class="step-num">3</div><span>Update a part's qty via inline edit. Verify both stat cards update to reflect the new totals.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Cost Value = Σ(cost × qty). Retail Value = Σ(retail × qty). Both update when qty or price changes.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cost Value matches manual calculation</span></div>
+    <div class="check"><div class="box"></div><span>Retail Value matches manual calculation</span></div>
+    <div class="check"><div class="box"></div><span>Both values update after qty change</span></div>
+  </div>
+  <div class="note-line">Manual Cost Value total: _______________ &nbsp;&nbsp; Stats shows: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="f2"/> Pass</label><label><input type="radio" name="f2"/> Fail</label><label><input type="radio" name="f2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num stats">F3</div><div><div class="tc-title">Margin calculation in stat bar</div><div class="tc-type"><span class="badge badge-stats">Stats</span> Math</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>With parts that have both cost and retail set, calculate expected margin: <code>(Retail Value − Cost Value) / Retail Value × 100</code>.</span></li>
+    <li><div class="step-num">2</div><span>Compare to the <strong>Margin</strong> stat card (e.g. "43.2%").</span></li>
+    <li><div class="step-num">3</div><span>If all parts have $0 cost and $0 retail, verify Margin shows "—" (not NaN or 0%).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Margin = (Retail − Cost) / Retail as a %. Shows "—" when no retail value. No NaN or division error.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Margin % matches manual calculation</span></div>
+    <div class="check"><div class="box"></div><span>Shows "—" when Retail Value = $0</span></div>
+    <div class="check"><div class="box"></div><span>No "NaN%" displayed</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="f3"/> Pass</label><label><input type="radio" name="f3"/> Fail</label><label><input type="radio" name="f3"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SECTION G — SEARCH & FILTER
+════════════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section G — Search &amp; Category Filter (3 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num search">G1</div><div><div class="tc-title">Keyword search across all fields</div><div class="tc-type"><span class="badge badge-search">Search</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the search box, type part of a <strong>Part Number</strong>. Verify only matching rows shown. "X of Y" count updates.</span></li>
+    <li><div class="step-num">2</div><span>Clear search. Type part of a <strong>Brand</strong>. Verify correct filtering.</span></li>
+    <li><div class="step-num">3</div><span>Search by <strong>Barcode</strong> value. Verify matching part found.</span></li>
+    <li><div class="step-num">4</div><span>Search by <strong>Compatibility</strong> text (e.g. "Ford"). Verify parts matching that compatibility shown.</span></li>
+    <li><div class="step-num">5</div><span>Clear the search field. Verify all parts return. "X of Y" shows full count.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Search is case-insensitive. Matches part #, brand, description, supplier, barcode, compatibility. Clear restores all rows.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Part number search filters correctly</span></div>
+    <div class="check"><div class="box"></div><span>Brand search filters correctly</span></div>
+    <div class="check"><div class="box"></div><span>Barcode search filters correctly</span></div>
+    <div class="check"><div class="box"></div><span>Compatibility search filters correctly</span></div>
+    <div class="check"><div class="box"></div><span>Search is case-insensitive</span></div>
+    <div class="check"><div class="box"></div><span>Clearing search returns full list</span></div>
+    <div class="check"><div class="box"></div><span>"X of Y" count updates correctly</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="g1"/> Pass</label><label><input type="radio" name="g1"/> Fail</label><label><input type="radio" name="g1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num search">G2</div><div><div class="tc-title">Category filter dropdown</div><div class="tc-type"><span class="badge badge-search">Search</span> Filter</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Make sure you have parts in at least 2 different categories (e.g. "Brakes" and "Filters").</span></li>
+    <li><div class="step-num">2</div><span>Click the <strong>All Categories</strong> dropdown. Select <strong>Brakes</strong>. Verify only Brakes parts show.</span></li>
+    <li><div class="step-num">3</div><span>Switch to <strong>Filters</strong>. Verify only Filters parts show.</span></li>
+    <li><div class="step-num">4</div><span>Switch back to <strong>All Categories</strong>. Verify all parts return.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Category filter shows only parts in selected category. "All Categories" restores full list.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Selecting a category hides all other categories</span></div>
+    <div class="check"><div class="box"></div><span>"X of Y" count reflects filtered result</span></div>
+    <div class="check"><div class="box"></div><span>All Categories restores full list</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="g2"/> Pass</label><label><input type="radio" name="g2"/> Fail</label><label><input type="radio" name="g2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num search">G3</div><div><div class="tc-title">Search + category filter combined</div><div class="tc-type"><span class="badge badge-search">Search</span> Combined</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Set category filter to <strong>Brakes</strong> and type a search term that matches parts in both Brakes and other categories.</span></li>
+    <li><div class="step-num">2</div><span>Verify only parts matching BOTH the category AND the keyword are shown.</span></li>
+    <li><div class="step-num">3</div><span>Type a search term that matches no Brakes parts. Verify "No parts match your search." message.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Combined filter = category AND keyword. Empty state message shown when no results.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Only Brakes parts matching keyword shown</span></div>
+    <div class="check"><div class="box"></div><span>"No parts match your search." shown when zero results</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="g3"/> Pass</label><label><input type="radio" name="g3"/> Fail</label><label><input type="radio" name="g3"/> Blocked</label></div>
+</div>
+
+<!-- ══════ DEFECT LOG ══════ -->
+<div class="section-rule"><div class="section-label">Defect log</div><hr /></div>
+<table class="defect-table">
+  <thead><tr><th style="width:60px">Test</th><th style="width:100px">Severity</th><th>Description</th><th style="width:100px">Status</th></tr></thead>
+  <tbody>
+    <tr><td><input type="text" placeholder="e.g. D2"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text" placeholder="Describe the issue…"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+  </tbody>
+</table>
+
+<!-- ══════ SIGN-OFF ══════ -->
+<div class="section-rule"><div class="section-label">Sign-off</div><hr /></div>
+<div class="signoff-grid">
+  <div class="signoff-box">
+    <h3>Pass / Fail Summary</h3>
+    <table class="summary-table">
+      <thead><tr><th>Section</th><th>Pass</th><th>Fail</th></tr></thead>
+      <tbody>
+        <tr><td>A — Create &amp; Edit (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>B — Photos &amp; Camera (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>C — Barcode Scanning (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>D — CSV Bulk Import (7)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>E — Stock Alerts (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>F — Stats Bar (3)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>G — Search &amp; Filter (3)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td><strong>Total (35)</strong></td><td><input type="text"/></td><td><input type="text"/></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="signoff-box">
+    <h3>Tester Sign-off</h3>
+    <div class="field-group"><label>Tested by</label><input type="text" placeholder="Full name"/></div>
+    <div class="field-group"><label>Date</label><input type="text" id="signdate"/></div>
+    <div class="field-group"><label>Browser / Device</label><input type="text" placeholder="Chrome 125 / Windows 11"/></div>
+    <div class="field-group"><label>Overall Status</label><select><option>Pass — ready to ship</option><option>Conditional pass — minor bugs only</option><option>Fail — blocking bugs present</option></select></div>
+    <div class="field-group"><label>Notes</label><textarea rows="3" placeholder="Any additional observations…"></textarea></div>
+  </div>
+</div>
+
+<script>
+  const d = new Date().toISOString().split('T')[0];
+  document.getElementById('today').textContent = d;
+  document.getElementById('testdate').value = d;
+  document.getElementById('signdate').value = d;
+</script>
+</body>
+</html>
