@@ -160,7 +160,7 @@ export const navItems: [string, string, string, string][] = [
   ['invoices', 'invoice', 'Invoicing', '14'],
   ['payments', 'payment', 'Payments', '1'],
   ['parts', 'parts', 'Parts', '486'],
-  ['technicians', 'technician', 'Tech Workflow', '3'],
+  ['technicians', 'technician', 'Technicians', '3'],
   ['vin', 'vin', 'VIN Decode', ''],
   ['dtc', 'warning', 'DTC Lookup', ''],
   ['diagnostics', 'scan', 'Diagnostics', '3'],
