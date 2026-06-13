@@ -11,9 +11,9 @@ import {
 const money = (v: number) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 function stockStatus(p: Part): { label: string; color: string } {
-  if (p.quantity === 0)                       return { label: 'Out of Stock',  color: 'var(--red,#ef4444)' };
-  if (p.quantity <= p.lowStockThreshold)      return { label: 'Low Stock',     color: 'var(--amber,#f59e0b)' };
-  return                                             { label: 'Available',     color: 'var(--green,#22c55e)' };
+  if (p.quantity === 0)                  return { label: 'Out of Stock', color: 'var(--red,#ef4444)' };
+  if (p.quantity <= p.lowStockThreshold) return { label: 'Low Stock',    color: 'var(--amber,#f59e0b)' };
+  return                                        { label: 'Available',    color: 'var(--green,#22c55e)' };
 }
 
 const EMPTY: Omit<Part, 'photos'> = {
@@ -22,6 +22,75 @@ const EMPTY: Omit<Part, 'photos'> = {
   supplierEmail: '', location: '', lowStockThreshold: 5, reorderQty: 10,
   compatibility: '', barcode: '', notes: '',
 };
+
+/* ── CSV helpers ── */
+const CSV_COLS = [
+  'part_number','brand','description','category','cost','retail','quantity',
+  'location','barcode','supplier','supplier_phone','supplier_email',
+  'low_stock_threshold','reorder_qty','compatibility','notes',
+] as const;
+
+function parseCSV(text: string): Record<string, string>[] {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = splitCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+  return lines.slice(1).map(line => {
+    const vals = splitCSVLine(line);
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = (vals[i] ?? '').trim(); });
+    return row;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function splitCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur); cur = '';
+    } else cur += ch;
+  }
+  result.push(cur);
+  return result;
+}
+
+function rowToPart(r: Record<string, string>): Omit<Part, 'photos'> {
+  return {
+    partNumber:        r.part_number     || '',
+    brand:             r.brand           || '',
+    description:       r.description     || '',
+    category:          PART_CATEGORIES.includes(r.category as typeof PART_CATEGORIES[number]) ? r.category : 'Other',
+    cost:              parseFloat(r.cost)              || 0,
+    retail:            parseFloat(r.retail)            || 0,
+    quantity:          parseInt(r.quantity)            || 0,
+    location:          r.location        || '',
+    barcode:           r.barcode         || '',
+    supplier:          r.supplier        || '',
+    supplierPhone:     r.supplier_phone  || '',
+    supplierEmail:     r.supplier_email  || '',
+    lowStockThreshold: parseInt(r.low_stock_threshold) || 5,
+    reorderQty:        parseInt(r.reorder_qty)         || 10,
+    compatibility:     r.compatibility   || '',
+    notes:             r.notes           || '',
+  };
+}
+
+function downloadCSVTemplate() {
+  const header = CSV_COLS.join(',');
+  const sample = [
+    'BRK-PAD-001,Bosch,Front Brake Pads Ceramic,Brakes,18.50,42.00,10,A-12,012345678901,NAPA Auto,(555)555-1234,orders@napa.com,3,6,Ford F-150 2018+,OEM cross-ref: 12345',
+    'OIL-SYN-5W30,Mobil,Synthetic Motor Oil 5W-30,Fluids,6.99,14.99,24,B-4,987654321098,AutoZone,(555)555-9876,parts@autozone.com,5,12,,Store in cool dry area',
+  ].join('\n');
+  const blob = new Blob([header + '\n' + sample], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'parts-import-template.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
 
 type ActiveTab = 'inventory' | 'lowstock' | 'add';
 
@@ -43,9 +112,21 @@ export function PartsView() {
   const [editingQty, setEditingQty] = useState<string | null>(null);
   const [newQty, setNewQty]         = useState(0);
 
-  /* barcode scanner: collects rapid chars followed by Enter */
+  /* photos to upload when adding a NEW part (before it exists in DB) */
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]); /* object URLs for preview */
+
+  /* bulk CSV import */
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [csvRows, setCsvRows]               = useState<Omit<Part,'photos'>[]>([]);
+  const [csvError, setCsvError]             = useState('');
+  const [csvImporting, setCsvImporting]     = useState(false);
+  const [csvProgress, setCsvProgress]       = useState(0);
+
   const barcodeBuffer = useRef('');
   const barcodeTimer  = useRef<NodeJS.Timeout | null>(null);
+  const photoFileRef  = useRef<HTMLInputElement>(null);
+  const cameraFileRef = useRef<HTMLInputElement>(null);
 
   const notify = useCallback((msg: string) => {
     setToast(msg);
@@ -61,7 +142,7 @@ export function PartsView() {
 
   useEffect(() => { load(); }, [load]);
 
-  /* Global keyboard listener for USB/BT barcode scanner (types fast + Enter) */
+  /* Global barcode scanner listener */
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName;
@@ -100,6 +181,8 @@ export function PartsView() {
   /* ── form handlers ── */
   function startAdd() {
     setForm(EMPTY);
+    setPendingPhotos([]);
+    setPendingPhotoUrls([]);
     setSelected(null);
     setEditing(true);
     setTab('add');
@@ -107,8 +190,25 @@ export function PartsView() {
 
   function startEdit(p: Part) {
     setForm({ ...p });
+    setPendingPhotos([]);
+    setPendingPhotoUrls([]);
     setEditing(true);
     setTab('add');
+  }
+
+  /* add pending photos (for new-part form) */
+  function addPendingPhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+    const urls = arr.map(f => URL.createObjectURL(f));
+    setPendingPhotos(prev => [...prev, ...arr]);
+    setPendingPhotoUrls(prev => [...prev, ...urls]);
+  }
+
+  function removePendingPhoto(i: number) {
+    URL.revokeObjectURL(pendingPhotoUrls[i]);
+    setPendingPhotos(prev => prev.filter((_, idx) => idx !== i));
+    setPendingPhotoUrls(prev => prev.filter((_, idx) => idx !== i));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -121,9 +221,19 @@ export function PartsView() {
         await updatePart(selected.partNumber, form);
         notify(`${form.partNumber} updated.`);
       } else {
+        /* create first, then upload any pending photos */
         await createPart({ ...form, photos: [] });
+        if (pendingPhotos.length > 0) {
+          const urls: string[] = [];
+          for (const file of pendingPhotos) {
+            const url = await uploadPartPhoto(form.partNumber, file);
+            urls.push(url);
+          }
+          await updatePart(form.partNumber, { photos: urls });
+        }
         notify(`${form.partNumber} added to inventory.`);
       }
+      setPendingPhotos([]); setPendingPhotoUrls([]);
       await load();
       setEditing(false);
       setTab('inventory');
@@ -137,10 +247,7 @@ export function PartsView() {
     setSaving(true);
     try {
       await deletePart(partNumber);
-      setSelected(null);
-      setDeleteConfirm('');
-      setEditing(false);
-      setTab('inventory');
+      setSelected(null); setDeleteConfirm(''); setEditing(false); setTab('inventory');
       notify(`${partNumber} deleted.`);
       await load();
     } catch (err: unknown) {
@@ -168,7 +275,7 @@ export function PartsView() {
     } catch (err: unknown) { setError('Update failed: ' + (err instanceof Error ? err.message : '')); }
   }
 
-  /* photo upload */
+  /* photo upload (detail panel — existing part) */
   async function handlePhotoUpload(files: FileList | null) {
     if (!selected || !files || files.length === 0) return;
     setUploadingPhoto(true);
@@ -201,6 +308,46 @@ export function PartsView() {
     }
   }
 
+  /* ── CSV bulk import ── */
+  function handleCSVFile(files: FileList | null) {
+    setCsvError(''); setCsvRows([]);
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.name.match(/\.(csv|txt)$/i)) { setCsvError('Please select a .csv file.'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const text = ev.target?.result as string;
+        const raw = parseCSV(text);
+        if (raw.length === 0) { setCsvError('No data rows found. Check that the file has a header row and at least one data row.'); return; }
+        const parts = raw.map(rowToPart).filter(r => r.partNumber.trim());
+        if (parts.length === 0) { setCsvError('No valid rows found — every row must have a part_number.'); return; }
+        setCsvRows(parts);
+      } catch {
+        setCsvError('Failed to parse CSV. Make sure the file uses comma delimiters and is UTF-8 encoded.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleBulkImport() {
+    if (csvRows.length === 0) return;
+    setCsvImporting(true); setCsvProgress(0); setCsvError('');
+    let imported = 0, failed = 0;
+    for (let i = 0; i < csvRows.length; i++) {
+      try {
+        await createPart({ ...csvRows[i], photos: [] });
+        imported++;
+      } catch { failed++; }
+      setCsvProgress(Math.round(((i + 1) / csvRows.length) * 100));
+    }
+    setCsvImporting(false);
+    await load();
+    setShowBulkImport(false);
+    setCsvRows([]);
+    notify(`Bulk import done: ${imported} added${failed > 0 ? `, ${failed} failed (duplicates skipped)` : ''}.`);
+  }
+
   /* ────────────── render ────────────── */
   return (
     <div style={{ padding: '20px 24px' }}>
@@ -217,16 +364,121 @@ export function PartsView() {
         </div>
       )}
 
+      {/* ══════ BULK IMPORT MODAL ══════ */}
+      {showBulkImport && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+            {/* Modal header */}
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>📤 Bulk Import Parts via CSV</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Upload a .csv file to add many parts at once</div>
+              </div>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }} onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>✕</button>
+            </div>
+
+            <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
+
+              {/* Step 1 — download template */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 1 — Download the template</div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn" style={{ fontSize: 12 }} onClick={downloadCSVTemplate}>
+                    ⬇ Download CSV Template
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Fill it in Excel, Google Sheets, or any spreadsheet app, then save as .csv</span>
+                </div>
+                <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--surface,#f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.7 }}>
+                  <strong>Required column:</strong> <code>part_number</code> &nbsp;|&nbsp;
+                  <strong>Optional:</strong> brand, description, category, cost, retail, quantity, location, barcode, supplier, supplier_phone, supplier_email, low_stock_threshold, reorder_qty, compatibility, notes<br />
+                  <strong>Category values:</strong> {PART_CATEGORIES.join(', ')}
+                </div>
+              </div>
+
+              {/* Step 2 — upload file */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 2 — Upload your CSV file</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: '2px dashed var(--border)', borderRadius: 10, cursor: 'pointer', background: 'var(--surface,#f9f9f9)' }}>
+                  <span style={{ fontSize: 32 }}>📂</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Click to browse or drag & drop your CSV</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Accepts .csv and .txt files</div>
+                  </div>
+                  <input type="file" accept=".csv,.txt" style={{ display: 'none' }}
+                    onChange={e => handleCSVFile(e.target.files)} />
+                </label>
+                {csvError && (
+                  <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(239,68,68,.1)', color: 'var(--red,#ef4444)', borderRadius: 7, fontSize: 12 }}>{csvError}</div>
+                )}
+              </div>
+
+              {/* Step 3 — preview */}
+              {csvRows.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>
+                    Step 3 — Review {csvRows.length} part{csvRows.length > 1 ? 's' : ''} to import
+                  </div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto', maxHeight: 280 }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--table-head,var(--border))' }}>
+                          {['#', 'Part #', 'Brand', 'Description', 'Category', 'Cost', 'Retail', 'Qty', 'Location'].map(h => (
+                            <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 600, fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvRows.map((r, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{i + 1}</td>
+                            <td style={{ padding: '6px 10px', fontWeight: 700 }}>{r.partNumber || <span style={{ color: 'var(--red,#ef4444)' }}>MISSING</span>}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.brand || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.description || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.category}</td>
+                            <td style={{ padding: '6px 10px' }}>{money(r.cost)}</td>
+                            <td style={{ padding: '6px 10px' }}>{money(r.retail)}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.quantity}</td>
+                            <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{r.location || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {csvImporting && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Importing… {csvProgress}%</div>
+                      <div style={{ height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div style={{ width: `${csvProgress}%`, height: '100%', background: 'var(--accent,#db2727)', borderRadius: 4, transition: 'width .2s' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+              <button className="btn" onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>Cancel</button>
+              <button className="btn primary" disabled={csvRows.length === 0 || csvImporting} onClick={handleBulkImport}>
+                {csvImporting ? `Importing ${csvProgress}%…` : `Import ${csvRows.length} Part${csvRows.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>🔩 Parts Inventory</h1>
           <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 13 }}>
             Barcode lookup · Multi-photo · Low-stock alerts · Supplier tracking
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {/* Barcode search input */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Barcode input */}
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14 }}>📷</span>
             <input
@@ -249,6 +501,9 @@ export function PartsView() {
               }}
             />
           </div>
+          <button className="btn" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => setShowBulkImport(true)}>
+            📤 Bulk Import CSV
+          </button>
           <button className="btn primary" onClick={startAdd}>+ Add Part</button>
         </div>
       </div>
@@ -256,11 +511,11 @@ export function PartsView() {
       {/* Stat bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Total SKUs',      value: String(parts.length),       sub: 'unique part numbers' },
-          { label: 'Low Stock',       value: String(lowStock.length),    sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
-          { label: 'Cost Value',      value: money(totalValue),          sub: 'at cost price' },
-          { label: 'Retail Value',    value: money(retailValue),         sub: 'at retail price' },
-          { label: 'Margin',          value: totalValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—', sub: 'avg gross margin' },
+          { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
+          { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
+          { label: 'Cost Value',   value: money(totalValue),       sub: 'at cost price' },
+          { label: 'Retail Value', value: money(retailValue),      sub: 'at retail price' },
+          { label: 'Margin',       value: totalValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—', sub: 'avg gross margin' },
         ].map(c => (
           <div key={c.label} style={{ background: 'var(--card)', border: `1px solid ${c.alert ? 'var(--amber,#f59e0b)' : 'var(--border)'}`, borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{c.label}</div>
@@ -293,7 +548,6 @@ export function PartsView() {
 
           {/* Parts table */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
-            {/* Search + filter */}
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search part #, brand, description, barcode…" style={{ flex: 1, minWidth: 200 }} />
               <select className="input" value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 160 }}>
@@ -307,7 +561,7 @@ export function PartsView() {
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading inventory…</div>
             ) : filtered.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-                {parts.length === 0 ? 'No parts yet. Click "+ Add Part" to get started.' : 'No parts match your search.'}
+                {parts.length === 0 ? 'No parts yet. Click "+ Add Part" or "Bulk Import CSV" to get started.' : 'No parts match your search.'}
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -323,9 +577,7 @@ export function PartsView() {
                     {filtered.map(p => {
                       const st = stockStatus(p);
                       return (
-                        <tr
-                          key={p.partNumber}
-                          onClick={() => { setSelected(p); setEditing(false); }}
+                        <tr key={p.partNumber} onClick={() => { setSelected(p); setEditing(false); }}
                           style={{
                             borderBottom: '1px solid var(--border)', cursor: 'pointer',
                             background: selected?.partNumber === p.partNumber ? 'rgba(219,39,39,.07)' : 'transparent',
@@ -343,13 +595,13 @@ export function PartsView() {
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.retail)}</td>
                           <td style={{ padding: '10px 12px' }}>
                             {editingQty === p.partNumber ? (
-                              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
                                 <input type="number" value={newQty} onChange={e => setNewQty(Number(e.target.value))} min="0" style={{ width: 52, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }} />
                                 <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p.partNumber)}>✓</button>
                                 <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontSize: 12 }} onClick={() => setEditingQty(null)}>✕</button>
                               </div>
                             ) : (
-                              <span style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={e => { e.stopPropagation(); setEditingQty(p.partNumber); setNewQty(p.quantity); }} title="Click to adjust quantity">
+                              <span style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={ev => { ev.stopPropagation(); setEditingQty(p.partNumber); setNewQty(p.quantity); }} title="Click to adjust quantity">
                                 {p.quantity}
                               </span>
                             )}
@@ -358,7 +610,7 @@ export function PartsView() {
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</span>
                           </td>
-                          <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
+                          <td style={{ padding: '10px 12px' }} onClick={ev => ev.stopPropagation()}>
                             <div style={{ display: 'flex', gap: 6 }}>
                               <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} disabled={p.quantity <= 0} onClick={() => handleReserve(p)}>Reserve</button>
                               <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => startEdit(p)}>Edit</button>
@@ -376,7 +628,6 @@ export function PartsView() {
           {/* Detail panel */}
           {selected && (
             <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', alignSelf: 'start' }}>
-              {/* Header */}
               <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.partNumber}</div>
@@ -395,13 +646,12 @@ export function PartsView() {
                 {selected.barcode && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>🔲 Barcode: <code style={{ fontSize: 11 }}>{selected.barcode}</code></div>}
               </div>
 
-              {/* Pricing + stock */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
                 {([
-                  ['Cost',   money(selected.cost)],
-                  ['Retail', money(selected.retail)],
-                  ['Margin', selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
-                  ['On Hand', String(selected.quantity)],
+                  ['Cost',         money(selected.cost)],
+                  ['Retail',       money(selected.retail)],
+                  ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
+                  ['On Hand',      String(selected.quantity)],
                   ['Low Stock At', String(selected.lowStockThreshold)],
                   ['Reorder Qty',  String(selected.reorderQty)],
                 ] as [string, string][]).map(([l, v]) => (
@@ -412,7 +662,6 @@ export function PartsView() {
                 ))}
               </div>
 
-              {/* Supplier */}
               {(selected.supplier || selected.supplierPhone || selected.supplierEmail) && (
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Supplier</div>
@@ -422,7 +671,6 @@ export function PartsView() {
                 </div>
               )}
 
-              {/* Location */}
               {selected.location && (
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Bin Location</div>
@@ -430,7 +678,6 @@ export function PartsView() {
                 </div>
               )}
 
-              {/* Notes */}
               {selected.notes && (
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Notes</div>
@@ -438,33 +685,46 @@ export function PartsView() {
                 </div>
               )}
 
-              {/* Photos */}
+              {/* ── Photos (detail panel) ── */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
                   Photos ({selected.photos.length})
                 </div>
+
+                {/* Photo grid */}
                 {selected.photos.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                     {selected.photos.map((url, i) => (
                       <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt={`Part photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
-                        <button
-                          onClick={() => handleDeletePhoto(url)}
-                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >✕</button>
+                        <button onClick={() => handleDeletePhoto(url)}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          ✕
+                        </button>
                       </div>
                     ))}
                   </div>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: uploadingPhoto ? 'wait' : 'pointer' }}>
-                  <span className="btn" style={{ padding: '5px 12px', fontSize: 12, opacity: uploadingPhoto ? 0.6 : 1 }}>
-                    {uploadingPhoto ? '⏳ Uploading…' : '📷 Upload Photos'}
-                  </span>
-                  <input type="file" accept="image/*" multiple style={{ display: 'none' }} disabled={uploadingPhoto}
+
+                {/* Upload buttons */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {/* Hidden inputs */}
+                  <input ref={cameraFileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} disabled={uploadingPhoto}
                     onChange={e => handlePhotoUpload(e.target.files)} />
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>JPG, PNG, WEBP</span>
-                </label>
+                  <input ref={photoFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} disabled={uploadingPhoto}
+                    onChange={e => handlePhotoUpload(e.target.files)} />
+
+                  <button className="btn" style={{ padding: '5px 12px', fontSize: 12, opacity: uploadingPhoto ? 0.6 : 1 }}
+                    disabled={uploadingPhoto} onClick={() => cameraFileRef.current?.click()}>
+                    📸 Camera
+                  </button>
+                  <button className="btn" style={{ padding: '5px 12px', fontSize: 12, opacity: uploadingPhoto ? 0.6 : 1 }}
+                    disabled={uploadingPhoto} onClick={() => photoFileRef.current?.click()}>
+                    {uploadingPhoto ? '⏳ Uploading…' : '🖼️ Browse'}
+                  </button>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>JPG · PNG · WEBP</span>
+                </div>
               </div>
 
               {/* Quick actions */}
@@ -518,7 +778,6 @@ export function PartsView() {
                         <span style={{ fontSize: 12, fontWeight: 700, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span>
                       </div>
 
-                      {/* Stock meter */}
                       <div style={{ marginBottom: 10 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>
                           <span>On hand: <strong>{p.quantity}</strong></span>
@@ -569,7 +828,6 @@ export function PartsView() {
           <form onSubmit={handleSave}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
 
-              {/* Row 1: Part # / Brand / Barcode */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Part Number *</label>
                 <input className="input" value={form.partNumber} onChange={e => setForm(f => ({ ...f, partNumber: e.target.value }))} placeholder="BRK-PAD-001" style={{ width: '100%' }} disabled={!!(selected && editing)} />
@@ -583,7 +841,6 @@ export function PartsView() {
                 <input className="input" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} placeholder="Scan or type barcode" style={{ width: '100%' }} />
               </div>
 
-              {/* Row 2: Description / Category */}
               <div style={{ gridColumn: '1/3' }}>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Description *</label>
                 <input className="input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Front brake pads, ceramic" style={{ width: '100%' }} />
@@ -595,7 +852,6 @@ export function PartsView() {
                 </select>
               </div>
 
-              {/* Row 3: Cost / Retail / Location */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ($)</label>
                 <input className="input" type="number" step="0.01" min="0" value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
@@ -609,7 +865,6 @@ export function PartsView() {
                 <input className="input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="A-12, Shelf 3" style={{ width: '100%' }} />
               </div>
 
-              {/* Row 4: Qty / Low Stock / Reorder Qty */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Quantity On Hand</label>
                 <input className="input" type="number" min="0" step="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: parseInt(e.target.value) || 0 }))} style={{ width: '100%' }} />
@@ -623,7 +878,6 @@ export function PartsView() {
                 <input className="input" type="number" min="0" step="1" value={form.reorderQty} onChange={e => setForm(f => ({ ...f, reorderQty: parseInt(e.target.value) || 0 }))} style={{ width: '100%' }} />
               </div>
 
-              {/* Row 5: Supplier */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier Name</label>
                 <input className="input" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} placeholder="AutoZone, NAPA…" style={{ width: '100%' }} />
@@ -637,7 +891,6 @@ export function PartsView() {
                 <input className="input" type="email" value={form.supplierEmail} onChange={e => setForm(f => ({ ...f, supplierEmail: e.target.value }))} placeholder="orders@supplier.com" style={{ width: '100%' }} />
               </div>
 
-              {/* Row 6: Compatibility / Notes */}
               <div style={{ gridColumn: '1/-1' }}>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Vehicle Compatibility</label>
                 <input className="input" value={form.compatibility} onChange={e => setForm(f => ({ ...f, compatibility: e.target.value }))} placeholder="Ford F-150, Chevy Silverado 2019+" style={{ width: '100%' }} />
@@ -646,9 +899,54 @@ export function PartsView() {
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Notes</label>
                 <textarea className="input" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes, OEM cross-reference, storage tips…" style={{ width: '100%', resize: 'vertical' }} />
               </div>
+
+              {/* ── Photo upload section (only for new parts; existing parts use detail panel) ── */}
+              {!(selected && editing) && (
+                <div style={{ gridColumn: '1/-1' }}>
+                  <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 8 }}>Photos</label>
+
+                  {/* Preview grid */}
+                  {pendingPhotoUrls.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                      {pendingPhotoUrls.map((url, i) => (
+                        <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={url} alt={`Preview ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                          <button type="button" onClick={() => removePendingPhoto(i)}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload buttons */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '14px 16px', border: '2px dashed var(--border)', borderRadius: 10, background: 'var(--surface,#f9f9f9)' }}>
+                    <span style={{ fontSize: 20 }}>📷</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>
+                        {pendingPhotos.length > 0 ? `${pendingPhotos.length} photo${pendingPhotos.length > 1 ? 's' : ''} selected` : 'Add part photos'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>Photos will be uploaded when you save the part. JPG · PNG · WEBP</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <label style={{ cursor: 'pointer' }}>
+                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>📸 Camera</span>
+                        <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                          onChange={e => addPendingPhotos(e.target.files)} />
+                      </label>
+                      <label style={{ cursor: 'pointer' }}>
+                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>🖼️ Browse</span>
+                        <input type="file" accept="image/*" multiple style={{ display: 'none' }}
+                          onChange={e => addPendingPhotos(e.target.files)} />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Margin preview */}
             {form.cost > 0 && form.retail > 0 && (
               <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.3)', borderRadius: 8, fontSize: 12, color: 'var(--green,#22c55e)' }}>
                 Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> — Cost {money(form.cost)} · Retail {money(form.retail)} · Profit {money(form.retail - form.cost)} per unit
