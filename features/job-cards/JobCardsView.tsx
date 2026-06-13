@@ -13,6 +13,45 @@ import {
 } from '@/services/jobCardService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
+import { createMaintenanceSchedule } from '@/services/maintenanceService';
+
+// OEM-based service intervals: [miles, days]
+const SERVICE_INTERVALS: Record<string, [number, number]> = {
+  'oil change':            [8000,   180],
+  'tire rotation':         [10000,  180],
+  'brake inspection':      [20000,  365],
+  'air filter':            [20000,  365],
+  'cabin filter':          [20000,  365],
+  'transmission service':  [50000,  730],
+  'coolant flush':         [50000,  730],
+  'brake fluid flush':     [40000,  730],
+  'spark plugs':           [50000,  730],
+  'timing belt':           [100000, 1460],
+  'wheel alignment':       [20000,  365],
+  'battery test':          [20000,  365],
+  'ac service':            [40000,  730],
+  'full inspection':       [16000,  365],
+  'state inspection':      [0,      365],
+  '60k':                   [60000,  0],
+  '30k':                   [30000,  0],
+  '90k':                   [90000,  0],
+  'fleet pm':              [10000,  180],
+  'mobile service':        [8000,   180],
+};
+
+function getIntervals(serviceType: string): [number, number] {
+  const key = serviceType.toLowerCase();
+  for (const [pattern, intervals] of Object.entries(SERVICE_INTERVALS)) {
+    if (key.includes(pattern)) return intervals;
+  }
+  return [16000, 365]; // default: 16k km / 1 year
+}
+
+function addDays(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
 
 const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—';
 
@@ -124,7 +163,34 @@ export function JobCardsView() {
       await closeJob(job);
       setJobs(prev => prev.filter(j => j.id !== job.id));
       setClosedJobs(prev => [{ ...job, status: 'Closed', closedDate: new Date().toISOString() }, ...prev]);
-      notify(`${job.id} closed and archived.`);
+
+      // Auto-create maintenance schedule based on OEM intervals
+      const [intervalMiles, intervalDays] = getIntervals(job.serviceType);
+      const today = new Date().toISOString().split('T')[0];
+      const nextDueDate = intervalDays > 0 ? addDays(intervalDays) : null;
+      try {
+        await createMaintenanceSchedule({
+          vehicle: job.vehicle,
+          vin: '',
+          customerName: job.customer,
+          customerId: '',
+          customerEmail: '',
+          customerPhone: '',
+          serviceType: job.serviceType,
+          intervalMiles,
+          intervalDays,
+          lastServiceDate: today,
+          lastServiceMiles: 0,
+          nextDueDate,
+          nextDueMiles: intervalMiles,
+          notes: `Auto-created from job card ${job.id} on ${today}`,
+          status: 'Active',
+        });
+        const dueLine = nextDueDate ? ` Next due: ${nextDueDate}.` : '';
+        notify(`${job.id} closed. Maintenance schedule created for ${job.customer}.${dueLine}`);
+      } catch {
+        notify(`${job.id} closed and archived. (Maintenance schedule skipped — check Supabase.)`);
+      }
     } catch (err: unknown) { setError('Close failed: ' + (err instanceof Error ? err.message : '')); }
   }
 
