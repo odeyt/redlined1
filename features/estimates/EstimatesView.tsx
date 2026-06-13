@@ -8,7 +8,7 @@ import {
   deleteEstimate, nextEstimateNumber, calculateEstimateTotals,
   type EstimateFull, type EstimateLine,
 } from '@/services/estimateService';
-import { createInvoice } from '@/services/invoiceService';
+import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { CURRENCIES, formatMoney } from '@/services/invoiceService';
@@ -172,11 +172,7 @@ export function EstimatesView() {
   async function handleConvertToInvoice(est: EstimateFull) {
     if (!confirm(`Convert ${est.estimateNumber} to an invoice?`)) return;
     try {
-      // Create the invoice from this estimate
-      const { count } = await import('@/lib/supabase').then(m =>
-        m.supabase.from('invoices').select('*', { count: 'exact', head: true })
-      );
-      const invNumber = `INV-${String((count ?? 0) + 1).padStart(4, '0')}`;
+      const invNumber = await nextInvoiceNumber();
       await createInvoice({
         invoiceNumber: invNumber,
         customerName: est.customerName,
@@ -193,12 +189,12 @@ export function EstimatesView() {
         paidDate: null,
         currency: est.currency,
       });
-      // Mark estimate as converted
       await updateEstimate(est.id, { status: 'Converted' });
       const updated = { ...est, status: 'Converted' };
       setEstimates(prev => prev.map(e => e.id === est.id ? updated : e));
       setSelected(updated);
-      notify(`${est.estimateNumber} converted to ${invNumber}. Go to Invoices to view it.`);
+      notify(`${est.estimateNumber} → ${invNumber} created. Opening Invoices…`);
+      setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
     } catch (e: unknown) { setError('Convert failed: ' + (e instanceof Error ? e.message : '')); }
   }
 

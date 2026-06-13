@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Invoicing Module — Testing Procedures</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; background: #fff; padding: 2rem 2.5rem; font-size: 13px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .btn-primary:hover { background: #a93226; }
+  .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+  .sum-card { background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 22px; font-weight: 600; }
+  .sum-label { font-size: 10px; color: #666; margin-top: 2px; }
+  .tester-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .tester-field label { font-size: 11px; color: #666; display: block; margin-bottom: 4px; }
+  .tester-field input { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  .fix-banner { background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; }
+  .fix-banner ul { margin: 6px 0 0 16px; }
+  .fix-banner li { margin-bottom: 3px; }
+  .section-rule { display: flex; align-items: center; gap: 10px; margin: 24px 0 14px; }
+  .section-rule hr { flex: 1; border: none; border-top: 1px solid #e0e0e0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .tc-num { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tc-num.create { background: #DBEAFE; color: #1E3A8A; }
+  .tc-num.edit   { background: #D1FAE5; color: #064E3B; }
+  .tc-num.status { background: #FEF3C7; color: #78350F; }
+  .tc-num.print  { background: #EDE9FE; color: #3B0764; }
+  .tc-num.workflow { background: #FCE7F3; color: #700F40; }
+  .tc-num.calc   { background: #E0F2FE; color: #075985; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-create   { background: #DBEAFE; color: #1E3A8A; }
+  .badge-edit     { background: #D1FAE5; color: #064E3B; }
+  .badge-status   { background: #FEF3C7; color: #78350F; }
+  .badge-print    { background: #EDE9FE; color: #3B0764; }
+  .badge-workflow { background: #FCE7F3; color: #700F40; }
+  .badge-calc     { background: #E0F2FE; color: #075985; }
+  .tc-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .tc-type { font-size: 11px; color: #666; display: flex; gap: 6px; align-items: center; }
+  ol.steps { margin: 0 0 12px 0; padding-left: 0; list-style: none; }
+  ol.steps li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  ol.steps li:last-child { border-bottom: none; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; margin-top: 1px; color: #555; }
+  .expect { background: #f8f8f8; border-radius: 7px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .expect-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 3px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .result-row { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #555; margin-top: 4px; }
+  .result-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .note-line { font-size: 11px; color: #888; margin-top: 6px; }
+  .defect-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  .defect-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .defect-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .defect-table input, .defect-table select { width: 100%; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .signoff-box { background: #f8f8f8; border-radius: 8px; padding: 14px; }
+  .signoff-box h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 10px; }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+  .field-group input, .field-group select, .field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .summary-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 5px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .summary-table input { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; text-align: center; }
+  @media print { .toolbar { display: none; } body { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="exportDocx()">&#11015; Export .docx (Word)</button>
+  <button class="btn" onclick="window.print()">&#128438; Print / Save PDF</button>
+</div>
+
+<h1>Invoicing Module — Testing Procedures</h1>
+<div class="meta">Version 1.0 &nbsp;&middot;&nbsp; Platform: redlined1.com &nbsp;&middot;&nbsp; Date: <span id="today"></span></div>
+
+<div class="tester-row">
+  <div class="tester-field"><label>Tester name</label><input type="text" placeholder="Full name" /></div>
+  <div class="tester-field"><label>Test date</label><input type="text" id="testdate" /></div>
+  <div class="tester-field"><label>Browser / device</label><input type="text" placeholder="Chrome 125 / Windows 11" /></div>
+</div>
+
+<div class="summary-grid">
+  <div class="sum-card"><div class="sum-num">25</div><div class="sum-label">Total tests</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Create &amp; Edit</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Status &amp; Payment</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Calculations</div></div>
+  <div class="sum-card"><div class="sum-num">9</div><div class="sum-label">Workflow &amp; Print</div></div>
+</div>
+
+<div class="fix-banner">
+  <strong>Fixes applied in this release:</strong>
+  <ul>
+    <li><strong>Mark Paid</strong> now auto-creates a payment record → Reports revenue stays in sync</li>
+    <li><strong>Status dropdown → Paid</strong> also sets paid_date and creates payment record</li>
+    <li><strong>Invoice number collision</strong> fixed — uses MAX-based numbering, not row count</li>
+    <li><strong>Print button</strong> now opens the full Preview modal (prints cleanly)</li>
+    <li><strong>Prefill</strong> wired — Job Cards / Estimates / Repair Orders navigate to Invoices with customer pre-filled</li>
+    <li><strong>Estimate → Invoice</strong> now navigates to Invoices module automatically after creating</li>
+    <li><strong>Repair Order → Invoice</strong> now navigates to Invoices module automatically after creating</li>
+    <li><strong>Job Card drawer</strong> has new "🧾 Invoice →" button</li>
+  </ul>
+</div>
+
+<!-- ── SECTION A: CREATE & EDIT ── -->
+<div class="section-rule"><div class="section-label">Section A — Create &amp; Edit</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num create">A1</div><div><div class="tc-title">Create new invoice — all fields</div><div class="tc-type"><span class="badge badge-create">Create</span> Happy path</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Invoicing. Click <strong>+ New</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify Invoice # is auto-generated (e.g. INV-0005) and the field is read-only.</span></li>
+    <li><div class="step-num">3</div><span>Select a customer from the dropdown. Verify Customer Name field fills automatically.</span></li>
+    <li><div class="step-num">4</div><span>Fill Vehicle, set Due Date to next week, select a Currency.</span></li>
+    <li><div class="step-num">5</div><span>Click <strong>+ Add Line</strong>. Enter: Note = "LBR", Description = "Oil Change Labor", Qty = 1, Rate = 85.00.</span></li>
+    <li><div class="step-num">6</div><span>Add a second line: Description = "Oil Filter", Qty = 1, Rate = 12.50.</span></li>
+    <li><div class="step-num">7</div><span>Set Tax Rate = 8.0, Discount = 5.00.</span></li>
+    <li><div class="step-num">8</div><span>Click <strong>Create Invoice</strong>. Verify it appears in the left list and is selected in the detail view.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Invoice saved with correct number. Appears at top of list. Detail panel shows all entered data. Total = (85 + 12.50 − 5) × 1.08 = $99.90.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice # auto-generated and unique</span></div>
+    <div class="check"><div class="box"></div><span>Customer name filled from dropdown selection</span></div>
+    <div class="check"><div class="box"></div><span>Both line items saved and visible in detail panel</span></div>
+    <div class="check"><div class="box"></div><span>Total calculation correct (see expected above)</span></div>
+    <div class="check"><div class="box"></div><span>Status = Draft, Due Date visible</span></div>
+    <div class="check"><div class="box"></div><span>Invoice appears at top of list with LATEST badge</span></div>
+  </div>
+  <div class="note-line">Invoice number assigned: _______________ &nbsp;&nbsp; Total shown: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a1"/> Pass</label><label><input type="radio" name="a1"/> Fail</label><label><input type="radio" name="a1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num create">A2</div><div><div class="tc-title">Invoice number does not duplicate after deletions</div><div class="tc-type"><span class="badge badge-create">Create</span> Regression — numbering fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the highest existing invoice number (e.g. INV-0005).</span></li>
+    <li><div class="step-num">2</div><span>Delete any invoice from the list (click it → Delete button).</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>+ New</strong>. Verify the new auto-generated number is INV-0006 (one above the previous max), not a reused number.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>New invoice number = previous max + 1. Never reuses a deleted number.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>New number = prior max + 1 (not count + 1)</span></div>
+    <div class="check"><div class="box"></div><span>No duplicate invoice numbers in the list</span></div>
+  </div>
+  <div class="note-line">Max before delete: _______________ &nbsp;&nbsp; New number generated: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a2"/> Pass</label><label><input type="radio" name="a2"/> Fail</label><label><input type="radio" name="a2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num create">A3</div><div><div class="tc-title">Required field validation</div><div class="tc-type"><span class="badge badge-create">Create</span> Validation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open + New form. Clear Customer Name. Click <strong>Create Invoice</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify error message "Customer name is required." appears. No invoice created.</span></li>
+    <li><div class="step-num">3</div><span>Fill Customer Name only. Clear Invoice # manually. Click <strong>Create Invoice</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Verify error "Invoice number is required."</span></li>
+    <li><div class="step-num">5</div><span>Fill both required fields and submit. Verify it succeeds.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Clear error messages for each missing required field. No crash or silent failure.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Empty customer → "Customer name is required." error</span></div>
+    <div class="check"><div class="box"></div><span>Empty invoice # → "Invoice number is required." error</span></div>
+    <div class="check"><div class="box"></div><span>No invoice created when validation fails</span></div>
+    <div class="check"><div class="box"></div><span>Error dismissible with ✕ button</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a3"/> Pass</label><label><input type="radio" name="a3"/> Fail</label><label><input type="radio" name="a3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A4</div><div><div class="tc-title">Edit invoice — update line items and save</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click any Draft invoice in the list. Click <strong>✏️ Edit</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify Invoice # is read-only (greyed out). All other fields are editable.</span></li>
+    <li><div class="step-num">3</div><span>Change Rate on the first line item to a different value. Click <strong>Save Changes</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Verify the detail panel updates immediately with the new rate and recalculated total.</span></li>
+    <li><div class="step-num">5</div><span>Reload the page and click the same invoice. Verify the edit persisted in Supabase.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Invoice # locked during edit. Changes save and reflect immediately. Persisted after page reload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice # is greyed out and non-editable in edit mode</span></div>
+    <div class="check"><div class="box"></div><span>Line item rate change saved correctly</span></div>
+    <div class="check"><div class="box"></div><span>Total recalculates correctly after edit</span></div>
+    <div class="check"><div class="box"></div><span>Change persists after page reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a4"/> Pass</label><label><input type="radio" name="a4"/> Fail</label><label><input type="radio" name="a4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A5</div><div><div class="tc-title">Add and remove line items</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open any invoice in edit mode. Click <strong>+ Add Line</strong> three times.</span></li>
+    <li><div class="step-num">2</div><span>Verify three new blank rows appear below existing lines.</span></li>
+    <li><div class="step-num">3</div><span>Click the ✕ on one of the new rows. Verify it's removed.</span></li>
+    <li><div class="step-num">4</div><span>Fill the remaining new lines with data and save. Verify all lines appear in the detail panel.</span></li>
+    <li><div class="step-num">5</div><span>Attempt to remove all lines (click ✕ on every row). Verify the invoice can still be saved with zero line items.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Lines add and remove correctly. No crash with zero lines. All filled lines save to Supabase.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>+ Add Line adds a blank row each click</span></div>
+    <div class="check"><div class="box"></div><span>✕ removes the correct row</span></div>
+    <div class="check"><div class="box"></div><span>Zero-line invoice saves without error</span></div>
+    <div class="check"><div class="box"></div><span>Multi-line invoice persists all lines after save</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a5"/> Pass</label><label><input type="radio" name="a5"/> Fail</label><label><input type="radio" name="a5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">A6</div><div><div class="tc-title">Delete invoice</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Destructive</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the current invoice count in the list.</span></li>
+    <li><div class="step-num">2</div><span>Select a Draft invoice. Click <strong>Delete</strong>.</span></li>
+    <li><div class="step-num">3</div><span>When the confirm dialog appears, click Cancel. Verify invoice is NOT deleted.</span></li>
+    <li><div class="step-num">4</div><span>Click Delete again, then confirm. Verify invoice removed from list. Count decreases by 1.</span></li>
+    <li><div class="step-num">5</div><span>Reload page. Verify the deleted invoice is gone (Supabase delete confirmed).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Confirm dialog prevents accidental delete. Confirmed delete removes from list and Supabase. No crash if no invoices remain.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cancel in confirm dialog aborts delete</span></div>
+    <div class="check"><div class="box"></div><span>Confirmed delete removes from list immediately</span></div>
+    <div class="check"><div class="box"></div><span>Invoice gone after page reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a6"/> Pass</label><label><input type="radio" name="a6"/> Fail</label><label><input type="radio" name="a6"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION B: STATUS & PAYMENT ── -->
+<div class="section-rule"><div class="section-label">Section B — Status Changes &amp; Payment Recording</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num status">B1</div><div><div class="tc-title">Mark Paid — auto-creates payment record [CRITICAL]</div><div class="tc-type"><span class="badge badge-status">Status</span> Critical — regression fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the current total in the Payments module before this test.</span></li>
+    <li><div class="step-num">2</div><span>In Invoicing, select a Draft or Sent invoice with at least one line item. Note its total.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>✓ Mark Paid</strong> in the action bar.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast: "[INV-XXXX] marked paid. $XX.XX payment recorded."</span></li>
+    <li><div class="step-num">5</div><span>Navigate to Payments. Verify a new payment record was auto-created with the correct amount, method = "Invoice (Mark Paid)", and today's date.</span></li>
+    <li><div class="step-num">6</div><span>Navigate to Reports. Verify Total Revenue increased by the invoice total.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Mark Paid: sets status to Paid AND creates payment record. Reports revenue = Payments total. No manual double-entry needed.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice status changes to Paid</span></div>
+    <div class="check"><div class="box"></div><span>Paid date set to today</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms amount and "payment recorded"</span></div>
+    <div class="check"><div class="box"></div><span>New payment row visible in Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Payment method = "Invoice (Mark Paid)"</span></div>
+    <div class="check"><div class="box"></div><span>Reports > Total Revenue increased by correct amount</span></div>
+  </div>
+  <div class="note-line">Invoice total: _______________ &nbsp;&nbsp; Payments total before: _______________ &nbsp;&nbsp; Payments total after: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b1"/> Pass</label><label><input type="radio" name="b1"/> Fail</label><label><input type="radio" name="b1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num status">B2</div><div><div class="tc-title">Status dropdown → Paid also creates payment [CRITICAL]</div><div class="tc-type"><span class="badge badge-status">Status</span> Critical — regression fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select a Draft invoice in Invoicing. Note its total.</span></li>
+    <li><div class="step-num">2</div><span>In the action bar, change the <strong>status dropdown</strong> from Draft to <strong>Paid</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast "marked paid. Payment recorded."</span></li>
+    <li><div class="step-num">4</div><span>Verify paid date appears in the invoice detail panel.</span></li>
+    <li><div class="step-num">5</div><span>Navigate to Payments. Verify new payment created with method "Invoice (Status Change)".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Changing status dropdown to Paid behaves identically to "Mark Paid" button — creates payment record and sets paid date.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Status changes to Paid in detail panel</span></div>
+    <div class="check"><div class="box"></div><span>Paid date shown in invoice header</span></div>
+    <div class="check"><div class="box"></div><span>Payment created in Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Method = "Invoice (Status Change)"</span></div>
+    <div class="check"><div class="box"></div><span>Does NOT create duplicate payment if already Paid</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b2"/> Pass</label><label><input type="radio" name="b2"/> Fail</label><label><input type="radio" name="b2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num status">B3</div><div><div class="tc-title">Status transitions: Draft → Sent → Paid → Void</div><div class="tc-type"><span class="badge badge-status">Status</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a new invoice. Verify status = Draft. Change to <strong>Sent</strong> via dropdown.</span></li>
+    <li><div class="step-num">2</div><span>Verify status badge changes to blue "SENT". Toast confirms.</span></li>
+    <li><div class="step-num">3</div><span>Change to <strong>Void</strong>. Verify status badge changes to red "VOID". No payment created.</span></li>
+    <li><div class="step-num">4</div><span>Verify a Paid invoice does NOT show "✓ Mark Paid" button (it's already paid).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Status badge color: Draft=grey, Sent=blue, Paid=green, Void=red. Mark Paid button hidden on Paid invoices. Void does not create payment.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Draft → Sent: blue badge, no payment created</span></div>
+    <div class="check"><div class="box"></div><span>Sent → Void: red badge, no payment created</span></div>
+    <div class="check"><div class="box"></div><span>"Mark Paid" button hidden when status = Paid</span></div>
+    <div class="check"><div class="box"></div><span>"Record Payment →" button hidden when status = Paid</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b3"/> Pass</label><label><input type="radio" name="b3"/> Fail</label><label><input type="radio" name="b3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num status">B4</div><div><div class="tc-title">Record Payment → navigates to Payments with customer prefilled</div><div class="tc-type"><span class="badge badge-status">Status</span> Workflow</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select a Sent (unpaid) invoice. Click <strong>💳 Record Payment →</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify navigation to Payments module.</span></li>
+    <li><div class="step-num">3</div><span>Verify the new payment form opens with Customer Name pre-filled from the invoice.</span></li>
+    <li><div class="step-num">4</div><span>Enter the amount and method. Save. Verify the payment appears in the Payments list.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Navigates to Payments with customer pre-filled. No need to re-select customer. Payment saves successfully.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled (not blank)</span></div>
+    <div class="check"><div class="box"></div><span>Payment form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Payment saves and appears in list</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b4"/> Pass</label><label><input type="radio" name="b4"/> Fail</label><label><input type="radio" name="b4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num status">B5</div><div><div class="tc-title">Filter by status and search</div><div class="tc-type"><span class="badge badge-status">Status</span> UX</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Invoicing, use the status filter dropdown to select <strong>Paid</strong>. Verify only Paid invoices show.</span></li>
+    <li><div class="step-num">2</div><span>Select <strong>Draft</strong>. Verify only Draft invoices show.</span></li>
+    <li><div class="step-num">3</div><span>Select <strong>All</strong>. Type a customer name in the search box. Verify list filters to matching invoices.</span></li>
+    <li><div class="step-num">4</div><span>Clear the search. Verify all invoices return.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Status filter and search work independently and together. Clearing search restores full list.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Status filter: Paid shows only Paid</span></div>
+    <div class="check"><div class="box"></div><span>Status filter: Draft shows only Draft</span></div>
+    <div class="check"><div class="box"></div><span>Search filters by customer name, vehicle, or invoice number</span></div>
+    <div class="check"><div class="box"></div><span>Clearing search restores full list</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b5"/> Pass</label><label><input type="radio" name="b5"/> Fail</label><label><input type="radio" name="b5"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION C: CALCULATIONS ── -->
+<div class="section-rule"><div class="section-label">Section C — Total Calculations</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num calc">C1</div><div><div class="tc-title">Subtotal = sum of (Qty × Rate) for all lines</div><div class="tc-type"><span class="badge badge-calc">Calc</span> Math</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create invoice with 3 lines: (2 × $50), (1 × $30), (3 × $10).</span></li>
+    <li><div class="step-num">2</div><span>Expected subtotal = $100 + $30 + $30 = $160.</span></li>
+    <li><div class="step-num">3</div><span>Set Discount = $0, Shop Supplies = $0, Tax = 0%. Verify Total = $160.00.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Subtotal = $160.00. Total = $160.00 (no adjustments). Matches manual calculation.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Subtotal = $160.00</span></div>
+    <div class="check"><div class="box"></div><span>Total = $160.00 with zero adjustments</span></div>
+  </div>
+  <div class="note-line">Subtotal shown: _______________ &nbsp;&nbsp; Total shown: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c1"/> Pass</label><label><input type="radio" name="c1"/> Fail</label><label><input type="radio" name="c1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num calc">C2</div><div><div class="tc-title">Discount applied before tax</div><div class="tc-type"><span class="badge badge-calc">Calc</span> Math</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create invoice: 1 line × $100. Discount = $10. Shop Supplies = $0. Tax = 10%.</span></li>
+    <li><div class="step-num">2</div><span>Expected: Subtotal = $100, After discount = $90, Tax = $9, Total = $99.00.</span></li>
+    <li><div class="step-num">3</div><span>Verify total matches $99.00.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Discount reduces taxable amount. Total = (Subtotal − Discount + Shop Supplies) × (1 + Tax Rate).</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Subtotal row = $100.00</span></div>
+    <div class="check"><div class="box"></div><span>Discount row = −$10.00</span></div>
+    <div class="check"><div class="box"></div><span>Tax row = $9.00 (10% of $90)</span></div>
+    <div class="check"><div class="box"></div><span>Total = $99.00</span></div>
+  </div>
+  <div class="note-line">Total shown: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c2"/> Pass</label><label><input type="radio" name="c2"/> Fail</label><label><input type="radio" name="c2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num calc">C3</div><div><div class="tc-title">Shop Supplies added before tax</div><div class="tc-type"><span class="badge badge-calc">Calc</span> Math</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create invoice: 1 line × $100. Discount = $0. Shop Supplies = $15. Tax = 10%.</span></li>
+    <li><div class="step-num">2</div><span>Expected: Subtotal = $100, taxable = $115, Tax = $11.50, Total = $126.50.</span></li>
+    <li><div class="step-num">3</div><span>Verify total = $126.50.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Shop Supplies row visible in totals breakdown. Added to taxable base before tax applied. Total = $126.50.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Shop Supplies row visible in invoice totals</span></div>
+    <div class="check"><div class="box"></div><span>Tax = $11.50 (10% of $115)</span></div>
+    <div class="check"><div class="box"></div><span>Total = $126.50</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c3"/> Pass</label><label><input type="radio" name="c3"/> Fail</label><label><input type="radio" name="c3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num calc">C4</div><div><div class="tc-title">Zero-tax invoice (tax rate = 0%)</div><div class="tc-type"><span class="badge badge-calc">Calc</span> Edge case</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create invoice with $200 line item. Set Tax Rate = 0%.</span></li>
+    <li><div class="step-num">2</div><span>Verify tax row shows $0.00 and Total = $200.00.</span></li>
+    <li><div class="step-num">3</div><span>Verify tax row is still visible (not hidden) so customer sees "Tax (0.0%): $0.00".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Tax row visible with $0.00. Total = $200.00. No division-by-zero or display error.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Tax row shows "Tax (0.0%)" and $0.00</span></div>
+    <div class="check"><div class="box"></div><span>Total = $200.00 exactly</span></div>
+    <div class="check"><div class="box"></div><span>No NaN or undefined displayed</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c4"/> Pass</label><label><input type="radio" name="c4"/> Fail</label><label><input type="radio" name="c4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num calc">C5</div><div><div class="tc-title">Multi-currency display</div><div class="tc-type"><span class="badge badge-calc">Calc</span> Currency</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create invoice with Currency = CAD. Add a $100 line.</span></li>
+    <li><div class="step-num">2</div><span>Verify totals show "CA$" symbol, not "$".</span></li>
+    <li><div class="step-num">3</div><span>Verify the invoice list card and detail header both show CA$ amount.</span></li>
+    <li><div class="step-num">4</div><span>Test with EUR. Verify "€" symbol appears correctly.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Currency symbol reflects selected currency throughout — list card, detail panel, totals breakdown, and preview modal.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>CAD invoice shows "CA$" symbol</span></div>
+    <div class="check"><div class="box"></div><span>EUR invoice shows "€" symbol</span></div>
+    <div class="check"><div class="box"></div><span>Currency consistent in list and detail</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c5"/> Pass</label><label><input type="radio" name="c5"/> Fail</label><label><input type="radio" name="c5"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION D: PRINT & PREVIEW ── -->
+<div class="section-rule"><div class="section-label">Section D — Print &amp; Preview</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num print">D1</div><div><div class="tc-title">Print / Preview button opens full-screen preview modal</div><div class="tc-type"><span class="badge badge-print">Print</span> Regression fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select any invoice. Click <strong>🖨 Print / Preview</strong> in the action bar.</span></li>
+    <li><div class="step-num">2</div><span>Verify a full-screen white overlay modal appears (not a browser print dialog directly).</span></li>
+    <li><div class="step-num">3</div><span>Verify the modal shows: shop logo/name, invoice number, customer, line items table, and totals.</span></li>
+    <li><div class="step-num">4</div><span>Verify "✕ Close" and "🖨 Print" buttons are visible in the modal.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Preview modal opens. Shows complete invoice layout. Print and Close buttons present.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Modal opens on click (not browser print dialog)</span></div>
+    <div class="check"><div class="box"></div><span>Shop name/logo visible in header</span></div>
+    <div class="check"><div class="box"></div><span>Line items table visible</span></div>
+    <div class="check"><div class="box"></div><span>Totals breakdown visible</span></div>
+    <div class="check"><div class="box"></div><span>Print and Close buttons present</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d1"/> Pass</label><label><input type="radio" name="d1"/> Fail</label><label><input type="radio" name="d1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num print">D2</div><div><div class="tc-title">Print from preview modal — outputs only the invoice</div><div class="tc-type"><span class="badge badge-print">Print</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open preview modal. Click <strong>🖨 Print</strong> inside the modal.</span></li>
+    <li><div class="step-num">2</div><span>Verify browser print dialog opens.</span></li>
+    <li><div class="step-num">3</div><span>In print preview, verify only the invoice is visible — no sidebar, no navigation, no other UI.</span></li>
+    <li><div class="step-num">4</div><span>Cancel the print dialog. Verify modal is still open (not closed by print).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Print dialog shows only the invoice content. No app chrome visible in print preview. Cancelling print leaves modal open.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Browser print dialog opens</span></div>
+    <div class="check"><div class="box"></div><span>Print preview shows only invoice (no sidebar/nav)</span></div>
+    <div class="check"><div class="box"></div><span>Cancel print → modal remains open</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d2"/> Pass</label><label><input type="radio" name="d2"/> Fail</label><label><input type="radio" name="d2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num print">D3</div><div><div class="tc-title">Preview shows shop branding from Settings</div><div class="tc-type"><span class="badge badge-print">Print</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Settings. Verify Company Name, Phone, and Email are filled.</span></li>
+    <li><div class="step-num">2</div><span>Return to Invoicing. Open Preview for any invoice.</span></li>
+    <li><div class="step-num">3</div><span>Verify company name, phone, email appear in the invoice header.</span></li>
+    <li><div class="step-num">4</div><span>If a logo is uploaded in Settings, verify it appears in the preview header.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Preview uses live shop settings data. Any changes to Settings are reflected in the next preview open.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Company name in preview header matches Settings</span></div>
+    <div class="check"><div class="box"></div><span>Phone and email visible in header</span></div>
+    <div class="check"><div class="box"></div><span>Logo displayed if uploaded (or name only if no logo)</span></div>
+    <div class="check"><div class="box"></div><span>Footer says "Thank you for your business — [shop name]"</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d3"/> Pass</label><label><input type="radio" name="d3"/> Fail</label><label><input type="radio" name="d3"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION E: WORKFLOW ── -->
+<div class="section-rule"><div class="section-label">Section E — Workflow Integration</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num workflow">E1</div><div><div class="tc-title">Job Card → Invoice (prefill via 🧾 Invoice → button)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Prefill — new</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Job Cards. Click any job card row to open the detail drawer.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>🧾 Invoice →</strong> in the drawer footer.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to Invoicing and the new invoice form opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify Customer Name and Vehicle fields are pre-filled from the job card.</span></li>
+    <li><div class="step-num">5</div><span>Verify Invoice # is auto-generated.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Navigates to Invoicing. New form opens with customer and vehicle pre-filled. Invoice # auto-generated.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Invoicing module</span></div>
+    <div class="check"><div class="box"></div><span>New invoice form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled from job card</span></div>
+    <div class="check"><div class="box"></div><span>Vehicle pre-filled from job card</span></div>
+    <div class="check"><div class="box"></div><span>Invoice # auto-generated</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e1"/> Pass</label><label><input type="radio" name="e1"/> Fail</label><label><input type="radio" name="e1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num workflow">E2</div><div><div class="tc-title">Estimate → Invoice (Convert to Invoice navigates to Invoicing)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Regression fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Estimates. Find or create an Approved estimate.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>⚡ Convert to Invoice</strong>. Confirm the dialog.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast: "[EST-XXX] → INV-XXXX created. Opening Invoices…"</span></li>
+    <li><div class="step-num">4</div><span>Verify automatic navigation to Invoicing module after ~0.8 seconds.</span></li>
+    <li><div class="step-num">5</div><span>Verify the new invoice is in the list with all estimate line items carried over.</span></li>
+    <li><div class="step-num">6</div><span>Return to Estimates. Verify the estimate status changed to "Converted".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Invoice created with correct number (no collision). Auto-navigation to Invoices. Estimate marked Converted.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice created with correct unique number</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms conversion and new invoice number</span></div>
+    <div class="check"><div class="box"></div><span>Navigates to Invoicing module automatically</span></div>
+    <div class="check"><div class="box"></div><span>Invoice has correct customer, vehicle, line items</span></div>
+    <div class="check"><div class="box"></div><span>Estimate status = Converted</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e2"/> Pass</label><label><input type="radio" name="e2"/> Fail</label><label><input type="radio" name="e2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num workflow">E3</div><div><div class="tc-title">Repair Order → Invoice (Create Invoice navigates to Invoicing)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Regression fix</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Repair Orders. Find a Complete or Closed RO without an invoice number.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>⚡ Create Invoice</strong>. Confirm the dialog.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast: "[RO-XXX] → INV-XXXX created. Opening Invoices…"</span></li>
+    <li><div class="step-num">4</div><span>Verify automatic navigation to Invoicing. New invoice has labor and parts as line items.</span></li>
+    <li><div class="step-num">5</div><span>Return to Repair Orders. Verify the RO now shows the invoice number linked.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Invoice created from RO labor/parts data. Auto-navigation to Invoices. RO shows linked invoice number.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice created with unique number</span></div>
+    <div class="check"><div class="box"></div><span>Labor line item: hours × rate</span></div>
+    <div class="check"><div class="box"></div><span>Parts line item: parts total</span></div>
+    <div class="check"><div class="box"></div><span>Navigates to Invoicing automatically</span></div>
+    <div class="check"><div class="box"></div><span>RO detail shows linked invoice number in green</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e3"/> Pass</label><label><input type="radio" name="e3"/> Fail</label><label><input type="radio" name="e3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num workflow">E4</div><div><div class="tc-title">Invoice → Payments → Reports (full payment flow)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> End-to-end</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a new invoice for $150 (1 line × $150, no tax, no discount). Status = Draft.</span></li>
+    <li><div class="step-num">2</div><span>Change status to <strong>Sent</strong>. Verify Outstanding in the Invoicing stats bar increases by $150.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>✓ Mark Paid</strong>. Verify Outstanding decreases and Revenue increases by $150.</span></li>
+    <li><div class="step-num">4</div><span>Go to Payments. Verify $150 payment record exists.</span></li>
+    <li><div class="step-num">5</div><span>Go to Reports → Overview. Verify Total Revenue includes the $150.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>$150 flows consistently: Invoice (Paid) → Payment record → Reports Total Revenue. All three show the same amount.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Invoice status: Draft → Sent → Paid</span></div>
+    <div class="check"><div class="box"></div><span>Invoicing stats bar: Outstanding +$150 (Sent), then −$150 (Paid)</span></div>
+    <div class="check"><div class="box"></div><span>Payment of $150 in Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Reports Total Revenue includes $150</span></div>
+  </div>
+  <div class="note-line">Payments total before: _______________ &nbsp;&nbsp; Payments total after: _______________ &nbsp;&nbsp; Reports revenue: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e4"/> Pass</label><label><input type="radio" name="e4"/> Fail</label><label><input type="radio" name="e4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num workflow">E5</div><div><div class="tc-title">Stats bar totals are accurate</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Data integrity</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the 4 stat cards at top of Invoicing: Total Invoices, Revenue (Paid), Outstanding, Drafts.</span></li>
+    <li><div class="step-num">2</div><span>Manually count paid invoices and sum their totals. Compare to Revenue (Paid) card.</span></li>
+    <li><div class="step-num">3</div><span>Manually count Sent invoices and sum their totals. Compare to Outstanding card.</span></li>
+    <li><div class="step-num">4</div><span>Count Draft invoices. Compare to Drafts card.</span></li>
+    <li><div class="step-num">5</div><span>Verify Total Invoices count = all invoices regardless of status.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>All 4 stat cards match manual verification. Paid, Outstanding, Drafts all accurate.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total Invoices count correct</span></div>
+    <div class="check"><div class="box"></div><span>Revenue (Paid) = sum of paid invoice totals</span></div>
+    <div class="check"><div class="box"></div><span>Outstanding = sum of Sent invoice totals</span></div>
+    <div class="check"><div class="box"></div><span>Drafts count = number of Draft invoices</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e5"/> Pass</label><label><input type="radio" name="e5"/> Fail</label><label><input type="radio" name="e5"/> Blocked</label></div>
+</div>
+
+<!-- ── DEFECT LOG ── -->
+<div class="section-rule"><div class="section-label">Defect log</div><hr /></div>
+<table class="defect-table">
+  <thead><tr><th style="width:60px">Test</th><th style="width:90px">Severity</th><th>Description</th><th style="width:90px">Status</th></tr></thead>
+  <tbody>
+    <tr><td><input type="text" placeholder="e.g. B1"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text" placeholder="Describe the issue…"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+  </tbody>
+</table>
+
+<!-- ── SIGN-OFF ── -->
+<div class="section-rule"><div class="section-label">Sign-off</div><hr /></div>
+<div class="signoff-grid">
+  <div class="signoff-box">
+    <h3>Pass / Fail Summary</h3>
+    <table class="summary-table">
+      <thead><tr><th>Section</th><th>Pass</th><th>Fail</th></tr></thead>
+      <tbody>
+        <tr><td>A — Create &amp; Edit (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>B — Status &amp; Payment (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>C — Calculations (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>D — Print &amp; Preview (3)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>E — Workflow (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td><strong>Total (25)</strong></td><td><input type="text"/></td><td><input type="text"/></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="signoff-box">
+    <h3>Tester Sign-off</h3>
+    <div class="field-group"><label>Tested by</label><input type="text" placeholder="Full name"/></div>
+    <div class="field-group"><label>Date</label><input type="text" id="signdate"/></div>
+    <div class="field-group"><label>Browser / Device</label><input type="text" placeholder="Chrome 125 / Windows 11"/></div>
+    <div class="field-group"><label>Overall Status</label><select><option>Pass — ready</option><option>Conditional pass — minor bugs</option><option>Fail — blocking bugs</option></select></div>
+    <div class="field-group"><label>Notes</label><textarea rows="3" placeholder="Any additional observations…"></textarea></div>
+  </div>
+</div>
+
+<script>
+const d = new Date().toISOString().split('T')[0];
+document.getElementById('today').textContent = d;
+document.getElementById('testdate').value = d;
+document.getElementById('signdate').value = d;
+
+function exportDocx() {
+  const today = new Date().toISOString().split('T')[0];
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?mso-application progid="Word.Document"?>
+<w:wordDocument xmlns:w="http://schemas.microsoft.com/office/word/2003/wordml">
+<w:body>
+<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Invoicing Module — Testing Procedures</w:t></w:r></w:p>
+<w:p><w:r><w:t>Version 1.0  |  Platform: redlined1.com  |  Date: ${today}</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Fixes Applied (v1.0)</w:t></w:r></w:p>
+<w:p><w:r><w:t>1. Mark Paid now auto-creates a payment record (Reports revenue stays in sync)</w:t></w:r></w:p>
+<w:p><w:r><w:t>2. Status dropdown to Paid also sets paid_date and creates payment record</w:t></w:r></w:p>
+<w:p><w:r><w:t>3. Invoice number collision fixed (MAX-based, not row count)</w:t></w:r></w:p>
+<w:p><w:r><w:t>4. Print button opens full Preview modal (prints cleanly)</w:t></w:r></w:p>
+<w:p><w:r><w:t>5. Prefill wired: Job Cards / Estimates / Repair Orders navigate with customer pre-filled</w:t></w:r></w:p>
+<w:p><w:r><w:t>6. Estimate to Invoice: navigates to Invoices module automatically after creating</w:t></w:r></w:p>
+<w:p><w:r><w:t>7. Repair Order to Invoice: navigates to Invoices module automatically after creating</w:t></w:r></w:p>
+<w:p><w:r><w:t>8. Job Card drawer has new Invoice button</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section A — Create &amp; Edit (6 tests)</w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A1 — Create new invoice — all fields [Happy path]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Click + New. (2) Verify auto-generated Invoice #. (3) Select customer — name fills. (4) Add 2 lines, set tax 8%, discount $5. (5) Create Invoice. (6) Verify in list and detail panel with correct total.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Expected: Invoice saved, appears in list, total = (85+12.50−5) x 1.08 = $99.90</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked     Notes: _______________</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A2 — Invoice number does not duplicate after deletions [Numbering fix]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Note highest number. (2) Delete one invoice. (3) Click + New. Verify new # = max + 1, not a reused number.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A3 — Required field validation</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Submit empty form — verify "Customer name required." Submit with no invoice # — verify "Invoice number required." Fill both — verify success.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A4 — Edit invoice — update line items and save</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Click Draft invoice, Edit, verify Invoice # read-only, change rate, Save Changes. Verify total updates. Reload — verify persisted.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A5 — Add and remove line items</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Add 3 lines, remove 1, fill remaining, save. Verify all lines persist. Test zero-line save (no crash).</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A6 — Delete invoice</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Click Delete, Cancel — verify not deleted. Delete again and Confirm — verify removed. Reload to confirm Supabase delete.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section B — Status Changes &amp; Payment Recording (5 tests)</w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B1 — Mark Paid auto-creates payment record [CRITICAL]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Note Payments total. Select invoice with line items. Click Mark Paid. Verify toast with amount. Check Payments module — new record exists (method = Invoice Mark Paid). Check Reports — revenue increased.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked     Invoice total: ___  Payments before: ___  After: ___</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B2 — Status dropdown to Paid also creates payment [CRITICAL]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Select Draft invoice, change status dropdown to Paid. Verify paid date set, payment created (method = Invoice Status Change). No duplicate if already Paid.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B3 — Status transitions: Draft, Sent, Paid, Void</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Draft to Sent (blue badge, no payment). Sent to Void (red badge, no payment). Verify Mark Paid hidden on Paid invoices.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B4 — Record Payment navigates to Payments with prefill</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Select Sent invoice, click Record Payment. Verify Payments module opens, Customer Name pre-filled. Save payment — appears in list.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B5 — Filter by status and search</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: Filter Paid — only Paid shows. Filter Draft — only Draft. Search customer name — correct filter. Clear search — all return.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section C — Calculations (5 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>C1 — Subtotal = sum(Qty x Rate)  |  3 lines: 2x$50 + 1x$30 + 3x$10 = $160  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C2 — Discount before tax  |  $100 line, $10 discount, 10% tax = $99.00  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C3 — Shop Supplies before tax  |  $100 line, $15 supplies, 10% tax = $126.50  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C4 — Zero tax rate  |  $200 line, 0% tax = $200.00, tax row still visible  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C5 — Multi-currency display  |  CAD shows CA$, EUR shows euro symbol  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section D — Print &amp; Preview (3 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>D1 — Print button opens preview modal (not raw print dialog)  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>D2 — Print from preview outputs only invoice (no sidebar/nav)  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>D3 — Preview shows shop branding from Settings  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section E — Workflow Integration (5 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>E1 — Job Card Invoice button: navigates with customer + vehicle pre-filled  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E2 — Estimate to Invoice: navigates to Invoicing automatically after create  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E3 — Repair Order to Invoice: navigates to Invoicing automatically after create  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E4 — End-to-end: $150 invoice flows through Invoicing, Payments, Reports consistently  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E5 — Stats bar (Total, Revenue, Outstanding, Drafts) accurate against manual count  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Sign-off</w:t></w:r></w:p>
+<w:p><w:r><w:t>Tested by: _____________________  Date: ${today}  Browser: _____________________</w:t></w:r></w:p>
+<w:p><w:r><w:t>Pass count: ____  Fail count: ____  of 25 total</w:t></w:r></w:p>
+<w:p><w:r><w:t>Overall: [ ] Pass — ready  [ ] Conditional pass  [ ] Fail — blocking bugs</w:t></w:r></w:p>
+<w:p><w:r><w:t>Notes: _______________________________________________________________</w:t></w:r></w:p>
+</w:body>
+</w:wordDocument>`;
+  const blob = new Blob([xml], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Invoices-Testing-Procedures-${today}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>

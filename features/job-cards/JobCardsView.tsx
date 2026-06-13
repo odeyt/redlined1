@@ -556,6 +556,12 @@ export function JobCardsView() {
                   dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
                   setSelectedJob(null);
                 }}>🔧 Repair Order →</button>
+              <button className="mini-btn" style={{ background: 'rgba(156,39,176,0.1)', color: '#9c27b0', border: '1px solid #9c27b033' }}
+                onClick={() => {
+                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer, vehicle: selectedJob.vehicle } });
+                  dispatch({ type: 'SET_MODULE', module: 'invoices' });
+                  setSelectedJob(null);
+                }}>🧾 Invoice →</button>
               <button className="mini-btn" style={{ color: 'var(--accent-2)' }} onClick={() => { handleClose(selectedJob); setSelectedJob(null); }}>Close Job</button>
               <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(selectedJob.id); setSelectedJob(null); }}>Delete</button>
             </div>

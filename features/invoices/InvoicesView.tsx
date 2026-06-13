@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useAppDispatch } from '@/lib/store';
+import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import {
@@ -9,6 +9,7 @@ import {
   deleteInvoice, nextInvoiceNumber, calculateTotals, formatMoney, CURRENCIES,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
+import { createPayment } from '@/services/paymentService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
@@ -40,6 +41,7 @@ const EMPTY_FORM = {
 
 export function InvoicesView() {
   const dispatch = useAppDispatch();
+  const { prefill } = useAppState();
   const { status: planStatus } = usePlan();
   const [invoices, setInvoices] = useState<InvoiceFull[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +64,24 @@ export function InvoicesView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
+
+  // Prefill: other modules can navigate here with customer data pre-loaded
+  useEffect(() => {
+    if (!prefill?.customerName) return;
+    nextInvoiceNumber().then(num => {
+      setForm(f => ({
+        ...f,
+        invoiceNumber: num,
+        customerName: prefill.customerName ?? '',
+        customerId: prefill.customerId ?? '',
+        vehicle: prefill.vehicle ?? '',
+      }));
+      setEditingId(null);
+      setShowForm(true);
+      setSelected(null);
+      dispatch({ type: 'CLEAR_PREFILL' });
+    }).catch(() => {});
+  }, [prefill]);
 
   async function load() {
     setLoading(true);
@@ -169,21 +189,54 @@ export function InvoicesView() {
 
   async function handleMarkPaid(inv: InvoiceFull) {
     try {
+      const paidDate = new Date().toISOString();
+      const total = calculateTotals(inv).total;
       await markInvoicePaid(inv.id);
-      const updated = { ...inv, status: 'Paid', paidDate: new Date().toISOString() };
+      // Auto-create payment record so Reports stays in sync
+      await createPayment({
+        invoiceNumber: inv.invoiceNumber,
+        customerName: inv.customerName,
+        customerId: inv.customerId,
+        amount: total,
+        method: 'Invoice (Mark Paid)',
+        methodDetail: '',
+        status: 'Recorded',
+        notes: `Auto-recorded when ${inv.invoiceNumber} marked paid`,
+        currency: inv.currency || 'USD',
+        referenceNumber: '',
+        paymentDate: paidDate,
+      });
+      const updated = { ...inv, status: 'Paid', paidDate };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       setSelected(updated);
-      notify(`${inv.invoiceNumber} marked as paid.`);
+      notify(`${inv.invoiceNumber} marked paid. ${formatMoney(total, inv.currency || 'USD')} payment recorded.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
   async function handleStatusChange(inv: InvoiceFull, status: string) {
     try {
-      await updateInvoice(inv.id, { status });
-      const updated = { ...inv, status };
+      const paidDate = status === 'Paid' ? new Date().toISOString() : undefined;
+      await updateInvoice(inv.id, { status, ...(paidDate ? { paidDate } : {}) });
+      if (status === 'Paid' && inv.status !== 'Paid') {
+        const total = calculateTotals(inv).total;
+        await createPayment({
+          invoiceNumber: inv.invoiceNumber,
+          customerName: inv.customerName,
+          customerId: inv.customerId,
+          amount: total,
+          method: 'Invoice (Status Change)',
+          methodDetail: '',
+          status: 'Recorded',
+          notes: `Auto-recorded when ${inv.invoiceNumber} set to Paid`,
+          currency: inv.currency || 'USD',
+          referenceNumber: '',
+          paymentDate: paidDate!,
+        });
+      }
+      const updated = { ...inv, status, ...(paidDate ? { paidDate } : {}) };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       if (selected?.id === inv.id) setSelected(updated);
-      notify(`Status updated to ${status}.`);
+      notify(status === 'Paid' ? `${inv.invoiceNumber} marked paid. Payment recorded.` : `Status updated to ${status}.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -439,7 +492,7 @@ export function InvoicesView() {
                     dispatch({ type: 'SET_MODULE', module: 'payments' });
                   }}>💳 Record Payment →</button>
               )}
-              <button className="btn" onClick={handlePrint}>🖨 Print</button>
+              <button className="btn" onClick={() => setShowPreview(true)}>🖨 Print / Preview</button>
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 

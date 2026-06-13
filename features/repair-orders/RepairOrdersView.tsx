@@ -202,7 +202,8 @@ export function RepairOrdersView() {
       const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`${ro.roNumber} converted to ${invNumber}. Go to Invoices to view it.`);
+      notify(`${ro.roNumber} → ${invNumber} created. Opening Invoices…`);
+      setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
     } catch (e: unknown) { setError('Convert failed: ' + (e instanceof Error ? e.message : '')); }
   }
 
