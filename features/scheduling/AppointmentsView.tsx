@@ -9,7 +9,7 @@ export function AppointmentsView() {
   const dispatch = useAppDispatch();
 
   return (
-    <Panel title="Service Schedule" hint="Calendar/list style schedule with mobile route, technician, bay, and job card assignment">
+    <Panel title="Appointments" hint="Daily booking list — customer, vehicle, bay/route assignment, technician, and check-in">
       <table>
         <thead>
           <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Bay / Route</th><th>Reminder</th><th>Action</th></tr>

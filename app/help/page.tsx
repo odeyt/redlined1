@@ -22,7 +22,7 @@ const WORKFLOW_SECTION = {
     },
     {
       title: 'Step 3 — Book an Appointment',
-      content: `From the customer profile, click 📅 Book Appointment to jump to Scheduling with that customer pre-selected. Pick a date and time slot, assign a technician, and set the expected job duration. The appointment appears on your shop calendar immediately and the customer can be notified by email or SMS.`,
+      content: `From the customer profile, click 📅 Book Appointment to jump to Appointments with that customer pre-selected. Pick a date and time slot, assign a technician, and set the expected job duration. The appointment appears on your shop calendar immediately and the customer can be notified by email or SMS.`,
     },
     {
       title: 'Step 4 — Create a Job Card',
@@ -75,7 +75,7 @@ const FREE_SECTIONS = [
       },
       {
         title: 'Navigating the Dashboard',
-        content: `The left sidebar is your main navigation. Each icon represents a module: Customers, Vehicles, Job Cards, Invoices, Estimates, Payments, Inspections, Scheduling, Parts, Technicians, and Settings. The dashboard gives you a live snapshot of open jobs, unpaid invoices, and recent activity. Numbers in the sidebar badges update in real time.`,
+        content: `The left sidebar is your main navigation. Each icon represents a module: Customers, Vehicles, Appointments, Job Cards, Inspections, Estimates, Repair Orders, Technicians, Parts, Invoicing, Payments, Communication, and Settings. Maintenance Schedules tracks recurring service intervals for fleet and repeat customers. Numbers in the sidebar badges update in real time.`,
       },
     ],
   },
@@ -233,15 +233,15 @@ const PAID_SECTIONS = [
   {
     id: 'scheduling',
     icon: '📅',
-    title: 'Scheduling',
+    title: 'Appointments & Maintenance Schedules',
     subsections: [
       {
         title: 'Booking Appointments',
-        content: `Go to Scheduling to see your calendar view. Click any time slot to create a new appointment. Link the appointment to an existing customer and vehicle, or create a new customer inline. Set the duration, assign a technician, and add notes. Confirmed appointments are visible to your whole team immediately.`,
+        content: `Go to Appointments to see your daily booking list. Each row shows the time slot, customer, vehicle, requested service, assigned bay or mobile route, and reminder status. Click Check In when the customer arrives to start the job. Link the appointment to a job card to track it through to completion.`,
       },
       {
-        title: 'Calendar Views',
-        content: `Switch between Day, Week, and Month views using the buttons at the top of the schedule screen. The Day view shows all booked jobs in time-slot order and is ideal for your daily workflow. The Week view helps you plan capacity. Colour-coded by technician so you can see workload distribution at a glance.`,
+        title: 'Maintenance Schedules (Fleet & Recurring)',
+        content: `Go to Maintenance Schedules to track recurring service intervals for your fleet and repeat customers. Each schedule shows the vehicle, service type, last service date, next due date, and status — OK, Due Soon, or Overdue. Use this to proactively reach out to customers before they think to call you.`,
       },
       {
         title: 'Automated Reminders',

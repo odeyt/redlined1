@@ -19,7 +19,7 @@ export const planCatalog: Record<string, Plan> = {
   Pro: {
     price: '$29.99/mo',
     limits: { users: 5, locations: 1, customers: 1000, vehicles: 2000, jobs: 500, invoices: 500, aiCredits: 0 },
-    features: ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Scheduling', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'],
+    features: ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Maintenance Schedules', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'],
   },
   'Pro Plus': {
     price: '$49.99/mo',
@@ -194,7 +194,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   customers: ['Customer CRM', 'Customer accounts, communications, reminders, vehicles, and history'],
   vehicles: ['Vehicle Management', 'VIN, mileage, drivetrain, service history, diagnostics, and recommendations'],
   'job-cards': ['Job Cards', 'Dispatch, inspect, approve, complete, and invoice every service job'],
-  scheduling: ['Scheduling', 'Calendar, route, bay, technician, appointment, and reminder workflow'],
+  scheduling: ['Maintenance Schedules', 'Recurring service intervals, fleet schedules, due-soon alerts, and overdue tracking'],
   inspections: ['Digital Inspections', 'Guided inspection checklists, findings, photos, approvals, and customer reports'],
   communication: ['Customer Communication', 'SMS, email, approvals, payment links, reminders, and follow-up history'],
   estimates: ['Estimates', 'Build, approve, decline, and convert estimates into repair orders and invoices'],
@@ -206,7 +206,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   vin: ['VIN Decoder', 'Mock VIN decode flow structured for future provider integration'],
   dtc: ['DTC Lookup', 'Diagnostic trouble code knowledge base and service guidance'],
   diagnostics: ['Scan Tool Interface', 'Simulated OBD-II session designed for future hardware integration'],
-  appointments: ['Appointments', 'Schedule, route, bay assignment, technician workload, and reminders'],
+  appointments: ['Appointments', 'Daily booking list, check-in, bay/route assignment, technician, and reminder status'],
   reports: ['Reports', 'Revenue, inventory, productivity, diagnostics, retention, and job cycle reporting'],
   settings: ['Settings', 'Shop profile, mobile operations, branches, roles, numbering, and integration placeholders'],
 };

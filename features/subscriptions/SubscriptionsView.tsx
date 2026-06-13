@@ -69,7 +69,7 @@ export function SubscriptionsView() {
                 ['Digital Inspections', 'Locked', 'Included', 'Included'],
                 ['Parts Inventory', 'Locked', 'Included', 'Included'],
                 ['Payments', 'Manual only', 'Online payments', 'Online payments'],
-                ['Scheduling', 'Basic', 'Full + Reminders', 'Full + Reminders'],
+                ['Appointments & Maintenance Schedules', 'Basic', 'Full + Reminders', 'Full + Reminders'],
                 ['AI Credits', 'None', 'None', '3,000 / mo'],
                 ['Image Attachments', 'Locked', 'Locked', 'Included'],
                 ['Multi-user Access', '1 user', 'Up to 5', 'Up to 20'],

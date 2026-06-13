@@ -48,7 +48,7 @@ const SLIDES = [
 const FEATURES = [
   { icon: '🧾', title: 'Invoices & Estimates', desc: 'Professional invoices and estimates in seconds. Send via email or SMS and collect payment online.' },
   { icon: '🔍', title: 'Digital Inspections', desc: 'Photo-based vehicle inspection reports build customer trust and increase job approvals.' },
-  { icon: '📅', title: 'Scheduling & Jobs', desc: 'Drag-and-drop job scheduling, repair orders, and real-time job status tracking.' },
+  { icon: '📅', title: 'Appointments & Maintenance Schedules', desc: 'Book appointments, check in customers, and track recurring service intervals for fleet and repeat clients.' },
   { icon: '👤', title: 'Customer Management', desc: 'Full CRM with customer history, vehicles, notes, and communication in one place.' },
   { icon: '🚗', title: 'Vehicle History', desc: 'Complete service history per vehicle. Never lose track of past repairs or upcoming maintenance.' },
   { icon: '🧰', title: 'Parts & Inventory', desc: 'Track parts inventory, set reorder points, and attach parts directly to job cards.' },
@@ -88,7 +88,7 @@ const TESTIMONIALS = [
   { name: 'Derek O.',  shop: 'D&O Performance',    text: "The inspection tool alone pays for itself. Customers approve more work when they can see the photos themselves.", img: 'https://randomuser.me/api/portraits/men/76.jpg' },
 ];
 
-const PRO_FEATURES   = ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Scheduling', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'];
+const PRO_FEATURES   = ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Maintenance Schedules', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'];
 const PLUS_FEATURES  = ['Everything in Pro', '3,000 AI Credits / mo', 'Image Attachments', 'Priority Support', 'Multi-user Access', 'Advanced Permissions', 'Dedicated Onboarding', 'SLA Response Times'];
 
 const INFO_ITEMS = [
@@ -123,7 +123,7 @@ const MEGA_FEATURES = [
   { icon: '🔍', title: 'Digital Inspections', desc: 'Photo-based reports customers view and approve online', module: 'inspections' },
   { icon: '🧰', title: 'Parts & Inventory',   desc: 'Track parts, set reorder alerts, link to jobs',        module: 'parts' },
   { icon: '🔧', title: 'Repair Orders',       desc: 'Full RO management from intake to final delivery',      module: 'repair-orders' },
-  { icon: '📅', title: 'Scheduling',          desc: 'Drag-and-drop scheduling with automated reminders',     module: 'scheduling' },
+  { icon: '📅', title: 'Maintenance Schedules', desc: 'Recurring service intervals, fleet due-soon alerts',    module: 'scheduling' },
   { icon: '💳', title: 'Payments',            desc: 'Accept, record & reconcile payments with ease',         module: 'payments' },
   { icon: '👷', title: 'Tech Workflow',        desc: 'Assign techs, log hours, and track productivity',       module: 'technicians' },
   { icon: '📊', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and performance insights',  module: 'reports' },
