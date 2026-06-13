@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface Payment {
   id: string;
@@ -38,6 +39,7 @@ export async function fetchPayments(): Promise<Payment[]> {
   const { data, error } = await supabase
     .from('payments')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('payment_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -47,6 +49,7 @@ export async function createPayment(p: Omit<Payment, 'id' | 'createdAt'>): Promi
   const { data, error } = await supabase
     .from('payments')
     .insert({
+      shop_id: getShopId(),
       invoice_number: p.invoiceNumber || null,
       customer_name: p.customerName,
       customer_id: p.customerId || null,
@@ -77,12 +80,12 @@ export async function updatePayment(id: string, updates: Partial<Payment>): Prom
   if (updates.currency !== undefined) payload.currency = updates.currency;
   if (updates.referenceNumber !== undefined) payload.reference_number = updates.referenceNumber;
   if (updates.paymentDate !== undefined) payload.payment_date = updates.paymentDate;
-  const { error } = await supabase.from('payments').update(payload).eq('id', id);
+  const { error } = await supabase.from('payments').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deletePayment(id: string): Promise<void> {
-  const { error } = await supabase.from('payments').delete().eq('id', id);
+  const { error } = await supabase.from('payments').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 

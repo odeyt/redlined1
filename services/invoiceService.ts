@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface InvoiceLine {
   note: string;
@@ -8,7 +9,7 @@ export interface InvoiceLine {
 }
 
 export interface InvoiceFull {
-  id: string;           // maps to "number" column (PK)
+  id: string;
   invoiceNumber: string;
   customerName: string;
   customerId: string;
@@ -68,6 +69,7 @@ export async function fetchInvoices(): Promise<InvoiceFull[]> {
   const { data, error } = await supabase
     .from('invoices')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -77,6 +79,7 @@ export async function createInvoice(inv: Omit<InvoiceFull, 'id' | 'createdAt'>):
   const { data, error } = await supabase
     .from('invoices')
     .insert({
+      shop_id: getShopId(),
       number: inv.invoiceNumber,
       customer: inv.customerName,
       customer_id: inv.customerId || null,
@@ -112,8 +115,7 @@ export async function updateInvoice(id: string, updates: Partial<InvoiceFull>): 
   if (updates.dueDate !== undefined) payload.due_date = updates.dueDate || null;
   if (updates.paidDate !== undefined) payload.paid_date = updates.paidDate || null;
   if (updates.currency !== undefined) payload.currency = updates.currency;
-
-  const { error } = await supabase.from('invoices').update(payload).eq('number', id);
+  const { error } = await supabase.from('invoices').update(payload).eq('number', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -121,12 +123,13 @@ export async function markInvoicePaid(id: string): Promise<void> {
   const { error } = await supabase
     .from('invoices')
     .update({ status: 'Paid', paid_date: new Date().toISOString() })
-    .eq('number', id);
+    .eq('number', id)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-  const { error } = await supabase.from('invoices').delete().eq('number', id);
+  const { error } = await supabase.from('invoices').delete().eq('number', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -134,6 +137,7 @@ export async function nextInvoiceNumber(): Promise<string> {
   const { data } = await supabase
     .from('invoices')
     .select('number')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false })
     .limit(200);
   const nums = (data ?? []).map(r => Number(String(r.number ?? '').replace('INV-', '')) || 0);
@@ -141,7 +145,6 @@ export async function nextInvoiceNumber(): Promise<string> {
   return `INV-${String(max + 1).padStart(4, '0')}`;
 }
 
-// World currencies list
 export const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },

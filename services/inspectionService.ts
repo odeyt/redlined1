@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface InspectionItem {
   id: string;
@@ -29,35 +30,29 @@ export interface Inspection {
 }
 
 export const INSPECTION_TEMPLATE: Omit<InspectionItem, 'id'>[] = [
-  // Brakes
   { category: 'Brakes', name: 'Front brake pads', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Brakes', name: 'Rear brake pads', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Brakes', name: 'Front rotors', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Brakes', name: 'Rear rotors', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Brakes', name: 'Brake fluid', status: 'N/A', notes: '', photoUrl: '' },
-  // Tires
   { category: 'Tires', name: 'Front left tire', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Tires', name: 'Front right tire', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Tires', name: 'Rear left tire', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Tires', name: 'Rear right tire', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Tires', name: 'Tire pressure', status: 'N/A', notes: '', photoUrl: '' },
-  // Fluids
   { category: 'Fluids', name: 'Engine oil', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Fluids', name: 'Coolant', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Fluids', name: 'Transmission fluid', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Fluids', name: 'Power steering fluid', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Fluids', name: 'Windshield washer', status: 'N/A', notes: '', photoUrl: '' },
-  // Lights
   { category: 'Lights', name: 'Headlights', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Lights', name: 'Tail lights', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Lights', name: 'Brake lights', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Lights', name: 'Turn signals', status: 'N/A', notes: '', photoUrl: '' },
-  // Under Hood
   { category: 'Under Hood', name: 'Battery', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Under Hood', name: 'Air filter', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Under Hood', name: 'Belts & hoses', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Under Hood', name: 'Wiper blades', status: 'N/A', notes: '', photoUrl: '' },
-  // Suspension
   { category: 'Suspension', name: 'Shocks / struts', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Suspension', name: 'Tie rods', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Suspension', name: 'Ball joints', status: 'N/A', notes: '', photoUrl: '' },
@@ -93,6 +88,7 @@ export async function fetchInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from('inspections')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -102,6 +98,7 @@ export async function createInspection(ins: Omit<Inspection, 'id' | 'createdAt'>
   const { data, error } = await supabase
     .from('inspections')
     .insert({
+      shop_id: getShopId(),
       inspection_number: ins.inspectionNumber,
       job_card_id: ins.jobCardId || null,
       customer_name: ins.customerName,
@@ -133,17 +130,20 @@ export async function updateInspection(id: string, updates: Partial<Inspection>)
   if (updates.completedAt !== undefined) payload.completed_at = updates.completedAt;
   if (updates.customerEmail !== undefined) payload.customer_email = updates.customerEmail;
   if (updates.customerPhone !== undefined) payload.customer_phone = updates.customerPhone;
-  const { error } = await supabase.from('inspections').update(payload).eq('id', id);
+  const { error } = await supabase.from('inspections').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteInspection(id: string): Promise<void> {
-  const { error } = await supabase.from('inspections').delete().eq('id', id);
+  const { error } = await supabase.from('inspections').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function nextInspectionNumber(): Promise<string> {
-  const { count } = await supabase.from('inspections').select('*', { count: 'exact', head: true });
+  const { count } = await supabase
+    .from('inspections')
+    .select('*', { count: 'exact', head: true })
+    .eq('shop_id', getShopId());
   return `DVI-${String((count ?? 0) + 1).padStart(4, '0')}`;
 }
 

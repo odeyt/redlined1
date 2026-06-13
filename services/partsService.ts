@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface Part {
   partNumber: string;
@@ -16,7 +17,7 @@ export interface Part {
   reorderQty: number;
   compatibility: string;
   barcode: string;
-  photos: string[];   // array of public URLs from Supabase Storage
+  photos: string[];
   notes: string;
 }
 
@@ -70,12 +71,11 @@ function toRow(p: Partial<Part>) {
   return row;
 }
 
-/* ─── CRUD ─── */
-
 export async function fetchParts(): Promise<Part[]> {
   const { data, error } = await supabase
     .from('parts')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('description');
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -86,23 +86,19 @@ export async function fetchPartByBarcode(barcode: string): Promise<Part | null> 
     .from('parts')
     .select('*')
     .eq('barcode', barcode)
+    .eq('shop_id', getShopId())
     .maybeSingle();
   if (error) throw error;
   return data ? mapRow(data) : null;
 }
 
 export async function createPart(p: Omit<Part, 'photos'> & { photos?: string[] }): Promise<Part> {
-  const row = toRow({ ...p, photos: p.photos ?? [] });
-  const { data, error } = await supabase
-    .from('parts')
-    .insert(row)
-    .select()
-    .single();
+  const row = { ...toRow({ ...p, photos: p.photos ?? [] }), shop_id: getShopId() };
+  const { data, error } = await supabase.from('parts').insert(row).select().single();
   if (error) throw error;
   return mapRow(data);
 }
 
-// Kept for backward compat (JobCardsView uses savePart)
 export async function savePart(p: Partial<Part> & { partNumber: string }): Promise<Part> {
   return createPart({
     partNumber: p.partNumber, brand: p.brand ?? '', description: p.description ?? '',
@@ -119,16 +115,15 @@ export async function updatePart(partNumber: string, updates: Partial<Part>): Pr
   const { error } = await supabase
     .from('parts')
     .update(toRow(updates))
-    .eq('part_number', partNumber);
+    .eq('part_number', partNumber)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deletePart(partNumber: string): Promise<void> {
-  const { error } = await supabase.from('parts').delete().eq('part_number', partNumber);
+  const { error } = await supabase.from('parts').delete().eq('part_number', partNumber).eq('shop_id', getShopId());
   if (error) throw error;
 }
-
-/* ─── Qty helpers ─── */
 
 export async function reservePart(partNumber: string, currentQty: number): Promise<number> {
   const newQty = Math.max(0, currentQty - 1);
@@ -140,11 +135,9 @@ export async function updatePartQty(partNumber: string, qty: number): Promise<vo
   await updatePart(partNumber, { quantity: qty });
 }
 
-/* ─── Photo upload ─── */
-
 export async function uploadPartPhoto(partNumber: string, file: File): Promise<string> {
   const ext  = file.name.split('.').pop() ?? 'jpg';
-  const path = `parts/${partNumber}/${Date.now()}.${ext}`;
+  const path = `parts/${getShopId()}/${partNumber}/${Date.now()}.${ext}`;
   const { error: upErr } = await supabase.storage
     .from('shop-assets')
     .upload(path, file, { upsert: false, contentType: file.type });
@@ -154,7 +147,6 @@ export async function uploadPartPhoto(partNumber: string, file: File): Promise<s
 }
 
 export async function deletePartPhoto(partNumber: string, url: string, allPhotos: string[]): Promise<void> {
-  // Extract the storage path from the public URL
   const marker = '/shop-assets/';
   const idx = url.indexOf(marker);
   if (idx !== -1) {

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface EstimateLine {
   note: string;
@@ -68,6 +69,7 @@ export async function fetchEstimates(): Promise<EstimateFull[]> {
   const { data, error } = await supabase
     .from('estimates')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -77,6 +79,7 @@ export async function createEstimate(est: Omit<EstimateFull, 'id' | 'createdAt'>
   const { data, error } = await supabase
     .from('estimates')
     .insert({
+      shop_id: getShopId(),
       estimate_number: est.estimateNumber,
       customer_name: est.customerName,
       customer_id: est.customerId || null,
@@ -112,7 +115,7 @@ export async function updateEstimate(id: string, updates: Partial<EstimateFull>)
   if (updates.validUntil !== undefined) payload.valid_until = updates.validUntil || null;
   if (updates.approvedDate !== undefined) payload.approved_date = updates.approvedDate || null;
   if (updates.currency !== undefined) payload.currency = updates.currency;
-  const { error } = await supabase.from('estimates').update(payload).eq('id', id);
+  const { error } = await supabase.from('estimates').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -120,19 +123,21 @@ export async function approveEstimate(id: string): Promise<void> {
   const { error } = await supabase
     .from('estimates')
     .update({ status: 'Approved', approved_date: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteEstimate(id: string): Promise<void> {
-  const { error } = await supabase.from('estimates').delete().eq('id', id);
+  const { error } = await supabase.from('estimates').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function nextEstimateNumber(): Promise<string> {
   const { count } = await supabase
     .from('estimates')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('shop_id', getShopId());
   const n = (count ?? 0) + 1;
   return `EST-${String(n).padStart(4, '0')}`;
 }

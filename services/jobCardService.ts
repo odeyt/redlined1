@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface JobCardFull {
   id: string;
@@ -48,6 +49,7 @@ export async function fetchJobCards(): Promise<JobCardFull[]> {
   const { data, error } = await supabase
     .from('job_cards')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('check_in_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(toJob);
@@ -57,6 +59,7 @@ export async function fetchClosedJobs(): Promise<JobCardFull[]> {
   const { data, error } = await supabase
     .from('closed_jobs')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('closed_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(toJob);
@@ -78,6 +81,7 @@ export async function createJobCard(fields: {
     .from('job_cards')
     .insert({
       id,
+      shop_id: getShopId(),
       ro: null,
       invoice: null,
       customer: fields.customer,
@@ -130,7 +134,7 @@ export async function updateJobCard(id: string, fields: Partial<{
   if (fields.location !== undefined) update.location = fields.location;
   if (fields.laborHours !== undefined) update.labor_hours = fields.laborHours;
   if (fields.partsTotal !== undefined) update.parts_total = fields.partsTotal;
-  const { error } = await supabase.from('job_cards').update(update).eq('id', id);
+  const { error } = await supabase.from('job_cards').update(update).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -138,6 +142,7 @@ export async function closeJob(job: JobCardFull): Promise<void> {
   const closedDate = new Date().toISOString();
   const { error: insertError } = await supabase.from('closed_jobs').insert({
     id: job.id,
+    shop_id: getShopId(),
     ro: job.ro,
     invoice: job.invoice,
     customer: job.customer,
@@ -157,11 +162,11 @@ export async function closeJob(job: JobCardFull): Promise<void> {
     created_at: job.checkInDate,
   });
   if (insertError) throw insertError;
-  const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id);
+  const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id).eq('shop_id', getShopId());
   if (deleteError) throw deleteError;
 }
 
 export async function deleteJobCard(id: string): Promise<void> {
-  const { error } = await supabase.from('job_cards').delete().eq('id', id);
+  const { error } = await supabase.from('job_cards').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }

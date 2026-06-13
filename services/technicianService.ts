@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface Technician {
   id: string;
@@ -8,7 +9,7 @@ export interface Technician {
   email: string;
   specialty: string;
   certifications: string;
-  payType: string;   // Hourly | Flat Rate | Commission
+  payType: string;
   payRate: number;
   hireDate: string | null;
   status: string;
@@ -66,6 +67,7 @@ export async function fetchTechnicians(): Promise<Technician[]> {
   const { data, error } = await supabase
     .from('technicians')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('name');
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -75,6 +77,7 @@ export async function createTechnician(t: Omit<Technician, 'id' | 'createdAt'>):
   const { data, error } = await supabase
     .from('technicians')
     .insert({
+      shop_id: getShopId(),
       name:           t.name,
       role:           t.role,
       phone:          t.phone,
@@ -106,26 +109,25 @@ export async function updateTechnician(id: string, updates: Partial<Technician>)
   if (updates.hireDate      !== undefined) payload.hire_date      = updates.hireDate || null;
   if (updates.status        !== undefined) payload.status         = updates.status;
   if (updates.notes         !== undefined) payload.notes          = updates.notes;
-  const { error } = await supabase.from('technicians').update(payload).eq('id', id);
+  const { error } = await supabase.from('technicians').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteTechnician(id: string): Promise<void> {
-  const { error } = await supabase.from('technicians').delete().eq('id', id);
+  const { error } = await supabase.from('technicians').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
-// Pull performance data by joining repair_orders and job_cards
 export async function fetchTechPerformance(): Promise<TechPerformance[]> {
+  const shopId = getShopId();
   const [{ data: roData }, { data: jcData }] = await Promise.all([
-    supabase.from('repair_orders').select('technician, status, labor_hours, labor_rate, parts_total'),
-    supabase.from('job_cards').select('technicians, status'),
+    supabase.from('repair_orders').select('technician, status, labor_hours, labor_rate, parts_total').eq('shop_id', shopId),
+    supabase.from('job_cards').select('technicians, status').eq('shop_id', shopId),
   ]);
 
   const ros = roData ?? [];
   const jcs = jcData ?? [];
 
-  // Gather all tech names
   const nameSet = new Set<string>();
   ros.forEach(r => { if (r.technician) nameSet.add(r.technician); });
   jcs.forEach(j => {
@@ -160,11 +162,11 @@ export async function fetchTechPerformance(): Promise<TechPerformance[]> {
   });
 }
 
-// Fetch open ROs assigned to a specific technician
 export async function fetchTechOpenROs(techName: string) {
   const { data, error } = await supabase
     .from('repair_orders')
     .select('ro_number, customer_name, vehicle, status, labor_hours, labor_rate, parts_total, opened_date')
+    .eq('shop_id', getShopId())
     .eq('technician', techName)
     .not('status', 'in', '("Closed","Void")')
     .order('opened_date', { ascending: false });

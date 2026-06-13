@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface ShopSettings {
   companyName: string;
@@ -18,7 +19,6 @@ export interface ShopSettings {
   enabledPaymentMethods: string[];
 }
 
-/* Default set that covers most auto repair shops out of the box */
 export const DEFAULT_PAYMENT_METHODS = [
   'Cash', 'Check', 'Credit Card', 'Debit Card',
   'Apple Pay', 'Google Pay', 'Zelle', 'Venmo',
@@ -29,11 +29,11 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data, error } = await supabase
     .from('shop_settings')
     .select('*')
-    .eq('id', 1)
+    .eq('shop_id', getShopId())
     .single();
   if (error) throw error;
   return {
-    companyName: data.company_name ?? 'Redlined1',
+    companyName: data.company_name ?? 'D1 Imports',
     tagline: data.tagline ?? 'Service, fleet, mobile, parts',
     logoUrl: data.logo_url ?? null,
     address: data.address ?? '',
@@ -68,13 +68,17 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.businessType !== undefined) update.business_type = settings.businessType;
   if (settings.serviceTypes !== undefined) update.service_types = settings.serviceTypes;
   if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
-  const { error } = await supabase.from('shop_settings').update(update).eq('id', 1);
+  const { error } = await supabase
+    .from('shop_settings')
+    .update(update)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function uploadLogo(file: File): Promise<string> {
+  const shopId = getShopId();
   const ext = file.name.split('.').pop();
-  const path = `logo/shop-logo.${ext}`;
+  const path = `logo/${shopId}/shop-logo.${ext}`;
   const { error } = await supabase.storage
     .from('shop-assets')
     .upload(path, file, { upsert: true });

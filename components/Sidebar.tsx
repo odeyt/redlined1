@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { navItems } from '@/lib/mock-data';
@@ -12,17 +12,32 @@ import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
+import { useShop } from '@/lib/useShop';
 
 export function Sidebar() {
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { status: planStatus, daysLeft } = usePlan();
+  const { shops, currentShop, switchShop } = useShop();
+  const [shopMenuOpen, setShopMenuOpen] = useState(false);
+  const shopMenuRef = useRef<HTMLDivElement>(null);
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
-  const [companyName, setCompanyName] = useState('Redlined1');
+  const [companyName, setCompanyName] = useState('D1 Imports');
   const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
+
+  // Close shop menu when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (shopMenuRef.current && !shopMenuRef.current.contains(e.target as Node)) {
+        setShopMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   useEffect(() => {
     fetchShopSettings().then(s => {
@@ -45,6 +60,8 @@ export function Sidebar() {
 
   useEffect(() => {
     async function loadCounts() {
+      const { getShopId } = await import('@/lib/shopStore');
+      const sid = getShopId();
       const [
         { count: customerCount }, { count: vehicleCount }, { count: jobCount },
         { count: invoiceCount }, { count: estimateCount }, { count: paymentCount },
@@ -53,16 +70,16 @@ export function Sidebar() {
         { count: maintCount },
         { count: partsCount },
       ] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true }),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }),
-        supabase.from('job_cards').select('*', { count: 'exact', head: true }),
-        supabase.from('invoices').select('*', { count: 'exact', head: true }),
-        supabase.from('estimates').select('*', { count: 'exact', head: true }),
-        supabase.from('payments').select('*', { count: 'exact', head: true }),
-        supabase.from('repair_orders').select('*', { count: 'exact', head: true }),
-        supabase.from('inspections').select('*', { count: 'exact', head: true }),
-        supabase.from('maintenance_schedules').select('*', { count: 'exact', head: true }),
-        supabase.from('parts').select('*', { count: 'exact', head: true }),
+        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('job_cards').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('estimates').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('payments').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('repair_orders').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('maintenance_schedules').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('parts').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
       ]);
       setRealCounts({
         customers: customerCount ?? 0,
@@ -107,6 +124,57 @@ export function Sidebar() {
           <span>{tagline}</span>
         </div>
       </div>
+
+      {/* Shop switcher — only shown when user has access to multiple shops */}
+      {shops.length > 1 && (
+        <div ref={shopMenuRef} style={{ position: 'relative', margin: '4px 10px 0' }}>
+          <button
+            onClick={() => setShopMenuOpen(o => !o)}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '7px 11px', background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8,
+              color: '#ccc', fontSize: 12, cursor: 'pointer', gap: 8,
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ fontSize: 14 }}>🏢</span>
+              <span style={{ fontWeight: 600, color: '#eee', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                {currentShop?.name ?? 'Select shop'}
+              </span>
+            </span>
+            <span style={{ fontSize: 10, opacity: 0.6 }}>{shopMenuOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {shopMenuOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+              background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 8, zIndex: 999, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            }}>
+              <div style={{ padding: '6px 11px 4px', fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>
+                Switch Location
+              </div>
+              {shops.map(shop => (
+                <button
+                  key={shop.id}
+                  onClick={() => { setShopMenuOpen(false); switchShop(shop.id); }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '9px 11px', background: shop.id === currentShop?.id ? 'rgba(192,57,43,0.15)' : 'transparent',
+                    border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    color: shop.id === currentShop?.id ? '#e74c3c' : '#ccc',
+                    fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontSize: 13 }}>{shop.id === currentShop?.id ? '✓' : '○'}</span>
+                  <span style={{ fontWeight: shop.id === currentShop?.id ? 600 : 400 }}>{shop.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {/* Trial / free plan banner */}
       {planStatus === 'trial' && daysLeft !== null && daysLeft <= 3 && (
         <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.4)', borderRadius: 8, fontSize: 11, color: '#ffc107', textAlign: 'center' }}>

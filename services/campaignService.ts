@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface Campaign {
   id: string;
@@ -27,14 +28,8 @@ export interface EstimateFollowup {
 }
 
 export const CAMPAIGN_TYPES = [
-  'Reactivation',
-  'Due for Service',
-  'Seasonal',
-  'Thank You',
-  'Declined Work',
-  'Post-Service Follow-up',
-  'Fleet PM Reminder',
-  'Birthday / Anniversary',
+  'Reactivation', 'Due for Service', 'Seasonal', 'Thank You',
+  'Declined Work', 'Post-Service Follow-up', 'Fleet PM Reminder', 'Birthday / Anniversary',
 ];
 
 export const CAMPAIGN_CHANNELS = ['Email', 'SMS', 'Both'];
@@ -100,6 +95,7 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
   const { data, error } = await supabase
     .from('campaigns')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapCampaign);
@@ -109,6 +105,7 @@ export async function createCampaign(c: Omit<Campaign, 'id' | 'createdAt' | 'sen
   const { data, error } = await supabase
     .from('campaigns')
     .insert({
+      shop_id: getShopId(),
       name: c.name,
       type: c.type,
       subject: c.subject,
@@ -134,12 +131,12 @@ export async function updateCampaign(id: string, updates: Partial<Campaign>): Pr
   if (updates.channel !== undefined) payload.channel = updates.channel;
   if (updates.status !== undefined) payload.status = updates.status;
   if (updates.sentCount !== undefined) payload.sent_count = updates.sentCount;
-  const { error } = await supabase.from('campaigns').update(payload).eq('id', id);
+  const { error } = await supabase.from('campaigns').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  const { error } = await supabase.from('campaigns').delete().eq('id', id);
+  const { error } = await supabase.from('campaigns').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -147,6 +144,7 @@ export async function fetchFollowups(): Promise<EstimateFollowup[]> {
   const { data, error } = await supabase
     .from('estimate_followups')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapFollowup);
@@ -156,6 +154,7 @@ export async function createFollowup(f: Omit<EstimateFollowup, 'id' | 'createdAt
   const { data, error } = await supabase
     .from('estimate_followups')
     .insert({
+      shop_id: getShopId(),
       estimate_number: f.estimateNumber,
       customer_name: f.customerName,
       customer_email: f.customerEmail,
@@ -174,11 +173,12 @@ export async function markFollowupSent(id: string): Promise<void> {
   const { error } = await supabase
     .from('estimate_followups')
     .update({ status: 'Sent', sent_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteFollowup(id: string): Promise<void> {
-  const { error } = await supabase.from('estimate_followups').delete().eq('id', id);
+  const { error } = await supabase.from('estimate_followups').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }

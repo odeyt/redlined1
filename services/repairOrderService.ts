@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 export interface RepairOrder {
   id: string;
@@ -56,6 +57,7 @@ export async function fetchRepairOrders(): Promise<RepairOrder[]> {
   const { data, error } = await supabase
     .from('repair_orders')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -65,6 +67,7 @@ export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'
   const { data, error } = await supabase
     .from('repair_orders')
     .insert({
+      shop_id: getShopId(),
       ro_number: ro.roNumber,
       job_card_id: ro.jobCardId || null,
       invoice_number: ro.invoiceNumber || null,
@@ -108,7 +111,7 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.notes !== undefined) payload.notes = updates.notes;
   if (updates.currency !== undefined) payload.currency = updates.currency;
   if (updates.closedDate !== undefined) payload.closed_date = updates.closedDate || null;
-  const { error } = await supabase.from('repair_orders').update(payload).eq('id', id);
+  const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
@@ -116,19 +119,21 @@ export async function closeRepairOrder(id: string): Promise<void> {
   const { error } = await supabase
     .from('repair_orders')
     .update({ status: 'Closed', closed_date: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function deleteRepairOrder(id: string): Promise<void> {
-  const { error } = await supabase.from('repair_orders').delete().eq('id', id);
+  const { error } = await supabase.from('repair_orders').delete().eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
 
 export async function nextRONumber(): Promise<string> {
   const { count } = await supabase
     .from('repair_orders')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('shop_id', getShopId());
   const n = (count ?? 0) + 1;
   return `RO-${String(n).padStart(5, '0')}`;
 }

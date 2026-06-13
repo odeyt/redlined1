@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 import type { Vehicle } from '@/lib/types';
 
 type VehicleRow = {
@@ -35,6 +36,7 @@ export async function fetchVehicles() {
   const { data, error } = await supabase
     .from('vehicles')
     .select('*')
+    .eq('shop_id', getShopId())
     .order('label');
   if (error) throw error;
   return (data ?? []).map(toVehicle);
@@ -44,6 +46,7 @@ export async function saveVehicle(vehicle: Omit<Vehicle, 'customerId'> & { custo
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
+      shop_id: getShopId(),
       customer_id: vehicle.customerId,
       vin: vehicle.vin,
       label: vehicle.label,
@@ -65,6 +68,7 @@ export async function fetchCustomerNames(): Promise<{ id: string; name: string }
   const { data, error } = await supabase
     .from('customers')
     .select('id, name')
+    .eq('shop_id', getShopId())
     .order('name');
   if (error) throw error;
   return data ?? [];
