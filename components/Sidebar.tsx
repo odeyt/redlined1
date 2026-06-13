@@ -12,14 +12,14 @@ import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
-import { useShop } from '@/lib/useShop';
+import { useShop, MANAGER_BLOCKED } from '@/lib/useShop';
 
 export function Sidebar() {
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { status: planStatus, daysLeft } = usePlan();
-  const { shops, currentShop, switchShop } = useShop();
+  const { shops, currentShop, switchShop, role } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const shopMenuRef = useRef<HTMLDivElement>(null);
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
@@ -108,9 +108,12 @@ export function Sidebar() {
     return mockCount;
   }
 
-  // Always show settings + dashboard regardless of hidden list
+  const isManager = role === 'manager';
   const ALWAYS_VISIBLE = ['dashboard', 'settings'];
-  const visibleNav = navItems.filter(([id]) => ALWAYS_VISIBLE.includes(id) || !hiddenModules.includes(id));
+  const visibleNav = navItems.filter(([id]) => {
+    if (isManager && MANAGER_BLOCKED.includes(id)) return false;
+    return ALWAYS_VISIBLE.includes(id) || !hiddenModules.includes(id);
+  });
 
   return (
     <aside className="sidebar">
