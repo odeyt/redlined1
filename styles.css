@@ -189,15 +189,29 @@ textarea {
   align-items: center;
   gap: 8px;
   min-height: 40px;
+  font-weight: 500;
 }
 
-.btn.primary {
+/* Light mode: give ghost buttons a visible border so they don't vanish on white */
+:root .btn:not(.primary):not(.btn-primary):not(.btn-success):not(.success) {
+  border-color: #b0bec5;
+  background: #f0f4f7;
+  color: #2c3e50;
+}
+:root .btn:not(.primary):not(.btn-primary):not(.btn-success):not(.success):hover {
+  background: #e3eaf0;
+  border-color: #90a4ae;
+}
+
+.btn.primary,
+.btn.btn-primary {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
 }
 
-.btn.success {
+.btn.success,
+.btn.btn-success {
   background: var(--accent-2);
   color: #ffffff;
   border-color: var(--accent-2);
@@ -212,9 +226,21 @@ textarea {
   cursor: pointer;
   font-size: 12px;
   min-height: 30px;
+  font-weight: 500;
 }
 
-.mini-btn.primary {
+/* Light mode: give mini ghost buttons visible contrast */
+:root .mini-btn:not(.primary):not(.btn-primary) {
+  border-color: #b0bec5;
+  background: #f0f4f7;
+  color: #2c3e50;
+}
+:root .mini-btn:not(.primary):not(.btn-primary):hover {
+  background: #e3eaf0;
+}
+
+.mini-btn.primary,
+.mini-btn.btn-primary {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
