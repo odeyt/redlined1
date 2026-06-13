@@ -1,11 +1,14 @@
 'use client';
 
+'use client';
+
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
 import { fetchCustomers, saveCustomer, updateFollowUp } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
+import { useAppDispatch } from '@/lib/store';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
@@ -14,6 +17,7 @@ interface Invoice { number: string; status: string; date: string; subtotal: numb
 interface RepairOrder { ro_number: string; status: string; opened_date: string; concern: string; vehicle: string; }
 
 export function CustomersView() {
+  const dispatch = useAppDispatch();
   const [customers, setCustomers]         = useState<Customer[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
@@ -285,14 +289,27 @@ export function CustomersView() {
             </div>
 
             {/* Footer actions */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10, background: 'var(--surface-soft)' }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => handleFollowUp(selected.id, selected.name)}>Send Follow-up</button>
-              {selected.portalToken && (
-                <button className="btn" onClick={() => { const url = `${window.location.origin}/portal/${selected.portalToken}`; navigator.clipboard.writeText(url).then(() => notify('Portal link copied!')); }}>
-                  🔗 Portal Link
-                </button>
-              )}
-              <button className="btn" onClick={() => setSelected(null)}>Close</button>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
+                  dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: selected.name, customerId: selected.id } });
+                  setSelected(null);
+                }}>＋ New Job Card</button>
+                <button className="btn" style={{ flex: 1 }} onClick={() => {
+                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selected.name, customerId: selected.id } });
+                  dispatch({ type: 'SET_MODULE', module: 'appointments' });
+                  setSelected(null);
+                }}>📅 Book Appointment</button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" style={{ flex: 1 }} onClick={() => handleFollowUp(selected.id, selected.name)}>✉ Send Follow-up</button>
+                {selected.portalToken && (
+                  <button className="btn" onClick={() => { const url = `${window.location.origin}/portal/${selected.portalToken}`; navigator.clipboard.writeText(url).then(() => notify('Portal link copied!')); }}>
+                    🔗 Portal Link
+                  </button>
+                )}
+                <button className="btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
             </div>
           </div>
         </>

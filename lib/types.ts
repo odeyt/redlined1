@@ -238,12 +238,15 @@ export interface AppState {
   auditLogs: AuditLog[];
   parts: Part[];
   openNewJobCard: boolean;
+  prefill: { customerName?: string; customerId?: string; vehicle?: string; inspectionId?: string } | null;
 }
 
 export type AppAction =
   | { type: 'SET_MODULE'; module: string }
-  | { type: 'OPEN_NEW_JOB_CARD' }
+  | { type: 'OPEN_NEW_JOB_CARD'; prefill?: { customerName?: string; customerId?: string; vehicle?: string } }
   | { type: 'CLOSE_NEW_JOB_CARD' }
+  | { type: 'SET_PREFILL'; prefill: AppState['prefill'] }
+  | { type: 'CLEAR_PREFILL' }
   | { type: 'NOTIFY'; message: string }
   | { type: 'LOGIN'; userId: string }
   | { type: 'RESET_PASSWORD' }

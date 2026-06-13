@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchInspections, createInspection, updateInspection, deleteInspection,
@@ -23,6 +24,8 @@ function freshItem(template: Omit<InspectionItem, 'id'>): InspectionItem {
 }
 
 export function InspectionsView() {
+  const dispatch = useAppDispatch();
+  const { prefill } = useAppState();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -384,6 +387,15 @@ export function InspectionsView() {
                 <button className="btn" onClick={() => setShowPreview(true)}>👁 Customer Report</button>
                 {selected.status !== 'Completed' && (
                   <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleComplete(selected)}>✓ Mark Complete</button>
+                )}
+                {selected.status === 'Completed' && (
+                  <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }}
+                    onClick={() => {
+                      dispatch({ type: 'SET_PREFILL', prefill: { customerName: selected.customerName, customerId: selected.customerId, inspectionId: selected.id } });
+                      dispatch({ type: 'SET_MODULE', module: 'estimates' });
+                    }}>
+                    📋 Create Estimate →
+                  </button>
                 )}
                 <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
               </div>

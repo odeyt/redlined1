@@ -17,7 +17,7 @@ import { fetchTechnicians, createTechnician, deleteTechnician, type Technician }
 const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—';
 
 export function JobCardsView() {
-  const { openNewJobCard } = useAppState();
+  const { openNewJobCard, prefill } = useAppState();
   const dispatch = useAppDispatch();
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -25,6 +25,9 @@ export function JobCardsView() {
   useEffect(() => {
     if (openNewJobCard) {
       setShowCreateModal(true);
+      // Apply any prefilled data from navigation
+      if (prefill?.customerName) setFCustomer(prefill.customerName);
+      if (prefill?.vehicle) setFVehicle(prefill.vehicle);
       dispatch({ type: 'CLOSE_NEW_JOB_CARD' });
     }
   }, [openNewJobCard]);
@@ -475,6 +478,18 @@ export function JobCardsView() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--line)', marginTop: 'auto' }}>
               <button className="mini-btn" onClick={() => { setSelectedJob(null); startEdit(selectedJob); }}>Edit</button>
               <button className="mini-btn" onClick={() => { handleApprove(selectedJob); setSelectedJob(null); }}>Approve</button>
+              <button className="mini-btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }}
+                onClick={() => {
+                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });
+                  dispatch({ type: 'SET_MODULE', module: 'inspections' });
+                  setSelectedJob(null);
+                }}>🔍 Inspection →</button>
+              <button className="mini-btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }}
+                onClick={() => {
+                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });
+                  dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
+                  setSelectedJob(null);
+                }}>🔧 Repair Order →</button>
               <button className="mini-btn" style={{ color: 'var(--accent-2)' }} onClick={() => { handleClose(selectedJob); setSelectedJob(null); }}>Close Job</button>
               <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(selectedJob.id); setSelectedJob(null); }}>Delete</button>
             </div>

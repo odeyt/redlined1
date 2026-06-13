@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import {
@@ -38,6 +39,7 @@ const EMPTY_FORM = {
 };
 
 export function InvoicesView() {
+  const dispatch = useAppDispatch();
   const { status: planStatus } = usePlan();
   const [invoices, setInvoices] = useState<InvoiceFull[]>([]);
   const [loading, setLoading] = useState(true);
@@ -429,6 +431,13 @@ export function InvoicesView() {
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
               {selected.status !== 'Paid' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.12)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleMarkPaid(selected)}>✓ Mark Paid</button>
+              )}
+              {selected.status !== 'Paid' && (
+                <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }}
+                  onClick={() => {
+                    dispatch({ type: 'SET_PREFILL', prefill: { customerName: selected.customerName, customerId: selected.customerId } });
+                    dispatch({ type: 'SET_MODULE', module: 'payments' });
+                  }}>💳 Record Payment →</button>
               )}
               <button className="btn" onClick={handlePrint}>🖨 Print</button>
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>

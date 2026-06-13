@@ -6,6 +6,7 @@ import { Badge } from '@/components/Badge';
 import { fetchVehicles, saveVehicle, fetchCustomerNames } from '@/services/vehicleService';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
+import { useAppDispatch } from '@/lib/store';
 
 type VehicleWithId = Vehicle & { id: string };
 
@@ -219,6 +220,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
 
 // ── Main View ───────────────────────────────────────────────────
 export function VehiclesView() {
+  const dispatch = useAppDispatch();
   const [vehicles, setVehicles] = useState<VehicleWithId[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -352,13 +354,13 @@ export function VehiclesView() {
                     <div><span>Plate</span><strong>{v.plate || '—'}</strong></div>
                   </div>
                   {v.recommendation && <div className="empty-note" style={{ marginTop: 10 }}>Recommended: {v.recommendation}</div>}
-                  <button
-                    className="btn"
-                    onClick={() => setGalleryVehicle(v)}
-                    style={{ marginTop: 12, width: '100%', fontSize: 13 }}
-                  >
-                    📷 Manage Photos
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                    <button className="btn btn-primary" style={{ flex: 1, fontSize: 13 }} onClick={() => {
+                      const owner = customers.find(c => c.id === v.customerId);
+                      dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
+                    }}>＋ Job Card</button>
+                    <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>
+                  </div>
                 </div>
               </article>
             ))}
