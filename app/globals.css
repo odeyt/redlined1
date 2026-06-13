@@ -29,6 +29,11 @@
   --warn: #cc6600;
   --danger: #e03030;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  /* Dark-mode button tokens — restore dark surface look */
+  --btn-bg: #252525;
+  --btn-bg-hover: #2e2e2e;
+  --btn-border: #3d3d3d;
+  --btn-text: #f0f0f0;
 }
 
 * {
