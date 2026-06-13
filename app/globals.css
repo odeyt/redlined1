@@ -893,29 +893,36 @@ tr:last-child td {
 .login-field label {
   font-size: 12px;
   font-weight: 600;
-  color: #888;
+  color: var(--muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.login-field input {
-  border: 1px solid rgba(255,255,255,0.1);
+/* Light mode — visible inputs */
+.login-field input,
+.login-field select,
+.login-field textarea {
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
-  background: rgba(255,255,255,0.06);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
   outline: none;
+  width: 100%;
   transition: border-color 0.2s, background 0.2s;
 }
 
-.login-field input::placeholder {
-  color: #444;
+.login-field input::placeholder,
+.login-field textarea::placeholder {
+  color: var(--muted);
 }
 
-.login-field input:focus {
-  border-color: rgba(204,0,0,0.6);
-  background: rgba(255,255,255,0.08);
+.login-field input:focus,
+.login-field select:focus,
+.login-field textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface);
 }
 
 .login-error {
@@ -1195,10 +1202,17 @@ tr:last-child td {
   color: #ff8080;
 }
 
-[data-theme="dark"] .login-field input {
+[data-theme="dark"] .login-field input,
+[data-theme="dark"] .login-field select,
+[data-theme="dark"] .login-field textarea {
   background: var(--surface-soft);
   border-color: var(--line);
   color: var(--text);
+}
+
+[data-theme="dark"] .login-field input::placeholder,
+[data-theme="dark"] .login-field textarea::placeholder {
+  color: var(--muted);
 }
 
 /* table alt-row tinting in dark mode */
