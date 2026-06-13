@@ -214,10 +214,11 @@ textarea {
   padding: 10px 12px;
 }
 
+/* ── Ghost button — visible in both light and dark ── */
 .btn {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  border: 1.5px solid #aab4be;
+  background: #e4eaef;
+  color: #1a2e3d;
   border-radius: 8px;
   padding: 10px 13px;
   cursor: pointer;
@@ -225,44 +226,66 @@ textarea {
   align-items: center;
   gap: 8px;
   min-height: 40px;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .btn:hover {
-  background: var(--surface-soft);
+  background: #d4dde5;
+  border-color: #8a9baa;
 }
 
-.btn.primary {
+/* Primary / accent buttons */
+.btn.primary,
+.btn.btn-primary {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
 }
 
-.btn.primary:hover {
-  opacity: 0.9;
+.btn.primary:hover,
+.btn.btn-primary:hover {
+  opacity: 0.88;
 }
 
-.btn.success {
+.btn.success,
+.btn.btn-success {
   background: var(--accent-2);
   color: #ffffff;
   border-color: var(--accent-2);
 }
 
+/* Dark mode — restore dark surface look */
+[data-theme="dark"] .btn {
+  background: #252525;
+  border-color: #3d3d3d;
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .btn:hover {
+  background: #2e2e2e;
+}
+
+/* ── Mini buttons ── */
 .mini-btn {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--text);
+  border: 1.5px solid #aab4be;
+  background: #e4eaef;
+  color: #1a2e3d;
   border-radius: 7px;
   padding: 6px 8px;
   cursor: pointer;
   font-size: 12px;
   min-height: 30px;
+  font-weight: 500;
+  transition: background 0.15s;
 }
 
 .mini-btn:hover {
-  background: var(--surface-soft);
+  background: #d4dde5;
 }
 
-.mini-btn.primary {
+.mini-btn.primary,
+.mini-btn.btn-primary {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
@@ -271,6 +294,16 @@ textarea {
 .mini-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+[data-theme="dark"] .mini-btn {
+  background: #252525;
+  border-color: #3d3d3d;
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .mini-btn:hover {
+  background: #2e2e2e;
 }
 
 .row-actions {
