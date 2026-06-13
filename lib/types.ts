@@ -267,6 +267,7 @@ export type AppAction =
   | { type: 'RESERVE_PART'; partNumber: string }
   | { type: 'SEND_FOLLOWUP'; customerId: string }
   | { type: 'CREATE_JOB_FROM_VEHICLE'; vehicleIndex: number }
+  | { type: 'ADD_APPOINTMENT'; appointment: AppointmentRow }
   | { type: 'CHECK_IN'; appointmentIndex: number }
   | { type: 'SEND_REMINDER'; appointmentIndex: number }
   | { type: 'COMPLETE_INSPECTION'; inspectionId: string }

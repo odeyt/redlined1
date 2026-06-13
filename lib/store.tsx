@@ -278,6 +278,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, jobCards: [newJob, ...state.jobCards], vehicles, activeModule: 'job-cards', ...notify(state, `${id} created from ${vehicle.label}.`) };
     }
 
+    case 'ADD_APPOINTMENT':
+      return { ...state, appointments: [...state.appointments, action.appointment], ...notify(state, `Appointment booked for ${action.appointment[1]}.`) };
+
     case 'CHECK_IN': {
       const appointments = state.appointments.map((a, i) => i === action.appointmentIndex ? [a[0], a[1], a[2], a[3], a[4], a[5], 'Checked in'] as typeof a : a);
       const appt = state.appointments[action.appointmentIndex];
