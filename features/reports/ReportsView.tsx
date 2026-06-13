@@ -94,10 +94,16 @@ export function ReportsView() {
       const paidInvs = invoices.filter(i => i.status === 'Paid');
       const sentInvs = invoices.filter(i => i.status === 'Sent');
 
-      const totalRevenuePaid = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
+      // Revenue = actual cash collected (payments table is source of truth)
+      const totalPaymentsCollected = pays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+      // Invoice-based totals (for Revenue tab breakdown)
+      const totalInvoicedPaid = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalOutstanding = sentInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalVoid = invoices.filter(i => i.status === 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
-      const avgInvoiceValue = invoices.length > 0 ? invoices.reduce((s, i) => s + calcInvTotal(i), 0) / invoices.length : 0;
+      const totalAllInvoiced = invoices.filter(i => i.status !== 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
+      // Avg: use payment average (actual transactions); fall back to invoice avg if no payments
+      const avgInvoiceValue = pays.length > 0 ? totalPaymentsCollected / pays.length
+        : paidInvs.length > 0 ? totalInvoicedPaid / paidInvs.length : 0;
 
       // Payments by method
       const methodMap: Record<string, { total: number; count: number }> = {};
@@ -126,12 +132,14 @@ export function ReportsView() {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
         const label = MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear().toString().slice(2);
-        const rev = paidInvs
-          .filter(inv => inv.created_at && inv.created_at >= d.toISOString() && inv.created_at < next.toISOString())
-          .reduce((s, inv) => s + calcInvTotal(inv), 0);
-        const pymt = pays
+        // Revenue = payments collected in this month (source of truth)
+        const rev = pays
           .filter(p => p.payment_date && p.payment_date >= d.toISOString() && p.payment_date < next.toISOString())
           .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+        // Invoiced = paid invoices created this month (secondary view)
+        const pymt = paidInvs
+          .filter(inv => inv.created_at && inv.created_at >= d.toISOString() && inv.created_at < next.toISOString())
+          .reduce((s, inv) => s + calcInvTotal(inv), 0);
         monthlyRevenue.push({ month: label, revenue: rev, payments: pymt });
       }
 
@@ -154,14 +162,14 @@ export function ReportsView() {
       const convertRate = ests.length > 0 ? (convertedEsts / ests.length) * 100 : 0;
 
       setData({
-        totalRevenuePaid,
+        totalRevenuePaid: totalPaymentsCollected,   // payments table = source of truth
         totalOutstanding,
         totalVoid,
         avgInvoiceValue,
         invoiceCount: invoices.length,
         paidCount: paidInvs.length,
         sentCount: sentInvs.length,
-        totalPayments: pays.reduce((s, p) => s + Number(p.amount ?? 0), 0),
+        totalPayments: totalPaymentsCollected,
         paymentCount: pays.length,
         methodBreakdown,
         totalROValue: totalLaborValue + totalPartsValue,
@@ -293,10 +301,10 @@ export function ReportsView() {
         <>
           <div className="grid cols-4" style={{ marginBottom: 16 }}>
             {[
-              { label: 'Total Revenue', value: fmtMoney(d.totalRevenuePaid), sub: `${d.paidCount} paid invoices`, color: '#4caf50' },
-              { label: 'Outstanding', value: fmtMoney(d.totalOutstanding), sub: `${d.sentCount} sent`, color: d.totalOutstanding > 0 ? '#f59e0b' : 'var(--text)' },
-              { label: 'Payments Collected', value: fmtMoney(d.totalPayments), sub: `${d.paymentCount} transactions`, color: '#2196f3' },
-              { label: 'Avg Invoice', value: fmtMoney(d.avgInvoiceValue), sub: `${d.invoiceCount} total invoices`, color: 'var(--text)' },
+              { label: 'Total Revenue', value: fmtMoney(d.totalRevenuePaid), sub: `${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''} collected`, color: '#4caf50' },
+              { label: 'Outstanding', value: fmtMoney(d.totalOutstanding), sub: `${d.sentCount} unpaid invoice${d.sentCount !== 1 ? 's' : ''}`, color: d.totalOutstanding > 0 ? '#f59e0b' : 'var(--text)' },
+              { label: 'Total Invoiced', value: fmtMoney(d.totalOutstanding + d.totalRevenuePaid), sub: `${d.invoiceCount} invoice${d.invoiceCount !== 1 ? 's' : ''} (excl. void)`, color: 'var(--text)' },
+              { label: 'Avg per Transaction', value: fmtMoney(d.avgInvoiceValue), sub: d.paymentCount > 0 ? `across ${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''}` : 'No payments yet', color: 'var(--text)' },
             ].map(card => (
               <div key={card.label} className="card" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>{card.label}</div>
@@ -339,8 +347,8 @@ export function ReportsView() {
               ))}
             </div>
             <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--muted)' }}>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--accent)', borderRadius: 2, marginRight: 4 }} />Revenue (Paid Inv)</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2196f3', borderRadius: 2, marginRight: 4, opacity: 0.7 }} />Payments Recorded</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--accent)', borderRadius: 2, marginRight: 4 }} />Revenue Collected (Payments)</span>
+              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2196f3', borderRadius: 2, marginRight: 4, opacity: 0.7 }} />Paid Invoices (Invoice Date)</span>
             </div>
           </Panel>
         </>
@@ -355,13 +363,14 @@ export function ReportsView() {
 
           <div className="grid cols-3" style={{ marginBottom: 16 }}>
             {[
-              { label: 'Total Revenue (Paid)', value: fmtMoney(d.totalRevenuePaid), color: '#4caf50' },
-              { label: 'Outstanding (Sent)', value: fmtMoney(d.totalOutstanding), color: '#f59e0b' },
-              { label: 'Voided Invoices', value: fmtMoney(d.totalVoid), color: '#f44336' },
+              { label: 'Revenue Collected', value: fmtMoney(d.totalRevenuePaid), color: '#4caf50', sub: `${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''} recorded` },
+              { label: 'Outstanding (Unpaid)', value: fmtMoney(d.totalOutstanding), color: '#f59e0b', sub: `${d.sentCount} sent invoice${d.sentCount !== 1 ? 's' : ''}` },
+              { label: 'Voided Invoices', value: fmtMoney(d.totalVoid), color: '#f44336', sub: 'Excluded from revenue' },
             ].map(c => (
               <div key={c.label} className="card" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>
               </div>
             ))}
           </div>
@@ -371,8 +380,8 @@ export function ReportsView() {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--line)' }}>
                   <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Month</th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Revenue (Paid Inv)</th>
-                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Payments Recorded</th>
+                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Revenue Collected</th>
+                  <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Paid Invoices</th>
                   <th style={{ padding: '8px 10px' }} />
                 </tr>
               </thead>

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Testing Procedures — Appointments & Maintenance Schedules</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; background: #fff; padding: 2rem 2.5rem; font-size: 13px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 20px; display: flex; gap: 20px; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; flex-wrap: wrap; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .sum-card { background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 24px; font-weight: 600; }
+  .sum-label { font-size: 11px; color: #666; margin-top: 2px; }
+  .tester-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .tester-field label { font-size: 11px; color: #666; display: block; margin-bottom: 4px; }
+  .tester-field input { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  .section-rule { display: flex; align-items: center; gap: 10px; margin: 24px 0 14px; }
+  .section-rule hr { flex: 1; border: none; border-top: 1px solid #e0e0e0; }
+  .section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .tc-num { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tc-num.appt { background: #E6F1FB; color: #0C447C; }
+  .tc-num.maint { background: #EAF3DE; color: #27500A; }
+  .tc-num.workflow { background: #EEEDFE; color: #3C3489; }
+  .tc-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .tc-type { font-size: 11px; color: #666; display: flex; gap: 6px; align-items: center; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .badge-appt { background: #E6F1FB; color: #0C447C; }
+  .badge-maint { background: #EAF3DE; color: #27500A; }
+  .badge-workflow { background: #EEEDFE; color: #3C3489; }
+  ol.steps { margin: 0 0 12px 0; padding-left: 0; list-style: none; }
+  ol.steps li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  ol.steps li:last-child { border-bottom: none; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; margin-top: 1px; color: #555; }
+  .expect { background: #f8f8f8; border-radius: 7px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .expect-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 3px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .result-row { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #555; margin-top: 4px; }
+  .result-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .note-line { font-size: 11px; color: #888; margin-top: 6px; }
+  .defect-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  .defect-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .defect-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .defect-table input, .defect-table select { width: 100%; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .signoff-box { background: #f8f8f8; border-radius: 8px; padding: 14px; }
+  .signoff-box h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 10px; }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+  .field-group input, .field-group select, .field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .summary-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 5px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .summary-table input { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; text-align: center; }
+  .print-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; border: 1px solid #ccc; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13px; margin-bottom: 20px; font-family: inherit; }
+  .print-btn:hover { background: #f5f5f5; }
+  @media print {
+    .print-btn { display: none; }
+    body { padding: 1rem; }
+    .card { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">&#x2B07; Export to PDF &nbsp;(Print → Save as PDF)</button>
+
+<h1>Testing procedures — Appointments &amp; Maintenance Schedules</h1>
+<div class="meta">
+  <span>&#128197; Version: 1.0 &nbsp;&middot;&nbsp; Date: <span id="today"></span></span>
+  <span>&#128187; Platform: redlined1.com</span>
+  <span>&#128100; Tester: ___________________________</span>
+</div>
+
+<div class="summary-grid">
+  <div class="sum-card"><div class="sum-num">19</div><div class="sum-label">Total test cases</div></div>
+  <div class="sum-card"><div class="sum-num">7</div><div class="sum-label">Appointments</div></div>
+  <div class="sum-card"><div class="sum-num">7</div><div class="sum-label">Maintenance</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Workflow links</div></div>
+</div>
+
+<div class="tester-row">
+  <div class="tester-field"><label>Tester name</label><input type="text" placeholder="Full name" /></div>
+  <div class="tester-field"><label>Test date</label><input type="text" id="testdate" /></div>
+  <div class="tester-field"><label>Browser / device</label><input type="text" placeholder="e.g. Chrome 125 / Windows 11" /></div>
+</div>
+
+<!-- ── SECTION A ── -->
+<div class="section-rule"><div class="section-label">Section A — Appointments module</div><hr /></div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A1</div>
+    <div><div class="tc-title">Book Appointment button visibility</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Smoke test</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Log in and navigate to <strong>Appointments</strong> in the sidebar.</span></li>
+    <li><div class="step-num">2</div><span>Confirm the panel titled "Appointments" loads with the booking table.</span></li>
+    <li><div class="step-num">3</div><span>Locate the "+ Book Appointment" button in the top-right of the panel.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Button is visible, red-styled (btn-primary), and not disabled.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Button present in top-right of panel</span></div>
+    <div class="check"><div class="box"></div><span>Button is red (btn-primary style)</span></div>
+    <div class="check"><div class="box"></div><span>Button is not grayed out or hidden</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a1" /> Pass</label>
+    <label><input type="radio" name="a1" /> Fail</label>
+    <label><input type="radio" name="a1" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A2</div>
+    <div><div class="tc-title">Modal opens and all fields render correctly</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Functional</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click "+ Book Appointment".</span></li>
+    <li><div class="step-num">2</div><span>Verify the modal overlay appears and blocks the page behind it.</span></li>
+    <li><div class="step-num">3</div><span>Verify all 7 fields are visible: Time, Customer, Vehicle, Requested Service, Bay/Route, Technician, Reminder Status.</span></li>
+    <li><div class="step-num">4</div><span>Toggle to dark mode (theme icon top-right). Verify all labels and inputs remain legible.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Modal renders with all 7 fields. Labels visible in both themes. No white-on-white text.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Modal overlay appears on click</span></div>
+    <div class="check"><div class="box"></div><span>All 7 fields present and labelled</span></div>
+    <div class="check"><div class="box"></div><span>Fields visible in light mode</span></div>
+    <div class="check"><div class="box"></div><span>Fields visible in dark mode</span></div>
+    <div class="check"><div class="box"></div><span>No layout overflow or clipping</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a2" /> Pass</label>
+    <label><input type="radio" name="a2" /> Fail</label>
+    <label><input type="radio" name="a2" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A3</div>
+    <div><div class="tc-title">Customer dropdown populates from Supabase</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Integration</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the Book Appointment modal.</span></li>
+    <li><div class="step-num">2</div><span>Click the Customer dropdown.</span></li>
+    <li><div class="step-num">3</div><span>Verify the list shows real customers from the database (not empty, not "undefined").</span></li>
+    <li><div class="step-num">4</div><span>Select a customer and confirm the selection persists when tabbing to the next field.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Customer dropdown populated with real names. Selected value persists after tabbing away.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Dropdown not empty on open</span></div>
+    <div class="check"><div class="box"></div><span>Real customer names visible (not "undefined")</span></div>
+    <div class="check"><div class="box"></div><span>Selection persists after tabbing away</span></div>
+  </div>
+  <div class="note-line">Note any broken customer names: ___________________________</div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a3" /> Pass</label>
+    <label><input type="radio" name="a3" /> Fail</label>
+    <label><input type="radio" name="a3" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A4</div>
+    <div><div class="tc-title">Technician dropdown populates from Supabase</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Integration</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the Book Appointment modal and click the Technician dropdown.</span></li>
+    <li><div class="step-num">2</div><span>Verify it lists technicians added via Job Cards → Manage Technicians.</span></li>
+    <li><div class="step-num">3</div><span>If no technicians exist: add one in Job Cards → Manage Technicians, then re-open the modal.</span></li>
+    <li><div class="step-num">4</div><span>Verify the newly added technician appears in the dropdown.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Technician dropdown shows real names. New technicians added elsewhere appear here after re-opening modal.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Dropdown populated (or shows placeholder if none added yet)</span></div>
+    <div class="check"><div class="box"></div><span>Newly added technician appears after re-opening modal</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a4" /> Pass</label>
+    <label><input type="radio" name="a4" /> Fail</label>
+    <label><input type="radio" name="a4" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A5</div>
+    <div><div class="tc-title">Required field validation — Time, Customer, Service</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Validation</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open modal and click "Book Appointment" without filling any fields.</span></li>
+    <li><div class="step-num">2</div><span>Verify the form does not submit and no new row appears.</span></li>
+    <li><div class="step-num">3</div><span>Fill Time only, click submit — verify it still blocks.</span></li>
+    <li><div class="step-num">4</div><span>Fill Time + Customer, click submit — verify it blocks (Service missing).</span></li>
+    <li><div class="step-num">5</div><span>Fill all required fields and submit — verify it succeeds.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Blocked until Time, Customer, and Requested Service are all filled. No crash on empty submit.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Empty submit does not crash or navigate away</span></div>
+    <div class="check"><div class="box"></div><span>Partial fills blocked correctly</span></div>
+    <div class="check"><div class="box"></div><span>Fully valid submit succeeds</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a5" /> Pass</label>
+    <label><input type="radio" name="a5" /> Fail</label>
+    <label><input type="radio" name="a5" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A6</div>
+    <div><div class="tc-title">New appointment appears in table after save</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> Functional</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the current number of rows in the Appointments table.</span></li>
+    <li><div class="step-num">2</div><span>Fill all fields: Time = 09:00, Customer = any, Vehicle = "Test Vehicle", Service = "Test Oil Change", Bay = Bay 1, Technician = any, Reminder = Confirmed.</span></li>
+    <li><div class="step-num">3</div><span>Click "Book Appointment".</span></li>
+    <li><div class="step-num">4</div><span>Verify modal closes and green toast "Appointment booked!" appears.</span></li>
+    <li><div class="step-num">5</div><span>Verify new row appears in the table with correct data in all columns.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Table gains one row. All entered values appear in correct columns. Toast shown. Modal closes cleanly.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Modal closes on submit</span></div>
+    <div class="check"><div class="box"></div><span>Green toast "Appointment booked!" visible</span></div>
+    <div class="check"><div class="box"></div><span>New row present in table</span></div>
+    <div class="check"><div class="box"></div><span>Customer, Vehicle, Service values correct in row</span></div>
+    <div class="check"><div class="box"></div><span>Reminder status badge shown correctly</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a6" /> Pass</label>
+    <label><input type="radio" name="a6" /> Fail</label>
+    <label><input type="radio" name="a6" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num appt">A7</div>
+    <div><div class="tc-title">Dismiss modal — click-outside and Cancel button</div><div class="tc-type"><span class="badge badge-appt">Appointments</span> UX</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open the modal and type something in the Service field.</span></li>
+    <li><div class="step-num">2</div><span>Click the grey overlay area outside the modal panel.</span></li>
+    <li><div class="step-num">3</div><span>Verify modal closes without adding a row.</span></li>
+    <li><div class="step-num">4</div><span>Open modal again, click the "Cancel" button.</span></li>
+    <li><div class="step-num">5</div><span>Verify modal closes without adding a row.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Both dismiss paths close the modal cleanly. No phantom row added to the table.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Click-outside closes modal</span></div>
+    <div class="check"><div class="box"></div><span>Cancel button closes modal</span></div>
+    <div class="check"><div class="box"></div><span>No new row added after either dismiss</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="a7" /> Pass</label>
+    <label><input type="radio" name="a7" /> Fail</label>
+    <label><input type="radio" name="a7" /> Blocked</label>
+  </div>
+</div>
+
+<!-- ── SECTION B ── -->
+<div class="section-rule"><div class="section-label">Section B — Maintenance Schedules module</div><hr /></div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B1</div>
+    <div><div class="tc-title">Auto-create schedule when job card is closed</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Critical path</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Job Cards. Note the current count in Maintenance Schedules sidebar badge.</span></li>
+    <li><div class="step-num">2</div><span>Click any active job card row to open the detail drawer.</span></li>
+    <li><div class="step-num">3</div><span>Note the customer name and service type shown in the drawer.</span></li>
+    <li><div class="step-num">4</div><span>Click "Close Job" and confirm the dialog prompt.</span></li>
+    <li><div class="step-num">5</div><span>Read the toast — should say "Maintenance schedule created for [customer]. Next due: [date]".</span></li>
+    <li><div class="step-num">6</div><span>Navigate to Maintenance Schedules and verify the new entry exists.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Toast confirms schedule creation. Schedule visible in Maintenance Schedules with correct customer, vehicle, service type. Last service = today. Next due = calculated from OEM interval.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Toast says "Maintenance schedule created for [customer]"</span></div>
+    <div class="check"><div class="box"></div><span>Schedule visible in Maintenance Schedules module</span></div>
+    <div class="check"><div class="box"></div><span>Customer name matches job card</span></div>
+    <div class="check"><div class="box"></div><span>Service type matches job card</span></div>
+    <div class="check"><div class="box"></div><span>Last service date = today</span></div>
+    <div class="check"><div class="box"></div><span>Next due date is in the future (not blank)</span></div>
+  </div>
+  <div class="note-line">Next due date shown in toast: ___________________________</div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b1" /> Pass</label>
+    <label><input type="radio" name="b1" /> Fail</label>
+    <label><input type="radio" name="b1" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B2</div>
+    <div><div class="tc-title">OEM interval accuracy — oil change (180 days / 8,000 km)</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Data accuracy</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create a test job card with service type containing "oil change" (any capitalisation).</span></li>
+    <li><div class="step-num">2</div><span>Close the job card and navigate to the generated maintenance schedule.</span></li>
+    <li><div class="step-num">3</div><span>Verify the next due date is approximately 6 months (180 days) from today.</span></li>
+    <li><div class="step-num">4</div><span>Verify the next due mileage field = 8,000.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Oil Change → 180 days / 8,000 km interval. Next due date = today + 180 days (±1 day).</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Next due date ≈ today + 180 days</span></div>
+    <div class="check"><div class="box"></div><span>Next due miles = 8,000</span></div>
+    <div class="check"><div class="box"></div><span>Last service date = today</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:11px;color:#888;">
+    <span>Actual next due date shown: _______________</span>
+    <span>Expected (today + 180d): _______________</span>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b2" /> Pass</label>
+    <label><input type="radio" name="b2" /> Fail</label>
+    <label><input type="radio" name="b2" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B3</div>
+    <div><div class="tc-title">Due-soon and overdue status badges update correctly</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Visual</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Maintenance Schedules. Select any schedule and click Edit.</span></li>
+    <li><div class="step-num">2</div><span>Set Next Due Date to yesterday. Save. Verify red "OVERDUE" badge appears.</span></li>
+    <li><div class="step-num">3</div><span>Edit again. Set Next Due Date to 2 weeks from today. Save. Verify orange "DUE SOON" badge.</span></li>
+    <li><div class="step-num">4</div><span>Edit again. Set Next Due Date to 6 months from today. Save. Verify green "OK" badge.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Past date → red OVERDUE. Within 30 days → orange DUE SOON. Beyond 30 days → green OK. Badge updates without page refresh.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Past date shows red OVERDUE badge</span></div>
+    <div class="check"><div class="box"></div><span>Within 30 days shows orange DUE SOON</span></div>
+    <div class="check"><div class="box"></div><span>Beyond 30 days shows green OK</span></div>
+    <div class="check"><div class="box"></div><span>Badge updates immediately without page refresh</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b3" /> Pass</label>
+    <label><input type="radio" name="b3" /> Fail</label>
+    <label><input type="radio" name="b3" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B4</div>
+    <div><div class="tc-title">Send Reminder button — Maintenance Schedules page</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Functional</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Select a schedule that has an email address on file.</span></li>
+    <li><div class="step-num">2</div><span>In the detail panel, click "Preview" — verify the message shows customer first name, vehicle, service type, and due date.</span></li>
+    <li><div class="step-num">3</div><span>Click "Send Reminder" — verify a brief loading state "Sending…" appears.</span></li>
+    <li><div class="step-num">4</div><span>Verify toast "Reminder sent to [customer] at [email]" appears.</span></li>
+    <li><div class="step-num">5</div><span>Select a schedule with NO email or phone. Verify "Send Reminder" is grayed out with a warning message.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Preview shows correct personalised message. Send fires toast confirmation. No-contact schedule disables button with clear warning.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Preview shows customer first name (not full raw string)</span></div>
+    <div class="check"><div class="box"></div><span>Preview shows vehicle and service type</span></div>
+    <div class="check"><div class="box"></div><span>Preview shows correct due date</span></div>
+    <div class="check"><div class="box"></div><span>Send button shows "Sending…" briefly</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms send with customer name and email</span></div>
+    <div class="check"><div class="box"></div><span>No-contact schedule shows warning + disabled button</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b4" /> Pass</label>
+    <label><input type="radio" name="b4" /> Fail</label>
+    <label><input type="radio" name="b4" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B5</div>
+    <div><div class="tc-title">Customer drawer — Maintenance Schedules section loads independently</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Integration</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Customers. Click a customer who has had at least one job card closed.</span></li>
+    <li><div class="step-num">2</div><span>Scroll to the "Maintenance Schedules" section in the drawer.</span></li>
+    <li><div class="step-num">3</div><span>Verify the section exists and shows schedules for that customer.</span></li>
+    <li><div class="step-num">4</div><span>Verify Vehicles, Invoices, and Repair Orders also loaded correctly (they should not be blank).</span></li>
+    <li><div class="step-num">5</div><span>Click a customer with NO maintenance schedules. Verify the empty state message appears.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Maintenance section visible in drawer. Shows correct schedules. Other sections (Vehicles, Invoices, ROs) load regardless of whether maintenance schedules load. Empty state for customers with no schedules.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Maintenance Schedules section present in drawer</span></div>
+    <div class="check"><div class="box"></div><span>Schedules shown for customer with closed job history</span></div>
+    <div class="check"><div class="box"></div><span>Empty state message for no-schedule customer</span></div>
+    <div class="check"><div class="box"></div><span>Vehicles, Invoices, Repair Orders still load even if schedules take time</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b5" /> Pass</label>
+    <label><input type="radio" name="b5" /> Fail</label>
+    <label><input type="radio" name="b5" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B6</div>
+    <div><div class="tc-title">Send Reminder + Copy Message — Customer drawer</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Functional</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open a customer with a maintenance schedule in their drawer.</span></li>
+    <li><div class="step-num">2</div><span>Click "Send Reminder" on one of their schedule items. Verify loading state then toast.</span></li>
+    <li><div class="step-num">3</div><span>Click "Copy Message" on the same item.</span></li>
+    <li><div class="step-num">4</div><span>Paste into Notepad or any text editor. Verify the message contains customer name, vehicle, service type, and due date.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Send Reminder shows "Sending…" then toast. Copy Message copies personalised text to clipboard with all key details.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Send Reminder shows "Sending…" briefly</span></div>
+    <div class="check"><div class="box"></div><span>Toast confirms reminder sent</span></div>
+    <div class="check"><div class="box"></div><span>Copy Message fires "Reminder message copied!" toast</span></div>
+    <div class="check"><div class="box"></div><span>Pasted text includes customer first name, vehicle, service, due date</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b6" /> Pass</label>
+    <label><input type="radio" name="b6" /> Fail</label>
+    <label><input type="radio" name="b6" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num maint">B7</div>
+    <div><div class="tc-title">Manually add a maintenance schedule</div><div class="tc-type"><span class="badge badge-maint">Maintenance</span> Functional</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Maintenance Schedules. Click "+ Add".</span></li>
+    <li><div class="step-num">2</div><span>Fill in: Customer (from dropdown), Vehicle, Service Type = "Brake Inspection", Interval Miles = 20000, Interval Days = 365, Next Due Date = 3 months from today.</span></li>
+    <li><div class="step-num">3</div><span>Click "Add Schedule". Verify it saves without an error toast.</span></li>
+    <li><div class="step-num">4</div><span>Verify the new entry appears in the left list with correct status badge.</span></li>
+    <li><div class="step-num">5</div><span>Click the entry and verify all fields are correct in the detail panel.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Manual schedule saves to Supabase. Appears in list immediately with correct badge. Detail panel shows all fields correctly.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Form saves without error</span></div>
+    <div class="check"><div class="box"></div><span>New entry appears immediately in left list</span></div>
+    <div class="check"><div class="box"></div><span>Status badge reflects correct urgency</span></div>
+    <div class="check"><div class="box"></div><span>All entered fields correct in detail panel</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="b7" /> Pass</label>
+    <label><input type="radio" name="b7" /> Fail</label>
+    <label><input type="radio" name="b7" /> Blocked</label>
+  </div>
+</div>
+
+<!-- ── SECTION C ── -->
+<div class="section-rule"><div class="section-label">Section C — Workflow link integration</div><hr /></div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num workflow">C1</div>
+    <div><div class="tc-title">Customer → New Job Card (prefill)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Prefill</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open any customer drawer in Customers.</span></li>
+    <li><div class="step-num">2</div><span>Click "＋ New Job Card" in the footer.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to Job Cards and the New Job Card modal opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify the Customer dropdown is pre-selected to the customer you came from.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Modal auto-opens on Job Cards. Customer field pre-filled. No need to re-select.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Job Cards module</span></div>
+    <div class="check"><div class="box"></div><span>New Job Card modal opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer pre-filled (not blank or "undefined")</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="c1" /> Pass</label>
+    <label><input type="radio" name="c1" /> Fail</label>
+    <label><input type="radio" name="c1" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num workflow">C2</div>
+    <div><div class="tc-title">Job Card → Repair Order (prefill)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Prefill</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open any active job card drawer (click a row).</span></li>
+    <li><div class="step-num">2</div><span>Click "🔧 Repair Order →" in the drawer footer.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to Repair Orders and the new RO form opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify Customer Name and Vehicle fields are pre-filled from the job card.</span></li>
+    <li><div class="step-num">5</div><span>Verify the RO number is auto-generated (not blank).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>RO form opens with customer, vehicle, and auto-generated RO number pre-filled.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Repair Orders module</span></div>
+    <div class="check"><div class="box"></div><span>RO form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled</span></div>
+    <div class="check"><div class="box"></div><span>Vehicle pre-filled</span></div>
+    <div class="check"><div class="box"></div><span>RO number auto-generated</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="c2" /> Pass</label>
+    <label><input type="radio" name="c2" /> Fail</label>
+    <label><input type="radio" name="c2" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num workflow">C3</div>
+    <div><div class="tc-title">Inspection → Estimate (prefill)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Prefill</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Inspections. Open any completed inspection.</span></li>
+    <li><div class="step-num">2</div><span>Click "📋 Create Estimate →" in the action bar.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to Estimates and new estimate form opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify Customer Name is pre-filled and Estimate Number is auto-generated.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Estimate form opens with customer name and auto-generated number. No need to re-select customer.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Estimates module</span></div>
+    <div class="check"><div class="box"></div><span>Estimate form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled (not blank or "undefined")</span></div>
+    <div class="check"><div class="box"></div><span>Estimate number auto-generated</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="c3" /> Pass</label>
+    <label><input type="radio" name="c3" /> Fail</label>
+    <label><input type="radio" name="c3" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num workflow">C4</div>
+    <div><div class="tc-title">Invoice → Payment (prefill)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Prefill</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Invoicing. Select any unpaid invoice.</span></li>
+    <li><div class="step-num">2</div><span>Click "💳 Record Payment →" in the action bar.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to Payments and new payment form opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify Customer Name field is pre-filled.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Payment form opens with customer name pre-filled. Staff only needs to enter amount and method.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Payment form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="c4" /> Pass</label>
+    <label><input type="radio" name="c4" /> Fail</label>
+    <label><input type="radio" name="c4" /> Blocked</label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="tc-num workflow">C5</div>
+    <div><div class="tc-title">Customer → Book Appointment (navigation)</div><div class="tc-type"><span class="badge badge-workflow">Workflow</span> Navigation</div></div>
+  </div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open any customer drawer. Click "📅 Book Appointment" in the footer.</span></li>
+    <li><div class="step-num">2</div><span>Verify navigation to Appointments module with no crash or error.</span></li>
+    <li><div class="step-num">3</div><span>Click "+ Book Appointment" and verify the modal opens cleanly.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Navigation to Appointments succeeds. No crash. Modal opens cleanly.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Appointments module</span></div>
+    <div class="check"><div class="box"></div><span>No crash or error on navigation</span></div>
+    <div class="check"><div class="box"></div><span>Modal opens cleanly on "+ Book Appointment" click</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong>
+    <label><input type="radio" name="c5" /> Pass</label>
+    <label><input type="radio" name="c5" /> Fail</label>
+    <label><input type="radio" name="c5" /> Blocked</label>
+  </div>
+</div>
+
+<!-- ── DEFECT LOG ── -->
+<div class="section-rule"><div class="section-label">Defect log</div><hr /></div>
+
+<table class="defect-table">
+  <thead>
+    <tr>
+      <th style="width:60px">Test ID</th>
+      <th style="width:70px">Severity</th>
+      <th>Description of bug</th>
+      <th style="width:120px">Steps to reproduce</th>
+      <th style="width:100px">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><input type="text" placeholder="e.g. A3" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" placeholder="Describe the bug…" /></td><td><input type="text" placeholder="Steps…" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+    <tr><td><input type="text" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" /></td><td><input type="text" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+    <tr><td><input type="text" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" /></td><td><input type="text" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+    <tr><td><input type="text" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" /></td><td><input type="text" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+    <tr><td><input type="text" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" /></td><td><input type="text" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+    <tr><td><input type="text" /></td><td><select><option>P1 — Critical</option><option>P2 — Major</option><option>P3 — Minor</option></select></td><td><input type="text" /></td><td><input type="text" /></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option><option>Closed</option></select></td></tr>
+  </tbody>
+</table>
+
+<!-- ── SIGN-OFF ── -->
+<div class="section-rule"><div class="section-label">Sign-off</div><hr /></div>
+
+<div class="signoff-grid">
+  <div class="signoff-box">
+    <h3>Pass / Fail summary</h3>
+    <table class="summary-table">
+      <thead><tr><th>Section</th><th>Pass</th><th>Fail</th></tr></thead>
+      <tbody>
+        <tr><td>A — Appointments (7)</td><td><input type="text" /></td><td><input type="text" /></td></tr>
+        <tr><td>B — Maintenance (7)</td><td><input type="text" /></td><td><input type="text" /></td></tr>
+        <tr><td>C — Workflow (5)</td><td><input type="text" /></td><td><input type="text" /></td></tr>
+        <tr><td><strong>Total (19)</strong></td><td><input type="text" /></td><td><input type="text" /></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="signoff-box">
+    <h3>Tester sign-off</h3>
+    <div class="field-group"><label>Tested by</label><input type="text" placeholder="Full name" /></div>
+    <div class="field-group"><label>Date completed</label><input type="text" id="signdate" /></div>
+    <div class="field-group">
+      <label>Overall status</label>
+      <select><option>Pass — ready to ship</option><option>Conditional pass — minor bugs</option><option>Fail — blocking bugs found</option></select>
+    </div>
+    <div class="field-group"><label>Notes</label><textarea rows="2" placeholder="Any additional observations…"></textarea></div>
+  </div>
+</div>
+
+<script>
+  const d = new Date().toISOString().split('T')[0];
+  document.getElementById('today').textContent = d;
+  document.getElementById('testdate').value = d;
+  document.getElementById('signdate').value = d;
+</script>
+</body>
+</html>

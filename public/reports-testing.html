@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Reports Module — Testing Procedures</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; background: #fff; padding: 2rem 2.5rem; font-size: 13px; line-height: 1.6; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .btn-primary:hover { background: #a93226; }
+  .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .sum-card { background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 24px; font-weight: 600; }
+  .sum-label { font-size: 11px; color: #666; margin-top: 2px; }
+  .section-rule { display: flex; align-items: center; gap: 10px; margin: 24px 0 14px; }
+  .section-rule hr { flex: 1; border: none; border-top: 1px solid #e0e0e0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .tc-num { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tc-num.overview { background: #FFF3CD; color: #856404; }
+  .tc-num.revenue  { background: #D4EDDA; color: #155724; }
+  .tc-num.repairs  { background: #D1ECF1; color: #0C5460; }
+  .tc-num.payments { background: #E8D5FB; color: #4A1A7E; }
+  .tc-num.customers{ background: #FDECEA; color: #7B1D1D; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-overview  { background: #FFF3CD; color: #856404; }
+  .badge-revenue   { background: #D4EDDA; color: #155724; }
+  .badge-repairs   { background: #D1ECF1; color: #0C5460; }
+  .badge-payments  { background: #E8D5FB; color: #4A1A7E; }
+  .badge-customers { background: #FDECEA; color: #7B1D1D; }
+  .tc-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .tc-type { font-size: 11px; color: #666; display: flex; gap: 6px; align-items: center; }
+  ol.steps { margin: 0 0 12px 0; padding-left: 0; list-style: none; }
+  ol.steps li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  ol.steps li:last-child { border-bottom: none; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; margin-top: 1px; color: #555; }
+  .expect { background: #f8f8f8; border-radius: 7px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .expect-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 3px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .result-row { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #555; margin-top: 4px; }
+  .result-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .defect-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  .defect-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .defect-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .defect-table input, .defect-table select { width: 100%; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .signoff-box { background: #f8f8f8; border-radius: 8px; padding: 14px; }
+  .signoff-box h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 10px; }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+  .field-group input, .field-group select, .field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .summary-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; padding: 5px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .summary-table input { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; text-align: center; }
+  @media print {
+    .toolbar { display: none; }
+    body { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="exportDocx()">&#11015; Export .docx (Word)</button>
+  <button class="btn" onclick="window.print()">&#128438; Print / Save PDF</button>
+</div>
+
+<h1>Reports Module — Testing Procedures</h1>
+<div class="meta">Version 1.0 &nbsp;&middot;&nbsp; Platform: redlined1.com &nbsp;&middot;&nbsp; Date: <span id="today"></span></div>
+
+<div class="summary-grid">
+  <div class="sum-card"><div class="sum-num">20</div><div class="sum-label">Total test cases</div></div>
+  <div class="sum-card"><div class="sum-num">4</div><div class="sum-label">Overview</div></div>
+  <div class="sum-card"><div class="sum-num">4</div><div class="sum-label">Revenue / Repairs / Payments / Customers</div></div>
+  <div class="sum-card"><div class="sum-num">4</div><div class="sum-label">CSV Export</div></div>
+</div>
+
+<div style="background:#FEF9C3;border:1px solid #F59E0B;border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:12px;">
+  <strong>Key fix applied (v1.0):</strong> Total Revenue now equals Payments Collected — both pull from the <code>payments</code> table as the source of truth. Invoice subtotals are shown separately as "Total Invoiced." Test cases below verify this alignment.
+</div>
+
+<!-- ── SECTION A: OVERVIEW ── -->
+<div class="section-rule"><div class="section-label">Section A — Overview Tab</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num overview">A1</div><div><div class="tc-title">Revenue = Payments Collected (core alignment)</div><div class="tc-type"><span class="badge badge-overview">Overview</span> Critical</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Reports → Overview tab.</span></li>
+    <li><div class="step-num">2</div><span>Note the <strong>Total Revenue</strong> card value.</span></li>
+    <li><div class="step-num">3</div><span>Navigate to Payments module and sum all recorded payments.</span></li>
+    <li><div class="step-num">4</div><span>Return to Reports. Verify Total Revenue matches the Payments sum exactly.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Total Revenue = sum of all payments in Payments module. No discrepancy.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total Revenue matches Payments module total</span></div>
+    <div class="check"><div class="box"></div><span>Sub-label shows correct payment count (e.g. "1 payment collected")</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:#888;margin-bottom:8px;">
+    <span>Revenue shown: _______________</span><span>Payments sum: _______________</span>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a1"/> Pass</label><label><input type="radio" name="a1"/> Fail</label><label><input type="radio" name="a1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num overview">A2</div><div><div class="tc-title">Outstanding card shows unpaid (Sent) invoices</div><div class="tc-type"><span class="badge badge-overview">Overview</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create or locate an invoice in "Sent" status (not Paid, not Void).</span></li>
+    <li><div class="step-num">2</div><span>Note its total (subtotal − discount + tax + shop supplies).</span></li>
+    <li><div class="step-num">3</div><span>Go to Reports → Overview. Check the <strong>Outstanding</strong> card.</span></li>
+    <li><div class="step-num">4</div><span>Verify the value equals the sum of all Sent invoices. Sub-label shows correct count.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Outstanding = sum of all invoices with status "Sent". Count in sub-label is accurate.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Outstanding amount matches sum of Sent invoices</span></div>
+    <div class="check"><div class="box"></div><span>Sub-label shows correct unpaid invoice count</span></div>
+    <div class="check"><div class="box"></div><span>Card color is amber/orange when outstanding > $0</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a2"/> Pass</label><label><input type="radio" name="a2"/> Fail</label><label><input type="radio" name="a2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num overview">A3</div><div><div class="tc-title">Total Invoiced card excludes Void invoices</div><div class="tc-type"><span class="badge badge-overview">Overview</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Invoicing, note the total of all non-Void invoices (Paid + Sent + Draft).</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Overview → <strong>Total Invoiced</strong> card.</span></li>
+    <li><div class="step-num">3</div><span>Verify the value = Outstanding + Revenue Collected (since Total Invoiced = paid + unpaid).</span></li>
+    <li><div class="step-num">4</div><span>Void one invoice and refresh. Verify Total Invoiced decreases correctly.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Total Invoiced = Total Revenue + Outstanding. Void invoices excluded. Updates after void.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total Invoiced = Revenue + Outstanding</span></div>
+    <div class="check"><div class="box"></div><span>Void invoices not counted in Total Invoiced</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a3"/> Pass</label><label><input type="radio" name="a3"/> Fail</label><label><input type="radio" name="a3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num overview">A4</div><div><div class="tc-title">6-Month bar chart — Revenue bars track payments</div><div class="tc-type"><span class="badge badge-overview">Overview</span> Visual</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Reports → Overview. Scroll to the Monthly Revenue chart.</span></li>
+    <li><div class="step-num">2</div><span>Hover over the red bar for the current month. Verify it shows the payments total for that month.</span></li>
+    <li><div class="step-num">3</div><span>Verify the legend reads "Revenue Collected (Payments)" for the red bar.</span></li>
+    <li><div class="step-num">4</div><span>Verify months with no activity show flat/minimal bars (not errors).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Red bars = payments collected per month. Blue bars = paid invoices by invoice date. Legend labels correct.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Red bar tooltip shows payments amount for current month</span></div>
+    <div class="check"><div class="box"></div><span>Legend says "Revenue Collected (Payments)"</span></div>
+    <div class="check"><div class="box"></div><span>Empty months show flat bars, no crash</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a4"/> Pass</label><label><input type="radio" name="a4"/> Fail</label><label><input type="radio" name="a4"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION B: REVENUE TAB ── -->
+<div class="section-rule"><div class="section-label">Section B — Revenue Tab</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num revenue">B1</div><div><div class="tc-title">Revenue Collected card matches payment total</div><div class="tc-type"><span class="badge badge-revenue">Revenue</span> Critical</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Click the Revenue tab in Reports.</span></li>
+    <li><div class="step-num">2</div><span>Check the <strong>Revenue Collected</strong> card — value and sub-label (e.g. "1 payment recorded").</span></li>
+    <li><div class="step-num">3</div><span>Record a new payment in the Payments module for $50.00. Return to Reports.</span></li>
+    <li><div class="step-num">4</div><span>Verify Revenue Collected increased by $50.00 and count increased by 1.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Revenue Collected updates immediately when new payments are added. Count reflects number of payment transactions.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Revenue Collected matches Payments module total</span></div>
+    <div class="check"><div class="box"></div><span>Sub-label count is accurate</span></div>
+    <div class="check"><div class="box"></div><span>After adding $50 payment, card shows +$50</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b1"/> Pass</label><label><input type="radio" name="b1"/> Fail</label><label><input type="radio" name="b1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num revenue">B2</div><div><div class="tc-title">Monthly table — Revenue Collected column per month</div><div class="tc-type"><span class="badge badge-revenue">Revenue</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Reports → Revenue tab, scroll to the Monthly Revenue Breakdown table.</span></li>
+    <li><div class="step-num">2</div><span>Verify column headers: Month | Revenue Collected | Paid Invoices.</span></li>
+    <li><div class="step-num">3</div><span>For the current month, verify "Revenue Collected" = sum of payments in that calendar month.</span></li>
+    <li><div class="step-num">4</div><span>Verify green color for months with revenue, muted color for zero-revenue months.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Table headers correct. Revenue Collected column = payments by payment_date. Paid Invoices = invoiced by created_at. Color coding correct.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Column says "Revenue Collected" (not "Payments Recorded")</span></div>
+    <div class="check"><div class="box"></div><span>Revenue Collected matches payment dates</span></div>
+    <div class="check"><div class="box"></div><span>Zero months show muted color, not blank/error</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b2"/> Pass</label><label><input type="radio" name="b2"/> Fail</label><label><input type="radio" name="b2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num revenue">B3</div><div><div class="tc-title">Voided Invoices card is accurate and excluded from revenue</div><div class="tc-type"><span class="badge badge-revenue">Revenue</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Create an invoice with $200 subtotal and mark it Void.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Revenue tab → <strong>Voided Invoices</strong> card.</span></li>
+    <li><div class="step-num">3</div><span>Verify the $200 appears in Voided Invoices (red card).</span></li>
+    <li><div class="step-num">4</div><span>Verify Revenue Collected and Outstanding cards do NOT include the $200.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Void invoices isolated in their own card. Not counted in Revenue or Outstanding.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Voided card shows voided invoice total</span></div>
+    <div class="check"><div class="box"></div><span>Revenue Collected unaffected by void</span></div>
+    <div class="check"><div class="box"></div><span>Outstanding unaffected by void</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b3"/> Pass</label><label><input type="radio" name="b3"/> Fail</label><label><input type="radio" name="b3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num revenue">B4</div><div><div class="tc-title">Export CSV — Revenue report downloads correctly</div><div class="tc-type"><span class="badge badge-revenue">Revenue</span> Export</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Reports → Revenue tab. Click "⬇ Export CSV".</span></li>
+    <li><div class="step-num">2</div><span>Verify a .csv file downloads (filename format: ShopName-Revenue-Report-YYYY-MM-DD.csv).</span></li>
+    <li><div class="step-num">3</div><span>Open in Excel or Notepad. Verify rows: Total Revenue, Total Outstanding, Total Payments, Avg Invoice, etc.</span></li>
+    <li><div class="step-num">4</div><span>Verify monthly breakdown rows at bottom of file.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>.csv downloads. Correct filename. All summary rows and monthly rows present. Dollar values formatted correctly.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>.csv file downloads on click</span></div>
+    <div class="check"><div class="box"></div><span>Filename includes shop name and today's date</span></div>
+    <div class="check"><div class="box"></div><span>Summary rows correct</span></div>
+    <div class="check"><div class="box"></div><span>Monthly rows present</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b4"/> Pass</label><label><input type="radio" name="b4"/> Fail</label><label><input type="radio" name="b4"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION C: REPAIR ORDERS ── -->
+<div class="section-rule"><div class="section-label">Section C — Repair Orders Tab</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num repairs">C1</div><div><div class="tc-title">Total RO Value = Labor Value + Parts Value</div><div class="tc-type"><span class="badge badge-repairs">Repair Orders</span> Math check</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Reports → Repair Orders tab.</span></li>
+    <li><div class="step-num">2</div><span>Note the values: Total RO Value, Total Labor Value, Total Parts Value.</span></li>
+    <li><div class="step-num">3</div><span>Verify: Total RO Value = Total Labor Value + Total Parts Value (within $0.01 rounding).</span></li>
+    <li><div class="step-num">4</div><span>Verify Void ROs are excluded from all three cards (sub-labels say "All non-void ROs").</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Math holds: Total = Labor + Parts. Void ROs excluded. Sub-labels present and correct.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total RO Value = Labor + Parts (within $0.01)</span></div>
+    <div class="check"><div class="box"></div><span>Sub-labels say "All non-void ROs"</span></div>
+    <div class="check"><div class="box"></div><span>Void RO not counted</span></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;color:#888;margin-bottom:8px;">
+    <span>RO Value: _______________</span><span>Labor: _______________</span><span>Parts: _______________</span>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c1"/> Pass</label><label><input type="radio" name="c1"/> Fail</label><label><input type="radio" name="c1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num repairs">C2</div><div><div class="tc-title">Completed / Closed count is accurate</div><div class="tc-type"><span class="badge badge-repairs">Repair Orders</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Repair Orders module, count how many ROs have status "Complete" or "Closed".</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Repair Orders tab → <strong>Completed / Closed</strong> card.</span></li>
+    <li><div class="step-num">3</div><span>Verify the count matches your manual count.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Count in Reports = actual count of Complete + Closed status ROs in the Repair Orders module.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Count matches manual count of Complete/Closed ROs</span></div>
+    <div class="check"><div class="box"></div><span>In-Progress or Void ROs not counted</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c2"/> Pass</label><label><input type="radio" name="c2"/> Fail</label><label><input type="radio" name="c2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num repairs">C3</div><div><div class="tc-title">Labor vs Parts split bar renders correctly</div><div class="tc-type"><span class="badge badge-repairs">Repair Orders</span> Visual</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Reports → Repair Orders tab → "Labor vs Parts Split" panel.</span></li>
+    <li><div class="step-num">2</div><span>Verify a horizontal split bar is visible (blue = labor, orange = parts).</span></li>
+    <li><div class="step-num">3</div><span>Hover over or check each color segment — verify dollar amounts match the cards above.</span></li>
+    <li><div class="step-num">4</div><span>If all ROs have $0 parts, verify bar gracefully shows 100% labor (no crash).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Split bar visible. Colors correct (blue labor, orange parts). Handles edge cases (all labor, all parts, both zero) without crashing.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Split bar visible and colored correctly</span></div>
+    <div class="check"><div class="box"></div><span>Legend shows dollar amounts matching cards</span></div>
+    <div class="check"><div class="box"></div><span>No crash when one value is zero</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c3"/> Pass</label><label><input type="radio" name="c3"/> Fail</label><label><input type="radio" name="c3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num repairs">C4</div><div><div class="tc-title">Export CSV — Repair Orders report</div><div class="tc-type"><span class="badge badge-repairs">Repair Orders</span> Export</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Reports → Repair Orders tab. Click "⬇ Export CSV".</span></li>
+    <li><div class="step-num">2</div><span>Verify .csv file downloads with correct filename.</span></li>
+    <li><div class="step-num">3</div><span>Open file — verify rows include: Total ROs, Completed/Closed, Labor Value, Parts Value, Total RO Value, Avg Labor Hours.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>.csv downloads with all 6 metric rows. Values match what's shown in the tab.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>.csv downloads on click</span></div>
+    <div class="check"><div class="box"></div><span>All 6 metric rows present</span></div>
+    <div class="check"><div class="box"></div><span>Values match Reports tab display</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c4"/> Pass</label><label><input type="radio" name="c4"/> Fail</label><label><input type="radio" name="c4"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION D: PAYMENTS TAB ── -->
+<div class="section-rule"><div class="section-label">Section D — Payments Tab</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num payments">D1</div><div><div class="tc-title">Total Collected matches Payments module</div><div class="tc-type"><span class="badge badge-payments">Payments</span> Critical</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Payments module and note the total of all payment records.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Payments tab → <strong>Total Collected</strong> card.</span></li>
+    <li><div class="step-num">3</div><span>Verify values match exactly. Also verify transaction count matches.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Total Collected and transaction count match Payments module exactly.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total Collected = Payments module total</span></div>
+    <div class="check"><div class="box"></div><span>Transaction count accurate</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d1"/> Pass</label><label><input type="radio" name="d1"/> Fail</label><label><input type="radio" name="d1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num payments">D2</div><div><div class="tc-title">Payment Methods breakdown is correct</div><div class="tc-type"><span class="badge badge-payments">Payments</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Payments module, note payments grouped by method (Cash, Card, etc.).</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Payments tab → "Revenue by Payment Method" panel.</span></li>
+    <li><div class="step-num">3</div><span>Verify each method's total and count match what's in Payments module.</span></li>
+    <li><div class="step-num">4</div><span>Verify the bar widths are proportional (highest-value method has full-width bar).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Method breakdown totals correct. Bars proportional. "Unknown" method shown if any payment has no method set.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>All methods listed</span></div>
+    <div class="check"><div class="box"></div><span>Totals and counts correct per method</span></div>
+    <div class="check"><div class="box"></div><span>Bar widths proportional</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d2"/> Pass</label><label><input type="radio" name="d2"/> Fail</label><label><input type="radio" name="d2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num payments">D3</div><div><div class="tc-title">Empty state — no payments recorded</div><div class="tc-type"><span class="badge badge-payments">Payments</span> Edge case</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>If possible, test in a fresh account with no payments.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Payments tab.</span></li>
+    <li><div class="step-num">3</div><span>Verify all cards show $0.00 and the method panel shows "No payments recorded yet." message.</span></li>
+    <li><div class="step-num">4</div><span>Verify no crash or blank white space.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Graceful empty state — $0.00 values, helpful message, no crash.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cards show $0.00 (not blank or undefined)</span></div>
+    <div class="check"><div class="box"></div><span>"No payments recorded yet." message visible</span></div>
+    <div class="check"><div class="box"></div><span>No JavaScript error or white screen</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d3"/> Pass</label><label><input type="radio" name="d3"/> Fail</label><label><input type="radio" name="d3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num payments">D4</div><div><div class="tc-title">Export CSV — Payments report</div><div class="tc-type"><span class="badge badge-payments">Payments</span> Export</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Reports → Payments tab. Click "⬇ Export CSV".</span></li>
+    <li><div class="step-num">2</div><span>Verify download. Open in Excel — verify rows: Method, Count, Total for each method.</span></li>
+    <li><div class="step-num">3</div><span>Verify column headers: Method | Count | Total.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>CSV with correct headers and one row per payment method. Totals match Reports Payments tab.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>.csv downloads on click</span></div>
+    <div class="check"><div class="box"></div><span>Headers: Method, Count, Total</span></div>
+    <div class="check"><div class="box"></div><span>One row per method, values correct</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d4"/> Pass</label><label><input type="radio" name="d4"/> Fail</label><label><input type="radio" name="d4"/> Blocked</label></div>
+</div>
+
+<!-- ── SECTION E: CUSTOMERS TAB ── -->
+<div class="section-rule"><div class="section-label">Section E — Customers Tab</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num customers">E1</div><div><div class="tc-title">Total Customers and Vehicles count match database</div><div class="tc-type"><span class="badge badge-customers">Customers</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to Customers module and note total customer count.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Customers tab. Verify <strong>Total Customers</strong> matches.</span></li>
+    <li><div class="step-num">3</div><span>Add a new customer with 2 vehicles. Return to Reports → Customers tab (refresh).</span></li>
+    <li><div class="step-num">4</div><span>Verify count increased by 1 customer and 2 vehicles.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Customer and vehicle counts match Customers module. New entries reflected after data refresh.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Customer count matches Customers module</span></div>
+    <div class="check"><div class="box"></div><span>Vehicle count accurate</span></div>
+    <div class="check"><div class="box"></div><span>Counts update after adding new customer</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e1"/> Pass</label><label><input type="radio" name="e1"/> Fail</label><label><input type="radio" name="e1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num customers">E2</div><div><div class="tc-title">Top Customers by Revenue ranked correctly</div><div class="tc-type"><span class="badge badge-customers">Customers</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record 2+ payments for the same customer (e.g. $200 total). Record $50 for a different customer.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Customers tab → "Top Customers by Revenue" panel.</span></li>
+    <li><div class="step-num">3</div><span>Verify the $200 customer is ranked #1 (gold circle) and the $50 customer is ranked #2.</span></li>
+    <li><div class="step-num">4</div><span>Verify customer names not "Unknown" or "undefined".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Customers ranked descending by paid invoice total. #1 has gold circle. Names correct. Max 8 customers shown.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Ranking is descending by spend</span></div>
+    <div class="check"><div class="box"></div><span>#1 customer has gold circle indicator</span></div>
+    <div class="check"><div class="box"></div><span>Names not "Unknown" or "undefined"</span></div>
+    <div class="check"><div class="box"></div><span>No more than 8 rows shown</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e2"/> Pass</label><label><input type="radio" name="e2"/> Fail</label><label><input type="radio" name="e2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num customers">E3</div><div><div class="tc-title">Estimate Pipeline funnel is accurate</div><div class="tc-type"><span class="badge badge-customers">Customers</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Estimates module, count total / Approved / Declined / Converted estimates.</span></li>
+    <li><div class="step-num">2</div><span>Go to Reports → Customers tab → "Estimate Pipeline" panel.</span></li>
+    <li><div class="step-num">3</div><span>Verify all four numbers match your manual count.</span></li>
+    <li><div class="step-num">4</div><span>Verify Conversion Rate = Converted ÷ Total × 100 (e.g. 1 of 3 = 33.3%).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>All 4 estimate counts match. Convert rate math correct (shown in top bar and in Estimate Pipeline panel).</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Total Estimates count matches Estimates module</span></div>
+    <div class="check"><div class="box"></div><span>Approved, Declined, Converted counts accurate</span></div>
+    <div class="check"><div class="box"></div><span>Convert Rate = Converted / Total × 100</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e3"/> Pass</label><label><input type="radio" name="e3"/> Fail</label><label><input type="radio" name="e3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num customers">E4</div><div><div class="tc-title">Export CSV — Customers report</div><div class="tc-type"><span class="badge badge-customers">Customers</span> Export</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Reports → Customers tab. Click "⬇ Export CSV".</span></li>
+    <li><div class="step-num">2</div><span>Open in Excel — verify headers: Customer | Paid Invoices | Total Spend.</span></li>
+    <li><div class="step-num">3</div><span>Verify rows are in descending spend order matching the on-screen list.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>CSV with customer rows ordered by spend descending. Headers correct. Dollar values formatted.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>.csv downloads on click</span></div>
+    <div class="check"><div class="box"></div><span>Headers: Customer, Paid Invoices, Total Spend</span></div>
+    <div class="check"><div class="box"></div><span>Rows in descending spend order</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e4"/> Pass</label><label><input type="radio" name="e4"/> Fail</label><label><input type="radio" name="e4"/> Blocked</label></div>
+</div>
+
+<!-- ── DEFECT LOG ── -->
+<div class="section-rule"><div class="section-label">Defect log</div><hr /></div>
+<table class="defect-table">
+  <thead><tr><th style="width:60px">Test</th><th style="width:80px">Severity</th><th>Description</th><th style="width:90px">Status</th></tr></thead>
+  <tbody>
+    <tr><td><input type="text" placeholder="e.g. A1"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text" placeholder="Describe the issue…"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+  </tbody>
+</table>
+
+<!-- ── SIGN-OFF ── -->
+<div class="section-rule"><div class="section-label">Sign-off</div><hr /></div>
+<div class="signoff-grid">
+  <div class="signoff-box">
+    <h3>Pass / Fail Summary</h3>
+    <table class="summary-table">
+      <thead><tr><th>Section</th><th>Pass</th><th>Fail</th></tr></thead>
+      <tbody>
+        <tr><td>A — Overview (4)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>B — Revenue (4)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>C — Repair Orders (4)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>D — Payments (4)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>E — Customers (4)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td><strong>Total (20)</strong></td><td><input type="text"/></td><td><input type="text"/></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="signoff-box">
+    <h3>Tester Sign-off</h3>
+    <div class="field-group"><label>Tested by</label><input type="text" placeholder="Full name"/></div>
+    <div class="field-group"><label>Date</label><input type="text" id="signdate"/></div>
+    <div class="field-group"><label>Browser / Device</label><input type="text" placeholder="e.g. Chrome 125 / Windows 11"/></div>
+    <div class="field-group"><label>Overall Status</label><select><option>Pass — ready</option><option>Conditional pass — minor bugs</option><option>Fail — blocking bugs</option></select></div>
+    <div class="field-group"><label>Notes</label><textarea rows="2" placeholder="Observations…"></textarea></div>
+  </div>
+</div>
+
+<script>
+const d = new Date().toISOString().split('T')[0];
+document.getElementById('today').textContent = d;
+document.getElementById('signdate').value = d;
+
+function exportDocx() {
+  const today = new Date().toISOString().split('T')[0];
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?mso-application progid="Word.Document"?>
+<w:wordDocument xmlns:w="http://schemas.microsoft.com/office/word/2003/wordml"
+  xmlns:wx="http://schemas.microsoft.com/office/word/2003/auxHint">
+<w:body>
+<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Reports Module — Testing Procedures</w:t></w:r></w:p>
+<w:p><w:r><w:t>Version 1.0  |  Platform: redlined1.com  |  Date: ${today}</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Key fix (v1.0)</w:t></w:r></w:p>
+<w:p><w:r><w:t>Total Revenue now equals Payments Collected — both pull from the payments table as the source of truth. Invoice subtotals shown separately as "Total Invoiced."</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section A — Overview Tab (4 tests)</w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A1 — Revenue = Payments Collected [CRITICAL]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Reports > Overview. (2) Note Total Revenue. (3) Sum payments in Payments module. (4) Verify they match.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Expected: Total Revenue = Payments module total. No discrepancy.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A2 — Outstanding shows unpaid Sent invoices</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Create a Sent invoice. (2) Go to Reports > Overview > Outstanding card. (3) Verify value = sum of Sent invoices.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Expected: Outstanding = sum of all Sent invoices. Amber color when > $0.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A3 — Total Invoiced excludes Void invoices</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Note non-void invoice totals. (2) Verify Total Invoiced = Revenue + Outstanding. (3) Void an invoice. Verify Total Invoiced decreases.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Expected: Total Invoiced = Revenue + Outstanding. Void excluded.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>A4 — 6-Month chart Revenue bars track payments</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Overview > Monthly Revenue chart. (2) Hover red bar for current month — verify payments total. (3) Check legend says "Revenue Collected (Payments)".</w:t></w:r></w:p>
+<w:p><w:r><w:t>Expected: Red bars = payments by payment_date. Legend correct. Empty months show flat bars.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section B — Revenue Tab (4 tests)</w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B1 — Revenue Collected card matches payments [CRITICAL]</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Reports > Revenue tab. (2) Note Revenue Collected. (3) Add $50 payment. (4) Verify card shows +$50.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B2 — Monthly table Revenue Collected column</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Revenue tab > Monthly Breakdown table. (2) Verify headers: Month | Revenue Collected | Paid Invoices. (3) Current month Revenue Collected = payments in that month.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B3 — Voided Invoices excluded from revenue</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Void a $200 invoice. (2) Verify it appears in Voided Invoices card. (3) Verify Revenue and Outstanding unchanged.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>B4 — Export CSV: Revenue report</w:t></w:r></w:p>
+<w:p><w:r><w:t>Steps: (1) Click Export CSV. (2) Verify .csv downloads. (3) Verify all summary rows and monthly rows present.</w:t></w:r></w:p>
+<w:p><w:r><w:t>Result:  [ ] Pass   [ ] Fail   [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section C — Repair Orders Tab (4 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>C1 — Total RO Value = Labor + Parts  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C2 — Completed/Closed count accurate  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C3 — Labor vs Parts split bar renders  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>C4 — Export CSV: Repair Orders report  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section D — Payments Tab (4 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>D1 — Total Collected matches Payments module  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>D2 — Payment Methods breakdown correct  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>D3 — Empty state (no payments)  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>D4 — Export CSV: Payments report  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Section E — Customers Tab (4 tests)</w:t></w:r></w:p>
+<w:p><w:r><w:t>E1 — Customer/Vehicle counts match database  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E2 — Top Customers ranked correctly  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E3 — Estimate Pipeline funnel accurate  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t>E4 — Export CSV: Customers report  |  Result: [ ] Pass  [ ] Fail  [ ] Blocked</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Defect Log</w:t></w:r></w:p>
+<w:p><w:r><w:t>Test ID | Severity | Description | Status</w:t></w:r></w:p>
+<w:p><w:r><w:t>_______ | ________ | ___________ | ______</w:t></w:r></w:p>
+<w:p><w:r><w:t>_______ | ________ | ___________ | ______</w:t></w:r></w:p>
+<w:p><w:r><w:t>_______ | ________ | ___________ | ______</w:t></w:r></w:p>
+<w:p><w:r><w:t></w:t></w:r></w:p>
+
+<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>Sign-off</w:t></w:r></w:p>
+<w:p><w:r><w:t>Tested by: _____________________________  Date: ${today}</w:t></w:r></w:p>
+<w:p><w:r><w:t>Browser / Device: ______________________ </w:t></w:r></w:p>
+<w:p><w:r><w:t>Overall Status:  [ ] Pass — ready   [ ] Conditional pass   [ ] Fail</w:t></w:r></w:p>
+<w:p><w:r><w:t>Pass count: ____  Fail count: ____  of 20 total</w:t></w:r></w:p>
+<w:p><w:r><w:t>Notes: </w:t></w:r></w:p>
+<w:p><w:r><w:t>_______________________________________________________________</w:t></w:r></w:p>
+</w:body>
+</w:wordDocument>`;
+
+  const blob = new Blob([xml], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Reports-Testing-Procedures-${today}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
