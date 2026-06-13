@@ -9,6 +9,7 @@ import type { Customer } from '@/lib/types';
 import { fetchCustomers, saveCustomer, updateFollowUp } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
+import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
@@ -30,6 +31,8 @@ export function CustomersView() {
   const [vehicles, setVehicles]           = useState<Vehicle[]>([]);
   const [invoices, setInvoices]           = useState<Invoice[]>([]);
   const [ros, setRos]                     = useState<RepairOrder[]>([]);
+  const [maintSchedules, setMaintSchedules] = useState<MaintenanceSchedule[]>([]);
+  const [reminderSending, setReminderSending] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCustomers()
@@ -41,13 +44,18 @@ export function CustomersView() {
   async function openDetail(c: Customer) {
     setSelected(c);
     setDetailLoading(true);
-    setVehicles([]); setInvoices([]); setRos([]);
+    setVehicles([]); setInvoices([]); setRos([]); setMaintSchedules([]);
     try {
-      const [{ data: vData }, { data: iData }, { data: rData }] = await Promise.all([
+      const [{ data: vData }, { data: iData }, { data: rData }, allSchedules] = await Promise.all([
         supabase.from('vehicles').select('*').eq('customer_id', c.id),
         supabase.from('invoices').select('number,status,date,subtotal,tax,discount,shop_supplies').eq('customer_id', c.id).order('created_at', { ascending: false }),
         supabase.from('repair_orders').select('ro_number,status,opened_date,concern,vehicle').eq('customer_id', c.id).order('created_at', { ascending: false }),
+        fetchMaintenanceSchedules(),
       ]);
+      const customerSchedules = allSchedules.filter(s =>
+        s.customerId === c.id || s.customerName.toLowerCase() === c.name.toLowerCase()
+      );
+      setMaintSchedules(customerSchedules);
       setVehicles((vData ?? []).map((v: Record<string, string>) => ({
         id: v.id, label: v.label || `${v.year} ${v.make} ${v.model}`.trim(),
         year: v.year, make: v.make, model: v.model, plate: v.plate || v.license_plate || '',
@@ -283,6 +291,58 @@ export function CustomersView() {
                       </div>
                     </div>
                   ))
+                }
+              </div>
+
+              {/* Maintenance Schedules */}
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  Maintenance Schedules
+                  {maintSchedules.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{maintSchedules.length}</span>}
+                </div>
+                {maintSchedules.length === 0 && !detailLoading
+                  ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>No maintenance schedules. Close a job card to auto-create one.</p>
+                  : maintSchedules.map(ms => {
+                    const status = getDueStatus(ms);
+                    const days = getDaysUntilDue(ms.nextDueDate);
+                    const urgencyColor = status === 'overdue' ? '#f44336' : status === 'due-soon' ? '#ff9800' : '#4caf50';
+                    const dueText = days === null ? 'No date set' : days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `Due in ${days}d`;
+                    const msgBody = `Hi ${ms.customerName.split(' ')[0]}, your ${ms.serviceType} for your ${ms.vehicle} is ${dueText.toLowerCase()}${ms.nextDueDate ? ` (${new Date(ms.nextDueDate).toLocaleDateString()})` : ''}. Call us to book your appointment. — Redlined Auto Repair`;
+                    return (
+                      <div key={ms.id} style={{ background: `${urgencyColor}0d`, border: `1px solid ${urgencyColor}33`, borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13 }}>{ms.serviceType}</div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ms.vehicle}</div>
+                          </div>
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: `${urgencyColor}22`, color: urgencyColor, whiteSpace: 'nowrap' }}>{dueText}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                          <button
+                            className="mini-btn"
+                            style={{ flex: 1, background: `${urgencyColor}15`, color: urgencyColor, border: `1px solid ${urgencyColor}44`, fontSize: 11 }}
+                            disabled={reminderSending === ms.id || (!ms.customerEmail && !ms.customerPhone)}
+                            title={!ms.customerEmail && !ms.customerPhone ? 'No contact info on schedule' : `Send reminder to ${ms.customerEmail || ms.customerPhone}`}
+                            onClick={async () => {
+                              setReminderSending(ms.id);
+                              await new Promise(r => setTimeout(r, 900));
+                              setReminderSending(null);
+                              notify(`Reminder sent to ${ms.customerName} — ${ms.serviceType} ${dueText.toLowerCase()}.`);
+                            }}
+                          >
+                            {reminderSending === ms.id ? 'Sending…' : '📣 Send Reminder'}
+                          </button>
+                          <button
+                            className="mini-btn"
+                            style={{ fontSize: 11 }}
+                            onClick={() => { navigator.clipboard.writeText(msgBody); notify('Reminder message copied to clipboard!'); }}
+                          >
+                            📋 Copy Message
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 }
               </div>
 

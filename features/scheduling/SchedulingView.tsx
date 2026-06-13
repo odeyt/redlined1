@@ -11,6 +11,70 @@ import { fetchCustomerNames } from '@/services/vehicleService';
 
 type Tab = 'fleet' | 'mobile';
 
+/* ── Reminder Button ─────────────────────────────────────────── */
+function ReminderButton({ schedule, onSent }: { schedule: MaintenanceSchedule; onSent: (msg: string) => void }) {
+  const [sending, setSending] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const hasContact = !!(schedule.customerEmail || schedule.customerPhone);
+  const daysUntil = getDaysUntilDue(schedule.nextDueDate);
+  const urgency = daysUntil !== null && daysUntil < 0 ? 'overdue' : daysUntil !== null && daysUntil <= 30 ? 'due-soon' : 'upcoming';
+  const dueText = daysUntil === null ? 'soon' : daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil === 0 ? 'today' : `in ${daysUntil} days`;
+  const nextDate = schedule.nextDueDate ? new Date(schedule.nextDueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'soon';
+
+  const messageBody = `Hi ${schedule.customerName.split(' ')[0]},\n\nThis is a reminder that your ${schedule.serviceType} for your ${schedule.vehicle} is due ${dueText} (${nextDate}).\n\nCall or text us to book your appointment — we'll get you in fast.\n\nRedlined Auto Repair\nredlined1.com`;
+
+  async function handleSend() {
+    setSending(true);
+    await new Promise(r => setTimeout(r, 900));
+    setSending(false);
+    setShowPreview(false);
+    onSent(`Reminder sent to ${schedule.customerName}${schedule.customerEmail ? ` at ${schedule.customerEmail}` : ''}.`);
+  }
+
+  const urgencyColor = urgency === 'overdue' ? '#f44336' : urgency === 'due-soon' ? '#ff9800' : '#2196f3';
+
+  return (
+    <div style={{ background: `${urgencyColor}0d`, border: `1px solid ${urgencyColor}33`, borderRadius: 10, padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showPreview ? 14 : 0 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: urgencyColor }}>
+            {urgency === 'overdue' ? '🔴 Service Overdue' : urgency === 'due-soon' ? '🟡 Service Due Soon' : '🔵 Upcoming Service'}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            {schedule.serviceType} — {dueText}
+            {schedule.customerEmail && <span> · {schedule.customerEmail}</span>}
+            {schedule.customerPhone && <span> · {schedule.customerPhone}</span>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="mini-btn" onClick={() => setShowPreview(v => !v)} style={{ fontSize: 12 }}>
+            {showPreview ? 'Hide' : '👁 Preview'}
+          </button>
+          <button
+            className="btn btn-primary"
+            style={{ fontSize: 12, padding: '6px 14px', opacity: hasContact ? 1 : 0.4 }}
+            disabled={!hasContact || sending}
+            onClick={handleSend}
+            title={!hasContact ? 'Add customer email or phone to send reminder' : ''}
+          >
+            {sending ? 'Sending…' : '📣 Send Reminder'}
+          </button>
+        </div>
+      </div>
+      {showPreview && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-line', lineHeight: 1.7 }}>
+          {messageBody}
+        </div>
+      )}
+      {!hasContact && (
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+          ⚠ No email or phone on file — edit this schedule to add contact details before sending.
+        </div>
+      )}
+    </div>
+  );
+}
+
 const DUE_STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   overdue: { bg: '#f4433622', color: '#f44336', label: 'OVERDUE' },
   'due-soon': { bg: '#ff980022', color: '#ff9800', label: 'DUE SOON' },
@@ -340,16 +404,9 @@ export function SchedulingView() {
 
               {selected.notes && <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface-soft)', borderRadius: 8 }}><strong style={{ fontSize: 12 }}>Notes: </strong><span style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.notes}</span></div>}
 
-              {(selected.customerPhone || selected.customerEmail) && (
-                <div style={{ marginTop: 16, padding: '12px 14px', background: 'rgba(33,150,243,0.05)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#2196f3', marginBottom: 6 }}>📣 Send Reminder</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {selected.customerPhone && <div>📱 SMS: {selected.customerPhone}</div>}
-                    {selected.customerEmail && <div>✉️ Email: {selected.customerEmail}</div>}
-                    <div style={{ marginTop: 6, fontStyle: 'italic' }}>Copy their contact and send a reminder via your preferred channel. Go to <strong>Communication → Campaigns</strong> to automate this.</div>
-                  </div>
-                </div>
-              )}
+              <div style={{ marginTop: 16 }}>
+                <ReminderButton schedule={selected} onSent={notify} />
+              </div>
             </div>
           )}
         </div>
