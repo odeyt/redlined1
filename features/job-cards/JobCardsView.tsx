@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAppState, useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { Workflow } from '@/components/Workflow';
@@ -16,7 +17,17 @@ import { fetchTechnicians, createTechnician, deleteTechnician, type Technician }
 const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—';
 
 export function JobCardsView() {
+  const { openNewJobCard } = useAppState();
+  const dispatch = useAppDispatch();
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    if (openNewJobCard) {
+      setShowCreateModal(true);
+      dispatch({ type: 'CLOSE_NEW_JOB_CARD' });
+    }
+  }, [openNewJobCard]);
   const [jobs, setJobs] = useState<JobCardFull[]>([]);
   const [closedJobs, setClosedJobs] = useState<JobCardFull[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
@@ -342,6 +353,78 @@ export function JobCardsView() {
             </table>
           )}
         </Panel>
+      )}
+
+      {/* ── NEW JOB CARD MODAL ── */}
+      {showCreateModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowCreateModal(false)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 28, width: 640, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>New Job Card</h2>
+              <button className="mini-btn" onClick={() => setShowCreateModal(false)} style={{ fontSize: 18, lineHeight: 1, padding: '4px 10px' }}>✕</button>
+            </div>
+            <div className="form-row">
+              <div className="field">
+                <label>Customer</label>
+                <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
+                  {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Vehicle / VIN</label>
+                <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="field">
+                <label>Work Type</label>
+                <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
+                  <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Priority</label>
+                <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
+                  <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="field">
+                <label>Branch / Route</label>
+                <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
+                  <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Service Location</label>
+                <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
+              </div>
+              <div className="field">
+                <label>PO / Approval Code</label>
+                <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
+              {techs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {techs.map(t => (
+                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 8, border: `1px solid ${fTechs.includes(t.name) ? 'var(--accent)' : 'var(--line)'}`, background: fTechs.includes(t.name) ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
+                    <input type="checkbox" checked={fTechs.includes(t.name)} onChange={() => toggleFTech(t.name)} style={{ accentColor: 'var(--accent)' }} />
+                    {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <button className="btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
+              <button className="btn primary" onClick={async () => { await handleCreate(); setShowCreateModal(false); }} disabled={creating}>
+                <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── JOB DETAIL DRAWER ── */}

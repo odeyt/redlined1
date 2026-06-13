@@ -237,10 +237,13 @@ export interface AppState {
   payments: Payment[];
   auditLogs: AuditLog[];
   parts: Part[];
+  openNewJobCard: boolean;
 }
 
 export type AppAction =
   | { type: 'SET_MODULE'; module: string }
+  | { type: 'OPEN_NEW_JOB_CARD' }
+  | { type: 'CLOSE_NEW_JOB_CARD' }
   | { type: 'NOTIFY'; message: string }
   | { type: 'LOGIN'; userId: string }
   | { type: 'RESET_PASSWORD' }

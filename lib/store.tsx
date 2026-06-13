@@ -14,6 +14,7 @@ function calculateInvoice(i: { subtotal?: number; discount?: number; tax?: numbe
 
 export const initialState: AppState = {
   activeModule: 'dashboard',
+  openNewJobCard: false,
   selectedInvoice: 'INV-10091',
   currentUserId: 'U-1',
   currentPlan: 'Pro Trial',
@@ -93,6 +94,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_MODULE':
       return { ...state, activeModule: action.module };
+
+    case 'OPEN_NEW_JOB_CARD':
+      return { ...state, activeModule: 'job-cards', openNewJobCard: true };
+
+    case 'CLOSE_NEW_JOB_CARD':
+      return { ...state, openNewJobCard: false };
 
     case 'NOTIFY':
       return { ...state, ...notify(state, action.message) };

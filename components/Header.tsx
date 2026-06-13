@@ -31,7 +31,7 @@ export function Header() {
       </div>
       <div className="actions">
         <input className="search" placeholder="Search customers, VINs, job cards, invoices, parts" />
-        <button className="btn" onClick={() => dispatch({ type: 'SET_MODULE', module: 'job-cards' })}>
+        <button className="btn" onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD' })}>
           <Icon name="add" /> New Job Card
         </button>
         <button className="btn primary" onClick={handleTopCreateInvoice}>
