@@ -9,6 +9,7 @@ import {
 } from '@/services/repairOrderService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
@@ -55,6 +56,7 @@ export function RepairOrdersView() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<RepairOrder | null>(null);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
@@ -63,6 +65,7 @@ export function RepairOrdersView() {
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchTechnicians().then(setTechnicians).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
@@ -306,7 +309,11 @@ export function RepairOrdersView() {
                 </div>
                 <div className="login-field">
                   <label>Technician</label>
-                  <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Tech name" />
+                  <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                    <option value="">— Unassigned —</option>
+                    {technicians.map(t => <option key={t.id} value={t.name}>{t.name} ({t.role})</option>)}
+                  </select>
                 </div>
                 <div className="login-field">
                   <label>Job Card ID</label>
