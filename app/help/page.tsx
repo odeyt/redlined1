@@ -7,6 +7,58 @@ import { usePlan } from '@/lib/usePlan';
 
 /* ── CONTENT ──────────────────────────────────────────────────── */
 
+const WORKFLOW_SECTION = {
+  id: 'workflow',
+  icon: '🔄',
+  title: 'Shop Workflow — Intake to Payment',
+  subsections: [
+    {
+      title: 'Step 1 — Add the Customer',
+      content: `Every job starts with a customer record. Go to Customers → Add Customer. Enter their name, phone number, and email. This record becomes the anchor for every vehicle, job card, estimate, inspection, and invoice tied to that person. If the customer already exists, use the search bar to pull them up rather than creating a duplicate.`,
+    },
+    {
+      title: 'Step 2 — Register Their Vehicle',
+      content: `Open the customer profile and click Add Vehicle. Enter the make, model, year, colour, plate, and VIN. If you have the VIN, use VIN Decode (sidebar) to pull the full vehicle spec automatically. A vehicle record is required before you can run an inspection or create a job card with a specific car attached.`,
+    },
+    {
+      title: 'Step 3 — Book an Appointment',
+      content: `From the customer profile, click 📅 Book Appointment to jump to Scheduling with that customer pre-selected. Pick a date and time slot, assign a technician, and set the expected job duration. The appointment appears on your shop calendar immediately and the customer can be notified by email or SMS.`,
+    },
+    {
+      title: 'Step 4 — Create a Job Card',
+      content: `When the vehicle arrives, click ＋ New Job Card from the customer profile, vehicle card, or the header button. The customer and vehicle are pre-filled automatically. Describe the complaint or work requested, assign a technician, set the promised-by date, and save. The job card is now the central record for this vehicle visit.`,
+    },
+    {
+      title: 'Step 5 — Run a Digital Vehicle Inspection',
+      content: `From the job card detail drawer, click 🔍 Inspection → to open a new inspection pre-linked to this job. Work through the checklist (Brakes, Tyres, Engine, Electrical, Fluids, Body). Mark each item Green / Yellow / Red and attach photos from your phone. When finished, send the report to the customer — they see a colour-coded summary and can approve recommended work with one tap.`,
+    },
+    {
+      title: 'Step 6 — Create an Estimate',
+      content: `Once the inspection is complete, click 📋 Create Estimate → in the Inspections view. This opens a new estimate pre-filled with the customer details. Add labour lines and parts with pricing. Send the estimate — the customer receives a professional PDF and can approve or decline. Approved estimates give you the authorisation to proceed.`,
+    },
+    {
+      title: 'Step 7 — Open a Repair Order',
+      content: `From the job card detail drawer, click 🔧 Repair Order → to create a repair order pre-linked to this job. Select the assigned technician from the dropdown (populated from your Technicians list). List each repair task, parts needed, and labour time. The repair order is the internal document your tech works from on the shop floor.`,
+    },
+    {
+      title: 'Step 8 — Source Parts',
+      content: `Go to Parts to check your inventory for anything needed. If a part is in stock it can be added directly to the repair order. If you need to order from a supplier, log the order in the Parts module and set the job card status to "Waiting for Parts" — your dashboard shows this job as paused until parts arrive.`,
+    },
+    {
+      title: 'Step 9 — Complete the Job & Create an Invoice',
+      content: `When the technician finishes, update the job card status to Complete. Go to Invoicing → New Invoice, select the customer, and add the labour and parts line items from the repair order. Review the total, set the due date, and click Send — the customer receives a branded invoice with a Pay Now button.`,
+    },
+    {
+      title: 'Step 10 — Record the Payment',
+      content: `If the customer pays online via the invoice link, the invoice is automatically marked Paid and you get a notification. For in-person payments (cash, card terminal, bank transfer), open the invoice and click 💳 Record Payment → to log the method and amount. Partial payments are supported. Once fully paid, the customer record shows the complete job history.`,
+    },
+    {
+      title: 'Pro Tip — Use the → Arrow Buttons',
+      content: `Every major module has shortcut buttons to jump to the next step without re-entering data. Customer → ＋ New Job Card. Job Card → 🔍 Inspection or 🔧 Repair Order. Inspection → 📋 Estimate. Invoice → 💳 Payment. These arrows carry the customer and vehicle context automatically — you never select the same customer twice. Follow the arrows and you'll never lose your place in the workflow.`,
+    },
+  ],
+};
+
 const FREE_SECTIONS = [
   {
     id: 'getting-started',
@@ -283,7 +335,7 @@ export default function HelpPage() {
   const [activeSection, setActiveSection] = useState('getting-started');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const allSections = [...FREE_SECTIONS, ...PAID_SECTIONS];
+  const allSections = [WORKFLOW_SECTION, ...FREE_SECTIONS, ...PAID_SECTIONS];
 
   return (
     <div style={{ fontFamily: "'Inter',-apple-system,sans-serif", background: '#07070a', color: '#fff', minHeight: '100vh' }}>
@@ -324,6 +376,11 @@ export default function HelpPage() {
 
         {/* SIDEBAR TOC */}
         <aside style={{ width: 260, flexShrink: 0, padding: '32px 0', position: 'sticky', top: 62, height: 'calc(100vh - 62px)', overflowY: 'auto' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#555', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12, padding: '0 16px' }}>Best Practices</div>
+          <button onClick={() => setActiveSection(WORKFLOW_SECTION.id)} style={{ width: '100%', textAlign: 'left', padding: '9px 16px', background: activeSection === WORKFLOW_SECTION.id ? 'rgba(204,0,0,0.12)' : 'transparent', border: activeSection === WORKFLOW_SECTION.id ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', borderRadius: 8, cursor: 'pointer', color: activeSection === WORKFLOW_SECTION.id ? '#fff' : '#e0e0e0', fontSize: 13, fontWeight: activeSection === WORKFLOW_SECTION.id ? 700 : 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span>{WORKFLOW_SECTION.icon}</span>{WORKFLOW_SECTION.title}
+          </button>
+
           <div style={{ fontSize: 11, fontWeight: 700, color: '#555', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12, padding: '0 16px' }}>Free Guides</div>
           {FREE_SECTIONS.map(s => (
             <button key={s.id} onClick={() => setActiveSection(s.id)} style={{ width: '100%', textAlign: 'left', padding: '9px 16px', background: activeSection === s.id ? 'rgba(204,0,0,0.12)' : 'transparent', border: activeSection === s.id ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', borderRadius: 8, cursor: 'pointer', color: activeSection === s.id ? '#fff' : '#888', fontSize: 13, fontWeight: activeSection === s.id ? 700 : 400, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
