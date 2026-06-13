@@ -18,16 +18,21 @@ export function useShop() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data: suRows } = await supabase
+      const { data: suRows, error: suErr } = await supabase
         .from('shop_users')
         .select('shop_id')
         .eq('user_id', user.id);
 
+      console.log('[useShop] user.id:', user.id);
+      console.log('[useShop] shop_users rows:', suRows, 'error:', suErr);
+
       const shopIds = (suRows ?? []).map((r: Record<string, unknown>) => r.shop_id as string).filter(Boolean);
 
-      const { data: shopRows } = shopIds.length > 0
+      const { data: shopRows, error: shErr } = shopIds.length > 0
         ? await supabase.from('shops').select('id, name').in('id', shopIds)
-        : { data: [] };
+        : { data: [], error: null };
+
+      console.log('[useShop] shops rows:', shopRows, 'error:', shErr);
 
       const data = shopRows ?? [];
 
