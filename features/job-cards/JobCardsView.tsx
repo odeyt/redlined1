@@ -26,6 +26,7 @@ export function JobCardsView() {
   const [toast, setToast] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<JobCardFull>>({});
+  const [selectedJob, setSelectedJob] = useState<JobCardFull | null>(null);
 
   // Create form
   const [fCustomer, setFCustomer] = useState('');
@@ -215,7 +216,7 @@ export function JobCardsView() {
                         </td>
                       </tr>
                     ) : (
-                      <tr key={job.id}>
+                      <tr key={job.id} style={{ cursor: 'pointer' }} onClick={e => { if ((e.target as HTMLElement).closest('button')) return; setSelectedJob(job); }}>
                         <td>
                           <strong>{job.id}</strong>
                           <div className="meta">{job.ro ?? '—'} → {job.invoice ?? 'Invoice pending'}</div>
@@ -341,6 +342,61 @@ export function JobCardsView() {
             </table>
           )}
         </Panel>
+      )}
+
+      {/* ── JOB DETAIL DRAWER ── */}
+      {selectedJob && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }} onClick={() => setSelectedJob(null)}>
+          <div style={{ width: 420, height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 28, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '-8px 0 40px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{selectedJob.id}</h2>
+                <div className="meta" style={{ marginTop: 4 }}>{selectedJob.channel ?? 'Job Card'}</div>
+              </div>
+              <button className="mini-btn" onClick={() => setSelectedJob(null)} style={{ fontSize: 18, lineHeight: 1, padding: '4px 10px' }}>✕</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>CUSTOMER</div><strong>{selectedJob.customer}</strong></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>VEHICLE</div><span>{selectedJob.vehicle || '—'}</span></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>SERVICE TYPE</div><span>{selectedJob.serviceType}</span></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>PRIORITY</div><Badge text={selectedJob.priority} /></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>APPROVAL</div><Badge text={selectedJob.approval} /></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>STATUS</div><Badge text={selectedJob.status} /></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>CHECK-IN</div><span style={{ fontSize: 13 }}>{fmt(selectedJob.checkInDate)}</span></div>
+              <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>LOCATION</div><span style={{ fontSize: 13 }}>{selectedJob.location || '—'}</span></div>
+              {selectedJob.ro && <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>REPAIR ORDER</div><span style={{ fontSize: 13 }}>{selectedJob.ro}</span></div>}
+              {selectedJob.invoice && <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>INVOICE</div><span style={{ fontSize: 13 }}>{selectedJob.invoice}</span></div>}
+              {selectedJob.laborHours != null && <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>LABOR HRS</div><span style={{ fontSize: 13 }}>{selectedJob.laborHours}</span></div>}
+              {selectedJob.partsTotal != null && <div><div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 3 }}>PARTS TOTAL</div><span style={{ fontSize: 13 }}>${selectedJob.partsTotal}</span></div>}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>TECHNICIANS</div>
+              {selectedJob.technicians.length > 0
+                ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{selectedJob.technicians.map((t, i) => <span key={i} style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--surface-soft)', fontSize: 13, border: '1px solid var(--line)' }}>{t}</span>)}</div>
+                : <span style={{ color: 'var(--muted)', fontSize: 13 }}>Unassigned</span>}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>WORKFLOW</div>
+              <Workflow steps={selectedJob.workflow} />
+            </div>
+
+            {selectedJob.nextAction && (
+              <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.2)', fontSize: 13 }}>
+                <strong>Next action:</strong> {selectedJob.nextAction}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--line)', marginTop: 'auto' }}>
+              <button className="mini-btn" onClick={() => { setSelectedJob(null); startEdit(selectedJob); }}>Edit</button>
+              <button className="mini-btn" onClick={() => { handleApprove(selectedJob); setSelectedJob(null); }}>Approve</button>
+              <button className="mini-btn" style={{ color: 'var(--accent-2)' }} onClick={() => { handleClose(selectedJob); setSelectedJob(null); }}>Close Job</button>
+              <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(selectedJob.id); setSelectedJob(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── MANAGE TECHS ── */}
