@@ -19,7 +19,9 @@ const STATUS_COLORS: Record<string, string> = {
   Declined: '#f44336', Converted: '#9c27b0',
 };
 
-const EMPTY_LINE: EstimateLine = { note: '', description: '', qty: 1, rate: 0 };
+// Form uses string for qty/rate so the user can type freely (decimals, clearing)
+type FormLine = { note: string; description: string; qty: string; rate: string };
+const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', rate: '0' };
 
 const EMPTY_FORM = {
   estimateNumber: '',
@@ -28,7 +30,7 @@ const EMPTY_FORM = {
   vehicle: '',
   jobCardId: '',
   status: 'Draft',
-  lines: [{ ...EMPTY_LINE }] as EstimateLine[],
+  lines: [{ ...EMPTY_LINE }] as FormLine[],
   discount: 0,
   shopSupplies: 0,
   taxRate: 0.08,
@@ -89,7 +91,7 @@ export function EstimatesView() {
       vehicle: est.vehicle,
       jobCardId: est.jobCardId,
       status: est.status,
-      lines: est.lines.length > 0 ? est.lines : [{ ...EMPTY_LINE }],
+      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), rate: String(l.rate) })) : [{ ...EMPTY_LINE }],
       discount: est.discount,
       shopSupplies: est.shopSupplies,
       taxRate: est.taxRate,
@@ -102,7 +104,7 @@ export function EstimatesView() {
     setShowForm(true);
   }
 
-  function setLine(i: number, field: keyof EstimateLine, value: string | number) {
+  function setLine(i: number, field: keyof FormLine, value: string) {
     setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx === i ? { ...l, [field]: value } : l) }));
   }
 
@@ -111,15 +113,16 @@ export function EstimatesView() {
     if (!form.customerName) return setError('Customer name is required.');
     if (!form.estimateNumber) return setError('Estimate number is required.');
     setSaving(true); setError('');
+    const parsedLines: EstimateLine[] = form.lines.map(l => ({ note: l.note, description: l.description, qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0 }));
     try {
       if (editingId) {
-        await updateEstimate(editingId, { ...form });
-        const updated: EstimateFull = { ...selected!, ...form, id: editingId, createdAt: selected?.createdAt ?? '' };
+        await updateEstimate(editingId, { ...form, lines: parsedLines });
+        const updated: EstimateFull = { ...selected!, ...form, lines: parsedLines, id: editingId, createdAt: selected?.createdAt ?? '' };
         setEstimates(prev => prev.map(e => e.id === editingId ? updated : e));
         setSelected(updated);
         notify(`${form.estimateNumber} updated.`);
       } else {
-        const saved = await createEstimate(form);
+        const saved = await createEstimate({ ...form, lines: parsedLines });
         setEstimates(prev => [saved, ...prev]);
         setSelected(saved);
         notify(`${saved.estimateNumber} created.`);
@@ -207,104 +210,6 @@ export function EstimatesView() {
   const approvedCount = estimates.filter(e => e.status === 'Approved').length;
   const convertedCount = estimates.filter(e => e.status === 'Converted').length;
 
-  const InvoiceFormSection = () => (
-    <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
-      <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.estimateNumber}` : 'New Estimate'}</h3>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-        <div className="login-field">
-          <label>Estimate #</label>
-          <input value={form.estimateNumber} onChange={e => setForm(f => ({ ...f, estimateNumber: e.target.value }))} required readOnly={!!editingId} style={editingId ? { opacity: 0.6 } : {}} />
-        </div>
-        <div className="login-field">
-          <label>Status</label>
-          <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-            {['Draft', 'Sent', 'Approved', 'Declined', 'Converted'].map(s => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-          <label>Customer</label>
-          <select value={form.customerId} onChange={e => {
-            const c = customers.find(c => c.id === e.target.value);
-            setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
-          }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-            <option value="">— select customer —</option>
-            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-        <div className="login-field">
-          <label>Customer Name</label>
-          <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Customer name" required />
-        </div>
-        <div className="login-field">
-          <label>Vehicle</label>
-          <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
-        </div>
-        <div className="login-field">
-          <label>Valid Until</label>
-          <input type="date" value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }} />
-        </div>
-        <div className="login-field">
-          <label>Currency</label>
-          <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.symbol})</option>)}
-          </select>
-        </div>
-        <div className="login-field">
-          <label>Job Card ID (optional)</label>
-          <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
-        </div>
-      </div>
-
-      {/* Line Items */}
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
-          <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
-          {['Note / Ref', 'Description', 'Qty', 'Rate', ''].map((h, i) => (
-            <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
-          ))}
-        </div>
-        {form.lines.map((line, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
-            <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-            <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-            <input type="number" value={line.qty} onChange={e => setLine(i, 'qty', Number(e.target.value))} min="0" step="0.5" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-            <input type="number" value={line.rate} onChange={e => setLine(i, 'rate', Number(e.target.value))} min="0" step="0.01" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-            <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-        <div className="login-field">
-          <label>Discount ($)</label>
-          <input type="number" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: Number(e.target.value) }))} min="0" step="0.01" />
-        </div>
-        <div className="login-field">
-          <label>Shop Supplies ($)</label>
-          <input type="number" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: Number(e.target.value) }))} min="0" step="0.01" />
-        </div>
-        <div className="login-field">
-          <label>Tax Rate (%)</label>
-          <input type="number" value={(form.taxRate * 100).toFixed(1)} onChange={e => setForm(f => ({ ...f, taxRate: Number(e.target.value) / 100 }))} min="0" max="30" step="0.1" />
-        </div>
-      </div>
-
-      <div className="login-field" style={{ marginBottom: 12 }}>
-        <label>Notes</label>
-        <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Work description, warranty, conditions…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Estimate'}</button>
-      </div>
-    </form>
-  );
-
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
@@ -363,7 +268,103 @@ export function EstimatesView() {
             <button className="btn btn-primary" onClick={openNewForm}>+ New</button>
           </div>
 
-          {showForm && <InvoiceFormSection />}
+          {showForm && (
+            <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.estimateNumber}` : 'New Estimate'}</h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div className="login-field">
+                  <label>Estimate #</label>
+                  <input value={form.estimateNumber} onChange={e => setForm(f => ({ ...f, estimateNumber: e.target.value }))} required readOnly={!!editingId} style={editingId ? { opacity: 0.6 } : {}} />
+                </div>
+                <div className="login-field">
+                  <label>Status</label>
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {['Draft', 'Sent', 'Approved', 'Declined', 'Converted'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Customer</label>
+                  <select value={form.customerId} onChange={e => {
+                    const c = customers.find(c => c.id === e.target.value);
+                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
+                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    <option value="">— select customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="login-field">
+                  <label>Customer Name</label>
+                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Customer name" required />
+                </div>
+                <div className="login-field">
+                  <label>Vehicle</label>
+                  <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                </div>
+                <div className="login-field">
+                  <label>Valid Until</label>
+                  <input type="date" value={form.validUntil} onChange={e => setForm(f => ({ ...f, validUntil: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }} />
+                </div>
+                <div className="login-field">
+                  <label>Currency</label>
+                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.symbol})</option>)}
+                  </select>
+                </div>
+                <div className="login-field">
+                  <label>Job Card ID (optional)</label>
+                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
+                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { note: '', description: '', qty: '1', rate: '0' }] }))}>+ Add Line</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
+                  {['Note / Ref', 'Description', 'Qty', 'Rate', ''].map((h, i) => (
+                    <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
+                  ))}
+                </div>
+                {form.lines.map((line, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
+                    <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="text" inputMode="decimal" value={line.rate} onChange={e => setLine(i, 'rate', e.target.value)} placeholder="0.00" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div className="login-field">
+                  <label>Discount ($)</label>
+                  <input type="text" inputMode="decimal" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
+                </div>
+                <div className="login-field">
+                  <label>Shop Supplies ($)</label>
+                  <input type="text" inputMode="decimal" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
+                </div>
+                <div className="login-field">
+                  <label>Tax Rate (%)</label>
+                  <input type="text" inputMode="decimal" value={(form.taxRate * 100).toFixed(1)} onChange={e => setForm(f => ({ ...f, taxRate: (parseFloat(e.target.value) || 0) / 100 }))} placeholder="8.0" />
+                </div>
+              </div>
+
+              <div className="login-field" style={{ marginBottom: 12 }}>
+                <label>Notes</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Work description, warranty, conditions…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Estimate'}</button>
+              </div>
+            </form>
+          )}
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading estimates…</p>}
           {!loading && filtered.length === 0 && (
