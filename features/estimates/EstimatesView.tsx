@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchEstimates, createEstimate, updateEstimate, approveEstimate,
@@ -41,6 +42,8 @@ const EMPTY_FORM = {
 };
 
 export function EstimatesView() {
+  const { prefill } = useAppState();
+  const dispatch = useAppDispatch();
   const [estimates, setEstimates] = useState<EstimateFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -61,6 +64,18 @@ export function EstimatesView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
+
+  // Open new form pre-filled when navigated from another module (e.g. Inspection → Estimate)
+  useEffect(() => {
+    if (!prefill?.customerName) return;
+    nextEstimateNumber().then(num => {
+      setForm(f => ({ ...f, estimateNumber: num, customerName: prefill.customerName ?? '', customerId: prefill.customerId ?? '' }));
+      setEditingId(null);
+      setShowForm(true);
+      setSelected(null);
+      dispatch({ type: 'CLEAR_PREFILL' });
+    }).catch(() => {});
+  }, [prefill]);
 
   async function load() {
     setLoading(true);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchPayments, createPayment, updatePayment, deletePayment,
@@ -34,6 +35,8 @@ const EMPTY_FORM = {
 const METHOD_GROUPS = Array.from(new Set(PAYMENT_METHODS.map(m => m.group)));
 
 export function PaymentsView() {
+  const { prefill } = useAppState();
+  const dispatch = useAppDispatch();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,6 +60,15 @@ export function PaymentsView() {
       currency: i.currency,
     })))).catch(() => {});
   }, []);
+
+  // Open new form pre-filled when navigated from Invoice → Payment
+  useEffect(() => {
+    if (!prefill?.customerName) return;
+    setForm(f => ({ ...f, customerName: prefill.customerName ?? '', customerId: prefill.customerId ?? '' }));
+    setEditingId(null);
+    setShowForm(true);
+    dispatch({ type: 'CLEAR_PREFILL' });
+  }, [prefill]);
 
   async function load() {
     setLoading(true);

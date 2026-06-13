@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
@@ -46,6 +47,8 @@ const EMPTY_FORM = {
 };
 
 export function RepairOrdersView() {
+  const { prefill } = useAppState();
+  const dispatch = useAppDispatch();
   const [orders, setOrders] = useState<RepairOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -68,6 +71,18 @@ export function RepairOrdersView() {
     fetchTechnicians().then(setTechnicians).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
+
+  // Open new form pre-filled when navigated from Job Card → Repair Order
+  useEffect(() => {
+    if (!prefill?.customerName) return;
+    nextRONumber().then(num => {
+      setForm(f => ({ ...f, roNumber: num, customerName: prefill.customerName ?? '', customerId: prefill.customerId ?? '', vehicle: prefill.vehicle ?? '' }));
+      setEditingId(null);
+      setShowForm(true);
+      setSelected(null);
+      dispatch({ type: 'CLEAR_PREFILL' });
+    }).catch(() => {});
+  }, [prefill]);
 
   async function load() {
     setLoading(true);

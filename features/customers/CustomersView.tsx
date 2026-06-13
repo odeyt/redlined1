@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
@@ -46,16 +44,11 @@ export function CustomersView() {
     setDetailLoading(true);
     setVehicles([]); setInvoices([]); setRos([]); setMaintSchedules([]);
     try {
-      const [{ data: vData }, { data: iData }, { data: rData }, allSchedules] = await Promise.all([
+      const [{ data: vData }, { data: iData }, { data: rData }] = await Promise.all([
         supabase.from('vehicles').select('*').eq('customer_id', c.id),
         supabase.from('invoices').select('number,status,date,subtotal,tax,discount,shop_supplies').eq('customer_id', c.id).order('created_at', { ascending: false }),
         supabase.from('repair_orders').select('ro_number,status,opened_date,concern,vehicle').eq('customer_id', c.id).order('created_at', { ascending: false }),
-        fetchMaintenanceSchedules(),
       ]);
-      const customerSchedules = allSchedules.filter(s =>
-        s.customerId === c.id || s.customerName.toLowerCase() === c.name.toLowerCase()
-      );
-      setMaintSchedules(customerSchedules);
       setVehicles((vData ?? []).map((v: Record<string, string>) => ({
         id: v.id, label: v.label || `${v.year} ${v.make} ${v.model}`.trim(),
         year: v.year, make: v.make, model: v.model, plate: v.plate || v.license_plate || '',
@@ -64,7 +57,13 @@ export function CustomersView() {
       setInvoices(iData ?? []);
       setRos(rData ?? []);
     } catch { /* show what we have */ }
-    finally { setDetailLoading(false); }
+    // Load maintenance schedules independently so a failure doesn't blank the drawer
+    fetchMaintenanceSchedules()
+      .then(all => setMaintSchedules(all.filter(s =>
+        s.customerId === c.id || s.customerName.toLowerCase() === c.name.toLowerCase()
+      )))
+      .catch(() => {});
+    setDetailLoading(false);
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
