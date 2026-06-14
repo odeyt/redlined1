@@ -1,6 +1,24 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 
+export type RoleKey = 'manager' | 'advisor' | 'technician';
+export type RolePermissions = Record<RoleKey, string[]>;
+
+export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
+  manager: [
+    'dashboard', 'customers', 'vehicles', 'appointments', 'job-cards',
+    'scheduling', 'inspections', 'repair-orders', 'technicians', 'parts',
+    'communication', 'vin', 'dtc', 'diagnostics', 'ai',
+  ],
+  advisor: [
+    'dashboard', 'customers', 'vehicles', 'appointments', 'scheduling',
+    'job-cards', 'inspections', 'communication', 'vin', 'dtc', 'diagnostics', 'ai',
+  ],
+  technician: [
+    'job-cards', 'inspections', 'repair-orders', 'technicians', 'parts',
+  ],
+};
+
 export interface ShopSettings {
   companyName: string;
   tagline: string;
@@ -17,6 +35,7 @@ export interface ShopSettings {
   businessType: string;
   serviceTypes: string;
   enabledPaymentMethods: string[];
+  rolePermissions: RolePermissions;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -41,6 +60,9 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     email: data.email ?? '',
     website: data.website ?? '',
     hiddenModules: data.hidden_modules ?? [],
+    rolePermissions: data.role_permissions && Object.keys(data.role_permissions).length > 0
+      ? data.role_permissions as RolePermissions
+      : DEFAULT_ROLE_PERMISSIONS,
     laborRate: Number(data.labor_rate ?? 145),
     defaultTaxRate: Number(data.default_tax_rate ?? 0.08),
     invoicePrefix: data.invoice_prefix ?? 'INV-',
@@ -68,6 +90,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.businessType !== undefined) update.business_type = settings.businessType;
   if (settings.serviceTypes !== undefined) update.service_types = settings.serviceTypes;
   if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
+  if (settings.rolePermissions !== undefined) update.role_permissions = settings.rolePermissions;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)

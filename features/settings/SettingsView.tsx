@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
-import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS } from '@/services/shopSettingsService';
+import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
 
 // Modules that can never be hidden
@@ -49,6 +49,10 @@ export function SettingsView() {
   const [serviceTypes, setServiceTypes] = useState('Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom');
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
 
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
+  const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
+  const [savingRolePerms, setSavingRolePerms] = useState(false);
+
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPortal, setSavingPortal] = useState(false);
@@ -69,6 +73,7 @@ export function SettingsView() {
       setBusinessType(s.businessType ?? 'Single repair shop');
       setServiceTypes(s.serviceTypes ?? '');
       setEnabledPaymentMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS);
+      setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
     }).catch(err => setError('Could not load settings: ' + err.message));
   }, []);
 
@@ -131,6 +136,29 @@ export function SettingsView() {
     setHiddenModules(prev =>
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
+  }
+
+  function toggleRolePerm(role: RoleKey, moduleId: string) {
+    setRolePermissions(prev => {
+      const current = prev[role];
+      return {
+        ...prev,
+        [role]: current.includes(moduleId)
+          ? current.filter(m => m !== moduleId)
+          : [...current, moduleId],
+      };
+    });
+  }
+
+  async function handleSaveRolePerms() {
+    setSavingRolePerms(true);
+    try {
+      await saveShopSettings({ rolePermissions });
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { rolePermissions } }));
+      notify('Role permissions saved.');
+    } catch (err: unknown) {
+      setError('Save failed: ' + (err instanceof Error ? err.message : ''));
+    } finally { setSavingRolePerms(false); }
   }
 
   const currentLogo = logoPreview ?? logoUrl;
@@ -398,6 +426,75 @@ export function SettingsView() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <button className="btn btn-primary" onClick={handleSavePortal} disabled={savingPortal}>{savingPortal ? 'Saving…' : 'Save Portal Settings'}</button>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
+        </div>
+      </Panel>
+
+      <Panel title="Role Permissions" hint="Choose which modules each staff role can access — applies to Manager, Service Advisor, and Technician">
+        {/* Role tabs */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          {(['manager', 'advisor', 'technician'] as RoleKey[]).map(r => {
+            const labels: Record<RoleKey, string> = { manager: 'Manager', advisor: 'Service Advisor', technician: 'Technician' };
+            const isActive = activeRoleTab === r;
+            return (
+              <button
+                key={r}
+                onClick={() => setActiveRoleTab(r)}
+                style={{
+                  padding: '7px 18px', borderRadius: 8, border: `1px solid ${isActive ? 'var(--accent)' : 'var(--line)'}`,
+                  background: isActive ? 'rgba(204,0,0,0.12)' : 'var(--surface-soft)',
+                  color: isActive ? 'var(--accent)' : 'var(--muted)', fontSize: 13, fontWeight: isActive ? 700 : 400,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                {labels[r]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Module checkboxes for active tab */}
+        <div style={{ marginBottom: 6, fontSize: 12, color: 'var(--muted)' }}>
+          {rolePermissions[activeRoleTab].length} of {navItems.length} modules enabled for {activeRoleTab === 'advisor' ? 'Service Advisors' : activeRoleTab === 'manager' ? 'Managers' : 'Technicians'}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, marginBottom: 20 }}>
+          {navItems.map(([id, , label]) => {
+            const isAllowed = rolePermissions[activeRoleTab].includes(id);
+            return (
+              <div
+                key={id}
+                onClick={() => toggleRolePerm(activeRoleTab, id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                  borderRadius: 8, cursor: 'pointer',
+                  border: `1px solid ${isAllowed ? 'var(--accent)' : 'var(--line)'}`,
+                  background: isAllowed ? 'rgba(204,0,0,0.05)' : 'var(--surface-soft)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                  border: `2px solid ${isAllowed ? 'var(--accent)' : 'var(--line)'}`,
+                  background: isAllowed ? 'var(--accent)' : 'transparent',
+                  display: 'grid', placeItems: 'center',
+                }}>
+                  {isAllowed && <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 13, flex: 1, color: isAllowed ? 'var(--text)' : 'var(--muted)' }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={handleSaveRolePerms} disabled={savingRolePerms}>
+            {savingRolePerms ? 'Saving…' : 'Save Role Permissions'}
+          </button>
+          <button
+            className="mini-btn"
+            onClick={() => setRolePermissions(prev => ({ ...prev, [activeRoleTab]: DEFAULT_ROLE_PERMISSIONS[activeRoleTab] }))}
+          >
+            Reset to Default
+          </button>
         </div>
       </Panel>
     </>

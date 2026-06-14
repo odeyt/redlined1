@@ -9,7 +9,7 @@ import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LOGO_SRC } from '@/lib/logo';
-import { fetchShopSettings } from '@/services/shopSettingsService';
+import { fetchShopSettings, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
@@ -27,6 +27,7 @@ export function Sidebar() {
   const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
 
   // Close shop menu when clicking outside
   useEffect(() => {
@@ -45,6 +46,7 @@ export function Sidebar() {
       setTagline(s.tagline);
       setLogoUrl(s.logoUrl);
       setHiddenModules(s.hiddenModules ?? []);
+      if (s.rolePermissions) setRolePermissions(s.rolePermissions);
     }).catch(() => {});
 
     function onBrandingUpdate(e: Event) {
@@ -53,6 +55,7 @@ export function Sidebar() {
       if (detail.tagline !== undefined) setTagline(detail.tagline);
       if (detail.logoUrl !== undefined) setLogoUrl(detail.logoUrl);
       if (detail.hiddenModules !== undefined) setHiddenModules(detail.hiddenModules);
+      if (detail.rolePermissions !== undefined) setRolePermissions(detail.rolePermissions);
     }
     window.addEventListener('shop-settings-updated', onBrandingUpdate);
     return () => window.removeEventListener('shop-settings-updated', onBrandingUpdate);
@@ -108,7 +111,16 @@ export function Sidebar() {
     return mockCount;
   }
 
-  const blockedForRole = getBlockedModules(role);
+  // Use owner-configured permissions for non-owner roles; fallback to hardcoded defaults
+  const blockedForRole = (() => {
+    if (role === 'owner') return [];
+    if (!role) return getBlockedModules(''); // loading / unknown
+    const allowed = rolePermissions[role as RoleKey];
+    if (allowed && allowed.length > 0) {
+      return navItems.map(([id]) => id).filter(id => !allowed.includes(id));
+    }
+    return getBlockedModules(role);
+  })();
   const visibleNav = navItems.filter(([id]) => {
     if (blockedForRole.includes(id)) return false;
     return !hiddenModules.includes(id);
