@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 
 interface LookupResult {
@@ -42,14 +41,10 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
     setApplied(false);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/labor-lookup', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ shopId, serviceType, vehicle }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceType, vehicle }),
       });
 
       const json = await res.json();

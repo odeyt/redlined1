@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,25 +9,30 @@ const admin = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  // ── 1. Authenticate ──────────────────────────────────────────────
-  const auth = req.headers.get('Authorization');
-  if (!auth?.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const { data: { user }, error: authErr } = await admin.auth.getUser(auth.slice(7));
-  if (authErr || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // ── 1. Authenticate via cookie session (same as browser) ─────────
+  const cookieStore = await cookies();
+  const userClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) { return cookieStore.get(name)?.value; },
+      },
+    }
+  );
+
+  const { data: { user } } = await userClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
   // ── 2. Parse body ────────────────────────────────────────────────
-  const { shopId, serviceType, vehicle } = await req.json();
-  if (!shopId || !serviceType) {
-    return NextResponse.json({ error: 'Missing shopId or serviceType' }, { status: 400 });
+  const { serviceType, vehicle } = await req.json();
+  if (!serviceType) {
+    return NextResponse.json({ error: 'Missing serviceType' }, { status: 400 });
   }
 
-  // ── 3. Verify owner role ─────────────────────────────────────────
-  // Check if this user is an owner in ANY shop — not tied to client-passed shopId
-  // (prevents shopId spoofing; owner status is the only gate that matters)
+  // ── 3. Verify owner role (service key bypasses RLS) ──────────────
   const { data: memberships } = await admin
     .from('shop_users')
     .select('role, shop_id')
@@ -36,27 +43,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
   }
 
-  // Use the passed shopId if valid, otherwise fall back to first owned shop
-  const ownedShopIds = memberships.map((m: Record<string, string>) => m.shop_id);
-  const resolvedShopId = ownedShopIds.includes(shopId) ? shopId : ownedShopIds[0];
+  // Use first owned shop for labor rate
+  const shopId = memberships[0].shop_id as string;
 
   // ── 4. Pull shop labor rate ──────────────────────────────────────
   const { data: settings } = await admin
     .from('shop_settings')
     .select('labor_rate')
-    .eq('shop_id', resolvedShopId)
+    .eq('shop_id', shopId)
     .single();
   const laborRate: number = Number(settings?.labor_rate ?? 145);
 
-  // ── 5. Parse vehicle string into year/make ───────────────────────
-  // Supports: "2019 Honda Civic", "Honda Civic", "2019 Ford F-150 XLT"
+  // ── 5. Parse vehicle string ──────────────────────────────────────
   const parts = (vehicle ?? '').trim().split(/\s+/);
   const year = parts[0]?.match(/^\d{4}$/) ? parseInt(parts[0]) : null;
   const make = (year ? parts[1] : parts[0])?.toLowerCase() ?? '';
 
   // ── 6. Query labor_times ─────────────────────────────────────────
-  // Try make-specific first, fall back to universal ('*')
-  let query = admin
+  const { data: rows } = await admin
     .from('labor_times')
     .select('suggested_hours, notes, source, make')
     .ilike('service_type', `%${serviceType.replace(/\s+/g, '%')}%`)
@@ -64,14 +68,13 @@ export async function POST(req: NextRequest) {
     .gte('year_to', year ?? 2099)
     .limit(10);
 
-  const { data: rows } = await query;
-
   if (!rows || rows.length === 0) {
     return NextResponse.json({ found: false, message: `No flat-rate data found for "${serviceType}"` });
   }
 
-  // Prefer make-specific rows over universal ones
-  const specific = rows.find(r => r.make !== '*' && make && r.make.toLowerCase() === make);
+  const specific = rows.find((r: Record<string, unknown>) =>
+    r.make !== '*' && make && (r.make as string).toLowerCase() === make
+  );
   const best = specific ?? rows[0];
 
   return NextResponse.json({
