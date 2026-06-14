@@ -13,7 +13,7 @@ export default function AuthCallbackPage() {
     const code = params.get('code');
     const next = params.get('next') || '/reset-password';
     const tokenHash = params.get('token_hash');
-    const type = params.get('type') as 'recovery' | 'email' | 'signup' | null;
+    const type = params.get('type') as 'recovery' | 'email' | 'signup' | 'invite' | null;
 
     // Also handle hash fragment (implicit flow fallback: #access_token=...&type=recovery)
     const hash = window.location.hash.slice(1);
@@ -24,8 +24,7 @@ export default function AuthCallbackPage() {
 
     async function exchange() {
       try {
-        if (accessToken && refreshToken && hashType === 'recovery') {
-          // Implicit flow — set session directly from hash tokens
+        if (accessToken && refreshToken && (hashType === 'recovery' || hashType === 'invite')) {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (error) throw error;
           router.replace('/reset-password');
@@ -33,9 +32,15 @@ export default function AuthCallbackPage() {
         }
 
         if (tokenHash && type) {
-          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+          // 'invite' tokens verify as 'email' in Supabase OTP flow
+          const verifyType = type === 'invite' ? 'email' : type;
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: verifyType as 'recovery' | 'email' | 'signup',
+          });
           if (error) throw error;
-          router.replace(next);
+          // Always send invite flow to set-password page
+          router.replace(type === 'invite' ? '/reset-password' : next);
           return;
         }
 
@@ -46,7 +51,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // Check if we already have a session (e.g., Supabase set it via cookie before redirect)
+        // Check if we already have a session
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           router.replace(next);
@@ -67,8 +72,9 @@ export default function AuthCallbackPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
         <div style={{ textAlign: 'center', padding: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
-          <p style={{ color: '#888', marginBottom: 16 }}>This reset link has expired or is invalid.</p>
-          <a href="/forgot-password" style={{ color: '#cc0000', fontWeight: 600 }}>Request a new link →</a>
+          <p style={{ color: '#888', marginBottom: 16 }}>This invite link has expired or is invalid.</p>
+          <p style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>Ask your shop owner to resend the invite.</p>
+          <a href="/login" style={{ color: '#cc0000', fontWeight: 600 }}>Go to Login →</a>
         </div>
       </div>
     );
@@ -78,7 +84,7 @@ export default function AuthCallbackPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
       <div style={{ textAlign: 'center', padding: 32 }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🔐</div>
-        <p style={{ color: '#777', fontSize: 14 }}>Verifying your reset link…</p>
+        <p style={{ color: '#777', fontSize: 14 }}>Verifying your invite link…</p>
       </div>
     </div>
   );
