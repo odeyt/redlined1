@@ -102,11 +102,14 @@ export function AccessView() {
 
   const isOwner = myRole === 'owner';
   const me = members.find(m => m.email === currentUserEmail);
+  const displayName = me?.name && me.name !== me.email
+    ? me.name
+    : currentUserEmail.split('@')[0] || '—';
 
   return (
     <>
       <div className="grid cols-4">
-        <StatCard label="Signed in as" value={me?.name || currentUserEmail || '—'} subtext={myRole === 'owner' ? 'Owner' : 'Manager'} />
+        <StatCard label="Signed in as" value={displayName} subtext={myRole === 'owner' ? 'Owner · ' + currentUserEmail : 'Manager · ' + currentUserEmail} />
         <StatCard label="Shop" value={currentShop?.name || '—'} subtext="Active location" />
         <StatCard label="Team members" value={members.length} subtext="In this shop" />
         <StatCard label="Session" value="Active" subtext="Authenticated" />
