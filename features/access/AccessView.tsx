@@ -35,33 +35,16 @@ export function AccessView() {
   async function loadMembers() {
     if (!shopId) return;
     setLoading(true);
-
-    const { data: suRows } = await supabase
-      .from('shop_users')
-      .select('user_id, role')
-      .eq('shop_id', shopId);
-
-    if (!suRows || suRows.length === 0) { setLoading(false); return; }
-
-    const userIds = suRows.map((r: Record<string, unknown>) => r.user_id as string);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, updated_at')
-      .in('id', userIds);
-
-    const list: ShopMember[] = suRows.map((r: Record<string, unknown>) => {
-      const profile = (profiles ?? []).find((p: Record<string, unknown>) => p.id === r.user_id) as Record<string, unknown> | undefined;
-      return {
-        userId: r.user_id as string,
-        email: (profile?.email as string) || (profile?.id as string) || '',
-        name: (profile?.full_name as string) || (profile?.email as string) || 'Unknown',
-        role: r.role as string,
-        lastSignIn: (profile?.updated_at as string) || null,
-      };
-    });
-
-    setMembers(list);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/members?shopId=${shopId}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setMembers(json.members ?? []);
+    } catch {
+      setMembers([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadMembers(); }, [shopId]);
@@ -114,10 +97,7 @@ export function AccessView() {
   }
 
   const isOwner = myRole === 'owner';
-  const me = members.find(m => m.email === currentUserEmail);
-  const displayName = me?.name && me.name !== me.email
-    ? me.name
-    : currentUserEmail.split('@')[0] || '—';
+  const displayName = currentUserEmail.split('@')[0] || '—';
 
   return (
     <>
