@@ -22,6 +22,8 @@ export function AccessView() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('manager');
   const [inviteStatus, setInviteStatus] = useState('');
+  const [lastCredentials, setLastCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export function AccessView() {
   async function handleInvite() {
     if (!inviteEmail || !shopId) return;
     setInviteStatus('Sending…');
+    setLastCredentials(null);
     try {
       const res = await fetch('/api/invite', {
         method: 'POST',
@@ -75,12 +78,21 @@ export function AccessView() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      setInviteStatus(`Invite sent to ${inviteEmail}`);
+      setInviteStatus(`Invite sent to ${json.email}`);
+      setLastCredentials({ email: json.email, password: json.tempPassword });
       setInviteEmail('');
+      setCopied(false);
       loadMembers();
     } catch (e: unknown) {
       setInviteStatus(`Error: ${e instanceof Error ? e.message : 'Failed'}`);
     }
+  }
+
+  function copyPassword() {
+    if (!lastCredentials) return;
+    navigator.clipboard.writeText(lastCredentials.password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
   async function handleRoleChange(userId: string, newRole: string) {
@@ -148,6 +160,34 @@ export function AccessView() {
             <p style={{ marginTop: 8, fontSize: 13, color: inviteStatus.startsWith('Error') ? '#e74c3c' : '#27ae60' }}>
               {inviteStatus}
             </p>
+          )}
+          {lastCredentials && (
+            <div style={{ marginTop: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                Credentials to share
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--muted)', width: 70 }}>Email</span>
+                  <span style={{ fontWeight: 600 }}>{lastCredentials.email}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--muted)', width: 70 }}>Password</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, background: 'rgba(204,0,0,0.15)', padding: '3px 10px', borderRadius: 6, letterSpacing: 1 }}>
+                    {lastCredentials.password}
+                  </span>
+                  <button
+                    onClick={copyPassword}
+                    style={{ padding: '4px 12px', background: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.08)', border: `1px solid ${copied ? '#4caf50' : 'var(--line)'}`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: copied ? '#4caf50' : 'var(--text)', transition: 'all 0.2s' }}
+                  >
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '10px 0 0' }}>
+                Share these with the staff member. They can change their password in Settings after logging in.
+              </p>
+            </div>
           )}
         </Panel>
       )}
