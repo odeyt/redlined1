@@ -84,10 +84,11 @@ export function AccessView() {
   }
 
   async function handleRoleChange(userId: string, newRole: string) {
-    await supabase.from('shop_users')
-      .update({ role: newRole })
-      .eq('shop_id', shopId)
-      .eq('user_id', userId);
+    await fetch('/api/invite', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, shopId, role: newRole }),
+    });
     loadMembers();
   }
 
