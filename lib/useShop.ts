@@ -10,22 +10,27 @@ export interface Shop {
 
 // Role → blocked module list
 // Owner has no restrictions.
+
+// Manager: operational visibility only — no money, no admin, no pricing
 export const MANAGER_BLOCKED: string[] = [
   'invoices', 'payments', 'estimates', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
+  'dashboard',  // hides revenue stats visible on dashboard
 ];
 
-// Technician: shop floor only — no money, no admin, no comms
+// Technician: shop floor only — repairs and parts only
 export const TECHNICIAN_BLOCKED: string[] = [
-  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access', 'communication',
-  'appointments', 'vin', 'dtc', 'ai', 'labor-guide',
+  'dashboard', 'customers', 'vehicles', 'appointments', 'scheduling',
+  'estimates', 'invoices', 'payments', 'reports', 'campaigns',
+  'settings', 'subscriptions', 'access', 'labor-guide',
+  'communication', 'vin', 'dtc', 'ai', 'diagnostics',
 ];
 
-// Service Advisor: customer-facing — no financials or admin
+// Service Advisor: customer-facing intake only — no financials, no admin
 export const ADVISOR_BLOCKED: string[] = [
-  'payments', 'reports', 'campaigns',
+  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
+  'technicians', 'parts', 'repair-orders',
 ];
 
 export function getBlockedModules(role: string): string[] {
@@ -40,7 +45,7 @@ export function getBlockedModules(role: string): string[] {
 export function useShop() {
   const [shopId, setLocalShopId] = useState<string>(getShopId());
   const [shops, setShops] = useState<Shop[]>([]);
-  const [role, setRole] = useState<string>('owner');
+  const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -122,7 +122,7 @@ export function AccessView() {
   return (
     <>
       <div className="grid cols-4">
-        <StatCard label="Signed in as" value={displayName} subtext={myRole === 'owner' ? 'Owner · ' + currentUserEmail : 'Manager · ' + currentUserEmail} />
+        <StatCard label="Signed in as" value={displayName} subtext={`${myRole.charAt(0).toUpperCase() + myRole.slice(1) || 'Loading…'} · ${currentUserEmail}`} />
         <StatCard label="Shop" value={currentShop?.name || '—'} subtext="Active location" />
         <StatCard label="Team members" value={members.length} subtext="In this shop" />
         <StatCard label="Session" value="Active" subtext="Authenticated" />
