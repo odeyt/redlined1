@@ -187,11 +187,21 @@ export const CURRENCIES = [
   { code: 'LAK', symbol: '₭', name: 'Lao Kip' },
 ];
 
+// Currencies with no minor units (no decimal places)
+const NO_DECIMAL_CURRENCIES = new Set(['LAK', 'JPY', 'KRW', 'VND', 'IDR']);
+
 export function formatMoney(amount: number, currencyCode: string): string {
   try {
-    return amount.toLocaleString('en-US', { style: 'currency', currency: currencyCode });
+    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
+    return amount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
   } catch {
     const sym = CURRENCIES.find(c => c.code === currencyCode)?.symbol ?? currencyCode;
-    return `${sym}${amount.toFixed(2)}`;
+    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
+    return `${sym}${amount.toFixed(digits)}`;
   }
 }
