@@ -13,6 +13,7 @@ import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { OwnerInsights } from '@/components/OwnerInsights';
+import { seedLaborGuide } from '@/services/laborGuideService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -176,6 +177,15 @@ export function RepairOrdersView() {
     if (!confirm(`Close ${ro.roNumber}? This will record the closed date.`)) return;
     try {
       await closeRepairOrder(ro.id);
+      // Seed historical guide in background — silent, no await
+      if (ro.correction || ro.concern) {
+        seedLaborGuide({
+          vehicle: ro.vehicle,
+          jobDescription: ro.correction || ro.concern,
+          laborHours: ro.laborHours,
+          laborRate: ro.laborRate,
+        });
+      }
       const updated = { ...ro, status: 'Closed', closedDate: new Date().toISOString() };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);

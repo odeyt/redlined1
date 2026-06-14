@@ -12,20 +12,20 @@ export interface Shop {
 // Owner has no restrictions.
 export const MANAGER_BLOCKED: string[] = [
   'invoices', 'payments', 'estimates', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access',
+  'settings', 'subscriptions', 'access', 'labor-guide',
 ];
 
 // Technician: shop floor only — no money, no admin, no comms
 export const TECHNICIAN_BLOCKED: string[] = [
   'invoices', 'payments', 'estimates', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'communication',
-  'appointments', 'vin', 'dtc', 'ai',
+  'appointments', 'vin', 'dtc', 'ai', 'labor-guide',
 ];
 
 // Service Advisor: customer-facing — no financials or admin
 export const ADVISOR_BLOCKED: string[] = [
   'payments', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access',
+  'settings', 'subscriptions', 'access', 'labor-guide',
 ];
 
 export function getBlockedModules(role: string): string[] {

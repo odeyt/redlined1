@@ -7,8 +7,9 @@ interface LookupResult {
   suggestedHours: number;
   flatRateCost: number;
   laborRate: number;
-  source: string;
+  source: 'historical' | 'industry';
   notes: string;
+  timesPerformed: number | null;
 }
 
 interface Props {
@@ -41,7 +42,7 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
     setApplied(false);
 
     try {
-      const res = await fetch('/api/labor-lookup', {
+      const res = await fetch('/api/labor-guide/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ serviceType, vehicle }),
@@ -205,7 +206,9 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
               </p>
             )}
             <p style={{ fontSize: 11, color: '#666', margin: 0 }}>
-              Source: {result.source} · Searched for "{serviceType}"
+              {result.source === 'historical'
+                ? `📊 Your shop history · ${result.timesPerformed} job${result.timesPerformed !== 1 ? 's' : ''} recorded`
+                : `📋 Industry standard · Searched for "${serviceType}"`}
             </p>
           </div>
         )}

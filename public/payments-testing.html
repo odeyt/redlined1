@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Payments Module — Testing Procedures</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; background: #fff; padding: 2rem 2.5rem; font-size: 13px; line-height: 1.6; max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #e5e5e5; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid #ccc; border-radius: 7px; background: #fff; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .btn-primary { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+  .sum-card { background: #f5f5f5; border-radius: 8px; padding: 12px; text-align: center; }
+  .sum-num { font-size: 20px; font-weight: 700; }
+  .sum-label { font-size: 10px; color: #666; margin-top: 2px; }
+  .tester-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .tester-field label { font-size: 11px; color: #666; display: block; margin-bottom: 4px; }
+  .tester-field input { width: 100%; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; }
+  .prereq { background: #EFF6FF; border: 1px solid #3B82F6; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 12px; }
+  .prereq h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #1E40AF; }
+  .prereq ol { margin-left: 18px; }
+  .prereq li { margin-bottom: 5px; }
+  .prereq code { background: #DBEAFE; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .section-rule { display: flex; align-items: center; gap: 10px; margin: 24px 0 14px; }
+  .section-rule hr { flex: 1; border: none; border-top: 1px solid #e0e0e0; }
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #666; white-space: nowrap; }
+  .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; page-break-inside: avoid; }
+  .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .tc-num { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .tc-num.record  { background: #DBEAFE; color: #1E3A8A; }
+  .tc-num.link    { background: #D1FAE5; color: #064E3B; }
+  .tc-num.method  { background: #FEF3C7; color: #78350F; }
+  .tc-num.flow    { background: #FCE7F3; color: #700F40; }
+  .tc-num.edit    { background: #FFF7ED; color: #7C2D12; }
+  .tc-num.report  { background: #E0F2FE; color: #075985; }
+  .tc-num.settings { background: #F3E8FF; color: #4C1D95; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .badge-record  { background: #DBEAFE; color: #1E3A8A; }
+  .badge-link    { background: #D1FAE5; color: #064E3B; }
+  .badge-method  { background: #FEF3C7; color: #78350F; }
+  .badge-flow    { background: #FCE7F3; color: #700F40; }
+  .badge-edit    { background: #FFF7ED; color: #7C2D12; }
+  .badge-report  { background: #E0F2FE; color: #075985; }
+  .badge-settings { background: #F3E8FF; color: #4C1D95; }
+  .tc-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .tc-type { font-size: 11px; color: #666; display: flex; gap: 6px; align-items: center; }
+  ol.steps { margin: 0 0 12px 0; padding-left: 0; list-style: none; }
+  ol.steps li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+  ol.steps li:last-child { border-bottom: none; }
+  .step-num { width: 20px; height: 20px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; margin-top: 1px; color: #555; }
+  .expect { background: #f8f8f8; border-radius: 7px; padding: 8px 12px; font-size: 12px; margin-bottom: 10px; }
+  .expect-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 3px; }
+  .checks { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #aaa; border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+  .result-row { display: flex; gap: 16px; align-items: center; font-size: 11px; color: #555; margin-top: 6px; }
+  .result-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .note-line { font-size: 11px; color: #888; margin-top: 6px; border-top: 1px dashed #e0e0e0; padding-top: 6px; }
+  .flow-diagram { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 10px 0; font-size: 12px; }
+  .flow-box { background: #f0f0f0; border: 1px solid #ddd; border-radius: 6px; padding: 4px 10px; font-weight: 600; }
+  .flow-arrow { color: #999; font-size: 14px; }
+  .flow-box.active { background: #DBEAFE; border-color: #3B82F6; color: #1E3A8A; }
+  .method-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+  .method-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #666; padding: 6px 10px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .method-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  .method-table tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
+  .pill-green  { background: #D1FAE5; color: #064E3B; }
+  .pill-amber  { background: #FEF3C7; color: #78350F; }
+  .pill-red    { background: #FEE2E2; color: #7F1D1D; }
+  .defect-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  .defect-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #666; padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .defect-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .defect-table input, .defect-table select { width: 100%; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .signoff-box { background: #f8f8f8; border-radius: 8px; padding: 14px; }
+  .signoff-box h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin-bottom: 10px; }
+  .field-group { margin-bottom: 10px; }
+  .field-group label { font-size: 11px; color: #666; display: block; margin-bottom: 3px; }
+  .field-group input, .field-group select, .field-group textarea { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px; font-family: inherit; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .summary-table th { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #666; padding: 5px 8px; border-bottom: 1px solid #e0e0e0; text-align: left; }
+  .summary-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .summary-table input { width: 50px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; text-align: center; }
+  @media print { .toolbar { display: none !important; } body { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="window.print()">&#128438; Print / Save PDF</button>
+</div>
+
+<h1>💳 Payments Module — Testing Procedures</h1>
+<div class="meta">Version 1.0 &nbsp;·&nbsp; Platform: redlined1.com &nbsp;·&nbsp; Date: <span id="today"></span></div>
+
+<div class="tester-row">
+  <div class="tester-field"><label>Tester name</label><input type="text" placeholder="Full name" /></div>
+  <div class="tester-field"><label>Test date</label><input type="text" id="testdate" /></div>
+  <div class="tester-field"><label>Browser / device</label><input type="text" placeholder="Chrome 125 / Windows 11" /></div>
+</div>
+
+<div class="summary-grid">
+  <div class="sum-card"><div class="sum-num">28</div><div class="sum-label">Total tests</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Record Payment</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Payment Methods</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Invoice Flow</div></div>
+  <div class="sum-card"><div class="sum-num">5</div><div class="sum-label">Edit / Delete</div></div>
+  <div class="sum-card"><div class="sum-num">6</div><div class="sum-label">Reports &amp; Settings</div></div>
+</div>
+
+<!-- PRE-CONDITIONS -->
+<div class="prereq">
+  <h3>📋 Pre-conditions — set these up before starting any test</h3>
+  <ol>
+    <li>You have at least <strong>1 active customer</strong> in the Customers module (e.g. <code>John Smith</code>).</li>
+    <li>You have at least <strong>1 invoice</strong> in the Invoicing module with status <strong>Sent</strong> (e.g. <code>INV-0002</code>, total <code>$129.99</code>, customer = John Smith).</li>
+    <li>Navigate to <strong>Settings → Portal Customization → Accepted Payment Methods</strong>. Confirm that at minimum these are enabled: <strong>Cash, Check, Credit Card, Zelle, Fleet Account</strong>. Save if you need to change anything.</li>
+    <li>Open the <strong>Payments</strong> module. Note the current "Subtotal" at the bottom of the Payment Register (write it in the note line of A1).</li>
+    <li>Open the <strong>Reports</strong> module. Note the current <strong>Total Revenue</strong> value before testing.</li>
+  </ol>
+</div>
+
+<!-- ══ CUSTOMER PAYMENT FLOW ══ -->
+<div style="margin-bottom: 20px; padding: 14px 18px; background: #F0FDF4; border: 1px solid #22C55E; border-radius: 10px; font-size: 12px;">
+  <strong style="font-size: 13px;">End-to-end customer payment flow this document tests:</strong>
+  <div class="flow-diagram" style="margin-top: 10px;">
+    <div class="flow-box">Customer visits</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Invoice created &amp; sent</div><div class="flow-arrow">→</div>
+    <div class="flow-box active">Customer pays</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Payment recorded</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Invoice marked Paid</div><div class="flow-arrow">→</div>
+    <div class="flow-box">Reports updated</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SECTION A — RECORD PAYMENT
+══════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section A — Record Payment (6 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A1</div><div><div class="tc-title">Record a manual cash payment — standalone (no invoice)</div><div class="tc-type"><span class="badge badge-record">Record</span> Happy path</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to <strong>Payments</strong>. In the Record Payment panel, leave <em>Link to Invoice</em> as "— no invoice —".</span></li>
+    <li><div class="step-num">2</div><span>From the <strong>Customer</strong> dropdown select <strong>John Smith</strong>. Verify Customer Name field auto-fills.</span></li>
+    <li><div class="step-num">3</div><span>Set Amount = <code>50.00</code>, Method = <strong>Cash</strong>, Currency = <strong>USD</strong>, Status = <strong>Recorded</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Set Payment Date to today. Leave Reference # blank. Add Note = <code>Walk-in cash payment</code>.</span></li>
+    <li><div class="step-num">5</div><span>Click <strong>Save Payment</strong>. Verify toast "Payment recorded."</span></li>
+    <li><div class="step-num">6</div><span>Verify the new row appears in the Payment Register: Customer = John Smith, Method = Cash, Amount = $50.00, Status = Recorded.</span></li>
+    <li><div class="step-num">7</div><span>Verify the Register <strong>Subtotal</strong> increased by $50.00.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Payment saved with correct fields. Appears in register. Subtotal updated.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Toast "Payment recorded." shown</span></div>
+    <div class="check"><div class="box"></div><span>Row in register: customer, Cash, $50.00, Recorded</span></div>
+    <div class="check"><div class="box"></div><span>Subtotal increases by $50.00</span></div>
+    <div class="check"><div class="box"></div><span>Today's date shown in the DATE column</span></div>
+  </div>
+  <div class="note-line">Register subtotal before: _______________ &nbsp;&nbsp; After: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a1"/> Pass</label><label><input type="radio" name="a1"/> Fail</label><label><input type="radio" name="a1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A2</div><div><div class="tc-title">Record payment linked to an invoice</div><div class="tc-type"><span class="badge badge-record">Record</span> Linked</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Record Payment, open the <strong>Link to Invoice</strong> dropdown. Select <strong>INV-0002</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify Customer Name auto-fills to <strong>John Smith</strong> (pulled from the invoice).</span></li>
+    <li><div class="step-num">3</div><span>Set Amount = <code>129.99</code> (the full invoice total), Method = <strong>Credit Card</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Set Reference # = <code>TXN-98765</code> (card transaction ID). Click <strong>Save Payment</strong>.</span></li>
+    <li><div class="step-num">5</div><span>In the register, verify the row shows Invoice = <strong>INV-0002</strong> as a red-highlighted link.</span></li>
+    <li><div class="step-num">6</div><span>Navigate to <strong>Invoicing</strong>. Open INV-0002. Verify its status is now <strong>Paid</strong> (the payment auto-updated it).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Customer fills from invoice. Invoice number shown in register. Invoice status updates to Paid after payment recorded.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Customer name auto-filled from invoice selection</span></div>
+    <div class="check"><div class="box"></div><span>Invoice number visible in register row</span></div>
+    <div class="check"><div class="box"></div><span>Reference # saved (TXN-98765)</span></div>
+    <div class="check"><div class="box"></div><span>INV-0002 status = Paid in Invoicing module</span></div>
+  </div>
+  <div class="note-line">Invoice # tested: _______________ &nbsp;&nbsp; Invoice status after: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a2"/> Pass</label><label><input type="radio" name="a2"/> Fail</label><label><input type="radio" name="a2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A3</div><div><div class="tc-title">Required field validation — amount and customer name</div><div class="tc-type"><span class="badge badge-record">Record</span> Validation</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Leave Amount = <code>0</code> and Customer Name blank. Click <strong>Save Payment</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify error "Customer name is required." No payment saved.</span></li>
+    <li><div class="step-num">3</div><span>Fill Customer Name. Leave Amount = <code>0</code>. Click Save. Verify error "Amount must be greater than zero."</span></li>
+    <li><div class="step-num">4</div><span>Set Amount = <code>-10</code>. Verify error or that negative amounts are blocked.</span></li>
+    <li><div class="step-num">5</div><span>Fill both correctly. Verify save succeeds.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Clear errors for each invalid input. No payment created on validation failure.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Blank customer → error shown</span></div>
+    <div class="check"><div class="box"></div><span>Amount = 0 → error shown</span></div>
+    <div class="check"><div class="box"></div><span>Negative amount → error or blocked</span></div>
+    <div class="check"><div class="box"></div><span>No payment added on invalid submit</span></div>
+    <div class="check"><div class="box"></div><span>Valid input → saves successfully</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a3"/> Pass</label><label><input type="radio" name="a3"/> Fail</label><label><input type="radio" name="a3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A4</div><div><div class="tc-title">Payment date and time defaults to now</div><div class="tc-type"><span class="badge badge-record">Record</span> Date</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Open a fresh Record Payment form. Verify the <strong>Payment Date &amp; Time</strong> field pre-fills with today's date and current time.</span></li>
+    <li><div class="step-num">2</div><span>Change the date to <code>01/01/2025</code>. Save the payment.</span></li>
+    <li><div class="step-num">3</div><span>In the register, verify the DATE column shows <strong>1/1/2025</strong> for that row.</span></li>
+    <li><div class="step-num">4</div><span>Verify the <strong>Today's Collections</strong> stat card does NOT count this back-dated payment (it was not today).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Date defaults to now. Manual date override saved correctly. Back-dated payments excluded from today's count.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Default date = today + current time</span></div>
+    <div class="check"><div class="box"></div><span>Override date saved correctly in register</span></div>
+    <div class="check"><div class="box"></div><span>Back-dated payment not in "Today" count</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a4"/> Pass</label><label><input type="radio" name="a4"/> Fail</label><label><input type="radio" name="a4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A5</div><div><div class="tc-title">Stats bar — Today, This Month, Total update in real time</div><div class="tc-type"><span class="badge badge-record">Record</span> Stats</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the values of: <strong>Today's Collections</strong>, <strong>This Month</strong>, <strong>Total Collected</strong>, and <strong>Today's Count</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Record a new payment of <code>$75.00</code> dated today.</span></li>
+    <li><div class="step-num">3</div><span>Verify <strong>Today's Collections</strong> increases by $75.00.</span></li>
+    <li><div class="step-num">4</div><span>Verify <strong>This Month</strong> increases by $75.00.</span></li>
+    <li><div class="step-num">5</div><span>Verify <strong>Total Collected</strong> increases by $75.00.</span></li>
+    <li><div class="step-num">6</div><span>Verify <strong>Today's Count</strong> increases by 1.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>All 4 stat cards reflect the new $75.00 payment immediately after save.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Today's Collections +$75.00</span></div>
+    <div class="check"><div class="box"></div><span>This Month +$75.00</span></div>
+    <div class="check"><div class="box"></div><span>Total Collected +$75.00</span></div>
+    <div class="check"><div class="box"></div><span>Today's Count +1</span></div>
+  </div>
+  <div class="note-line">Stats before: Today $_____ / Month $_____ / Total $_____ / Count _____ &nbsp;&nbsp; Stats after: Today $_____ / Month $_____ / Total $_____ / Count _____</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a5"/> Pass</label><label><input type="radio" name="a5"/> Fail</label><label><input type="radio" name="a5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num record">A6</div><div><div class="tc-title">Multi-currency payment (CAD)</div><div class="tc-type"><span class="badge badge-record">Record</span> Currency</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record a payment: Customer = John Smith, Amount = <code>200.00</code>, Currency = <strong>CAD</strong>, Method = Cash.</span></li>
+    <li><div class="step-num">2</div><span>Save. Verify the register row shows <strong>CA$200.00</strong> (not $200.00).</span></li>
+    <li><div class="step-num">3</div><span>Verify the Register Subtotal note shows the mixed-currency disclaimer (or only sums USD amounts).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Currency symbol reflects selected currency in the register row. No silent USD conversion.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Register shows CA$200.00</span></div>
+    <div class="check"><div class="box"></div><span>Currency label visible in register row</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="a6"/> Pass</label><label><input type="radio" name="a6"/> Fail</label><label><input type="radio" name="a6"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════
+     SECTION B — PAYMENT METHODS
+══════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section B — Payment Methods (6 tests)</div><hr /></div>
+
+<div style="margin-bottom: 14px; padding: 12px 16px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12px;">
+  <strong>Reference — common methods and their required detail fields:</strong>
+  <table class="method-table" style="margin-top: 8px;">
+    <thead><tr><th>Method</th><th>Typical use</th><th>Reference # expected</th><th>Notes expected</th></tr></thead>
+    <tbody>
+      <tr><td>💵 Cash</td><td>Walk-in, in-person</td><td>None</td><td>Optional</td></tr>
+      <tr><td>🏦 Check</td><td>Fleet / commercial</td><td><strong>Check number</strong></td><td>Bank if needed</td></tr>
+      <tr><td>💳 Credit Card</td><td>Standard card reader</td><td>Last 4 / TXN ID</td><td>Optional</td></tr>
+      <tr><td>💳 Debit Card</td><td>Standard card reader</td><td>Last 4 / TXN ID</td><td>Optional</td></tr>
+      <tr><td>🍎 Apple Pay</td><td>Tap-to-pay mobile</td><td>TXN ID</td><td>Optional</td></tr>
+      <tr><td>💛 Zelle</td><td>Digital transfer</td><td>Zelle confirmation #</td><td>Sender's email/phone</td></tr>
+      <tr><td>💜 Venmo</td><td>Digital transfer</td><td>Venmo TXN ID</td><td>Optional</td></tr>
+      <tr><td>📋 Fleet Account</td><td>Net-30 commercial account</td><td>PO # or account ref</td><td>Billing cycle</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B1</div><div><div class="tc-title">Cash payment — no reference number required</div><div class="tc-type"><span class="badge badge-method">Method</span> Cash</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record payment: Amount = <code>$95.00</code>, Method = <strong>Cash</strong>. Leave Reference # blank.</span></li>
+    <li><div class="step-num">2</div><span>Save. Verify payment saves without error (no reference required for cash).</span></li>
+    <li><div class="step-num">3</div><span>In the register, verify the Method column shows <strong>💵 Cash</strong>.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Cash saves without a reference number. Emoji icon visible in register.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Saves without reference number</span></div>
+    <div class="check"><div class="box"></div><span>💵 Cash shown in Method column</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b1"/> Pass</label><label><input type="radio" name="b1"/> Fail</label><label><input type="radio" name="b1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B2</div><div><div class="tc-title">Check payment — reference number = check number</div><div class="tc-type"><span class="badge badge-method">Method</span> Check</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record payment: Amount = <code>$320.00</code>, Method = <strong>Check</strong>, Reference # = <code>4521</code> (check number).</span></li>
+    <li><div class="step-num">2</div><span>Save. Verify the register row shows check number <strong>4521</strong> in the reference column.</span></li>
+    <li><div class="step-num">3</div><span>This allows reconciliation with the physical check when it clears. Verify the reference is visible on the Edit modal too.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Check number saved as reference. Visible in register and edit modal for reconciliation.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Reference # = 4521 visible in register</span></div>
+    <div class="check"><div class="box"></div><span>🏦 Check shown in Method column</span></div>
+    <div class="check"><div class="box"></div><span>Reference visible in Edit modal</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b2"/> Pass</label><label><input type="radio" name="b2"/> Fail</label><label><input type="radio" name="b2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B3</div><div><div class="tc-title">Credit / Debit Card — transaction ID as reference</div><div class="tc-type"><span class="badge badge-method">Method</span> Card</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record payment: Amount = <code>$189.50</code>, Method = <strong>Credit Card</strong>, Reference # = <code>TXN-001234</code>.</span></li>
+    <li><div class="step-num">2</div><span>Save. Verify TXN-001234 appears in the register reference column.</span></li>
+    <li><div class="step-num">3</div><span>Repeat with Method = <strong>Debit Card</strong>, Reference # = <code>DEBIT-5678</code>. Verify it saves and displays.</span></li>
+    <li><div class="step-num">4</div><span>Verify both methods show 💳 icon in the register.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Both card types save with TXN reference. Reference visible in register for chargeback lookups.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Credit Card saves with TXN reference</span></div>
+    <div class="check"><div class="box"></div><span>Debit Card saves with reference</span></div>
+    <div class="check"><div class="box"></div><span>💳 icon in Method column for both</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b3"/> Pass</label><label><input type="radio" name="b3"/> Fail</label><label><input type="radio" name="b3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B4</div><div><div class="tc-title">Zelle / Venmo — digital wallet payment</div><div class="tc-type"><span class="badge badge-method">Method</span> Digital</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record payment: Amount = <code>$55.00</code>, Method = <strong>Zelle</strong>, Reference # = <code>ZELLE-99887</code>, Notes = <code>Sender: johnsmith@email.com</code>.</span></li>
+    <li><div class="step-num">2</div><span>Save. Verify Zelle confirmation # and sender note are saved correctly.</span></li>
+    <li><div class="step-num">3</div><span>Repeat with Method = <strong>Venmo</strong>. Verify it works the same way.</span></li>
+    <li><div class="step-num">4</div><span>Verify both appear in the register under the <strong>Digital</strong> group in the method filter dropdown.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Digital wallet payments saved with confirmation ID and sender note. Visible in register and filterable by method.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Zelle saves with reference and notes</span></div>
+    <div class="check"><div class="box"></div><span>Venmo saves correctly</span></div>
+    <div class="check"><div class="box"></div><span>Both filterable in "Digital" group</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b4"/> Pass</label><label><input type="radio" name="b4"/> Fail</label><label><input type="radio" name="b4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B5</div><div><div class="tc-title">Fleet Account / Net-30 payment</div><div class="tc-type"><span class="badge badge-method">Method</span> Fleet</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record payment: Customer = John Smith (fleet account), Amount = <code>$1,200.00</code>, Method = <strong>Fleet Account / Net 30</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Set Reference # = <code>PO-2026-045</code> (purchase order number). Notes = <code>Net-30 terms, due 07/13/2026</code>.</span></li>
+    <li><div class="step-num">3</div><span>Status = <strong>Recorded</strong> (money not yet received). Save.</span></li>
+    <li><div class="step-num">4</div><span>Verify the register row shows PO number and fleet method.</span></li>
+    <li><div class="step-num">5</div><span>When payment later arrives: find this record, click <strong>Edit</strong>, change Status to <strong>Verified</strong>. Save. Verify status badge updates to green "Verified".</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Fleet / Net-30 payment recorded with PO reference. Status workflow: Recorded → Verified when payment clears.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Fleet Account method saved</span></div>
+    <div class="check"><div class="box"></div><span>PO reference number visible in register</span></div>
+    <div class="check"><div class="box"></div><span>Status changed from Recorded → Verified</span></div>
+    <div class="check"><div class="box"></div><span>Verified shows green badge</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b5"/> Pass</label><label><input type="radio" name="b5"/> Fail</label><label><input type="radio" name="b5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num method">B6</div><div><div class="tc-title">Method filter in Payment Register</div><div class="tc-type"><span class="badge badge-method">Method</span> Filter</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>With multiple payments of different methods recorded, open the <strong>All Methods</strong> dropdown in the register.</span></li>
+    <li><div class="step-num">2</div><span>Select <strong>Cash</strong>. Verify only Cash payments show. Subtotal updates to Cash total only.</span></li>
+    <li><div class="step-num">3</div><span>Select <strong>Credit Card</strong>. Verify only Credit Card payments show.</span></li>
+    <li><div class="step-num">4</div><span>Select <strong>All Methods</strong>. Verify full list returns.</span></li>
+    <li><div class="step-num">5</div><span>Verify the filter dropdown only lists methods that are <strong>enabled in Settings</strong> (disabled methods are not shown).</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Method filter works correctly. Subtotal reflects filtered view. Filter list matches settings-enabled methods only.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cash filter shows only Cash rows</span></div>
+    <div class="check"><div class="box"></div><span>Subtotal updates to match filtered total</span></div>
+    <div class="check"><div class="box"></div><span>All Methods restores full list</span></div>
+    <div class="check"><div class="box"></div><span>Disabled methods absent from filter list</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="b6"/> Pass</label><label><input type="radio" name="b6"/> Fail</label><label><input type="radio" name="b6"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════
+     SECTION C — INVOICE FLOW
+══════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section C — Invoice → Payment Flow (5 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num flow">C1</div><div><div class="tc-title">Invoice "Record Payment →" button prefills Payments</div><div class="tc-type"><span class="badge badge-flow">Flow</span> Prefill</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to <strong>Invoicing</strong>. Select any Sent (unpaid) invoice.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>💳 Record Payment →</strong> in the invoice action bar.</span></li>
+    <li><div class="step-num">3</div><span>Verify navigation to <strong>Payments</strong> module and the Record Payment form opens automatically.</span></li>
+    <li><div class="step-num">4</div><span>Verify <strong>Customer Name</strong> is pre-filled from the invoice.</span></li>
+    <li><div class="step-num">5</div><span>Manually fill Amount and Method. Save. Verify payment appears in register.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Navigates to Payments, form opens, customer pre-filled. No need to re-select customer.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Navigates to Payments module</span></div>
+    <div class="check"><div class="box"></div><span>Form opens automatically</span></div>
+    <div class="check"><div class="box"></div><span>Customer Name pre-filled</span></div>
+    <div class="check"><div class="box"></div><span>Payment saves and appears in register</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c1"/> Pass</label><label><input type="radio" name="c1"/> Fail</label><label><input type="radio" name="c1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num flow">C2</div><div><div class="tc-title">Invoice "Mark Paid" button auto-creates payment record</div><div class="tc-type"><span class="badge badge-flow">Flow</span> Auto-record</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Invoicing, select a Sent invoice with at least one line item. Note the total amount.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>✓ Mark Paid</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Verify toast "[INV-XXXX] marked paid. $XX.XX payment recorded."</span></li>
+    <li><div class="step-num">4</div><span>Navigate to <strong>Payments</strong>. Verify a new row with Method = "Invoice (Mark Paid)" and the correct amount was auto-created.</span></li>
+    <li><div class="step-num">5</div><span>Verify <strong>Reports → Total Revenue</strong> increased by the invoice amount.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Mark Paid creates a payment record automatically — no manual Payments entry needed. Reports revenue in sync.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Toast confirms amount and "payment recorded"</span></div>
+    <div class="check"><div class="box"></div><span>Payment in register, method = "Invoice (Mark Paid)"</span></div>
+    <div class="check"><div class="box"></div><span>Reports Total Revenue increased</span></div>
+  </div>
+  <div class="note-line">Invoice total: _______________ &nbsp;&nbsp; Reports revenue before: _______________ &nbsp;&nbsp; After: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c2"/> Pass</label><label><input type="radio" name="c2"/> Fail</label><label><input type="radio" name="c2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num flow">C3</div><div><div class="tc-title">Invoice status dropdown → Paid auto-creates payment</div><div class="tc-type"><span class="badge badge-flow">Flow</span> Auto-record</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Invoicing, select a Draft invoice. In the action bar, change the status dropdown to <strong>Paid</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify toast "marked paid. Payment recorded."</span></li>
+    <li><div class="step-num">3</div><span>Verify the Paid date appears in the invoice header.</span></li>
+    <li><div class="step-num">4</div><span>Navigate to Payments. Verify new payment with method = "Invoice (Status Change)".</span></li>
+    <li><div class="step-num">5</div><span>Change the same invoice status to Paid a <strong>second time</strong> (if possible). Verify no duplicate payment is created.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Status → Paid creates exactly one payment. Paid date set. No duplicates on repeat.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Payment created: method = "Invoice (Status Change)"</span></div>
+    <div class="check"><div class="box"></div><span>Paid date shown in invoice detail</span></div>
+    <div class="check"><div class="box"></div><span>No duplicate payment on second Paid action</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c3"/> Pass</label><label><input type="radio" name="c3"/> Fail</label><label><input type="radio" name="c3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num flow">C4</div><div><div class="tc-title">Void invoice does NOT create payment</div><div class="tc-type"><span class="badge badge-flow">Flow</span> Negative</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note current Payments total. In Invoicing, change a Draft invoice status to <strong>Void</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Navigate to Payments. Verify <strong>no new payment row</strong> was created for the voided invoice.</span></li>
+    <li><div class="step-num">3</div><span>Verify Reports Total Revenue did NOT change.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Void status never triggers a payment record. Revenue unaffected.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>No payment created for voided invoice</span></div>
+    <div class="check"><div class="box"></div><span>Payments total unchanged</span></div>
+    <div class="check"><div class="box"></div><span>Reports revenue unchanged</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c4"/> Pass</label><label><input type="radio" name="c4"/> Fail</label><label><input type="radio" name="c4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num flow">C5</div><div><div class="tc-title">Payment register search by customer, invoice, reference</div><div class="tc-type"><span class="badge badge-flow">Flow</span> Search</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the Payment Register search box, type a <strong>customer name</strong> (partial match). Verify only matching rows show.</span></li>
+    <li><div class="step-num">2</div><span>Clear. Type an <strong>invoice number</strong> (e.g. <code>INV-0002</code>). Verify the linked payment row appears.</span></li>
+    <li><div class="step-num">3</div><span>Clear. Type a <strong>reference number</strong> (e.g. <code>TXN-98765</code>). Verify the matching row appears.</span></li>
+    <li><div class="step-num">4</div><span>Clear. Type something that matches nothing. Verify the register shows empty state — no crash.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Search works across customer name, invoice number, and reference number. Empty state shows when no match.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Customer name search works</span></div>
+    <div class="check"><div class="box"></div><span>Invoice number search works</span></div>
+    <div class="check"><div class="box"></div><span>Reference number search works</span></div>
+    <div class="check"><div class="box"></div><span>No-match shows empty state (no crash)</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="c5"/> Pass</label><label><input type="radio" name="c5"/> Fail</label><label><input type="radio" name="c5"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════
+     SECTION D — EDIT / DELETE / STATUS
+══════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section D — Edit, Delete &amp; Status Changes (5 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">D1</div><div><div class="tc-title">Edit payment — update amount and method</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Functional</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In the register, click <strong>Edit</strong> on any Recorded payment.</span></li>
+    <li><div class="step-num">2</div><span>Verify the Record Payment form populates with the existing values.</span></li>
+    <li><div class="step-num">3</div><span>Change Amount to a different value and Method to <strong>Check</strong>. Add Reference # = <code>CHK-1001</code>.</span></li>
+    <li><div class="step-num">4</div><span>Click <strong>Update Payment</strong>. Verify the register row updates immediately.</span></li>
+    <li><div class="step-num">5</div><span>Verify the Subtotal reflects the new amount (not the old one).</span></li>
+    <li><div class="step-num">6</div><span>Reload page. Verify the edit persisted.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Edit pre-fills form. Save updates register and subtotal. Persists after reload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Form pre-fills with existing data</span></div>
+    <div class="check"><div class="box"></div><span>Register row updates with new amount and method</span></div>
+    <div class="check"><div class="box"></div><span>Subtotal reflects new amount</span></div>
+    <div class="check"><div class="box"></div><span>Change persists after reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d1"/> Pass</label><label><input type="radio" name="d1"/> Fail</label><label><input type="radio" name="d1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">D2</div><div><div class="tc-title">Status workflow: Recorded → Verified → Refunded → Void</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Status</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Edit a Recorded payment. Change Status to <strong>Verified</strong>. Save. Verify green badge "Verified" in register.</span></li>
+    <li><div class="step-num">2</div><span>Edit again. Change Status to <strong>Refunded</strong>. Save. Verify red badge "Refunded".</span></li>
+    <li><div class="step-num">3</div><span>Edit again. Change Status to <strong>Void</strong>. Save. Verify grey badge "Void".</span></li>
+    <li><div class="step-num">4</div><span>Verify Void and Refunded payments are excluded from the Subtotal at the bottom of the register.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>All 4 status values work. Badge colors: Recorded=blue, Verified=green, Refunded=red, Void=grey. Voided/Refunded excluded from Subtotal.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Recorded = blue badge</span></div>
+    <div class="check"><div class="box"></div><span>Verified = green badge</span></div>
+    <div class="check"><div class="box"></div><span>Refunded = red badge</span></div>
+    <div class="check"><div class="box"></div><span>Void = grey badge</span></div>
+    <div class="check"><div class="box"></div><span>Void/Refunded excluded from register Subtotal</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d2"/> Pass</label><label><input type="radio" name="d2"/> Fail</label><label><input type="radio" name="d2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">D3</div><div><div class="tc-title">Delete payment — confirm dialog</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Destructive</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Note the current register Subtotal. Click <strong>Delete</strong> on a payment row.</span></li>
+    <li><div class="step-num">2</div><span>Verify a confirmation dialog or inline confirm appears.</span></li>
+    <li><div class="step-num">3</div><span>Click Cancel / No. Verify row is still present.</span></li>
+    <li><div class="step-num">4</div><span>Click Delete again, then confirm. Verify row disappears and Subtotal decrements.</span></li>
+    <li><div class="step-num">5</div><span>Reload. Verify deleted payment is gone from Supabase.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Confirm dialog prevents accidental deletes. Confirmed delete removes row and updates Subtotal.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cancel aborts delete</span></div>
+    <div class="check"><div class="box"></div><span>Confirmed delete removes row</span></div>
+    <div class="check"><div class="box"></div><span>Subtotal decrements correctly</span></div>
+    <div class="check"><div class="box"></div><span>Row absent after reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d3"/> Pass</label><label><input type="radio" name="d3"/> Fail</label><label><input type="radio" name="d3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">D4</div><div><div class="tc-title">Method breakdown panel shows correct totals per method</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Analytics</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>With multiple payments in different methods, locate the <strong>Method Breakdown</strong> panel (below the Record Payment form).</span></li>
+    <li><div class="step-num">2</div><span>Manually sum all Cash payments. Compare to the Cash row in the breakdown.</span></li>
+    <li><div class="step-num">3</div><span>Manually sum all Credit Card payments. Compare to the Credit Card row.</span></li>
+    <li><div class="step-num">4</div><span>Verify Void/Refunded payments are excluded from each method's total.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Breakdown totals match manual sum per method. Void/Refunded excluded.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Cash total matches manual sum</span></div>
+    <div class="check"><div class="box"></div><span>Credit Card total matches manual sum</span></div>
+    <div class="check"><div class="box"></div><span>Void/Refunded not included in method totals</span></div>
+  </div>
+  <div class="note-line">Manual Cash total: _______________ &nbsp;&nbsp; Breakdown shows: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d4"/> Pass</label><label><input type="radio" name="d4"/> Fail</label><label><input type="radio" name="d4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num edit">D5</div><div><div class="tc-title">Showing count and subtotal reflect active filters</div><div class="tc-type"><span class="badge badge-edit">Edit</span> Display</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>With no filters applied, note "Showing X payments · Subtotal: $Y" at the bottom of the register.</span></li>
+    <li><div class="step-num">2</div><span>Apply a method filter (e.g. Cash). Verify "Showing Z payments · Subtotal: $W" updates to reflect only Cash rows.</span></li>
+    <li><div class="step-num">3</div><span>Type a customer name in the search box. Verify count and subtotal update again.</span></li>
+    <li><div class="step-num">4</div><span>Clear all filters. Verify count and subtotal return to original values.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Showing count and Subtotal always reflect the currently filtered view.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Unfiltered count and total correct</span></div>
+    <div class="check"><div class="box"></div><span>Method filter updates count and subtotal</span></div>
+    <div class="check"><div class="box"></div><span>Search filter updates count and subtotal</span></div>
+    <div class="check"><div class="box"></div><span>Clear filters restores original values</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="d5"/> Pass</label><label><input type="radio" name="d5"/> Fail</label><label><input type="radio" name="d5"/> Blocked</label></div>
+</div>
+
+<!-- ══════════════════════════════
+     SECTION E — REPORTS & SETTINGS
+══════════════════════════════════ -->
+<div class="section-rule"><div class="section-label">Section E — Reports Sync &amp; Payment Settings (6 tests)</div><hr /></div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num report">E1</div><div><div class="tc-title">Reports Total Revenue = Payments Collected</div><div class="tc-type"><span class="badge badge-report">Reports</span> Critical sync</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Payments, note the register <strong>Subtotal</strong> (excluding Void/Refunded).</span></li>
+    <li><div class="step-num">2</div><span>Navigate to <strong>Reports → Overview</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Compare <strong>Payments Collected</strong> to the Payments Subtotal.</span></li>
+    <li><div class="step-num">4</div><span>Record a new payment of $100. Navigate back to Reports. Verify <strong>Payments Collected increased by $100</strong>.</span></li>
+    <li><div class="step-num">5</div><span>Delete that payment. Verify Reports revenue decrements by $100.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Reports Payments Collected always equals the Payments register Subtotal. Real-time sync.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Reports Payments Collected = Payments Subtotal</span></div>
+    <div class="check"><div class="box"></div><span>+$100 payment → Reports updates</span></div>
+    <div class="check"><div class="box"></div><span>Deleted payment → Reports decrements</span></div>
+  </div>
+  <div class="note-line">Payments Subtotal: _______________ &nbsp;&nbsp; Reports Payments Collected: _______________</div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e1"/> Pass</label><label><input type="radio" name="e1"/> Fail</label><label><input type="radio" name="e1"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num report">E2</div><div><div class="tc-title">Monthly revenue chart includes all paid amounts</div><div class="tc-type"><span class="badge badge-report">Reports</span> Chart</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Navigate to Reports → Revenue tab. Identify the current month's bar on the chart.</span></li>
+    <li><div class="step-num">2</div><span>Record a new $200 payment dated today. Return to Reports.</span></li>
+    <li><div class="step-num">3</div><span>Verify the current month's bar increased by $200.</span></li>
+    <li><div class="step-num">4</div><span>Record a payment dated in a prior month (e.g. last month). Verify that month's bar increases — not the current month's.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Revenue chart bars reflect payment_date month, not created_at. Back-dated payments go to correct month.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Current month bar increases by $200</span></div>
+    <div class="check"><div class="box"></div><span>Back-dated payment updates correct prior month bar</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e2"/> Pass</label><label><input type="radio" name="e2"/> Fail</label><label><input type="radio" name="e2"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num settings">E3</div><div><div class="tc-title">Settings — disable a payment method, verify it disappears from Payments</div><div class="tc-type"><span class="badge badge-settings">Settings</span> Method config</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Go to <strong>Settings → Portal Customization → Accepted Payment Methods</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Note that <strong>Venmo</strong> is currently enabled (checked). Click it to disable it. Click <strong>Save Portal Settings</strong>.</span></li>
+    <li><div class="step-num">3</div><span>Navigate to <strong>Payments</strong>. Open the Method dropdown. Verify <strong>Venmo is no longer listed</strong>.</span></li>
+    <li><div class="step-num">4</div><span>Return to Settings. Re-enable Venmo. Save. Return to Payments. Verify Venmo reappears.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Disabling a method in Settings removes it from the Payments dropdown. Re-enabling restores it.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Venmo absent from Payments dropdown after disable</span></div>
+    <div class="check"><div class="box"></div><span>Venmo reappears after re-enable</span></div>
+    <div class="check"><div class="box"></div><span>Setting persists after page reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e3"/> Pass</label><label><input type="radio" name="e3"/> Fail</label><label><input type="radio" name="e3"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num settings">E4</div><div><div class="tc-title">Settings — Reset to Defaults restores recommended methods</div><div class="tc-type"><span class="badge badge-settings">Settings</span> Reset</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Settings payment methods, click <strong>Enable All</strong> to turn on all 21 methods. Save.</span></li>
+    <li><div class="step-num">2</div><span>Click <strong>Reset to Defaults</strong>. Verify the selection snaps back to the 9 recommended methods: Cash, Check, Credit Card, Debit Card, Apple Pay, Google Pay, Zelle, Venmo, Fleet Account.</span></li>
+    <li><div class="step-num">3</div><span>Save. Navigate to Payments. Verify the dropdown shows only these 9 methods.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Reset to Defaults selects exactly the 9 recommended methods. Crypto, Wire Transfer, etc. are unchecked.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Reset selects the 9 default methods</span></div>
+    <div class="check"><div class="box"></div><span>Crypto methods deselected after reset</span></div>
+    <div class="check"><div class="box"></div><span>Payments dropdown shows 9 methods only</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e4"/> Pass</label><label><input type="radio" name="e4"/> Fail</label><label><input type="radio" name="e4"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num settings">E5</div><div><div class="tc-title">Settings — group enable/disable (e.g. enable all Crypto)</div><div class="tc-type"><span class="badge badge-settings">Settings</span> Group toggle</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>In Settings, locate the <strong>₿ Cryptocurrency</strong> group. Click <strong>Enable group</strong>.</span></li>
+    <li><div class="step-num">2</div><span>Verify all 4 Crypto methods (Bitcoin, Ethereum, USDC, Other Crypto) become checked.</span></li>
+    <li><div class="step-num">3</div><span>Click <strong>Disable group</strong>. Verify all 4 become unchecked.</span></li>
+    <li><div class="step-num">4</div><span>Save. Verify the group's toggle state persists after reload.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Group enable/disable toggles all methods in that group. Persists after save and reload.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Enable group checks all Crypto methods</span></div>
+    <div class="check"><div class="box"></div><span>Disable group unchecks all Crypto methods</span></div>
+    <div class="check"><div class="box"></div><span>State persists after save and reload</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e5"/> Pass</label><label><input type="radio" name="e5"/> Fail</label><label><input type="radio" name="e5"/> Blocked</label></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><div class="tc-num settings">E6</div><div><div class="tc-title">Existing payments with disabled methods still display correctly</div><div class="tc-type"><span class="badge badge-settings">Settings</span> Backward compat</div></div></div>
+  <ol class="steps">
+    <li><div class="step-num">1</div><span>Record a payment with Method = <strong>Bitcoin</strong> (enable Crypto group first if needed).</span></li>
+    <li><div class="step-num">2</div><span>Go to Settings and <strong>disable all Crypto methods</strong>. Save.</span></li>
+    <li><div class="step-num">3</div><span>Return to Payments register. Verify the existing Bitcoin payment row is <strong>still visible</strong> with "Bitcoin" shown correctly.</span></li>
+    <li><div class="step-num">4</div><span>Verify the Bitcoin row is still included in the Subtotal.</span></li>
+  </ol>
+  <div class="expect"><div class="expect-label">Expected result</div>Disabling a method only hides it from the input dropdown — it does NOT delete or hide existing payment records that used that method.</div>
+  <div class="checks">
+    <div class="check"><div class="box"></div><span>Existing Bitcoin payment still visible in register</span></div>
+    <div class="check"><div class="box"></div><span>Amount still counted in Subtotal</span></div>
+    <div class="check"><div class="box"></div><span>Method label "Bitcoin" still shown in register row</span></div>
+  </div>
+  <div class="result-row"><strong>Result:</strong><label><input type="radio" name="e6"/> Pass</label><label><input type="radio" name="e6"/> Fail</label><label><input type="radio" name="e6"/> Blocked</label></div>
+</div>
+
+<!-- ══ DEFECT LOG ══ -->
+<div class="section-rule"><div class="section-label">Defect log</div><hr /></div>
+<table class="defect-table">
+  <thead><tr><th style="width:55px">Test</th><th style="width:100px">Severity</th><th>Description</th><th style="width:100px">Status</th></tr></thead>
+  <tbody>
+    <tr><td><input type="text" placeholder="e.g. C2"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text" placeholder="Describe the issue…"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+    <tr><td><input type="text"/></td><td><select><option>P1-Critical</option><option>P2-Major</option><option>P3-Minor</option></select></td><td><input type="text"/></td><td><select><option>Open</option><option>In Progress</option><option>Fixed</option></select></td></tr>
+  </tbody>
+</table>
+
+<!-- ══ SIGN-OFF ══ -->
+<div class="section-rule"><div class="section-label">Sign-off</div><hr /></div>
+<div class="signoff-grid">
+  <div class="signoff-box">
+    <h3>Pass / Fail Summary</h3>
+    <table class="summary-table">
+      <thead><tr><th>Section</th><th>Pass</th><th>Fail</th></tr></thead>
+      <tbody>
+        <tr><td>A — Record Payment (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>B — Payment Methods (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>C — Invoice Flow (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>D — Edit / Delete (5)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td>E — Reports &amp; Settings (6)</td><td><input type="text"/></td><td><input type="text"/></td></tr>
+        <tr><td><strong>Total (28)</strong></td><td><input type="text"/></td><td><input type="text"/></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="signoff-box">
+    <h3>Tester Sign-off</h3>
+    <div class="field-group"><label>Tested by</label><input type="text" placeholder="Full name"/></div>
+    <div class="field-group"><label>Date</label><input type="text" id="signdate"/></div>
+    <div class="field-group"><label>Browser / Device</label><input type="text" placeholder="Chrome 125 / Windows 11"/></div>
+    <div class="field-group"><label>Overall Status</label><select><option>Pass — ready to ship</option><option>Conditional pass — minor bugs only</option><option>Fail — blocking bugs present</option></select></div>
+    <div class="field-group"><label>Notes</label><textarea rows="3" placeholder="Any additional observations…"></textarea></div>
+  </div>
+</div>
+
+<script>
+  const d = new Date().toISOString().split('T')[0];
+  document.getElementById('today').textContent = d;
+  document.getElementById('testdate').value = d;
+  document.getElementById('signdate').value = d;
+</script>
+</body>
+</html>

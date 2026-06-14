@@ -181,6 +181,7 @@ export const navItems: [string, string, string, string][] = [
 
   // ── Reports & Admin
   ['reports',       'chart',      'Reports',       ''],
+  ['labor-guide',   'chart',      'Labor Guide',   ''],
   ['access',        'userkey',    'Login & Roles', '4'],
   ['subscriptions', 'shield',     'Plans & Gates', 'Pro Trial'],
   ['settings',      'settings',   'Settings',      ''],
@@ -189,6 +190,7 @@ export const navItems: [string, string, string, string][] = [
 export const moduleTitles: Record<string, [string, string]> = {
   dashboard: ['Operations Dashboard', 'Live view of job cards, repair orders, invoices, parts, and diagnostics'],
   access: ['Login and Role Control', 'User authentication, invitations, sessions, roles, and staff permissions'],
+  'labor-guide': ['Historical Labor Rate Guide', 'Self-learning flat-rate standards built from your shop history — owner only'],
   subscriptions: ['Subscriptions and Feature Gates', 'Free plan restrictions, paid subscriber controls, limits, and upgrade path'],
   ai: ['AI Copilot', 'Artificial intelligence for estimates, diagnostics, invoices, routing, and customer follow-up'],
   customers: ['Customer CRM', 'Customer accounts, communications, reminders, vehicles, and history'],
