@@ -121,9 +121,11 @@ export function Sidebar() {
     }
     return getBlockedModules(role);
   })();
+  // hiddenModules = owner's personal sidebar config; only applies when logged in as owner
   const visibleNav = navItems.filter(([id]) => {
     if (blockedForRole.includes(id)) return false;
-    return !hiddenModules.includes(id);
+    if (role === 'owner' && hiddenModules.includes(id)) return false;
+    return true;
   });
 
   return (
