@@ -15,7 +15,6 @@ export interface Shop {
 export const MANAGER_BLOCKED: string[] = [
   'invoices', 'payments', 'estimates', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
-  'dashboard',  // hides revenue stats visible on dashboard
 ];
 
 // Technician: shop floor only — repairs and parts only
@@ -91,7 +90,9 @@ export function useShop() {
         const activeRow = (suRows ?? []).find(
           (r: Record<string, unknown>) => r.shop_id === current
         );
-        setRole((activeRow as Record<string, unknown>)?.role as string ?? 'owner');
+        // Never default to owner — if no row found, role stays '' (blocked)
+        const resolvedRole = (activeRow as Record<string, unknown>)?.role as string ?? '';
+        setRole(resolvedRole);
       }
       setLoading(false);
     }
