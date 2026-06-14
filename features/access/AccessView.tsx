@@ -175,14 +175,18 @@ export function AccessView() {
                   {isOwner && (
                     <td>
                       <div className="row-actions">
-                        {m.email !== currentUserEmail && (
+                        {m.email !== currentUserEmail ? (
                           <>
-                            <button
-                              className="mini-btn"
-                              onClick={() => handleRoleChange(m.userId, m.role === 'owner' ? 'manager' : 'owner')}
+                            <select
+                              value={m.role}
+                              onChange={e => handleRoleChange(m.userId, e.target.value)}
+                              style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, cursor: 'pointer' }}
                             >
-                              {m.role === 'owner' ? '→ Manager' : '→ Owner'}
-                            </button>
+                              <option value="technician">Technician</option>
+                              <option value="advisor">Service Advisor</option>
+                              <option value="manager">Manager</option>
+                              <option value="owner">Owner</option>
+                            </select>
                             <button
                               className="mini-btn"
                               style={{ color: '#e74c3c' }}
@@ -191,6 +195,8 @@ export function AccessView() {
                               Remove
                             </button>
                           </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>You</span>
                         )}
                       </div>
                     </td>
