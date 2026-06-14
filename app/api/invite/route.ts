@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     if (!email || !shopId) return NextResponse.json({ error: 'Missing email or shopId' }, { status: 400 });
 
     const tempPassword = generateTempPassword();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.redlined1.com';
+    const siteUrl = 'https://www.redlined1.com';
+    const loginUrl = `${siteUrl}/login`;
     const roleLabel = ROLE_LABELS[role] ?? role;
 
     // Get shop name for the email
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
                 <tr>
                   <td style="padding:8px 0;font-size:13px;color:#888;width:110px">Portal URL</td>
                   <td style="padding:8px 0;font-size:14px;font-weight:700">
-                    <a href="${siteUrl}" style="color:#cc0000">${siteUrl}</a>
+                    <a href="${loginUrl}" style="color:#cc0000">${loginUrl}</a>
                   </td>
                 </tr>
                 <tr>
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
               <p style="font-size:12px;color:#aaa;margin:6px 0 0">Go to Settings → Change Password once you're logged in.</p>
             </div>
 
-            <a href="${siteUrl}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
+            <a href="${loginUrl}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
               Log In Now →
             </a>
           </div>
