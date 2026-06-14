@@ -32,8 +32,11 @@ export async function POST(req: NextRequest) {
     .eq('shop_id', shopId)
     .single();
 
-  if (membership?.role !== 'owner') {
-    return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
+  if (!membership) {
+    return NextResponse.json({ error: `No shop membership found for shopId: ${shopId}` }, { status: 403 });
+  }
+  if (membership.role !== 'owner') {
+    return NextResponse.json({ error: `Access denied — role is "${membership.role}", owner required` }, { status: 403 });
   }
 
   // ── 4. Pull shop labor rate ──────────────────────────────────────

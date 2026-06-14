@@ -20,15 +20,15 @@ interface Props {
 }
 
 export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: Props) {
-  const { role, shopId } = useShop();
+  const { role, shopId, loading: shopLoading } = useShop();
   const [result, setResult] = useState<LookupResult | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
 
-  // Hard gate: render nothing for non-owners
-  if (role !== 'owner') return null;
+  // Hard gate: render nothing for non-owners or while shop is still loading
+  if (shopLoading || role !== 'owner' || !shopId) return null;
 
   async function lookup() {
     if (!serviceType.trim()) {
