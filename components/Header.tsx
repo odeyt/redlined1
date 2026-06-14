@@ -7,14 +7,14 @@ import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
 export function Header() {
-  const { activeModule, jobCards } = useAppState();
+  const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const [title, subtitle] = moduleTitles[activeModule] || ['Dashboard', ''];
 
   function handleTopCreateInvoice() {
-    const target = jobCards.find(j => !j.invoice) || jobCards[0];
-    if (target) dispatch({ type: 'CREATE_INVOICE_FROM_JOB', jobId: target.id });
+    dispatch({ type: 'SET_MODULE', module: 'invoices' });
+    dispatch({ type: 'SET_PREFILL', prefill: { openNewForm: true } as never });
   }
 
   async function handleLogout() {

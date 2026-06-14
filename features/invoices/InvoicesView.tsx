@@ -109,16 +109,17 @@ export function InvoicesView() {
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
-  // Prefill: other modules can navigate here with customer data pre-loaded
+  // Prefill: other modules (or header button) can navigate here with optional customer data
   useEffect(() => {
-    if (!prefill?.customerName) return;
+    const p = prefill as Record<string, unknown> | null;
+    if (!p?.customerName && !p?.openNewForm) return;
     nextInvoiceNumber().then(num => {
       setForm(f => ({
         ...f,
         invoiceNumber: num,
-        customerName: prefill.customerName ?? '',
-        customerId: prefill.customerId ?? '',
-        vehicle: prefill.vehicle ?? '',
+        customerName: (p?.customerName as string) ?? '',
+        customerId: (p?.customerId as string) ?? '',
+        vehicle: (p?.vehicle as string) ?? '',
       }));
       setEditingId(null);
       setShowForm(true);
