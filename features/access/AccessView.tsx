@@ -1,133 +1,200 @@
 'use client';
 
-import { useState } from 'react';
-import { useAppState, useAppDispatch } from '@/lib/store';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useShop } from '@/lib/useShop';
 import { StatCard } from '@/components/StatCard';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { Icon } from '@/components/Icon';
+
+interface ShopMember {
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  lastSignIn: string | null;
+}
 
 export function AccessView() {
-  const { users, currentUserId, auditLogs } = useAppState();
-  const dispatch = useAppDispatch();
-  const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  const { shopId, currentShop, role: myRole } = useShop();
+  const [members, setMembers] = useState<ShopMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('manager');
+  const [inviteStatus, setInviteStatus] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
 
-  const [loginUserId, setLoginUserId] = useState(currentUserId);
-  const [inviteName, setInviteName] = useState('New Technician');
-  const [inviteEmail, setInviteEmail] = useState('newtech@redlined1.example');
-  const [inviteRole, setInviteRole] = useState('Technician');
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserEmail(data.user?.email ?? '');
+    });
+  }, []);
+
+  async function loadMembers() {
+    if (!shopId) return;
+    setLoading(true);
+
+    const { data: suRows } = await supabase
+      .from('shop_users')
+      .select('user_id, role')
+      .eq('shop_id', shopId);
+
+    if (!suRows || suRows.length === 0) { setLoading(false); return; }
+
+    const userIds = suRows.map((r: Record<string, unknown>) => r.user_id as string);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, updated_at')
+      .in('id', userIds);
+
+    const list: ShopMember[] = suRows.map((r: Record<string, unknown>) => {
+      const profile = (profiles ?? []).find((p: Record<string, unknown>) => p.id === r.user_id) as Record<string, unknown> | undefined;
+      return {
+        userId: r.user_id as string,
+        email: (profile?.email as string) || (profile?.id as string) || '',
+        name: (profile?.full_name as string) || (profile?.email as string) || 'Unknown',
+        role: r.role as string,
+        lastSignIn: (profile?.updated_at as string) || null,
+      };
+    });
+
+    setMembers(list);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadMembers(); }, [shopId]);
+
+  async function handleInvite() {
+    if (!inviteEmail || !shopId) return;
+    setInviteStatus('Sending…');
+    try {
+      const res = await fetch('/api/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, shopId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setInviteStatus(`Invite sent to ${inviteEmail}`);
+      setInviteEmail('');
+      loadMembers();
+    } catch (e: unknown) {
+      setInviteStatus(`Error: ${e instanceof Error ? e.message : 'Failed'}`);
+    }
+  }
+
+  async function handleRoleChange(userId: string, newRole: string) {
+    await supabase.from('shop_users')
+      .update({ role: newRole })
+      .eq('shop_id', shopId)
+      .eq('user_id', userId);
+    loadMembers();
+  }
+
+  async function handleRemove(userId: string) {
+    if (!confirm('Remove this user from the shop?')) return;
+    await supabase.from('shop_users')
+      .delete()
+      .eq('shop_id', shopId)
+      .eq('user_id', userId);
+    loadMembers();
+  }
+
+  const isOwner = myRole === 'owner';
+  const me = members.find(m => m.email === currentUserEmail);
 
   return (
     <>
       <div className="grid cols-4">
-        <StatCard label="Signed in as" value={currentUser.name} subtext={currentUser.role} />
-        <StatCard label="Active users" value={users.filter(u => u.status === 'Active').length} subtext="Role-controlled access" />
-        <StatCard label="Invites" value={users.filter(u => u.status === 'Invited').length} subtext="Pending team setup" />
-        <StatCard label="Session" value="Active" subtext="Mock auth session" />
+        <StatCard label="Signed in as" value={me?.name || currentUserEmail || '—'} subtext={myRole === 'owner' ? 'Owner' : 'Manager'} />
+        <StatCard label="Shop" value={currentShop?.name || '—'} subtext="Active location" />
+        <StatCard label="Team members" value={members.length} subtext="In this shop" />
+        <StatCard label="Session" value="Active" subtext="Authenticated" />
       </div>
 
-      <div className="split">
-        <Panel title="Login Session" hint="MVP login controls and role switching for testing permissions">
+      {isOwner && (
+        <Panel title="Invite User" hint="Send an invite email to add staff to this shop">
           <div className="form-row">
             <div className="field">
               <label>Email</label>
-              <input defaultValue={currentUser.email} />
-            </div>
-            <div className="field">
-              <label>Password</label>
-              <input type="password" defaultValue="demo-password" />
-            </div>
-            <div className="field">
-              <label>Login As</label>
-              <select value={loginUserId} onChange={e => setLoginUserId(e.target.value)}>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} - {u.role}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>&nbsp;</label>
-              <button className="btn primary" onClick={() => dispatch({ type: 'LOGIN', userId: loginUserId })}>
-                <Icon name="userkey" /> Sign In
-              </button>
-            </div>
-          </div>
-          <div className="actions" style={{ justifyContent: 'flex-start' }}>
-            <button className="btn" onClick={() => dispatch({ type: 'RESET_PASSWORD' })}>Send Password Reset</button>
-            <button className="btn" onClick={() => dispatch({ type: 'LOGOUT' })}>End Session</button>
-          </div>
-        </Panel>
-
-        <Panel title="Invite User" hint="Add staff to a shop account with a controlled role">
-          <div className="form-row">
-            <div className="field">
-              <label>Name</label>
-              <input value={inviteName} onChange={e => setInviteName(e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Email</label>
-              <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} />
+              <input
+                type="email"
+                placeholder="staff@example.com"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+              />
             </div>
             <div className="field">
               <label>Role</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
-                {['Technician', 'Service Advisor', 'Parts Manager', 'Accountant', 'Read-only Staff', 'Admin'].map(r => (
-                  <option key={r}>{r}</option>
-                ))}
+                <option value="manager">Manager</option>
+                <option value="owner">Owner</option>
               </select>
             </div>
             <div className="field">
               <label>&nbsp;</label>
-              <button className="btn primary" onClick={() => dispatch({ type: 'INVITE_USER', name: inviteName, email: inviteEmail, role: inviteRole })}>
-                Invite User
+              <button className="btn primary" onClick={handleInvite}>
+                Send Invite
               </button>
             </div>
           </div>
+          {inviteStatus && (
+            <p style={{ marginTop: 8, fontSize: 13, color: inviteStatus.startsWith('Error') ? '#e74c3c' : '#27ae60' }}>
+              {inviteStatus}
+            </p>
+          )}
         </Panel>
-      </div>
+      )}
 
-      <Panel title="Users and Permissions" hint="Role-based access control for MVP">
-        <table>
-          <thead>
-            <tr><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td><strong>{u.name}</strong></td>
-                <td>{u.email}</td>
-                <td><Badge text={u.role} /></td>
-                <td><Badge text={u.status} /></td>
-                <td>{u.lastLogin}</td>
-                <td>
-                  <div className="row-actions">
-                    <button className="mini-btn" onClick={() => dispatch({ type: 'CHANGE_ROLE', userId: u.id, role: 'Owner' })}>Owner</button>
-                    <button className="mini-btn" onClick={() => dispatch({ type: 'CHANGE_ROLE', userId: u.id, role: 'Technician' })}>Tech</button>
-                    <button className="mini-btn" onClick={() => dispatch({ type: 'TOGGLE_USER_STATUS', userId: u.id })}>Deactivate</button>
-                  </div>
-                </td>
+      <Panel title="Team Members" hint={`Users with access to ${currentShop?.name || 'this shop'}`}>
+        {loading ? (
+          <p style={{ color: '#888', fontSize: 13 }}>Loading…</p>
+        ) : members.length === 0 ? (
+          <p style={{ color: '#888', fontSize: 13 }}>No members found.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>You</th>
+                {isOwner && <th>Actions</th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Panel>
-
-      <Panel title="Audit Trail" hint="Security and workflow events">
-        <table>
-          <thead>
-            <tr><th>Action</th><th>User</th><th>Entity</th><th>Time</th></tr>
-          </thead>
-          <tbody>
-            {auditLogs.map((log, i) => (
-              <tr key={i}>
-                <td>{log.action}</td>
-                <td>{log.user}</td>
-                <td>{log.entity}</td>
-                <td>{log.time}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {members.map(m => (
+                <tr key={m.userId}>
+                  <td>{m.email}</td>
+                  <td><Badge text={m.role} /></td>
+                  <td>{m.email === currentUserEmail ? '✓' : ''}</td>
+                  {isOwner && (
+                    <td>
+                      <div className="row-actions">
+                        {m.email !== currentUserEmail && (
+                          <>
+                            <button
+                              className="mini-btn"
+                              onClick={() => handleRoleChange(m.userId, m.role === 'owner' ? 'manager' : 'owner')}
+                            >
+                              {m.role === 'owner' ? '→ Manager' : '→ Owner'}
+                            </button>
+                            <button
+                              className="mini-btn"
+                              style={{ color: '#e74c3c' }}
+                              onClick={() => handleRemove(m.userId)}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Panel>
     </>
   );
