@@ -12,7 +12,7 @@ import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
-import { useShop, MANAGER_BLOCKED } from '@/lib/useShop';
+import { useShop, getBlockedModules } from '@/lib/useShop';
 
 export function Sidebar() {
   const { activeModule } = useAppState();
@@ -108,11 +108,10 @@ export function Sidebar() {
     return mockCount;
   }
 
-  const isManager = role === 'manager';
-  const ALWAYS_VISIBLE = ['dashboard', 'settings'];
+  const blockedForRole = getBlockedModules(role);
   const visibleNav = navItems.filter(([id]) => {
-    if (isManager && MANAGER_BLOCKED.includes(id)) return false;
-    return ALWAYS_VISIBLE.includes(id) || !hiddenModules.includes(id);
+    if (blockedForRole.includes(id)) return false;
+    return !hiddenModules.includes(id);
   });
 
   return (

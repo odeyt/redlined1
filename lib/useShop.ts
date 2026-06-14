@@ -8,11 +8,34 @@ export interface Shop {
   name: string;
 }
 
-// Modules managers cannot access
+// Role → blocked module list
+// Owner has no restrictions.
 export const MANAGER_BLOCKED: string[] = [
-  'invoices', 'payments', 'estimates', 'reports', 'campaigns', 'settings',
-  'subscriptions', 'access',
+  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
+  'settings', 'subscriptions', 'access',
 ];
+
+// Technician: shop floor only — no money, no admin, no comms
+export const TECHNICIAN_BLOCKED: string[] = [
+  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
+  'settings', 'subscriptions', 'access', 'communication',
+  'appointments', 'vin', 'dtc', 'ai',
+];
+
+// Service Advisor: customer-facing — no financials or admin
+export const ADVISOR_BLOCKED: string[] = [
+  'payments', 'reports', 'campaigns',
+  'settings', 'subscriptions', 'access',
+];
+
+export function getBlockedModules(role: string): string[] {
+  switch (role) {
+    case 'manager':    return MANAGER_BLOCKED;
+    case 'technician': return TECHNICIAN_BLOCKED;
+    case 'advisor':    return ADVISOR_BLOCKED;
+    default:           return []; // owner
+  }
+}
 
 export function useShop() {
   const [shopId, setLocalShopId] = useState<string>(getShopId());

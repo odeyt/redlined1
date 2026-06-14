@@ -130,6 +130,8 @@ export function AccessView() {
             <div className="field">
               <label>Role</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}>
+                <option value="technician">Technician</option>
+                <option value="advisor">Service Advisor</option>
                 <option value="manager">Manager</option>
                 <option value="owner">Owner</option>
               </select>
