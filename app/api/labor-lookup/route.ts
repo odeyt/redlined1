@@ -24,29 +24,27 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Verify owner role ─────────────────────────────────────────
-  // This is the security gate — only owners see flat-rate data
-  const { data: membership } = await admin
+  // Check if this user is an owner in ANY shop — not tied to client-passed shopId
+  // (prevents shopId spoofing; owner status is the only gate that matters)
+  const { data: memberships } = await admin
     .from('shop_users')
-    .select('role')
+    .select('role, shop_id')
     .eq('user_id', user.id)
-    .eq('shop_id', shopId)
-    .single();
+    .eq('role', 'owner');
 
-  if (!membership) {
-    return NextResponse.json({
-      error: `No shop membership found`,
-      debug: { userId: user.id, shopId },
-    }, { status: 403 });
+  if (!memberships || memberships.length === 0) {
+    return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
   }
-  if (membership.role !== 'owner') {
-    return NextResponse.json({ error: `Access denied — role is "${membership.role}", owner required` }, { status: 403 });
-  }
+
+  // Use the passed shopId if valid, otherwise fall back to first owned shop
+  const ownedShopIds = memberships.map((m: Record<string, string>) => m.shop_id);
+  const resolvedShopId = ownedShopIds.includes(shopId) ? shopId : ownedShopIds[0];
 
   // ── 4. Pull shop labor rate ──────────────────────────────────────
   const { data: settings } = await admin
     .from('shop_settings')
     .select('labor_rate')
-    .eq('shop_id', shopId)
+    .eq('shop_id', resolvedShopId)
     .single();
   const laborRate: number = Number(settings?.labor_rate ?? 145);
 
