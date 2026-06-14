@@ -19,7 +19,7 @@ export function Sidebar() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { status: planStatus, daysLeft } = usePlan();
-  const { shops, currentShop, switchShop, role } = useShop();
+  const { shops, currentShop, switchShop, role, loading: roleLoading } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const shopMenuRef = useRef<HTMLDivElement>(null);
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
@@ -190,7 +190,10 @@ export function Sidebar() {
       )}
 
       <nav className="nav">
-        {visibleNav.map(([id, icon, label, count]) => {
+        {roleLoading && (
+          <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
+        )}
+        {!roleLoading && visibleNav.map(([id, icon, label, count]) => {
           const locked = !canAccess(id, planStatus);
           return (
             <button
@@ -206,7 +209,7 @@ export function Sidebar() {
             </button>
           );
         })}
-      </nav>
+        </nav>
       <a
         href="/help"
         target="_blank"

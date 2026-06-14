@@ -33,12 +33,21 @@ export const ADVISOR_BLOCKED: string[] = [
   'technicians', 'parts', 'repair-orders',
 ];
 
+// Every non-dashboard module — used to block unverified/loading roles
+const ALL_NON_DASHBOARD = [
+  'customers','vehicles','appointments','scheduling','job-cards','inspections',
+  'estimates','repair-orders','technicians','parts','invoices','payments',
+  'communication','vin','dtc','diagnostics','ai','reports','labor-guide',
+  'access','subscriptions','settings',
+];
+
 export function getBlockedModules(role: string): string[] {
   switch (role) {
+    case 'owner':      return [];
     case 'manager':    return MANAGER_BLOCKED;
     case 'technician': return TECHNICIAN_BLOCKED;
     case 'advisor':    return ADVISOR_BLOCKED;
-    default:           return []; // owner
+    default:           return ALL_NON_DASHBOARD; // unknown/loading = block everything
   }
 }
 
