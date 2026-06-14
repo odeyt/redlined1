@@ -12,6 +12,7 @@ import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/ser
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { OwnerInsights } from '@/components/OwnerInsights';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -44,6 +45,10 @@ const EMPTY_FORM = {
   currency: 'USD',
   openedDate: new Date().toISOString(),
   closedDate: null as string | null,
+  suggestedHours: null as number | null,
+  flatRateCost: null as number | null,
+  laborSource: null as string | null,
+  laborLookupAt: null as string | null,
 };
 
 export function RepairOrdersView() {
@@ -125,6 +130,10 @@ export function RepairOrdersView() {
       currency: ro.currency,
       openedDate: ro.openedDate,
       closedDate: ro.closedDate,
+      suggestedHours: ro.suggestedHours ?? null,
+      flatRateCost: ro.flatRateCost ?? null,
+      laborSource: ro.laborSource ?? null,
+      laborLookupAt: ro.laborLookupAt ?? null,
     });
     setEditingId(ro.id);
     setShowForm(true);
@@ -205,6 +214,21 @@ export function RepairOrdersView() {
       notify(`${ro.roNumber} → ${invNumber} created. Opening Invoices…`);
       setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
     } catch (e: unknown) { setError('Convert failed: ' + (e instanceof Error ? e.message : '')); }
+  }
+
+  async function handleApplyFlatRate(ro: RepairOrder, hours: number) {
+    try {
+      await updateRepairOrder(ro.id, {
+        laborHours: hours,
+        suggestedHours: hours,
+        laborLookupAt: new Date().toISOString(),
+        laborSource: 'internal',
+      });
+      const updated = { ...ro, laborHours: hours, suggestedHours: hours };
+      setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
+      setSelected(updated);
+      notify(`Labor hours updated to ${hours} (industry standard).`);
+    } catch (e: unknown) { setError('Apply failed: ' + (e instanceof Error ? e.message : '')); }
   }
 
   async function handleDelete(ro: RepairOrder) {
@@ -522,6 +546,14 @@ export function RepairOrdersView() {
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
                 </div>
               )}
+
+              {/* Owner-only flat-rate comparison — invisible to all other roles */}
+              <OwnerInsights
+                serviceType={selected.correction || selected.concern || selected.cause}
+                vehicle={selected.vehicle}
+                currentHours={selected.laborHours}
+                onApply={(hours) => handleApplyFlatRate(selected, hours)}
+              />
             </div>
           </div>
         )}

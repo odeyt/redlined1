@@ -22,6 +22,11 @@ export interface RepairOrder {
   openedDate: string;
   closedDate: string | null;
   createdAt: string;
+  // Owner-only fields — never shown to technicians, advisors, or managers
+  suggestedHours: number | null;
+  flatRateCost: number | null;
+  laborSource: string | null;
+  laborLookupAt: string | null;
 }
 
 function mapRow(r: Record<string, unknown>): RepairOrder {
@@ -46,6 +51,10 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
     openedDate: (r.opened_date as string) || '',
     closedDate: (r.closed_date as string) || null,
     createdAt: (r.created_at as string) || '',
+    suggestedHours: r.suggested_hours != null ? Number(r.suggested_hours) : null,
+    flatRateCost: r.flat_rate_cost != null ? Number(r.flat_rate_cost) : null,
+    laborSource: (r.labor_source as string) || null,
+    laborLookupAt: (r.labor_lookup_at as string) || null,
   };
 }
 
@@ -111,6 +120,11 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.notes !== undefined) payload.notes = updates.notes;
   if (updates.currency !== undefined) payload.currency = updates.currency;
   if (updates.closedDate !== undefined) payload.closed_date = updates.closedDate || null;
+  // Owner-only insight fields
+  if (updates.suggestedHours !== undefined) payload.suggested_hours = updates.suggestedHours;
+  if (updates.flatRateCost !== undefined) payload.flat_rate_cost = updates.flatRateCost;
+  if (updates.laborSource !== undefined) payload.labor_source = updates.laborSource;
+  if (updates.laborLookupAt !== undefined) payload.labor_lookup_at = updates.laborLookupAt;
   const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
