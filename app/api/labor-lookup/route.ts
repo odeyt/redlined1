@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!membership) {
-    return NextResponse.json({ error: `No shop membership found for shopId: ${shopId}` }, { status: 403 });
+    return NextResponse.json({
+      error: `No shop membership found`,
+      debug: { userId: user.id, shopId },
+    }, { status: 403 });
   }
   if (membership.role !== 'owner') {
     return NextResponse.json({ error: `Access denied — role is "${membership.role}", owner required` }, { status: 403 });
