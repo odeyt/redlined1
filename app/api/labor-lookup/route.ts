@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     .eq('role', 'owner');
 
   if (!memberships || memberships.length === 0) {
-    return NextResponse.json({ error: 'Owner access required' }, { status: 403 });
+    return NextResponse.json({ error: `No owner row found for user: ${user.id}` }, { status: 403 });
   }
 
   // Use first owned shop for labor rate
