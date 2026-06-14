@@ -15,7 +15,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     'job-cards', 'inspections', 'communication', 'vin', 'dtc', 'diagnostics', 'ai',
   ],
   technician: [
-    'job-cards', 'inspections', 'repair-orders', 'technicians', 'parts',
+    'dashboard', 'job-cards', 'inspections', 'repair-orders', 'parts',
   ],
 };
 

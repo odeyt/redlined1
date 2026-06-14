@@ -19,7 +19,7 @@ export const MANAGER_BLOCKED: string[] = [
 
 // Technician: shop floor only — repairs and parts only
 export const TECHNICIAN_BLOCKED: string[] = [
-  'dashboard', 'customers', 'vehicles', 'appointments', 'scheduling',
+  'customers', 'vehicles', 'appointments', 'scheduling',
   'estimates', 'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
   'communication', 'vin', 'dtc', 'ai', 'diagnostics',
