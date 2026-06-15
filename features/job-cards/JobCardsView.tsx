@@ -546,10 +546,10 @@ export function JobCardsView() {
               <button className="mini-btn" onClick={() => { handleApprove(selectedJob); setSelectedJob(null); }}>Approve</button>
               <button className="mini-btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }}
                 onClick={() => {
-                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });
+                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer, vehicle: selectedJob.vehicle, jobCardId: selectedJob.id } });
                   dispatch({ type: 'SET_MODULE', module: 'inspections' });
                   setSelectedJob(null);
-                }}>🔍 Inspection →</button>
+                }}>🔍 Start DVI →</button>
               <button className="mini-btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }}
                 onClick={() => {
                   dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });

@@ -5,6 +5,7 @@ import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
 import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
+import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -53,6 +54,11 @@ export function SettingsView() {
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
   const [savingRolePerms, setSavingRolePerms] = useState(false);
 
+  const [inspTemplate, setInspTemplate] = useState<Array<{ category: string; name: string }>>(INSPECTION_TEMPLATE.map(({ category, name }) => ({ category, name })));
+  const [newItemCategory, setNewItemCategory] = useState('');
+  const [newItemName, setNewItemName] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPortal, setSavingPortal] = useState(false);
@@ -74,6 +80,9 @@ export function SettingsView() {
       setServiceTypes(s.serviceTypes ?? '');
       setEnabledPaymentMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
+      if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
+        setInspTemplate(s.inspectionTemplate);
+      }
     }).catch(err => setError('Could not load settings: ' + err.message));
   }, []);
 
@@ -493,6 +502,63 @@ export function SettingsView() {
             className="mini-btn"
             onClick={() => setRolePermissions(prev => ({ ...prev, [activeRoleTab]: DEFAULT_ROLE_PERMISSIONS[activeRoleTab] }))}
           >
+            Reset to Default
+          </button>
+        </div>
+      </Panel>
+
+      <Panel title="DVI Inspection Template" hint="Add, remove, or reorder checklist items used for Digital Vehicle Inspections">
+        {/* Add new item */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <input
+            value={newItemCategory}
+            onChange={e => setNewItemCategory(e.target.value)}
+            placeholder="Category (e.g. Brakes)"
+            style={{ flex: 1, minWidth: 120, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+          />
+          <input
+            value={newItemName}
+            onChange={e => setNewItemName(e.target.value)}
+            placeholder="Item name (e.g. Front brake pads)"
+            style={{ flex: 2, minWidth: 180, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+          />
+          <button className="btn btn-primary" onClick={() => {
+            if (!newItemCategory.trim() || !newItemName.trim()) return;
+            setInspTemplate(prev => [...prev, { category: newItemCategory.trim(), name: newItemName.trim() }]);
+            setNewItemName('');
+          }}>+ Add Item</button>
+        </div>
+
+        {/* Grouped items */}
+        {[...new Set(inspTemplate.map(i => i.category))].map(cat => (
+          <div key={cat} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, paddingBottom: 4, borderBottom: '1px solid var(--line)' }}>{cat}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {inspTemplate.filter(i => i.category === cat).map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-soft)', borderRadius: 8 }}>
+                  <span style={{ flex: 1, fontSize: 13 }}>{item.name}</span>
+                  <button onClick={() => setInspTemplate(prev => prev.filter(i => !(i.category === item.category && i.name === item.name)))}
+                    style={{ padding: '2px 8px', borderRadius: 6, border: '1px solid var(--danger)', background: 'rgba(244,67,54,0.08)', color: 'var(--danger)', fontSize: 11, cursor: 'pointer' }}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <button className="btn btn-primary" disabled={savingTemplate} onClick={async () => {
+            setSavingTemplate(true);
+            try {
+              await saveShopSettings({ inspectionTemplate: inspTemplate });
+              notify('Inspection template saved.');
+            } catch { setError('Failed to save template'); }
+            finally { setSavingTemplate(false); }
+          }}>
+            {savingTemplate ? 'Saving…' : 'Save Template'}
+          </button>
+          <button className="mini-btn" onClick={() => setInspTemplate(INSPECTION_TEMPLATE.map(({ category, name }) => ({ category, name })))}>
             Reset to Default
           </button>
         </div>

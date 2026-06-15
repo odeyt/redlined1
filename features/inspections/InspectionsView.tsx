@@ -13,6 +13,8 @@ import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import type { Vehicle } from '@/lib/types';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
+import { useShop } from '@/lib/useShop';
+import { supabase } from '@/lib/supabase';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50', Attention: '#ff9800', Fail: '#f44336', 'N/A': '#888',
@@ -26,6 +28,7 @@ function freshItem(template: Omit<InspectionItem, 'id'>): InspectionItem {
 export function InspectionsView() {
   const dispatch = useAppDispatch();
   const { prefill } = useAppState();
+  const { shopId } = useShop();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,12 +39,17 @@ export function InspectionsView() {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
+  const [techMembers, setTechMembers] = useState<{ email: string; role: string }[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoTargetItem, setPhotoTargetItem] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [generatingShare, setGeneratingShare] = useState(false);
 
   const EMPTY_FORM = {
     inspectionNumber: '',
@@ -67,7 +75,35 @@ export function InspectionsView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
-  }, []);
+    if (shopId) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token ?? '';
+        fetch(`/api/members?shopId=${shopId}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json())
+          .then(j => setTechMembers((j.members ?? []).filter((m: { role: string }) => m.role === 'technician' || m.role === 'advisor' || m.role === 'manager')))
+          .catch(() => {});
+      });
+    }
+  }, [shopId]);
+
+  useEffect(() => {
+    if (!prefill || (!prefill.jobCardId && !prefill.customerName)) return;
+    nextInspectionNumber().then(num => {
+      setForm({
+        ...EMPTY_FORM,
+        inspectionNumber: num,
+        items: getActiveTemplate(),
+        customerName: prefill.customerName ?? '',
+        customerId: prefill.customerId ?? '',
+        vehicle: prefill.vehicle ?? '',
+        jobCardId: prefill.jobCardId ?? '',
+      });
+      setEditingId(null);
+      setShowForm(true);
+      setSelected(null);
+      dispatch({ type: 'SET_PREFILL', prefill: null });
+    });
+  }, [prefill]);
 
   async function load() {
     setLoading(true);
@@ -81,9 +117,16 @@ export function InspectionsView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
+  function getActiveTemplate() {
+    if (shopSettings?.inspectionTemplate && shopSettings.inspectionTemplate.length > 0) {
+      return shopSettings.inspectionTemplate.map(t => freshItem({ ...t, status: 'N/A', notes: '', photoUrl: '' }));
+    }
+    return INSPECTION_TEMPLATE.map(freshItem);
+  }
+
   async function openNew() {
     const num = await nextInspectionNumber();
-    setForm({ ...EMPTY_FORM, inspectionNumber: num, items: INSPECTION_TEMPLATE.map(freshItem) });
+    setForm({ ...EMPTY_FORM, inspectionNumber: num, items: getActiveTemplate() });
     setEditingId(null);
     setShowForm(true);
     setSelected(null);
@@ -172,6 +215,39 @@ export function InspectionsView() {
       setSelected(inspections.find(i => i.id !== ins.id) ?? null);
       notify('Deleted.');
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
+  }
+
+  async function handleGenerateShareLink(ins: Inspection) {
+    setGeneratingShare(true);
+    try {
+      const res = await fetch('/api/inspection-share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionId: ins.id, shopId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      const url = `${window.location.origin}/inspection/${json.token}`;
+      setShareUrl(url);
+      navigator.clipboard.writeText(url).then(() => { setCopiedShare(true); setTimeout(() => setCopiedShare(false), 3000); });
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to generate link'); }
+    finally { setGeneratingShare(false); }
+  }
+
+  async function handleSendEmail(ins: Inspection) {
+    if (!ins.customerEmail) return notify('No customer email on file for this inspection.');
+    setSendingEmail(true);
+    try {
+      const res = await fetch('/api/inspection-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inspectionId: ins.id, shopId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      notify(`Report sent to ${json.sentTo}`);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to send email'); }
+    finally { setSendingEmail(false); }
   }
 
   const filtered = inspections.filter(i => {
@@ -322,7 +398,15 @@ export function InspectionsView() {
                   </div>
                   <div className="login-field">
                     <label>Technician</label>
-                    <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} />
+                    {techMembers.length > 0 ? (
+                      <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
+                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                        <option value="">— select technician —</option>
+                        {techMembers.map(m => <option key={m.email} value={m.email}>{m.email} ({m.role})</option>)}
+                      </select>
+                    ) : (
+                      <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" />
+                    )}
                   </div>
                   <div className="login-field">
                     <label>Customer Email</label>
@@ -385,6 +469,12 @@ export function InspectionsView() {
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                 <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Fill Out / Edit</button>
                 <button className="btn" onClick={() => setShowPreview(true)}>👁 Customer Report</button>
+                <button className="btn" disabled={sendingEmail || !selected.customerEmail}
+                  style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', opacity: !selected.customerEmail ? 0.45 : 1 }}
+                  onClick={() => handleSendEmail(selected)}
+                  title={!selected.customerEmail ? 'No customer email on file' : `Send report to ${selected.customerEmail}`}>
+                  {sendingEmail ? '…Sending' : '✉️ Email Report'}
+                </button>
                 {selected.status !== 'Completed' && (
                   <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleComplete(selected)}>✓ Mark Complete</button>
                 )}
@@ -397,8 +487,25 @@ export function InspectionsView() {
                     📋 Create Estimate →
                   </button>
                 )}
+                <button className="btn" disabled={generatingShare}
+                  style={{ background: 'rgba(156,39,176,0.1)', color: '#9c27b0', border: '1px solid #9c27b044' }}
+                  onClick={() => { setShareUrl(''); handleGenerateShareLink(selected); }}>
+                  {generatingShare ? '…' : '🔗 Share Link'}
+                </button>
                 <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
               </div>
+
+              {/* Share link display */}
+              {shareUrl && (
+                <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(156,39,176,0.07)', border: '1px solid #9c27b044', borderRadius: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#9c27b0', textTransform: 'uppercase' }}>Share URL</span>
+                  <span style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', color: 'var(--muted)', wordBreak: 'break-all' }}>{shareUrl}</span>
+                  <button onClick={() => { navigator.clipboard.writeText(shareUrl); setCopiedShare(true); setTimeout(() => setCopiedShare(false), 3000); }}
+                    style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #9c27b044', background: copiedShare ? 'rgba(76,175,80,0.1)' : 'rgba(156,39,176,0.1)', color: copiedShare ? '#4caf50' : '#9c27b0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    {copiedShare ? '✓ Copied!' : 'Copy'}
+                  </button>
+                </div>
+              )}
 
               {/* Detail */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 24 }}>

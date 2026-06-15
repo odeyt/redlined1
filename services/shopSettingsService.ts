@@ -36,6 +36,7 @@ export interface ShopSettings {
   serviceTypes: string;
   enabledPaymentMethods: string[];
   rolePermissions: RolePermissions;
+  inspectionTemplate: Array<{ category: string; name: string }> | null;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -70,6 +71,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     businessType: data.business_type ?? 'Single repair shop',
     serviceTypes: data.service_types ?? 'Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom',
     enabledPaymentMethods: data.enabled_payment_methods ?? DEFAULT_PAYMENT_METHODS,
+    inspectionTemplate: data.inspection_template ?? null,
   };
 }
 
@@ -91,6 +93,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.serviceTypes !== undefined) update.service_types = settings.serviceTypes;
   if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
   if (settings.rolePermissions !== undefined) update.role_permissions = settings.rolePermissions;
+  if (settings.inspectionTemplate !== undefined) update.inspection_template = settings.inspectionTemplate;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)
