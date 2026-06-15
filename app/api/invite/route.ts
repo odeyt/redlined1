@@ -59,12 +59,28 @@ export async function POST(req: NextRequest) {
       userId = data.user.id;
     }
 
-    // Link to shop with the correct role
-    await admin.from('shop_users').upsert({
-      shop_id: shopId,
-      user_id: userId,
-      role: role ?? 'manager',
-    }, { onConflict: 'shop_id,user_id' });
+    // Find all shops owned by the same owners as the target shop
+    // so the new user is added to every location automatically
+    const { data: coOwners } = await admin
+      .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
+    const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
+
+    let allShopIds: string[] = [shopId];
+    if (ownerIds.length > 0) {
+      const { data: ownerShops } = await admin
+        .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
+      allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
+      if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
+    }
+
+    // Add user to all locations
+    for (const sid of allShopIds) {
+      await admin.from('shop_users').upsert({
+        shop_id: sid,
+        user_id: userId,
+        role: role ?? 'manager',
+      }, { onConflict: 'shop_id,user_id' });
+    }
 
     // Create/update profile
     await admin.from('profiles').upsert({
