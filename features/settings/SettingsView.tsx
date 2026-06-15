@@ -6,6 +6,7 @@ import { navItems } from '@/lib/mock-data';
 import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
 import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
+import { supabase } from '@/lib/supabase';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -59,6 +60,13 @@ export function SettingsView() {
   const [newItemName, setNewItemName] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
 
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwDone, setPwDone] = useState(false);
+
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPortal, setSavingPortal] = useState(false);
@@ -87,6 +95,29 @@ export function SettingsView() {
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError(''); setPwDone(false);
+    if (pwNew.length < 8) return setPwError('Password must be at least 8 characters.');
+    if (pwNew !== pwConfirm) return setPwError('Passwords do not match.');
+    setPwSaving(true);
+    try {
+      // Re-authenticate first to verify current password
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error('Could not identify current user.');
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: pwCurrent });
+      if (signInErr) throw new Error('Current password is incorrect.');
+      const { error } = await supabase.auth.updateUser({ password: pwNew });
+      if (error) throw error;
+      setPwDone(true);
+      setPwCurrent(''); setPwNew(''); setPwConfirm('');
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : 'Failed to update password.');
+    } finally {
+      setPwSaving(false);
+    }
+  }
 
   function applyTheme(t: 'light' | 'dark') {
     setTheme(t);
@@ -181,6 +212,52 @@ export function SettingsView() {
           {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>✕</button>
         </p>
       )}
+
+      {/* ── CHANGE PASSWORD ── */}
+      <Panel title="Change Password" hint="Update your login password — required after your first sign-in with a temporary password">
+        {pwDone ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(76,175,80,0.08)', border: '1px solid #4caf5044', borderRadius: 10 }}>
+            <span style={{ fontSize: 24 }}>✅</span>
+            <div>
+              <div style={{ fontWeight: 700, color: '#4caf50', fontSize: 14 }}>Password updated successfully</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Your new password is active. Use it on your next login.</div>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleChangePassword}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, alignItems: 'end' }}>
+              <div className="login-field" style={{ margin: 0 }}>
+                <label>Current Password</label>
+                <input type="password" value={pwCurrent} onChange={e => { setPwCurrent(e.target.value); setPwError(''); setPwDone(false); }}
+                  placeholder="Your current password" required
+                  style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%' }} />
+              </div>
+              <div className="login-field" style={{ margin: 0 }}>
+                <label>New Password</label>
+                <input type="password" value={pwNew} onChange={e => { setPwNew(e.target.value); setPwError(''); setPwDone(false); }}
+                  placeholder="At least 8 characters" required minLength={8}
+                  style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%' }} />
+              </div>
+              <div className="login-field" style={{ margin: 0 }}>
+                <label>Confirm New Password</label>
+                <input type="password" value={pwConfirm} onChange={e => { setPwConfirm(e.target.value); setPwError(''); setPwDone(false); }}
+                  placeholder="Repeat new password" required
+                  style={{ border: `1px solid ${pwConfirm && pwConfirm !== pwNew ? '#f44336' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%' }} />
+              </div>
+            </div>
+            {pwError && (
+              <p style={{ marginTop: 10, fontSize: 13, color: '#f44336', padding: '8px 12px', background: 'rgba(244,67,54,0.07)', borderRadius: 6 }}>
+                {pwError}
+              </p>
+            )}
+            <div style={{ marginTop: 14 }}>
+              <button type="submit" className="btn btn-primary" disabled={pwSaving || !pwCurrent || !pwNew || !pwConfirm}>
+                {pwSaving ? 'Updating…' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Panel>
 
       {/* ── BRANDING ── */}
       <Panel title="Shop Branding" hint="Company name, logo, and contact info — shown on invoices and estimates">
