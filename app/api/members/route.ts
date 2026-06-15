@@ -8,7 +8,7 @@ const admin = createClient(
 
 export async function GET(req: NextRequest) {
   try {
-    // Verify caller via Bearer token (more reliable than cookies in API routes)
+    // Verify caller is authenticated via Bearer token
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
     const { data: { user }, error: authError } = await admin.auth.getUser(token);
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,27 +16,21 @@ export async function GET(req: NextRequest) {
     const shopId = req.nextUrl.searchParams.get('shopId');
     if (!shopId) return NextResponse.json({ error: 'Missing shopId' }, { status: 400 });
 
-    // Verify requester is a member of this shop
-    const { data: myRow } = await admin
-      .from('shop_users')
-      .select('role')
-      .eq('shop_id', shopId)
-      .eq('user_id', user.id)
-      .single();
-    if (!myRow) return NextResponse.json({ error: 'Not a member of this shop' }, { status: 403 });
-
     // Get all members of the shop
-    const { data: suRows } = await admin
+    const { data: suRows, error: suError } = await admin
       .from('shop_users')
       .select('user_id, role')
       .eq('shop_id', shopId);
 
+    if (suError) return NextResponse.json({ error: suError.message }, { status: 500 });
     if (!suRows || suRows.length === 0) return NextResponse.json({ members: [] });
 
     const userIds = suRows.map((r: Record<string, unknown>) => r.user_id as string);
 
     // Fetch emails from auth.users (requires service role)
-    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const { data: { users: authUsers }, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
+
     const authMap = Object.fromEntries(
       (authUsers ?? []).filter(u => userIds.includes(u.id)).map(u => [u.id, u.email ?? ''])
     );
