@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { useShop } from '@/lib/useShop';
 
 interface DashStats {
   totalCustomers: number;
@@ -66,6 +67,8 @@ function fmtMoney(n: number) { return '$' + n.toLocaleString('en-US', { minimumF
 function fmtDate(d: string) { return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'; }
 
 export function DashboardView() {
+  const { role } = useShop();
+  const isTech = role === 'technician';
   const [stats, setStats] = useState<DashStats | null>(null);
   const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
   const [recentROs, setRecentROs] = useState<RecentRO[]>([]);
@@ -209,29 +212,31 @@ export function DashboardView() {
 
   return (
     <>
-      {/* ── KPI Row 1 ── */}
-      <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Total Revenue</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 4 }}>{fmtMoney(s.totalRevenue)}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoices</div>
+      {/* ── KPI Row 1 — financial (owner/manager only) ── */}
+      {!isTech && (
+        <div className="grid cols-4" style={{ marginBottom: 16 }}>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Total Revenue</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 4 }}>{fmtMoney(s.totalRevenue)}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoices</div>
+          </div>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Outstanding</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: s.outstanding > 0 ? '#f59e0b' : 'var(--text)', marginTop: 4 }}>{fmtMoney(s.outstanding)}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.sentInvoices} sent invoices</div>
+          </div>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Today's Revenue</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{fmtMoney(s.revenueToday)}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} payment{s.paymentsToday !== 1 ? 's' : ''} recorded</div>
+          </div>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Draft Invoices</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: s.draftInvoices > 0 ? '#ff9800' : 'var(--text)', marginTop: 4 }}>{s.draftInvoices}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Ready to send</div>
+          </div>
         </div>
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Outstanding</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: s.outstanding > 0 ? '#f59e0b' : 'var(--text)', marginTop: 4 }}>{fmtMoney(s.outstanding)}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.sentInvoices} sent invoices</div>
-        </div>
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Today's Revenue</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{fmtMoney(s.revenueToday)}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} payment{s.paymentsToday !== 1 ? 's' : ''} recorded</div>
-        </div>
-        <div className="card" style={{ padding: 18 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Draft Invoices</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: s.draftInvoices > 0 ? '#ff9800' : 'var(--text)', marginTop: 4 }}>{s.draftInvoices}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Ready to send</div>
-        </div>
-      </div>
+      )}
 
       {/* ── KPI Row 2 ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
@@ -257,7 +262,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 16 }}>
+      {!isTech && <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 16 }}>
         {/* Revenue Bar Chart */}
         <Panel title="Revenue — Last 7 Days" hint="Payments received per day">
           {revenue7.every(d => d.amount === 0) ? (
@@ -322,9 +327,9 @@ export function DashboardView() {
             </div>
           </div>
         </Panel>
-      </div>
+      </div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      {!isTech && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Recent Invoices */}
         <Panel title="Recent Invoices" hint="Latest 6 invoices">
           {recentInvoices.length === 0 ? (
@@ -387,7 +392,7 @@ export function DashboardView() {
             </table>
           )}
         </Panel>
-      </div>
+      </div>}
 
       {/* Shop greeting footer */}
       <div style={{ marginTop: 20, textAlign: 'center', padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>

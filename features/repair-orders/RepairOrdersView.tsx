@@ -12,6 +12,7 @@ import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/ser
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { useShop } from '@/lib/useShop';
 import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
 
@@ -55,6 +56,8 @@ const EMPTY_FORM = {
 export function RepairOrdersView() {
   const { prefill } = useAppState();
   const dispatch = useAppDispatch();
+  const { role } = useShop();
+  const isTech = role === 'technician';
   const [orders, setOrders] = useState<RepairOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -281,10 +284,12 @@ export function RepairOrdersView() {
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Complete / Closed</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#4caf50' }}>{completeCount}</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Labor Value</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>${totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
+        {!isTech && (
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Labor Value</div>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>${totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -307,7 +312,7 @@ export function RepairOrdersView() {
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{orders[0].vehicle} · {orders[0].technician || 'Unassigned'}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700 }}>{formatMoney(calcROTotal(orders[0]), orders[0].currency)}</div>
+                {!isTech && <div style={{ fontWeight: 700 }}>{formatMoney(calcROTotal(orders[0]), orders[0].currency)}</div>}
                 <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[orders[0].status] || '#888' }}>{orders[0].status}</span>
               </div>
             </div>
@@ -444,7 +449,7 @@ export function RepairOrdersView() {
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ro.vehicle} {ro.technician ? `· ${ro.technician}` : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoney(calcROTotal(ro), ro.currency)}</div>
+                      {!isTech && <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoney(calcROTotal(ro), ro.currency)}</div>}
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmt(ro.openedDate)}</div>
                     </div>
                   </div>
@@ -469,7 +474,7 @@ export function RepairOrdersView() {
               {selected.status !== 'Closed' && selected.status !== 'Void' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleClose(selected)}>✓ Close RO</button>
               )}
-              {(selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
+              {!isTech && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }} onClick={() => handleConvertToInvoice(selected)}>⚡ Create Invoice</button>
               )}
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
@@ -529,26 +534,28 @@ export function RepairOrdersView() {
                 ))}
               </div>
 
-              {/* Labor + Parts */}
-              <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Charges</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Labor</div>
-                    <div style={{ fontWeight: 600 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Parts</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(selected.partsTotal, selected.currency)}</div>
-                  </div>
-                  <div style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 16 }}>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Total</div>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--accent)' }}>{formatMoney(calcROTotal(selected), selected.currency)}</div>
-                    {selected.invoiceNumber && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 4 }}>→ {selected.invoiceNumber}</div>}
+              {/* Labor + Parts — hidden for technicians */}
+              {!isTech && (
+                <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Charges</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Labor</div>
+                      <div style={{ fontWeight: 600 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Parts</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(selected.partsTotal, selected.currency)}</div>
+                    </div>
+                    <div style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 16 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Total</div>
+                      <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--accent)' }}>{formatMoney(calcROTotal(selected), selected.currency)}</div>
+                      {selected.invoiceNumber && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 4 }}>→ {selected.invoiceNumber}</div>}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {selected.notes && (
                 <div style={{ paddingTop: 14, borderTop: '1px solid var(--line)' }}>
@@ -626,24 +633,26 @@ export function RepairOrdersView() {
               </div>
             ))}
 
-            {/* Charges */}
-            <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '16px 20px', marginTop: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Labor</div>
-                  <div style={{ fontSize: 13 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Parts</div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{formatMoney(selected.partsTotal, selected.currency)}</div>
-                </div>
-                <div style={{ borderLeft: '3px solid #cc0000', paddingLeft: 16 }}>
-                  <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Total</div>
-                  <div style={{ fontWeight: 900, fontSize: 22, color: '#cc0000' }}>{formatMoney(calcROTotal(selected), selected.currency)}</div>
+            {/* Charges — hidden for technicians */}
+            {!isTech && (
+              <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '16px 20px', marginTop: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Labor</div>
+                    <div style={{ fontSize: 13 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Parts</div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{formatMoney(selected.partsTotal, selected.currency)}</div>
+                  </div>
+                  <div style={{ borderLeft: '3px solid #cc0000', paddingLeft: 16 }}>
+                    <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Total</div>
+                    <div style={{ fontWeight: 900, fontSize: 22, color: '#cc0000' }}>{formatMoney(calcROTotal(selected), selected.currency)}</div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {selected.notes && (
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #eee' }}>
