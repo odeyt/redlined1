@@ -31,12 +31,6 @@ export function LaborGuideView() {
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (role !== 'owner') return (
-    <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-      🔒 Owner access only
-    </div>
-  );
-
   const notify = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   const load = useCallback(async () => {
@@ -49,6 +43,13 @@ export function LaborGuideView() {
   }, [search]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Role guard AFTER all hooks
+  if (role !== 'owner') return (
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+      🔒 Owner access only
+    </div>
+  );
 
   function openEdit(e: GuideEntry) {
     setEditing(e.id);
