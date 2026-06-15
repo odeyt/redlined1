@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,15 +8,10 @@ const admin = createClient(
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const userClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll() } }
-    );
-
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verify caller via Bearer token (more reliable than cookies in API routes)
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
+    const { data: { user }, error: authError } = await admin.auth.getUser(token);
+    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const shopId = req.nextUrl.searchParams.get('shopId');
     if (!shopId) return NextResponse.json({ error: 'Missing shopId' }, { status: 400 });
