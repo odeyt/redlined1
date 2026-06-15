@@ -179,7 +179,7 @@ export function AccessView() {
         </Panel>
       )}
 
-      <Panel title="Team Members" hint={`Users with access to ${currentShop?.name || 'this shop'} · Shop ID: ${shopId}`}>
+      <Panel title="Team Members" hint={`Users with access to ${currentShop?.name || 'this shop'}`}>
         {memberError && (
           <p style={{ color: '#e74c3c', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(231,76,60,0.08)', borderRadius: 6 }}>
             Error: {memberError}

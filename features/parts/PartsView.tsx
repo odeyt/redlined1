@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useShop } from '@/lib/useShop';
 import {
   fetchParts, createPart, updatePart, deletePart,
   reservePart, uploadPartPhoto, deletePartPhoto,
@@ -96,6 +97,8 @@ type ActiveTab = 'inventory' | 'lowstock' | 'add';
 
 /* ─────────────────────────────── */
 export function PartsView() {
+  const { role } = useShop();
+  const isTech = role === 'technician';
   const [tab, setTab]         = useState<ActiveTab>('inventory');
   const [parts, setParts]     = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
@@ -513,9 +516,11 @@ export function PartsView() {
         {[
           { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
           { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
-          { label: 'Cost Value',   value: money(totalValue),       sub: 'at cost price' },
-          { label: 'Retail Value', value: money(retailValue),      sub: 'at retail price' },
-          { label: 'Margin',       value: totalValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—', sub: 'avg gross margin' },
+          ...(!isTech ? [
+            { label: 'Cost Value',   value: money(totalValue),       sub: 'at cost price' },
+            { label: 'Retail Value', value: money(retailValue),      sub: 'at retail price' },
+            { label: 'Margin',       value: totalValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—', sub: 'avg gross margin' },
+          ] : []),
         ].map(c => (
           <div key={c.label} style={{ background: 'var(--card)', border: `1px solid ${c.alert ? 'var(--amber,#f59e0b)' : 'var(--border)'}`, borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{c.label}</div>
@@ -568,7 +573,7 @@ export function PartsView() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--table-head,var(--border))' }}>
-                      {['Part', 'Category', 'Cost', 'Retail', 'On Hand', 'Location', 'Status', 'Actions'].map(h => (
+                      {['Part', 'Category', ...(!isTech ? ['Cost', 'Retail'] : []), 'On Hand', 'Location', 'Status', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -591,8 +596,8 @@ export function PartsView() {
                             {p.photos.length > 0 && <div style={{ fontSize: 10, color: 'var(--blue,#3b82f6)' }}>📷 {p.photos.length} photo{p.photos.length > 1 ? 's' : ''}</div>}
                           </td>
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{p.category}</td>
-                          <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost)}</td>
-                          <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.retail)}</td>
+                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost)}</td>}
+                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.retail)}</td>}
                           <td style={{ padding: '10px 12px' }}>
                             {editingQty === p.partNumber ? (
                               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
@@ -648,9 +653,11 @@ export function PartsView() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
                 {([
-                  ['Cost',         money(selected.cost)],
-                  ['Retail',       money(selected.retail)],
-                  ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
+                  ...(!isTech ? [
+                    ['Cost',         money(selected.cost)],
+                    ['Retail',       money(selected.retail)],
+                    ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
+                  ] as [string, string][] : []),
                   ['On Hand',      String(selected.quantity)],
                   ['Low Stock At', String(selected.lowStockThreshold)],
                   ['Reorder Qty',  String(selected.reorderQty)],
@@ -761,7 +768,7 @@ export function PartsView() {
               <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(245,158,11,.1)', border: '1px solid var(--amber,#f59e0b)', borderRadius: 10, display: 'flex', gap: 20, fontSize: 13 }}>
                 <span>⚠️ <strong>{outOfStock.length}</strong> out of stock</span>
                 <span>📉 <strong>{lowStock.length - outOfStock.length}</strong> below threshold</span>
-                <span>💰 Reorder value: <strong>{money(lowStock.reduce((s, p) => s + p.cost * p.reorderQty, 0))}</strong></span>
+                {!isTech && <span>💰 Reorder value: <strong>{money(lowStock.reduce((s, p) => s + p.cost * p.reorderQty, 0))}</strong></span>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
@@ -852,14 +859,14 @@ export function PartsView() {
                 </select>
               </div>
 
-              <div>
+              {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ($)</label>
                 <input className="input" type="number" step="0.01" min="0" value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
-              </div>
-              <div>
+              </div>}
+              {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Retail ($)</label>
                 <input className="input" type="number" step="0.01" min="0" value={form.retail} onChange={e => setForm(f => ({ ...f, retail: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
-              </div>
+              </div>}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Bin Location</label>
                 <input className="input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="A-12, Shelf 3" style={{ width: '100%' }} />
@@ -947,7 +954,7 @@ export function PartsView() {
               )}
             </div>
 
-            {form.cost > 0 && form.retail > 0 && (
+            {!isTech && form.cost > 0 && form.retail > 0 && (
               <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.3)', borderRadius: 8, fontSize: 12, color: 'var(--green,#22c55e)' }}>
                 Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> — Cost {money(form.cost)} · Retail {money(form.retail)} · Profit {money(form.retail - form.cost)} per unit
               </div>
