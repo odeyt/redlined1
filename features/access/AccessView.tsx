@@ -25,6 +25,7 @@ export function AccessView() {
   const [lastCredentials, setLastCredentials] = useState<{ email: string; password: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [memberError, setMemberError] = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -35,13 +36,15 @@ export function AccessView() {
   async function loadMembers() {
     if (!shopId) return;
     setLoading(true);
+    setMemberError('');
     try {
       const res = await fetch(`/api/members?shopId=${shopId}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       setMembers(json.members ?? []);
-    } catch {
+    } catch (e: unknown) {
       setMembers([]);
+      setMemberError(e instanceof Error ? e.message : 'Failed to load members');
     } finally {
       setLoading(false);
     }
@@ -172,11 +175,16 @@ export function AccessView() {
         </Panel>
       )}
 
-      <Panel title="Team Members" hint={`Users with access to ${currentShop?.name || 'this shop'}`}>
+      <Panel title="Team Members" hint={`Users with access to ${currentShop?.name || 'this shop'} · Shop ID: ${shopId}`}>
+        {memberError && (
+          <p style={{ color: '#e74c3c', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'rgba(231,76,60,0.08)', borderRadius: 6 }}>
+            Error: {memberError}
+          </p>
+        )}
         {loading ? (
           <p style={{ color: '#888', fontSize: 13 }}>Loading…</p>
         ) : members.length === 0 ? (
-          <p style={{ color: '#888', fontSize: 13 }}>No members found.</p>
+          <p style={{ color: '#888', fontSize: 13 }}>No members found for shop ID: {shopId}</p>
         ) : (
           <table>
             <thead>
