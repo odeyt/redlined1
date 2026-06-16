@@ -10,6 +10,15 @@ export interface InspectionItem {
   photoUrl: string;
 }
 
+export interface CustomerApproval {
+  approvedBy: string;
+  approvedAt: string;
+  decision: 'approved' | 'partial' | 'declined';
+  approvedItems: string[];
+  declinedItems: string[];
+  customerMessage: string;
+}
+
 export interface Inspection {
   id: string;
   inspectionNumber: string;
@@ -27,6 +36,7 @@ export interface Inspection {
   customerPhone: string;
   createdAt: string;
   completedAt: string | null;
+  customerApproval: CustomerApproval | null;
 }
 
 export const INSPECTION_TEMPLATE: Omit<InspectionItem, 'id'>[] = [
@@ -81,6 +91,7 @@ function mapRow(r: Record<string, unknown>): Inspection {
     customerPhone: (r.customer_phone as string) || '',
     createdAt: (r.created_at as string) || '',
     completedAt: (r.completed_at as string) || null,
+    customerApproval: (r.customer_approval as CustomerApproval) || null,
   };
 }
 

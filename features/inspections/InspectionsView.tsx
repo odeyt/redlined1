@@ -7,7 +7,7 @@ import {
   fetchInspections, createInspection, updateInspection, deleteInspection,
   nextInspectionNumber, uploadInspectionPhoto,
   INSPECTION_TEMPLATE, INSPECTION_STATUSES,
-  type Inspection, type InspectionItem,
+  type Inspection, type InspectionItem, type CustomerApproval,
 } from '@/services/inspectionService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import type { Vehicle } from '@/lib/types';
@@ -325,7 +325,7 @@ export function InspectionsView() {
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ins.vehicle}</div>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: 11 }}>
-                      <div style={{ fontWeight: 700, color: ins.status === 'Completed' ? '#4caf50' : '#2196f3' }}>{ins.status}</div>
+                      <div style={{ fontWeight: 700, color: ins.status === 'Completed' || ins.status === 'Customer Approved' ? '#4caf50' : ins.status === 'Partially Approved' ? '#ff9800' : ins.status === 'Customer Declined' ? '#f44336' : '#2196f3' }}>{ins.status}</div>
                       <div style={{ marginTop: 4, display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                         {fails > 0 && <span style={{ background: '#f4433622', color: '#f44336', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{fails}✗</span>}
                         {attns > 0 && <span style={{ background: '#ff980022', color: '#ff9800', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{attns}!</span>}
@@ -519,7 +519,7 @@ export function InspectionsView() {
                     {selected.vin && <div style={{ color: 'var(--muted)', fontSize: 12 }}>VIN: {selected.vin}</div>}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontWeight: 700, color: selected.status === 'Completed' ? '#4caf50' : '#2196f3' }}>{selected.status}</span>
+                    <span style={{ fontWeight: 700, color: selected.status === 'Completed' || selected.status === 'Customer Approved' ? '#4caf50' : selected.status === 'Partially Approved' ? '#ff9800' : selected.status === 'Customer Declined' ? '#f44336' : '#2196f3' }}>{selected.status}</span>
                     {selected.mileage > 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selected.mileage.toLocaleString()} mi</div>}
                     {selected.technician && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Tech: {selected.technician}</div>}
                   </div>
@@ -539,6 +539,37 @@ export function InspectionsView() {
                     </div>
                   ))}
                 </div>
+
+                {/* Customer approval status */}
+                {selected.customerApproval && (() => {
+                  const a: CustomerApproval = selected.customerApproval;
+                  const color = a.decision === 'approved' ? '#2e7d32' : a.decision === 'partial' ? '#e65100' : '#c62828';
+                  const bg = a.decision === 'approved' ? 'rgba(46,125,50,0.08)' : a.decision === 'partial' ? 'rgba(230,81,0,0.08)' : 'rgba(198,40,40,0.08)';
+                  const label = a.decision === 'approved' ? '✅ Customer Approved All Repairs' : a.decision === 'partial' ? '⚡ Customer Partially Approved' : '🚫 Customer Declined Repairs';
+                  return (
+                    <div style={{ background: bg, border: `1px solid ${color}44`, borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+                      <div style={{ fontWeight: 700, color, fontSize: 13, marginBottom: 4 }}>{label}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        Signed by <strong>{a.approvedBy}</strong> · {new Date(a.approvedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      {a.approvedItems?.length > 0 && (
+                        <div style={{ fontSize: 12, color: '#2e7d32', marginTop: 6 }}>
+                          Approved: {a.approvedItems.map(id => selected.items.find(i => i.id === id)?.name).filter(Boolean).join(', ')}
+                        </div>
+                      )}
+                      {a.declinedItems?.length > 0 && (
+                        <div style={{ fontSize: 12, color: '#c62828', marginTop: 2 }}>
+                          Declined: {a.declinedItems.map(id => selected.items.find(i => i.id === id)?.name).filter(Boolean).join(', ')}
+                        </div>
+                      )}
+                      {a.customerMessage && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', background: 'rgba(0,0,0,0.04)', borderRadius: 6, padding: '6px 10px' }}>
+                          "{a.customerMessage}"
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Items by category */}
                 {[...new Set(selected.items.map(i => i.category))].map(cat => (
