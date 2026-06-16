@@ -73,6 +73,8 @@ export function Sidebar() {
         { count: maintCount },
         { count: partsCount },
         { count: apptCount },
+        { count: techCount },
+        { count: commCount },
       ] = await Promise.all([
         supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
         supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
@@ -85,6 +87,8 @@ export function Sidebar() {
         supabase.from('maintenance_schedules').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
         supabase.from('parts').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
         supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('technicians').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
       ]);
       setRealCounts({
         customers: customerCount ?? 0,
@@ -98,6 +102,11 @@ export function Sidebar() {
         scheduling: maintCount ?? 0,
         parts: partsCount ?? 0,
         appointments: apptCount ?? 0,
+        technicians: techCount ?? 0,
+        communication: commCount ?? 0,
+        dashboard: 0,
+        diagnostics: 0,
+        ai: 0,
       });
     }
     loadCounts();
