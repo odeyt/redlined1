@@ -402,7 +402,10 @@ export function InspectionsView() {
                       <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
                         style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
                         <option value="">— select technician —</option>
-                        {techMembers.map(m => <option key={m.email} value={m.email}>{m.email} ({m.role})</option>)}
+                        {techMembers.map(m => {
+                          const displayName = m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                          return <option key={m.email} value={m.email}>{displayName} ({m.role})</option>;
+                        })}
                       </select>
                     ) : (
                       <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" />
