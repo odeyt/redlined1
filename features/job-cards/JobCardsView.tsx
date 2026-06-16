@@ -14,6 +14,7 @@ import {
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
+import { fetchShopSettings } from '@/services/shopSettingsService';
 
 // OEM-based service intervals: [miles, days]
 const SERVICE_INTERVALS: Record<string, [number, number]> = {
@@ -84,8 +85,13 @@ export function JobCardsView() {
   // Create form
   const [fCustomer, setFCustomer] = useState('');
   const [fVehicle, setFVehicle] = useState('');
+  const [fServiceType, setFServiceType] = useState('Oil Change');
   const [fWorkType, setFWorkType] = useState('Mobile service');
   const [fPriority, setFPriority] = useState('Normal');
+  const [serviceTypeOptions, setServiceTypeOptions] = useState<string[]>([
+    'Oil Change','Brakes','Tires','Alignment','Engine','Transmission',
+    'Electrical','AC/Heat','Diagnostics','Inspection','Detailing','Custom',
+  ]);
   const [fRoute, setFRoute] = useState('Mobile Route 1');
   const [fServiceLoc, setFServiceLoc] = useState('');
   const [fTechs, setFTechs] = useState<string[]>([]);
@@ -99,10 +105,13 @@ export function JobCardsView() {
   const [newTechEmail, setNewTechEmail] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians()])
-      .then(([j, c, custs, t]) => {
+    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings()])
+      .then(([j, c, custs, t, settings]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
-        // Don't pre-select — let user choose or type
+        if (settings.serviceTypes) {
+          const opts = settings.serviceTypes.split(',').map((s: string) => s.trim()).filter(Boolean);
+          if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceType(opts[0]); }
+        }
       })
       .catch(err => setError('Load error: ' + (err?.message || err)))
       .finally(() => setLoading(false));
@@ -119,7 +128,7 @@ export function JobCardsView() {
     setError(''); setCreating(true);
     try {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
-      const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fWorkType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
+      const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fServiceType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
       setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]);
       notify(`${job.id} created.`);
@@ -353,6 +362,12 @@ export function JobCardsView() {
                 <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
               </div>
               <div className="field">
+                <label>Service Type</label>
+                <select value={fServiceType} onChange={e => setFServiceType(e.target.value)}>
+                  {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="field">
                 <label>Work Type</label>
                 <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
                   <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
@@ -455,6 +470,12 @@ export function JobCardsView() {
               </div>
             </div>
             <div className="form-row">
+              <div className="field">
+                <label>Service Type</label>
+                <select value={fServiceType} onChange={e => setFServiceType(e.target.value)}>
+                  {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
               <div className="field">
                 <label>Work Type</label>
                 <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
