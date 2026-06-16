@@ -130,6 +130,11 @@ export async function updateInspection(id: string, updates: Partial<Inspection>)
   if (updates.completedAt !== undefined) payload.completed_at = updates.completedAt;
   if (updates.customerEmail !== undefined) payload.customer_email = updates.customerEmail;
   if (updates.customerPhone !== undefined) payload.customer_phone = updates.customerPhone;
+  if (updates.vehicle !== undefined) payload.vehicle = updates.vehicle;
+  if (updates.vin !== undefined) payload.vin = updates.vin;
+  if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
+  if (updates.customerId !== undefined) payload.customer_id = updates.customerId || null;
+  if (updates.jobCardId !== undefined) payload.job_card_id = updates.jobCardId || null;
   const { error } = await supabase.from('inspections').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
@@ -140,11 +145,14 @@ export async function deleteInspection(id: string): Promise<void> {
 }
 
 export async function nextInspectionNumber(): Promise<string> {
-  const { count } = await supabase
+  const { data } = await supabase
     .from('inspections')
-    .select('*', { count: 'exact', head: true })
-    .eq('shop_id', getShopId());
-  return `DVI-${String((count ?? 0) + 1).padStart(4, '0')}`;
+    .select('inspection_number')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  const nums = (data ?? []).map(r => Number(String(r.inspection_number ?? '').replace('DVI-', '')) || 0);
+  const max = nums.length > 0 ? Math.max(...nums) : 0;
+  return `DVI-${String(max + 1).padStart(4, '0')}`;
 }
 
 export async function uploadInspectionPhoto(inspectionId: string, itemId: string, file: File): Promise<string> {

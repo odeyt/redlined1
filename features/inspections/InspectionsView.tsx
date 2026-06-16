@@ -185,13 +185,13 @@ export function InspectionsView() {
 
   async function handlePhotoUpload(file: File) {
     if (!editingId || !photoTargetItem) return;
-    setUploadingItemId(photoTargetItem);
+    const targetItemId = photoTargetItem;
+    setUploadingItemId(targetItemId);
     try {
-      const url = await uploadInspectionPhoto(editingId, photoTargetItem, file);
-      setForm(f => ({ ...f, items: f.items.map(it => it.id === photoTargetItem ? { ...it, photoUrl: url } : it) }));
-      await updateInspection(editingId, {
-        items: form.items.map(it => it.id === photoTargetItem ? { ...it, photoUrl: url } : it),
-      });
+      const url = await uploadInspectionPhoto(editingId, targetItemId, file);
+      const updatedItems = form.items.map(it => it.id === targetItemId ? { ...it, photoUrl: url } : it);
+      setForm(f => ({ ...f, items: updatedItems }));
+      await updateInspection(editingId, { items: updatedItems });
       notify('Photo uploaded.');
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
     finally { setUploadingItemId(null); setPhotoTargetItem(null); }
@@ -212,7 +212,7 @@ export function InspectionsView() {
     try {
       await deleteInspection(ins.id);
       setInspections(prev => prev.filter(i => i.id !== ins.id));
-      setSelected(inspections.find(i => i.id !== ins.id) ?? null);
+      setSelected(prev => prev?.id === ins.id ? (inspections.find(i => i.id !== ins.id) ?? null) : prev);
       notify('Deleted.');
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
   }
