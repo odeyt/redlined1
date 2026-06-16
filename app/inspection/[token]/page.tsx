@@ -190,19 +190,19 @@ export default function InspectionSharePage() {
                   </div>
                 </div>
               </div>
-              {existingApproval?.approvedItems?.length > 0 && (
+              {(existingApproval?.approvedItems?.length ?? 0) > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#2e7d32', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Approved for Repair</div>
-                  {existingApproval.approvedItems.map(id => {
+                  {(existingApproval?.approvedItems ?? []).map(id => {
                     const item = items.find(i => i.id === id);
                     return item ? <div key={id} style={{ fontSize: 13, color: '#333', padding: '2px 0' }}>✓ {item.name}</div> : null;
                   })}
                 </div>
               )}
-              {existingApproval?.declinedItems?.length > 0 && (
+              {(existingApproval?.declinedItems?.length ?? 0) > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#c62828', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Declined</div>
-                  {existingApproval.declinedItems.map(id => {
+                  {(existingApproval?.declinedItems ?? []).map(id => {
                     const item = items.find(i => i.id === id);
                     return item ? <div key={id} style={{ fontSize: 13, color: '#555', padding: '2px 0' }}>✗ {item.name}</div> : null;
                   })}

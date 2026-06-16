@@ -36,7 +36,7 @@ export interface Inspection {
   customerPhone: string;
   createdAt: string;
   completedAt: string | null;
-  customerApproval: CustomerApproval | null;
+  customerApproval?: CustomerApproval | null;
 }
 
 export const INSPECTION_TEMPLATE: Omit<InspectionItem, 'id'>[] = [
