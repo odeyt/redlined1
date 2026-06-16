@@ -61,7 +61,11 @@ export async function fetchClosedJobs(): Promise<JobCardFull[]> {
     .select('*')
     .eq('shop_id', getShopId())
     .order('closed_date', { ascending: false });
-  if (error) throw error;
+  // If the shop_id column doesn't exist yet (pre-migration), return empty rather than crashing
+  if (error) {
+    if (error.message?.includes('shop_id')) return [];
+    throw error;
+  }
   return (data ?? []).map(toJob);
 }
 

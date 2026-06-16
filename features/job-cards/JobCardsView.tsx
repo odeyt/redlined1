@@ -102,7 +102,7 @@ export function JobCardsView() {
     Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians()])
       .then(([j, c, custs, t]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
-        if (custs[0]) setFCustomer(custs[0].name);
+        // Don't pre-select — let user choose or type
       })
       .catch(err => setError('Load error: ' + (err?.message || err)))
       .finally(() => setLoading(false));
@@ -339,9 +339,14 @@ export function JobCardsView() {
             <div className="form-row">
               <div className="field">
                 <label>Customer</label>
-                <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
-                  {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
+                {customers.length > 0 ? (
+                  <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
+                    <option value="">— select customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={fCustomer} onChange={e => setFCustomer(e.target.value)} placeholder="Customer name" />
+                )}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
@@ -435,9 +440,14 @@ export function JobCardsView() {
             <div className="form-row">
               <div className="field">
                 <label>Customer</label>
-                <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
-                  {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
+                {customers.length > 0 ? (
+                  <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
+                    <option value="">— select customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                ) : (
+                  <input value={fCustomer} onChange={e => setFCustomer(e.target.value)} placeholder="Customer name" />
+                )}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
