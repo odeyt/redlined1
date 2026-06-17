@@ -70,9 +70,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     estimatePrefix: data.estimate_prefix ?? 'EST-',
     businessType: data.business_type ?? 'Single repair shop',
     serviceTypes: data.service_types ?? 'Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom',
-    enabledPaymentMethods: data.enabled_payment_methods
-      ? [...new Set([...(data.enabled_payment_methods as string[]), ...DEFAULT_PAYMENT_METHODS])]
-      : DEFAULT_PAYMENT_METHODS,
+    enabledPaymentMethods: (data.enabled_payment_methods as string[] | null) ?? DEFAULT_PAYMENT_METHODS,
     inspectionTemplate: data.inspection_template ?? null,
   };
 }
