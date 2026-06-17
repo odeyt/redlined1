@@ -175,12 +175,13 @@ export function PaymentsView() {
   const totalRefunded = payments.filter(p => p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
   const todayCount = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString()).length;
 
-  // Breakdown by method
-  const methodTotals = PAYMENT_METHODS.reduce((acc, m) => {
-    const total = payments.filter(p => p.method === m.value && p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0);
-    if (total > 0) acc[m.value] = total;
-    return acc;
-  }, {} as Record<string, number>);
+  // Breakdown by method — driven from actual payment data so no method is silently dropped
+  const methodTotals = payments
+    .filter(p => p.status !== 'Void' && p.status !== 'Refunded')
+    .reduce((acc, p) => {
+      acc[p.method] = (acc[p.method] || 0) + p.amount;
+      return acc;
+    }, {} as Record<string, number>);
 
   return (
     <>
@@ -432,11 +433,28 @@ export function PaymentsView() {
 
           {/* Daily total footer */}
           {filtered.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 13 }}>
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ color: 'var(--muted)' }}>Showing {filtered.length} payment{filtered.length !== 1 ? 's' : ''}</span>
-              <span style={{ fontWeight: 700 }}>
-                Subtotal: ${filtered.filter(p => p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+              {(() => {
+                const gross = filtered.reduce((s, p) => s + p.amount, 0);
+                const excluded = filtered.filter(p => p.status === 'Void' || p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
+                const net = gross - excluded;
+                return (
+                  <>
+                    <span style={{ color: 'var(--muted)' }}>
+                      Gross: ${gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {excluded > 0 && (
+                      <span style={{ color: 'var(--danger, #e53e3e)' }}>
+                        Void/Refunded: −${excluded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 700 }}>
+                      Net Collected: ${net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
           )}
         </Panel>
