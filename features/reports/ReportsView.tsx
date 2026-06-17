@@ -101,7 +101,6 @@ export function ReportsView() {
       const totalInvoicedPaid = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalOutstanding = sentInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalVoid = invoices.filter(i => i.status === 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
-      const totalAllInvoiced = invoices.filter(i => i.status !== 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
       // Avg: use payment average (actual collected transactions)
       const avgInvoiceValue = collectedPays.length > 0 ? totalPaymentsCollected / collectedPays.length
         : paidInvs.length > 0 ? totalInvoicedPaid / paidInvs.length : 0;

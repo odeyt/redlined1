@@ -189,7 +189,7 @@ export function PaymentsView() {
       {toast && <div className="toast toast-visible">{toast}</div>}
 
       {/* Stats */}
-      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+      <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Collected</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
