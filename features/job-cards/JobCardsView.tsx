@@ -57,6 +57,15 @@ function addDays(days: number): string {
 
 const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '—';
 
+const STAGES = [
+  { id: 'checked_in',    label: 'Checked In',       icon: '📋' },
+  { id: 'inspecting',    label: 'Being Inspected',   icon: '🔍' },
+  { id: 'waiting_parts', label: 'Waiting for Parts', icon: '📦' },
+  { id: 'in_repair',     label: 'In Repair',         icon: '🔧' },
+  { id: 'quality_check', label: 'Quality Check',     icon: '✅' },
+  { id: 'ready',         label: 'Ready for Pickup',  icon: '🎉' },
+];
+
 export function JobCardsView() {
   const { openNewJobCard, prefill } = useAppState();
   const dispatch = useAppDispatch();
@@ -68,22 +77,13 @@ export function JobCardsView() {
   const [statusUrl, setStatusUrl] = useState('');
   const [copiedStatus, setCopiedStatus] = useState(false);
   const [repairStage, setRepairStage] = useState('checked_in');
-  const [stageHistory, setStageHistory] = useState<{ stage: string; label: string; advancedAt: string; notifiedSms: boolean; notifiedEmail: boolean }[]>([]);
+  const [stageHistory, setStageHistory] = useState<{ stage: string; label: string; icon: string; advancedAt: string; notifiedSms: boolean; notifiedEmail: boolean }[]>([]);
   const [advancingStage, setAdvancingStage] = useState(false);
   const [notifySms, setNotifySms] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const [notifyPhone, setNotifyPhone] = useState('');
   const [notifyEmailAddr, setNotifyEmailAddr] = useState('');
   const [notifyResult, setNotifyResult] = useState('');
-
-  const STAGES = [
-    { id: 'checked_in',    label: 'Checked In',       icon: '📋' },
-    { id: 'inspecting',    label: 'Being Inspected',   icon: '🔍' },
-    { id: 'waiting_parts', label: 'Waiting for Parts', icon: '📦' },
-    { id: 'in_repair',     label: 'In Repair',         icon: '🔧' },
-    { id: 'quality_check', label: 'Quality Check',     icon: '✅' },
-    { id: 'ready',         label: 'Ready for Pickup',  icon: '🎉' },
-  ];
 
   async function openTracker(job: JobCardFull) {
     setTrackerJob(job);
@@ -92,22 +92,28 @@ export function JobCardsView() {
     setNotifyPhone(job.customerPhone || '');
     setNotifyEmailAddr(job.customerEmail || '');
     setNotifyResult('');
+    setNotifySms(false);
+    setNotifyEmail(false);
     if (job.statusToken) {
       setStatusToken(job.statusToken);
       setStatusUrl(`${window.location.origin}/status/${job.statusToken}`);
     } else {
-      const res = await fetch('/api/job-status', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: job.id, shopId }),
-      });
-      const json = await res.json();
-      if (json.token) {
-        setStatusToken(json.token);
-        setStatusUrl(`${window.location.origin}/status/${json.token}`);
-        setRepairStage(json.stage);
-        setStageHistory(json.history ?? []);
-        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, statusToken: json.token, repairStage: json.stage, stageHistory: json.history ?? [] } : j));
+      try {
+        const res = await fetch('/api/job-status', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: job.id, shopId }),
+        });
+        const json = await res.json();
+        if (json.token) {
+          setStatusToken(json.token);
+          setStatusUrl(`${window.location.origin}/status/${json.token}`);
+          setRepairStage(json.stage);
+          setStageHistory(json.history ?? []);
+          setJobs(prev => prev.map(j => j.id === job.id ? { ...j, statusToken: json.token, repairStage: json.stage, stageHistory: json.history ?? [] } : j));
+        }
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Failed to initialize status tracker');
       }
     }
   }

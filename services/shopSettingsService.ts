@@ -41,8 +41,8 @@ export interface ShopSettings {
 
 export const DEFAULT_PAYMENT_METHODS = [
   'Cash', 'Check', 'Credit Card', 'Debit Card',
-  'Apple Pay', 'Google Pay', 'Zelle', 'Venmo',
-  'Fleet Account',
+  'Apple Pay', 'Google Pay', 'Zelle', 'Venmo', 'PayPal', 'Cash App', 'Wise',
+  'Bank Transfer', 'Fleet Account',
 ];
 
 export async function fetchShopSettings(): Promise<ShopSettings> {

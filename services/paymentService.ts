@@ -104,6 +104,8 @@ export const PAYMENT_METHODS = [
   { value: 'Google Pay',        label: '🤖 Google Pay',             group: 'Digital' },
   { value: 'Venmo',             label: '💜 Venmo',                  group: 'Digital' },
   { value: 'Zelle',             label: '💛 Zelle',                  group: 'Digital' },
+  { value: 'Cash App',          label: '💚 Cash App',               group: 'Digital' },
+  { value: 'Wise',              label: '🌍 Wise',                   group: 'Digital' },
   { value: 'Bank Transfer',     label: '🏛 Bank Transfer / ACH',    group: 'Bank' },
   { value: 'Wire Transfer',     label: '🏛 Wire Transfer',          group: 'Bank' },
   { value: 'Fleet Account',     label: '📋 Fleet Account / Net 30', group: 'Account' },

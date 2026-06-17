@@ -53,6 +53,7 @@ export function PaymentsView() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [amountStr, setAmountStr] = useState('');
   const [saving, setSaving] = useState(false);
   const [invoices, setInvoices] = useState<{ number: string; customerName: string; total: number; currency: string }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
@@ -95,6 +96,7 @@ export function PaymentsView() {
 
   function openNew() {
     setForm({ ...EMPTY_FORM, paymentDate: new Date().toISOString().slice(0, 16) });
+    setAmountStr('');
     setEditingId(null);
     setShowForm(true);
   }
@@ -113,6 +115,7 @@ export function PaymentsView() {
       referenceNumber: p.referenceNumber,
       paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
     });
+    setAmountStr(p.amount > 0 ? String(p.amount) : '');
     setEditingId(p.id);
     setShowForm(true);
   }
@@ -150,13 +153,15 @@ export function PaymentsView() {
   // When invoice is selected, auto-fill customer and amount
   function handleInvoiceSelect(invNumber: string) {
     const inv = invoices.find(i => i.number === invNumber);
+    const newAmount = inv?.total ?? form.amount;
     setForm(f => ({
       ...f,
       invoiceNumber: invNumber,
       customerName: inv?.customerName ?? f.customerName,
-      amount: inv?.total ?? f.amount,
+      amount: newAmount,
       currency: inv?.currency ?? f.currency,
     }));
+    setAmountStr(newAmount > 0 ? String(newAmount) : '');
   }
 
   const filtered = payments.filter(p => {
@@ -245,7 +250,23 @@ export function PaymentsView() {
                   </div>
                   <div className="login-field">
                     <label>Amount</label>
-                    <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: Number(e.target.value) }))} min="0.01" step="0.01" required />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={amountStr}
+                      placeholder="0.00"
+                      onChange={e => {
+                        // Allow digits and at most one decimal point only
+                        let raw = e.target.value.replace(/[^\d.]/g, '');
+                        const dotIdx = raw.indexOf('.');
+                        if (dotIdx !== -1) raw = raw.slice(0, dotIdx + 1) + raw.slice(dotIdx + 1).replace(/\./g, '');
+                        // Strip leading zeros before a digit (e.g. "05" → "5", but keep "0.5")
+                        raw = raw.replace(/^0+(\d)/, '$1');
+                        setAmountStr(raw);
+                        setForm(f => ({ ...f, amount: parseFloat(raw) || 0 }));
+                      }}
+                      required
+                    />
                   </div>
                 </div>
 

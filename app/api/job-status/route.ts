@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest) {
 
     const token = generateToken();
     // Initialize with checked_in in history
-    const history = [{ stage: 'checked_in', label: 'Checked In', advancedAt: new Date().toISOString(), notifiedSms: false, notifiedEmail: false }];
+    const history = [{ stage: 'checked_in', label: 'Checked In', icon: '📋', advancedAt: new Date().toISOString(), notifiedSms: false, notifiedEmail: false }];
     await admin.from('job_cards').update({ status_token: token, repair_stage: 'checked_in', stage_history: history }).eq('id', jobId);
     return NextResponse.json({ token, stage: 'checked_in', history });
   } catch (e: unknown) {

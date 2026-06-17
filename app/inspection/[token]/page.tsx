@@ -41,6 +41,7 @@ export default function InspectionSharePage() {
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ decision: string; newStatus: string } | null>(null);
+  const [localApproval, setLocalApproval] = useState<CustomerApproval | null>(null);
 
   useEffect(() => {
     fetch(`/api/inspection-share?token=${token}`)
@@ -81,6 +82,14 @@ export default function InspectionSharePage() {
       if (!res.ok) throw new Error(json.error);
       setSubmitted(true);
       setSubmitResult(json);
+      setLocalApproval({
+        approvedBy: customerName.trim(),
+        approvedAt: new Date().toISOString(),
+        decision: json.decision,
+        approvedItems,
+        declinedItems,
+        customerMessage,
+      });
     } catch (e: unknown) {
       setSubmitError(e instanceof Error ? e.message : 'Submission failed. Please try again.');
     } finally { setSubmitting(false); }
@@ -110,7 +119,7 @@ export default function InspectionSharePage() {
   const categories = [...new Set(items.map(i => i.category))];
   const dateStr = new Date(ins.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const actionItems = items.filter(i => i.status === 'Fail' || i.status === 'Attention');
-  const existingApproval = ins.customer_approval;
+  const existingApproval = localApproval ?? ins.customer_approval;
 
   const decisionLabel = (d: string) =>
     d === 'approved' ? 'All repairs approved ✓' :
