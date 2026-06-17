@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 
+export interface StageHistoryEntry {
+  stage: string; label: string; icon: string;
+  advancedAt: string; notifiedSms: boolean; notifiedEmail: boolean;
+}
+
 export interface JobCardFull {
   id: string;
   ro: string | null;
@@ -20,6 +25,11 @@ export interface JobCardFull {
   nextAction: string;
   checkInDate: string;
   closedDate: string | null;
+  statusToken: string | null;
+  repairStage: string;
+  stageHistory: StageHistoryEntry[];
+  customerPhone: string;
+  customerEmail: string;
 }
 
 function toJob(row: Record<string, unknown>): JobCardFull {
@@ -42,6 +52,11 @@ function toJob(row: Record<string, unknown>): JobCardFull {
     nextAction: row.next_action as string,
     checkInDate: row.check_in_date as string,
     closedDate: row.closed_date as string | null,
+    statusToken: (row.status_token as string) || null,
+    repairStage: (row.repair_stage as string) || 'checked_in',
+    stageHistory: (row.stage_history as StageHistoryEntry[]) ?? [],
+    customerPhone: (row.customer_phone as string) || '',
+    customerEmail: (row.customer_email as string) || '',
   };
 }
 

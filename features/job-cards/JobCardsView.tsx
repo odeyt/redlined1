@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
+import { useShop } from '@/lib/useShop';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { Workflow } from '@/components/Workflow';
@@ -59,6 +60,90 @@ const fmt = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : '
 export function JobCardsView() {
   const { openNewJobCard, prefill } = useAppState();
   const dispatch = useAppDispatch();
+  const { shopId } = useShop();
+
+  // Status tracker state
+  const [trackerJob, setTrackerJob] = useState<typeof selectedJob>(null);
+  const [statusToken, setStatusToken] = useState('');
+  const [statusUrl, setStatusUrl] = useState('');
+  const [copiedStatus, setCopiedStatus] = useState(false);
+  const [repairStage, setRepairStage] = useState('checked_in');
+  const [stageHistory, setStageHistory] = useState<{ stage: string; label: string; advancedAt: string; notifiedSms: boolean; notifiedEmail: boolean }[]>([]);
+  const [advancingStage, setAdvancingStage] = useState(false);
+  const [notifySms, setNotifySms] = useState(false);
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const [notifyPhone, setNotifyPhone] = useState('');
+  const [notifyEmailAddr, setNotifyEmailAddr] = useState('');
+  const [notifyResult, setNotifyResult] = useState('');
+
+  const STAGES = [
+    { id: 'checked_in',    label: 'Checked In',       icon: '📋' },
+    { id: 'inspecting',    label: 'Being Inspected',   icon: '🔍' },
+    { id: 'waiting_parts', label: 'Waiting for Parts', icon: '📦' },
+    { id: 'in_repair',     label: 'In Repair',         icon: '🔧' },
+    { id: 'quality_check', label: 'Quality Check',     icon: '✅' },
+    { id: 'ready',         label: 'Ready for Pickup',  icon: '🎉' },
+  ];
+
+  async function openTracker(job: JobCardFull) {
+    setTrackerJob(job);
+    setRepairStage(job.repairStage || 'checked_in');
+    setStageHistory(job.stageHistory || []);
+    setNotifyPhone(job.customerPhone || '');
+    setNotifyEmailAddr(job.customerEmail || '');
+    setNotifyResult('');
+    if (job.statusToken) {
+      setStatusToken(job.statusToken);
+      setStatusUrl(`${window.location.origin}/status/${job.statusToken}`);
+    } else {
+      const res = await fetch('/api/job-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: job.id, shopId }),
+      });
+      const json = await res.json();
+      if (json.token) {
+        setStatusToken(json.token);
+        setStatusUrl(`${window.location.origin}/status/${json.token}`);
+        setRepairStage(json.stage);
+        setStageHistory(json.history ?? []);
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, statusToken: json.token, repairStage: json.stage, stageHistory: json.history ?? [] } : j));
+      }
+    }
+  }
+
+  async function advanceStage(nextStage: string) {
+    if (!trackerJob) return;
+    setAdvancingStage(true); setNotifyResult('');
+    try {
+      const res = await fetch('/api/job-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: trackerJob.id, shopId, stage: nextStage, notifiedSms: notifySms && !!notifyPhone, notifiedEmail: notifyEmail && !!notifyEmailAddr }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setRepairStage(json.stage);
+      setStageHistory(json.history);
+      setJobs(prev => prev.map(j => j.id === trackerJob!.id ? { ...j, repairStage: json.stage, stageHistory: json.history } : j));
+
+      if ((notifySms && notifyPhone) || (notifyEmail && notifyEmailAddr)) {
+        const nRes = await fetch('/api/job-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId: trackerJob.id, shopId, stage: nextStage, statusUrl, customerPhone: notifySms ? notifyPhone : null, customerEmail: notifyEmail ? notifyEmailAddr : null }),
+        });
+        const nJson = await nRes.json();
+        const parts = [];
+        if (nJson.sms) parts.push('SMS sent ✓');
+        if (nJson.smsError) parts.push(`SMS: ${nJson.smsError}`);
+        if (nJson.email) parts.push('Email sent ✓');
+        if (nJson.emailError) parts.push(`Email: ${nJson.emailError}`);
+        setNotifyResult(parts.join(' · '));
+      }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed'); }
+    finally { setAdvancingStage(false); }
+  }
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -581,6 +666,10 @@ export function JobCardsView() {
                   dispatch({ type: 'SET_MODULE', module: 'inspections' });
                   setSelectedJob(null);
                 }}>🔍 Start DVI →</button>
+              <button className="mini-btn" style={{ background: 'rgba(255,152,0,0.1)', color: '#e65100', border: '1px solid #ff980044' }}
+                onClick={() => { openTracker(selectedJob); setSelectedJob(null); }}>
+                📍 Status Tracker
+              </button>
               <button className="mini-btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }}
                 onClick={() => {
                   dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });
@@ -596,6 +685,101 @@ export function JobCardsView() {
               <button className="mini-btn" style={{ color: 'var(--accent-2)' }} onClick={() => { handleClose(selectedJob); setSelectedJob(null); }}>Close Job</button>
               <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleDelete(selectedJob.id); setSelectedJob(null); }}>Delete</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── STATUS TRACKER MODAL ── */}
+      {trackerJob && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }} onClick={() => setTrackerJob(null)}>
+          <div style={{ width: 460, height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '-8px 0 40px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>📍 Status Tracker</h2>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{trackerJob.customer} · {trackerJob.vehicle}</div>
+              </div>
+              <button className="mini-btn" onClick={() => setTrackerJob(null)} style={{ fontSize: 18, padding: '4px 10px' }}>✕</button>
+            </div>
+
+            {/* Share URL */}
+            {statusUrl && (
+              <div style={{ background: 'rgba(230,81,0,0.07)', border: '1px solid #ff980044', borderRadius: 10, padding: '12px 14px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#e65100', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Customer Link</div>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--muted)', wordBreak: 'break-all', marginBottom: 8 }}>{statusUrl}</div>
+                <button onClick={() => { navigator.clipboard.writeText(statusUrl); setCopiedStatus(true); setTimeout(() => setCopiedStatus(false), 2500); }}
+                  style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid #ff980044', background: copiedStatus ? 'rgba(46,125,50,0.1)' : 'rgba(230,81,0,0.1)', color: copiedStatus ? '#2e7d32' : '#e65100', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {copiedStatus ? '✓ Copied!' : '📋 Copy Link'}
+                </button>
+              </div>
+            )}
+
+            {/* Stage progress */}
+            <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>Current Progress</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {STAGES.map((stage, idx) => {
+                  const currentIdx = STAGES.findIndex(s => s.id === repairStage);
+                  const done = idx < currentIdx;
+                  const active = idx === currentIdx;
+                  const hist = stageHistory.find(h => h.stage === stage.id);
+                  return (
+                    <div key={stage.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+                        background: done ? '#2e7d32' : active ? '#e65100' : 'var(--surface)', border: `2px solid ${done ? '#2e7d32' : active ? '#e65100' : 'var(--line)'}` }}>
+                        {done ? <span style={{ color: '#fff', fontWeight: 900 }}>✓</span> : <span>{stage.icon}</span>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: active ? 700 : done ? 500 : 400, color: active ? 'var(--text)' : done ? 'var(--text)' : 'var(--muted)' }}>{stage.label}</div>
+                        {hist && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(hist.advancedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}{hist.notifiedSms ? ' 📱' : ''}{hist.notifiedEmail ? ' ✉️' : ''}</div>}
+                      </div>
+                      {active && <span style={{ fontSize: 10, fontWeight: 700, color: '#e65100', background: 'rgba(230,81,0,0.1)', padding: '2px 8px', borderRadius: 8 }}>NOW</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Advance stage */}
+            {(() => {
+              const currentIdx = STAGES.findIndex(s => s.id === repairStage);
+              const nextStage = STAGES[currentIdx + 1];
+              if (!nextStage) return (
+                <div style={{ textAlign: 'center', padding: '16px 0', fontSize: 14, fontWeight: 700, color: '#2e7d32' }}>🎉 Vehicle is Ready for Pickup</div>
+              );
+              return (
+                <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>Advance Stage</div>
+
+                  {/* Notification options */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Notify customer when advancing:</div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={notifySms} onChange={e => setNotifySms(e.target.checked)} style={{ accentColor: '#e65100' }} />
+                      📱 SMS
+                    </label>
+                    {notifySms && (
+                      <input value={notifyPhone} onChange={e => setNotifyPhone(e.target.value)} placeholder="+1 555 000 0000" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, marginBottom: 8, boxSizing: 'border-box' as const }} />
+                    )}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} style={{ accentColor: '#e65100' }} />
+                      ✉️ Email
+                    </label>
+                    {notifyEmail && (
+                      <input type="email" value={notifyEmailAddr} onChange={e => setNotifyEmailAddr(e.target.value)} placeholder="customer@email.com" style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' as const }} />
+                    )}
+                  </div>
+
+                  <button onClick={() => advanceStage(nextStage.id)} disabled={advancingStage}
+                    style={{ width: '100%', padding: '12px 0', borderRadius: 8, background: advancingStage ? '#999' : '#e65100', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: advancingStage ? 'not-allowed' : 'pointer' }}>
+                    {advancingStage ? 'Advancing…' : `${nextStage.icon} Advance to "${nextStage.label}"`}
+                  </button>
+
+                  {notifyResult && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: notifyResult.includes('✓') ? '#2e7d32' : '#e65100', textAlign: 'center' }}>{notifyResult}</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
