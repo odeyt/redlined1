@@ -30,7 +30,7 @@ const WORKFLOW_SECTION = {
     },
     {
       title: 'Step 5 — Run a Digital Vehicle Inspection',
-      content: `From the job card detail drawer, click 🔍 Inspection → to open a new inspection pre-linked to this job. Work through the checklist (Brakes, Tyres, Engine, Electrical, Fluids, Body). Mark each item Green / Yellow / Red and attach photos from your phone. When finished, send the report to the customer — they see a colour-coded summary and can approve recommended work with one tap.`,
+      content: `From the job card detail drawer, click 🔍 Inspection → to open a new inspection pre-linked to this job. Work through the checklist (Brakes, Tyres, Engine, Electrical, Fluids, Body). Mark each item Green / Yellow / Red and attach photos from your phone. When finished, copy the share link and send it to the customer — they receive a per-item approval form where they can approve or decline each recommended repair individually. Their decision is timestamped and saved as a digital signature. You see the result instantly in the admin panel.`,
     },
     {
       title: 'Step 6 — Create an Estimate',
@@ -53,8 +53,12 @@ const WORKFLOW_SECTION = {
       content: `If the customer pays online via the invoice link, the invoice is automatically marked Paid and you get a notification. For in-person payments (cash, card terminal, bank transfer), open the invoice and click 💳 Record Payment → to log the method and amount. Partial payments are supported. Once fully paid, the customer record shows the complete job history.`,
     },
     {
+      title: 'Step 5b — Share the Live Repair Status Tracker',
+      content: `After creating a job card, open the detail drawer and click 📍 Status Tracker. A unique customer link is generated instantly — copy it and send it via text or email. The customer sees a live page showing which of the 6 repair stages their vehicle is at: Checked In → Being Inspected → Waiting for Parts → In Repair → Quality Check → Ready for Pickup. As your team advances each stage in the admin panel, the customer's page updates automatically every 30 seconds. You can also trigger an SMS or email notification to the customer at any stage advance.`,
+    },
+    {
       title: 'Pro Tip — Use the → Arrow Buttons',
-      content: `Every major module has shortcut buttons to jump to the next step without re-entering data. Customer → ＋ New Job Card. Job Card → 🔍 Inspection or 🔧 Repair Order. Inspection → 📋 Estimate. Invoice → 💳 Payment. These arrows carry the customer and vehicle context automatically — you never select the same customer twice. Follow the arrows and you'll never lose your place in the workflow.`,
+      content: `Every major module has shortcut buttons to jump to the next step without re-entering data. Customer → ＋ New Job Card. Job Card → 🔍 Inspection or 🔧 Repair Order or 📍 Status Tracker. Inspection → 📋 Estimate. Invoice → 💳 Payment. These arrows carry the customer and vehicle context automatically — you never select the same customer twice. Follow the arrows and you'll never lose your place in the workflow.`,
     },
   ],
 };
@@ -160,6 +164,10 @@ const PAID_SECTIONS = [
         title: 'Internal Notes & Attachments',
         content: `Add internal notes to a job card that are only visible to your team — not the customer. Attach photos of damage, parts diagrams, or warranty documents. Notes are timestamped and attributed to the team member who added them, creating a clear audit trail for every job.`,
       },
+      {
+        title: 'Live Repair Status Tracker',
+        content: `Every job card can have a live status tracker link shared with the customer. Open the job card detail drawer and click "📍 Status Tracker". A unique URL is generated immediately — copy it and send it to the customer by text or email. From that page (no login needed), the customer sees exactly where their vehicle is in the repair process across 6 stages: Checked In, Being Inspected, Waiting for Parts, In Repair, Quality Check, and Ready for Pickup. The page auto-refreshes every 30 seconds so customers always have current information without calling you. When a vehicle is ready, the page turns green and a "Call Us" button appears. You advance the stage in your admin panel with one click — optionally triggering an SMS or email notification to the customer at the same time.`,
+      },
     ],
   },
   {
@@ -169,15 +177,23 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'Starting an Inspection',
-        content: `From a job card, click "Start Inspection". You'll see a checklist organised by vehicle system: Brakes, Tyres, Engine, Electrical, Fluids, Body, and more. For each item, mark it Green (pass), Yellow (monitor), or Red (needs attention). Add photos to any item directly from your phone's camera.`,
+        content: `From a job card, click "Start Inspection". You'll see a checklist organised by vehicle system: Brakes, Tyres, Engine, Electrical, Fluids, Body, and more. For each item, mark it Green (pass), Yellow (monitor), or Red (needs attention). Add photos to any item directly from your phone's camera. Multiple photos can be uploaded per item — each one is saved independently.`,
       },
       {
         title: 'Sending the Inspection Report',
-        content: `When the inspection is complete, click "Send Report". The customer receives a branded email with a visual report showing traffic-light colour coding for each item. Red items include your recommended repair and price. The customer can approve work directly from their phone with one tap — you get notified instantly.`,
+        content: `When the inspection is complete, copy the share link from the inspection detail panel and send it to the customer by text or email. The customer opens a branded page — no login required — showing a colour-coded summary of every inspection item, including photos you attached.`,
+      },
+      {
+        title: 'Per-Item Customer Digital Approval',
+        content: `Every Fail or Attention item on the customer's share page has two buttons: "✓ Approve Repair" and "✗ Not Now". The customer decides each item independently — they might approve brake pads but decline an air filter. Once every item is decided, they type their full name as a digital signature and click Submit. Their decision is timestamped and stored permanently. This per-item approach is a key differentiator — most shop software only offers a blanket approve-all or decline-all. Giving customers item-level control builds trust and increases authorisation rates.`,
+      },
+      {
+        title: 'Reading Approval Results in Admin',
+        content: `After a customer submits their decision, open the inspection in your admin panel. A coloured banner shows the outcome: green for all approved, orange for partial, red for all declined. You can see exactly which items were approved, which were declined, the customer's message to you, and the timestamp of their digital signature. The inspection status chip also updates to "Customer Approved", "Partially Approved", or "Customer Declined" so you can filter your list at a glance.`,
       },
       {
         title: 'Converting Approvals to Jobs',
-        content: `When a customer approves recommended work from an inspection report, Redlined1 automatically creates a new job card for the approved items. This closes the loop from inspection → approval → repair → invoice without any manual data entry between steps.`,
+        content: `Once a customer has approved work, use the approved items list in the inspection panel to create a repair order or job card for the authorised work only. This closes the loop from inspection → approval → repair → invoice without any manual data entry between steps. Declined items are never added to the job — keeping your workflow clean and dispute-free.`,
       },
     ],
   },
@@ -260,11 +276,15 @@ const PAID_SECTIONS = [
       },
       {
         title: 'Recording Manual Payments',
-        content: `If a customer pays cash, bank transfer, or cheque, open the invoice and click "Record Payment". Choose the payment method, enter the amount and date, and save. The invoice status updates to Paid. Partial payments are supported — record multiple payments against a single invoice until the balance is cleared.`,
+        content: `Go to the Payments module and click "Record Payment". Select the customer, enter the amount (the field starts blank — just type the number), choose the payment method, and save. You can optionally link the payment to an invoice number for clean reconciliation. Partial payments are supported — record multiple payments against a single invoice until the balance is cleared.`,
       },
       {
-        title: 'Payment Reports',
-        content: `Go to Payments to see all received payments sorted by date. Filter by date range, payment method, or technician. Export to CSV for your accountant or bookkeeping software. The report shows gross revenue, outstanding balances, and payment method breakdown — all the numbers your accountant needs at tax time.`,
+        title: 'Accepted Payment Methods',
+        content: `Redlined1 supports a full range of payment methods so you can record exactly how each customer paid. In Person: Cash, Check. Cards: Credit Card, Debit Card, Visa, Mastercard, American Express, Discover. Digital Wallets: PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, Wise. Bank: Bank Transfer / ACH, Wire Transfer. Account: Fleet Account / Net 30. Crypto: Bitcoin, Ethereum, USDC. The method you choose is stored with the payment record and included in your method-breakdown report. If your shop doesn't use certain methods, they can be disabled in Settings → Payment Methods.`,
+      },
+      {
+        title: 'Payment Reports & Method Breakdown',
+        content: `Go to Payments to see all received payments sorted by date. The "Collected by Method" panel shows a bar chart breakdown — at a glance you can see how much came in via card vs. Zelle vs. cash. Filter the register by date range, payment method, or search by customer. Export to CSV for your accountant. The subtotal at the bottom updates live as you filter.`,
       },
     ],
   },
@@ -284,6 +304,64 @@ const PAID_SECTIONS = [
       {
         title: 'Logging Service Addresses',
         content: `Mobile jobs often happen at different locations. Add the service address to each job card in the Location field. This creates a history of where each vehicle was serviced, useful for warranty records, callbacks, and territory planning. You can filter your job history by location to see which suburbs generate the most work.`,
+      },
+    ],
+  },
+  {
+    id: 'digital-approval',
+    icon: '✍️',
+    title: 'Customer Digital Approval',
+    subsections: [
+      {
+        title: 'What Is Per-Item Digital Approval?',
+        content: `Most shop management software asks customers to approve or decline all recommended repairs in one go. Redlined1 works differently — every Fail and Attention item on the inspection gets its own individual Approve / Decline button. The customer can approve the urgent brake job, decline the cabin filter, and approve the tyre rotation — all in one submission. This level of transparency builds trust, reduces disputes, and typically increases the total value of work authorised because customers feel in control rather than pressured.`,
+      },
+      {
+        title: 'Generating the Customer Approval Link',
+        content: `When an inspection is complete, open it in the Inspections module and click the share/copy link icon. A unique URL is generated in the format redlined1.com/inspection/[token]. This link is tied only to that specific inspection — it never expires and can be sent via text message, WhatsApp, email, or any messaging app. The customer does not need an account or login to open it.`,
+      },
+      {
+        title: 'What the Customer Sees',
+        content: `The customer opens a clean, mobile-optimised page showing your shop logo and contact details at the top. They see a summary count of Fail, Attention, and Pass items. Each Fail or Attention item is displayed as a card with the item name, status colour, your technician's notes, and any photo you attached. Two large buttons appear on each card: "✓ Approve Repair" (turns green when selected) and "✗ Not Now" (turns red). They can change their mind and switch decisions before submitting. A message field lets them leave a note for your team.`,
+      },
+      {
+        title: 'The Digital Signature',
+        content: `Before submitting, the customer must type their full name in a signature field. This name serves as their legal digital signature, confirming their decision. They cannot submit without completing it. Once submitted, the decision is locked — the same link will show the confirmation screen on any future visit, preventing accidental or duplicate submissions.`,
+      },
+      {
+        title: 'Reading Results & Acting on Them',
+        content: `After submission, open the inspection in your admin panel. A coloured banner at the top of the detail panel shows: the overall decision (All Approved / Partially Approved / All Declined), the signer's name, the timestamp, and a list of which specific items were approved and which were declined. The inspection status chip updates automatically. Use the approved items list to build your repair order — only authorised work is included. Declined items are documented, protecting you if a customer later claims they weren't told about an issue.`,
+      },
+    ],
+  },
+  {
+    id: 'status-tracker',
+    icon: '📍',
+    title: 'Live Repair Status Tracker',
+    subsections: [
+      {
+        title: 'What Is the Status Tracker?',
+        content: `The Live Repair Status Tracker gives every customer a personal, real-time page showing exactly where their vehicle is in the repair process. Instead of calling your shop for updates, customers check their link and see the current stage instantly. The page refreshes automatically every 30 seconds — no app download, no login, no friction. This feature eliminates the #1 customer complaint in the auto repair industry: "I had no idea what was happening with my car."`,
+      },
+      {
+        title: 'The 6 Repair Stages',
+        content: `Every job moves through up to 6 stages in order: 📋 Checked In (vehicle received and in queue), 🔍 Being Inspected (technician performing full inspection), 📦 Waiting for Parts (parts ordered and on the way), 🔧 In Repair (active repair work underway), ✅ Quality Check (repairs done, final check in progress), 🎉 Ready for Pickup (vehicle complete, come and get it). You are never required to use every stage — skip stages that don't apply to a particular job.`,
+      },
+      {
+        title: 'Setting Up a Tracker for a Job',
+        content: `Open any active job card and click "📍 Status Tracker" in the detail drawer. A tracker is initialised instantly and a customer share URL appears. Copy the link and send it to the customer. The tracker starts at "Checked In" automatically. The link is permanent for that job — you can send it at check-in and the customer can bookmark it to check back throughout the day.`,
+      },
+      {
+        title: 'Advancing Stages & Notifying the Customer',
+        content: `In the Status Tracker panel, the "Advance Stage" section shows the next stage with a large button. Before clicking, you can optionally check "📱 SMS" or "✉️ Email" to notify the customer at the same time as advancing. Enter their phone number or email address (pre-filled if on the job card) and click Advance. The stage updates on the customer's page within 30 seconds. If you choose to notify, the customer receives a plain-English message: "Your vehicle is now in repair. Track your repair: [link]." You can choose to notify on some stages and not others — it's always optional.`,
+      },
+      {
+        title: 'The Customer Status Page',
+        content: `The customer's page shows a hero card at the top with the current stage icon, name, and a plain-English description. Below that, a progress bar shows how far through the repair process the vehicle is. A timeline lists all 6 stages — completed stages show a green checkmark and their timestamp, the current stage shows a "NOW" badge, and future stages are greyed out. When the vehicle reaches "Ready for Pickup", the entire page turns green and a "📞 Call Us" button appears directly. A small footer shows your shop's phone, email, and address for easy contact.`,
+      },
+      {
+        title: 'Stage History & Audit Trail',
+        content: `Every stage advance is recorded with a timestamp in the stage history. The history also logs whether SMS and email notifications were sent at each stage. This audit trail is visible in the admin tracker panel and is stored permanently with the job card. If a customer ever questions the timeline of their repair, you have a complete record of exactly when each stage was reached and how they were notified.`,
       },
     ],
   },
@@ -323,7 +401,10 @@ const FAQS = [
   { q: 'Is my data secure?', a: 'Yes. All data is stored in Supabase (PostgreSQL) with row-level security — each shop only ever sees its own data. All connections use HTTPS/TLS encryption. Your data is never shared with other users or third parties.' },
   { q: 'Can I customise invoices with my logo?', a: 'Yes. Upload your logo and set your shop colours in Settings → Shop Settings. Your branding appears on all invoices, estimates, and inspection reports sent to customers.' },
   { q: 'Is there a contract or lock-in period?', a: 'No contracts. Redlined1 is month-to-month (or yearly if you prefer the discount). Cancel any time from your account settings.' },
-  { q: 'How do digital inspection reports work?', a: 'You go through a system checklist on your phone, mark each item green/yellow/red, and attach photos. Tap Send — the customer gets a visual branded report via email and can approve recommended repairs with one click.' },
+  { q: 'How do digital inspection reports work?', a: 'You go through a system checklist on your phone, mark each item green/yellow/red, and attach photos. Copy the share link and send it to the customer — they open a branded page and can approve or decline each repair item individually with their digital signature.' },
+  { q: 'Can customers approve repairs individually instead of all at once?', a: 'Yes — this is a core Redlined1 differentiator. Every Fail or Attention item on the inspection gets its own Approve / Decline button. Customers decide each repair separately, type their name as a digital signature, and submit. Their exact decisions are recorded permanently in your admin panel.' },
+  { q: 'Can customers track their repair in real time?', a: 'Yes. Every job card has a "Status Tracker" button that generates a unique customer link. The page shows the current repair stage (out of 6) and auto-refreshes every 30 seconds. You advance stages in your admin panel and can trigger SMS or email notifications to the customer at each step.' },
+  { q: 'What digital payment methods does Redlined1 support?', a: 'Redlined1 supports Cash, Check, Credit/Debit Card (Visa, Mastercard, Amex, Discover), and digital wallets including PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, and Wise. Bank Transfer / ACH, Wire Transfer, Fleet Account, and cryptocurrency are also supported.' },
   { q: 'Can I switch from monthly to yearly billing?', a: 'Yes. Go to Settings → Subscription and click Switch to Yearly. The change takes effect at your next billing date and saves you up to $119 per year.' },
 ];
 
