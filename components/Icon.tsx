@@ -20,6 +20,7 @@ const paths: Record<string, string> = {
   technician: '<circle cx="12" cy="7" r="4"></circle><path d="M5 22a7 7 0 0 1 14 0"></path><path d="M9 14l3 3 3-3"></path>',
   chart: '<path d="M4 19V5"></path><path d="M4 19h18"></path><path d="M8 16v-5"></path><path d="M13 16V8"></path><path d="M18 16v-9"></path>',
   settings: '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a8 8 0 0 0 .1-2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L15 5h-4l-.4 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a8 8 0 0 0 .1 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.4 3h4l.4-3a7 7 0 0 0 1.7-1l2.4 1 2-3.5z"></path>',
+  clock: '<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path>',
   add: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
   send: '<path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path>',
 };
@@ -32,6 +33,7 @@ export const iconColors: Record<string, string> = {
   customers: '#2fbf71',
   vehicles: '#f59e0b',
   'job-cards': '#14b8a6',
+  'time-tracking': '#f59e0b',
   scheduling: '#ec4899',
   inspections: '#10b981',
   communication: '#0ea5e9',

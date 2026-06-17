@@ -155,6 +155,7 @@ export const navItems: [string, string, string, string][] = [
 
   // ── Job & Dispatch
   ['job-cards',     'clipboard',  'Job Cards',     '18'],
+  ['time-tracking', 'clock',      'Time Tracking', ''],
   ['scheduling',    'calendar',   'Maintenance Schedules', '9'],
 
   // ── Inspection & Estimate

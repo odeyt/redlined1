@@ -27,6 +27,7 @@ import { AppointmentsView } from '@/features/scheduling/AppointmentsView';
 import { ReportsView } from '@/features/reports/ReportsView';
 import { SettingsView } from '@/features/settings/SettingsView';
 import { LaborGuideView } from '@/features/labor-guide/LaborGuideView';
+import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -51,6 +52,7 @@ const views: Record<string, React.ComponentType> = {
   appointments: AppointmentsView,
   reports: ReportsView,
   'labor-guide': LaborGuideView,
+  'time-tracking': TimeTrackingView,
   settings: SettingsView,
 };
 

@@ -50,6 +50,7 @@ export function SettingsView() {
   const [businessType, setBusinessType] = useState('Single repair shop');
   const [serviceTypes, setServiceTypes] = useState('Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom');
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
+  const [enableTimeTracking, setEnableTimeTracking] = useState(true);
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
@@ -91,6 +92,7 @@ export function SettingsView() {
       setBusinessType(s.businessType ?? 'Single repair shop');
       setServiceTypes(s.serviceTypes ?? '');
       setEnabledPaymentMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS);
+      setEnableTimeTracking(s.enableTimeTracking ?? true);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -171,6 +173,7 @@ export function SettingsView() {
         businessType,
         serviceTypes,
         enabledPaymentMethods,
+        enableTimeTracking,
       });
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules } }));
       flashSaved(setSavedPortal);
@@ -354,6 +357,33 @@ export function SettingsView() {
 
       {/* ── PORTAL CUSTOMIZATION ── */}
       <Panel title="Portal Customization" hint="Toggle modules on/off, set business defaults — customize the portal for your shop">
+
+        {/* Feature Toggles */}
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>Feature Toggles</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>⏱ Time Tracking</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Allow technicians to clock in/out per job. Adds "Time Tracking" to the sidebar.</div>
+              </div>
+              <button
+                onClick={() => setEnableTimeTracking(v => !v)}
+                style={{
+                  width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0,
+                  background: enableTimeTracking ? 'var(--accent)' : 'var(--line)',
+                  position: 'relative', transition: 'background 0.2s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 3, left: enableTimeTracking ? 25 : 3,
+                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                }} />
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Business Type */}
         <div style={{ marginBottom: 24 }}>

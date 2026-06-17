@@ -37,6 +37,7 @@ export interface ShopSettings {
   enabledPaymentMethods: string[];
   rolePermissions: RolePermissions;
   inspectionTemplate: Array<{ category: string; name: string }> | null;
+  enableTimeTracking: boolean;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -72,6 +73,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     serviceTypes: data.service_types ?? 'Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom',
     enabledPaymentMethods: (data.enabled_payment_methods as string[] | null) ?? DEFAULT_PAYMENT_METHODS,
     inspectionTemplate: data.inspection_template ?? null,
+    enableTimeTracking: data.enable_time_tracking ?? true,
   };
 }
 
@@ -94,6 +96,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
   if (settings.rolePermissions !== undefined) update.role_permissions = settings.rolePermissions;
   if (settings.inspectionTemplate !== undefined) update.inspection_template = settings.inspectionTemplate;
+  if (settings.enableTimeTracking !== undefined) update.enable_time_tracking = settings.enableTimeTracking;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)
