@@ -366,6 +366,136 @@ const PAID_SECTIONS = [
     ],
   },
   {
+    id: 'reports',
+    icon: '📊',
+    title: 'Reports & Analytics',
+    subsections: [
+      {
+        title: 'Overview Dashboard',
+        content: `Go to Reports → Overview to see your shop\'s financial health at a glance. Four stat cards show Total Revenue (collected payments, excluding Void and Refunded), Outstanding (unpaid sent invoices), Total Invoiced, and Average per Transaction. Below those, you see Repair Order count and value, Customer count, and Estimate Conversion rate. The Monthly Revenue chart shows the last 6 months of collected payments vs. paid invoices so you can spot seasonal trends instantly.`,
+      },
+      {
+        title: 'Revenue Tab',
+        content: `The Revenue tab shows a breakdown of invoice performance: how many invoices are Paid, Sent (awaiting payment), and Voided. Use this to track your collection rate and identify invoices that have stalled. The totals here are invoice-based while the Overview cards are payment-based — both views together give you a complete picture of cash flow vs. billed work.`,
+      },
+      {
+        title: 'Payments Tab',
+        content: `The Payments tab shows total collected (excluding Void/Refunded), number of transactions, and a method breakdown — how much came in via Check, Credit Card, Zelle, Cash App, etc. Use this to understand which payment methods your customers prefer and to reconcile your end-of-day totals.`,
+      },
+      {
+        title: 'Repair Orders Tab',
+        content: `The Repair Orders tab tracks total RO value broken down into Labour and Parts. Use this to understand your labour-to-parts ratio and spot jobs that had high parts cost but low labour billing. Filter by date range to review a specific month or quarter.`,
+      },
+      {
+        title: 'Customers Tab',
+        content: `The Customers tab ranks your customers by total spend. You\'ll see each customer\'s invoice count and total revenue generated. This helps you identify your most valuable accounts, prioritise follow-up, and spot customers who haven\'t returned in a while. Top-8 customers are shown by default.`,
+      },
+      {
+        title: 'Exporting Reports',
+        content: `Click "Export CSV" on any Reports tab to download the data as a spreadsheet. The export includes all key figures for that tab — revenue, payments, RO values, or customer spend. Hand this file directly to your accountant or import it into QuickBooks, Wave, or Excel for further analysis.`,
+      },
+    ],
+  },
+  {
+    id: 'vin-decode',
+    icon: '🔎',
+    title: 'VIN Decode',
+    subsections: [
+      {
+        title: 'What Is VIN Decode?',
+        content: `The VIN Decode tool lets you look up any vehicle\'s full specification from its 17-character Vehicle Identification Number. Instead of manually entering make, model, year, engine, trim, and transmission — paste the VIN and the system fills it all in automatically. This eliminates data entry errors and ensures your vehicle records are accurate and complete.`,
+      },
+      {
+        title: 'Running a VIN Lookup',
+        content: `Go to VIN Decode in the sidebar. Type or paste the 17-character VIN into the input field and click Decode. Within seconds you\'ll see the full vehicle spec: year, make, model, trim, engine displacement, cylinders, fuel type, transmission, drive type, body style, plant country, and more. You can also run a VIN lookup directly from the Add Vehicle form — hit the VIN Decode button next to the VIN field to auto-populate the vehicle details.`,
+      },
+      {
+        title: 'Saving Decoded Vehicles',
+        content: `After decoding, click "Add to Customer" to attach the vehicle to an existing customer record in one click. The decoded fields are pre-filled — you just confirm and save. This is the fastest way to register a new vehicle when a customer hands you their registration document.`,
+      },
+    ],
+  },
+  {
+    id: 'dtc-lookup',
+    icon: '🔧',
+    title: 'DTC Code Lookup',
+    subsections: [
+      {
+        title: 'What Are DTC Codes?',
+        content: `DTC (Diagnostic Trouble Codes) are standardised codes stored in a vehicle\'s onboard computer (ECU) when a fault is detected. They appear as a letter followed by 4 digits — for example P0300 (Random Misfire) or P0420 (Catalyst Below Threshold). Reading and understanding these codes is the first step in diagnosing almost any modern vehicle issue. You need a scan tool (OBD-II reader) plugged into the vehicle to retrieve the codes, then Redlined1 tells you what they mean.`,
+      },
+      {
+        title: 'Looking Up a Code',
+        content: `Go to DTC Lookup in the sidebar. Enter the trouble code (e.g. P0171) and click Search. The result shows the code\'s official name, a plain-English description of the fault, likely causes, and common repair procedures. Multiple codes can be looked up in a single session. Use this to quickly explain to a customer what a code means without leaving the app.`,
+      },
+      {
+        title: 'Adding DTC Notes to a Job Card',
+        content: `When you\'ve identified the codes from a scan, add them to the relevant job card\'s notes field. This creates a clear record of what codes were present at intake, which is useful for tracking whether the repair resolved the issue. If the customer returns with the same code after a repair, you have the original diagnosis on file.`,
+      },
+    ],
+  },
+  {
+    id: 'ai-copilot',
+    icon: '🤖',
+    title: 'AI Copilot',
+    subsections: [
+      {
+        title: 'What Is AI Copilot?',
+        content: `AI Copilot is your built-in automotive assistant powered by Claude (Anthropic). It answers technical questions, helps you write customer-facing explanations, suggests repair procedures, interprets DTC codes in context, and helps you draft professional communications. It understands automotive terminology and shop workflow — it\'s not a generic chatbot, it\'s tuned for the repair industry.`,
+      },
+      {
+        title: 'Using AI Copilot',
+        content: `Go to AI Copilot in the sidebar. Type your question or request in plain English. Examples: "What causes a P0420 code on a 2015 Honda Accord?", "Write a professional email explaining to a customer why their brake pads need replacing", "What\'s the labour time estimate for a water pump replacement on a 2018 Toyota Camry 2.5L?", "Explain wheel alignment in simple terms a customer would understand." The AI responds instantly with detailed, accurate answers.`,
+      },
+      {
+        title: 'AI Credits',
+        content: `AI Copilot usage is tracked in credits. Pro Plus subscribers receive 3,000 AI credits per month — each message exchange uses approximately 1 credit. Your remaining credits are displayed in the AI Copilot panel. Credits reset on your monthly billing date. If you run out of credits before the reset, you can purchase top-up credit packs from Settings → Subscription.`,
+      },
+      {
+        title: 'Best Uses for AI Copilot',
+        content: `The most time-saving uses are: (1) Diagnosing unfamiliar fault codes before calling a dealer, (2) Writing customer-friendly explanations of technical repairs — "explain why this brake job is urgent" without sounding alarmist, (3) Estimating labour times for jobs you don\'t do often, (4) Drafting follow-up emails or SMS messages to customers, (5) Getting a second opinion on a repair approach when you\'re unsure. Think of it as a knowledgeable colleague available 24/7.`,
+      },
+    ],
+  },
+  {
+    id: 'communication',
+    icon: '💬',
+    title: 'Communication',
+    subsections: [
+      {
+        title: 'Sending Messages to Customers',
+        content: `Go to Communication in the sidebar to send emails or SMS messages directly to any customer. Select a customer from the dropdown, compose your message, and choose Email or SMS. Emails are sent branded with your shop logo and name. SMS messages are sent from your Redlined1 number. All sent messages are logged with a timestamp so you have a full record of every customer interaction.`,
+      },
+      {
+        title: 'Message Templates',
+        content: `Common messages — appointment confirmations, ready-for-pickup notifications, payment reminders — can be sent as templated messages to save time. Select a template, confirm the customer details are correct, and send in one click. Templates pull in the customer\'s name and job details automatically so the message feels personalised even when sent quickly.`,
+      },
+      {
+        title: 'SMS vs Email',
+        content: `SMS is better for urgent, time-sensitive messages: "Your vehicle is ready for pickup", "Your appointment is confirmed for tomorrow at 10am". Open rates on SMS are above 90% — customers almost always read them within minutes. Email is better for detailed communications: sending inspection reports, invoices, and estimates where the customer needs to click a link or review a document. Use both together for the best customer experience.`,
+      },
+    ],
+  },
+  {
+    id: 'labor-guide',
+    icon: '⏱️',
+    title: 'Labor Guide',
+    subsections: [
+      {
+        title: 'What Is the Labor Guide?',
+        content: `The Labor Guide is a built-in reference database of standard repair labour times. Instead of estimating from memory or looking up times in a printed manual, search the guide by vehicle type and repair operation to get the industry-standard hours. These times are used by dealerships and shops to price jobs consistently and professionally.`,
+      },
+      {
+        title: 'Looking Up Labour Times',
+        content: `Go to Labor Guide in the sidebar. Select the vehicle make, model, year, and engine. Then browse or search the operation you need — for example "Replace front brake pads" or "Timing belt replacement". The guide returns the flat-rate hours for that specific operation on that specific vehicle. This gives you the number to use when billing a customer or quoting an estimate.`,
+      },
+      {
+        title: 'Using Times in Estimates & Job Cards',
+        content: `Once you have the flat-rate hours from the Labor Guide, use them to populate your estimate or repair order line items. Multiply the hours by your shop\'s labour rate (set in Settings → Labor Rate) to get the labour charge for that line. Consistent labour pricing based on industry flat rates protects you from under-billing on complex jobs and helps customers feel the price is fair and standard.`,
+      },
+    ],
+  },
+  {
     id: 'settings',
     icon: '⚙️',
     title: 'Settings & Customisation',
