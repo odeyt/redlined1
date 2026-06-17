@@ -72,6 +72,10 @@ export function SettingsView() {
   const [savingPortal, setSavingPortal] = useState(false);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const [savedBranding, setSavedBranding] = useState(false);
+  const [savedPortal, setSavedPortal] = useState(false);
+  const [savedRolePerms, setSavedRolePerms] = useState(false);
+  const [savedTemplate, setSavedTemplate] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('redlined1-theme') as 'light' | 'dark' | null;
@@ -139,12 +143,17 @@ export function SettingsView() {
     } finally { setUploading(false); }
   }
 
+  function flashSaved(setter: (v: boolean) => void) {
+    setter(true);
+    setTimeout(() => setter(false), 3000);
+  }
+
   async function handleSaveBranding() {
     setSaving(true);
     try {
       await saveShopSettings({ companyName, tagline, logoUrl, address, phone, email, website });
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { companyName, tagline, logoUrl } }));
-      notify('Branding saved.');
+      flashSaved(setSavedBranding);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
     } finally { setSaving(false); }
@@ -163,9 +172,8 @@ export function SettingsView() {
         serviceTypes,
         enabledPaymentMethods,
       });
-      // Tell sidebar to update immediately
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules } }));
-      notify('Portal settings saved. Sidebar updated.');
+      flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
     } finally { setSavingPortal(false); }
@@ -195,7 +203,7 @@ export function SettingsView() {
     try {
       await saveShopSettings({ rolePermissions });
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { rolePermissions } }));
-      notify('Role permissions saved.');
+      flashSaved(setSavedRolePerms);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
     } finally { setSavingRolePerms(false); }
@@ -325,8 +333,9 @@ export function SettingsView() {
             </div>
           </div>
         </div>
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-primary" onClick={handleSaveBranding} disabled={saving || uploading}>{saving ? 'Saving…' : 'Save Branding'}</button>
+          {savedBranding && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Branding saved</span>}
         </div>
       </Panel>
 
@@ -509,9 +518,12 @@ export function SettingsView() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={handleSavePortal} disabled={savingPortal}>{savingPortal ? 'Saving…' : 'Save Portal Settings'}</button>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
+          {savedPortal
+            ? <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Portal settings saved</span>
+            : <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
+          }
         </div>
       </Panel>
 
@@ -571,7 +583,7 @@ export function SettingsView() {
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={handleSaveRolePerms} disabled={savingRolePerms}>
             {savingRolePerms ? 'Saving…' : 'Save Role Permissions'}
           </button>
@@ -581,6 +593,7 @@ export function SettingsView() {
           >
             Reset to Default
           </button>
+          {savedRolePerms && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Role permissions saved</span>}
         </div>
       </Panel>
 
@@ -624,12 +637,12 @@ export function SettingsView() {
           </div>
         ))}
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" disabled={savingTemplate} onClick={async () => {
             setSavingTemplate(true);
             try {
               await saveShopSettings({ inspectionTemplate: inspTemplate });
-              notify('Inspection template saved.');
+              flashSaved(setSavedTemplate);
             } catch { setError('Failed to save template'); }
             finally { setSavingTemplate(false); }
           }}>
@@ -638,6 +651,7 @@ export function SettingsView() {
           <button className="mini-btn" onClick={() => setInspTemplate(INSPECTION_TEMPLATE.map(({ category, name }) => ({ category, name })))}>
             Reset to Default
           </button>
+          {savedTemplate && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Template saved</span>}
         </div>
       </Panel>
     </>
