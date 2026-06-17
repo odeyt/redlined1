@@ -76,7 +76,7 @@ export function ReportsView() {
         { data: estData },
       ] = await Promise.all([
         supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at'),
-        supabase.from('payments').select('amount, method, payment_date, currency'),
+        supabase.from('payments').select('amount, method, payment_date, currency, status'),
         supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at'),
         supabase.from('customers').select('*', { count: 'exact', head: true }),
         supabase.from('vehicles').select('*', { count: 'exact', head: true }),
@@ -94,21 +94,22 @@ export function ReportsView() {
       const paidInvs = invoices.filter(i => i.status === 'Paid');
       const sentInvs = invoices.filter(i => i.status === 'Sent');
 
-      // Revenue = actual cash collected (payments table is source of truth)
-      const totalPaymentsCollected = pays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+      // Revenue = actual cash collected — exclude Void and Refunded to match Payments module
+      const collectedPays = pays.filter((p: Record<string, unknown>) => p.status !== 'Void' && p.status !== 'Refunded');
+      const totalPaymentsCollected = collectedPays.reduce((s: number, p: Record<string, unknown>) => s + Number(p.amount ?? 0), 0);
       // Invoice-based totals (for Revenue tab breakdown)
       const totalInvoicedPaid = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalOutstanding = sentInvs.reduce((s, i) => s + calcInvTotal(i), 0);
       const totalVoid = invoices.filter(i => i.status === 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
       const totalAllInvoiced = invoices.filter(i => i.status !== 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
-      // Avg: use payment average (actual transactions); fall back to invoice avg if no payments
-      const avgInvoiceValue = pays.length > 0 ? totalPaymentsCollected / pays.length
+      // Avg: use payment average (actual collected transactions)
+      const avgInvoiceValue = collectedPays.length > 0 ? totalPaymentsCollected / collectedPays.length
         : paidInvs.length > 0 ? totalInvoicedPaid / paidInvs.length : 0;
 
-      // Payments by method
+      // Payments by method — only collected (exclude Void/Refunded)
       const methodMap: Record<string, { total: number; count: number }> = {};
-      for (const p of pays) {
-        const m = p.method || 'Unknown';
+      for (const p of collectedPays) {
+        const m = (p.method as string) || 'Unknown';
         if (!methodMap[m]) methodMap[m] = { total: 0, count: 0 };
         methodMap[m].total += Number(p.amount ?? 0);
         methodMap[m].count += 1;
@@ -132,10 +133,10 @@ export function ReportsView() {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
         const label = MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear().toString().slice(2);
-        // Revenue = payments collected in this month (source of truth)
-        const rev = pays
-          .filter(p => p.payment_date && p.payment_date >= d.toISOString() && p.payment_date < next.toISOString())
-          .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+        // Revenue = payments collected in this month (exclude Void/Refunded)
+        const rev = collectedPays
+          .filter((p: Record<string, unknown>) => p.payment_date && (p.payment_date as string) >= d.toISOString() && (p.payment_date as string) < next.toISOString())
+          .reduce((s: number, p: Record<string, unknown>) => s + Number(p.amount ?? 0), 0);
         // Invoiced = paid invoices created this month (secondary view)
         const pymt = paidInvs
           .filter(inv => inv.created_at && inv.created_at >= d.toISOString() && inv.created_at < next.toISOString())
@@ -170,7 +171,7 @@ export function ReportsView() {
         paidCount: paidInvs.length,
         sentCount: sentInvs.length,
         totalPayments: totalPaymentsCollected,
-        paymentCount: pays.length,
+        paymentCount: collectedPays.length,
         methodBreakdown,
         totalROValue: totalLaborValue + totalPartsValue,
         totalLaborValue,
