@@ -11,11 +11,11 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
   return Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400000));
 }
 
-// Modules available on free plan
+// Modules available after trial expires — just enough to see the value, not enough to run the shop
 const FREE_MODULES = new Set([
-  'dashboard', 'customers', 'vehicles', 'job-cards',
-  'invoices', 'estimates', 'technicians', 'settings',
-  'payments', 'scheduling', 'parts', 'inspections',
+  'dashboard',   // can see their data is there, just locked
+  'settings',    // must be able to manage their account / upgrade
+  'subscriptions', // upgrade path
 ]);
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
