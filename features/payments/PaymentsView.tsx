@@ -173,6 +173,7 @@ export function PaymentsView() {
 
   const totalCollected = payments.filter(p => p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0);
   const totalRefunded = payments.filter(p => p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
+  const totalVoided = payments.filter(p => p.status === 'Void').reduce((s, p) => s + p.amount, 0);
   const todayCount = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString()).length;
 
   // Breakdown by method — driven from actual payment data so no method is silently dropped
@@ -204,6 +205,10 @@ export function PaymentsView() {
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Refunded</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#f44336' }}>${totalRefunded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Voided</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#ff9800' }}>${totalVoided.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         </div>
       </div>
 
