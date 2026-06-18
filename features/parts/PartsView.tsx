@@ -536,8 +536,8 @@ export function PartsView() {
           { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
           { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
           ...(!isTech ? [
-            { label: 'Cost Value',   value: money(totalValue),  sub: `${totalQty} unit${totalQty !== 1 ? 's' : ''} × cost price` },
-            { label: 'Retail Value', value: money(retailValue), sub: `${totalQty} unit${totalQty !== 1 ? 's' : ''} × retail price` },
+            { label: 'Cost Value',   value: money(totalValue),  sub: totalQty > 0 ? `${totalQty} units × avg ${money(totalValue / totalQty)}` : '0 units in stock' },
+            { label: 'Retail Value', value: money(retailValue), sub: totalQty > 0 ? `${totalQty} units × avg ${money(retailValue / totalQty)}` : '0 units in stock' },
             { label: 'Margin',       value: margin,             sub: 'avg gross margin' },
           ] : []),
         ].map(c => (
