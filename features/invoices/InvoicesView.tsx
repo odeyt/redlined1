@@ -578,7 +578,7 @@ export function InvoicesView() {
                     <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No line items</td></tr>
                   )}
                   {selected.lines.map((line, i) => (
-                    <tr key={i}>
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fffde7' : 'transparent' }}>
                       <td style={{ color: 'var(--muted)', fontSize: 12 }}>{line.note || '—'}</td>
                       <td>{line.description}</td>
                       <td style={{ textAlign: 'right' }}>{line.qty}</td>
@@ -734,7 +734,7 @@ export function InvoicesView() {
                   <tr><td colSpan={5} style={{ padding: '20px 12px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>No line items</td></tr>
                 )}
                 {selected.lines.map((line, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                  <tr key={i} style={{ borderBottom: '1px solid #eee', background: i % 2 === 0 ? '#fffde7' : '#fff' }}>
                     <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{line.note || ''}</td>
                     <td style={{ padding: '10px 12px', fontSize: 14 }}>{line.description}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
