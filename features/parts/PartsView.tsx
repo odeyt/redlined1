@@ -885,11 +885,11 @@ export function PartsView() {
                   value={costStr}
                   onFocus={e => e.target.select()}
                   onChange={e => {
-                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1');
+                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(?=\d)/, '');
                     setCostStr(raw);
                     setForm(f => ({ ...f, cost: parseFloat(raw) || 0 }));
                   }}
-                  onBlur={() => setCostStr(form.cost > 0 ? String(form.cost) : '')}
+                  onBlur={() => { const v = parseFloat(costStr); setCostStr(isNaN(v) ? '' : String(v)); }}
                   style={{ width: '100%' }}
                 />
               </div>}
@@ -900,11 +900,11 @@ export function PartsView() {
                   value={retailStr}
                   onFocus={e => e.target.select()}
                   onChange={e => {
-                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1');
+                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(?=\d)/, '');
                     setRetailStr(raw);
                     setForm(f => ({ ...f, retail: parseFloat(raw) || 0 }));
                   }}
-                  onBlur={() => setRetailStr(form.retail > 0 ? String(form.retail) : '')}
+                  onBlur={() => { const v = parseFloat(retailStr); setRetailStr(isNaN(v) ? '' : String(v)); }}
                   style={{ width: '100%' }}
                 />
               </div>}
@@ -915,15 +915,15 @@ export function PartsView() {
 
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Quantity On Hand</label>
-                <input className="input" type="text" inputMode="numeric" value={form.quantity || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, quantity: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.quantity === 0 ? '' : form.quantity} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''); setForm(f => ({ ...f, quantity: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Low Stock Alert At</label>
-                <input className="input" type="text" inputMode="numeric" value={form.lowStockThreshold || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, lowStockThreshold: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.lowStockThreshold === 0 ? '' : form.lowStockThreshold} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''); setForm(f => ({ ...f, lowStockThreshold: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Reorder Quantity</label>
-                <input className="input" type="text" inputMode="numeric" value={form.reorderQty || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, reorderQty: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.reorderQty === 0 ? '' : form.reorderQty} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, ''); setForm(f => ({ ...f, reorderQty: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
 
               <div>

@@ -34,7 +34,7 @@ const EMPTY_FORM = {
   notes: '',
   currency: 'USD',
   referenceNumber: '',
-  paymentDate: localDateTimeValue(),
+  paymentDate: '',
 };
 
 // Build grouped method list filtered to shop-enabled methods (populated after settings load)

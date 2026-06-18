@@ -77,7 +77,7 @@ export function InvoicesView() {
         p.status !== 'Void' && p.status !== 'Refunded'
       ));
     }).catch(() => {});
-  }, [selected?.invoiceNumber]);
+  }, [selected?.id]);
 
   // Prefill: other modules (or header button) can navigate here with optional customer data
   useEffect(() => {

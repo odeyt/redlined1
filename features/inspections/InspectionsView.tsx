@@ -538,10 +538,10 @@ export function InspectionsView() {
               {/* Share link modal — renders at fixed center so it's always visible */}
               {shareUrl && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-                  onClick={() => setShareUrl('')}>
+                  onClick={() => { setShareUrl(''); setGeneratingShare(false); }}>
                   <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 520, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', position: 'relative' }}
                     onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setShareUrl('')} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
+                    <button onClick={() => { setShareUrl(''); setGeneratingShare(false); }} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
                     <div style={{ fontSize: 11, fontWeight: 700, color: '#9c27b0', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>🔗 Customer Share Link</div>
                     <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>Share this link with the customer so they can view the inspection report and approve repairs.</div>
                     <div style={{ background: 'rgba(156,39,176,0.07)', border: '1px solid #9c27b044', borderRadius: 10, padding: '12px 16px', fontFamily: 'monospace', fontSize: 13, color: 'var(--text)', wordBreak: 'break-all', marginBottom: 16 }}>
@@ -553,7 +553,7 @@ export function InspectionsView() {
                         style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: copiedShare ? '#4caf50' : '#9c27b0', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}>
                         {copiedShare ? '✓ Copied to clipboard!' : '📋 Copy Link'}
                       </button>
-                      <button onClick={() => setShareUrl('')}
+                      <button onClick={() => { setShareUrl(''); setGeneratingShare(false); }}
                         style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--muted)', fontSize: 14, cursor: 'pointer' }}>
                         Close
                       </button>
