@@ -95,6 +95,17 @@ function downloadCSVTemplate() {
 
 type ActiveTab = 'inventory' | 'lowstock' | 'add';
 
+// Supabase throws PostgrestError objects (not instanceof Error) — extract message from either
+function errMsg(e: unknown): string {
+  if (!e) return 'Unknown error';
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'object' && 'message' in e && typeof (e as Record<string,unknown>).message === 'string') {
+    const pg = e as { message: string; details?: string; hint?: string; code?: string };
+    return [pg.message, pg.details, pg.hint].filter(Boolean).join(' — ');
+  }
+  return String(e);
+}
+
 /* ─────────────────────────────── */
 export function PartsView() {
   const { role } = useShop();
@@ -139,7 +150,7 @@ export function PartsView() {
   const load = useCallback(async () => {
     setLoading(true);
     try { setParts(await fetchParts()); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : String(e)); }
+    catch (e: unknown) { setError(errMsg(e)); }
     finally { setLoading(false); }
   }, []);
 
@@ -242,7 +253,7 @@ export function PartsView() {
       setTab('inventory');
       setSelected(null);
     } catch (err: unknown) {
-      setError('Save failed: ' + (err instanceof Error ? err.message : ''));
+      setError('Save failed: ' + errMsg(err));
     } finally { setSaving(false); }
   }
 
@@ -265,7 +276,7 @@ export function PartsView() {
       setParts(prev => prev.map(x => x.partNumber === p.partNumber ? { ...x, quantity: newQ } : x));
       if (selected?.partNumber === p.partNumber) setSelected(s => s ? { ...s, quantity: newQ } : s);
       notify(`${p.partNumber} reserved. ${newQ} remaining.`);
-    } catch (err: unknown) { setError('Reserve failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err: unknown) { setError('Reserve failed: ' + errMsg(err)); }
   }
 
   async function handleUpdateQty(partNumber: string) {
@@ -275,7 +286,7 @@ export function PartsView() {
       if (selected?.partNumber === partNumber) setSelected(s => s ? { ...s, quantity: newQty } : s);
       setEditingQty(null);
       notify(`${partNumber} quantity updated to ${newQty}.`);
-    } catch (err: unknown) { setError('Update failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err: unknown) { setError('Update failed: ' + errMsg(err)); }
   }
 
   /* photo upload (detail panel — existing part) */
