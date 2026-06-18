@@ -182,8 +182,10 @@ export function PartsView() {
   /* derived */
   const lowStock    = parts.filter(p => p.quantity <= p.lowStockThreshold);
   const outOfStock  = parts.filter(p => p.quantity === 0);
+  const totalQty    = parts.reduce((s, p) => s + p.quantity, 0);
   const totalValue  = parts.reduce((s, p) => s + p.cost * p.quantity, 0);
   const retailValue = parts.reduce((s, p) => s + p.retail * p.quantity, 0);
+  const margin      = retailValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—';
 
   const filtered = parts.filter(p => {
     const matchCat    = filterCat === 'All' || p.category === filterCat;
@@ -528,9 +530,9 @@ export function PartsView() {
           { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
           { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
           ...(!isTech ? [
-            { label: 'Cost Value',   value: money(totalValue),       sub: 'at cost price' },
-            { label: 'Retail Value', value: money(retailValue),      sub: 'at retail price' },
-            { label: 'Margin',       value: totalValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—', sub: 'avg gross margin' },
+            { label: 'Cost Value',   value: money(totalValue),  sub: `${totalQty} unit${totalQty !== 1 ? 's' : ''} × cost price` },
+            { label: 'Retail Value', value: money(retailValue), sub: `${totalQty} unit${totalQty !== 1 ? 's' : ''} × retail price` },
+            { label: 'Margin',       value: margin,             sub: 'avg gross margin' },
           ] : []),
         ].map(c => (
           <div key={c.label} style={{ background: 'var(--card)', border: `1px solid ${c.alert ? 'var(--amber,#f59e0b)' : 'var(--border)'}`, borderRadius: 10, padding: '14px 16px' }}>
