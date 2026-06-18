@@ -48,6 +48,58 @@ function buildGroups(enabled: string[]) {
   }));
 }
 
+function StatCard({ label, value, valueColor, items, countOnly }: {
+  label: string;
+  value: string;
+  valueColor: string;
+  items: Payment[];
+  currency: string;
+  countOnly?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  const fmtAmt = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtDT  = (d: string) => d ? new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  return (
+    <div
+      className="card"
+      style={{ padding: 16, position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      <div style={{ fontSize: countOnly ? 28 : 22, fontWeight: 700, color: valueColor }}>{value}</div>
+      {items.length > 0 && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>hover for details</div>}
+      {hover && items.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 200,
+          background: 'var(--card)', border: '1px solid var(--line)',
+          borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          minWidth: 320, maxWidth: 420, padding: '10px 0', marginTop: 4,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 14px 8px', borderBottom: '1px solid var(--line)' }}>
+            {label} — {items.length} record{items.length !== 1 ? 's' : ''}
+          </div>
+          <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+            {items.map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '7px 14px', borderBottom: '1px solid var(--line)', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.customerName || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                    {fmtDT(p.paymentDate)}
+                    {p.invoiceNumber && <span style={{ marginLeft: 6, color: 'var(--accent)', fontWeight: 600 }}>{p.invoiceNumber}</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.method}{p.referenceNumber ? ` · ${p.referenceNumber}` : ''}</div>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: valueColor, whiteSpace: 'nowrap' }}>{fmtAmt(p.amount)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PaymentsView() {
   const { prefill } = useAppState();
   const dispatch = useAppDispatch();
@@ -185,10 +237,14 @@ export function PaymentsView() {
     return matchMethod && matchSearch;
   });
 
-  const totalCollected = payments.filter(p => p.status !== 'Void' && p.status !== 'Refunded').reduce((s, p) => s + p.amount, 0);
-  const totalRefunded = payments.filter(p => p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
-  const totalVoided = payments.filter(p => p.status === 'Void').reduce((s, p) => s + p.amount, 0);
-  const todayCount = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString()).length;
+  const collectedList = payments.filter(p => p.status !== 'Void' && p.status !== 'Refunded');
+  const refundedList  = payments.filter(p => p.status === 'Refunded');
+  const voidedList    = payments.filter(p => p.status === 'Void');
+  const todayList     = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString());
+  const totalCollected = collectedList.reduce((s, p) => s + p.amount, 0);
+  const totalRefunded  = refundedList.reduce((s, p) => s + p.amount, 0);
+  const totalVoided    = voidedList.reduce((s, p) => s + p.amount, 0);
+  const todayCount     = todayList.length;
 
   // Breakdown by method — driven from actual payment data so no method is silently dropped
   const methodTotals = payments
@@ -204,26 +260,48 @@ export function PaymentsView() {
 
       {/* Stats */}
       <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Collected</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Payments</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{payments.length}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Today</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#2196f3' }}>{todayCount}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Refunded</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#f44336' }}>${totalRefunded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Voided</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#ff9800' }}>${totalVoided.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        </div>
+        {/* Total Collected */}
+        <StatCard
+          label="Total Collected"
+          value={`$${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          valueColor="#4caf50"
+          items={collectedList}
+          currency="USD"
+        />
+        {/* Total Payments */}
+        <StatCard
+          label="Total Payments"
+          value={String(payments.length)}
+          valueColor="var(--text)"
+          items={payments}
+          currency="USD"
+          countOnly
+        />
+        {/* Today */}
+        <StatCard
+          label="Today"
+          value={String(todayCount)}
+          valueColor="#2196f3"
+          items={todayList}
+          currency="USD"
+          countOnly
+        />
+        {/* Refunded */}
+        <StatCard
+          label="Refunded"
+          value={`$${totalRefunded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          valueColor="#f44336"
+          items={refundedList}
+          currency="USD"
+        />
+        {/* Voided */}
+        <StatCard
+          label="Voided"
+          value={`$${totalVoided.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          valueColor="#ff9800"
+          items={voidedList}
+          currency="USD"
+        />
       </div>
 
       {error && (
