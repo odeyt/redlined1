@@ -861,11 +861,11 @@ export function PartsView() {
 
               {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ($)</label>
-                <input className="input" type="number" step="0.01" min="0" value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="decimal" value={form.cost || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, cost: parseFloat(v) || 0 })); }} style={{ width: '100%' }} />
               </div>}
               {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Retail ($)</label>
-                <input className="input" type="number" step="0.01" min="0" value={form.retail} onChange={e => setForm(f => ({ ...f, retail: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="decimal" value={form.retail || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, retail: parseFloat(v) || 0 })); }} style={{ width: '100%' }} />
               </div>}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Bin Location</label>
@@ -874,15 +874,15 @@ export function PartsView() {
 
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Quantity On Hand</label>
-                <input className="input" type="number" min="0" step="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: parseInt(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.quantity || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, quantity: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Low Stock Alert At</label>
-                <input className="input" type="number" min="0" step="1" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: parseInt(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.lowStockThreshold || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, lowStockThreshold: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Reorder Quantity</label>
-                <input className="input" type="number" min="0" step="1" value={form.reorderQty} onChange={e => setForm(f => ({ ...f, reorderQty: parseInt(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                <input className="input" type="text" inputMode="numeric" value={form.reorderQty || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, reorderQty: parseInt(v) || 0 })); }} style={{ width: '100%' }} />
               </div>
 
               <div>
