@@ -13,6 +13,11 @@ import { fetchShopSettings, DEFAULT_PAYMENT_METHODS } from '@/services/shopSetti
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 const fmtTime = (d: string) => d ? new Date(d).toLocaleString() : '—';
+// Returns "YYYY-MM-DDTHH:mm" in local time for datetime-local inputs
+function localDateTimeValue(date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 const STATUS_COLORS: Record<string, string> = {
   Recorded: '#2196f3', Verified: '#4caf50', Refunded: '#f44336', Void: '#888',
@@ -29,7 +34,7 @@ const EMPTY_FORM = {
   notes: '',
   currency: 'USD',
   referenceNumber: '',
-  paymentDate: new Date().toISOString().slice(0, 16),
+  paymentDate: localDateTimeValue(),
 };
 
 // Build grouped method list filtered to shop-enabled methods (populated after settings load)
@@ -104,7 +109,7 @@ export function PaymentsView() {
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
   function openNew() {
-    setForm({ ...EMPTY_FORM, paymentDate: new Date().toISOString().slice(0, 16) });
+    setForm({ ...EMPTY_FORM, paymentDate: localDateTimeValue() });
     setAmountStr('');
     setEditingId(null);
     setShowForm(true);
@@ -122,7 +127,7 @@ export function PaymentsView() {
       notes: p.notes,
       currency: p.currency,
       referenceNumber: p.referenceNumber,
-      paymentDate: p.paymentDate ? new Date(p.paymentDate).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+      paymentDate: p.paymentDate ? localDateTimeValue(new Date(p.paymentDate)) : localDateTimeValue(),
     });
     setAmountStr(p.amount > 0 ? String(p.amount) : '');
     setEditingId(p.id);
