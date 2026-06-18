@@ -9,53 +9,12 @@ import {
   deleteInvoice, nextInvoiceNumber, calculateTotals, formatMoney, CURRENCIES,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
-import { createPayment } from '@/services/paymentService';
+import { createPayment, fetchPayments, type Payment } from '@/services/paymentService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
-
-// Bilingual English / Lao labels for printed invoices
-const LAO: Record<string, string> = {
-  'Invoice':       'ໃບເກັບເງິນ',
-  'Bill To':       'ຮຽກເກັບຈາກ',
-  'Reference':     'ອ້າງອີງ',
-  'Note / Ref':    'ໝາຍເຫດ / ອ້າງ',
-  'Description':   'ລາຍລະອຽດ',
-  'Qty':           'ຈຳນວນ',
-  'Rate':          'ລາຄາ',
-  'Amount':        'ຈຳນວນເງິນ',
-  'Subtotal':      'ລວມກ່ອນ',
-  'Discount':      'ສ່ວນຫຼຸດ',
-  'Shop Supplies': 'ອຸປະກອນ',
-  'Tax':           'ພາສີ',
-  'Total':         'ລວມທັງໝົດ',
-  'Notes':         'ໝາຍເຫດ',
-  'Date':          'ວັນທີ',
-  'Due':           'ກຳນົດຊຳລະ',
-  'Paid':          'ຊຳລະແລ້ວ',
-  'DRAFT':         'ຮ່າງ',
-  'SENT':          'ສົ່ງແລ້ວ',
-  'PAID':          'ຊຳລະແລ້ວ',
-  'VOID':          'ຍົກເລີກ',
-  'No line items': 'ບໍ່ມີລາຍການ',
-  'Thank you':     'ຂອບໃຈທີ່ໃຊ້ບໍລິການ',
-  'Job Card':      'ໃບສັ່ງງານ',
-};
-
-function L(en: string, laoStyle?: React.CSSProperties) {
-  return (
-    <span>
-      {en}
-      {LAO[en] && (
-        <span style={{ display: 'block', fontSize: '0.8em', opacity: 0.65, fontWeight: 400, marginTop: 1, ...laoStyle }}>
-          {LAO[en]}
-        </span>
-      )}
-    </span>
-  );
-}
 
 // This portal only uses these 3 currencies
 const PORTAL_CURRENCIES = ['USD', 'THB', 'LAK'];
@@ -101,6 +60,7 @@ export function InvoicesView() {
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
+  const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -108,6 +68,16 @@ export function InvoicesView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!selected) { setInvoicePayments([]); return; }
+    fetchPayments().then(all => {
+      setInvoicePayments(all.filter(p =>
+        p.invoiceNumber === selected.invoiceNumber &&
+        p.status !== 'Void' && p.status !== 'Refunded'
+      ));
+    }).catch(() => {});
+  }, [selected?.invoiceNumber]);
 
   // Prefill: other modules (or header button) can navigate here with optional customer data
   useEffect(() => {
@@ -577,7 +547,7 @@ export function InvoicesView() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                    Bill To <span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>/ {LAO['Bill To']}</span>
+                    Bill To
                   </div>
                   <div style={{ fontWeight: 600 }}>{selected.customerName}</div>
                   {selected.vehicle && <div style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.vehicle}</div>}
@@ -585,9 +555,9 @@ export function InvoicesView() {
                 {selected.jobCardId && (
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                      Reference <span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>/ {LAO['Reference']}</span>
+                      Reference
                     </div>
-                    <div style={{ fontSize: 13 }}>{L('Job Card')}: <strong>{selected.jobCardId}</strong></div>
+                    <div style={{ fontSize: 13 }}>Job Card: <strong>{selected.jobCardId}</strong></div>
                   </div>
                 )}
               </div>
@@ -596,16 +566,16 @@ export function InvoicesView() {
               <table style={{ marginBottom: 0 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', width: 110 }}>{L('Note / Ref')}</th>
-                    <th style={{ textAlign: 'left' }}>{L('Description')}</th>
-                    <th style={{ textAlign: 'right', width: 70 }}>{L('Qty')}</th>
-                    <th style={{ textAlign: 'right', width: 100 }}>{L('Rate')}</th>
-                    <th style={{ textAlign: 'right', width: 110 }}>{L('Amount')}</th>
+                    <th style={{ textAlign: 'left', width: 110 }}>Note / Ref</th>
+                    <th style={{ textAlign: 'left' }}>Description</th>
+                    <th style={{ textAlign: 'right', width: 70 }}>Qty</th>
+                    <th style={{ textAlign: 'right', width: 100 }}>Rate</th>
+                    <th style={{ textAlign: 'right', width: 110 }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selected.lines.length === 0 && (
-                    <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>{L('No line items')}</td></tr>
+                    <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No line items</td></tr>
                   )}
                   {selected.lines.map((line, i) => (
                     <tr key={i}>
@@ -626,19 +596,33 @@ export function InvoicesView() {
                     ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
                     totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
                     totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                    [`Tax (${(selected.taxRate * 100).toFixed(1)}%) / ${LAO['Tax']}`, formatMoney(totals.tax, selected.currency)],
+                    [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
                   ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted)' }}>
-                        {label.includes('/') ? label : <>{label} <span style={{ fontSize: 11, opacity: 0.6 }}>/ {LAO[label]}</span></>}
-                      </span>
+                      <span style={{ color: 'var(--muted)' }}>{label}</span>
                       <span>{val}</span>
                     </div>
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
-                    <span>{L('Total')} ({selected.currency})</span>
+                    <span>Total ({selected.currency})</span>
                     <span style={{ color: 'var(--accent)' }}>{formatMoney(totals.total, selected.currency)}</span>
                   </div>
+                  {invoicePayments.length > 0 && (() => {
+                    const received = invoicePayments.reduce((s, p) => s + p.amount, 0);
+                    const balance = totals.total - received;
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>
+                          <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received</span>
+                          <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(received, selected.currency)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', fontWeight: 700, fontSize: 15 }}>
+                          <span style={{ color: balance <= 0 ? '#4caf50' : 'var(--accent)' }}>Balance Due</span>
+                          <span style={{ color: balance <= 0 ? '#4caf50' : 'var(--accent)' }}>{balance <= 0 ? 'PAID IN FULL' : formatMoney(balance, selected.currency)}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -646,7 +630,7 @@ export function InvoicesView() {
               {selected.notes && (
                 <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                    Notes / {LAO['Notes']}
+                    Notes
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
                 </div>
@@ -689,21 +673,18 @@ export function InvoicesView() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>
-                  Invoice <span style={{ fontSize: 11, letterSpacing: 0, textTransform: 'none', fontWeight: 400 }}>/ {LAO['Invoice']}</span>
+                  Invoice
                 </div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginTop: 4 }}>{selected.invoiceNumber}</div>
                 <div style={{ marginTop: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>
                     {selected.status.toUpperCase()}
-                    {LAO[selected.status.toUpperCase()] && (
-                      <span style={{ fontWeight: 400, marginLeft: 4, fontSize: 11 }}>/ {LAO[selected.status.toUpperCase()]}</span>
-                    )}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: '#666', marginTop: 8, lineHeight: 1.7 }}>
-                  {LAO['Date']} / Date: {fmt(selected.createdAt)}<br />
-                  {selected.dueDate && <>{LAO['Due']} / Due: {fmt(selected.dueDate)}<br /></>}
-                  {selected.paidDate && <span style={{ color: '#4caf50', fontWeight: 600 }}>{LAO['Paid']} / Paid: {fmt(selected.paidDate)}</span>}
+                  Date: {fmt(selected.createdAt)}<br />
+                  {selected.dueDate && <>Due: {fmt(selected.dueDate)}<br /></>}
+                  {selected.paidDate && <span style={{ color: '#4caf50', fontWeight: 600 }}>Paid: {fmt(selected.paidDate)}</span>}
                 </div>
               </div>
             </div>
@@ -712,7 +693,7 @@ export function InvoicesView() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
               <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
                 <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                  Bill To <span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>/ {LAO['Bill To']}</span>
+                  Bill To
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.customerName}</div>
                 {selected.vehicle && <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>{selected.vehicle}</div>}
@@ -720,9 +701,9 @@ export function InvoicesView() {
               {selected.jobCardId && (
                 <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                    Reference <span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>/ {LAO['Reference']}</span>
+                    Reference
                   </div>
-                  <div style={{ fontSize: 13 }}>{LAO['Job Card']} / Job Card: <strong>{selected.jobCardId}</strong></div>
+                  <div style={{ fontSize: 13 }}>Job Card: <strong>{selected.jobCardId}</strong></div>
                 </div>
               )}
             </div>
@@ -732,25 +713,25 @@ export function InvoicesView() {
               <thead>
                 <tr style={{ background: '#f0f0f0' }}>
                   <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 100 }}>
-                    Note / Ref<br /><span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>{LAO['Note / Ref']}</span>
+                    Note / Ref
                   </th>
                   <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>
-                    Description<br /><span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>{LAO['Description']}</span>
+                    Description
                   </th>
                   <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 60 }}>
-                    Qty<br /><span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>{LAO['Qty']}</span>
+                    Qty
                   </th>
                   <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 90 }}>
-                    Rate<br /><span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>{LAO['Rate']}</span>
+                    Rate
                   </th>
                   <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 100 }}>
-                    Amount<br /><span style={{ fontWeight: 400, fontSize: 10, textTransform: 'none', letterSpacing: 0 }}>{LAO['Amount']}</span>
+                    Amount
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {selected.lines.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '20px 12px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>No line items / {LAO['No line items']}</td></tr>
+                  <tr><td colSpan={5} style={{ padding: '20px 12px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>No line items</td></tr>
                 )}
                 {selected.lines.map((line, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
@@ -772,19 +753,32 @@ export function InvoicesView() {
                   totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
                   totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
                   [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
-                ].filter((r): r is [string, string] => r !== null).map(([label, val]) => {
-                  const baseKey = label.startsWith('Tax') ? 'Tax' : label;
-                  return (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                      <span>{label}{LAO[baseKey] ? <span style={{ fontSize: 11, color: '#999', marginLeft: 4 }}>/ {LAO[baseKey]}</span> : null}</span>
-                      <span>{val}</span>
-                    </div>
-                  );
-                })}
+                ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                    <span>{label}</span>
+                    <span>{val}</span>
+                  </div>
+                ))}
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, color: '#111', borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                  <span>{LAO['Total']} / Total ({selected.currency})</span>
+                  <span>Total ({selected.currency})</span>
                   <span style={{ color: '#cc0000' }}>{formatMoney(totals.total, selected.currency)}</span>
                 </div>
+                {invoicePayments.length > 0 && (() => {
+                  const received = invoicePayments.reduce((s, p) => s + p.amount, 0);
+                  const balance = totals.total - received;
+                  return (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#444', borderBottom: '1px solid #eee' }}>
+                        <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received</span>
+                        <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(received, selected.currency)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 16 }}>
+                        <span style={{ color: balance <= 0 ? '#4caf50' : '#cc0000' }}>Balance Due</span>
+                        <span style={{ color: balance <= 0 ? '#4caf50' : '#cc0000' }}>{balance <= 0 ? 'PAID IN FULL' : formatMoney(balance, selected.currency)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -792,7 +786,7 @@ export function InvoicesView() {
             {selected.notes && (
               <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                  Notes / {LAO['Notes']}
+                  Notes
                 </div>
                 <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.6 }}>{selected.notes}</p>
               </div>
@@ -801,7 +795,6 @@ export function InvoicesView() {
             {/* Footer */}
             <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #eee', textAlign: 'center', fontSize: 11, color: '#aaa' }}>
               <div>Thank you for your business — {shopSettings?.companyName || 'Redlined1'}</div>
-              <div style={{ marginTop: 2 }}>{LAO['Thank you']} — {shopSettings?.companyName || 'Redlined1'}</div>
               {(shopSettings?.phone || shopSettings?.email) && (
                 <div style={{ marginTop: 4 }}>
                   {shopSettings?.phone && shopSettings.phone}
