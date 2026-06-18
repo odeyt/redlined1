@@ -25,6 +25,43 @@ function freshItem(template: Omit<InspectionItem, 'id'>): InspectionItem {
   return { ...template, id: Math.random().toString(36).slice(2) };
 }
 
+function InspectionStatBadge({ label, color, items }: { label: string; color: string; items: InspectionItem[] }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      style={{ textAlign: 'center', flex: 1, background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '10px 8px', position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <div style={{ fontSize: 22, fontWeight: 800, color }}>{items.length}</div>
+      <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
+      {items.length > 0 && <div style={{ fontSize: 9, color, opacity: 0.7, marginTop: 2 }}>hover for details</div>}
+      {hover && items.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 300, marginTop: 6, minWidth: 220, maxWidth: 300,
+          background: 'var(--card)', border: `1px solid ${color}44`,
+          borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          padding: '8px 0', textAlign: 'left',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 12px 6px', borderBottom: `1px solid ${color}22` }}>
+            {label} — {items.length} item{items.length !== 1 ? 's' : ''}
+          </div>
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            {items.map(it => (
+              <div key={it.id} style={{ padding: '6px 12px', borderBottom: '1px solid var(--line)', fontSize: 12 }}>
+                <div style={{ fontWeight: 600, color: 'var(--text)' }}>{it.name}</div>
+                {it.category && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{it.category}</div>}
+                {it.notes && <div style={{ fontSize: 11, color, marginTop: 2, fontStyle: 'italic' }}>{it.notes}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InspectionsView() {
   const dispatch = useAppDispatch();
   const { prefill } = useAppState();
@@ -525,18 +562,15 @@ export function InspectionsView() {
                   </div>
                 </div>
 
-                {/* Summary badges */}
+                {/* Summary badges with hover dropdown */}
                 <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
                   {[
-                    { label: 'Fail', count: failCount(selected.items), color: '#f44336' },
-                    { label: 'Attention', count: attnCount(selected.items), color: '#ff9800' },
-                    { label: 'Pass', count: passCount(selected.items), color: '#4caf50' },
-                    { label: 'N/A', count: selected.items.filter(i => i.status === 'N/A').length, color: '#888' },
-                  ].map(({ label, count, color }) => (
-                    <div key={label} style={{ textAlign: 'center', flex: 1, background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '10px 8px' }}>
-                      <div style={{ fontSize: 22, fontWeight: 800, color }}>{count}</div>
-                      <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
-                    </div>
+                    { label: 'Fail',      color: '#f44336', items: selected.items.filter(i => i.status === 'Fail') },
+                    { label: 'Attention', color: '#ff9800', items: selected.items.filter(i => i.status === 'Attention') },
+                    { label: 'Pass',      color: '#4caf50', items: selected.items.filter(i => i.status === 'Pass') },
+                    { label: 'N/A',       color: '#888',    items: selected.items.filter(i => i.status === 'N/A') },
+                  ].map(({ label, color, items: its }) => (
+                    <InspectionStatBadge key={label} label={label} color={color} items={its} />
                   ))}
                 </div>
 
