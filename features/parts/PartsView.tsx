@@ -120,6 +120,8 @@ export function PartsView() {
   const [selected, setSelected]   = useState<Part | null>(null);
   const [editing, setEditing]     = useState(false);
   const [form, setForm]           = useState<Omit<Part, 'photos'>>(EMPTY);
+  const [costStr, setCostStr]     = useState('');
+  const [retailStr, setRetailStr] = useState('');
   const [saving, setSaving]       = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -197,6 +199,8 @@ export function PartsView() {
   /* ── form handlers ── */
   function startAdd() {
     setForm(EMPTY);
+    setCostStr('');
+    setRetailStr('');
     setPendingPhotos([]);
     setPendingPhotoUrls([]);
     setSelected(null);
@@ -206,6 +210,8 @@ export function PartsView() {
 
   function startEdit(p: Part) {
     setForm({ ...p });
+    setCostStr(p.cost > 0 ? String(p.cost) : '');
+    setRetailStr(p.retail > 0 ? String(p.retail) : '');
     setPendingPhotos([]);
     setPendingPhotoUrls([]);
     setEditing(true);
@@ -874,11 +880,33 @@ export function PartsView() {
 
               {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ($)</label>
-                <input className="input" type="text" inputMode="decimal" value={form.cost || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, cost: parseFloat(v) || 0 })); }} style={{ width: '100%' }} />
+                <input
+                  className="input" type="text" inputMode="decimal"
+                  value={costStr}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1');
+                    setCostStr(raw);
+                    setForm(f => ({ ...f, cost: parseFloat(raw) || 0 }));
+                  }}
+                  onBlur={() => setCostStr(form.cost > 0 ? String(form.cost) : '')}
+                  style={{ width: '100%' }}
+                />
               </div>}
               {!isTech && <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Retail ($)</label>
-                <input className="input" type="text" inputMode="decimal" value={form.retail || ''} onFocus={e => e.target.select()} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1'); setForm(f => ({ ...f, retail: parseFloat(v) || 0 })); }} style={{ width: '100%' }} />
+                <input
+                  className="input" type="text" inputMode="decimal"
+                  value={retailStr}
+                  onFocus={e => e.target.select()}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/[^0-9.]/g, '').replace(/^0+(\d)/, '$1');
+                    setRetailStr(raw);
+                    setForm(f => ({ ...f, retail: parseFloat(raw) || 0 }));
+                  }}
+                  onBlur={() => setRetailStr(form.retail > 0 ? String(form.retail) : '')}
+                  style={{ width: '100%' }}
+                />
               </div>}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Bin Location</label>
