@@ -1289,3 +1289,5 @@ tr:last-child td {
     color: #000 !important;
   }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }

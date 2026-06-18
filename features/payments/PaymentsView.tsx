@@ -65,6 +65,15 @@ export function PaymentsView() {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(s => setEnabledMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS)).catch(() => {});
+
+    function onSettingsUpdated(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      if (Array.isArray(detail?.enabledPaymentMethods)) {
+        setEnabledMethods(detail.enabledPaymentMethods);
+      }
+    }
+    window.addEventListener('shop-settings-updated', onSettingsUpdated);
+    return () => window.removeEventListener('shop-settings-updated', onSettingsUpdated);
     fetchInvoices().then(invs => setInvoices(invs.map(i => ({
       number: i.invoiceNumber,
       customerName: i.customerName,

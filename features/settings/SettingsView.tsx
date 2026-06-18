@@ -175,7 +175,7 @@ export function SettingsView() {
         enabledPaymentMethods,
         enableTimeTracking,
       });
-      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules } }));
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods } }));
       flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
@@ -549,9 +549,19 @@ export function SettingsView() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={handleSavePortal} disabled={savingPortal}>{savingPortal ? 'Saving…' : 'Save Portal Settings'}</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleSavePortal}
+            disabled={savingPortal}
+            style={{ opacity: savingPortal ? 0.7 : 1, minWidth: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            {savingPortal && (
+              <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+            )}
+            {savingPortal ? 'Saving…' : 'Save Portal Settings'}
+          </button>
           {savedPortal
-            ? <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Portal settings saved</span>
+            ? <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Portal settings saved — payment methods updated</span>
             : <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
           }
         </div>
