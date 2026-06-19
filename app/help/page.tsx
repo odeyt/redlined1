@@ -496,6 +496,110 @@ const PAID_SECTIONS = [
     ],
   },
   {
+    id: 'time-tracking',
+    icon: '⏰',
+    title: 'Time Tracking',
+    subsections: [
+      {
+        title: 'What Is Time Tracking?',
+        content: `The Time Tracking module lets you log exactly how long each technician spends on each job. Technicians clock in when they start work on a job and clock out when they stop. Every session is recorded with the technician name, job card number, start time, end time, and duration. This gives you accurate labour data for billing, payroll, and technician performance reviews — and eliminates guesswork from your labour charges.`,
+      },
+      {
+        title: 'Enabling Time Tracking',
+        content: `Time Tracking is off by default. Go to Settings → Feature Toggles and turn on the Time Tracking toggle. Once enabled, the Time Tracking module appears in the left sidebar. To disable it, turn the toggle off — all existing time entries are preserved but the module is hidden. The toggle is available to Owners and Managers only.`,
+      },
+      {
+        title: 'Clocking In',
+        content: `Open the Time Tracking module and use the Clock In form on the left. Select the technician from the dropdown (all active technicians from the Technicians module are listed), optionally link the session to a Job Card number, add any notes, and click Clock In. The session starts immediately and appears in the Active Sessions panel with a live elapsed timer that updates every minute.`,
+      },
+      {
+        title: 'Clocking Out',
+        content: `Active sessions appear in the Active Sessions panel with a green "Clock Out" button. Click it to end the session. The duration is calculated automatically and the entry moves to the Time Log table below. If a technician forgets to clock out, you can delete the open entry and re-enter it manually with correct times.`,
+      },
+      {
+        title: 'Reading the Time Log',
+        content: `The Time Log table shows all time entries for the selected date filter (Today / This Week / All Time). Columns show Technician, Job Card, Clock In time, Clock Out time, Duration (formatted as hours and minutes, e.g. 2h 30m), Notes, and a Delete action. The footer shows total hours for the filtered view. Use "This Week" to review the team's week before running payroll.`,
+      },
+      {
+        title: 'Exporting Time Data',
+        content: `Click "Export CSV" at the top of the Time Tracking module to download all entries for the current filter as a spreadsheet. The export includes technician name, job card, clock in, clock out, duration in minutes, and notes. Import this into your payroll software or share it with your accountant for accurate labour cost reporting.`,
+      },
+      {
+        title: 'Stat Cards',
+        content: `Four stat cards at the top of the module give a quick summary: Hours Today (total logged hours for today across all technicians), Hours This Week (running total for the current week), Active Now (number of technicians currently clocked in), and Total Entries (all time log records in the system). These update live whenever you clock in or out.`,
+      },
+    ],
+  },
+  {
+    id: 'payments-advanced',
+    icon: '💳',
+    title: 'Payments — Advanced Features',
+    subsections: [
+      {
+        title: 'Stat Card Hover Tooltips',
+        content: `The five stat cards at the top of the Payments module (Total Collected, Total Payments, Today, Refunded, Voided) are interactive. Hover over any card to see a popup listing every individual payment that makes up that total. Each row shows the customer name, date and time, invoice number (if linked), payment method and reference number, and amount. This gives you an instant audit trail without leaving the payments screen.`,
+      },
+      {
+        title: 'Voided Payments',
+        content: `Payments marked as Void are tracked separately from collected payments. The Voided stat card shows the total dollar value of all voided transactions. Voided payments are excluded from Total Collected and all revenue calculations — they represent cancelled or reversed transactions. Use the hover tooltip on the Voided card to see which specific transactions were voided and when.`,
+      },
+      {
+        title: 'Refunded vs. Voided',
+        content: `Refunded means money was returned to the customer after being collected — the transaction went through and was later reversed. Voided means the transaction was cancelled before it cleared — no money moved. Both are excluded from your revenue totals. The Refunded and Voided cards track them separately so you can distinguish between post-payment reversals and pre-clearance cancellations in your records.`,
+      },
+      {
+        title: 'Invoice Payment Reflection',
+        content: `When you record a payment in the Payments module and link it to an invoice number (e.g. INV-0005), the invoice detail panel automatically shows the payment. Open the invoice in Invoicing and look below the Total row — you will see "Amount Received" (green, the sum of all collected payments for that invoice) and "Balance Due" (the remaining amount). When the full balance is covered, the Balance Due shows "PAID IN FULL" in green. This means you no longer need to manually mark invoices paid — the payment record does it automatically.`,
+      },
+      {
+        title: 'Payment Date & Time',
+        content: `All payment timestamps are recorded in your local timezone — not UTC. The date/time field in the Record Payment form defaults to the current local time when you open the form. When editing an existing payment, the field shows the original payment's local time. This ensures your records match your shop's timezone accurately, which is important for shops in Thailand (UTC+7) and other non-UTC timezones.`,
+      },
+      {
+        title: 'Disabling Payment Methods',
+        content: `Go to Settings → Portal Settings → Payment Methods. Uncheck any methods your shop does not accept. Click Save. The change takes effect immediately — the unchecked methods are removed from the payment method dropdown in the Record Payment form without needing to refresh the page. If you re-enable a method, it reappears in the dropdown instantly.`,
+      },
+    ],
+  },
+  {
+    id: 'inspections-advanced',
+    icon: '🔍',
+    title: 'Inspections — Advanced Features',
+    subsections: [
+      {
+        title: 'Inspection Summary Stat Badges',
+        content: `Inside each inspection's detail panel, four coloured stat badges show the count of items in each status: Fail (red), Attention (orange), Pass (green), and N/A (grey). These badges are interactive — hover over any badge to see a popup listing every item with that status, including the item name, category (e.g. Brakes, Tyres, Lights), and any technician notes recorded for that item. This gives the service advisor a quick overview of findings without scrolling through the full checklist.`,
+      },
+      {
+        title: 'Sharing the Inspection Report Link',
+        content: `Click the "🔗 Share Link" button in any inspection's action bar. A centered modal popup appears — it cannot be missed regardless of scroll position. The modal shows the full customer-facing URL in a monospace box, a large "📋 Copy Link" button (turns green with "✓ Copied to clipboard!" confirmation when clicked), and a Close button. The link is permanent — it can be sent to the customer at any time and will always show the latest inspection data.`,
+      },
+      {
+        title: 'How the Share Token Works',
+        content: `Each inspection is assigned a unique 32-character token when you first generate a share link. This token is stored in the database and never changes — repeat clicks on "Share Link" return the same URL. The token is not guessable — it uses a mix of letters and numbers with no sequential pattern. Only someone with the exact link can view the inspection. There is no expiry — the link remains valid indefinitely.`,
+      },
+    ],
+  },
+  {
+    id: 'parts-advanced',
+    icon: '🔩',
+    title: 'Parts Inventory — Advanced Features',
+    subsections: [
+      {
+        title: 'Cost Value vs Retail Value Stats',
+        content: `The Parts Inventory module shows two value stats: Cost Value and Retail Value. These represent your total stock value at cost price and at retail price respectively — calculated as unit price × quantity on hand. If you have 10 brake pads at $18.50 cost, the Cost Value is $185.00. The sub-label shows the calculation clearly (e.g. "10 units × avg $18.50") so you always understand what the number represents. When you have zero units in stock, both values show $0.00 with "0 units in stock" as the label.`,
+      },
+      {
+        title: 'Decimal Prices',
+        content: `The Cost and Retail price fields accept decimal values — type the full price including cents (e.g. 18.50 for $18.50). The period key works normally. If you type a leading zero (e.g. "0.50"), it is preserved correctly. If you type all zeros before a digit (e.g. "005"), the leading zeros are stripped automatically so you see "5". Click any price field to select all text so you can type a new value without deleting the old one first.`,
+      },
+      {
+        title: 'Error Messages When Saving',
+        content: `If saving a part fails, a red error banner appears at the top of the form with the exact reason from the database. Common errors: "duplicate key value" means a part with that Part Number already exists — either edit the existing part or use a different part number. Permission errors mean your user role may not have write access to the parts table — contact your shop owner. All errors include the full database message so they can be diagnosed precisely.`,
+      },
+    ],
+  },
+  {
     id: 'settings',
     icon: '⚙️',
     title: 'Settings & Customisation',

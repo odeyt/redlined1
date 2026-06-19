@@ -15,6 +15,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { supabase } from '@/lib/supabase';
+import { fetchTechnicians, createTechnician, TECH_ROLES } from '@/services/technicianService';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50', Attention: '#ff9800', Fail: '#f44336', 'N/A': '#888',
@@ -62,6 +63,45 @@ function InspectionStatBadge({ label, color, items }: { label: string; color: st
   );
 }
 
+function InspectionSummaryCard({ label, color, numColor, items, onSelect }: {
+  label: string; color: string; numColor: string;
+  items: Inspection[]; onSelect: (ins: Inspection) => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div className="card" style={{ padding: 16, position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
+      onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <div style={{ fontSize: 11, color, textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color: numColor }}>{items.length}</div>
+      {items.length > 0 && <div style={{ fontSize: 9, color, opacity: 0.6, marginTop: 2 }}>hover for details</div>}
+      {hover && items.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 300, marginTop: 6,
+          minWidth: 260, maxWidth: 340, background: 'var(--card)',
+          border: `1px solid ${numColor}44`, borderRadius: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)', padding: '8px 0', textAlign: 'left',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: numColor, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 12px 6px', borderBottom: `1px solid ${numColor}22` }}>
+            {label} — {items.length}
+          </div>
+          <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+            {items.map(ins => (
+              <div key={ins.id} onClick={() => onSelect(ins)}
+                style={{ padding: '7px 12px', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>{ins.inspectionNumber} — {ins.customerName}</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{ins.vehicle}</div>
+                {ins.status && <div style={{ fontSize: 10, color: numColor, fontWeight: 600 }}>{ins.status}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function InspectionsView() {
   const dispatch = useAppDispatch();
   const { prefill } = useAppState();
@@ -77,6 +117,10 @@ export function InspectionsView() {
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [techMembers, setTechMembers] = useState<{ email: string; role: string }[]>([]);
+  const [dbTechs, setDbTechs] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [showAddTech, setShowAddTech] = useState(false);
+  const [addTechForm, setAddTechForm] = useState({ name: '', role: 'Technician' });
+  const [addTechSaving, setAddTechSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -85,6 +129,7 @@ export function InspectionsView() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [shareError, setShareError] = useState('');
   const [copiedShare, setCopiedShare] = useState(false);
   const [generatingShare, setGeneratingShare] = useState(false);
 
@@ -112,6 +157,7 @@ export function InspectionsView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
+    fetchTechnicians().then(ts => setDbTechs(ts.map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
     if (shopId) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token ?? '';
@@ -153,6 +199,24 @@ export function InspectionsView() {
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function saveNewTech() {
+    if (!addTechForm.name.trim()) return;
+    setAddTechSaving(true);
+    try {
+      const t = await createTechnician({
+        name: addTechForm.name.trim(), role: addTechForm.role,
+        phone: '', email: '', specialty: '', certifications: '',
+        payType: 'Hourly', payRate: 0, hireDate: null, status: 'Active', notes: '',
+      });
+      setDbTechs(prev => [...prev, { id: t.id, name: t.name, role: t.role }]);
+      setForm(f => ({ ...f, technician: t.name }));
+      setAddTechForm({ name: '', role: 'Technician' });
+      setShowAddTech(false);
+      notify(`Technician "${t.name}" added`);
+    } catch { notify('Failed to add technician'); }
+    finally { setAddTechSaving(false); }
+  }
 
   function getActiveTemplate() {
     if (shopSettings?.inspectionTemplate && shopSettings.inspectionTemplate.length > 0) {
@@ -267,7 +331,7 @@ export function InspectionsView() {
       const url = `${window.location.origin}/inspection/${json.token}`;
       setShareUrl(url);
       navigator.clipboard.writeText(url).then(() => { setCopiedShare(true); setTimeout(() => setCopiedShare(false), 3000); });
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed to generate link'); }
+    } catch (e: unknown) { setShareError(e instanceof Error ? e.message : 'Failed to generate link'); }
     finally { setGeneratingShare(false); }
   }
 
@@ -305,24 +369,21 @@ export function InspectionsView() {
         onChange={e => { if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0]); e.target.value = ''; }} />
 
       {/* Stats */}
-      <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Inspections</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{inspections.length}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>In Progress</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#2196f3' }}>{inspections.filter(i => i.status === 'In Progress').length}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Completed</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#4caf50' }}>{inspections.filter(i => i.status === 'Completed').length}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Needs Approval</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{inspections.filter(i => i.status === 'Needs Approval').length}</div>
-        </div>
-      </div>
+      {(() => {
+        const statGroups = [
+          { label: 'Total Inspections', color: 'var(--muted)', numColor: 'var(--text)', items: inspections },
+          { label: 'In Progress',       color: '#2196f3',       numColor: '#2196f3',    items: inspections.filter(i => i.status === 'In Progress') },
+          { label: 'Completed',         color: '#4caf50',       numColor: '#4caf50',    items: inspections.filter(i => i.status === 'Completed') },
+          { label: 'Needs Approval',    color: '#f59e0b',       numColor: '#f59e0b',    items: inspections.filter(i => i.status === 'Needs Approval') },
+        ];
+        return (
+          <div className="grid cols-4" style={{ marginBottom: 16 }}>
+            {statGroups.map(({ label, color, numColor, items }) => (
+              <InspectionSummaryCard key={label} label={label} color={color} numColor={numColor} items={items} onSelect={ins => { setSelected(ins); setShowForm(false); }} />
+            ))}
+          </div>
+        );
+      })()}
 
       {error && <p style={{ color: 'var(--danger)', padding: '10px 14px', background: '#fff0f0', borderRadius: 6, marginBottom: 12 }}>{error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer' }}>✕</button></p>}
 
@@ -409,43 +470,111 @@ export function InspectionsView() {
                     <label>Customer Name</label>
                     <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
                   </div>
-                  <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-                    <label>Vehicle {form.customerId && allVehicles.filter(v => v.customerId === form.customerId).length === 0 && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(no registered vehicles — type manually below)</span>}</label>
-                    {form.customerId && allVehicles.filter(v => v.customerId === form.customerId).length > 0 ? (
-                      <select value={form.vehicle} onChange={e => {
-                        const v = allVehicles.find(v => v.label === e.target.value && v.customerId === form.customerId);
-                        setForm(f => ({ ...f, vehicle: e.target.value, vin: v?.vin ?? f.vin }));
-                      }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                        <option value="">— select vehicle —</option>
-                        {allVehicles.filter(v => v.customerId === form.customerId).map(v => (
-                          <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="e.g. 2020 Toyota Camry" style={{ width: '100%' }} />
-                    )}
-                  </div>
+                  {(() => {
+                    const customerVehicles = allVehicles.filter(v => v.customerId === form.customerId);
+                    const otherVehicles = allVehicles.filter(v => v.customerId !== form.customerId);
+                    const showDropdown = allVehicles.length > 0;
+                    return (
+                      <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                        <label>Vehicle
+                          {form.customerId && customerVehicles.length === 0 && allVehicles.length > 0 && (
+                            <span style={{ color: 'var(--muted)', fontWeight: 400 }}> (no vehicles for this customer — select from all below)</span>
+                          )}
+                        </label>
+                        {showDropdown ? (
+                          <select value={form.vehicle} onChange={e => {
+                            const v = allVehicles.find(v => v.label === e.target.value);
+                            setForm(f => ({ ...f, vehicle: e.target.value, vin: v?.vin ?? f.vin }));
+                          }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                            <option value="">— select vehicle —</option>
+                            {customerVehicles.length > 0 && (
+                              <optgroup label={`${form.customerName || 'Customer'} vehicles`}>
+                                {customerVehicles.map(v => (
+                                  <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {otherVehicles.length > 0 && (
+                              <optgroup label="Other vehicles">
+                                {otherVehicles.map(v => (
+                                  <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                        ) : (
+                          <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="e.g. 2020 Toyota Camry" style={{ width: '100%' }} />
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div className="login-field">
                     <label>VIN</label>
-                    <input value={form.vin} onChange={e => setForm(f => ({ ...f, vin: e.target.value }))} placeholder="Auto-filled from vehicle" />
+                    <input value={form.vin}
+                      onChange={e => setForm(f => ({ ...f, vin: e.target.value.toUpperCase() }))}
+                      placeholder="Auto-filled from vehicle" style={{ textTransform: 'uppercase' }} />
                   </div>
                   <div className="login-field">
                     <label>Mileage</label>
-                    <input type="number" value={form.mileage} onChange={e => setForm(f => ({ ...f, mileage: Number(e.target.value) }))} />
+                    <input type="text" inputMode="numeric" value={form.mileage === 0 ? '' : form.mileage}
+                      placeholder="0"
+                      onChange={e => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+                        setForm(f => ({ ...f, mileage: parseInt(raw) || 0 }));
+                      }} />
                   </div>
                   <div className="login-field">
-                    <label>Technician</label>
-                    {techMembers.length > 0 ? (
-                      <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
-                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                        <option value="">— select technician —</option>
-                        {techMembers.map(m => {
-                          const displayName = m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                          return <option key={m.email} value={m.email}>{displayName} ({m.role})</option>;
-                        })}
-                      </select>
-                    ) : (
-                      <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" />
+                    <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Technician</span>
+                      <button type="button" onClick={() => setShowAddTech(v => !v)}
+                        style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+                        {showAddTech ? '✕ Cancel' : '+ Add New'}
+                      </button>
+                    </label>
+                    {(() => {
+                      const memberOptions = techMembers.map(m => ({
+                        value: m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                        label: `${m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} (${m.role})`,
+                        group: 'Team Members',
+                      }));
+                      const dbOptions = dbTechs
+                        .filter(t => !techMembers.some(m => m.email.toLowerCase().startsWith(t.name.toLowerCase().replace(/ /g, '.'))))
+                        .map(t => ({ value: t.name, label: `${t.name} (${t.role})`, group: 'Technicians' }));
+                      const allOptions = [...memberOptions, ...dbOptions];
+                      return allOptions.length > 0 ? (
+                        <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
+                          style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                          <option value="">— select technician —</option>
+                          {memberOptions.length > 0 && (
+                            <optgroup label="Team Members">
+                              {memberOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </optgroup>
+                          )}
+                          {dbOptions.length > 0 && (
+                            <optgroup label="Technicians">
+                              {dbOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </optgroup>
+                          )}
+                        </select>
+                      ) : (
+                        <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" />
+                      );
+                    })()}
+                    {showAddTech && (
+                      <div style={{ marginTop: 8, padding: 12, background: 'var(--surface-soft)', borderRadius: 8, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 2 }}>Add New Technician</div>
+                        <input placeholder="Full name *" value={addTechForm.name}
+                          onChange={e => setAddTechForm(f => ({ ...f, name: e.target.value }))}
+                          style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        <select value={addTechForm.role} onChange={e => setAddTechForm(f => ({ ...f, role: e.target.value }))}
+                          style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+                          {TECH_ROLES.map(r => <option key={r}>{r}</option>)}
+                        </select>
+                        <button type="button" onClick={saveNewTech} disabled={addTechSaving || !addTechForm.name.trim()}
+                          style={{ padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: addTechSaving || !addTechForm.name.trim() ? 0.6 : 1 }}>
+                          {addTechSaving ? 'Saving…' : 'Save & Select'}
+                        </button>
+                      </div>
                     )}
                   </div>
                   <div className="login-field">
@@ -529,11 +658,35 @@ export function InspectionsView() {
                 )}
                 <button className="btn" disabled={generatingShare}
                   style={{ background: 'rgba(156,39,176,0.1)', color: '#9c27b0', border: '1px solid #9c27b044' }}
-                  onClick={() => { setShareUrl(''); handleGenerateShareLink(selected); }}>
+                  onClick={() => { setShareUrl(''); setShareError(''); handleGenerateShareLink(selected); }}>
                   {generatingShare ? '…' : '🔗 Share Link'}
                 </button>
                 <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
               </div>
+
+              {/* Share error modal */}
+              {shareError && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                  onClick={() => setShareError('')}>
+                  <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 480, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', position: 'relative' }}
+                    onClick={e => e.stopPropagation()}>
+                    <button onClick={() => setShareError('')} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)' }}>✕</button>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 10 }}>⚠ Share Link Failed</div>
+                    <div style={{ fontSize: 13, color: 'var(--text)', background: '#fff0f0', border: '1px solid #ffcccc', borderRadius: 8, padding: '10px 14px', fontFamily: 'monospace', wordBreak: 'break-all', marginBottom: 16 }}>
+                      {shareError}
+                    </div>
+                    {shareError.toLowerCase().includes('share_token') && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+                        <strong>Fix:</strong> The <code>share_token</code> column is missing from your database. Run <strong>migration_dvi_features.sql</strong> in Supabase SQL Editor to add it.
+                      </div>
+                    )}
+                    <button onClick={() => setShareError('')}
+                      style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', cursor: 'pointer', fontWeight: 600 }}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Share link modal — renders at fixed center so it's always visible */}
               {shareUrl && (

@@ -198,7 +198,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   vehicles: ['Vehicle Management', 'VIN, mileage, drivetrain, service history, diagnostics, and recommendations'],
   'job-cards': ['Job Cards', 'Dispatch, inspect, approve, complete, and invoice every service job'],
   scheduling: ['Maintenance Schedules', 'Recurring service intervals, fleet schedules, due-soon alerts, and overdue tracking'],
-  inspections: ['Digital Inspections', 'Guided inspection checklists, findings, photos, approvals, and customer reports'],
+  inspections: ['Digital Vehicle Inspections', 'Pass/Attention/Fail checklists, photos, customer approvals, and shareable reports'],
   communication: ['Customer Communication', 'SMS, email, approvals, payment links, reminders, and follow-up history'],
   estimates: ['Estimates', 'Build, approve, decline, and convert estimates into repair orders and invoices'],
   'repair-orders': ['Repair Orders', 'Complaint, cause, correction, labor, parts, approvals, and workflow'],

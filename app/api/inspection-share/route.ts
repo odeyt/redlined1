@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
       .eq('id', inspectionId)
       .eq('shop_id', shopId)
       .single();
-    if (error || !ins) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    if (error) return NextResponse.json({ error: error.message || 'Database error' }, { status: 500 });
+    if (!ins) return NextResponse.json({ error: 'Inspection not found — check shop ID' }, { status: 404 });
 
     if (ins.share_token) return NextResponse.json({ token: ins.share_token });
 
