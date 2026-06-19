@@ -95,6 +95,7 @@ export function SchedulingView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<MaintenanceSchedule | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
   const [search, setSearch] = useState('');
   const [filterDue, setFilterDue] = useState<'All' | 'overdue' | 'due-soon' | 'ok'>('All');
 
@@ -127,9 +128,8 @@ export function SchedulingView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
-  async function handleSaveSchedule(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.customerName || !form.vehicle || !form.serviceType) return setError('Customer, vehicle, and service type required.');
+  async function doSave() {
+    setConfirmSave(false);
     setSaving(true); setError('');
     try {
       if (editingId) {
@@ -145,6 +145,12 @@ export function SchedulingView() {
       setShowForm(false); setEditingId(null); setForm({ ...EMPTY_SCHEDULE });
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
     finally { setSaving(false); }
+  }
+
+  function handleSaveSchedule(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.customerName || !form.vehicle || !form.serviceType) return setError('Customer, vehicle, and service type required.');
+    setConfirmSave(true);
   }
 
   async function handleDelete(s: MaintenanceSchedule) {
@@ -205,6 +211,34 @@ export function SchedulingView() {
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* Save confirmation modal */}
+      {confirmSave && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setConfirmSave(false)}>
+          <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 400, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.3)', position: 'relative' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Confirm Save</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
+              <strong>{form.serviceType}</strong> — {form.customerName}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
+              Vehicle: {form.vehicle}{form.vin ? ` · VIN ${form.vin}` : ''}
+              {form.nextDueDate && <><br />Next due: <strong>{new Date(form.nextDueDate).toLocaleDateString()}</strong></>}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmSave(false)}
+                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', cursor: 'pointer', fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button onClick={doSave} disabled={saving}
+                style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+                {saving ? 'Saving…' : 'Yes, Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
