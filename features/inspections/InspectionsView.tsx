@@ -604,11 +604,23 @@ export function InspectionsView() {
                             ))}
                           </div>
                           {editingId && (
-                            <button type="button" onClick={() => { setPhotoTargetItem(item.id); photoInputRef.current?.click(); }}
-                              style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
-                              title="Add photo">
-                              {uploadingItemId === item.id ? '…' : item.photoUrl ? '📷✓' : '📷'}
-                            </button>
+                            uploadingItemId === item.id ? (
+                              <span style={{ fontSize: 11, color: 'var(--muted)', padding: '3px 8px' }}>uploading…</span>
+                            ) : item.photoUrl ? (
+                              <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <a href={item.photoUrl} target="_blank" rel="noreferrer" title="View full photo">
+                                  <img src={item.photoUrl} alt="inspection photo"
+                                    style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in' }} />
+                                </a>
+                                <button type="button" onClick={() => { setPhotoTargetItem(item.id); photoInputRef.current?.click(); }}
+                                  style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
+                                  title="Replace photo">↺</button>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => { setPhotoTargetItem(item.id); photoInputRef.current?.click(); }}
+                                style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
+                                title="Add photo">📷</button>
+                            )
                           )}
                           {item.status !== 'Pass' && item.status !== 'N/A' && (
                             <input value={item.notes} onChange={e => setItemNote(item.id, e.target.value)}
