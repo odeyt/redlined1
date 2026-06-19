@@ -390,9 +390,11 @@ export function InspectionsView() {
     if (!ins.customerEmail) return notify('No customer email on file for this inspection.');
     setSendingEmail(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const res = await fetch('/api/inspection-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ inspectionId: ins.id, shopId }),
       });
       const json = await res.json();

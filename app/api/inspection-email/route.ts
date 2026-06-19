@@ -2,10 +2,16 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const SUPA_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPA_SVC  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function getDb(jwt?: string) {
+  if (SUPA_SVC) return createClient(SUPA_URL, SUPA_SVC);
+  const client = createClient(SUPA_URL, SUPA_ANON);
+  if (jwt) client.auth.setSession({ access_token: jwt, refresh_token: '' });
+  return client;
+}
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50',
@@ -27,6 +33,9 @@ export async function POST(req: NextRequest) {
     if (!inspectionId || !shopId) {
       return NextResponse.json({ error: 'Missing inspectionId or shopId' }, { status: 400 });
     }
+
+    const jwt = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
+    const admin = getDb(jwt);
 
     // Fetch inspection
     const { data: ins, error: insErr } = await admin
