@@ -598,7 +598,7 @@ export function InspectionsView() {
                           <div style={{ display: 'flex', gap: 4 }}>
                             {ITEM_STATUSES.map(s => (
                               <button key={s} type="button" onClick={() => setItemStatus(item.id, s)}
-                                style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${item.status === s ? STATUS_COLOR[s] : 'var(--line)'}`, background: item.status === s ? STATUS_COLOR[s] + '22' : 'transparent', color: item.status === s ? STATUS_COLOR[s] : 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                style={{ padding: '3px 8px', borderRadius: 6, border: `1px solid ${item.status === s ? STATUS_COLOR[s] : 'var(--line)'}`, background: item.status === s ? STATUS_COLOR[s] : 'transparent', color: item.status === s ? '#fff' : 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                                 {s}
                               </button>
                             ))}
