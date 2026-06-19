@@ -63,6 +63,54 @@ function InspectionStatBadge({ label, color, items }: { label: string; color: st
   );
 }
 
+function ReportStatCard({ label, statusKey, bg, border, color, items }: {
+  label: string; statusKey: string; bg: string; border: string; color: string; items: InspectionItem[];
+}) {
+  const [hov, setHov] = useState(false);
+  const its = items.filter(i => i.status === statusKey);
+  return (
+    <div style={{ flex: 1, textAlign: 'center', background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: '14px 8px', position: 'relative' }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
+      <div style={{ fontSize: 26, fontWeight: 900, color }}>{its.length}</div>
+      <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      {its.length > 0 && <div style={{ fontSize: 9, color, opacity: 0.6, marginTop: 2 }}>hover for details</div>}
+      {hov && its.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, marginTop: 6, minWidth: 220, background: '#fff', border: `1px solid ${border}`, borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', padding: '8px 0', textAlign: 'left' }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', padding: '0 12px 6px', borderBottom: `1px solid ${border}` }}>{label} — {its.length} item{its.length !== 1 ? 's' : ''}</div>
+          {its.map(it => (
+            <div key={it.id} style={{ padding: '6px 12px', borderBottom: '1px solid #f5f5f5' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>{it.name}</div>
+              {it.notes && <div style={{ fontSize: 11, color, marginTop: 2 }}>{it.notes}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportItemRow({ item, onPhotoClick }: { item: InspectionItem; onPhotoClick: (url: string) => void }) {
+  const [hov, setHov] = useState(false);
+  const color = STATUS_COLOR[item.status] ?? '#888';
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 8px', borderBottom: '1px solid #f5f5f5', borderRadius: 6, background: hov ? '#fafafa' : 'transparent', transition: 'background 0.15s' }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 13, color: '#111' }}>{item.name}</span>
+      {item.notes && <span style={{ fontSize: 11, color: '#888', maxWidth: 180 }}>{item.notes}</span>}
+      <div style={{ position: 'relative' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: color, padding: '2px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+          {item.status}
+        </span>
+      </div>
+      {item.photoUrl && (
+        <img src={item.photoUrl} alt="photo" onClick={() => onPhotoClick(item.photoUrl)}
+          style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: `2px solid ${color}`, cursor: 'zoom-in', flexShrink: 0 }} />
+      )}
+    </div>
+  );
+}
+
 function InspectionSummaryCard({ label, color, numColor, items, onSelect }: {
   label: string; color: string; numColor: string;
   items: Inspection[]; onSelect: (ins: Inspection) => void;
@@ -132,6 +180,7 @@ export function InspectionsView() {
   const [shareError, setShareError] = useState('');
   const [copiedShare, setCopiedShare] = useState(false);
   const [generatingShare, setGeneratingShare] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState('');
 
   const EMPTY_FORM = {
     inspectionNumber: '',
@@ -849,17 +898,14 @@ export function InspectionsView() {
               </div>
             </div>
 
-            {/* Summary */}
+            {/* Summary — hoverable stat cards */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
-              {[
-                { label: 'FAIL', count: failCount(selected.items), bg: '#fff5f5', border: '#fecaca', color: '#f44336' },
-                { label: 'ATTENTION', count: attnCount(selected.items), bg: '#fffbeb', border: '#fde68a', color: '#ff9800' },
-                { label: 'PASS', count: passCount(selected.items), bg: '#f0fdf4', border: '#bbf7d0', color: '#4caf50' },
-              ].map(({ label, count, bg, border, color }) => (
-                <div key={label} style={{ flex: 1, textAlign: 'center', background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: '14px 8px' }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color }}>{count}</div>
-                  <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
-                </div>
+              {([
+                { label: 'FAIL',      statusKey: 'Fail',      bg: '#fff5f5', border: '#fecaca', color: '#f44336' },
+                { label: 'ATTENTION', statusKey: 'Attention', bg: '#fffbeb', border: '#fde68a', color: '#ff9800' },
+                { label: 'PASS',      statusKey: 'Pass',      bg: '#f0fdf4', border: '#bbf7d0', color: '#4caf50' },
+              ] as const).map(({ label, statusKey, bg, border, color }) => (
+                <ReportStatCard key={label} label={label} statusKey={statusKey} bg={bg} border={border} color={color} items={selected.items} />
               ))}
             </div>
 
@@ -868,13 +914,7 @@ export function InspectionsView() {
               <div key={cat} style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid #eee' }}>{cat}</div>
                 {selected.items.filter(i => i.category === cat).map(item => (
-                  <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '5px 8px', borderBottom: '1px solid #f5f5f5' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0 }} />
-                    <span style={{ flex: 1, fontSize: 13 }}>{item.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: STATUS_COLOR[item.status], minWidth: 60, textAlign: 'right' }}>{item.status}</span>
-                    {item.notes && <span style={{ fontSize: 11, color: '#888', maxWidth: 180 }}>{item.notes}</span>}
-                    {item.photoUrl && <img src={item.photoUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }} />}
-                  </div>
+                  <ReportItemRow key={item.id} item={item} onPhotoClick={setLightboxUrl} />
                 ))}
               </div>
             ))}
@@ -885,6 +925,20 @@ export function InspectionsView() {
               {shopSettings?.companyName} {shopSettings?.phone ? `· ${shopSettings.phone}` : ''} {shopSettings?.email ? `· ${shopSettings.email}` : ''}
             </div>
           </div>
+        </div>
+      )}
+      {/* Photo lightbox */}
+      {lightboxUrl && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setLightboxUrl('')}>
+          <button onClick={() => setLightboxUrl('')} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          <img src={lightboxUrl} alt="Inspection photo"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }} />
+          <a href={lightboxUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+            style={{ position: 'absolute', bottom: 24, background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '8px 18px', borderRadius: 20, fontSize: 12, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.3)' }}>
+            🔗 Open full size
+          </a>
         </div>
       )}
     </>
