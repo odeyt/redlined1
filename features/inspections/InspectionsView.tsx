@@ -370,9 +370,11 @@ export function InspectionsView() {
   async function handleGenerateShareLink(ins: Inspection) {
     setGeneratingShare(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const res = await fetch('/api/inspection-share', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ inspectionId: ins.id, shopId }),
       });
       const json = await res.json();
