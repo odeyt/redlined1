@@ -270,17 +270,18 @@ export function VehiclesView() {
   const [vinError, setVinError] = useState('');
   const [toast, setToast] = useState('');
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleWithId | null>(null);
-  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     Promise.all([fetchVehicles(), fetchCustomerNames()])
       .then(([v, c]) => {
         setVehicles(v);
         setCustomers(c);
-        // Load first thumbnail for each vehicle
+        // Load up to 5 thumbnails per vehicle
         v.forEach(vehicle => {
           fetchVehicleImages(vehicle.id).then(imgs => {
-            if (imgs[0]) setThumbs(prev => ({ ...prev, [vehicle.id]: imgs[0].url }));
+            const urls = imgs.slice(0, 5).map(i => i.url);
+            if (urls.length > 0) setThumbs(prev => ({ ...prev, [vehicle.id]: urls }));
           }).catch(() => {});
         });
       })
@@ -401,22 +402,59 @@ export function VehiclesView() {
           <div className="grid cols-3">
             {vehicles.map(v => (
               <article key={v.id} className="card vehicle-card" style={{ overflow: 'hidden', padding: 0 }}>
-                {/* Photo strip */}
-                <div
-                  onClick={() => setGalleryVehicle(v)}
-                  style={{ height: 160, background: thumbs[v.id] ? 'none' : 'var(--surface-soft)', cursor: 'pointer', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)' }}
-                >
-                  {thumbs[v.id]
-                    ? <img src={thumbs[v.id]} alt={v.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}>
-                        <span style={{ fontSize: 32 }}>🚗</span>
-                        <span style={{ fontSize: 12 }}>Add photos</span>
+                {/* Photo strip — up to 5 photos in a grid */}
+                {(() => {
+                  const photos = thumbs[v.id] ?? [];
+                  const count = photos.length;
+                  return (
+                    <div
+                      onClick={() => setGalleryVehicle(v)}
+                      style={{ height: 160, cursor: 'pointer', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)', display: 'flex', background: '#000' }}
+                    >
+                      {count === 0 && (
+                        <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}>
+                          <span style={{ fontSize: 32 }}>🚗</span>
+                          <span style={{ fontSize: 12 }}>Add photos</span>
+                        </div>
+                      )}
+
+                      {count === 1 && (
+                        <img src={photos[0]} alt="Vehicle photo" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      )}
+
+                      {count === 2 && (<>
+                        <img src={photos[0]} alt="Vehicle photo" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block', borderRight: '2px solid #000' }} />
+                        <img src={photos[1]} alt="Vehicle photo" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </>)}
+
+                      {count >= 3 && (
+                        <>
+                          {/* Main hero — left 62% */}
+                          <img src={photos[0]} alt="Vehicle photo" style={{ width: '62%', height: '100%', objectFit: 'cover', display: 'block', flexShrink: 0, borderRight: '2px solid #000' }} />
+                          {/* Right column — up to 4 stacked */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {photos.slice(1, 5).map((url, i, arr) => (
+                              <div key={i} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                                <img src={url} alt="Vehicle photo" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                {/* "+N more" overlay on last visible slot if there are more than 5 */}
+                                {i === arr.length - 1 && count > 5 && (
+                                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>
+                                    +{count - 4} more
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Photo count badge */}
+                      <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6, pointerEvents: 'none' }}>
+                        📷 {count > 0 ? `${count} photo${count !== 1 ? 's' : ''}` : 'Photos'}
                       </div>
-                  }
-                  <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6 }}>
-                    📷 Photos
-                  </div>
-                </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Card body */}
                 <div style={{ padding: 14 }}>
@@ -456,8 +494,8 @@ export function VehiclesView() {
                   <tr key={v.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {thumbs[v.id]
-                          ? <img src={thumbs[v.id]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
+                        {(thumbs[v.id]?.[0])
+                          ? <img src={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
                           : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>🚗</div>
                         }
                         <div><strong>{v.label}</strong><div className="meta">{v.plate}</div></div>

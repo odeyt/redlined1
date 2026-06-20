@@ -824,11 +824,39 @@ export default function HelpPage() {
               <div key={section.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32 }}>
                   <span style={{ fontSize: 36 }}>{section.icon}</span>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <h2 style={{ fontSize: 28, fontWeight: 900, margin: 0 }}>{section.title}</h2>
                     {isLocked && <span style={{ fontSize: 12, color: '#cc0000', fontWeight: 600 }}>🔒 Pro feature — upgrade to read full guide</span>}
                   </div>
+                  {section.id === 'workflow' && (
+                    <a
+                      href="/Redlined1-Shop-Workflow.pdf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#cc0000', color: '#fff', padding: '10px 18px', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
+                    >
+                      ⬇ Download PDF
+                    </a>
+                  )}
                 </div>
+
+                {section.id === 'workflow' && (
+                  <div style={{ background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 14, padding: '20px 24px', marginBottom: 28, display: 'flex', alignItems: 'center', gap: 20 }}>
+                    <span style={{ fontSize: 36, flexShrink: 0 }}>📄</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4 }}>Print-Ready Shop Workflow PDF</div>
+                      <div style={{ color: '#888', fontSize: 13 }}>8-page visual guide — all 12 steps, role assignments, module references, pro tips, and a laminate-ready staff cheat sheet.</div>
+                    </div>
+                    <a
+                      href="/Redlined1-Shop-Workflow.pdf"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#cc0000', color: '#fff', padding: '12px 22px', borderRadius: 10, textDecoration: 'none', fontSize: 14, fontWeight: 700, flexShrink: 0 }}
+                    >
+                      ⬇ Download PDF
+                    </a>
+                  </div>
+                )}
 
                 {section.subsections.map((sub, i) => {
                   const blurred = isLocked && i > 0;
@@ -846,7 +874,7 @@ export default function HelpPage() {
                           <span style={{ width: 26, height: 26, background: 'rgba(204,0,0,0.2)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#cc0000', flexShrink: 0 }}>{i + 1}</span>
                           {sub.title}
                         </h3>
-                        <p style={{ color: '#aaa', fontSize: 15, lineHeight: 1.75, margin: 0 }}>{sub.content}</p>
+                        <p style={{ color: '#aaa', fontSize: 15, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>{sub.content}</p>
                       </div>
                     </div>
                   );
