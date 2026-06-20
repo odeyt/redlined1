@@ -11,13 +11,19 @@ export interface Shop {
 // Role → blocked module list
 // Owner has no restrictions.
 
-// Manager: operational visibility only — no money, no admin, no pricing
+// Owner: full access — no restrictions.
+
+// Manager: sees operations end-to-end but cannot touch financial records,
+// admin settings, subscriptions, or access control.
 export const MANAGER_BLOCKED: string[] = [
-  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
+  'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
 ];
 
-// Technician: shop floor only — repairs and parts only
+// Technician: shop-floor only.
+// Can see job cards, repair orders, inspections, parts, time tracking, and
+// the tools (VIN/DTC/diagnostics). Cannot access customer financials,
+// admin, or communication blasts.
 export const TECHNICIAN_BLOCKED: string[] = [
   'customers', 'vehicles', 'appointments', 'scheduling',
   'estimates', 'invoices', 'payments', 'reports', 'campaigns',
@@ -25,11 +31,13 @@ export const TECHNICIAN_BLOCKED: string[] = [
   'communication', 'vin', 'dtc', 'ai', 'diagnostics',
 ];
 
-// Service Advisor: customer-facing intake only — no financials, no admin
+// Service Advisor: customer-facing + operational.
+// Handles intake (customers, vehicles, appointments), job cards, inspections,
+// estimates, parts sourcing (parts + parts-orders), and repair-order visibility.
+// Cannot access invoicing, payments, financial reports, admin, or labor-guide.
 export const ADVISOR_BLOCKED: string[] = [
-  'invoices', 'payments', 'estimates', 'reports', 'campaigns',
+  'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
-  'technicians', 'parts', 'repair-orders',
 ];
 
 // Every non-dashboard module — used to block unverified/loading roles

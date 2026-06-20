@@ -18,55 +18,59 @@ const WORKFLOW_SECTION = {
     },
     {
       title: 'Step 1 — Customer Arrives / Appointment Check-In',
-      content: `MODULE: Appointments. Greet the customer and pull up their appointment in the Appointments module. Verify customer name, contact details, and vehicle. Click "Check In" on their appointment row to mark arrival. Confirm the complaint or service requested. If a walk-in, create a new appointment on the spot before checking in.`,
+      content: `ROLE: Service Advisor | MODULE: Appointments\n\nGreet the customer and pull up their appointment. Click "Check In" to mark arrival and confirm the complaint or service requested. If a walk-in, create a new appointment on the spot first, then check in. The appointment status moves from Confirmed → Checked In, stamping the arrival time on record.`,
     },
     {
-      title: 'Step 2 — Open or Confirm Customer & Vehicle Record',
-      content: `MODULE: Customers → Vehicles. Go to Customers — search by name or phone. If new, click "+ Add Customer" and fill in name, phone, email. Open the profile and confirm their vehicle is listed. If new vehicle, click "+ Add Vehicle" — enter Year/Make/Model, VIN (exactly 17 characters), plate, and current mileage. Use VIN Decode in the sidebar to auto-fill vehicle spec from the VIN. Record the odometer reading every visit.`,
+      title: 'Step 2 — Confirm Customer & Vehicle Record',
+      content: `ROLE: Service Advisor | MODULE: Customers → Vehicles\n\nSearch for the customer by name or phone. If new, click "+ Add Customer" and fill in name, phone, and email. Open their profile and confirm the vehicle is listed — if new, click "+ Add Vehicle" and enter Year/Make/Model, VIN (exactly 17 characters), plate, and current mileage. Use VIN Decode to auto-fill spec from the VIN. Always record the odometer at every visit.`,
     },
     {
       title: 'Step 3 — Create a Job Card',
-      content: `MODULE: Job Cards. Click "+ New Job Card" from the top header or from the customer profile. Customer and vehicle will pre-fill from context. Describe the complaint or work requested in the description field. Assign a technician and set the Promised By date. Set status to "In Progress" and save. The job card is the anchor for every other step — inspection, repair order, parts order, and invoice all link back to it.`,
+      content: `ROLE: Service Advisor | MODULE: Job Cards\n\nClick "+ New Job Card" — customer and vehicle pre-fill from context. Describe the complaint, assign the technician, set the Promised By date, and set status to "In Progress". Save. The job card is the anchor for everything that follows: inspection, repair order, parts order, and invoice all link back here.`,
     },
     {
-      title: 'Step 4 — Share Live Repair Status Tracker with Customer',
-      content: `MODULE: Job Cards → Status Tracker. Open the job card detail drawer and click "Status Tracker". Copy the unique customer link and send via SMS or WhatsApp. Set stage to "Checked In" — the customer sees this on their link instantly. As the job progresses, advance stages (Checked In → Being Inspected → Waiting for Parts → In Repair → Quality Check → Ready for Pickup) with optional SMS/email notification. This eliminates "where is my car?" calls.`,
+      title: 'Step 4 — Send Live Status Tracker to Customer',
+      content: `ROLE: Service Advisor | MODULE: Job Cards → Status Tracker\n\nOpen the job card detail drawer and click "Status Tracker". Copy the unique customer link and send via SMS or WhatsApp. Set the stage to "Checked In" — the customer sees this instantly. Advance stages as the job progresses: Checked In → Being Inspected → Waiting for Parts → In Repair → Quality Check → Ready for Pickup. Each advance can trigger an automatic SMS or email notification. This eliminates "where is my car?" calls.`,
     },
     {
-      title: 'Step 5 — Run a Digital Vehicle Inspection',
-      content: `MODULE: Inspections. From the job card, click "Inspection →" to open a new inspection pre-linked to this job. Work through the checklist: Brakes, Tyres, Engine, Electrical, Fluids, Body, Lights. Mark each item: Green (Pass), Yellow (Attention), Red (Fail). Attach photos to any Fail or Attention item from your phone camera. Advance Status Tracker to "Being Inspected". Photos build trust and protect you from disputes — take them on every fail item.`,
+      title: 'Step 5 — Run the Digital Vehicle Inspection',
+      content: `ROLE: Technician | MODULE: Inspections\n\nFrom the job card, click "Inspection →" to open a new inspection pre-linked to this job. Work through every checklist category: Brakes, Tyres, Engine, Electrical, Fluids, Body, Lights. Mark each item Pass / Attention / Fail. Attach a photo to every Fail or Attention item — photos protect you from disputes. Advance Status Tracker to "Being Inspected" when you start.`,
     },
     {
-      title: 'Step 6 — Send Inspection Report & Get Customer Approval',
-      content: `MODULE: Inspections → Share Link. Click "Share Link" in the inspection panel and copy the customer-facing URL. Send via SMS, WhatsApp, or email. The customer opens a branded page showing colour-coded inspection results and photos. They approve or decline each repair item individually, type their name as a digital signature, and submit. Their exact decisions and signature are recorded permanently in your admin panel. Per-item approval increases authorised work value vs. a blanket approve/decline.`,
+      title: 'Step 6 — Share Inspection Report & Get Customer Approval',
+      content: `ROLE: Service Advisor | MODULE: Inspections → Share Link\n\nClick "Share Link" in the inspection panel and send the URL to the customer via SMS, WhatsApp, or email. The customer opens a branded page with colour-coded results and photos. They approve or decline each repair item individually, type their name as a digital signature, and submit. Their exact decisions and signature are permanently recorded in your admin panel. Per-item approval consistently produces more authorised work than a blanket yes/no.`,
     },
     {
-      title: 'Step 7 — Create an Estimate for Approved Work',
-      content: `MODULE: Estimates. From the inspection, click "Create Estimate →" to open a pre-filled estimate. Add labour lines for each approved repair with hours and rate. Add parts lines with description and sell price. Review subtotal, tax, and total. Send the estimate — the customer receives a professional PDF with Approve/Decline buttons. Only include items the customer approved on the inspection.`,
+      title: 'Step 7 — Build & Send the Estimate',
+      content: `ROLE: Service Advisor | MODULE: Estimates\n\nFrom the inspection, click "Create Estimate →". Add labour lines with hours and rate for each approved repair. Add parts lines with sell price. Review subtotal, tax, and total, then click Send — the customer receives a professional PDF with Approve/Decline buttons. Only include items the customer approved on the inspection. Approved estimate = your written authorisation to proceed.`,
     },
     {
       title: 'Step 8 — Source & Order Required Parts',
-      content: `MODULE: Parts → Parts Orders. Go to Parts → Inventory tab and check if parts are already in stock. For in-stock parts, note the bin location and set aside for the job. For parts to order, go to "Parts Orders" → "+ New Parts Order". Select customer and vehicle from dropdowns, choose vendor, enter cost and deposit. Set ETR (Expected Time of Receipt) date and Order Status to "Ordered". Update job card status to "Waiting for Parts". When parts arrive, update order status to "Received" and resume the job. Link each parts order to the Job Card # for full traceability.`,
+      content: `ROLE: Service Advisor | MODULE: Parts → Parts Orders\n\nGo to Parts → Inventory tab and check stock first. For in-stock parts, note the bin location and set them aside. For parts to order, go to Parts Orders → "+ New Parts Order". Select customer and vehicle from the dropdowns, choose the vendor, enter cost, deposit, and ETR (Expected Time of Receipt). Set Order Status to "Ordered" and update the job card status to "Waiting for Parts". When parts arrive, update the order to "Received" and resume the job.`,
     },
     {
-      title: 'Step 9 — Technician Clocks In & Begins Work',
-      content: `MODULE: Time Tracking + Repair Orders. Go to Time Tracking → select the technician → enter Job Card # → click "Clock In". Active session appears with a live elapsed timer. Open Repair Orders → create a new RO linked to this job card. List each repair task with parts used and labour time. Advance Status Tracker to "In Repair" — customer is notified. Accurate clock-in/out data feeds payroll reporting and labour billing.`,
+      title: 'Step 9 — Technician Clocks In & Opens Repair Order',
+      content: `ROLE: Technician | MODULE: Time Tracking + Repair Orders\n\nGo to Time Tracking → select your name → enter the Job Card # → click "Clock In". A live elapsed timer starts. Open Repair Orders → create a new RO linked to this job card using the 3C format: Concern (customer complaint), Cause (your finding), Correction (work performed). List parts used and labour time. Advance Status Tracker to "In Repair" when work begins.`,
     },
     {
       title: 'Step 10 — Complete Repairs & Quality Check',
-      content: `MODULE: Time Tracking → Job Cards. Technician clicks "Clock Out" when work is complete. Service advisor performs a quality check on the finished vehicle. Advance Status Tracker to "Quality Check". Update job card status to "Complete". Add any internal notes about work performed. Never skip the quality check step — it catches mistakes before the customer does.`,
+      content: `ROLE: Technician clocks out / Service Advisor QC | MODULE: Time Tracking → Job Cards\n\nTechnician clicks "Clock Out" when all repair tasks are done — duration is auto-calculated and logged. Service Advisor inspects the finished vehicle (test drive if needed). Advance Status Tracker to "Quality Check". Update the job card status to "Complete". Add internal notes about what was performed. Never skip QC — it catches mistakes before the customer does.`,
     },
     {
       title: 'Step 11 — Create & Send Invoice',
-      content: `MODULE: Invoicing. From the job card, click "Create Invoice →" — labour and parts pre-fill from the repair order. Review all line items, adjust quantities or prices if needed. Add tax (auto-applied from Settings → Tax rate). Set the due date and click "Send" — the customer receives a branded PDF with a Pay Now link. Advance Status Tracker to "Ready for Pickup" — the page turns green for the customer. Sending the invoice and the Ready notification at the same time eliminates phone calls.`,
+      content: `ROLE: Owner or Manager | MODULE: Invoicing\n\nFrom the job card, click "Create Invoice →" — labour and parts pre-fill from the repair order automatically. Review all line items and adjust if needed. Tax is applied from Settings → Tax Rate. Set the due date and click "Send" — the customer receives a branded PDF with a Pay Now link. Simultaneously advance Status Tracker to "Ready for Pickup" so the customer's page turns green. Combining the invoice send and the Ready notification cuts pickup phone calls to near zero.`,
     },
     {
       title: 'Step 12 — Collect Payment & Close the Job',
-      content: `MODULE: Payments. If paying online via the invoice link — payment auto-records and the invoice marks Paid. For in-person payment, go to Payments → "Record Payment". Select the customer, amount, payment method (cash, card, Zelle, etc.), and link invoice #. Save — the invoice Balance Due updates to "PAID IN FULL" automatically. Job card status updates to "Invoiced". Every document is saved permanently in the customer profile.`,
+      content: `ROLE: Owner or Manager | MODULE: Payments\n\nIf the customer pays online via the invoice link, payment is recorded automatically and the invoice marks Paid. For in-person payment, go to Payments → "Record Payment" — select the customer, enter the amount, choose the method (cash, card, Zelle, etc.), and link the invoice number. Save — Balance Due updates to "PAID IN FULL". Set job card to "Invoiced". Every document (inspection, estimate, RO, invoice, payment) is permanently attached to the customer profile.`,
+    },
+    {
+      title: 'Role Summary',
+      content: `Service Advisor: Steps 1–4, 6–8 (intake, communication, estimates, parts sourcing)\nTechnician: Steps 5, 9–10 (inspection, repair, time tracking)\nOwner / Manager: Steps 11–12 (invoicing, payments)\n\nOwner has unrestricted access to every module. Manager sees operations but not invoices or payments. Service Advisor handles the full customer-facing and parts workflow. Technician is scoped to the shop floor: job cards, repair orders, inspections, parts, and time tracking.`,
     },
     {
       title: 'Pro Tip — Follow the → Arrow Buttons',
-      content: `Every major module has shortcut buttons to jump to the next step without re-entering data. Customer → + New Job Card. Job Card → Inspection or Repair Order or Status Tracker. Inspection → Estimate. Invoice → Payment. These arrows carry the customer and vehicle context automatically — you never select the same customer twice. Follow the arrows and you will never lose your place in the workflow.`,
+      content: `Every module has shortcut arrow buttons so you never re-enter data. Customer → + New Job Card. Job Card → Inspection or Repair Order or Status Tracker. Inspection → Estimate. Invoice → Payment. These arrows carry the customer and vehicle context automatically. Follow the arrows and you will never lose your place in the workflow.`,
     },
   ],
 };

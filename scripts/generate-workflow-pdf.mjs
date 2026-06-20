@@ -27,6 +27,7 @@ const STEPS = [
     num: '01', phase: 'INTAKE',
     title: 'Customer Arrives / Appointment Check-In',
     color: '#1e40af', bg: '#eff6ff',
+    role: 'Service Advisor',
     module: 'Appointments',
     actions: [
       'Greet customer and pull up their appointment in the Appointments module',
@@ -34,12 +35,14 @@ const STEPS = [
       'Click "Check In" on their appointment row to mark arrival',
       'Confirm the complaint or service requested by the customer',
     ],
-    tip: 'If walk-in, create a new appointment on the spot before checking in.',
+    tip: 'Walk-in? Create the appointment on the spot first, then check in.',
   },
   {
     num: '02', phase: 'INTAKE',
-    title: 'Open or Confirm Customer & Vehicle Record',
+    title: 'Confirm Customer & Vehicle Record',
     color: '#1e40af', bg: '#eff6ff',
+    role: 'Service Advisor',
+    role: 'Service Advisor',
     module: 'Customers → Vehicles',
     actions: [
       'Go to Customers — search for the customer by name or phone',
@@ -54,6 +57,7 @@ const STEPS = [
     num: '03', phase: 'JOB SETUP',
     title: 'Create a Job Card',
     color: '#7c3aed', bg: '#f5f3ff',
+    role: 'Service Advisor',
     module: 'Job Cards',
     actions: [
       'Click "+ New Job Card" (top header or from customer profile)',
@@ -67,8 +71,9 @@ const STEPS = [
   },
   {
     num: '04', phase: 'JOB SETUP',
-    title: 'Share Live Repair Status Tracker with Customer',
+    title: 'Send Live Status Tracker to Customer',
     color: '#7c3aed', bg: '#f5f3ff',
+    role: 'Service Advisor',
     module: 'Job Cards → Status Tracker',
     actions: [
       'Open the job card detail drawer and click "Status Tracker"',
@@ -80,8 +85,9 @@ const STEPS = [
   },
   {
     num: '05', phase: 'INSPECTION',
-    title: 'Run a Digital Vehicle Inspection',
+    title: 'Run the Digital Vehicle Inspection',
     color: '#065f46', bg: '#ecfdf5',
+    role: 'Technician',
     module: 'Inspections',
     actions: [
       'From the job card, click "Inspection →" to open a new inspection pre-linked to this job',
@@ -94,8 +100,9 @@ const STEPS = [
   },
   {
     num: '06', phase: 'INSPECTION',
-    title: 'Send Inspection Report & Get Customer Approval',
+    title: 'Share Report & Get Customer Approval',
     color: '#065f46', bg: '#ecfdf5',
+    role: 'Service Advisor',
     module: 'Inspections → Share Link',
     actions: [
       'Click "Share Link" in the inspection panel — copy the customer-facing URL',
@@ -109,8 +116,9 @@ const STEPS = [
   },
   {
     num: '07', phase: 'ESTIMATE',
-    title: 'Create an Estimate for Approved Work',
+    title: 'Build & Send the Estimate',
     color: '#92400e', bg: '#fffbeb',
+    role: 'Service Advisor',
     module: 'Estimates',
     actions: [
       'From the inspection, click "Create Estimate →" to open a pre-filled estimate',
@@ -125,6 +133,7 @@ const STEPS = [
     num: '08', phase: 'PARTS',
     title: 'Source & Order Required Parts',
     color: '#7f1d1d', bg: '#fef2f2',
+    role: 'Service Advisor',
     module: 'Parts → Parts Orders',
     actions: [
       'Go to Parts → Inventory tab — check if parts are already in stock',
@@ -139,8 +148,9 @@ const STEPS = [
   },
   {
     num: '09', phase: 'REPAIR',
-    title: 'Technician Clocks In & Begins Work',
+    title: 'Technician Clocks In & Opens Repair Order',
     color: '#134e4a', bg: '#f0fdfa',
+    role: 'Technician',
     module: 'Time Tracking + Repair Orders',
     actions: [
       'Go to Time Tracking → select the technician → enter Job Card # → click "Clock In"',
@@ -155,6 +165,7 @@ const STEPS = [
     num: '10', phase: 'REPAIR',
     title: 'Complete Repairs & Quality Check',
     color: '#134e4a', bg: '#f0fdfa',
+    role: 'Tech + Advisor',
     module: 'Time Tracking → Job Cards',
     actions: [
       'Technician clicks "Clock Out" when work is complete',
@@ -169,6 +180,7 @@ const STEPS = [
     num: '11', phase: 'BILLING',
     title: 'Create & Send Invoice',
     color: '#1e3a5f', bg: '#f0f4ff',
+    role: 'Owner / Manager',
     module: 'Invoicing',
     actions: [
       'From the job card, click "Create Invoice →" — labour and parts pre-fill from the RO',
@@ -183,6 +195,7 @@ const STEPS = [
     num: '12', phase: 'PAYMENT',
     title: 'Collect Payment & Close the Job',
     color: '#064e3b', bg: '#ecfdf5',
+    role: 'Owner / Manager',
     module: 'Payments',
     actions: [
       'If paying online via the invoice link — payment auto-records and invoice marks Paid',
@@ -303,8 +316,12 @@ for (const step of STEPS) {
   // Title
   t(page, M+56, y-30, step.title, { f:'F2', sz:13 });
 
-  // Module tag
+  // Module + Role tags on same line
   t(page, M+56, y-44, 'Module: ' + step.module, { f:'F3', sz:9, r:0.4,g:0.4,b:0.4 });
+  if (step.role) {
+    const roleLabel = 'Role: ' + step.role;
+    t(page, M+CW-8 - roleLabel.length*5.2, y-44, roleLabel, { f:'F2', sz:9, r:cr,g:cg,b:cb });
+  }
 
   // Divider
   ln(page, M+14, y-52, M+CW-8, y-52, { r:cr,g:cg,b:cb, lw:0.4 });
