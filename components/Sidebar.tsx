@@ -15,7 +15,7 @@ import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
 
 export function Sidebar() {
-  const { activeModule } = useAppState();
+  const { activeModule, appointments } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { status: planStatus, daysLeft } = usePlan();
@@ -72,11 +72,11 @@ export function Sidebar() {
 
       const [
         customerR, vehicleR, jobR, invoiceR, estimateR, paymentR,
-        roR, inspR, maintR, partsR, apptR, techR, commR,
+        roR, inspR, maintR, partsR, techR, commR,
       ] = await Promise.allSettled([
         q('customers'), q('vehicles'), q('job_cards'), q('invoices'),
         q('estimates'), q('payments'), q('repair_orders'), q('inspections'),
-        q('maintenance_schedules'), q('parts'), q('appointments'),
+        q('maintenance_schedules'), q('parts'),
         q('technicians'), q('conversations'),
       ]);
 
@@ -91,7 +91,6 @@ export function Sidebar() {
         inspections:    pick(inspR),
         scheduling:     pick(maintR),
         parts:          pick(partsR),
-        appointments:   pick(apptR),
         technicians:    pick(techR),
         communication:  pick(commR),
         dashboard: 0, diagnostics: 0, ai: 0,
@@ -107,6 +106,7 @@ export function Sidebar() {
   }
 
   function getCount(id: string, mockCount: string) {
+    if (id === 'appointments') return String(appointments.length);
     if (id in realCounts) return String(realCounts[id]);
     return mockCount;
   }
