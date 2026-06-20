@@ -6,8 +6,10 @@ import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
+import { fetchVehicles } from '@/services/vehicleService';
 import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
+import type { Vehicle } from '@/lib/types';
 
 const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
 const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 'Checked in'];
@@ -32,18 +34,32 @@ export function AppointmentsView() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [toast, setToast] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetchCustomers().then(setCustomers).catch(() => {});
     fetchTechnicians().then(setTechnicians).catch(() => {});
+    fetchVehicles().then(v => setAllVehicles(v as (Vehicle & { id: string })[])).catch(() => {});
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
+    if (field === 'customer') {
+      const cust = customers.find(c => c.name === value);
+      const vehicles = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
+      setCustomerVehicles(vehicles);
+      // Auto-fill if exactly one vehicle
+      if (vehicles.length === 1) {
+        setForm(f => ({ ...f, customer: value, vehicle: vehicles[0].label }));
+      } else {
+        setForm(f => ({ ...f, customer: value, vehicle: '' }));
+      }
+    }
   }
 
   function openNew() {
@@ -56,6 +72,8 @@ export function AppointmentsView() {
     const a = appointments[index];
     setEditingIndex(index);
     setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: '', reminder: a[6] });
+    const cust = customers.find(c => c.name === a[1]);
+    setCustomerVehicles(cust ? allVehicles.filter(v => v.customerId === cust.id) : []);
     setShowForm(true);
   }
 
@@ -147,7 +165,16 @@ export function AppointmentsView() {
 
               <div className="login-field">
                 <label>Vehicle</label>
-                <input placeholder="e.g. 2021 Toyota RAV4" value={form.vehicle} onChange={e => set('vehicle', e.target.value)} />
+                {customerVehicles.length > 0 ? (
+                  <select value={form.vehicle} onChange={e => set('vehicle', e.target.value)}>
+                    <option value="">— Select vehicle —</option>
+                    {customerVehicles.map(v => (
+                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input placeholder="e.g. 2021 Toyota RAV4" value={form.vehicle} onChange={e => set('vehicle', e.target.value)} />
+                )}
               </div>
 
               <div className="login-field">
