@@ -107,8 +107,8 @@ export function PartsOrdersView() {
       fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
     ]);
     if (ordersR.status === 'fulfilled')    setOrders(ordersR.value);
-    if (vendorsR.status === 'fulfilled')   setVendors(vendorsR.value);
-    else setError('Vendor list unavailable — run the SQL fix in Supabase to enable parts_vendors RLS.');
+    if (vendorsR.status === 'fulfilled')   { setVendors(vendorsR.value); setError(''); }
+    else setError('Vendor list unavailable — run: grant select, insert, update, delete on parts_vendors to authenticated;');
     if (customersR.status === 'fulfilled') setCustomers(customersR.value);
     if (vehiclesR.status === 'fulfilled')  setVehicles(vehiclesR.value);
     setLoading(false);
