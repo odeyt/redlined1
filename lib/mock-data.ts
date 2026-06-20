@@ -166,6 +166,7 @@ export const navItems: [string, string, string, string][] = [
   ['repair-orders', 'wrench',     'Repair Orders', '21'],
   ['technicians',   'technician', 'Technicians',   '3'],
   ['parts',         'parts',      'Parts',         '486'],
+  ['parts-orders',  'parts',      'Parts Orders',  ''],
 
   // ── Billing
   ['invoices',      'invoice',    'Invoicing',     '14'],
