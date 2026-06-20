@@ -64,6 +64,29 @@ export async function saveVehicle(vehicle: Omit<Vehicle, 'customerId'> & { custo
   return toVehicle(data);
 }
 
+export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customerId'> & { customerId: string }) {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .update({
+      customer_id: vehicle.customerId,
+      vin: vehicle.vin,
+      label: vehicle.label,
+      trim: vehicle.trim,
+      engine: vehicle.engine,
+      transmission: vehicle.transmission,
+      mileage: vehicle.mileage,
+      plate: vehicle.plate,
+      status: vehicle.status || 'No open jobs',
+      recommendation: vehicle.recommendation,
+    })
+    .eq('id', id)
+    .eq('shop_id', getShopId())
+    .select()
+    .single();
+  if (error) throw error;
+  return toVehicle(data);
+}
+
 export async function fetchCustomerNames(): Promise<{ id: string; name: string }[]> {
   const { data, error } = await supabase
     .from('customers')

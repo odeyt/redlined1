@@ -102,14 +102,16 @@ export function PartsOrdersView() {
   const load = useCallback(async () => {
     if (!shopId) return;
     setLoading(true);
-    try {
-      const [o, v, c, vh] = await Promise.all([
-        fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
-      ]);
-      setOrders(o); setVendors(v); setCustomers(c); setVehicles(vh);
-    } catch (e: unknown) {
-      setError((e as Record<string, unknown>)?.message as string || 'Load failed');
-    } finally { setLoading(false); }
+    // Use allSettled so a permission error on parts_vendors doesn't block customers/vehicles
+    const [ordersR, vendorsR, customersR, vehiclesR] = await Promise.allSettled([
+      fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
+    ]);
+    if (ordersR.status === 'fulfilled')    setOrders(ordersR.value);
+    if (vendorsR.status === 'fulfilled')   setVendors(vendorsR.value);
+    else setError('Vendor list unavailable — run the SQL fix in Supabase to enable parts_vendors RLS.');
+    if (customersR.status === 'fulfilled') setCustomers(customersR.value);
+    if (vehiclesR.status === 'fulfilled')  setVehicles(vehiclesR.value);
+    setLoading(false);
   }, [shopId]);
 
   useEffect(() => { load(); }, [load]);
@@ -506,7 +508,7 @@ export function PartsOrdersView() {
                 {field('Part Name *', inp('text', form.partName, v => setF({ partName: v }), 'e.g. Front Brake Rotor'), true)}
                 {field('Part Number / SKU', inp('text', form.partNumber, v => setF({ partNumber: v }), 'e.g. BR-12345'))}
                 {field('Condition', <select value={form.condition} onChange={e => setF({ condition: e.target.value })} style={selStyle}>{PART_CONDITIONS.map(o => <option key={o}>{o}</option>)}</select>)}
-                {field('Quantity', <input type="number" min={1} value={form.quantity} onChange={e => setF({ quantity: Number(e.target.value) || 1 })} />)}
+                {field('Quantity', <input type="number" min={1} value={form.quantity} onFocus={e => e.target.select()} onChange={e => setF({ quantity: Number(e.target.value) || 1 })} />)}
               </div>
 
               {/* ── Customer & Vehicle ── */}
@@ -566,9 +568,9 @@ export function PartsOrdersView() {
                 ))}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
-                {field(`Unit Cost (${form.currency})`, <input type="number" min={0} step="0.01" value={form.unitCost} onChange={e => setF({ unitCost: Number(e.target.value) || 0 })} />)}
-                {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge} onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
-                {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid} onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
+                {field(`Unit Cost (${form.currency})`, <input type="number" min={0} step="0.01" value={form.unitCost} onFocus={e => e.target.select()} onChange={e => setF({ unitCost: Number(e.target.value) || 0 })} />)}
+                {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge} onFocus={e => e.target.select()} onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
+                {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid} onFocus={e => e.target.select()} onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <CalcBox label="Total Cost" value={money(form.totalCost)} />

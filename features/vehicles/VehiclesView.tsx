@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { fetchVehicles, saveVehicle, fetchCustomerNames } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, updateVehicle, fetchCustomerNames } from '@/services/vehicleService';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
@@ -271,6 +271,7 @@ export function VehiclesView() {
   const [toast, setToast] = useState('');
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleWithId | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetchVehicles(), fetchCustomerNames()])
@@ -310,11 +311,18 @@ export function VehiclesView() {
     setVinError('');
     setSaving(true);
     try {
-      const newVehicle = await saveVehicle(form);
-      setVehicles(prev => [newVehicle, ...prev]);
+      if (editingId) {
+        const updated = await updateVehicle(editingId, form);
+        setVehicles(prev => prev.map(v => v.id === editingId ? updated : v));
+        notify(`${updated.label} updated.`);
+      } else {
+        const newVehicle = await saveVehicle(form);
+        setVehicles(prev => [newVehicle, ...prev]);
+        notify(`${newVehicle.label} saved.`);
+      }
       setForm(EMPTY_FORM);
       setShowForm(false);
-      notify(`${newVehicle.label} saved.`);
+      setEditingId(null);
     } catch (err: unknown) {
       notify('Save failed: ' + (err instanceof Error ? err.message : ''));
     } finally { setSaving(false); }
@@ -335,13 +343,14 @@ export function VehiclesView() {
       {galleryVehicle && <ImageGallery vehicle={galleryVehicle} onClose={() => setGalleryVehicle(null)} />}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); }}>
+        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
 
       {showForm && (
         <form onSubmit={handleSave} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? '✏ Edit Vehicle' : '+ Add Vehicle'}</div>
           <div className="login-field" style={{ gridColumn: '1 / -1' }}>
             <label>Customer *</label>
             <select required value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))}
@@ -387,8 +396,8 @@ export function VehiclesView() {
             <input value={form.recommendation} onChange={e => setForm(f => ({ ...f, recommendation: e.target.value }))} placeholder="e.g. Oil change due at 50k" />
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Vehicle'}</button>
+            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
           </div>
         </form>
       )}
@@ -478,6 +487,13 @@ export function VehiclesView() {
                       dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
                     }}>＋ Job Card</button>
                     <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>
+                    <button className="btn" style={{ fontSize: 13 }} onClick={() => {
+                      setEditingId(v.id);
+                      setForm({ customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim, engine: v.engine, transmission: v.transmission, mileage: v.mileage, plate: v.plate, status: v.status || 'Active', recommendation: v.recommendation });
+                      setVinError('');
+                      setShowForm(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}>✏ Edit</button>
                   </div>
                 </div>
               </article>
