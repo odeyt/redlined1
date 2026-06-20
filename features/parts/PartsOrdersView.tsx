@@ -648,9 +648,35 @@ export function PartsOrdersView() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setShowVendorModal(false); }}>
           <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 18 }}>Add Vendor</div>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Add Vendor</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Type to search existing vendors or enter a new name.</div>
             <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="login-field"><label>Vendor Name *</label><input required value={vendorForm.name} onChange={e => setVendorForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. AutoZone Pro" /></div>
+              {/* Vendor name with datalist autocomplete from existing vendors */}
+              <datalist id="vendor-name-list">
+                {vendors.map(v => <option key={v.id} value={v.name} />)}
+              </datalist>
+              <div className="login-field">
+                <label>Vendor Name *</label>
+                <input
+                  required
+                  list="vendor-name-list"
+                  value={vendorForm.name}
+                  onChange={e => {
+                    const name = e.target.value;
+                    // Auto-fill phone/email if an existing vendor is selected
+                    const existing = vendors.find(v => v.name === name);
+                    setVendorForm(f => ({
+                      ...f,
+                      name,
+                      phone: existing ? existing.phone : f.phone,
+                      email: existing ? existing.email : f.email,
+                      website: existing ? existing.website : f.website,
+                      notes: existing ? existing.notes : f.notes,
+                    }));
+                  }}
+                  placeholder="e.g. AutoZone Pro"
+                />
+              </div>
               <div className="login-field"><label>Phone</label><input value={vendorForm.phone} onChange={e => setVendorForm(f => ({ ...f, phone: e.target.value }))} placeholder="555-000-0000" /></div>
               <div className="login-field"><label>Email</label><input type="email" value={vendorForm.email} onChange={e => setVendorForm(f => ({ ...f, email: e.target.value }))} placeholder="parts@vendor.com" /></div>
               <div className="login-field"><label>Website</label><input value={vendorForm.website} onChange={e => setVendorForm(f => ({ ...f, website: e.target.value }))} placeholder="www.vendor.com" /></div>
