@@ -65,48 +65,36 @@ export function Sidebar() {
     async function loadCounts() {
       const { getShopId } = await import('@/lib/shopStore');
       const sid = getShopId();
+      const q = (table: string) =>
+        supabase.from(table).select('*', { count: 'exact', head: true }).eq('shop_id', sid);
+      const pick = (r: PromiseSettledResult<{ count: number | null }>) =>
+        r.status === 'fulfilled' ? (r.value.count ?? 0) : 0;
+
       const [
-        { count: customerCount }, { count: vehicleCount }, { count: jobCount },
-        { count: invoiceCount }, { count: estimateCount }, { count: paymentCount },
-        { count: roCount },
-        { count: inspCount },
-        { count: maintCount },
-        { count: partsCount },
-        { count: apptCount },
-        { count: techCount },
-        { count: commCount },
-      ] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('job_cards').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('estimates').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('payments').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('repair_orders').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('inspections').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('maintenance_schedules').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('parts').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('technicians').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        customerR, vehicleR, jobR, invoiceR, estimateR, paymentR,
+        roR, inspR, maintR, partsR, apptR, techR, commR,
+      ] = await Promise.allSettled([
+        q('customers'), q('vehicles'), q('job_cards'), q('invoices'),
+        q('estimates'), q('payments'), q('repair_orders'), q('inspections'),
+        q('maintenance_schedules'), q('parts'), q('appointments'),
+        q('technicians'), q('conversations'),
       ]);
+
       setRealCounts({
-        customers: customerCount ?? 0,
-        vehicles: vehicleCount ?? 0,
-        'job-cards': jobCount ?? 0,
-        invoices: invoiceCount ?? 0,
-        estimates: estimateCount ?? 0,
-        payments: paymentCount ?? 0,
-        'repair-orders': roCount ?? 0,
-        inspections: inspCount ?? 0,
-        scheduling: maintCount ?? 0,
-        parts: partsCount ?? 0,
-        appointments: apptCount ?? 0,
-        technicians: techCount ?? 0,
-        communication: commCount ?? 0,
-        dashboard: 0,
-        diagnostics: 0,
-        ai: 0,
+        customers:      pick(customerR),
+        vehicles:       pick(vehicleR),
+        'job-cards':    pick(jobR),
+        invoices:       pick(invoiceR),
+        estimates:      pick(estimateR),
+        payments:       pick(paymentR),
+        'repair-orders': pick(roR),
+        inspections:    pick(inspR),
+        scheduling:     pick(maintR),
+        parts:          pick(partsR),
+        appointments:   pick(apptR),
+        technicians:    pick(techR),
+        communication:  pick(commR),
+        dashboard: 0, diagnostics: 0, ai: 0,
       });
     }
     loadCounts();
