@@ -12,4 +12,6 @@ grant select, insert, update, delete on technician_tasks to anon, authenticated;
 grant select, insert, update, delete on payments to anon, authenticated;
 grant select, insert, update, delete on audit_logs to anon, authenticated;
 grant select, insert, update, delete on parts to anon, authenticated;
+grant select, insert, update, delete on parts_orders to anon, authenticated;
+grant select, insert, update, delete on parts_vendors to anon, authenticated;
 grant select, insert, update, delete on users to anon, authenticated;
