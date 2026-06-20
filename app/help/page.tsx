@@ -46,7 +46,7 @@ const WORKFLOW_SECTION = {
     },
     {
       title: 'Step 8 — Source & Order Required Parts',
-      content: `ROLE: Service Advisor | MODULE: Parts → Parts Orders\n\nGo to Parts → Inventory tab and check stock first. For in-stock parts, note the bin location and set them aside. For parts to order, go to Parts Orders → "+ New Parts Order". Select customer and vehicle from the dropdowns, choose the vendor, enter cost, deposit, and ETR (Expected Time of Receipt). Set Order Status to "Ordered" and update the job card status to "Waiting for Parts". When parts arrive, update the order to "Received" and resume the job.`,
+      content: `ROLE: Service Advisor | MODULE: Parts → Parts Orders\n\nGo to Parts → Inventory tab and check stock first. For in-stock parts, note the bin location and set them aside. For parts to order, go to Parts Orders → "+ New Parts Order". The Customer dropdown is populated live from your Customers database — select the customer and the Vehicle dropdown automatically filters to that customer's registered vehicles. Choose the vendor (or click "+ Add" to create one inline), select the currency, enter unit cost, core charge, and deposit — totals calculate automatically. Set ETR and Order Status to "Ordered". Update the job card to "Waiting for Parts". When parts arrive, update the order to "Received" and resume the job.`,
     },
     {
       title: 'Step 9 — Technician Clocks In & Opens Repair Order',
@@ -143,15 +143,27 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'Adding Vehicles to a Customer',
-        content: `Open a customer profile and click "Add Vehicle". Enter the make, model, year, VIN, registration/plate number, and colour. You can add multiple vehicles per customer. Each vehicle maintains its own complete service history — every job card, inspection, and invoice linked to that vehicle is visible in one place.`,
+        content: `Open a customer profile and click "+ Add Vehicle". Enter the Year Make Model (e.g. 2023 Ford F-150), VIN (exactly 17 characters — a live counter shows progress), plate, engine, transmission, mileage, and any recommended service notes. You can add multiple vehicles per customer. Each vehicle maintains its own complete service history.`,
+      },
+      {
+        title: 'Editing an Existing Vehicle',
+        content: `On any vehicle card in Vehicle Management, click the "✏ Edit" button at the bottom of the card. The form at the top of the page opens pre-filled with that vehicle's current details — Year/Make/Model, VIN, trim, engine, transmission, mileage, plate, recommended service, and status. Make your changes and click "Update Vehicle". The card updates immediately in the list without a page reload. Click Cancel at any time to discard changes.`,
+      },
+      {
+        title: 'Vehicle Photo Grid (1–5 Photos)',
+        content: `Each vehicle card displays up to 5 photos in a smart grid layout: 1 photo shows a full-width hero image. 2 photos split 50/50 side by side. 3–5 photos use a 62% hero on the left with up to 4 stacked thumbnails on the right. If more than 5 photos exist, the last thumbnail shows a "+N more" overlay. A 📷 badge in the corner shows the total photo count. Click anywhere on the photo area to open the full image gallery.`,
+      },
+      {
+        title: 'Vehicle Photos — Gallery & Camera',
+        content: `Click "📷 Photos" on any vehicle card to open the photo gallery modal. From there you can: Upload files (JPG, PNG, HEIC — multiple at once), open your Phone/Tablet Camera (native camera app), use a Webcam (for desktop computers), or drag and drop images directly from File Explorer. Each photo is stored securely and linked permanently to the vehicle. Click any thumbnail to open a full-screen lightbox. Click the ✕ on any photo to remove it.`,
       },
       {
         title: 'Vehicle Service History',
-        content: `Click any vehicle to see its full timeline: every job card, inspection report, and invoice ever linked to it. This is invaluable when a returning customer brings in the same car. You can see exactly what was done last visit, flag recurring issues, and recommend upcoming services based on mileage intervals.`,
+        content: `The Vehicle Service History table below the cards shows every vehicle with its transmission, status, recommended service, and a photo thumbnail. Click the thumbnail or the 📷 Photos button to open the gallery. Use this table for a quick across-the-fleet overview — all vehicles in one sortable list.`,
       },
       {
         title: 'Mileage Tracking',
-        content: `Record the odometer reading every time a vehicle comes in. Redlined1 tracks mileage over time and can flag when a vehicle is approaching a service interval (e.g., oil change at every 5,000 km). This helps you proactively reach out to customers before they think to call you.`,
+        content: `Record the odometer reading every time a vehicle comes in by editing the vehicle and updating the Mileage field. Track mileage over visits to flag when a vehicle is approaching a service interval. The Recommended Service field is visible on the vehicle card and in the service history table — use it to note upcoming needs like "Oil change due at 50k".`,
       },
     ],
   },
@@ -442,8 +454,43 @@ const PAID_SECTIONS = [
         content: `The Customers tab ranks your customers by total spend. You\'ll see each customer\'s invoice count and total revenue generated. This helps you identify your most valuable accounts, prioritise follow-up, and spot customers who haven\'t returned in a while. Top-8 customers are shown by default.`,
       },
       {
+        title: 'Technician Assignment Tab',
+        content: `The Technicians tab shows every technician and the jobs currently assigned to them. Each row displays the technician\'s name, number of active jobs, completed jobs, total labour hours logged, and a completion rate progress bar. Click any technician row to expand a sub-table showing every job card they are assigned to — with customer name, vehicle, status, and check-in date. Use this to balance workload across your team and identify who is overloaded or underutilised.`,
+      },
+      {
+        title: 'Job Completion Tab',
+        content: `The Job Completion tab reports on finished jobs across any time period. Use the period filter pills — Week, Month, Quarter, Year, All Time — to narrow the view. A status distribution bar shows the proportion of Complete, Closed, and Invoiced jobs at a glance with colour coding. The table below lists every completed job with customer, vehicle, assigned technicians, status, check-in date, close date, days to close, and labour hours. Click any row to expand full job details. This report is the primary tool for reviewing shop throughput and turnaround times.`,
+      },
+      {
         title: 'Exporting Reports',
-        content: `Click "Export CSV" on any Reports tab to download the data as a spreadsheet. The export includes all key figures for that tab — revenue, payments, RO values, or customer spend. Hand this file directly to your accountant or import it into QuickBooks, Wave, or Excel for further analysis.`,
+        content: `Click "Export CSV" on any Reports tab to download the data as a spreadsheet. The export includes all key figures for that tab — revenue, payments, RO values, customer spend, or completed jobs. Hand this file directly to your accountant or import it into QuickBooks, Wave, or Excel for further analysis.`,
+      },
+    ],
+  },
+  {
+    id: 'job-archive',
+    icon: '🗄️',
+    title: 'Job Archive',
+    subsections: [
+      {
+        title: 'What Is the Job Archive?',
+        content: `The Job Archive is a permanent, searchable record of every job that has been marked Complete, Closed, or Invoiced. Unlike the active Job Cards list, the archive never gets cleared — every finished job is preserved indefinitely for reference, audit, warranty lookups, maintenance history, and customer disputes. Access it from the sidebar under "Job Archive".`,
+      },
+      {
+        title: 'Searching & Filtering Archived Jobs',
+        content: `Use the search bar to find any archived job instantly by customer name, vehicle, technician, repair order number, or invoice number. Use the period filter pills — Month, Quarter, Year, All Time — to narrow results by close date. The archive shows the most recently closed jobs first. Every result shows the customer, vehicle, technicians, status badge, check-in date, close date, days to close, and labour hours.`,
+      },
+      {
+        title: 'Archive Summary Stats',
+        content: `Four stat cards at the top of the Job Archive summarise the filtered results in real time: Total Jobs (count of archived jobs matching your filter), Avg Days to Close (average turnaround time), Total Labour Hours (sum of all logged hours), and Total Parts Value (sum of parts costs). These update instantly when you change the period filter or search term.`,
+      },
+      {
+        title: 'Expanding Job Details',
+        content: `Click any row in the archive table to expand a 3-column detail panel for that job. The panel shows: Job Details (service type, repair stage, notes), Timeline (check-in date, close date, days open), and Financials (labour hours, parts total, repair order number, invoice number). This gives you the full job summary without leaving the archive view.`,
+      },
+      {
+        title: 'Exporting the Archive',
+        content: `Click "Export CSV" to download the full filtered archive as a spreadsheet with 12 columns: customer, vehicle, technicians, status, service type, check-in date, close date, days open, labour hours, parts total, repair order number, and invoice number. Use this for tax records, insurance claims, fleet reporting, or handing to an accountant.`,
       },
     ],
   },
@@ -722,8 +769,12 @@ const FAQS = [
   { q: 'Can I import my existing parts list?', a: 'Yes. Go to Parts → Bulk Import and upload a CSV or Excel (.xlsx) file. The importer maps your columns to Redlined1 fields automatically. You can also drag and drop the file directly onto the upload area.' },
   { q: 'How do I track parts I order from suppliers?', a: 'Use the Parts Orders module (sidebar under "Parts Orders"). Create an order for each part, link it to a customer, vehicle, and job card, set the ETR date, and track the deposit and balance. The module shows live stats for orders on order, received, balance due, and deposits paid.' },
   { q: 'Can I edit a customer after saving them?', a: 'Yes. Click any customer in the Customers list to open their detail drawer, then click "✏ Edit" to update their details inline without leaving the screen.' },
+  { q: 'Can I edit an existing vehicle?', a: 'Yes. In Vehicle Management, each vehicle card has an "✏ Edit" button. Clicking it opens the vehicle form pre-filled with the current details. Update any field — VIN, mileage, engine, plate, recommended service — and click "Update Vehicle" to save. The card refreshes immediately.' },
   { q: 'Can I edit or cancel an appointment?', a: 'Yes. In the Appointments module, each row has Edit and Remove buttons. Edit reopens the booking form pre-filled with current data. Remove asks for confirmation before deleting.' },
-  { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector supporting USD, CAD, EUR, GBP, MXN, AUD, and JPY. All amounts on that order are displayed in the selected currency.' },
+  { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector supporting USD, CAD, EUR, GBP, MXN, AUD, and JPY. The selected currency is saved with the order and shown correctly when you reopen it.' },
+  { q: 'Where do completed jobs go after they are closed?', a: 'Completed, Closed, and Invoiced jobs are automatically available in the Job Archive (sidebar). The archive is permanent — every finished job is stored indefinitely for reference, warranty lookups, and maintenance history. Search by customer, vehicle, technician, RO number, or invoice number. Filter by Month, Quarter, Year, or All Time. Export to CSV at any time.' },
+  { q: 'Can I see which technician is assigned to which cars?', a: 'Yes. Go to Reports → Technicians tab. Each technician row shows their active jobs, completed jobs, total hours, and a completion rate bar. Click any row to expand a sub-table of every job card assigned to them with customer, vehicle, status, and check-in date.' },
+  { q: 'Can I run a job completion report for a specific time period?', a: 'Yes. Go to Reports → Job Completion tab. Use the period filter pills — Week, Month, Quarter, Year, All Time — to filter completed jobs by close date. The report shows every finished job with turnaround time, labour hours, assigned technicians, and a status distribution bar.' },
   { q: 'Can I import my existing customer data?', a: 'Yes. Go to Settings → Import and upload a CSV file with your customer list. The import wizard maps your columns to Redlined1 fields. Vehicles and service history can also be imported from CSV.' },
   { q: 'What happens after my 7-day trial ends?', a: 'Your account automatically moves to the free plan. You keep all your data. Features beyond the free plan limits become locked until you upgrade. Nothing is deleted.' },
   { q: 'Is my data secure?', a: 'Yes. All data is stored in Supabase (PostgreSQL) with row-level security — each shop only ever sees its own data. All connections use HTTPS/TLS encryption. Your data is never shared with other users or third parties.' },
