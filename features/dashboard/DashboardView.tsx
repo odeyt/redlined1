@@ -69,8 +69,22 @@ function fmtDate(d: string) { return d ? new Date(d).toLocaleDateString('en-US',
 
 const cardClick: React.CSSProperties = {
   cursor: 'pointer',
-  transition: 'transform 0.12s, box-shadow 0.12s',
+  transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
 };
+
+const dashStyle = `
+  .dash-kpi:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+    background: var(--surface-soft) !important;
+  }
+  .dash-row:hover {
+    background: var(--surface-soft) !important;
+  }
+  .dash-parts:hover {
+    background: var(--surface-soft) !important;
+  }
+`;
 
 export function DashboardView() {
   const { role } = useShop();
@@ -223,12 +237,11 @@ export function DashboardView() {
 
   return (
     <>
+      <style>{dashStyle}</style>
       {/* ── KPI Row 1 — financial (owner/manager only) ── */}
       {!isTech && (
         <div className="grid cols-4" style={{ marginBottom: 16 }}>
-          <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Total Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -236,9 +249,7 @@ export function DashboardView() {
             <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 4 }}>{fmtMoney(s.totalRevenue)}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoices</div>
           </div>
-          <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Outstanding</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -246,9 +257,7 @@ export function DashboardView() {
             <div style={{ fontSize: 26, fontWeight: 800, color: s.outstanding > 0 ? '#f59e0b' : 'var(--text)', marginTop: 4 }}>{fmtMoney(s.outstanding)}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.sentInvoices} sent invoices</div>
           </div>
-          <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Today's Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -256,9 +265,7 @@ export function DashboardView() {
             <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{fmtMoney(s.revenueToday)}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} payment{s.paymentsToday !== 1 ? 's' : ''} recorded</div>
           </div>
-          <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Draft Invoices</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -271,9 +278,7 @@ export function DashboardView() {
 
       {/* ── KPI Row 2 ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('customers')}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('customers')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Customers</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -281,9 +286,7 @@ export function DashboardView() {
           <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{s.totalCustomers}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.totalVehicles} vehicles on file</div>
         </div>
-        <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('job-cards')}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('job-cards')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Active Job Cards</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -291,9 +294,7 @@ export function DashboardView() {
           <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{s.openJobCards}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>In progress</div>
         </div>
-        <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('repair-orders')}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('repair-orders')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Open Repair Orders</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -301,9 +302,7 @@ export function DashboardView() {
           <div style={{ fontSize: 26, fontWeight: 800, color: s.openROs > 0 ? '#ff9800' : 'var(--text)', marginTop: 4 }}>{s.openROs}</div>
           <div style={{ fontSize: 12, color: s.pendingROs > 0 ? '#f59e0b' : 'var(--muted)', marginTop: 4 }}>{s.pendingROs > 0 ? `⚠ ${s.pendingROs} pending action` : 'No pending'}</div>
         </div>
-        <div className="card" style={{ padding: 18, ...cardClick }} onClick={() => nav('estimates')}
-          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 6px 20px rgba(0,0,0,0.12)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ''; (e.currentTarget as HTMLDivElement).style.boxShadow = ''; }}>
+        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('estimates')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Estimates</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -364,9 +363,7 @@ export function DashboardView() {
             ))}
           </div>
 
-          <div onClick={() => nav('parts')} style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--line)', cursor: 'pointer', borderRadius: 8, padding: '14px 8px 4px', transition: 'background 0.15s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface-soft)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = ''; }}>
+          <div className="dash-parts" onClick={() => nav('parts')} style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--line)', cursor: 'pointer', borderRadius: 8, padding: '14px 8px 4px', transition: 'background 0.15s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Parts Inventory</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -402,10 +399,7 @@ export function DashboardView() {
               </thead>
               <tbody>
                 {recentInvoices.map(inv => (
-                  <tr key={inv.number} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
-                    onClick={() => nav('invoices')}
-                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-soft)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}>
+                  <tr key={inv.number} className="dash-row" style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => nav('invoices')}>
                     <td style={{ padding: '8px', fontWeight: 700 }}>{inv.number}</td>
                     <td style={{ padding: '8px', color: 'var(--muted)' }}>{inv.customer}</td>
                     <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{fmtMoney(inv.total)}</td>
@@ -435,10 +429,7 @@ export function DashboardView() {
               </thead>
               <tbody>
                 {recentROs.map(ro => (
-                  <tr key={ro.roNumber} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
-                    onClick={() => nav('repair-orders')}
-                    onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-soft)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}>
+                  <tr key={ro.roNumber} className="dash-row" style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => nav('repair-orders')}>
                     <td style={{ padding: '8px', fontWeight: 700 }}>{ro.roNumber}</td>
                     <td style={{ padding: '8px' }}>
                       <div style={{ color: 'var(--text)' }}>{ro.customerName}</div>
