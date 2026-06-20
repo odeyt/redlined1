@@ -357,7 +357,8 @@ export function PartsView() {
           raw = rawRows.map(row =>
             Object.fromEntries(
               Object.entries(row).map(([k, v]) => [
-                k.trim().toLowerCase().replace(/\s+/g, '_'),
+                // normalise: trim, lowercase, collapse any whitespace/hyphens/slashes to underscore
+                k.trim().toLowerCase().replace(/[\s\-\/]+/g, '_').replace(/[^a-z0-9_]/g, ''),
                 String(v ?? ''),
               ])
             )
@@ -368,7 +369,11 @@ export function PartsView() {
         }
         if (raw.length === 0) { setCsvError('No data rows found. Check that the file has a header row and at least one data row.'); return; }
         const parts = raw.map(rowToPart).filter(r => r.partNumber.trim());
-        if (parts.length === 0) { setCsvError('No valid rows found — every row must have a part_number.'); return; }
+        if (parts.length === 0) {
+          const found = raw.length > 0 ? Object.keys(raw[0]).join(', ') : 'none';
+          setCsvError(`No valid rows found — every row must have a part_number column. Columns detected: ${found}`);
+          return;
+        }
         setCsvRows(parts);
       } catch {
         setCsvError('Failed to parse file. Make sure the file is a valid CSV or Excel spreadsheet.');
@@ -455,7 +460,27 @@ export function PartsView() {
                   onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
                   onDragEnter={e => { e.preventDefault(); setCsvDragOver(true); }}
                   onDragLeave={() => setCsvDragOver(false)}
-                  onDrop={e => { e.preventDefault(); setCsvDragOver(false); handleCSVFile(e.dataTransfer.files); }}
+                  onDrop={e => {
+                    e.preventDefault(); setCsvDragOver(false);
+                    // Try files first; fall back to items (needed when dragging from Chrome download bar)
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleCSVFile(e.dataTransfer.files);
+                    } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+                      const item = e.dataTransfer.items[0];
+                      if (item.kind === 'file') {
+                        const f = item.getAsFile();
+                        if (f) {
+                          const dt = new DataTransfer();
+                          dt.items.add(f);
+                          handleCSVFile(dt.files);
+                        }
+                      } else {
+                        setCsvError('Cannot import from a browser link. Save the file to your computer first, then drag it here.');
+                      }
+                    } else {
+                      setCsvError('No file detected. Save the file to your computer first, then drag it from File Explorer into this area.');
+                    }
+                  }}
                 >
                   <span style={{ fontSize: 32 }}>📂</span>
                   <div>
