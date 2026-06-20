@@ -4,6 +4,29 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { getShopId } from '@/lib/shopStore';
+
+// ── Technician + Job Completion types ──────────────────────────
+interface TechRow {
+  name: string;
+  activeJobs: number;
+  completedJobs: number;
+  totalHoursLogged: number;
+  avgHoursPerJob: number;
+  jobs: { customer: string; vehicle: string; status: string; checkIn: string; closed: string | null }[];
+}
+
+interface JobCompletionRow {
+  id: string;
+  customer: string;
+  vehicle: string;
+  technicians: string[];
+  status: string;
+  checkIn: string;
+  closed: string | null;
+  daysOpen: number;
+  laborHours: number;
+}
 
 interface ReportData {
   // Revenue
@@ -52,8 +75,12 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 
 export function ReportsView() {
   const [data, setData] = useState<ReportData | null>(null);
+  const [techRows, setTechRows] = useState<TechRow[]>([]);
+  const [jobRows, setJobRows] = useState<JobCompletionRow[]>([]);
+  const [expandedTech, setExpandedTech] = useState<string | null>(null);
+  const [jobFilter, setJobFilter] = useState<'all' | 'complete' | 'open' | 'invoiced'>('all');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'customers' | 'payments'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('overview');
   const [shopName, setShopName] = useState('Redlined1');
   const [toast, setToast] = useState('');
 
@@ -74,6 +101,8 @@ export function ReportsView() {
         { count: custCount },
         { count: vehCount },
         { data: estData },
+        { data: jcData },
+        { data: teData },
       ] = await Promise.all([
         supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at'),
         supabase.from('payments').select('amount, method, payment_date, currency, status'),
@@ -81,6 +110,8 @@ export function ReportsView() {
         supabase.from('customers').select('*', { count: 'exact', head: true }),
         supabase.from('vehicles').select('*', { count: 'exact', head: true }),
         supabase.from('estimates').select('status'),
+        supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', getShopId()),
+        supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').eq('shop_id', getShopId()),
       ]);
 
       const invoices = invData ?? [];
@@ -162,7 +193,7 @@ export function ReportsView() {
       const convertRate = ests.length > 0 ? (convertedEsts / ests.length) * 100 : 0;
 
       setData({
-        totalRevenuePaid: totalPaymentsCollected,   // payments table = source of truth
+        totalRevenuePaid: totalPaymentsCollected,
         totalOutstanding,
         totalVoid,
         avgInvoiceValue,
@@ -188,6 +219,77 @@ export function ReportsView() {
         monthlyRevenue,
         topCustomers,
       });
+
+      // ── Technician assignment report ──────────────────────────
+      const jobCards = (jcData ?? []) as Record<string, unknown>[];
+      const timeEntries = (teData ?? []) as Record<string, unknown>[];
+
+      // Hours logged per technician from time_entries
+      const techHoursMap: Record<string, number> = {};
+      for (const te of timeEntries) {
+        const name = (te.technician_name as string) || 'Unknown';
+        if (te.clock_in && te.clock_out) {
+          const mins = (new Date(te.clock_out as string).getTime() - new Date(te.clock_in as string).getTime()) / 60000;
+          techHoursMap[name] = (techHoursMap[name] ?? 0) + mins / 60;
+        }
+      }
+
+      // Jobs per technician (job_cards.technicians is an array)
+      const techMap: Record<string, { active: number; completed: number; jobs: TechRow['jobs'] }> = {};
+      for (const jc of jobCards) {
+        const techs = (jc.technicians as string[]) ?? [];
+        const isComplete = ['Complete', 'Closed', 'Invoiced'].includes(jc.status as string);
+        for (const tech of techs.length > 0 ? techs : ['Unassigned']) {
+          if (!techMap[tech]) techMap[tech] = { active: 0, completed: 0, jobs: [] };
+          if (isComplete) techMap[tech].completed += 1;
+          else techMap[tech].active += 1;
+          techMap[tech].jobs.push({
+            customer: jc.customer as string,
+            vehicle: jc.vehicle as string,
+            status: jc.status as string,
+            checkIn: jc.check_in_date as string,
+            closed: jc.closed_date as string | null,
+          });
+        }
+      }
+
+      const builtTechRows: TechRow[] = Object.entries(techMap).map(([name, v]) => {
+        const hours = techHoursMap[name] ?? 0;
+        const total = v.active + v.completed;
+        return {
+          name,
+          activeJobs: v.active,
+          completedJobs: v.completed,
+          totalHoursLogged: hours,
+          avgHoursPerJob: total > 0 ? hours / total : 0,
+          jobs: v.jobs.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()),
+        };
+      }).sort((a, b) => (b.activeJobs + b.completedJobs) - (a.activeJobs + a.completedJobs));
+
+      setTechRows(builtTechRows);
+
+      // ── Job completion report ──────────────────────────────────
+      const now2 = Date.now();
+      const builtJobRows: JobCompletionRow[] = jobCards.map(jc => {
+        const checkIn = jc.check_in_date as string;
+        const closed = jc.closed_date as string | null;
+        const end = closed ? new Date(closed).getTime() : now2;
+        const daysOpen = checkIn ? Math.round((end - new Date(checkIn).getTime()) / 86400000) : 0;
+        return {
+          id: jc.id as string,
+          customer: jc.customer as string,
+          vehicle: jc.vehicle as string,
+          technicians: (jc.technicians as string[]) ?? [],
+          status: jc.status as string,
+          checkIn,
+          closed,
+          daysOpen,
+          laborHours: Number(jc.labor_hours ?? 0),
+        };
+      }).sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime());
+
+      setJobRows(builtJobRows);
+
     } catch (e) {
       console.error('Reports load error', e);
     } finally {
@@ -263,12 +365,53 @@ export function ReportsView() {
     );
   }
 
+  function exportTechReport() {
+    const rows: string[][] = [
+      ['Technician', 'Active Jobs', 'Completed Jobs', 'Total Jobs', 'Hours Logged', 'Avg Hours/Job'],
+      ...techRows.map(t => [
+        t.name,
+        String(t.activeJobs),
+        String(t.completedJobs),
+        String(t.activeJobs + t.completedJobs),
+        t.totalHoursLogged.toFixed(1),
+        t.avgHoursPerJob.toFixed(1),
+      ]),
+    ];
+    exportCSV(rows, `${shopName.replace(/\s+/g, '-')}-Technician-Report-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  function exportJobCompletionReport() {
+    const rows: string[][] = [
+      ['Customer', 'Vehicle', 'Technicians', 'Status', 'Check-In', 'Closed', 'Days Open', 'Labor Hours'],
+      ...filteredJobRows.map(j => [
+        j.customer,
+        j.vehicle,
+        j.technicians.join(', ') || 'Unassigned',
+        j.status,
+        j.checkIn ? new Date(j.checkIn).toLocaleDateString() : '',
+        j.closed ? new Date(j.closed).toLocaleDateString() : 'Open',
+        String(j.daysOpen),
+        j.laborHours.toFixed(1),
+      ]),
+    ];
+    exportCSV(rows, `${shopName.replace(/\s+/g, '-')}-JobCompletion-Report-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  const filteredJobRows = jobRows.filter(j => {
+    if (jobFilter === 'complete') return j.status === 'Complete' || j.status === 'Closed';
+    if (jobFilter === 'invoiced') return j.status === 'Invoiced';
+    if (jobFilter === 'open') return j.status !== 'Complete' && j.status !== 'Closed' && j.status !== 'Invoiced';
+    return true;
+  });
+
   const TABS: { id: typeof activeTab; label: string }[] = [
     { id: 'overview', label: '📊 Overview' },
     { id: 'revenue', label: '💵 Revenue' },
     { id: 'repairs', label: '🔧 Repair Orders' },
     { id: 'payments', label: '💳 Payments' },
     { id: 'customers', label: '👥 Customers' },
+    { id: 'technicians', label: '👨‍🔧 Technicians' },
+    { id: 'completion', label: '✅ Job Completion' },
   ];
 
   if (loading) return (
@@ -561,6 +704,253 @@ export function ReportsView() {
                 </div>
               ))}
             </div>
+          </Panel>
+        </>
+      )}
+
+      {/* ── TECHNICIANS ── */}
+      {activeTab === 'technicians' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button className="btn btn-primary" onClick={exportTechReport}>⬇ Export CSV</button>
+          </div>
+
+          {/* Summary stats */}
+          <div className="grid cols-4" style={{ marginBottom: 16 }}>
+            {[
+              { label: 'Technicians', value: String(techRows.filter(t => t.name !== 'Unassigned').length), color: 'var(--text)' },
+              { label: 'Active Jobs', value: String(techRows.reduce((s, t) => s + t.activeJobs, 0)), color: '#f59e0b' },
+              { label: 'Completed Jobs', value: String(techRows.reduce((s, t) => s + t.completedJobs, 0)), color: '#4caf50' },
+              { label: 'Total Hours Logged', value: techRows.reduce((s, t) => s + t.totalHoursLogged, 0).toFixed(1) + ' h', color: '#2196f3' },
+            ].map(c => (
+              <div key={c.label} className="card" style={{ padding: 18 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {techRows.length === 0 ? (
+            <Panel title="Technician Assignments">
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>No job cards found. Create job cards and assign technicians to see this report.</p>
+            </Panel>
+          ) : (
+            <Panel title="Technician Assignments" hint="Click a row to see that technician's jobs">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--line)' }}>
+                    {['Technician', 'Active Jobs', 'Completed', 'Total', 'Hours Logged', 'Avg h/Job', 'Completion Rate', ''].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {techRows.map(t => {
+                    const total = t.activeJobs + t.completedJobs;
+                    const rate = total > 0 ? (t.completedJobs / total) * 100 : 0;
+                    const isExpanded = expandedTech === t.name;
+                    return (
+                      <>
+                        <tr key={t.name} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', background: isExpanded ? 'rgba(204,0,0,0.04)' : undefined }}
+                          onClick={() => setExpandedTech(isExpanded ? null : t.name)}>
+                          <td style={{ padding: '12px 10px', fontWeight: 700 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                                {t.name === 'Unassigned' ? '?' : t.name.charAt(0).toUpperCase()}
+                              </div>
+                              {t.name}
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span style={{ background: t.activeJobs > 0 ? 'rgba(245,158,11,0.12)' : 'var(--surface-soft)', color: t.activeJobs > 0 ? '#f59e0b' : 'var(--muted)', borderRadius: 6, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>{t.activeJobs}</span>
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', borderRadius: 6, padding: '3px 10px', fontWeight: 700, fontSize: 12 }}>{t.completedJobs}</span>
+                          </td>
+                          <td style={{ padding: '12px 10px', fontWeight: 700 }}>{total}</td>
+                          <td style={{ padding: '12px 10px', color: '#2196f3', fontWeight: 600 }}>{t.totalHoursLogged.toFixed(1)} h</td>
+                          <td style={{ padding: '12px 10px', color: 'var(--muted)' }}>{t.avgHoursPerJob.toFixed(1)} h</td>
+                          <td style={{ padding: '12px 10px', width: 160 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ flex: 1, height: 8, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${rate}%`, background: rate >= 70 ? '#4caf50' : rate >= 40 ? '#f59e0b' : 'var(--accent)', borderRadius: 4 }} />
+                              </div>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 32, textAlign: 'right' }}>{rate.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px 10px', color: 'var(--muted)', fontSize: 12 }}>{isExpanded ? '▲' : '▼'}</td>
+                        </tr>
+                        {isExpanded && (
+                          <tr key={t.name + '-detail'}>
+                            <td colSpan={8} style={{ padding: '0 10px 12px', background: 'var(--surface-soft)' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead>
+                                  <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                                    {['Customer', 'Vehicle', 'Status', 'Check-In', 'Closed'].map(h => (
+                                      <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--muted)', fontWeight: 600 }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {t.jobs.map((j, i) => (
+                                    <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                                      <td style={{ padding: '7px 8px', fontWeight: 600 }}>{j.customer || '—'}</td>
+                                      <td style={{ padding: '7px 8px', color: 'var(--muted)' }}>{j.vehicle || '—'}</td>
+                                      <td style={{ padding: '7px 8px' }}>
+                                        <span style={{
+                                          padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                                          background: j.status === 'Complete' || j.status === 'Closed' ? 'rgba(76,175,80,0.12)' : j.status === 'Invoiced' ? 'rgba(33,150,243,0.12)' : 'rgba(245,158,11,0.12)',
+                                          color: j.status === 'Complete' || j.status === 'Closed' ? '#4caf50' : j.status === 'Invoiced' ? '#2196f3' : '#f59e0b',
+                                        }}>{j.status || 'Unknown'}</span>
+                                      </td>
+                                      <td style={{ padding: '7px 8px', color: 'var(--muted)' }}>{j.checkIn ? new Date(j.checkIn).toLocaleDateString() : '—'}</td>
+                                      <td style={{ padding: '7px 8px', color: j.closed ? '#4caf50' : 'var(--muted)' }}>{j.closed ? new Date(j.closed).toLocaleDateString() : 'Open'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </Panel>
+          )}
+        </>
+      )}
+
+      {/* ── JOB COMPLETION ── */}
+      {activeTab === 'completion' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            {/* Status filter pills */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([
+                { id: 'all', label: 'All Jobs' },
+                { id: 'open', label: 'Open' },
+                { id: 'complete', label: 'Complete / Closed' },
+                { id: 'invoiced', label: 'Invoiced' },
+              ] as { id: typeof jobFilter; label: string }[]).map(f => (
+                <button key={f.id} onClick={() => setJobFilter(f.id)}
+                  style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', fontSize: 12, fontWeight: jobFilter === f.id ? 700 : 400, background: jobFilter === f.id ? 'var(--accent)' : 'var(--surface-soft)', color: jobFilter === f.id ? '#fff' : 'var(--muted)' }}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button className="btn btn-primary" onClick={exportJobCompletionReport}>⬇ Export CSV</button>
+          </div>
+
+          {/* Stats row */}
+          {(() => {
+            const total = jobRows.length;
+            const completed = jobRows.filter(j => j.status === 'Complete' || j.status === 'Closed').length;
+            const invoiced = jobRows.filter(j => j.status === 'Invoiced').length;
+            const open = jobRows.filter(j => j.status !== 'Complete' && j.status !== 'Closed' && j.status !== 'Invoiced').length;
+            const closedRows = jobRows.filter(j => j.closed);
+            const avgDays = closedRows.length > 0 ? closedRows.reduce((s, j) => s + j.daysOpen, 0) / closedRows.length : 0;
+            const completionRate = total > 0 ? ((completed + invoiced) / total) * 100 : 0;
+            return (
+              <div className="grid cols-4" style={{ marginBottom: 16 }}>
+                {[
+                  { label: 'Total Job Cards', value: String(total), color: 'var(--text)' },
+                  { label: 'Open / In Progress', value: String(open), color: '#f59e0b' },
+                  { label: 'Complete + Invoiced', value: String(completed + invoiced), color: '#4caf50' },
+                  { label: 'Avg Days to Close', value: avgDays > 0 ? avgDays.toFixed(1) + ' days' : '—', color: avgDays > 7 ? '#f44336' : avgDays > 3 ? '#f59e0b' : '#4caf50' },
+                ].map(c => (
+                  <div key={c.label} className="card" style={{ padding: 18 }}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
+                    {c.label === 'Complete + Invoiced' && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{completionRate.toFixed(0)}% completion rate</div>}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Status breakdown bar */}
+          {(() => {
+            const counts: Record<string, number> = {};
+            for (const j of jobRows) counts[j.status] = (counts[j.status] ?? 0) + 1;
+            const total = jobRows.length || 1;
+            const STATUS_COLORS: Record<string, string> = {
+              'Booked': '#64748b', 'In Progress': '#f59e0b', 'Approved': '#3b82f6',
+              'Dispatched': '#8b5cf6', 'Waiting for Parts': '#f97316', 'Diagnostic': '#06b6d4',
+              'Complete': '#4caf50', 'Closed': '#22c55e', 'Invoiced': '#2196f3',
+            };
+            const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+            return (
+              <Panel title="Jobs by Status" hint="Distribution across all job card statuses">
+                <div style={{ display: 'flex', height: 28, borderRadius: 8, overflow: 'hidden', marginBottom: 14 }}>
+                  {entries.map(([status, count]) => (
+                    <div key={status} title={`${status}: ${count}`}
+                      style={{ flex: count / total, background: STATUS_COLORS[status] ?? '#888', minWidth: count > 0 ? 3 : 0 }} />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {entries.map(([status, count]) => (
+                    <span key={status} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--muted)' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: STATUS_COLORS[status] ?? '#888', display: 'inline-block' }} />
+                      {status} ({count})
+                    </span>
+                  ))}
+                </div>
+              </Panel>
+            );
+          })()}
+
+          {/* Detail table */}
+          <Panel title={`Job List${filteredJobRows.length !== jobRows.length ? ` — ${filteredJobRows.length} of ${jobRows.length}` : ` — ${jobRows.length} total`}`}>
+            {filteredJobRows.length === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>No jobs match the selected filter.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--line)' }}>
+                      {['Customer', 'Vehicle', 'Technician(s)', 'Status', 'Check-In', 'Closed', 'Days', 'Labor h'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredJobRows.map(j => {
+                      const isComplete = j.status === 'Complete' || j.status === 'Closed' || j.status === 'Invoiced';
+                      const STATUS_COLORS: Record<string, string> = {
+                        'Complete': '#4caf50', 'Closed': '#22c55e', 'Invoiced': '#2196f3',
+                        'In Progress': '#f59e0b', 'Waiting for Parts': '#f97316',
+                      };
+                      const sc = STATUS_COLORS[j.status] ?? '#888';
+                      return (
+                        <tr key={j.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '10px', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.customer || '—'}</td>
+                          <td style={{ padding: '10px', color: 'var(--muted)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.vehicle || '—'}</td>
+                          <td style={{ padding: '10px', maxWidth: 130 }}>
+                            {j.technicians.length > 0
+                              ? j.technicians.map((t, i) => (
+                                  <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 7px', fontSize: 11, fontWeight: 700, marginRight: 3 }}>
+                                    {t.charAt(0).toUpperCase()}{t.length > 8 ? t.slice(1, 7) + '…' : t.slice(1)}
+                                  </span>
+                                ))
+                              : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>
+                            }
+                          </td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{ background: `${sc}18`, color: sc, borderRadius: 5, padding: '3px 9px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>{j.status || '—'}</span>
+                          </td>
+                          <td style={{ padding: '10px', color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{j.checkIn ? new Date(j.checkIn).toLocaleDateString() : '—'}</td>
+                          <td style={{ padding: '10px', color: isComplete ? '#4caf50' : 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap' }}>{j.closed ? new Date(j.closed).toLocaleDateString() : 'Open'}</td>
+                          <td style={{ padding: '10px', fontWeight: 700, color: j.daysOpen > 7 ? '#f44336' : j.daysOpen > 3 ? '#f59e0b' : 'var(--text)' }}>{j.daysOpen}d</td>
+                          <td style={{ padding: '10px', color: 'var(--muted)' }}>{j.laborHours > 0 ? j.laborHours.toFixed(1) : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
         </>
       )}
