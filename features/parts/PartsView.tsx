@@ -93,7 +93,9 @@ function downloadCSVTemplate() {
   URL.revokeObjectURL(url);
 }
 
-type ActiveTab = 'inventory' | 'lowstock' | 'add';
+import { PartsOrdersView } from './PartsOrdersView';
+
+type ActiveTab = 'inventory' | 'lowstock' | 'orders' | 'add';
 
 // Supabase throws PostgrestError objects (not instanceof Error) — extract message from either
 function errMsg(e: unknown): string {
@@ -584,7 +586,7 @@ export function PartsView() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid var(--border)', paddingBottom: 0 }}>
-        {(['inventory', 'lowstock', 'add'] as ActiveTab[]).map(t => (
+        {(['inventory', 'lowstock', 'orders', 'add'] as ActiveTab[]).map(t => (
           <button key={t} onClick={() => { setTab(t); if (t === 'add') startAdd(); }}
             style={{
               padding: '8px 18px', border: 'none', background: 'none', cursor: 'pointer',
@@ -594,7 +596,10 @@ export function PartsView() {
               marginBottom: -2, fontSize: 14,
             }}
           >
-            {t === 'inventory' ? '📦 Inventory' : t === 'lowstock' ? `⚠️ Low Stock (${lowStock.length})` : '➕ Add / Edit'}
+            {t === 'inventory' ? '📦 Inventory'
+              : t === 'lowstock' ? `⚠️ Low Stock (${lowStock.length})`
+              : t === 'orders' ? '🛒 Parts Orders'
+              : '➕ Add / Edit'}
           </button>
         ))}
       </div>
@@ -873,6 +878,9 @@ export function PartsView() {
           )}
         </div>
       )}
+
+      {/* ═══ PARTS ORDERS TAB ═══ */}
+      {tab === 'orders' && <PartsOrdersView />}
 
       {/* ═══ ADD / EDIT TAB ═══ */}
       {tab === 'add' && (
