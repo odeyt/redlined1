@@ -55,7 +55,7 @@ export function JobArchiveView() {
     try {
       const { data, error: err } = await supabase
         .from('job_cards')
-        .select('id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice, repair_stage, next_action')
+        .select('id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice, repair_stage, notes')
         .eq('shop_id', getShopId())
         .in('status', ['Complete', 'Closed', 'Invoiced'])
         .order('closed_date', { ascending: false, nullsFirst: false });
@@ -82,7 +82,7 @@ export function JobArchiveView() {
           ro: (r.ro as string) || null,
           invoice: (r.invoice as string) || null,
           repairStage: (r.repair_stage as string) || '',
-          notes: (r.next_action as string) || '',
+          notes: (r.notes as string) || '',
         };
       });
       setJobs(rows);
@@ -283,7 +283,7 @@ export function JobArchiveView() {
                                   <div><span style={{ color: 'var(--muted)' }}>Customer: </span><strong>{j.customer}</strong></div>
                                   <div><span style={{ color: 'var(--muted)' }}>Vehicle: </span><strong>{j.vehicle}</strong></div>
                                   <div><span style={{ color: 'var(--muted)' }}>Service Type: </span>{j.serviceType || '—'}</div>
-                                  <div><span style={{ color: 'var(--muted)' }}>Repair Stage: </span>{j.repairStage.replace(/_/g, ' ') || '—'}</div>
+                                  {j.repairStage && <div><span style={{ color: 'var(--muted)' }}>Repair Stage: </span>{j.repairStage.replace(/_/g, ' ')}</div>}
                                   {j.notes && <div><span style={{ color: 'var(--muted)' }}>Notes: </span>{j.notes}</div>}
                                 </div>
                               </div>
