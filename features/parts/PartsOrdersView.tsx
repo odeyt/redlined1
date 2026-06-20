@@ -153,7 +153,7 @@ export function PartsOrdersView() {
       estimateNumber: o.estimateNumber, invoiceNumber: o.invoiceNumber,
       vehicle: o.vehicle, customerName: o.customerName,
       warranty: o.warranty, notes: o.notes,
-      currency: (o as PartsOrder & { currency?: string }).currency ?? 'USD',
+      currency: (o as PartsOrder).currency || 'USD',
     });
     setSelected(null); setShowForm(true);
   }
@@ -239,8 +239,8 @@ export function PartsOrdersView() {
   const uniqueVendorNames = [...new Set(orders.map(o => o.vendorName).filter(Boolean))];
 
   const money = (v: number) => fmt(v, form.currency || 'USD');
-  const moneyO = (v: number, o?: PartsOrder & { currency?: string }) =>
-    fmt(v, o?.currency ?? 'USD');
+  const moneyO = (v: number, o?: PartsOrder) =>
+    fmt(v, o?.currency || 'USD');
 
   /* small helpers */
   const field = (label: string, children: React.ReactNode, full?: boolean) => (
@@ -344,7 +344,7 @@ export function PartsOrdersView() {
                 </thead>
                 <tbody>
                   {visible.map(o => {
-                    const oc = (o as PartsOrder & { currency?: string }).currency ?? 'USD';
+                    const oc = o.currency || 'USD';
                     return (
                       <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(o)}>
                         <td>
@@ -415,11 +415,11 @@ export function PartsOrdersView() {
               <SectionLabel label="Pricing" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
                 {[
-                  { label: 'Unit Cost',   value: moneyO(selected.unitCost, selected as PartsOrder & { currency?: string }) },
-                  { label: 'Qty × Total', value: `${selected.quantity} × ${moneyO(selected.unitCost, selected as PartsOrder & { currency?: string })} = ${moneyO(selected.totalCost, selected as PartsOrder & { currency?: string })}` },
-                  { label: 'Core Charge', value: moneyO(selected.coreCharge, selected as PartsOrder & { currency?: string }) },
-                  { label: 'Deposit Paid', value: moneyO(selected.depositPaid, selected as PartsOrder & { currency?: string }), color: '#8b5cf6' },
-                  { label: 'Balance Due', value: moneyO(selected.balanceDue, selected as PartsOrder & { currency?: string }), color: selected.balanceDue > 0 ? '#ef4444' : '#22c55e' },
+                  { label: 'Unit Cost',   value: moneyO(selected.unitCost, selected) },
+                  { label: 'Qty × Total', value: `${selected.quantity} × ${moneyO(selected.unitCost, selected)} = ${moneyO(selected.totalCost, selected)}` },
+                  { label: 'Core Charge', value: moneyO(selected.coreCharge, selected) },
+                  { label: 'Deposit Paid', value: moneyO(selected.depositPaid, selected), color: '#8b5cf6' },
+                  { label: 'Balance Due', value: moneyO(selected.balanceDue, selected), color: selected.balanceDue > 0 ? '#ef4444' : '#22c55e' },
                   { label: 'Condition',   value: selected.condition },
                 ].map(({ label, value, color }) => (
                   <InfoBox key={label} label={label} value={String(value)} color={color} />

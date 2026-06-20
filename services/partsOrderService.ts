@@ -37,6 +37,7 @@ export interface PartsOrder {
   customerName: string;
   warranty: string;
   notes: string;
+  currency: string;
   createdAt: string;
 }
 
@@ -77,6 +78,7 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
     customerName:       (r.customer_name as string)    || '',
     warranty:           (r.warranty as string)         || '',
     notes:              (r.notes as string)            || '',
+    currency:           (r.currency as string)         || 'USD',
     createdAt:          (r.created_at as string)       || '',
   };
 }
