@@ -41,8 +41,8 @@ const WORKFLOW_SECTION = {
       content: `From the job card detail drawer, click 🔧 Repair Order → to create a repair order pre-linked to this job. Select the assigned technician from the dropdown (populated from your Technicians list). List each repair task, parts needed, and labour time. The repair order is the internal document your tech works from on the shop floor.`,
     },
     {
-      title: 'Step 8 — Source Parts',
-      content: `Go to Parts to check your inventory for anything needed. If a part is in stock it can be added directly to the repair order. If you need to order from a supplier, log the order in the Parts module and set the job card status to "Waiting for Parts" — your dashboard shows this job as paused until parts arrive.`,
+      title: 'Step 8 — Source & Track Parts',
+      content: `Go to Parts to check your inventory for anything needed. If a part is in stock it can be added directly to the repair order. If you need to order from a supplier, go to Parts Orders → New Parts Order. Select the customer and their vehicle from the dropdowns, choose a vendor, set the ETR date, enter the cost and deposit, then click "Review & Save" — a confirmation modal shows the full order summary before anything is written. The job card status can be set to "Waiting for Parts" — your dashboard shows this job as paused until parts arrive.`,
     },
     {
       title: 'Step 9 — Complete the Job & Create an Invoice',
@@ -219,7 +219,7 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'Adding Parts to Inventory',
-        content: `Go to Parts → Add Part. Enter the part name, part number, supplier, cost price, sell price, and current stock quantity. Set a reorder point — when stock falls below this number, the part appears on your low-stock report. You can bulk-import parts from a CSV file if you have an existing parts list.`,
+        content: `Go to Parts → Add Part. Enter the part name, part number, supplier, cost price, sell price, and current stock quantity. Set a reorder point — when stock falls below this number, the part appears on your low-stock report. You can bulk-import parts from a CSV or Excel (.xlsx) file if you have an existing parts list.`,
       },
       {
         title: 'Adding Parts to a Job Card',
@@ -228,6 +228,45 @@ const PAID_SECTIONS = [
       {
         title: 'Stock & Reorder Reports',
         content: `Go to Parts → Low Stock Report to see everything that needs reordering. The report shows current quantity, reorder point, supplier, and part number — everything you need to place an order. You can export this list as a CSV to send to your supplier directly.`,
+      },
+    ],
+  },
+  {
+    id: 'parts-orders',
+    icon: '🛒',
+    title: 'Parts Orders',
+    subsections: [
+      {
+        title: 'What Is Parts Orders?',
+        content: `Parts Orders is a dedicated module for tracking every part you order from external suppliers. It links each order to a customer, vehicle, job card, repair order, estimate, or invoice — giving you a complete picture of where every ordered part is going and what it costs. Access it from the sidebar under "Parts Orders" or from the Parts tab labeled "🛒 Parts Orders".`,
+      },
+      {
+        title: 'Creating a New Parts Order',
+        content: `Click "+ New Parts Order". Fill in the part name (required), part number, quantity, and condition (New, OEM, Aftermarket, Remanufactured, Used). Select a vendor from the dropdown — choosing a vendor auto-fills their phone and email. If the vendor isn't listed, click "+ Add" to create one inline without leaving the form. Select the currency (USD, CAD, EUR, GBP, MXN, AUD, JPY) before entering costs. Enter unit cost, core charge (if applicable), and deposit paid — the total cost, balance due, and payment status are calculated automatically.`,
+      },
+      {
+        title: 'Linking Customer & Vehicle',
+        content: `Inside the New Parts Order form, the Customer field is a dropdown populated from your live Customers database. Once you select a customer, the Vehicle dropdown filters to show only that customer's registered vehicles. This links the order directly to a real customer record and eliminates manual typing. You can also enter job card numbers, repair order numbers, estimate numbers, and invoice numbers in the Linked Records section to tie the order to specific documents.`,
+      },
+      {
+        title: 'Order Statuses & Payment Tracking',
+        content: `Each order has two independent status fields. Order Status tracks where the part is: Ordered, Deposit Paid, Backordered, Received, Returned, or Cancelled. Payment Status is calculated automatically from the deposit and balance: Unpaid (no deposit), Partial (deposit paid but balance remains), or Paid in Full (balance is zero). Both are shown as colour-coded badges in the table and the detail drawer.`,
+      },
+      {
+        title: 'Review & Confirm Before Saving',
+        content: `When you click "Review & Save" in the parts order form, a confirmation modal appears showing a full summary of the order — part name, vendor, customer, vehicle, all costs, balance due, currency, status, and ETR — before anything is written to the database. Click "← Back to Edit" to make changes or "✓ Confirm & Save" to commit. A toast notification confirms success. This two-step flow prevents accidental saves of incorrect orders.`,
+      },
+      {
+        title: 'Editing & Removing Orders',
+        content: `Every row in the Parts Orders table has Edit and Remove buttons. Click Edit to reopen the full form pre-filled with the order's current data — make changes and go through the confirmation modal again. Click the row itself to open the detail drawer which shows all order information including pricing breakdown, vendor contact, dates, linked records, warranty, and notes. The drawer also has an Edit Order button and a Remove button. Removing requires a browser confirmation before deleting.`,
+      },
+      {
+        title: 'Dashboard Stats',
+        content: `Four stat cards at the top of Parts Orders give a live summary: On Order (count of parts currently Ordered, Deposit Paid, or Backordered), Received (count of parts received), Balance Due (total outstanding owed to all vendors), and Deposits Paid (total deposits across all orders). Use these to understand your outstanding vendor commitments at a glance.`,
+      },
+      {
+        title: 'Managing Vendors',
+        content: `Vendors are stored in a shared directory for your shop. When you add a vendor via the "+ Add" button in the parts order form, they are saved to the vendors list and available for every future order. Each vendor record stores name, phone, email, website, and account notes. Selecting a vendor from the dropdown auto-fills their phone and email on the order form.`,
       },
     ],
   },
@@ -581,6 +620,44 @@ const PAID_SECTIONS = [
     ],
   },
   {
+    id: 'customers-edit',
+    icon: '✏️',
+    title: 'Editing Customers',
+    subsections: [
+      {
+        title: 'Opening a Customer to Edit',
+        content: `Click any customer row to open their detail drawer on the right side of the screen. At the top of the drawer you will see an "✏ Edit" button. Clicking it switches the drawer into inline edit mode — the customer's current information populates a form directly inside the drawer without navigating away.`,
+      },
+      {
+        title: 'Updating Customer Details',
+        content: `In edit mode, you can change the customer's name, phone, email, address, type (Individual or Business), follow-up date, and tags. All fields are editable inline. When done, click "Save Changes" — the record is updated in the database immediately and the drawer switches back to view mode showing the new details. The customer list on the left also updates automatically.`,
+      },
+      {
+        title: 'Cancelling an Edit',
+        content: `If you open the edit form and decide not to make changes, click "Cancel" to return to the customer's view mode without saving. No changes are written to the database. The original customer details remain intact.`,
+      },
+    ],
+  },
+  {
+    id: 'appointments-edit',
+    icon: '📅',
+    title: 'Editing & Removing Appointments',
+    subsections: [
+      {
+        title: 'Editing an Appointment',
+        content: `Go to Appointments in the sidebar. Each row in the appointments table has three action buttons: Check In, Edit, and Remove. Click "Edit" on any row to open the booking modal pre-filled with that appointment's current data — time, customer, vehicle, service, bay/route, technician, and reminder status. Make your changes and click "Update Appointment" to save. The job card number assigned at creation is preserved automatically.`,
+      },
+      {
+        title: 'Removing an Appointment',
+        content: `Click "Remove" on any appointment row. A browser confirmation dialog asks you to confirm before the appointment is deleted. Once confirmed, the appointment is removed from the list immediately and a toast notification confirms it. This action cannot be undone — if you remove an appointment by mistake, recreate it using the "+ Book Appointment" button.`,
+      },
+      {
+        title: 'Checking In a Customer',
+        content: `When a customer arrives, click "Check In" on their appointment row. The job card status is updated to reflect that the vehicle is now in the shop. The check-in is timestamped and the appointment row is updated in the list. From here, proceed to create or open the linked job card to begin the inspection and repair workflow.`,
+      },
+    ],
+  },
+  {
     id: 'parts-advanced',
     icon: '🔩',
     title: 'Parts Inventory — Advanced Features',
@@ -630,6 +707,11 @@ const FAQS = [
   { q: 'How do I cancel my subscription?', a: 'Go to Settings → Subscription and click Cancel Plan. Your account stays active until the end of your current billing period. No cancellation fees, no hoops to jump through.' },
   { q: 'Can my technicians have their own logins?', a: 'Yes, on the Pro Plus plan. You can invite team members and assign each one a role with the appropriate level of access. Technicians only see jobs assigned to them.' },
   { q: 'Does Redlined1 process credit card payments?', a: 'Yes. When you send an invoice, customers receive a secure Pay Now link. Payments are processed via Stripe. Funds settle to your connected bank account within 2 business days.' },
+  { q: 'Can I import my existing parts list?', a: 'Yes. Go to Parts → Bulk Import and upload a CSV or Excel (.xlsx) file. The importer maps your columns to Redlined1 fields automatically. You can also drag and drop the file directly onto the upload area.' },
+  { q: 'How do I track parts I order from suppliers?', a: 'Use the Parts Orders module (sidebar under "Parts Orders"). Create an order for each part, link it to a customer, vehicle, and job card, set the ETR date, and track the deposit and balance. The module shows live stats for orders on order, received, balance due, and deposits paid.' },
+  { q: 'Can I edit a customer after saving them?', a: 'Yes. Click any customer in the Customers list to open their detail drawer, then click "✏ Edit" to update their details inline without leaving the screen.' },
+  { q: 'Can I edit or cancel an appointment?', a: 'Yes. In the Appointments module, each row has Edit and Remove buttons. Edit reopens the booking form pre-filled with current data. Remove asks for confirmation before deleting.' },
+  { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector supporting USD, CAD, EUR, GBP, MXN, AUD, and JPY. All amounts on that order are displayed in the selected currency.' },
   { q: 'Can I import my existing customer data?', a: 'Yes. Go to Settings → Import and upload a CSV file with your customer list. The import wizard maps your columns to Redlined1 fields. Vehicles and service history can also be imported from CSV.' },
   { q: 'What happens after my 7-day trial ends?', a: 'Your account automatically moves to the free plan. You keep all your data. Features beyond the free plan limits become locked until you upgrade. Nothing is deleted.' },
   { q: 'Is my data secure?', a: 'Yes. All data is stored in Supabase (PostgreSQL) with row-level security — each shop only ever sees its own data. All connections use HTTPS/TLS encryption. Your data is never shared with other users or third parties.' },

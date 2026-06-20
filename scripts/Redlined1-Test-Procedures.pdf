@@ -1,0 +1,1103 @@
+%PDF-1.4
+1 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica
+  /Encoding /WinAnsiEncoding
+>>
+endobj
+2 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica-Bold
+  /Encoding /WinAnsiEncoding
+>>
+endobj
+3 0 obj
+<<
+  /Type /Font
+  /Subtype /Type1
+  /BaseFont /Helvetica-Oblique
+  /Encoding /WinAnsiEncoding
+>>
+endobj
+4 0 obj
+<<
+  /Font <<
+    /F1 1 0 R
+    /F2 2 0 R
+    /F3 3 0 R
+  >>
+>>
+endobj
+5 0 obj
+<<
+  /Length 2304
+>>
+stream
+0.8 0 0 rg 0 672 612 120 re f
+BT /F2 28 Tf 1 1 1 rg 54 740 Td (REDLINED1) Tj ET
+BT /F1 13 Tf 1 0.7 0.7 rg 54 716 Td (Auto Repair Shop Management) Tj ET
+BT /F1 13 Tf 1 0.7 0.7 rg 54 692 Td (Software Platform) Tj ET
+BT /F2 22 Tf 0 0 0 rg 54 622 Td (Test Procedures & Acceptance Criteria) Tj ET
+BT /F1 13 Tf 0.4 0.4 0.4 rg 54 592 Td (New Features  June 2026 Release) Tj ET
+0.97 0.97 0.97 rg 54 472 504 90 re f
+BT /F2 10 Tf 0 0 0 rg 64 547 Td (Document:) Tj ET
+BT /F1 10 Tf 0.3 0.3 0.3 rg 154 547 Td (Redlined1-Test-Procedures-June2026) Tj ET
+BT /F2 10 Tf 0 0 0 rg 64 531 Td (Version:) Tj ET
+BT /F1 10 Tf 0.3 0.3 0.3 rg 154 531 Td (1.0) Tj ET
+BT /F2 10 Tf 0 0 0 rg 64 515 Td (Prepared:) Tj ET
+BT /F1 10 Tf 0.3 0.3 0.3 rg 154 515 Td (Engineering / QA) Tj ET
+BT /F2 10 Tf 0 0 0 rg 64 499 Td (Date:) Tj ET
+BT /F1 10 Tf 0.3 0.3 0.3 rg 154 499 Td (June 20, 2026) Tj ET
+BT /F2 10 Tf 0 0 0 rg 64 483 Td (Scope:) Tj ET
+BT /F1 10 Tf 0.3 0.3 0.3 rg 154 483 Td (Parts Orders, Vendor Mgmt, Customer Edit, Appointments, Bulk Import, Time Tracking, Inspections, Status Tracker) Tj ET
+BT /F2 12 Tf 0 0 0 rg 54 442 Td (Sections in This Document) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 436 m 558 436 l S
+BT /F1 11 Tf 0 0 0 rg 64 417 Td (1.  Parts Orders) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 417 Td (20 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 399 Td (2.  Vendor Management) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 399 Td (6 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 381 Td (3.  Customer Edit) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 381 Td (7 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 363 Td (4.  Appointments  Edit & Remove) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 363 Td (10 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 345 Td (5.  Parts Bulk Import \(CSV & Excel\)) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 345 Td (6 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 327 Td (6.  Time Tracking) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 327 Td (7 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 309 Td (7.  Digital Inspection  Share & Approval) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 309 Td (8 tests) Tj ET
+BT /F1 11 Tf 0 0 0 rg 64 291 Td (8.  Customer Facing  Repair Status Tracker) Tj ET
+BT /F3 10 Tf 0.5 0.5 0.5 rg 518 291 Td (4 tests) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (CONFIDENTIAL  Internal use only) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (redlined1.com) Tj ET
+endstream
+endobj
+6 0 obj
+<<
+  /Length 8464
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Parts Orders) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (20 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 622 504 34 re f
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (PO-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Navigate to Parts Orders in sidebar) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Parts Orders page loads with stats bar) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 633 Td (and empty table) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.8 0 0 rg 54 590 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 597 Td (PO-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Click "+ New Parts Order") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (New Parts Order modal opens with all) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (form sections visible) Tj ET
+1 1 1 rg 504 592 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 592 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 595 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 586 m 558 586 l S
+0.985 0.985 0.99 rg 54 550 504 34 re f
+0.8 0 0 rg 54 554 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 561 Td (PO-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (Enter Part Name "Front Brake Rotor") Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (and Part Number "BR-1234") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (Fields accept input; Part Name marked) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (with *) Tj ET
+1 1 1 rg 504 556 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 556 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 559 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 550 m 558 550 l S
+0.8 0 0 rg 54 518 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 525 Td (PO-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 537 Td (Select Condition = "New", Quantity =) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (2) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 537 Td (Dropdowns and number field respond) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (correctly) Tj ET
+1 1 1 rg 504 520 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 520 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 523 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 514 m 558 514 l S
+0.985 0.985 0.99 rg 54 478 504 34 re f
+0.8 0 0 rg 54 482 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 489 Td (PO-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 501 Td (Select a Customer from dropdown) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (Customer list populates from live DB;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 489 Td (selection is retained) Tj ET
+1 1 1 rg 504 484 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 484 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 487 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 478 m 558 478 l S
+0.8 0 0 rg 54 446 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 453 Td (PO-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (Select a Vehicle for the chosen) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 453 Td (customer) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (Vehicle dropdown filters to only that) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 453 Td (customer's vehicles) Tj ET
+1 1 1 rg 504 448 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 448 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 451 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 442 m 558 442 l S
+0.985 0.985 0.99 rg 54 406 504 34 re f
+0.8 0 0 rg 54 410 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 417 Td (PO-07) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 429 Td (Click "+ Add" next to Vendor and) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 417 Td (create vendor "AutoZone Pro") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (Vendor modal opens; vendor saved;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 417 Td (vendor name, phone, email auto-fill) Tj ET
+1 1 1 rg 504 412 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 412 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 415 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 406 m 558 406 l S
+0.8 0 0 rg 54 374 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 381 Td (PO-08) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 393 Td (Select Currency = "CAD") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 393 Td (Currency changes to CAD; all price) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 381 Td (fields show CA$ symbol) Tj ET
+1 1 1 rg 504 376 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 376 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 379 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 370 m 558 370 l S
+0.985 0.985 0.99 rg 54 334 504 34 re f
+0.8 0 0 rg 54 338 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 345 Td (PO-09) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 357 Td (Enter Unit Cost = 85.00, Core Charge) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 345 Td (= 20.00, Deposit Paid = 50.00) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 357 Td (Total = CA$170.00, Balance = CA$140.00,) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 345 Td (Status = Partial \(auto-calculated\)) Tj ET
+1 1 1 rg 504 340 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 340 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 343 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 334 m 558 334 l S
+0.8 0 0 rg 54 302 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 309 Td (PO-10) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 321 Td (Set Order Status = "Ordered", ETR) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 309 Td (date to next week) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 321 Td (Fields accept values; date picker works) Tj ET
+1 1 1 rg 504 304 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 304 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 307 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 298 m 558 298 l S
+0.985 0.985 0.99 rg 54 274 504 22 re f
+0.8 0 0 rg 54 278 46 14 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 279 Td (PO-11) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 285 Td (Enter Job Card # "JC-1001") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 285 Td (Text field accepts input) Tj ET
+1 1 1 rg 504 280 48 10 re f
+0.75 0.75 0.75 RG 0.5 w 504 280 48 10 re S
+BT /F1 7 Tf 0 0 0 rg 512 277 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 274 m 558 274 l S
+0.8 0 0 rg 54 230 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 243 Td (PO-12) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 261 Td (Click "Review & Save") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 261 Td (Confirmation modal appears with full) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 249 Td (order summary showing all entered) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 237 Td (values) Tj ET
+1 1 1 rg 504 232 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 232 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 241 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 226 m 558 226 l S
+0.985 0.985 0.99 rg 54 178 504 46 re f
+0.8 0 0 rg 54 182 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 195 Td (PO-13) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 213 Td (Verify confirmation modal shows) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 201 Td (correct Part, Customer, Vehicle,) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 189 Td (Currency, Total, Balance) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 213 Td (All values match what was entered in) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 201 Td (the form) Tj ET
+1 1 1 rg 504 184 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 184 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 193 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 178 m 558 178 l S
+0.8 0 0 rg 54 146 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 153 Td (PO-14) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 165 Td (Click "ê Back to Edit") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 165 Td (Returns to form with all values) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 153 Td (preserved; nothing saved yet) Tj ET
+1 1 1 rg 504 148 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 148 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 151 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 142 m 558 142 l S
+0.985 0.985 0.99 rg 54 94 504 46 re f
+0.8 0 0 rg 54 98 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 111 Td (PO-15) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 129 Td (Click "Review & Save" again then ") Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 117 Td (Confirm & Save") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 129 Td (Modal closes; toast "Front Brake Rotor) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 117 Td (order saved" appears; order appears in) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 105 Td (table) Tj ET
+1 1 1 rg 504 100 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 100 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 109 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 94 m 558 94 l S
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Parts Orders \(continued\)) Tj ET
+endstream
+endobj
+7 0 obj
+<<
+  /Length 3474
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 16 Tf 1 1 1 rg 54 710 Td (Parts Orders \(continued\)) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (PO-16) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Verify stats bar updates: On Order =) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 633 Td (1) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Stats cards reflect the new order) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.985 0.985 0.99 rg 54 574 504 46 re f
+0.8 0 0 rg 54 578 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 591 Td (PO-17) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Click the order row) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (Detail drawer opens showing all order) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (fields, pricing breakdown, vendor info,) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 585 Td (dates, linked records) Tj ET
+1 1 1 rg 504 580 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 580 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 589 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 574 m 558 574 l S
+0.8 0 0 rg 54 542 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 549 Td (PO-18) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (Click " Edit" in drawer) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (Edit form opens pre-filled with order) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 549 Td (data) Tj ET
+1 1 1 rg 504 544 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 544 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 547 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 538 m 558 538 l S
+0.985 0.985 0.99 rg 54 490 504 46 re f
+0.8 0 0 rg 54 494 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 507 Td (PO-19) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (Change status to "Received" and click) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 513 Td ("Review & Update" í " Confirm) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 501 Td (Update") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (Order updated; status badge changes to) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (green "Received") Tj ET
+1 1 1 rg 504 496 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 496 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 505 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 490 m 558 490 l S
+0.8 0 0 rg 54 458 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 465 Td (PO-20) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 477 Td (Click Remove on the order row and) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (confirm) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 477 Td (Order removed from table; toast) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (confirms; stats update) Tj ET
+1 1 1 rg 504 460 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 460 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 463 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 454 m 558 454 l S
+BT /F2 9 Tf 0 0 0 rg 54 442 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 426 m 558 426 l S
+0.5 w 0.7 0.7 0.7 RG 54 406 m 558 406 l S
+0.5 w 0.7 0.7 0.7 RG 54 386 m 558 386 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 358 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Parts Orders) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+8 0 obj
+<<
+  /Length 3954
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Vendor Management) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (6 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 634 504 22 re f
+0.8 0 0 rg 54 638 46 14 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 639 Td (VM-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Open New Parts Order form) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Form loads) Tj ET
+1 1 1 rg 504 640 48 10 re f
+0.75 0.75 0.75 RG 0.5 w 504 640 48 10 re S
+BT /F1 7 Tf 0 0 0 rg 512 637 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 634 m 558 634 l S
+0.8 0 0 rg 54 614 46 14 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 615 Td (VM-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 621 Td (Click "+ Add" next to Vendor Name) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 621 Td (Add Vendor modal opens) Tj ET
+1 1 1 rg 504 616 48 10 re f
+0.75 0.75 0.75 RG 0.5 w 504 616 48 10 re S
+BT /F1 7 Tf 0 0 0 rg 512 613 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 610 m 558 610 l S
+0.985 0.985 0.99 rg 54 538 504 70 re f
+0.8 0 0 rg 54 542 46 62 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 567 Td (VM-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 597 Td (Fill: Name="NAPA Auto",) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 585 Td (Phone="555-111-2222",) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (Email="parts@napa.com",) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (Website="napa.com", Notes="Account) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 549 Td (#8821") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (All fields accept input) Tj ET
+1 1 1 rg 504 544 48 58 re f
+0.75 0.75 0.75 RG 0.5 w 504 544 48 58 re S
+BT /F1 7 Tf 0 0 0 rg 512 565 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 538 m 558 538 l S
+0.8 0 0 rg 54 494 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 507 Td (VM-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (Click "Add Vendor") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (Modal closes; vendor appears in Vendor) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (Name dropdown; phone and email) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (auto-fill on the order form) Tj ET
+1 1 1 rg 504 496 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 496 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 505 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 490 m 558 490 l S
+0.985 0.985 0.99 rg 54 454 504 34 re f
+0.8 0 0 rg 54 458 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 465 Td (VM-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 477 Td (Select the vendor from the dropdown) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (on a new order) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 477 Td (Phone and email fields populate) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (automatically from saved vendor data) Tj ET
+1 1 1 rg 504 460 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 460 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 463 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 454 m 558 454 l S
+0.8 0 0 rg 54 422 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 429 Td (VM-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 441 Td (Try saving vendor with blank name) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 441 Td (Form does not submit; Name field is) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (required) Tj ET
+1 1 1 rg 504 424 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 424 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 427 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 418 m 558 418 l S
+BT /F2 9 Tf 0 0 0 rg 54 406 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 390 m 558 390 l S
+0.5 w 0.7 0.7 0.7 RG 54 370 m 558 370 l S
+0.5 w 0.7 0.7 0.7 RG 54 350 m 558 350 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 322 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Vendor Management) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+9 0 obj
+<<
+  /Length 4512
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Customer Edit) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (7 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 634 504 22 re f
+0.8 0 0 rg 54 638 46 14 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 639 Td (CE-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Go to Customers in sidebar) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Customer list loads) Tj ET
+1 1 1 rg 504 640 48 10 re f
+0.75 0.75 0.75 RG 0.5 w 504 640 48 10 re S
+BT /F1 7 Tf 0 0 0 rg 512 637 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 634 m 558 634 l S
+0.8 0 0 rg 54 602 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 609 Td (CE-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 621 Td (Click any customer row) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 621 Td (Detail drawer opens on right side with) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (customer info) Tj ET
+1 1 1 rg 504 604 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 604 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 607 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 598 m 558 598 l S
+0.985 0.985 0.99 rg 54 562 504 34 re f
+0.8 0 0 rg 54 566 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 573 Td (CE-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 585 Td (Click " Edit" button in drawer) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (header) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 585 Td (Drawer switches to inline edit form) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (pre-filled with customer data) Tj ET
+1 1 1 rg 504 568 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 568 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 571 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 562 m 558 562 l S
+0.8 0 0 rg 54 530 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 537 Td (CE-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 549 Td (Change phone number and email) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 549 Td (Fields are editable; new values typed) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 537 Td (correctly) Tj ET
+1 1 1 rg 504 532 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 532 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 535 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 526 m 558 526 l S
+0.985 0.985 0.99 rg 54 478 504 46 re f
+0.8 0 0 rg 54 482 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 495 Td (CE-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 513 Td (Click "Save Changes") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (Drawer returns to view mode; updated) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (phone and email displayed; customer) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 489 Td (list row also reflects change) Tj ET
+1 1 1 rg 504 484 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 484 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 493 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 478 m 558 478 l S
+0.8 0 0 rg 54 446 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 453 Td (CE-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (Open the same customer, click Edit,) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 453 Td (change name, then click Cancel) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (Drawer returns to view mode; original) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 453 Td (name unchanged; no DB write occurred) Tj ET
+1 1 1 rg 504 448 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 448 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 451 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 442 m 558 442 l S
+0.985 0.985 0.99 rg 54 406 504 34 re f
+0.8 0 0 rg 54 410 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 417 Td (CE-07) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 429 Td (Edit customer  change type to) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 417 Td ("Business") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (Type field updates; tag and follow-up) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 417 Td (fields also editable) Tj ET
+1 1 1 rg 504 412 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 412 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 415 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 406 m 558 406 l S
+BT /F2 9 Tf 0 0 0 rg 54 394 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 378 m 558 378 l S
+0.5 w 0.7 0.7 0.7 RG 54 358 m 558 358 l S
+0.5 w 0.7 0.7 0.7 RG 54 338 m 558 338 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 310 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Customer Edit) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+10 0 obj
+<<
+  /Length 6289
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Appointments  Edit & Remove) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (10 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 622 504 34 re f
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (AP-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Go to Appointments in sidebar) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Appointments table loads with booking) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 633 Td (list) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.8 0 0 rg 54 578 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 591 Td (AP-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Click "+ Book Appointment") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (Booking modal opens with time,) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (customer, vehicle, service, bay,) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 585 Td (technician, reminder fields) Tj ET
+1 1 1 rg 504 580 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 580 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 589 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 574 m 558 574 l S
+0.985 0.985 0.99 rg 54 538 504 34 re f
+0.8 0 0 rg 54 542 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 549 Td (AP-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (Fill all required fields and click) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 549 Td ("Book Appointment") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (Modal closes; new row appears in table) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 549 Td (with all entered data) Tj ET
+1 1 1 rg 504 544 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 544 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 547 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 538 m 558 538 l S
+0.8 0 0 rg 54 494 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 507 Td (AP-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (Click "Edit" on the new appointment) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 513 Td (row) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (Booking modal opens pre-filled with) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (appointment data; header reads "Edit) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (Appointment") Tj ET
+1 1 1 rg 504 496 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 496 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 505 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 490 m 558 490 l S
+0.985 0.985 0.99 rg 54 454 504 34 re f
+0.8 0 0 rg 54 458 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 465 Td (AP-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 477 Td (Change the service type and bay,) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (click "Update Appointment") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 477 Td (Modal closes; row updates immediately) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (with new service and bay values) Tj ET
+1 1 1 rg 504 460 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 460 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 463 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 454 m 558 454 l S
+0.8 0 0 rg 54 422 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 429 Td (AP-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 441 Td (Verify Job Card # is preserved after) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 429 Td (edit) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 441 Td (Original job card number still shows in) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (the Job Card column) Tj ET
+1 1 1 rg 504 424 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 424 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 427 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 418 m 558 418 l S
+0.985 0.985 0.99 rg 54 382 504 34 re f
+0.8 0 0 rg 54 386 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 393 Td (AP-07) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 405 Td (Click "Check In" on an appointment) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 405 Td (Job card status updates; check-in) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 393 Td (recorded; row reflects checked-in state) Tj ET
+1 1 1 rg 504 388 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 388 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 391 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 382 m 558 382 l S
+0.8 0 0 rg 54 350 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 357 Td (AP-08) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 369 Td (Click "Remove" on an appointment) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 369 Td (Confirmation dialog appears: "Remove) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 357 Td (this appointment?") Tj ET
+1 1 1 rg 504 352 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 352 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 355 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 346 m 558 346 l S
+0.985 0.985 0.99 rg 54 310 504 34 re f
+0.8 0 0 rg 54 314 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 321 Td (AP-09) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 333 Td (Confirm removal) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 333 Td (Row removed from table; toast) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 321 Td ("Appointment removed" appears) Tj ET
+1 1 1 rg 504 316 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 316 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 319 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 310 m 558 310 l S
+0.8 0 0 rg 54 278 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 285 Td (AP-10) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 297 Td (Click "Remove" and click Cancel on) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 285 Td (the confirmation) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 297 Td (Appointment remains in the list;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 285 Td (nothing deleted) Tj ET
+1 1 1 rg 504 280 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 280 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 283 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 274 m 558 274 l S
+BT /F2 9 Tf 0 0 0 rg 54 262 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 246 m 558 246 l S
+0.5 w 0.7 0.7 0.7 RG 54 226 m 558 226 l S
+0.5 w 0.7 0.7 0.7 RG 54 206 m 558 206 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 178 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Appointments  Edit & Remove) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+11 0 obj
+<<
+  /Length 4203
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Parts Bulk Import \(CSV & Excel\)) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (6 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 622 504 34 re f
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (BI-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Go to Parts í Bulk Import tab) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Bulk Import panel shows CSV/Excel) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 633 Td (upload area) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.8 0 0 rg 54 590 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 597 Td (BI-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Drag and drop a .csv file onto the) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 597 Td (upload area) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (File is accepted; preview table appears) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (with parsed rows) Tj ET
+1 1 1 rg 504 592 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 592 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 595 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 586 m 558 586 l S
+0.985 0.985 0.99 rg 54 538 504 46 re f
+0.8 0 0 rg 54 542 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 555 Td (BI-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (Drag and drop a .xlsx Excel file onto) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (the upload area) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (File is accepted; Excel rows parsed) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (with headers normalised to snake_case;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 549 Td (preview renders correctly) Tj ET
+1 1 1 rg 504 544 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 544 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 553 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 538 m 558 538 l S
+0.8 0 0 rg 54 506 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 513 Td (BI-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (Click the upload area to browse and) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 513 Td (select a .csv file) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (File picker opens; file selected;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (preview renders) Tj ET
+1 1 1 rg 504 508 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 508 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 511 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 502 m 558 502 l S
+0.985 0.985 0.99 rg 54 466 504 34 re f
+0.8 0 0 rg 54 470 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 477 Td (BI-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 489 Td (Click "Import X Parts") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 489 Td (All valid rows import; success count) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 477 Td (shown; parts appear in Inventory tab) Tj ET
+1 1 1 rg 504 472 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 472 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 475 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 466 m 558 466 l S
+0.8 0 0 rg 54 422 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 435 Td (BI-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 453 Td (Upload a file with invalid columns) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 453 Td (Error shown identifying unrecognised) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 441 Td (columns; import blocked or skips bad) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (rows) Tj ET
+1 1 1 rg 504 424 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 424 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 433 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 418 m 558 418 l S
+BT /F2 9 Tf 0 0 0 rg 54 406 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 390 m 558 390 l S
+0.5 w 0.7 0.7 0.7 RG 54 370 m 558 370 l S
+0.5 w 0.7 0.7 0.7 RG 54 350 m 558 350 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 322 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Parts Bulk Import \(CSV & Excel\)) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+12 0 obj
+<<
+  /Length 4484
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Time Tracking) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (7 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 622 504 34 re f
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (TT-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Enable Time Tracking in Settings í) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 633 Td (Feature Toggles) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Time Tracking appears in sidebar) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.8 0 0 rg 54 590 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 597 Td (TT-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Go to Time Tracking) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (Module loads with 4 stat cards and) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (Clock In form) Tj ET
+1 1 1 rg 504 592 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 592 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 595 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 586 m 558 586 l S
+0.985 0.985 0.99 rg 54 550 504 34 re f
+0.8 0 0 rg 54 554 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 561 Td (TT-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (Select a technician, enter Job Card #) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td ("JC-1001", click "Clock In") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (Session appears in Active Sessions) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (panel with live elapsed timer) Tj ET
+1 1 1 rg 504 556 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 556 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 559 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 550 m 558 550 l S
+0.8 0 0 rg 54 518 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 525 Td (TT-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 537 Td (Click "Clock Out" on the active) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (session) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 537 Td (Session ends; entry moves to Time Log) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (table with correct duration) Tj ET
+1 1 1 rg 504 520 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 520 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 523 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 514 m 558 514 l S
+0.985 0.985 0.99 rg 54 478 504 34 re f
+0.8 0 0 rg 54 482 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 489 Td (TT-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 501 Td (Clock in without selecting a) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 489 Td (technician) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (Error displayed; clock-in blocked) Tj ET
+1 1 1 rg 504 484 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 484 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 487 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 478 m 558 478 l S
+0.8 0 0 rg 54 446 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 453 Td (TT-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 465 Td (Check stat cards after clocking out) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 465 Td (Hours Today and Total Entries update) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 453 Td (correctly) Tj ET
+1 1 1 rg 504 448 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 448 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 451 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 442 m 558 442 l S
+0.985 0.985 0.99 rg 54 394 504 46 re f
+0.8 0 0 rg 54 398 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 411 Td (TT-07) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 429 Td (Click "Export CSV") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 429 Td (CSV downloads with technician, job) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 417 Td (card, clock in, clock out, duration,) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 405 Td (notes columns) Tj ET
+1 1 1 rg 504 400 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 400 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 409 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 394 m 558 394 l S
+BT /F2 9 Tf 0 0 0 rg 54 382 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 366 m 558 366 l S
+0.5 w 0.7 0.7 0.7 RG 54 346 m 558 346 l S
+0.5 w 0.7 0.7 0.7 RG 54 326 m 558 326 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 298 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Time Tracking) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+13 0 obj
+<<
+  /Length 5431
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Digital Inspection  Share & Approval) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (8 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 634 504 22 re f
+0.8 0 0 rg 54 638 46 14 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 639 Td (IN-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Create an inspection from a job card) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Inspection form opens pre-linked to job) Tj ET
+1 1 1 rg 504 640 48 10 re f
+0.75 0.75 0.75 RG 0.5 w 504 640 48 10 re S
+BT /F1 7 Tf 0 0 0 rg 512 637 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 634 m 558 634 l S
+0.8 0 0 rg 54 590 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 603 Td (IN-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 621 Td (Mark 2 items Fail, 1 item Attention,) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (rest Pass; attach a photo to one Fail) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 597 Td (item) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 621 Td (Items save with correct status; photo) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (uploads and displays) Tj ET
+1 1 1 rg 504 592 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 592 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 601 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 586 m 558 586 l S
+0.985 0.985 0.99 rg 54 550 504 34 re f
+0.8 0 0 rg 54 554 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 561 Td (IN-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (Click "= Share Link" in the) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (inspection panel) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (Modal appears with full share URL and) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td ("=À Copy Link" button) Tj ET
+1 1 1 rg 504 556 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 556 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 559 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 550 m 558 550 l S
+0.8 0 0 rg 54 518 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 525 Td (IN-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 537 Td (Click "=À Copy Link") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 537 Td (Button turns green with " Copied to) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (clipboard!" confirmation) Tj ET
+1 1 1 rg 504 520 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 520 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 523 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 514 m 558 514 l S
+0.985 0.985 0.99 rg 54 466 504 46 re f
+0.8 0 0 rg 54 470 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 483 Td (IN-05) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 501 Td (Open the share link in a private) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 489 Td (browser window \(no login\)) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 501 Td (Customer-facing page loads with shop) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 489 Td (logo, inspection summary, per-item) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 477 Td (cards) Tj ET
+1 1 1 rg 504 472 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 472 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 481 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 466 m 558 466 l S
+0.8 0 0 rg 54 434 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 441 Td (IN-06) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 453 Td (Click " Approve Repair" on Fail) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 441 Td (items, " Not Now" on Attention item) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 453 Td (Buttons highlight green/red; decisions) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 441 Td (tracked per item) Tj ET
+1 1 1 rg 504 436 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 436 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 439 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 430 m 558 430 l S
+0.985 0.985 0.99 rg 54 394 504 34 re f
+0.8 0 0 rg 54 398 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 405 Td (IN-07) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 417 Td (Type name in digital signature field) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 405 Td (and click Submit) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 417 Td (Confirmation screen shown; submission) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 405 Td (locked \(cannot re-submit\)) Tj ET
+1 1 1 rg 504 400 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 400 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 403 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 394 m 558 394 l S
+0.8 0 0 rg 54 350 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 363 Td (IN-08) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 381 Td (Return to admin panel; open the) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 369 Td (inspection) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 381 Td (Status badge updates to "Partially) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 369 Td (Approved"; customer name and timestamp) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 357 Td (shown; per-item decisions visible) Tj ET
+1 1 1 rg 504 352 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 352 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 361 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 346 m 558 346 l S
+BT /F2 9 Tf 0 0 0 rg 54 334 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 318 m 558 318 l S
+0.5 w 0.7 0.7 0.7 RG 54 298 m 558 298 l S
+0.5 w 0.7 0.7 0.7 RG 54 278 m 558 278 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 250 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Digital Inspection  Share & Approval) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+14 0 obj
+<<
+  /Length 3234
+>>
+stream
+0.12 0.12 0.14 rg 0 694 612 44 re f
+BT /F2 18 Tf 1 1 1 rg 54 710 Td (Customer Facing  Repair Status Tracker) Tj ET
+BT /F1 10 Tf 0.6 0.6 0.6 rg 478 710 Td (4 test cases) Tj ET
+0.93 0.93 0.95 rg 54 660 504 18 re f
+BT /F2 8.5 Tf 0 0 0 rg 54 666 Td (ID) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 110 666 Td (Test Step / Action) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 284 666 Td (Expected Result) Tj ET
+BT /F2 8.5 Tf 0 0 0 rg 504 666 Td (Pass/Fail) Tj ET
+0.985 0.985 0.99 rg 54 622 504 34 re f
+0.8 0 0 rg 54 626 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 633 Td (ST-01) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 645 Td (Open an active job card; click "=Õ) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 633 Td (Status Tracker") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 645 Td (Tracker initialises at "Checked In";) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 633 Td (customer share URL generated) Tj ET
+1 1 1 rg 504 628 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 628 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 631 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 622 m 558 622 l S
+0.8 0 0 rg 54 590 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 597 Td (ST-02) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 609 Td (Open the share URL in another browser) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 597 Td (\(no login\)) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 609 Td (Customer status page loads showing) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 597 Td (Stage 1 active with progress bar) Tj ET
+1 1 1 rg 504 592 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 592 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 595 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 586 m 558 586 l S
+0.985 0.985 0.99 rg 54 550 504 34 re f
+0.8 0 0 rg 54 554 46 26 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 561 Td (ST-03) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 573 Td (In admin, advance stage to "Being) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 561 Td (Inspected") Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 573 Td (Customer page updates within 30 seconds) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 561 Td (showing new stage) Tj ET
+1 1 1 rg 504 556 48 22 re f
+0.75 0.75 0.75 RG 0.5 w 504 556 48 22 re S
+BT /F1 7 Tf 0 0 0 rg 512 559 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 550 m 558 550 l S
+0.8 0 0 rg 54 506 46 38 re f
+BT /F2 7.5 Tf 1 1 1 rg 57 519 Td (ST-04) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 537 Td (Advance to "Ready for Pickup" with) Tj ET
+BT /F1 8.5 Tf 0 0 0 rg 110 525 Td (email notification) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 537 Td (Stage updates; customer page turns) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 525 Td (green; "=ﬁ Call Us" button appears;) Tj ET
+BT /F1 8.5 Tf 0.2 0.35 0.2 rg 284 513 Td (notification email sent) Tj ET
+1 1 1 rg 504 508 48 34 re f
+0.75 0.75 0.75 RG 0.5 w 504 508 48 34 re S
+BT /F1 7 Tf 0 0 0 rg 512 517 Td (  Pass    Fail) Tj ET
+0.5 w 0.8 0.8 0.8 RG 54 502 m 558 502 l S
+BT /F2 9 Tf 0 0 0 rg 54 490 Td (Tester Notes:) Tj ET
+0.5 w 0.7 0.7 0.7 RG 54 474 m 558 474 l S
+0.5 w 0.7 0.7 0.7 RG 54 454 m 558 454 l S
+0.5 w 0.7 0.7 0.7 RG 54 434 m 558 434 l S
+BT /F1 9 Tf 0.4 0.4 0.4 rg 54 406 Td (Tester:_______________________________   Date:_______________   Sign-off:_______________________________) Tj ET
+BT /F3 9 Tf 0.6 0.6 0.6 rg 54 36 Td (Section: Customer Facing  Repair Status Tracker) Tj ET
+BT /F1 9 Tf 0.6 0.6 0.6 rg 478 36 Td (Redlined1 QA) Tj ET
+endstream
+endobj
+15 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 5 0 R
+  /Parent 25 0 R
+>>
+endobj
+16 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 6 0 R
+  /Parent 25 0 R
+>>
+endobj
+17 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 7 0 R
+  /Parent 25 0 R
+>>
+endobj
+18 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 8 0 R
+  /Parent 25 0 R
+>>
+endobj
+19 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 9 0 R
+  /Parent 25 0 R
+>>
+endobj
+20 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 10 0 R
+  /Parent 25 0 R
+>>
+endobj
+21 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 11 0 R
+  /Parent 25 0 R
+>>
+endobj
+22 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 12 0 R
+  /Parent 25 0 R
+>>
+endobj
+23 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 13 0 R
+  /Parent 25 0 R
+>>
+endobj
+24 0 obj
+<<
+  /Type /Page
+  /MediaBox [0 0 612 792]
+  /Resources 4 0 R
+  /Contents 14 0 R
+  /Parent 25 0 R
+>>
+endobj
+25 0 obj
+<<
+  /Type /Pages
+  /Kids [15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R 24 0 R]
+  /Count 10
+>>
+endobj
+26 0 obj
+<<
+  /Type /Catalog
+  /Pages 25 0 R
+>>
+endobj
+xref
+0 27
+0000000000 65535 f 
+0000000009 00000 n 
+0000000114 00000 n 
+0000000224 00000 n 
+0000000337 00000 n 
+0000000416 00000 n 
+0000002774 00000 n 
+0000011292 00000 n 
+0000014820 00000 n 
+0000018828 00000 n 
+0000023394 00000 n 
+0000029738 00000 n 
+0000033996 00000 n 
+0000038535 00000 n 
+0000044021 00000 n 
+0000047310 00000 n 
+0000047426 00000 n 
+0000047542 00000 n 
+0000047658 00000 n 
+0000047774 00000 n 
+0000047890 00000 n 
+0000048007 00000 n 
+0000048124 00000 n 
+0000048241 00000 n 
+0000048358 00000 n 
+0000048475 00000 n 
+0000048604 00000 n 
+trailer
+<<
+  /Size 27
+  /Root 26 0 R
+>>
+startxref
+48659
+%%EOF
