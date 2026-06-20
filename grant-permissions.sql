@@ -1,6 +1,7 @@
 -- Grant permissions to all Redlined1 tables for anon and authenticated roles
 grant select, insert, update, delete on customers to anon, authenticated;
 grant select, insert, update, delete on vehicles to anon, authenticated;
+grant select, insert, update, delete on vehicle_images to anon, authenticated;
 grant select, insert, update, delete on job_cards to anon, authenticated;
 grant select, insert, update, delete on repair_orders to anon, authenticated;
 grant select, insert, update, delete on appointments to anon, authenticated;
@@ -8,10 +9,19 @@ grant select, insert, update, delete on invoices to anon, authenticated;
 grant select, insert, update, delete on messages to anon, authenticated;
 grant select, insert, update, delete on inspections to anon, authenticated;
 grant select, insert, update, delete on estimates to anon, authenticated;
+grant select, insert, update, delete on estimate_followups to anon, authenticated;
+grant select, insert, update, delete on technicians to anon, authenticated;
 grant select, insert, update, delete on technician_tasks to anon, authenticated;
+grant select, insert, update, delete on time_entries to anon, authenticated;
+grant select, insert, update, delete on maintenance_schedules to anon, authenticated;
 grant select, insert, update, delete on payments to anon, authenticated;
 grant select, insert, update, delete on audit_logs to anon, authenticated;
 grant select, insert, update, delete on parts to anon, authenticated;
 grant select, insert, update, delete on parts_orders to anon, authenticated;
 grant select, insert, update, delete on parts_vendors to anon, authenticated;
+grant select, insert, update, delete on shop_settings to anon, authenticated;
+grant select, insert, update, delete on campaigns to anon, authenticated;
+grant select, insert, update, delete on closed_jobs to anon, authenticated;
 grant select, insert, update, delete on users to anon, authenticated;
+grant select on shop_users to anon, authenticated;
+grant select on shops to anon, authenticated;
