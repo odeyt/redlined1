@@ -353,19 +353,21 @@ export function PartsView() {
           const buf = ev.target?.result;
           if (!(buf instanceof ArrayBuffer)) { setCsvError('Failed to read file.'); return; }
           const XLSX = await import('xlsx');
-          const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+          const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellText: true, cellDates: false });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
-          // Normalise headers to snake_case lowercase to match parseCSV behaviour
-          raw = rawRows.map(row =>
-            Object.fromEntries(
-              Object.entries(row).map(([k, v]) => [
-                // normalise: trim, lowercase, collapse any whitespace/hyphens/slashes to underscore
-                k.trim().toLowerCase().replace(/[\s\-\/]+/g, '_').replace(/[^a-z0-9_]/g, ''),
-                String(v ?? ''),
-              ])
-            )
+          // Use header:1 to get raw array-of-arrays — avoids __EMPTY columns from merged/empty headers
+          const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
+          // Skip leading blank rows to find the header row
+          const headerRowIdx = grid.findIndex(row => (row as unknown[]).some(c => String(c ?? '').trim() !== ''));
+          if (headerRowIdx === -1) { setCsvError('No data found in the file.'); return; }
+          const headers = (grid[headerRowIdx] as unknown[]).map(h =>
+            String(h ?? '').trim().toLowerCase().replace(/[\s\-\/]+/g, '_').replace(/[^a-z0-9_]/g, '')
           );
+          raw = (grid.slice(headerRowIdx + 1) as unknown[][])
+            .filter(row => row.some(c => String(c ?? '').trim() !== ''))
+            .map(row =>
+              Object.fromEntries(headers.map((h, i) => [h, String(row[i] ?? '').trim()]))
+            );
         } else {
           const text = ev.target?.result as string;
           raw = parseCSV(text);
