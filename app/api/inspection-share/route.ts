@@ -1,28 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Service-role client — used for public GET and for updating share_token
-// Falls back gracefully if key is missing (POST will use user JWT instead)
-const SUPA_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const SUPA_SVC  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function adminClient() {
-  return createClient(SUPA_URL, SUPA_SVC ?? SUPA_ANON);
-}
-
-function userClient(jwt: string) {
-  const client = createClient(SUPA_URL, SUPA_ANON);
-  // inject user's JWT so RLS is satisfied
-  client.auth.setSession({ access_token: jwt, refresh_token: '' });
-  return client;
-}
+import { getServerDb, getAdminDb } from '@/lib/supabaseServer';
 
 function generateToken(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let token = '';
-  for (let i = 0; i < 32; i++) token += chars[Math.floor(Math.random() * chars.length)];
-  return token;
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
 }
 
 // POST: generate or return existing share token for an inspection
@@ -31,10 +14,9 @@ export async function POST(req: NextRequest) {
     const { inspectionId, shopId } = await req.json();
     if (!inspectionId || !shopId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    // Prefer service-role client (bypasses RLS). Fall back to user JWT if service key not set.
     const authHeader = req.headers.get('authorization') ?? '';
     const jwt = authHeader.replace('Bearer ', '').trim();
-    const db = SUPA_SVC ? adminClient() : (jwt ? userClient(jwt) : adminClient());
+    const db = await getServerDb(jwt || undefined);
 
     const { data: ins, error } = await db
       .from('inspections')
@@ -67,7 +49,7 @@ export async function GET(req: NextRequest) {
     const token = req.nextUrl.searchParams.get('token');
     if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
 
-    const db = adminClient();
+    const db = getAdminDb();
     const { data: ins, error } = await db
       .from('inspections')
       .select('*')

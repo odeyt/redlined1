@@ -138,6 +138,7 @@ export function PartsView() {
   const [csvError, setCsvError]             = useState('');
   const [csvImporting, setCsvImporting]     = useState(false);
   const [csvProgress, setCsvProgress]       = useState(0);
+  const [csvDragOver, setCsvDragOver]       = useState(false);
 
   const barcodeBuffer = useRef('');
   const barcodeTimer  = useRef<NodeJS.Timeout | null>(null);
@@ -330,26 +331,52 @@ export function PartsView() {
     }
   }
 
-  /* ── CSV bulk import ── */
+  /* ── CSV / Excel bulk import ── */
   function handleCSVFile(files: FileList | null) {
     setCsvError(''); setCsvRows([]);
     if (!files || files.length === 0) return;
     const file = files[0];
-    if (!file.name.match(/\.(csv|txt)$/i)) { setCsvError('Please select a .csv file.'); return; }
+    const isExcel = file.name.match(/\.(xlsx|xls)$/i);
+    const isCSV   = file.name.match(/\.(csv|txt)$/i);
+    if (!isExcel && !isCSV) { setCsvError('Please select a .csv, .xlsx, or .xls file.'); return; }
+
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
       try {
-        const text = ev.target?.result as string;
-        const raw = parseCSV(text);
+        let raw: Record<string, string>[];
+        if (isExcel) {
+          const buf = ev.target?.result;
+          if (!(buf instanceof ArrayBuffer)) { setCsvError('Failed to read file.'); return; }
+          const XLSX = await import('xlsx');
+          const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+          // Normalise headers to snake_case lowercase to match parseCSV behaviour
+          raw = rawRows.map(row =>
+            Object.fromEntries(
+              Object.entries(row).map(([k, v]) => [
+                k.trim().toLowerCase().replace(/\s+/g, '_'),
+                String(v ?? ''),
+              ])
+            )
+          );
+        } else {
+          const text = ev.target?.result as string;
+          raw = parseCSV(text);
+        }
         if (raw.length === 0) { setCsvError('No data rows found. Check that the file has a header row and at least one data row.'); return; }
         const parts = raw.map(rowToPart).filter(r => r.partNumber.trim());
         if (parts.length === 0) { setCsvError('No valid rows found — every row must have a part_number.'); return; }
         setCsvRows(parts);
       } catch {
-        setCsvError('Failed to parse CSV. Make sure the file uses comma delimiters and is UTF-8 encoded.');
+        setCsvError('Failed to parse file. Make sure the file is a valid CSV or Excel spreadsheet.');
       }
     };
-    reader.readAsText(file);
+    if (isExcel) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
   }
 
   async function handleBulkImport() {
@@ -421,13 +448,19 @@ export function PartsView() {
               {/* Step 2 — upload file */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 2 — Upload your CSV file</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: '2px dashed var(--border)', borderRadius: 10, cursor: 'pointer', background: 'var(--surface,#f9f9f9)' }}>
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: `2px dashed ${csvDragOver ? 'var(--red,#cc0000)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', background: csvDragOver ? 'rgba(204,0,0,0.05)' : 'var(--surface,#f9f9f9)', transition: 'border-color .15s, background .15s' }}
+                  onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
+                  onDragEnter={e => { e.preventDefault(); setCsvDragOver(true); }}
+                  onDragLeave={() => setCsvDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setCsvDragOver(false); handleCSVFile(e.dataTransfer.files); }}
+                >
                   <span style={{ fontSize: 32 }}>📂</span>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>Click to browse or drag & drop your CSV</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Accepts .csv and .txt files</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>Click to browse or drag & drop your file</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Accepts .csv, .xlsx, .xls files</div>
                   </div>
-                  <input type="file" accept=".csv,.txt" style={{ display: 'none' }}
+                  <input type="file" accept=".csv,.txt,.xlsx,.xls" style={{ display: 'none' }}
                     onChange={e => handleCSVFile(e.target.files)} />
                 </label>
                 {csvError && (

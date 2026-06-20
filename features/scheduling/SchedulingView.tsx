@@ -129,6 +129,11 @@ export function SchedulingView() {
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
   async function doSave() {
+    if (!form.customerName || !form.vehicle || !form.serviceType) {
+      setError('Customer, vehicle, and service type required.');
+      setConfirmSave(false);
+      return;
+    }
     setConfirmSave(false);
     setSaving(true); setError('');
     try {
@@ -143,7 +148,10 @@ export function SchedulingView() {
         notify('Maintenance schedule created.');
       }
       setShowForm(false); setEditingId(null); setForm({ ...EMPTY_SCHEDULE });
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : (e as Record<string, unknown>)?.message as string || 'Save failed';
+      setError(msg);
+    }
     finally { setSaving(false); }
   }
 

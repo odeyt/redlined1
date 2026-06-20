@@ -53,6 +53,36 @@ export async function saveCustomer(customer: Omit<Customer, 'id'>): Promise<Cust
   };
 }
 
+export async function updateCustomer(id: string, customer: Omit<Customer, 'id' | 'portalToken'>): Promise<Customer> {
+  const { data, error } = await supabase
+    .from('customers')
+    .update({
+      name: customer.name,
+      type: customer.type,
+      phone: customer.phone,
+      email: customer.email,
+      address: customer.address,
+      tags: customer.tags,
+      follow_up: customer.followUp,
+    })
+    .eq('id', id)
+    .eq('shop_id', getShopId())
+    .select()
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    name: data.name,
+    type: data.type ?? '',
+    phone: data.phone ?? '',
+    email: data.email ?? '',
+    address: data.address ?? '',
+    tags: data.tags ?? [],
+    followUp: data.follow_up ?? '',
+    portalToken: data.portal_token ?? null,
+  };
+}
+
 export async function updateFollowUp(customerId: string, followUp: string): Promise<void> {
   const { error } = await supabase
     .from('customers')

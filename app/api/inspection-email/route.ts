@@ -1,17 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-
-const SUPA_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const SUPA_SVC  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-function getDb(jwt?: string) {
-  if (SUPA_SVC) return createClient(SUPA_URL, SUPA_SVC);
-  const client = createClient(SUPA_URL, SUPA_ANON);
-  if (jwt) client.auth.setSession({ access_token: jwt, refresh_token: '' });
-  return client;
-}
+import { getServerDb } from '@/lib/supabaseServer';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50',
@@ -35,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     const jwt = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
-    const admin = getDb(jwt);
+    const admin = await getServerDb(jwt || undefined);
 
     // Fetch inspection
     const { data: ins, error: insErr } = await admin

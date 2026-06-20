@@ -14,7 +14,8 @@
     "next": "^16.2.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "resend": "^6.12.4"
+    "resend": "^6.12.4",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^16.2.9",
+    "pdfkit": "^0.19.1",
     "sharp": "^0.35.0",
     "typescript": "^5"
   }

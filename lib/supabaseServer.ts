@@ -1,0 +1,21 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+const SUPA_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPA_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPA_SVC  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+/** Returns a service-role client (bypasses RLS) when the key is available,
+ *  otherwise creates an anon client and injects the user's JWT so RLS is
+ *  satisfied via the authenticated role. */
+export async function getServerDb(jwt?: string): Promise<SupabaseClient> {
+  if (SUPA_SVC) return createClient(SUPA_URL, SUPA_SVC);
+  const client = createClient(SUPA_URL, SUPA_ANON);
+  if (jwt) await client.auth.setSession({ access_token: jwt, refresh_token: '' });
+  return client;
+}
+
+/** Always returns a service-role client (falls back to anon if key missing).
+ *  For public/unauthenticated routes — requires a matching anon RLS policy. */
+export function getAdminDb(): SupabaseClient {
+  return createClient(SUPA_URL, SUPA_SVC ?? SUPA_ANON);
+}

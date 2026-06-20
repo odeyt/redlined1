@@ -850,9 +850,9 @@ export function InspectionsView() {
                           <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[item.status] }}>{item.status}</span>
                           {item.notes && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{item.notes}</span>}
                           {item.photoUrl && (
-                            <a href={item.photoUrl} target="_blank" rel="noreferrer" title="View photo" style={{ flexShrink: 0 }}>
-                              <img src={item.photoUrl} alt="photo" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in' }} />
-                            </a>
+                            <img src={item.photoUrl} alt="photo"
+                              onClick={() => setLightboxUrl(item.photoUrl)}
+                              style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in', flexShrink: 0 }} />
                           )}
                         </div>
                       ))}

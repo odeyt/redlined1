@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
-import { fetchCustomers, saveCustomer, updateFollowUp } from '@/services/customerService';
+import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
@@ -23,6 +23,8 @@ export function CustomersView() {
   const [showForm, setShowForm]           = useState(false);
   const [form, setForm]                   = useState(EMPTY_FORM);
   const [saving, setSaving]               = useState(false);
+  const [editingId, setEditingId]         = useState<string | null>(null);
+  const [drawerEditing, setDrawerEditing] = useState(false);
   const [toast, setToast]                 = useState('');
   const [selected, setSelected]           = useState<Customer | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -68,18 +70,32 @@ export function CustomersView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
+  function openEdit(c: Customer) {
+    setEditingId(c.id);
+    setForm({ name: c.name, type: c.type, phone: c.phone, email: c.email, address: c.address, tags: c.tags.join(', '), followUp: c.followUp });
+    setDrawerEditing(true);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const payload = {
+      name: form.name, type: form.type, phone: form.phone, email: form.email,
+      address: form.address, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+      followUp: form.followUp,
+    };
     try {
-      const newCustomer = await saveCustomer({
-        name: form.name, type: form.type, phone: form.phone, email: form.email,
-        address: form.address, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-        followUp: form.followUp, portalToken: null,
-      });
-      setCustomers(prev => [newCustomer, ...prev]);
-      setForm(EMPTY_FORM); setShowForm(false);
-      notify(`${newCustomer.name} saved.`);
+      if (editingId) {
+        const updated = await updateCustomer(editingId, payload);
+        setCustomers(prev => prev.map(c => c.id === editingId ? updated : c));
+        if (selected?.id === editingId) setSelected(updated);
+        notify(`${updated.name} updated.`);
+      } else {
+        const newCustomer = await saveCustomer({ ...payload, portalToken: null });
+        setCustomers(prev => [newCustomer, ...prev]);
+        notify(`${newCustomer.name} saved.`);
+      }
+      setForm(EMPTY_FORM); setShowForm(false); setEditingId(null); setDrawerEditing(false);
     } catch { notify('Save failed. Check your connection.'); }
     finally { setSaving(false); }
   }
@@ -109,13 +125,14 @@ export function CustomersView() {
         {toast && <div className="toast toast-visible">{toast}</div>}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+          <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setEditingId(null); setForm(EMPTY_FORM); }}>
             {showForm ? 'Cancel' : '+ Add Customer'}
           </button>
         </div>
 
         {showForm && (
-          <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: `1px solid ${editingId ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ gridColumn: '1 / -1', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{editingId ? 'Edit Customer' : 'New Customer'}</div>
             <div className="login-field"><label>Name *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Customer or business name" /></div>
             <div className="login-field">
               <label>Type</label>
@@ -129,8 +146,8 @@ export function CustomersView() {
             <div className="login-field"><label>Tags (comma separated)</label><input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="Priority, SMS OK, Net 30" /></div>
             <div className="login-field"><label>Follow-up note</label><input value={form.followUp} onChange={e => setForm(f => ({ ...f, followUp: e.target.value }))} placeholder="e.g. Call about estimate" /></div>
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Customer'}</button>
+              <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Customer' : 'Save Customer'}</button>
             </div>
           </form>
         )}
@@ -200,8 +217,42 @@ export function CustomersView() {
                 </div>
                 <Badge text={selected.type} />
               </div>
-              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', padding: 4 }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {!drawerEditing && (
+                  <button onClick={() => openEdit(selected)}
+                    style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    ✏ Edit
+                  </button>
+                )}
+                <button onClick={() => { setSelected(null); setDrawerEditing(false); setEditingId(null); setForm(EMPTY_FORM); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', padding: 4 }}>✕</button>
+              </div>
             </div>
+
+            {/* ── Inline Edit Form ── */}
+            {drawerEditing && (
+              <form onSubmit={handleSave} style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Edit Customer</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="login-field"><label>Name *</label><input required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+                  <div className="login-field">
+                    <label>Type</label>
+                    <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-soft)' }}>
+                      <option>Retail</option><option>Fleet</option><option>Dealer</option><option>Enterprise Fleet</option><option>Wholesale</option>
+                    </select>
+                  </div>
+                  <div className="login-field"><label>Phone</label><input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
+                  <div className="login-field"><label>Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>
+                  <div className="login-field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} /></div>
+                  <div className="login-field"><label>Tags (comma separated)</label><input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} /></div>
+                  <div className="login-field"><label>Follow-up note</label><input value={form.followUp} onChange={e => setForm(f => ({ ...f, followUp: e.target.value }))} /></div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn" onClick={() => { setDrawerEditing(false); setEditingId(null); setForm(EMPTY_FORM); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Update Customer'}</button>
+                </div>
+              </form>
+            )}
 
             <div style={{ padding: '20px 24px', flex: 1 }}>
 

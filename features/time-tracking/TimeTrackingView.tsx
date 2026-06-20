@@ -1,5 +1,11 @@
 'use client';
 
+function errMsg(e: unknown, fallback: string): string {
+  if (e instanceof Error) return e.message;
+  const m = (e as Record<string, unknown>)?.message;
+  return typeof m === 'string' && m ? m : fallback;
+}
+
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import {
@@ -73,7 +79,7 @@ export function TimeTrackingView() {
       setJobRef(''); setNotes('');
       notify(`${entry.technicianName} clocked in.`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Clock-in failed');
+      setError(errMsg(e, 'Clock-in failed'));
     } finally {
       setClocking(false);
     }
@@ -86,7 +92,7 @@ export function TimeTrackingView() {
       const mins = elapsedMinutes(updated.clockIn);
       notify(`Clocked out — ${formatDuration(mins)} logged.`);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Clock-out failed');
+      setError(errMsg(e, 'Clock-out failed'));
     }
   }
 
@@ -95,7 +101,7 @@ export function TimeTrackingView() {
       await deleteTimeEntry(id);
       setEntries(prev => prev.filter(e => e.id !== id));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Delete failed');
+      setError(errMsg(e, 'Delete failed'));
     }
   }
 
