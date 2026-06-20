@@ -568,9 +568,9 @@ export function PartsOrdersView() {
                 ))}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
-                {field(`Unit Cost (${form.currency})`, <input type="number" min={0} step="0.01" value={form.unitCost} onFocus={e => e.target.select()} onChange={e => setF({ unitCost: Number(e.target.value) || 0 })} />)}
-                {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge} onFocus={e => e.target.select()} onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
-                {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid} onFocus={e => e.target.select()} onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
+                {field(`Unit Cost (${form.currency})`, <input type="number" min={0} step="0.01" value={form.unitCost || ''} placeholder="0.00" onChange={e => setF({ unitCost: Number(e.target.value) || 0 })} />)}
+                {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge || ''} placeholder="0.00" onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
+                {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid || ''} placeholder="0.00" onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <CalcBox label="Total Cost" value={money(form.totalCost)} />
