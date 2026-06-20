@@ -84,6 +84,11 @@ const dashStyle = `
   .dash-parts:hover {
     background: var(--surface-soft) !important;
   }
+  .dash-bar:hover {
+    filter: brightness(1.25);
+    transform: scaleY(1.04);
+    transform-origin: bottom;
+  }
 `;
 
 export function DashboardView() {
@@ -314,23 +319,29 @@ export function DashboardView() {
 
       {!isTech && <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 16 }}>
         {/* Revenue Bar Chart */}
-        <Panel title="Revenue — Last 7 Days" hint="Payments received per day">
+        <Panel title="Revenue — Last 7 Days" hint="Payments received per day — click any bar to view payments">
           {revenue7.every(d => d.amount === 0) ? (
             <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '24px 0', fontSize: 14 }}>No payments recorded in the last 7 days.</p>
           ) : (
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 140, padding: '8px 4px 0' }}>
               {revenue7.map((day, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div
+                  key={i}
+                  onClick={() => day.amount > 0 && nav('payments')}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: day.amount > 0 ? 'pointer' : 'default' }}
+                  title={day.amount > 0 ? `${day.date} — $${day.amount.toLocaleString()} · Click to view payments` : undefined}
+                >
                   <div style={{ fontSize: 11, fontWeight: 700, color: day.amount > 0 ? 'var(--text)' : 'var(--muted)' }}>
                     {day.amount > 0 ? '$' + (day.amount >= 1000 ? (day.amount / 1000).toFixed(1) + 'k' : day.amount.toFixed(0)) : ''}
                   </div>
                   <div
+                    className={day.amount > 0 ? 'dash-bar' : ''}
                     style={{
                       width: '100%',
                       height: Math.max(4, Math.round((day.amount / maxRevDay) * 100)) + 'px',
                       background: day.amount > 0 ? 'var(--accent)' : 'var(--line)',
                       borderRadius: '4px 4px 0 0',
-                      transition: 'height 0.3s',
+                      transition: 'height 0.3s, filter 0.15s, transform 0.15s',
                     }}
                   />
                   <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3 }}>
