@@ -228,6 +228,7 @@ export function VehiclesView() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [vinError, setVinError] = useState('');
   const [toast, setToast] = useState('');
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleWithId | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
@@ -252,6 +253,21 @@ export function VehiclesView() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    // VIN validation — must be exactly 17 alphanumeric characters if provided
+    if (form.vin.trim()) {
+      const vin = form.vin.trim().toUpperCase();
+      if (vin.length !== 17) {
+        setVinError(`VIN must be exactly 17 characters (you entered ${vin.length}).`);
+        setSaving(false);
+        return;
+      }
+      if (!/^[A-HJ-NPR-Z0-9]{17}$/i.test(vin)) {
+        setVinError('VIN can only contain letters and numbers (I, O, Q are not valid VIN characters).');
+        setSaving(false);
+        return;
+      }
+    }
+    setVinError('');
     setSaving(true);
     try {
       const newVehicle = await saveVehicle(form);
@@ -279,7 +295,7 @@ export function VehiclesView() {
       {galleryVehicle && <ImageGallery vehicle={galleryVehicle} onClose={() => setGalleryVehicle(null)} />}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-primary" onClick={() => setShowForm(v => !v)}>
+        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
@@ -295,7 +311,32 @@ export function VehiclesView() {
             </select>
           </div>
           {field('label', 'Vehicle (Year Make Model) *', '2023 Ford F-150')}
-          {field('vin', 'VIN', '1FTFW1E85PFA24680')}
+          <div className="login-field">
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>VIN</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: form.vin.length === 17 ? '#22c55e' : form.vin.length > 0 ? '#f59e0b' : 'var(--muted)' }}>
+                {form.vin.length}/17
+              </span>
+            </label>
+            <input
+              value={form.vin}
+              onChange={e => {
+                const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17);
+                setForm(f => ({ ...f, vin: v }));
+                if (vinError) setVinError('');
+              }}
+              placeholder="1FTFW1E85PFA24680"
+              maxLength={17}
+              style={{ borderColor: vinError ? '#ef4444' : form.vin.length === 17 ? '#22c55e' : undefined, fontFamily: 'monospace', letterSpacing: '0.08em' }}
+            />
+            {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>⚠ {vinError}</div>}
+            {!vinError && form.vin.length > 0 && form.vin.length < 17 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b' }}>{17 - form.vin.length} more character{17 - form.vin.length !== 1 ? 's' : ''} needed</div>
+            )}
+            {!vinError && form.vin.length === 17 && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Valid length</div>
+            )}
+          </div>
           {field('trim', 'Trim', 'XL SuperCrew 4WD')}
           {field('engine', 'Engine', '3.5L EcoBoost')}
           {field('transmission', 'Transmission', '10-speed automatic')}
