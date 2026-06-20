@@ -11,6 +11,7 @@ import { AiView } from '@/features/ai/AiView';
 import { CustomersView } from '@/features/customers/CustomersView';
 import { VehiclesView } from '@/features/vehicles/VehiclesView';
 import { JobCardsView } from '@/features/job-cards/JobCardsView';
+import { JobArchiveView } from '@/features/job-cards/JobArchiveView';
 import { SchedulingView } from '@/features/scheduling/SchedulingView';
 import { InspectionsView } from '@/features/inspections/InspectionsView';
 import { CommunicationView } from '@/features/communication/CommunicationView';
@@ -38,6 +39,7 @@ const views: Record<string, React.ComponentType> = {
   customers: CustomersView,
   vehicles: VehiclesView,
   'job-cards': JobCardsView,
+  'job-archive': JobArchiveView,
   scheduling: SchedulingView,
   inspections: InspectionsView,
   communication: CommunicationView,

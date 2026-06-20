@@ -79,6 +79,7 @@ export function ReportsView() {
   const [jobRows, setJobRows] = useState<JobCompletionRow[]>([]);
   const [expandedTech, setExpandedTech] = useState<string | null>(null);
   const [jobFilter, setJobFilter] = useState<'all' | 'complete' | 'open' | 'invoiced'>('all');
+  const [jobPeriod, setJobPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('overview');
   const [shopName, setShopName] = useState('Redlined1');
@@ -397,10 +398,20 @@ export function ReportsView() {
     exportCSV(rows, `${shopName.replace(/\s+/g, '-')}-JobCompletion-Report-${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
+  const periodStart = (() => {
+    const n = new Date();
+    if (jobPeriod === 'week')    return new Date(n.getFullYear(), n.getMonth(), n.getDate() - n.getDay()).getTime();
+    if (jobPeriod === 'month')   return new Date(n.getFullYear(), n.getMonth(), 1).getTime();
+    if (jobPeriod === 'quarter') return new Date(n.getFullYear(), Math.floor(n.getMonth() / 3) * 3, 1).getTime();
+    if (jobPeriod === 'year')    return new Date(n.getFullYear(), 0, 1).getTime();
+    return 0;
+  })();
+
   const filteredJobRows = jobRows.filter(j => {
-    if (jobFilter === 'complete') return j.status === 'Complete' || j.status === 'Closed';
-    if (jobFilter === 'invoiced') return j.status === 'Invoiced';
-    if (jobFilter === 'open') return j.status !== 'Complete' && j.status !== 'Closed' && j.status !== 'Invoiced';
+    if (jobFilter === 'complete') { if (j.status !== 'Complete' && j.status !== 'Closed') return false; }
+    else if (jobFilter === 'invoiced') { if (j.status !== 'Invoiced') return false; }
+    else if (jobFilter === 'open') { if (j.status === 'Complete' || j.status === 'Closed' || j.status === 'Invoiced') return false; }
+    if (periodStart > 0 && j.checkIn) { if (new Date(j.checkIn).getTime() < periodStart) return false; }
     return true;
   });
 
@@ -825,22 +836,45 @@ export function ReportsView() {
       {/* ── JOB COMPLETION ── */}
       {activeTab === 'completion' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-            {/* Status filter pills */}
-            <div style={{ display: 'flex', gap: 6 }}>
+          {/* Period + status filters */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            {/* Period row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {([
+                  { id: 'week',    label: 'This Week' },
+                  { id: 'month',   label: 'This Month' },
+                  { id: 'quarter', label: 'This Quarter' },
+                  { id: 'year',    label: 'This Year' },
+                  { id: 'all',     label: 'All Time' },
+                ] as { id: typeof jobPeriod; label: string }[]).map(p => (
+                  <button key={p.id} onClick={() => setJobPeriod(p.id)}
+                    style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${jobPeriod === p.id ? 'var(--accent)' : 'var(--line)'}`, cursor: 'pointer', fontSize: 12, fontWeight: jobPeriod === p.id ? 700 : 400, background: jobPeriod === p.id ? 'rgba(204,0,0,0.1)' : 'var(--surface-soft)', color: jobPeriod === p.id ? 'var(--accent)' : 'var(--muted)' }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <button className="btn btn-primary" onClick={exportJobCompletionReport}>⬇ Export CSV</button>
+            </div>
+            {/* Status row */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {([
-                { id: 'all', label: 'All Jobs' },
-                { id: 'open', label: 'Open' },
-                { id: 'complete', label: 'Complete / Closed' },
+                { id: 'all',      label: 'All Status' },
+                { id: 'open',     label: 'Open / In Progress' },
+                { id: 'complete', label: 'Complete' },
                 { id: 'invoiced', label: 'Invoiced' },
               ] as { id: typeof jobFilter; label: string }[]).map(f => (
                 <button key={f.id} onClick={() => setJobFilter(f.id)}
-                  style={{ padding: '6px 14px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', fontSize: 12, fontWeight: jobFilter === f.id ? 700 : 400, background: jobFilter === f.id ? 'var(--accent)' : 'var(--surface-soft)', color: jobFilter === f.id ? '#fff' : 'var(--muted)' }}>
+                  style={{ padding: '5px 13px', borderRadius: 20, border: '1px solid var(--line)', cursor: 'pointer', fontSize: 12, fontWeight: jobFilter === f.id ? 700 : 400, background: jobFilter === f.id ? 'var(--accent)' : 'var(--surface-soft)', color: jobFilter === f.id ? '#fff' : 'var(--muted)' }}>
                   {f.label}
                 </button>
               ))}
+              {(jobPeriod !== 'all' || jobFilter !== 'all') && (
+                <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center', marginLeft: 4 }}>
+                  {filteredJobRows.length} job{filteredJobRows.length !== 1 ? 's' : ''} shown
+                </span>
+              )}
             </div>
-            <button className="btn btn-primary" onClick={exportJobCompletionReport}>⬇ Export CSV</button>
           </div>
 
           {/* Stats row */}

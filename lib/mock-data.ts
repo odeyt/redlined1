@@ -155,6 +155,7 @@ export const navItems: [string, string, string, string][] = [
 
   // ── Job & Dispatch
   ['job-cards',     'clipboard',  'Job Cards',     '18'],
+  ['job-archive',   'clipboard',  'Job Archive',   ''],
   ['time-tracking', 'clock',      'Time Tracking', ''],
   ['scheduling',    'calendar',   'Maintenance Schedules', '9'],
 
@@ -198,6 +199,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   customers: ['Customer CRM', 'Customer accounts, communications, reminders, vehicles, and history'],
   vehicles: ['Vehicle Management', 'VIN, mileage, drivetrain, service history, diagnostics, and recommendations'],
   'job-cards': ['Job Cards', 'Dispatch, inspect, approve, complete, and invoice every service job'],
+  'job-archive': ['Job Archive', 'Permanent record of all completed, closed, and invoiced jobs — search, filter by period, export'],
   scheduling: ['Maintenance Schedules', 'Recurring service intervals, fleet schedules, due-soon alerts, and overdue tracking'],
   inspections: ['Digital Vehicle Inspections', 'Pass/Attention/Fail checklists, photos, customer approvals, and shareable reports'],
   communication: ['Customer Communication', 'SMS, email, approvals, payment links, reminders, and follow-up history'],

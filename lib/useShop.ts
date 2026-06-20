@@ -28,7 +28,7 @@ export const TECHNICIAN_BLOCKED: string[] = [
   'customers', 'vehicles', 'appointments', 'scheduling',
   'estimates', 'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide',
-  'communication', 'vin', 'dtc', 'ai', 'diagnostics',
+  'communication', 'vin', 'dtc', 'ai', 'diagnostics', 'job-archive',
 ];
 
 // Service Advisor: customer-facing + operational.
