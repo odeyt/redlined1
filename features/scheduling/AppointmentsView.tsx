@@ -10,8 +10,9 @@ import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
 
 const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
-
 const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 'Checked in'];
+
+const EMPTY_FORM = { time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' };
 
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
@@ -20,6 +21,7 @@ const overlay: React.CSSProperties = {
 const modal: React.CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14,
   padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto',
+  position: 'relative',
 };
 
 export function AppointmentsView() {
@@ -27,42 +29,62 @@ export function AppointmentsView() {
   const dispatch = useAppDispatch();
 
   const [showForm, setShowForm] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [toast, setToast] = useState('');
-
-  const [form, setForm] = useState({
-    time: '', customer: '', vehicle: '', service: '',
-    bay: '', technician: '', reminder: 'Confirmed',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
     fetchCustomers().then(setCustomers).catch(() => {});
     fetchTechnicians().then(setTechnicians).catch(() => {});
   }, []);
 
+  function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }));
+  }
+
+  function openNew() {
+    setEditingIndex(null);
+    setForm(EMPTY_FORM);
+    setShowForm(true);
+  }
+
+  function openEdit(index: number) {
+    const a = appointments[index];
+    setEditingIndex(index);
+    setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: '', reminder: a[6] });
+    setShowForm(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.time || !form.customer || !form.service) return;
-    dispatch({
-      type: 'ADD_APPOINTMENT',
-      appointment: [form.time, form.customer, form.vehicle, form.service, 'New Job', form.bay, form.reminder],
-    });
-    setToast('Appointment booked!');
-    setTimeout(() => setToast(''), 3000);
-    setForm({ time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' });
-    setShowForm(false);
+    const row = [form.time, form.customer, form.vehicle, form.service,
+      editingIndex !== null ? appointments[editingIndex][4] : 'New Job',
+      form.bay, form.reminder] as [string, string, string, string, string, string, string];
+
+    if (editingIndex !== null) {
+      dispatch({ type: 'EDIT_APPOINTMENT', appointmentIndex: editingIndex, appointment: row });
+    } else {
+      dispatch({ type: 'ADD_APPOINTMENT', appointment: row });
+    }
+    setForm(EMPTY_FORM); setShowForm(false); setEditingIndex(null);
+  }
+
+  function handleDelete(index: number) {
+    if (!confirm('Remove this appointment?')) return;
+    dispatch({ type: 'DELETE_APPOINTMENT', appointmentIndex: index });
+    notify('Appointment removed.');
   }
 
   return (
     <>
       <Panel title="Appointments" hint="Daily booking list — customer, vehicle, bay/route assignment, technician, and check-in">
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Book Appointment</button>
+          <button className="btn btn-primary" onClick={openNew}>+ Book Appointment</button>
         </div>
 
         {toast && (
@@ -86,7 +108,11 @@ export function AppointmentsView() {
                 <td>{a[5]}</td>
                 <td><Badge text={a[6]} /></td>
                 <td>
-                  <button className="mini-btn" onClick={() => dispatch({ type: 'CHECK_IN', appointmentIndex: i })}>Check in</button>
+                  <div className="row-actions">
+                    <button className="mini-btn" onClick={() => dispatch({ type: 'CHECK_IN', appointmentIndex: i })}>Check in</button>
+                    <button className="mini-btn" onClick={() => openEdit(i)}>Edit</button>
+                    <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(i)}>Remove</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -95,9 +121,11 @@ export function AppointmentsView() {
       </Panel>
 
       {showForm && (
-        <div style={overlay} onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+        <div style={overlay} onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditingIndex(null); } }}>
           <div style={modal}>
-            <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>Book Appointment</h2>
+            <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>
+              {editingIndex !== null ? 'Edit Appointment' : 'Book Appointment'}
+            </h2>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               <div className="login-field">
@@ -110,6 +138,10 @@ export function AppointmentsView() {
                 <select value={form.customer} onChange={e => set('customer', e.target.value)} required>
                   <option value="">— Select customer —</option>
                   {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  {/* Keep the existing name if not in the list */}
+                  {form.customer && !customers.find(c => c.name === form.customer) && (
+                    <option value={form.customer}>{form.customer}</option>
+                  )}
                 </select>
               </div>
 
@@ -147,8 +179,10 @@ export function AppointmentsView() {
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Book Appointment</button>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingIndex(null); setForm(EMPTY_FORM); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  {editingIndex !== null ? 'Update Appointment' : 'Book Appointment'}
+                </button>
               </div>
             </form>
           </div>

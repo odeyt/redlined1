@@ -268,6 +268,8 @@ export type AppAction =
   | { type: 'SEND_FOLLOWUP'; customerId: string }
   | { type: 'CREATE_JOB_FROM_VEHICLE'; vehicleIndex: number }
   | { type: 'ADD_APPOINTMENT'; appointment: AppointmentRow }
+  | { type: 'EDIT_APPOINTMENT'; appointmentIndex: number; appointment: AppointmentRow }
+  | { type: 'DELETE_APPOINTMENT'; appointmentIndex: number }
   | { type: 'CHECK_IN'; appointmentIndex: number }
   | { type: 'SEND_REMINDER'; appointmentIndex: number }
   | { type: 'COMPLETE_INSPECTION'; inspectionId: string }
