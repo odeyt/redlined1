@@ -24,6 +24,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
   const [error, setError] = useState('');
   const [camMode, setCamMode] = useState<'off' | 'webcam'>('off');
   const [camReady, setCamReady] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -178,11 +179,49 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
         {/* Drag & drop zone */}
         {camMode === 'off' && (
           <div
-            style={{ border: '2px dashed var(--line)', borderRadius: 10, padding: 18, textAlign: 'center', marginBottom: 20, background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 13 }}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => { e.preventDefault(); uploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))); }}
+            onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+            onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
+            onDrop={e => {
+              e.preventDefault(); e.stopPropagation(); setDragOver(false);
+              let files: File[] = [];
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+              } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+                files = Array.from(e.dataTransfer.items)
+                  .filter(i => i.kind === 'file' && i.type.startsWith('image/'))
+                  .map(i => i.getAsFile())
+                  .filter((f): f is File => f !== null);
+              }
+              if (files.length === 0) {
+                setError('No image files detected. Drag image files from File Explorer, not from a browser tab.');
+                return;
+              }
+              uploadFiles(files);
+            }}
+            onClick={() => fileRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragOver ? 'var(--accent,#cc0000)' : 'var(--line)'}`,
+              borderRadius: 10,
+              padding: '28px 18px',
+              textAlign: 'center',
+              marginBottom: 20,
+              background: dragOver ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)',
+              color: dragOver ? 'var(--accent,#cc0000)' : 'var(--muted)',
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'border-color .15s, background .15s, color .15s',
+              minHeight: 80,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
           >
-            Drop multiple photos here to upload all at once
+            <span style={{ fontSize: 28 }}>{dragOver ? '📸' : '🖼️'}</span>
+            <span style={{ fontWeight: 600 }}>{dragOver ? 'Release to upload' : 'Drop photos here or click to browse'}</span>
+            <span style={{ fontSize: 11 }}>JPG, PNG, HEIC — multiple files at once</span>
           </div>
         )}
 
