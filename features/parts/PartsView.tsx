@@ -126,6 +126,7 @@ export function PartsView() {
   const [retailStr, setRetailStr] = useState('');
   const [saving, setSaving]       = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [locationInput, setLocationInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [editingQty, setEditingQty] = useState<string | null>(null);
   const [newQty, setNewQty]         = useState(0);
@@ -204,6 +205,7 @@ export function PartsView() {
     setForm(EMPTY);
     setCostStr('');
     setRetailStr('');
+    setLocationInput('');
     setPendingPhotos([]);
     setPendingPhotoUrls([]);
     setSelected(null);
@@ -215,6 +217,7 @@ export function PartsView() {
     setForm({ ...p });
     setCostStr(p.cost > 0 ? String(p.cost) : '');
     setRetailStr(p.retail > 0 ? String(p.retail) : '');
+    setLocationInput('');
     setPendingPhotos([]);
     setPendingPhotoUrls([]);
     setEditing(true);
@@ -762,8 +765,14 @@ export function PartsView() {
 
               {selected.location && (
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Bin Location</div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{selected.location}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Bin Locations</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {selected.location.split(',').map(l => l.trim()).filter(Boolean).map((loc, i) => (
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
+                        📍 {loc}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -975,8 +984,46 @@ export function PartsView() {
                 />
               </div>}
               <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Bin Location</label>
-                <input className="input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="A-12, Shelf 3" style={{ width: '100%' }} />
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Bin Locations</label>
+                {/* chips for existing locations */}
+                {form.location && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {form.location.split(',').map(loc => loc.trim()).filter(Boolean).map((loc, i) => (
+                      <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
+                        📍 {loc}
+                        <button type="button" onClick={() => {
+                          const locs = form.location.split(',').map(l => l.trim()).filter((l, idx) => idx !== i && l);
+                          setForm(f => ({ ...f, location: locs.join(', ') }));
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cc0000', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {/* add new location row */}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="input" value={locationInput} onChange={e => setLocationInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const v = locationInput.trim();
+                        if (!v) return;
+                        const existing = form.location ? form.location.split(',').map(l => l.trim()).filter(Boolean) : [];
+                        if (!existing.includes(v)) setForm(f => ({ ...f, location: [...existing, v].join(', ') }));
+                        setLocationInput('');
+                      }
+                    }}
+                    placeholder="e.g. Shelf A-3, Bay 2, Bin 7…" style={{ flex: 1 }} />
+                  <button type="button" onClick={() => {
+                    const v = locationInput.trim();
+                    if (!v) return;
+                    const existing = form.location ? form.location.split(',').map(l => l.trim()).filter(Boolean) : [];
+                    if (!existing.includes(v)) setForm(f => ({ ...f, location: [...existing, v].join(', ') }));
+                    setLocationInput('');
+                  }} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(204,0,0,0.4)', background: 'rgba(204,0,0,0.08)', color: '#cc0000', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    + Add Location
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Press Enter or click "+ Add Location" to add each location. Click × to remove.</div>
               </div>
 
               <div>
