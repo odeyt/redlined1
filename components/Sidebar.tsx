@@ -27,6 +27,7 @@ export function Sidebar() {
   const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
+  const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
 
   // Close shop menu when clicking outside
@@ -47,6 +48,7 @@ export function Sidebar() {
       setLogoUrl(s.logoUrl);
       setHiddenModules(s.hiddenModules ?? []);
       if (s.rolePermissions) setRolePermissions(s.rolePermissions);
+      setFeatureFlags({ enableJobArchive: s.enableJobArchive ?? true, enableTimeTracking: s.enableTimeTracking ?? true });
     }).catch(() => {});
 
     function onBrandingUpdate(e: Event) {
@@ -55,6 +57,8 @@ export function Sidebar() {
       if (detail.tagline !== undefined) setTagline(detail.tagline);
       if (detail.logoUrl !== undefined) setLogoUrl(detail.logoUrl);
       if (detail.hiddenModules !== undefined) setHiddenModules(detail.hiddenModules);
+      if (detail.enableJobArchive !== undefined || detail.enableTimeTracking !== undefined)
+        setFeatureFlags(f => ({ ...f, ...(detail.enableJobArchive !== undefined ? { enableJobArchive: detail.enableJobArchive } : {}), ...(detail.enableTimeTracking !== undefined ? { enableTimeTracking: detail.enableTimeTracking } : {}) }));
       if (detail.rolePermissions !== undefined) setRolePermissions(detail.rolePermissions);
     }
     window.addEventListener('shop-settings-updated', onBrandingUpdate);
@@ -122,8 +126,13 @@ export function Sidebar() {
     return getBlockedModules(role);
   })();
   // hiddenModules = owner's personal sidebar config; only applies when logged in as owner
+  const featureHidden = [
+    ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
+    ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
+  ];
   const visibleNav = navItems.filter(([id]) => {
     if (blockedForRole.includes(id)) return false;
+    if (featureHidden.includes(id)) return false;
     if (role === 'owner' && hiddenModules.includes(id)) return false;
     return true;
   });

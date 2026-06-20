@@ -38,6 +38,11 @@ export interface ShopSettings {
   rolePermissions: RolePermissions;
   inspectionTemplate: Array<{ category: string; name: string }> | null;
   enableTimeTracking: boolean;
+  enableJobArchive: boolean;
+  enableVehiclePhotos: boolean;
+  enableVehicleEdit: boolean;
+  enableTechnicianReport: boolean;
+  enableJobCompletionReport: boolean;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -74,6 +79,11 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enabledPaymentMethods: (data.enabled_payment_methods as string[] | null) ?? DEFAULT_PAYMENT_METHODS,
     inspectionTemplate: data.inspection_template ?? null,
     enableTimeTracking: data.enable_time_tracking ?? true,
+    enableJobArchive: data.enable_job_archive ?? true,
+    enableVehiclePhotos: data.enable_vehicle_photos ?? true,
+    enableVehicleEdit: data.enable_vehicle_edit ?? true,
+    enableTechnicianReport: data.enable_technician_report ?? true,
+    enableJobCompletionReport: data.enable_job_completion_report ?? true,
   };
 }
 
@@ -97,6 +107,11 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.rolePermissions !== undefined) update.role_permissions = settings.rolePermissions;
   if (settings.inspectionTemplate !== undefined) update.inspection_template = settings.inspectionTemplate;
   if (settings.enableTimeTracking !== undefined) update.enable_time_tracking = settings.enableTimeTracking;
+  if (settings.enableJobArchive !== undefined) update.enable_job_archive = settings.enableJobArchive;
+  if (settings.enableVehiclePhotos !== undefined) update.enable_vehicle_photos = settings.enableVehiclePhotos;
+  if (settings.enableVehicleEdit !== undefined) update.enable_vehicle_edit = settings.enableVehicleEdit;
+  if (settings.enableTechnicianReport !== undefined) update.enable_technician_report = settings.enableTechnicianReport;
+  if (settings.enableJobCompletionReport !== undefined) update.enable_job_completion_report = settings.enableJobCompletionReport;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)

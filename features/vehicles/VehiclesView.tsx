@@ -7,6 +7,7 @@ import { fetchVehicles, saveVehicle, updateVehicle, fetchCustomerNames } from '@
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
+import { fetchShopSettings } from '@/services/shopSettingsService';
 
 type VehicleWithId = Vehicle & { id: string };
 
@@ -272,6 +273,15 @@ export function VehiclesView() {
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleWithId | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
+  const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
+
+  useEffect(() => {
+    fetchShopSettings().then(s => {
+      setEnableVehiclePhotos(s.enableVehiclePhotos ?? true);
+      setEnableVehicleEdit(s.enableVehicleEdit ?? true);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([fetchVehicles(), fetchCustomerNames()])
@@ -412,7 +422,7 @@ export function VehiclesView() {
             {vehicles.map(v => (
               <article key={v.id} className="card vehicle-card" style={{ overflow: 'hidden', padding: 0 }}>
                 {/* Photo strip — up to 5 photos in a grid */}
-                {(() => {
+                {enableVehiclePhotos && (() => {
                   const photos = thumbs[v.id] ?? [];
                   const count = photos.length;
                   return (
@@ -463,7 +473,7 @@ export function VehiclesView() {
                       </div>
                     </div>
                   );
-                })()}
+                })() }
 
                 {/* Card body */}
                 <div style={{ padding: 14 }}>
@@ -486,14 +496,14 @@ export function VehiclesView() {
                       const owner = customers.find(c => c.id === v.customerId);
                       dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
                     }}>＋ Job Card</button>
-                    <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>
-                    <button className="btn" style={{ fontSize: 13 }} onClick={() => {
+                    {enableVehiclePhotos && <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
+                    {enableVehicleEdit && <button className="btn" style={{ fontSize: 13 }} onClick={() => {
                       setEditingId(v.id);
                       setForm({ customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim, engine: v.engine, transmission: v.transmission, mileage: v.mileage, plate: v.plate, status: v.status || 'Active', recommendation: v.recommendation });
                       setVinError('');
                       setShowForm(true);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}>✏ Edit</button>
+                    }}>✏ Edit</button>}
                   </div>
                 </div>
               </article>
@@ -503,26 +513,24 @@ export function VehiclesView() {
           <Panel title="Vehicle Service History" hint="Ownership, job cards, repair orders, diagnostics, and recommendations">
             <table>
               <thead>
-                <tr><th>Vehicle</th><th>Transmission</th><th>Status</th><th>Recommendation</th><th>Photos</th></tr>
+                <tr><th>Vehicle</th><th>Transmission</th><th>Status</th><th>Recommendation</th>{enableVehiclePhotos && <th>Photos</th>}</tr>
               </thead>
               <tbody>
                 {vehicles.map(v => (
                   <tr key={v.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {(thumbs[v.id]?.[0])
+                        {enableVehiclePhotos && ((thumbs[v.id]?.[0])
                           ? <img src={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
                           : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>🚗</div>
-                        }
+                        )}
                         <div><strong>{v.label}</strong><div className="meta">{v.plate}</div></div>
                       </div>
                     </td>
                     <td>{v.transmission}</td>
                     <td><Badge text={v.status || 'No open jobs'} /></td>
                     <td>{v.recommendation}</td>
-                    <td>
-                      <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>
-                    </td>
+                    {enableVehiclePhotos && <td><button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button></td>}
                   </tr>
                 ))}
               </tbody>

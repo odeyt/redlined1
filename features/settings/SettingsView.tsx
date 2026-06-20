@@ -51,6 +51,11 @@ export function SettingsView() {
   const [serviceTypes, setServiceTypes] = useState('Oil Change,Brakes,Tires,Alignment,Engine,Transmission,Electrical,AC/Heat,Diagnostics,Inspection,Detailing,Custom');
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
   const [enableTimeTracking, setEnableTimeTracking] = useState(true);
+  const [enableJobArchive, setEnableJobArchive] = useState(true);
+  const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
+  const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
+  const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
+  const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
@@ -93,6 +98,11 @@ export function SettingsView() {
       setServiceTypes(s.serviceTypes ?? '');
       setEnabledPaymentMethods(s.enabledPaymentMethods ?? DEFAULT_PAYMENT_METHODS);
       setEnableTimeTracking(s.enableTimeTracking ?? true);
+      setEnableJobArchive(s.enableJobArchive ?? true);
+      setEnableVehiclePhotos(s.enableVehiclePhotos ?? true);
+      setEnableVehicleEdit(s.enableVehicleEdit ?? true);
+      setEnableTechnicianReport(s.enableTechnicianReport ?? true);
+      setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -174,8 +184,13 @@ export function SettingsView() {
         serviceTypes,
         enabledPaymentMethods,
         enableTimeTracking,
+        enableJobArchive,
+        enableVehiclePhotos,
+        enableVehicleEdit,
+        enableTechnicianReport,
+        enableJobCompletionReport,
       });
-      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods } }));
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking } }));
       flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
@@ -362,26 +377,27 @@ export function SettingsView() {
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700 }}>Feature Toggles</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>⏱ Time Tracking</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Allow technicians to clock in/out per job. Adds "Time Tracking" to the sidebar.</div>
+            {([
+              { key: 'enableTimeTracking', set: setEnableTimeTracking, val: enableTimeTracking, icon: '⏱', label: 'Time Tracking', desc: 'Allow technicians to clock in/out per job. Adds "Time Tracking" to the sidebar.' },
+              { key: 'enableJobArchive', set: setEnableJobArchive, val: enableJobArchive, icon: '🗄️', label: 'Job Archive', desc: 'Access the permanent record of all closed and completed jobs. Adds "Job Archive" to the sidebar.' },
+              { key: 'enableVehiclePhotos', set: setEnableVehiclePhotos, val: enableVehiclePhotos, icon: '📸', label: 'Vehicle Photo Gallery', desc: 'Allow capturing and uploading photos per vehicle. Shows photo strip and gallery on vehicle cards.' },
+              { key: 'enableVehicleEdit', set: setEnableVehicleEdit, val: enableVehicleEdit, icon: '✏️', label: 'Vehicle Inline Edit', desc: 'Show the Edit button on vehicle cards to update vehicle details directly from the list.' },
+              { key: 'enableTechnicianReport', set: setEnableTechnicianReport, val: enableTechnicianReport, icon: '🔧', label: 'Technician Assignment Report', desc: 'Show the Technicians tab in Reports — tracks jobs and hours per technician.' },
+              { key: 'enableJobCompletionReport', set: setEnableJobCompletionReport, val: enableJobCompletionReport, icon: '✅', label: 'Job Completion Report', desc: 'Show the Job Completion tab in Reports — tracks turnaround time and job status trends.' },
+            ] as Array<{ key: string; set: (v: (p: boolean) => boolean) => void; val: boolean; icon: string; label: string; desc: string }>).map(({ set, val, icon, label, desc }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{icon} {label}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>
+                </div>
+                <button
+                  onClick={() => set(v => !v)}
+                  style={{ width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0, background: val ? 'var(--accent)' : 'var(--line)', position: 'relative', transition: 'background 0.2s' }}
+                >
+                  <span style={{ position: 'absolute', top: 3, left: val ? 25 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                </button>
               </div>
-              <button
-                onClick={() => setEnableTimeTracking(v => !v)}
-                style={{
-                  width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', flexShrink: 0,
-                  background: enableTimeTracking ? 'var(--accent)' : 'var(--line)',
-                  position: 'relative', transition: 'background 0.2s',
-                }}
-              >
-                <span style={{
-                  position: 'absolute', top: 3, left: enableTimeTracking ? 25 : 3,
-                  width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                  transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                }} />
-              </button>
-            </div>
+            ))}
           </div>
         </div>
 

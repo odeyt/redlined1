@@ -84,10 +84,16 @@ export function ReportsView() {
   const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('overview');
   const [shopName, setShopName] = useState('Redlined1');
   const [toast, setToast] = useState('');
+  const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
+  const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
 
   useEffect(() => {
     load();
-    fetchShopSettings().then(s => setShopName(s.companyName)).catch(() => {});
+    fetchShopSettings().then(s => {
+      setShopName(s.companyName);
+      setEnableTechnicianReport(s.enableTechnicianReport ?? true);
+      setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
+    }).catch(() => {});
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
@@ -421,8 +427,8 @@ export function ReportsView() {
     { id: 'repairs', label: '🔧 Repair Orders' },
     { id: 'payments', label: '💳 Payments' },
     { id: 'customers', label: '👥 Customers' },
-    { id: 'technicians', label: '👨‍🔧 Technicians' },
-    { id: 'completion', label: '✅ Job Completion' },
+    ...(enableTechnicianReport ? [{ id: 'technicians' as const, label: '👨‍🔧 Technicians' }] : []),
+    ...(enableJobCompletionReport ? [{ id: 'completion' as const, label: '✅ Job Completion' }] : []),
   ];
 
   if (loading) return (
