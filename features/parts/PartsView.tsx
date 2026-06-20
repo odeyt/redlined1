@@ -431,8 +431,8 @@ export function PartsView() {
             {/* Modal header */}
             <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>📤 Bulk Import Parts via CSV</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Upload a .csv file to add many parts at once</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>📤 Bulk Import Parts — CSV / Excel</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Upload a .csv, .xlsx, or .xls file to add many parts at once</div>
               </div>
               <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }} onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>✕</button>
             </div>
@@ -446,7 +446,7 @@ export function PartsView() {
                   <button className="btn" style={{ fontSize: 12 }} onClick={downloadCSVTemplate}>
                     ⬇ Download CSV Template
                   </button>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Fill it in Excel, Google Sheets, or any spreadsheet app, then save as .csv</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Fill it in Excel or Google Sheets — upload as .xlsx, .xls, or save as .csv</span>
                 </div>
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--surface,#f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.7 }}>
                   <strong>Required column:</strong> <code>part_number</code> &nbsp;|&nbsp;
@@ -457,7 +457,7 @@ export function PartsView() {
 
               {/* Step 2 — upload file */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 2 — Upload your CSV file</div>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 2 — Upload your file (.csv, .xlsx, .xls)</div>
                 <label
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: `2px dashed ${csvDragOver ? 'var(--red,#cc0000)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', background: csvDragOver ? 'rgba(204,0,0,0.05)' : 'var(--surface,#f9f9f9)', transition: 'border-color .15s, background .15s' }}
                   onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
