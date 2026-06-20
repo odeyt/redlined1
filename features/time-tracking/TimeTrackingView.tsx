@@ -62,7 +62,7 @@ export function TimeTrackingView() {
     try {
       setEntries(await fetchTimeEntries());
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load time entries');
+      setError(errMsg(e, 'Failed to load time entries'));
     } finally {
       setLoading(false);
     }
