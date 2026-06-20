@@ -747,8 +747,7 @@ export default function HelpPage() {
           <span style={{ color: '#888', fontSize: 14 }}>Help & Manual</span>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <a href="/Redlined1-Test-Procedures.pdf" download style={{ border: '1px solid rgba(204,0,0,0.5)', color: '#ff9090', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>⬇ Test Procedures PDF</a>
-          <Link href="/" style={{ border: '1px solid rgba(255,255,255,0.12)', color: '#ccc', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13 }}>← Back to App</Link>
+<Link href="/" style={{ border: '1px solid rgba(255,255,255,0.12)', color: '#ccc', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13 }}>← Back to App</Link>
           {!isPaid && !loading && (
             <Link href="/signup" style={{ background: '#cc0000', color: '#fff', padding: '7px 16px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>Upgrade for Full Access</Link>
           )}
