@@ -2,14 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
+import { useAppDispatch } from '@/lib/store';
 import {
   fetchMaintenanceSchedules, createMaintenanceSchedule, updateMaintenanceSchedule,
   deleteMaintenanceSchedule, getDaysUntilDue, getDueStatus, COMMON_SERVICE_TYPES,
   type MaintenanceSchedule,
 } from '@/services/maintenanceService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomers } from '@/services/customerService';
+import { fetchVehicles } from '@/services/vehicleService';
+import type { Customer, Vehicle } from '@/lib/types';
 
 type Tab = 'fleet' | 'mobile';
+
+/* ── helpers ─────────────────────────────────────────────────── */
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 /* ── Reminder Button ─────────────────────────────────────────── */
 function ReminderButton({ schedule, onSent }: { schedule: MaintenanceSchedule; onSent: (msg: string) => void }) {
@@ -20,14 +30,12 @@ function ReminderButton({ schedule, onSent }: { schedule: MaintenanceSchedule; o
   const urgency = daysUntil !== null && daysUntil < 0 ? 'overdue' : daysUntil !== null && daysUntil <= 30 ? 'due-soon' : 'upcoming';
   const dueText = daysUntil === null ? 'soon' : daysUntil < 0 ? `${Math.abs(daysUntil)} days overdue` : daysUntil === 0 ? 'today' : `in ${daysUntil} days`;
   const nextDate = schedule.nextDueDate ? new Date(schedule.nextDueDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'soon';
-
   const messageBody = `Hi ${schedule.customerName.split(' ')[0]},\n\nThis is a reminder that your ${schedule.serviceType} for your ${schedule.vehicle} is due ${dueText} (${nextDate}).\n\nCall or text us to book your appointment — we'll get you in fast.\n\nRedlined Auto Repair\nredlined1.com`;
 
   async function handleSend() {
     setSending(true);
     await new Promise(r => setTimeout(r, 900));
-    setSending(false);
-    setShowPreview(false);
+    setSending(false); setShowPreview(false);
     onSent(`Reminder sent to ${schedule.customerName}${schedule.customerEmail ? ` at ${schedule.customerEmail}` : ''}.`);
   }
 
@@ -47,30 +55,18 @@ function ReminderButton({ schedule, onSent }: { schedule: MaintenanceSchedule; o
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="mini-btn" onClick={() => setShowPreview(v => !v)} style={{ fontSize: 12 }}>
-            {showPreview ? 'Hide' : '👁 Preview'}
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: 12, padding: '6px 14px', opacity: hasContact ? 1 : 0.4 }}
-            disabled={!hasContact || sending}
-            onClick={handleSend}
-            title={!hasContact ? 'Add customer email or phone to send reminder' : ''}
-          >
+          <button className="mini-btn" onClick={() => setShowPreview(v => !v)} style={{ fontSize: 12 }}>{showPreview ? 'Hide' : '👁 Preview'}</button>
+          <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 14px', opacity: hasContact ? 1 : 0.4 }} disabled={!hasContact || sending} onClick={handleSend} title={!hasContact ? 'Add customer email or phone to send reminder' : ''}>
             {sending ? 'Sending…' : '📣 Send Reminder'}
           </button>
         </div>
       </div>
       {showPreview && (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-line', lineHeight: 1.7 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-line', lineHeight: 1.7, marginTop: 12 }}>
           {messageBody}
         </div>
       )}
-      {!hasContact && (
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
-          ⚠ No email or phone on file — edit this schedule to add contact details before sending.
-        </div>
-      )}
+      {!hasContact && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>⚠ No email or phone on file — edit this schedule to add contact details.</div>}
     </div>
   );
 }
@@ -84,13 +80,22 @@ const DUE_STATUS_STYLE: Record<string, { bg: string; color: string; label: strin
 
 const MOBILE_SERVICE_CHANNELS = ['Mobile', 'Shop', 'Fleet / On-site', 'Emergency / Roadside', 'Dealership'];
 
+const EMPTY_SCHEDULE = {
+  vehicle: '', vin: '', customerName: '', customerId: '', customerEmail: '', customerPhone: '',
+  serviceType: '', intervalMiles: 0, intervalDays: 0, lastServiceDate: null as string | null,
+  lastServiceMiles: 0, nextDueDate: null as string | null, nextDueMiles: 0, notes: '', status: 'Active',
+};
+
 export function SchedulingView() {
+  const dispatch = useAppDispatch();
   const [tab, setTab] = useState<Tab>('fleet');
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<MaintenanceSchedule | null>(null);
@@ -98,44 +103,86 @@ export function SchedulingView() {
   const [confirmSave, setConfirmSave] = useState(false);
   const [search, setSearch] = useState('');
   const [filterDue, setFilterDue] = useState<'All' | 'overdue' | 'due-soon' | 'ok'>('All');
+  const [form, setForm] = useState({ ...EMPTY_SCHEDULE });
 
   // Mobile booking form
   const [mobileForm, setMobileForm] = useState({
-    customer: '', phone: '', email: '', vehicle: '', address: '', service: '', notes: '', preferredDate: '', eta: '', channel: 'Mobile',
+    customerId: '', customer: '', phone: '', email: '', vehicle: '', vin: '', address: '',
+    service: '', notes: '', preferredDate: '', eta: '', channel: 'Mobile',
     tireSize: '', tireBrand: '', brakeType: '', axlePosition: '', isTireJob: false, isBrakeJob: false,
   });
+  const [mobileVehicles, setMobileVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [mobileSaving, setMobileSaving] = useState(false);
   const [mobileSuccess, setMobileSuccess] = useState('');
 
-  const EMPTY_SCHEDULE = {
-    vehicle: '', vin: '', customerName: '', customerId: '', customerEmail: '', customerPhone: '',
-    serviceType: '', intervalMiles: 0, intervalDays: 0, lastServiceDate: null as string | null,
-    lastServiceMiles: 0, nextDueDate: null as string | null, nextDueMiles: 0, notes: '', status: 'Active',
-  };
-  const [form, setForm] = useState({ ...EMPTY_SCHEDULE });
-
   useEffect(() => {
     loadSchedules();
-    fetchCustomerNames().then(setCustomers).catch(() => {});
+    Promise.all([fetchCustomers(), fetchVehicles()]).then(([custs, vehs]) => {
+      setCustomers(custs);
+      setAllVehicles(vehs as (Vehicle & { id: string })[]);
+    }).catch(() => {});
   }, []);
 
   async function loadSchedules() {
     setLoading(true);
-    try { const data = await fetchMaintenanceSchedules(); setSchedules(data); if (data.length > 0) setSelected(data[0]); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
+    try {
+      const data = await fetchMaintenanceSchedules();
+      setSchedules(data);
+      if (data.length > 0) setSelected(data[0]);
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
     finally { setLoading(false); }
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
+  /* ── Auto-fill when customer selected ── */
+  function handleCustomerSelect(customerId: string) {
+    const cust = customers.find(c => c.id === customerId);
+    if (!cust) { setForm(f => ({ ...f, customerId: '', customerName: '', customerPhone: '', customerEmail: '' })); setCustomerVehicles([]); return; }
+    const vehs = allVehicles.filter(v => v.customerId === customerId);
+    setCustomerVehicles(vehs);
+    setForm(f => ({
+      ...f,
+      customerId,
+      customerName: cust.name,
+      customerPhone: cust.phone || f.customerPhone,
+      customerEmail: cust.email || f.customerEmail,
+      // Auto-fill vehicle if exactly one
+      vehicle: vehs.length === 1 ? vehs[0].label : f.vehicle,
+      vin: vehs.length === 1 ? (vehs[0].vin || f.vin) : f.vin,
+    }));
+  }
+
+  /* ── Auto-fill vehicle from dropdown ── */
+  function handleVehicleSelect(vehicleId: string) {
+    const v = customerVehicles.find(v => v.id === vehicleId);
+    if (v) setForm(f => ({ ...f, vehicle: v.label, vin: v.vin || f.vin }));
+  }
+
+  /* ── Auto-calculate next due date/miles when intervals change ── */
+  function recalcDue(patch: Partial<typeof form>, base: typeof form) {
+    const merged = { ...base, ...patch };
+    const updates: Partial<typeof form> = { ...patch };
+    if (merged.lastServiceDate && merged.intervalDays > 0) {
+      updates.nextDueDate = addDays(merged.lastServiceDate, merged.intervalDays);
+    }
+    if (merged.lastServiceMiles > 0 && merged.intervalMiles > 0) {
+      updates.nextDueMiles = merged.lastServiceMiles + merged.intervalMiles;
+    }
+    return updates;
+  }
+
+  function patchForm(patch: Partial<typeof form>) {
+    setForm(f => ({ ...f, ...recalcDue(patch, f) }));
+  }
+
+  /* ── Save ── */
   async function doSave() {
     if (!form.customerName || !form.vehicle || !form.serviceType) {
       setError('Customer, vehicle, and service type required.');
-      setConfirmSave(false);
-      return;
+      setConfirmSave(false); return;
     }
-    setConfirmSave(false);
-    setSaving(true); setError('');
+    setConfirmSave(false); setSaving(true); setError('');
     try {
       if (editingId) {
         await updateMaintenanceSchedule(editingId, form);
@@ -147,12 +194,10 @@ export function SchedulingView() {
         setSelected(saved);
         notify('Maintenance schedule created.');
       }
-      setShowForm(false); setEditingId(null); setForm({ ...EMPTY_SCHEDULE });
+      setShowForm(false); setEditingId(null); setForm({ ...EMPTY_SCHEDULE }); setCustomerVehicles([]);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : (e as Record<string, unknown>)?.message as string || 'Save failed';
-      setError(msg);
-    }
-    finally { setSaving(false); }
+      setError(e instanceof Error ? e.message : (e as Record<string, unknown>)?.message as string || 'Save failed');
+    } finally { setSaving(false); }
   }
 
   function handleSaveSchedule(e: React.FormEvent) {
@@ -171,9 +216,39 @@ export function SchedulingView() {
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
   }
 
+  /* ── Book Appointment from schedule ── */
+  function handleBookAppointment(s: MaintenanceSchedule) {
+    dispatch({ type: 'SET_MODULE', module: 'appointments' });
+    notify(`Opening Appointments for ${s.customerName} — ${s.serviceType}.`);
+  }
+
+  /* ── Create Job Card from schedule ── */
+  function handleCreateJobCard(s: MaintenanceSchedule) {
+    dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: s.customerName, customerId: s.customerId, vehicle: s.vehicle } });
+    notify(`Opening Job Card for ${s.customerName}.`);
+  }
+
+  /* ── Mobile booking customer auto-fill ── */
+  function handleMobileCustomerSelect(customerId: string) {
+    const cust = customers.find(c => c.id === customerId);
+    if (!cust) { setMobileForm(f => ({ ...f, customerId: '', customer: '', phone: '', email: '', vehicle: '', vin: '' })); setMobileVehicles([]); return; }
+    const vehs = allVehicles.filter(v => v.customerId === customerId);
+    setMobileVehicles(vehs);
+    setMobileForm(f => ({
+      ...f,
+      customerId,
+      customer: cust.name,
+      phone: cust.phone || f.phone,
+      email: cust.email || f.email,
+      address: cust.address || f.address,
+      vehicle: vehs.length === 1 ? vehs[0].label : f.vehicle,
+      vin: vehs.length === 1 ? (vehs[0].vin || f.vin) : f.vin,
+    }));
+  }
+
   async function handleMobileBooking(e: React.FormEvent) {
     e.preventDefault();
-    if (!mobileForm.customer || !mobileForm.vehicle || !mobileForm.address) return setError('Customer, vehicle, and address required for mobile booking.');
+    if (!mobileForm.customer || !mobileForm.vehicle || !mobileForm.address) return setError('Customer, vehicle, and address required.');
     setMobileSaving(true); setError('');
     try {
       const { supabase } = await import('@/lib/supabase');
@@ -184,25 +259,19 @@ export function SchedulingView() {
         mobileForm.isBrakeJob && mobileForm.axlePosition ? `Axle: ${mobileForm.axlePosition}` : '',
         mobileForm.notes,
       ].filter(Boolean).join('\n');
-
       await supabase.from('job_cards').insert({
-        customer: mobileForm.customer,
-        vehicle: mobileForm.vehicle,
-        service_type: mobileForm.service || 'Mobile Service',
-        status: 'Scheduled',
+        customer: mobileForm.customer, vehicle: mobileForm.vehicle,
+        service_type: mobileForm.service || 'Mobile Service', status: 'Scheduled',
         channel: mobileForm.channel,
         notes: `📍 Address: ${mobileForm.address}\n⏰ ETA: ${mobileForm.eta || 'TBD'}\n📞 Phone: ${mobileForm.phone}\n✉️ Email: ${mobileForm.email}\nPreferred: ${mobileForm.preferredDate || 'ASAP'}\n${serviceNote}`,
-        customer_address: mobileForm.address,
-        is_mobile: true,
-        mobile_eta: mobileForm.eta,
-        tire_size: mobileForm.tireSize || null,
-        tire_brand: mobileForm.tireBrand || null,
-        brake_type: mobileForm.brakeType || null,
-        axle_position: mobileForm.axlePosition || null,
+        customer_address: mobileForm.address, is_mobile: true, mobile_eta: mobileForm.eta,
+        tire_size: mobileForm.tireSize || null, tire_brand: mobileForm.tireBrand || null,
+        brake_type: mobileForm.brakeType || null, axle_position: mobileForm.axlePosition || null,
       });
       setMobileSuccess(`Job card created for ${mobileForm.customer}. Go to Job Cards to dispatch.`);
       notify(`Mobile job booked for ${mobileForm.customer}!`);
-      setMobileForm({ customer: '', phone: '', email: '', vehicle: '', address: '', service: '', notes: '', preferredDate: '', eta: '', channel: 'Mobile', tireSize: '', tireBrand: '', brakeType: '', axlePosition: '', isTireJob: false, isBrakeJob: false });
+      setMobileForm({ customerId: '', customer: '', phone: '', email: '', vehicle: '', vin: '', address: '', service: '', notes: '', preferredDate: '', eta: '', channel: 'Mobile', tireSize: '', tireBrand: '', brakeType: '', axlePosition: '', isTireJob: false, isBrakeJob: false });
+      setMobileVehicles([]);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
     finally { setMobileSaving(false); }
   }
@@ -220,27 +289,19 @@ export function SchedulingView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
-      {/* Save confirmation modal */}
+      {/* Confirm save modal */}
       {confirmSave && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-          onClick={() => setConfirmSave(false)}>
-          <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 400, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.3)', position: 'relative' }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setConfirmSave(false)}>
+          <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 400, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Confirm Save</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>
-              <strong>{form.serviceType}</strong> — {form.customerName}
-            </div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}><strong>{form.serviceType}</strong> — {form.customerName}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
               Vehicle: {form.vehicle}{form.vin ? ` · VIN ${form.vin}` : ''}
               {form.nextDueDate && <><br />Next due: <strong>{new Date(form.nextDueDate).toLocaleDateString()}</strong></>}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmSave(false)}
-                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', cursor: 'pointer', fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button onClick={doSave} disabled={saving}
-                style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+              <button onClick={() => setConfirmSave(false)} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+              <button onClick={doSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
                 {saving ? 'Saving…' : 'Yes, Save'}
               </button>
             </div>
@@ -250,22 +311,17 @@ export function SchedulingView() {
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Active Schedules</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{schedules.filter(s => s.status === 'Active').length}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Overdue</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: overdueCount > 0 ? '#f44336' : 'var(--text)' }}>{overdueCount}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Due This Month</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: dueSoonCount > 0 ? '#ff9800' : 'var(--text)' }}>{dueSoonCount}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Up to Date</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#4caf50' }}>{schedules.filter(s => getDueStatus(s) === 'ok').length}</div>
-        </div>
+        {[
+          { label: 'Active Schedules', value: schedules.filter(s => s.status === 'Active').length, color: 'var(--text)' },
+          { label: 'Overdue', value: overdueCount, color: overdueCount > 0 ? '#f44336' : 'var(--text)' },
+          { label: 'Due This Month', value: dueSoonCount, color: dueSoonCount > 0 ? '#ff9800' : 'var(--text)' },
+          { label: 'Up to Date', value: schedules.filter(s => getDueStatus(s) === 'ok').length, color: '#4caf50' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
+          </div>
+        ))}
       </div>
 
       {error && <p style={{ color: 'var(--danger)', padding: '10px 14px', background: '#fff0f0', borderRadius: 6, marginBottom: 12 }}>{error} <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 8 }}>✕</button></p>}
@@ -273,8 +329,7 @@ export function SchedulingView() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
         {([['fleet', '🔧 Fleet / Maintenance Reminders'], ['mobile', '🚐 Mobile & Specialty Booking']] as [Tab, string][]).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)}
-            style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: tab === id ? 'var(--accent)' : 'var(--surface-soft)', color: tab === id ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+          <button key={id} onClick={() => setTab(id)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: tab === id ? 'var(--accent)' : 'var(--surface-soft)', color: tab === id ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
             {label}
           </button>
         ))}
@@ -282,7 +337,7 @@ export function SchedulingView() {
 
       {/* ── FLEET MAINTENANCE ── */}
       {tab === 'fleet' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 16, alignItems: 'start' }}>
           <Panel title="Maintenance Schedules">
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search vehicle, customer…" className="search" style={{ flex: 1 }} />
@@ -293,34 +348,50 @@ export function SchedulingView() {
                 <option value="due-soon">Due Soon</option>
                 <option value="ok">Up to Date</option>
               </select>
-              <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setEditingId(null); setForm({ ...EMPTY_SCHEDULE }); }}>+ Add</button>
+              <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setEditingId(null); setForm({ ...EMPTY_SCHEDULE }); setCustomerVehicles([]); }}>+ Add</button>
             </div>
 
             {showForm && (
               <form onSubmit={handleSaveSchedule} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: 14 }}>{editingId ? 'Edit Schedule' : 'New Schedule'}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                  {/* Customer selector — auto-fills name, phone, email, vehicle */}
+                  <div className="login-field">
+                    <label>Customer</label>
+                    <select value={form.customerId} onChange={e => handleCustomerSelect(e.target.value)}
+                      style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+                      <option value="">— select customer —</option>
+                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <div className="login-field">
-                      <label>Customer</label>
-                      <select value={form.customerId} onChange={e => { const c = customers.find(c => c.id === e.target.value); setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName })); }}
-                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
-                        <option value="">— select —</option>
-                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="login-field">
                       <label>Customer Name</label>
-                      <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
+                      <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required placeholder="Auto-filled from customer" />
                     </div>
+
+                    {/* Vehicle: dropdown if customer selected, else free text */}
                     <div className="login-field">
                       <label>Vehicle</label>
-                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required />
+                      {customerVehicles.length > 0 ? (
+                        <select value={customerVehicles.find(v => v.label === form.vehicle)?.id ?? ''}
+                          onChange={e => handleVehicleSelect(e.target.value)}
+                          style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+                          <option value="">— select vehicle —</option>
+                          {customerVehicles.map(v => <option key={v.id} value={v.id}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>)}
+                        </select>
+                      ) : (
+                        <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="e.g. 2021 Toyota RAV4" />
+                      )}
                     </div>
+
                     <div className="login-field">
                       <label>VIN</label>
-                      <input value={form.vin} onChange={e => setForm(f => ({ ...f, vin: e.target.value }))} />
+                      <input value={form.vin} onChange={e => setForm(f => ({ ...f, vin: e.target.value }))} placeholder="Auto-filled from vehicle" />
                     </div>
+
                     <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                       <label>Service Type</label>
                       <select value={form.serviceType} onChange={e => setForm(f => ({ ...f, serviceType: e.target.value }))}
@@ -329,31 +400,41 @@ export function SchedulingView() {
                         {COMMON_SERVICE_TYPES.map(s => <option key={s}>{s}</option>)}
                       </select>
                     </div>
+
                     <div className="login-field">
                       <label>Interval (miles)</label>
-                      <input type="number" value={form.intervalMiles} onChange={e => setForm(f => ({ ...f, intervalMiles: Number(e.target.value) }))} />
+                      <input type="number" value={form.intervalMiles} onChange={e => patchForm({ intervalMiles: Number(e.target.value) })} />
                     </div>
                     <div className="login-field">
                       <label>Interval (days)</label>
-                      <input type="number" value={form.intervalDays} onChange={e => setForm(f => ({ ...f, intervalDays: Number(e.target.value) }))} />
+                      <input type="number" value={form.intervalDays} onChange={e => patchForm({ intervalDays: Number(e.target.value) })} />
                     </div>
                     <div className="login-field">
                       <label>Last Service Date</label>
-                      <input type="date" value={form.lastServiceDate ?? ''} onChange={e => setForm(f => ({ ...f, lastServiceDate: e.target.value || null }))} />
+                      <input type="date" value={form.lastServiceDate ?? ''} onChange={e => patchForm({ lastServiceDate: e.target.value || null })} />
                     </div>
                     <div className="login-field">
-                      <label>Next Due Date</label>
+                      <label>Last Service Miles</label>
+                      <input type="number" value={form.lastServiceMiles || ''} onChange={e => patchForm({ lastServiceMiles: Number(e.target.value) })} placeholder="e.g. 48000" />
+                    </div>
+                    <div className="login-field">
+                      <label>Next Due Date {form.intervalDays > 0 && form.lastServiceDate ? <span style={{ color: 'var(--accent)', fontSize: 10 }}>auto-calculated</span> : null}</label>
                       <input type="date" value={form.nextDueDate ?? ''} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value || null }))} />
                     </div>
                     <div className="login-field">
+                      <label>Next Due Miles {form.intervalMiles > 0 && form.lastServiceMiles > 0 ? <span style={{ color: 'var(--accent)', fontSize: 10 }}>auto-calculated</span> : null}</label>
+                      <input type="number" value={form.nextDueMiles || ''} onChange={e => setForm(f => ({ ...f, nextDueMiles: Number(e.target.value) }))} />
+                    </div>
+                    <div className="login-field">
                       <label>Customer Phone</label>
-                      <input type="tel" value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} />
+                      <input type="tel" value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} placeholder="Auto-filled from customer" />
                     </div>
                     <div className="login-field">
                       <label>Customer Email</label>
-                      <input type="email" value={form.customerEmail} onChange={e => setForm(f => ({ ...f, customerEmail: e.target.value }))} />
+                      <input type="email" value={form.customerEmail} onChange={e => setForm(f => ({ ...f, customerEmail: e.target.value }))} placeholder="Auto-filled from customer" />
                     </div>
                   </div>
+
                   <div className="login-field">
                     <label>Notes</label>
                     <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
@@ -378,8 +459,7 @@ export function SchedulingView() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{s.serviceType}</div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.customerName}</div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.vehicle}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{s.customerName} · {s.vehicle}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: style.bg, color: style.color }}>{style.label}</span>
@@ -393,7 +473,7 @@ export function SchedulingView() {
             </div>
           </Panel>
 
-          {/* Detail */}
+          {/* Detail panel */}
           {selected && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 16, borderBottom: '2px solid var(--accent)' }}>
@@ -402,9 +482,17 @@ export function SchedulingView() {
                   <div style={{ color: 'var(--muted)', fontSize: 13 }}>{selected.customerName} · {selected.vehicle}</div>
                   {selected.vin && <div style={{ fontSize: 12, color: 'var(--muted)' }}>VIN: {selected.vin}</div>}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary" onClick={() => { setForm({ vehicle: selected.vehicle, vin: selected.vin, customerName: selected.customerName, customerId: selected.customerId, customerEmail: selected.customerEmail, customerPhone: selected.customerPhone, serviceType: selected.serviceType, intervalMiles: selected.intervalMiles, intervalDays: selected.intervalDays, lastServiceDate: selected.lastServiceDate, lastServiceMiles: selected.lastServiceMiles, nextDueDate: selected.nextDueDate, nextDueMiles: selected.nextDueMiles, notes: selected.notes, status: selected.status }); setEditingId(selected.id); setShowForm(true); }}>✏️ Edit</button>
-                  <button className="btn" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(selected)}>Delete</button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => handleBookAppointment(selected)}>📅 Book Appointment</button>
+                  <button className="btn btn-primary" style={{ fontSize: 12, background: '#2196f3' }} onClick={() => handleCreateJobCard(selected)}>🔧 Create Job Card</button>
+                  <button className="btn btn-primary" style={{ fontSize: 12, background: 'var(--surface-soft)', color: 'var(--text)', border: '1px solid var(--line)' }}
+                    onClick={() => {
+                      setForm({ vehicle: selected.vehicle, vin: selected.vin, customerName: selected.customerName, customerId: selected.customerId, customerEmail: selected.customerEmail, customerPhone: selected.customerPhone, serviceType: selected.serviceType, intervalMiles: selected.intervalMiles, intervalDays: selected.intervalDays, lastServiceDate: selected.lastServiceDate, lastServiceMiles: selected.lastServiceMiles, nextDueDate: selected.nextDueDate, nextDueMiles: selected.nextDueMiles, notes: selected.notes, status: selected.status });
+                      const vehs = allVehicles.filter(v => v.customerId === selected.customerId);
+                      setCustomerVehicles(vehs);
+                      setEditingId(selected.id); setShowForm(true);
+                    }}>✏️ Edit</button>
+                  <button className="btn" style={{ color: 'var(--danger)', fontSize: 12 }} onClick={() => handleDelete(selected)}>Delete</button>
                 </div>
               </div>
 
@@ -445,10 +533,7 @@ export function SchedulingView() {
               </div>
 
               {selected.notes && <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface-soft)', borderRadius: 8 }}><strong style={{ fontSize: 12 }}>Notes: </strong><span style={{ fontSize: 13, color: 'var(--muted)' }}>{selected.notes}</span></div>}
-
-              <div style={{ marginTop: 16 }}>
-                <ReminderButton schedule={selected} onSent={notify} />
-              </div>
+              <div style={{ marginTop: 16 }}><ReminderButton schedule={selected} onSent={notify} /></div>
             </div>
           )}
         </div>
@@ -457,29 +542,52 @@ export function SchedulingView() {
       {/* ── MOBILE & SPECIALTY BOOKING ── */}
       {tab === 'mobile' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
-          <Panel title="🚐 Mobile / On-Site Booking" hint="Book a mobile mechanic job — includes tire, brake, and specialty fields">
+          <Panel title="🚐 Mobile / On-Site Booking" hint="Book a mobile mechanic job — customer auto-fills phone, email, and vehicle">
             {mobileSuccess && <div style={{ padding: '10px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, marginBottom: 14, color: '#4caf50', fontSize: 13 }}>{mobileSuccess} <button onClick={() => setMobileSuccess('')} style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: 8 }}>✕</button></div>}
             <form onSubmit={handleMobileBooking} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+
+                {/* Customer dropdown with auto-fill */}
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Customer</label>
+                  <select value={mobileForm.customerId} onChange={e => handleMobileCustomerSelect(e.target.value)}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    <option value="">— select customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
                 <div className="login-field">
                   <label>Customer Name *</label>
-                  <input value={mobileForm.customer} onChange={e => setMobileForm(f => ({ ...f, customer: e.target.value }))} required />
+                  <input value={mobileForm.customer} onChange={e => setMobileForm(f => ({ ...f, customer: e.target.value }))} required placeholder="Auto-filled or type name" />
                 </div>
                 <div className="login-field">
                   <label>Phone</label>
-                  <input type="tel" value={mobileForm.phone} onChange={e => setMobileForm(f => ({ ...f, phone: e.target.value }))} />
+                  <input type="tel" value={mobileForm.phone} onChange={e => setMobileForm(f => ({ ...f, phone: e.target.value }))} placeholder="Auto-filled from customer" />
                 </div>
                 <div className="login-field">
                   <label>Email</label>
-                  <input type="email" value={mobileForm.email} onChange={e => setMobileForm(f => ({ ...f, email: e.target.value }))} />
+                  <input type="email" value={mobileForm.email} onChange={e => setMobileForm(f => ({ ...f, email: e.target.value }))} placeholder="Auto-filled from customer" />
                 </div>
+
+                {/* Vehicle: dropdown if customer selected */}
                 <div className="login-field">
                   <label>Vehicle *</label>
-                  <input value={mobileForm.vehicle} onChange={e => setMobileForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="2021 Honda CR-V" />
+                  {mobileVehicles.length > 0 ? (
+                    <select value={mobileVehicles.find(v => v.label === mobileForm.vehicle)?.id ?? ''}
+                      onChange={e => { const v = mobileVehicles.find(v => v.id === e.target.value); if (v) setMobileForm(f => ({ ...f, vehicle: v.label, vin: v.vin || f.vin })); }}
+                      style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                      <option value="">— select vehicle —</option>
+                      {mobileVehicles.map(v => <option key={v.id} value={v.id}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>)}
+                    </select>
+                  ) : (
+                    <input value={mobileForm.vehicle} onChange={e => setMobileForm(f => ({ ...f, vehicle: e.target.value }))} required placeholder="2021 Honda CR-V" />
+                  )}
                 </div>
+
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>Service Address * (for mobile / on-site)</label>
-                  <input value={mobileForm.address} onChange={e => setMobileForm(f => ({ ...f, address: e.target.value }))} required placeholder="123 Main St, City, State ZIP" />
+                  <input value={mobileForm.address} onChange={e => setMobileForm(f => ({ ...f, address: e.target.value }))} required placeholder="Auto-filled from customer or enter address" />
                 </div>
                 <div className="login-field">
                   <label>Service Type</label>
@@ -514,14 +622,8 @@ export function SchedulingView() {
                 </label>
                 {mobileForm.isTireJob && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div className="login-field">
-                      <label>Tire Size</label>
-                      <input value={mobileForm.tireSize} onChange={e => setMobileForm(f => ({ ...f, tireSize: e.target.value }))} placeholder="e.g. 235/55R18" />
-                    </div>
-                    <div className="login-field">
-                      <label>Tire Brand / Model</label>
-                      <input value={mobileForm.tireBrand} onChange={e => setMobileForm(f => ({ ...f, tireBrand: e.target.value }))} placeholder="e.g. Michelin Defender" />
-                    </div>
+                    <div className="login-field"><label>Tire Size</label><input value={mobileForm.tireSize} onChange={e => setMobileForm(f => ({ ...f, tireSize: e.target.value }))} placeholder="e.g. 235/55R18" /></div>
+                    <div className="login-field"><label>Tire Brand / Model</label><input value={mobileForm.tireBrand} onChange={e => setMobileForm(f => ({ ...f, tireBrand: e.target.value }))} placeholder="e.g. Michelin Defender" /></div>
                   </div>
                 )}
               </div>
@@ -566,15 +668,14 @@ export function SchedulingView() {
             </form>
           </Panel>
 
-          {/* Mobile booking info panel */}
           <Panel title="📋 How Mobile Booking Works" hint="Workflow for mobile mechanics and specialty shops">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
-                { step: '1', title: 'Customer Books Online or By Phone', desc: 'Fill out the intake form with their address, vehicle, and service request. For tire/brake shops, capture size, type, and axle position.' },
-                { step: '2', title: 'Job Card Auto-Created', desc: 'Clicking "Book Mobile Job" automatically creates a Job Card tagged as mobile with the full address, ETA, and specialty fields recorded.' },
-                { step: '3', title: 'Dispatch Technician', desc: 'Open Job Cards → find the new job → assign a technician. The address and ETA are saved in the job card notes.' },
-                { step: '4', title: 'On-Site Payment', desc: 'After completing the work, go to Invoices → create invoice from the job → go to Payments to record cash, card, or digital payment on site.' },
-                { step: '5', title: 'Fleet Maintenance Reminders', desc: 'Use the Fleet tab to set recurring service intervals. When a vehicle is due, you\'ll see it flagged Overdue or Due Soon. Send reminder via Communication → Campaigns.' },
+                { step: '1', title: 'Select Customer — Auto-fills Everything', desc: 'Pick the customer from the dropdown. Phone, email, address, and vehicle populate automatically from the CRM. No double entry.' },
+                { step: '2', title: 'Job Card Auto-Created', desc: 'Clicking "Book Mobile Job" creates a Job Card tagged as mobile with the full address, ETA, and specialty fields recorded in notes.' },
+                { step: '3', title: 'Dispatch Technician', desc: 'Open Job Cards → find the new job → assign a technician. The address and ETA are in the job card notes.' },
+                { step: '4', title: 'On-Site Payment', desc: 'After completing the work, go to Invoices → create invoice from job → Payments to record cash, card, or digital payment on site.' },
+                { step: '5', title: 'Fleet Maintenance Reminders', desc: 'Use the Fleet tab to set recurring intervals. Overdue and Due Soon flags appear automatically. Send reminders from the detail panel.' },
               ].map(({ step, title, desc }) => (
                 <div key={step} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>{step}</div>
@@ -584,17 +685,6 @@ export function SchedulingView() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div style={{ marginTop: 20, padding: '14px 16px', background: 'rgba(33,150,243,0.07)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 6 }}>🏁 Tire & Brake Shop CRM Fields</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--muted)', lineHeight: 1.8 }}>
-                <li>Tire size (e.g. 235/55R18) — saved on job card</li>
-                <li>Tire brand / model</li>
-                <li>Brake pad type: Ceramic, Semi-Metallic, Organic, Performance</li>
-                <li>Axle position: Front, Rear, Front + Rear, All Four</li>
-                <li>All fields searchable in Job Cards view</li>
-              </ul>
             </div>
           </Panel>
         </div>
