@@ -65,7 +65,7 @@ export interface RepairOrder {
   total: number;
 }
 
-export type AppointmentRow = [string, string, string, string, string, string, string];
+export type AppointmentRow = [string, string, string, string, string, string, string, string?];
 
 export interface InvoiceLine {
   0: string;

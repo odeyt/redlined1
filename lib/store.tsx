@@ -288,7 +288,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, appointments: state.appointments.filter((_, i) => i !== action.appointmentIndex), ...notify(state, 'Appointment removed.') };
 
     case 'CHECK_IN': {
-      const appointments = state.appointments.map((a, i) => i === action.appointmentIndex ? [a[0], a[1], a[2], a[3], a[4], a[5], 'Checked in'] as typeof a : a);
+      const appointments = state.appointments.map((a, i) => i === action.appointmentIndex ? [a[0], a[1], a[2], a[3], a[4], a[5], 'Checked in', a[7]] as typeof a : a);
       const appt = state.appointments[action.appointmentIndex];
       return { ...state, appointments, ...notify(state, `${appt[1]} checked in for ${appt[3]}.`) };
     }

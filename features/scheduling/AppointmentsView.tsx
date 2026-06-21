@@ -71,7 +71,7 @@ export function AppointmentsView() {
   function openEdit(index: number) {
     const a = appointments[index];
     setEditingIndex(index);
-    setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: '', reminder: a[6] });
+    setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: a[7] ?? '', reminder: a[6] });
     const cust = customers.find(c => c.name === a[1]);
     setCustomerVehicles(cust ? allVehicles.filter(v => v.customerId === cust.id) : []);
     setShowForm(true);
@@ -82,7 +82,7 @@ export function AppointmentsView() {
     if (!form.time || !form.customer || !form.service) return;
     const row = [form.time, form.customer, form.vehicle, form.service,
       editingIndex !== null ? appointments[editingIndex][4] : 'New Job',
-      form.bay, form.reminder] as [string, string, string, string, string, string, string];
+      form.bay, form.reminder, form.technician] as [string, string, string, string, string, string, string, string];
 
     if (editingIndex !== null) {
       dispatch({ type: 'EDIT_APPOINTMENT', appointmentIndex: editingIndex, appointment: row });
@@ -113,7 +113,7 @@ export function AppointmentsView() {
 
         <table>
           <thead>
-            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Bay / Route</th><th>Reminder</th><th>Action</th></tr>
+            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th><th>Bay / Route</th><th>Reminder</th><th>Action</th></tr>
           </thead>
           <tbody>
             {appointments.map((a, i) => (
@@ -123,7 +123,8 @@ export function AppointmentsView() {
                 <td>{a[2]}</td>
                 <td>{a[3]}</td>
                 <td><Badge text={a[4]} /></td>
-                <td>{a[5]}</td>
+                <td>{a[7] ? <span style={{ background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{a[7]}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}</td>
+                <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>
                 <td><Badge text={a[6]} /></td>
                 <td>
                   <div className="row-actions">

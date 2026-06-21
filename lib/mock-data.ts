@@ -77,10 +77,10 @@ export const initialRepairOrders: RepairOrder[] = [
 ];
 
 export const initialAppointments: AppointmentRow[] = [
-  ['8:00 AM', 'Northline Fleet', 'Ford F-150', 'Brakes', 'JC-3108', 'Bay 2', 'Confirmed'],
-  ['10:30 AM', 'Maya Rodriguez', 'Toyota RAV4', '60k mobile service', 'JC-3109', 'Mobile Route 1', 'Reminder sent'],
-  ['1:00 PM', 'Apex Logistics', 'Transit 250', 'No start', 'New Job', 'Depot Dispatch', 'Awaiting tow'],
-  ['3:30 PM', 'Westside Auto Group', 'BMW 330i', 'CEL diagnostic', 'JC-3110', 'Bay 3', 'Checked in'],
+  ['8:00 AM', 'Northline Fleet', 'Ford F-150', 'Brakes', 'JC-3108', 'Bay 2', 'Confirmed', ''],
+  ['10:30 AM', 'Maya Rodriguez', 'Toyota RAV4', '60k mobile service', 'JC-3109', 'Mobile Route 1', 'Reminder sent', ''],
+  ['1:00 PM', 'Apex Logistics', 'Transit 250', 'No start', 'New Job', 'Depot Dispatch', 'Awaiting tow', ''],
+  ['3:30 PM', 'Westside Auto Group', 'BMW 330i', 'CEL diagnostic', 'JC-3110', 'Bay 3', 'Checked in', ''],
 ];
 
 export const initialInvoices: Invoice[] = [
