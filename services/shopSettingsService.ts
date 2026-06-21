@@ -49,6 +49,8 @@ export interface ShopSettings {
   enableJobCardBranchRoute: boolean;
   enableJobCardServiceLocation: boolean;
   enableJobCardApprovalCode: boolean;
+  enableJobCardSubType: boolean;
+  serviceSubTypes: Record<string, string[]>;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -96,6 +98,20 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableJobCardBranchRoute: data.enable_job_card_branch_route ?? true,
     enableJobCardServiceLocation: data.enable_job_card_service_location ?? true,
     enableJobCardApprovalCode: data.enable_job_card_approval_code ?? true,
+    enableJobCardSubType: data.enable_job_card_sub_type ?? true,
+    serviceSubTypes: (data.service_sub_types as Record<string, string[]> | null) ?? {
+      'Oil Change': ['5W-30', '0W-20', '5W-40', '10W-30', '10W-40', 'Synthetic', 'Semi-Synthetic', 'Conventional'],
+      'Brakes': ['Front Passenger (FP)', 'Driver Side (D)', 'Passenger Rear (PR)', 'Driver Rear (DR)', 'All Four', 'Front Axle', 'Rear Axle'],
+      'Tires': ['Front Left', 'Front Right', 'Rear Left', 'Rear Right', 'All Four', 'Rotation Only'],
+      'Alignment': ['Front Only', '4-Wheel', 'Thrust Angle'],
+      'Engine': ['Tune-Up', 'Timing Belt', 'Head Gasket', 'Oil Leak', 'Coolant Leak', 'Starter', 'Alternator'],
+      'Transmission': ['Service/Flush', 'Filter Change', 'Rebuild', 'Replacement', 'Solenoid'],
+      'Electrical': ['Battery', 'Alternator', 'Starter', 'Fuses', 'Wiring', 'Sensors'],
+      'AC/Heat': ['Recharge', 'Compressor', 'Condenser', 'Evaporator', 'Blower Motor', 'Heater Core'],
+      'Diagnostics': ['Check Engine', 'ABS', 'Airbag', 'Transmission', 'Electrical', 'Full Scan'],
+      'Inspection': ['Pre-Purchase', 'Safety', 'Emissions', 'Full Vehicle'],
+      'Detailing': ['Interior', 'Exterior', 'Full Detail', 'Engine Bay', 'Paint Correction'],
+    },
   };
 }
 
@@ -130,6 +146,8 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableJobCardBranchRoute !== undefined) update.enable_job_card_branch_route = settings.enableJobCardBranchRoute;
   if (settings.enableJobCardServiceLocation !== undefined) update.enable_job_card_service_location = settings.enableJobCardServiceLocation;
   if (settings.enableJobCardApprovalCode !== undefined) update.enable_job_card_approval_code = settings.enableJobCardApprovalCode;
+  if (settings.enableJobCardSubType !== undefined) update.enable_job_card_sub_type = settings.enableJobCardSubType;
+  if (settings.serviceSubTypes !== undefined) update.service_sub_types = settings.serviceSubTypes;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)

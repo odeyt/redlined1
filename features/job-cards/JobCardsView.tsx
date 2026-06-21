@@ -188,6 +188,7 @@ export function JobCardsView() {
   const [fCustomer, setFCustomer] = useState('');
   const [fVehicle, setFVehicle] = useState('');
   const [fServiceType, setFServiceType] = useState('Oil Change');
+  const [fSubType, setFSubType] = useState('');
   const [fWorkType, setFWorkType] = useState('Mobile service');
   const [fPriority, setFPriority] = useState('Normal');
   const [serviceTypeOptions, setServiceTypeOptions] = useState<string[]>([
@@ -201,6 +202,8 @@ export function JobCardsView() {
   const [creating, setCreating] = useState(false);
 
   // Job card field toggles
+  const [enableJobCardSubType, setEnableJobCardSubType] = useState(true);
+  const [serviceSubTypes, setServiceSubTypes] = useState<Record<string, string[]>>({});
   const [enableJobCardPriority, setEnableJobCardPriority] = useState(true);
   const [enableJobCardBranchRoute, setEnableJobCardBranchRoute] = useState(true);
   const [enableJobCardServiceLocation, setEnableJobCardServiceLocation] = useState(true);
@@ -221,6 +224,8 @@ export function JobCardsView() {
           const opts = settings.serviceTypes.split(',').map((s: string) => s.trim()).filter(Boolean);
           if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceType(opts[0]); }
         }
+        setEnableJobCardSubType(settings.enableJobCardSubType ?? true);
+        setServiceSubTypes(settings.serviceSubTypes ?? {});
         setEnableJobCardPriority(settings.enableJobCardPriority ?? true);
         setEnableJobCardBranchRoute(settings.enableJobCardBranchRoute ?? true);
         setEnableJobCardServiceLocation(settings.enableJobCardServiceLocation ?? true);
@@ -231,6 +236,8 @@ export function JobCardsView() {
 
     function onSettingsUpdate(e: Event) {
       const d = (e as CustomEvent).detail ?? {};
+      if (d.enableJobCardSubType !== undefined) setEnableJobCardSubType(d.enableJobCardSubType);
+      if (d.serviceSubTypes !== undefined) setServiceSubTypes(d.serviceSubTypes);
       if (d.enableJobCardPriority !== undefined) setEnableJobCardPriority(d.enableJobCardPriority);
       if (d.enableJobCardBranchRoute !== undefined) setEnableJobCardBranchRoute(d.enableJobCardBranchRoute);
       if (d.enableJobCardServiceLocation !== undefined) setEnableJobCardServiceLocation(d.enableJobCardServiceLocation);
@@ -260,9 +267,10 @@ export function JobCardsView() {
     setError(''); setCreating(true);
     try {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
-      const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fServiceType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
+      const fullServiceType = fSubType ? `${fServiceType} — ${fSubType}` : fServiceType;
+      const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fullServiceType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
-      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
+      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]); setFSubType('');
       notify(`${job.id} created.`);
     } catch (err: unknown) { setError('Create failed: ' + (err instanceof Error ? err.message : JSON.stringify(err))); }
     finally { setCreating(false); }
@@ -504,10 +512,19 @@ export function JobCardsView() {
               </div>
               <div className="field">
                 <label>Service Type</label>
-                <select value={fServiceType} onChange={e => setFServiceType(e.target.value)}>
+                <select value={fServiceType} onChange={e => { setFServiceType(e.target.value); setFSubType(''); }}>
                   {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
+              {enableJobCardSubType && (serviceSubTypes[fServiceType] ?? []).length > 0 && (
+                <div className="field">
+                  <label>Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>({fServiceType})</span></label>
+                  <select value={fSubType} onChange={e => setFSubType(e.target.value)}>
+                    <option value="">— select sub-type —</option>
+                    {(serviceSubTypes[fServiceType] ?? []).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label>Work Type</label>
                 <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
@@ -630,10 +647,19 @@ export function JobCardsView() {
             <div className="form-row">
               <div className="field">
                 <label>Service Type</label>
-                <select value={fServiceType} onChange={e => setFServiceType(e.target.value)}>
+                <select value={fServiceType} onChange={e => { setFServiceType(e.target.value); setFSubType(''); }}>
                   {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
+              {enableJobCardSubType && (serviceSubTypes[fServiceType] ?? []).length > 0 && (
+                <div className="field">
+                  <label>Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>({fServiceType})</span></label>
+                  <select value={fSubType} onChange={e => setFSubType(e.target.value)}>
+                    <option value="">— select sub-type —</option>
+                    {(serviceSubTypes[fServiceType] ?? []).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label>Work Type</label>
                 <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>

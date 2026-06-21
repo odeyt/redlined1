@@ -11,3 +11,5 @@ alter table shop_settings add column if not exists enable_job_card_priority bool
 alter table shop_settings add column if not exists enable_job_card_branch_route boolean default true;
 alter table shop_settings add column if not exists enable_job_card_service_location boolean default true;
 alter table shop_settings add column if not exists enable_job_card_approval_code boolean default true;
+alter table shop_settings add column if not exists enable_job_card_sub_type boolean default true;
+alter table shop_settings add column if not exists service_sub_types jsonb default null;

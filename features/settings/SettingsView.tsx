@@ -58,6 +58,10 @@ export function SettingsView() {
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
   const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
+  const [enableJobCardSubType, setEnableJobCardSubType] = useState(true);
+  const [serviceSubTypes, setServiceSubTypes] = useState<Record<string, string[]>>({});
+  const [subTypeInputs, setSubTypeInputs] = useState<Record<string, string>>({});
+  const [expandedSubType, setExpandedSubType] = useState<string | null>(null);
   const [enableJobCardPriority, setEnableJobCardPriority] = useState(true);
   const [enableJobCardBranchRoute, setEnableJobCardBranchRoute] = useState(true);
   const [enableJobCardServiceLocation, setEnableJobCardServiceLocation] = useState(true);
@@ -112,6 +116,8 @@ export function SettingsView() {
       setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
       setEnableAppointmentBay(s.enableAppointmentBay ?? true);
       setAppointmentBays(s.appointmentBays ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
+      setEnableJobCardSubType(s.enableJobCardSubType ?? true);
+      setServiceSubTypes(s.serviceSubTypes ?? {});
       setEnableJobCardPriority(s.enableJobCardPriority ?? true);
       setEnableJobCardBranchRoute(s.enableJobCardBranchRoute ?? true);
       setEnableJobCardServiceLocation(s.enableJobCardServiceLocation ?? true);
@@ -204,12 +210,14 @@ export function SettingsView() {
         enableJobCompletionReport,
         enableAppointmentBay,
         appointmentBays,
+        enableJobCardSubType,
+        serviceSubTypes,
         enableJobCardPriority,
         enableJobCardBranchRoute,
         enableJobCardServiceLocation,
         enableJobCardApprovalCode,
       });
-      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking, appointmentBays, enableAppointmentBay, enableJobCardPriority, enableJobCardBranchRoute, enableJobCardServiceLocation, enableJobCardApprovalCode } }));
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking, appointmentBays, enableAppointmentBay, enableJobCardPriority, enableJobCardBranchRoute, enableJobCardServiceLocation, enableJobCardApprovalCode, enableJobCardSubType, serviceSubTypes } }));
       flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
@@ -404,6 +412,7 @@ export function SettingsView() {
               { key: 'enableTechnicianReport', set: setEnableTechnicianReport, val: enableTechnicianReport, icon: '🔧', label: 'Technician Assignment Report', desc: 'Show the Technicians tab in Reports — tracks jobs and hours per technician.' },
               { key: 'enableJobCompletionReport', set: setEnableJobCompletionReport, val: enableJobCompletionReport, icon: '✅', label: 'Job Completion Report', desc: 'Show the Job Completion tab in Reports — tracks turnaround time and job status trends.' },
               { key: 'enableAppointmentBay', set: setEnableAppointmentBay, val: enableAppointmentBay, icon: '📍', label: 'Appointment Bay / Location Field', desc: 'Show the Bay / Location assignment field on the Appointments booking form and table column.' },
+              { key: 'enableJobCardSubType', set: setEnableJobCardSubType, val: enableJobCardSubType, icon: '🔍', label: 'Job Card — Service Sub-Type', desc: 'Show a contextual sub-type dropdown when a service is selected (e.g. Oil Change → oil weight; Brakes → which corner).' },
               { key: 'enableJobCardPriority', set: setEnableJobCardPriority, val: enableJobCardPriority, icon: '🔺', label: 'Job Card — Priority Field', desc: 'Show the Priority dropdown (Normal / High / Roadside / Fleet SLA) on the Create Job Card form.' },
               { key: 'enableJobCardBranchRoute', set: setEnableJobCardBranchRoute, val: enableJobCardBranchRoute, icon: '🗺️', label: 'Job Card — Branch / Route Field', desc: 'Show the Branch / Route dropdown on the Create Job Card form.' },
               { key: 'enableJobCardServiceLocation', set: setEnableJobCardServiceLocation, val: enableJobCardServiceLocation, icon: '📌', label: 'Job Card — Service Location Field', desc: 'Show the Service Location text field on the Create Job Card form.' },
@@ -473,6 +482,79 @@ export function SettingsView() {
             {serviceTypes.split(',').map(s => s.trim()).filter(Boolean).map(s => (
               <span key={s} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 12 }}>{s}</span>
             ))}
+          </div>
+        </div>
+
+        {/* Service Sub-Types */}
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>Service Sub-Types</h3>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+            Per-service sub-options shown in the Job Card form when that service is selected (e.g. Oil Change → oil weight, Brakes → which corner).
+            Click a service to expand and edit its sub-options.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {serviceTypes.split(',').map(s => s.trim()).filter(Boolean).map(svc => {
+              const isOpen = expandedSubType === svc;
+              const subs = serviceSubTypes[svc] ?? [];
+              return (
+                <div key={svc} style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedSubType(isOpen ? null : svc)}
+                    style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--surface-soft)', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}
+                  >
+                    <span>{svc}</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>
+                      {subs.length} sub-option{subs.length !== 1 ? 's' : ''} {isOpen ? '▲' : '▼'}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ padding: '12px 14px', background: 'var(--surface)' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                        {subs.map(sub => (
+                          <span key={sub} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 12 }}>
+                            {sub}
+                            <button
+                              type="button"
+                              onClick={() => setServiceSubTypes(prev => ({ ...prev, [svc]: prev[svc].filter(x => x !== sub) }))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14, lineHeight: 1, padding: 0 }}
+                            >×</button>
+                          </span>
+                        ))}
+                        {subs.length === 0 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>No sub-options — add one below</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          value={subTypeInputs[svc] ?? ''}
+                          onChange={e => setSubTypeInputs(prev => ({ ...prev, [svc]: e.target.value }))}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && (subTypeInputs[svc] ?? '').trim()) {
+                              const val = subTypeInputs[svc].trim();
+                              setServiceSubTypes(prev => ({ ...prev, [svc]: [...(prev[svc] ?? []), val] }));
+                              setSubTypeInputs(prev => ({ ...prev, [svc]: '' }));
+                            }
+                          }}
+                          placeholder={`Add ${svc} sub-option…`}
+                          style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 8, padding: '7px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ padding: '7px 14px' }}
+                          onClick={() => {
+                            const val = (subTypeInputs[svc] ?? '').trim();
+                            if (val) {
+                              setServiceSubTypes(prev => ({ ...prev, [svc]: [...(prev[svc] ?? []), val] }));
+                              setSubTypeInputs(prev => ({ ...prev, [svc]: '' }));
+                            }
+                          }}
+                        >Add</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
