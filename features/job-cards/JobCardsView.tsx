@@ -13,7 +13,8 @@ import {
   updateJobCard, closeJob, deleteJobCard, type JobCardFull,
 } from '@/services/jobCardService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
-import type { Vehicle } from '@/lib/types';
+import { fetchCustomers } from '@/services/customerService';
+import type { Vehicle, Customer } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -177,8 +178,10 @@ export function JobCardsView() {
   const [jobs, setJobs] = useState<JobCardFull[]>([]);
   const [closedJobs, setClosedJobs] = useState<JobCardFull[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [fullCustomers, setFullCustomers] = useState<Customer[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -219,13 +222,14 @@ export function JobCardsView() {
   const [newTechEmail, setNewTechEmail] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings(), fetchVehicles()])
-      .then(([j, c, custs, t, settings, v]) => {
+    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings(), fetchVehicles(), fetchCustomers()])
+      .then(([j, c, custs, t, settings, v, fc]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
         setAllVehicles(v as (Vehicle & { id: string })[]);
+        setFullCustomers(fc as Customer[]);
         if (settings.serviceTypes) {
           const opts = settings.serviceTypes.split(',').map((s: string) => s.trim()).filter(Boolean);
-          if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceType(opts[0]); }
+          if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceTypes([opts[0]]); }
         }
         setEnableJobCardSubType(settings.enableJobCardSubType ?? true);
         setServiceSubTypes(settings.serviceSubTypes ?? {});
@@ -233,6 +237,9 @@ export function JobCardsView() {
         setEnableJobCardBranchRoute(settings.enableJobCardBranchRoute ?? true);
         setEnableJobCardServiceLocation(settings.enableJobCardServiceLocation ?? true);
         setEnableJobCardApprovalCode(settings.enableJobCardApprovalCode ?? true);
+        const bays = settings.appointmentBays ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
+        setAppointmentBays(bays);
+        setFRoute(bays[0] ?? '');
       })
       .catch(err => setError('Load error: ' + (err?.message || err)))
       .finally(() => setLoading(false));
@@ -241,6 +248,7 @@ export function JobCardsView() {
       const d = (e as CustomEvent).detail ?? {};
       if (d.enableJobCardSubType !== undefined) setEnableJobCardSubType(d.enableJobCardSubType);
       if (d.serviceSubTypes !== undefined) setServiceSubTypes(d.serviceSubTypes);
+      if (d.appointmentBays !== undefined) setAppointmentBays(d.appointmentBays);
       if (d.enableJobCardPriority !== undefined) setEnableJobCardPriority(d.enableJobCardPriority);
       if (d.enableJobCardBranchRoute !== undefined) setEnableJobCardBranchRoute(d.enableJobCardBranchRoute);
       if (d.enableJobCardServiceLocation !== undefined) setEnableJobCardServiceLocation(d.enableJobCardServiceLocation);
@@ -251,6 +259,8 @@ export function JobCardsView() {
   }, []);
 
   const [selectedVehicleEngine, setSelectedVehicleEngine] = useState('');
+  const [selectedVehicleMileage, setSelectedVehicleMileage] = useState('');
+  const [selectedCustomerPhone, setSelectedCustomerPhone] = useState('');
   const [oilSuggestion, setOilSuggestion] = useState('');
 
   function inferOilWeight(engine: string): string {
@@ -290,16 +300,20 @@ export function JobCardsView() {
   function handleCustomerChange(name: string) {
     setFCustomer(name);
     const cust = customers.find(c => c.name === name);
+    const fc = fullCustomers.find(c => c.name === name);
+    setSelectedCustomerPhone(fc?.phone ?? '');
     const veh = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
     setCustomerVehicles(veh);
     if (veh.length === 1) {
       setFVehicle(veh[0].label);
       const engine = veh[0].engine ?? '';
       setSelectedVehicleEngine(engine);
+      setSelectedVehicleMileage(veh[0].mileage ?? '');
       applyOilSuggestion(engine, fServiceTypes, serviceSubTypes);
     } else {
       setFVehicle('');
       setSelectedVehicleEngine('');
+      setSelectedVehicleMileage('');
       setOilSuggestion('');
     }
   }
@@ -309,18 +323,39 @@ export function JobCardsView() {
     const veh = customerVehicles.find(v => v.label === label);
     const engine = veh?.engine ?? '';
     setSelectedVehicleEngine(engine);
+    setSelectedVehicleMileage(veh?.mileage ?? '');
     applyOilSuggestion(engine, fServiceTypes, serviceSubTypes);
   }
 
+  // Work Type → auto-suggest Branch/Route
+  function handleWorkTypeChange(wt: string) {
+    setFWorkType(wt);
+    const isMobile = wt.toLowerCase().includes('mobile');
+    const isFleet = wt.toLowerCase().includes('fleet');
+    const suggested = isMobile
+      ? appointmentBays.find(b => b.toLowerCase().includes('mobile') || b.toLowerCase().includes('route'))
+      : isFleet
+      ? appointmentBays.find(b => b.toLowerCase().includes('depot') || b.toLowerCase().includes('fleet') || b.toLowerCase().includes('enterprise'))
+      : appointmentBays.find(b => b.toLowerCase().includes('bay'));
+    if (suggested) setFRoute(suggested);
+  }
+
+  // Service Type selection → also suggest Work Type for specific services
   function toggleServiceType(svc: string) {
     setFServiceTypes(prev => {
       const next = prev.includes(svc) ? prev.filter(s => s !== svc) : [...prev, svc];
       if (!next.includes('Oil Change')) { setOilSuggestion(''); setFSubTypes(p => { const n = { ...p }; delete n['Oil Change']; return n; }); }
       else applyOilSuggestion(selectedVehicleEngine, next, serviceSubTypes);
       if (prev.includes(svc)) setFSubTypes(p => { const n = { ...p }; delete n[svc]; return n; });
+      // Auto-suggest Work Type
+      if (!prev.includes(svc)) {
+        if (svc === 'Diagnostics') setFWorkType('Diagnostic only');
+        else if (svc === 'Inspection') setFWorkType('Diagnostic only');
+      }
       return next;
     });
   }
+
 
   async function handleCreate() {
     if (!fCustomer) return setError('Select a customer.');
@@ -332,7 +367,7 @@ export function JobCardsView() {
       setJobs(prev => [job, ...prev]);
       setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
       setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({});
-      setSelectedVehicleEngine(''); setOilSuggestion('');
+      setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion('');
       notify(`${job.id} created.`);
     } catch (err: unknown) { setError('Create failed: ' + (err instanceof Error ? err.message : JSON.stringify(err))); }
     finally { setCreating(false); }
@@ -519,7 +554,17 @@ export function JobCardsView() {
                         </td>
                         <td>
                           {job.serviceType}
-                          <div className="meta"><Badge text={job.priority} /> <Badge text={job.approval} /></div>
+                          <div className="meta" style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                            {job.priority && job.priority !== 'Normal' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8,
+                                background: job.priority === 'Roadside' ? 'rgba(204,0,0,0.15)' : job.priority === 'High' ? 'rgba(255,140,0,0.15)' : 'rgba(0,100,200,0.12)',
+                                color: job.priority === 'Roadside' ? 'var(--accent)' : job.priority === 'High' ? '#e07000' : '#0064c8',
+                                border: `1px solid ${job.priority === 'Roadside' ? 'rgba(204,0,0,0.3)' : job.priority === 'High' ? 'rgba(255,140,0,0.3)' : 'rgba(0,100,200,0.2)'}` }}>
+                                {job.priority === 'Roadside' ? '🚨 ' : job.priority === 'High' ? '⚡ ' : ''}{job.priority}
+                              </span>
+                            )}
+                            <Badge text={job.approval} />
+                          </div>
                         </td>
                         <td>
                           {job.technicians.length > 0
@@ -558,6 +603,7 @@ export function JobCardsView() {
                 ) : (
                   <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
                 )}
+                {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
@@ -571,6 +617,7 @@ export function JobCardsView() {
                 ) : (
                   <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
                 )}
+                {selectedVehicleMileage && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>🛣 {Number(selectedVehicleMileage).toLocaleString()} km on record</div>}
               </div>
               <div className="field" style={{ minWidth: '100%' }}>
                 <label>Service Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span></label>
@@ -610,7 +657,7 @@ export function JobCardsView() {
               ))}
               <div className="field">
                 <label>Work Type</label>
-                <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
+                <select value={fWorkType} onChange={e => handleWorkTypeChange(e.target.value)}>
                   <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
                 </select>
               </div>
@@ -628,7 +675,7 @@ export function JobCardsView() {
                 <div className="field">
                   <label>Branch / Route</label>
                   <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                    <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
+                    {appointmentBays.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               )}
@@ -712,6 +759,7 @@ export function JobCardsView() {
                 ) : (
                   <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
                 )}
+                {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
@@ -725,6 +773,7 @@ export function JobCardsView() {
                 ) : (
                   <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
                 )}
+                {selectedVehicleMileage && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>🛣 {Number(selectedVehicleMileage).toLocaleString()} km on record</div>}
               </div>
             </div>
             <div className="form-row">
@@ -766,7 +815,7 @@ export function JobCardsView() {
               ))}
               <div className="field">
                 <label>Work Type</label>
-                <select value={fWorkType} onChange={e => setFWorkType(e.target.value)}>
+                <select value={fWorkType} onChange={e => handleWorkTypeChange(e.target.value)}>
                   <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
                 </select>
               </div>
@@ -784,7 +833,7 @@ export function JobCardsView() {
                 <div className="field">
                   <label>Branch / Route</label>
                   <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                    <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
+                    {appointmentBays.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               )}
@@ -814,7 +863,7 @@ export function JobCardsView() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({}); setSelectedVehicleEngine(''); setOilSuggestion(''); }}>Cancel</button>
+              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({}); setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion(''); }}>Cancel</button>
               <button className="btn primary" onClick={async () => { await handleCreate(); setShowCreateModal(false); }} disabled={creating}>
                 <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
               </button>
