@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { fetchVehicles, saveVehicle, updateVehicle, deleteVehicle, fetchCustomerNames } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, fetchCustomerNames } from '@/services/vehicleService';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
@@ -445,6 +445,145 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   );
 }
 
+// ── Vehicle Edit Drawer ─────────────────────────────────────────
+const STATUSES = ['In Progress', 'Completed', 'Pending', 'Active', 'No open jobs'];
+
+function VehicleDrawer({ vehicle, customers, onClose, onSaved, onDelete, onPhotos, onJobCard }: {
+  vehicle: VehicleRecord;
+  customers: { id: string; name: string }[];
+  onClose: () => void;
+  onSaved: (v: VehicleRecord) => void;
+  onDelete: () => void;
+  onPhotos: () => void;
+  onJobCard: () => void;
+}) {
+  const [f, setF] = useState({ ...vehicle });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const [toast, setToast] = useState('');
+
+  function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
+  function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  async function handleSave() {
+    setSaving(true); setErr('');
+    try {
+      // Save basic vehicle fields
+      await updateVehicle(vehicle.id, {
+        customerId: f.customerId, vin: f.vin, label: f.label, trim: f.trim,
+        engine: f.engine, transmission: f.transmission, mileage: f.mileage,
+        plate: f.plate, status: f.status, recommendation: f.recommendation,
+      });
+      // Save service record fields
+      await updateVehicleServiceRecord(vehicle.id, {
+        make: f.make, model: f.model, year: f.year, fuelType: f.fuelType,
+        issues: f.issues, damageIntake: f.damageIntake, issuesResolved: f.issuesResolved,
+        partsExchanged: f.partsExchanged, partsNeeded: f.partsNeeded,
+        flatRateLak: f.flatRateLak, assignedTech: f.assignedTech,
+        dateReceived: f.dateReceived, techPayEntries: f.techPayEntries,
+      });
+      notify('Saved!');
+      onSaved(f as VehicleRecord);
+    } catch (e: unknown) {
+      setErr('Save failed: ' + (e instanceof Error ? e.message : ''));
+    } finally { setSaving(false); }
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
+  const label: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, display: 'block' };
+  function row(l: string, el: React.ReactNode) {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <span style={label}>{l}</span>
+        {el}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1100 }} />
+      {/* Drawer */}
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, maxWidth: '95vw', background: 'var(--surface)', boxShadow: '-4px 0 32px rgba(0,0,0,0.18)', zIndex: 1101, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        {toast && <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#16a34a', color: '#fff', padding: '8px 16px', fontSize: 13, fontWeight: 600 }}>{toast}</div>}
+
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>{f.label || 'Vehicle'}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.plate || 'No plate'} · {f.vin || 'No VIN'}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, padding: '12px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+          <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>＋ Job Card</button>
+          <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
+          <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
+        </div>
+
+        {/* Form body */}
+        <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
+          {err && <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12 }}>{err}</div>}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
+
+          {row('Vehicle Label', <input style={inp} value={f.label} onChange={e => set('label', e.target.value)} placeholder="2023 Ford F-150" />)}
+          {row('Customer', (
+            <select style={{ ...inp }} value={f.customerId} onChange={e => set('customerId', e.target.value)}>
+              <option value="">Select customer…</option>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div><span style={label}>Year</span><input style={inp} value={f.year} onChange={e => set('year', e.target.value)} placeholder="2023" /></div>
+            <div><span style={label}>Make</span><input style={inp} value={f.make} onChange={e => set('make', e.target.value)} placeholder="Ford" /></div>
+            <div><span style={label}>Model</span><input style={inp} value={f.model} onChange={e => set('model', e.target.value)} placeholder="F-150" /></div>
+            <div><span style={label}>Fuel Type</span><input style={inp} value={f.fuelType} onChange={e => set('fuelType', e.target.value)} placeholder="Petrol" /></div>
+            <div><span style={label}>Plate</span><input style={inp} value={f.plate} onChange={e => set('plate', e.target.value)} /></div>
+            <div><span style={label}>Mileage</span><input style={inp} value={f.mileage} onChange={e => set('mileage', e.target.value)} /></div>
+          </div>
+          {row('VIN', <input style={{ ...inp, fontFamily: 'monospace', letterSpacing: '0.06em' }} value={f.vin} onChange={e => set('vin', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17))} maxLength={17} />)}
+          {row('Engine', <input style={inp} value={f.engine} onChange={e => set('engine', e.target.value)} />)}
+          {row('Transmission', <input style={inp} value={f.transmission} onChange={e => set('transmission', e.target.value)} />)}
+          {row('Status', (
+            <select style={{ ...inp }} value={f.status} onChange={e => set('status', e.target.value)}>
+              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          ))}
+          {row('Date Received', <input type="date" style={inp} value={f.dateReceived ?? ''} onChange={e => set('dateReceived', e.target.value || null)} />)}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '16px 0 10px' }}>Service Record</div>
+
+          {row('Assigned Tech(s)', <input style={inp} value={f.assignedTech} onChange={e => set('assignedTech', e.target.value)} placeholder="Beck; Kat; Wally" />)}
+          {row('Issues / Work Needed', <textarea style={{ ...inp, minHeight: 70, resize: 'vertical' }} value={f.issues} onChange={e => set('issues', e.target.value)} />)}
+          {row('Damage at Intake', <textarea style={{ ...inp, minHeight: 60, resize: 'vertical' }} value={f.damageIntake} onChange={e => set('damageIntake', e.target.value)} />)}
+          {row('Parts Needed', <textarea style={{ ...inp, minHeight: 55, resize: 'vertical' }} value={f.partsNeeded} onChange={e => set('partsNeeded', e.target.value)} />)}
+          {row('Parts Exchanged', <textarea style={{ ...inp, minHeight: 55, resize: 'vertical' }} value={f.partsExchanged} onChange={e => set('partsExchanged', e.target.value)} />)}
+          {row('Flat Rate (LAK)', <input type="number" style={inp} value={f.flatRateLak ?? ''} onChange={e => set('flatRateLak', e.target.value ? Number(e.target.value) : null)} />)}
+          {row('Tech Pay Notes', <input style={inp} value={f.techPayEntries} onChange={e => set('techPayEntries', e.target.value)} />)}
+          {row('Recommended Service', <input style={inp} value={f.recommendation} onChange={e => set('recommendation', e.target.value)} />)}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <input type="checkbox" id="issues-resolved" checked={f.issuesResolved} onChange={e => set('issuesResolved', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+            <label htmlFor="issues-resolved" style={{ fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Issues Resolved</label>
+          </div>
+        </div>
+
+        {/* Save footer */}
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', flexShrink: 0, display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : '✓ Save Changes'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main View ───────────────────────────────────────────────────
 export function VehiclesView() {
   const dispatch = useAppDispatch();
@@ -458,6 +597,7 @@ export function VehiclesView() {
   const [vinError, setVinError] = useState('');
   const [toast, setToast] = useState('');
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleRecord | null>(null);
+  const [drawerVehicle, setDrawerVehicle] = useState<VehicleRecord | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
@@ -553,6 +693,25 @@ export function VehiclesView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
       {galleryVehicle && <ImageGallery vehicle={galleryVehicle} onClose={() => setGalleryVehicle(null)} />}
+      {drawerVehicle && (
+        <VehicleDrawer
+          vehicle={drawerVehicle}
+          customers={customers}
+          onClose={() => setDrawerVehicle(null)}
+          onSaved={updated => {
+            setVehicles(prev => prev.map(v => v.id === updated.id ? updated : v));
+            setDrawerVehicle(updated);
+            notify(`${updated.label} updated.`);
+          }}
+          onDelete={() => { handleDeleteVehicle(drawerVehicle); setDrawerVehicle(null); }}
+          onPhotos={() => { setGalleryVehicle(drawerVehicle); setDrawerVehicle(null); }}
+          onJobCard={() => {
+            const owner = customers.find(c => c.id === drawerVehicle.customerId);
+            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label } });
+            setDrawerVehicle(null);
+          }}
+        />
+      )}
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -750,13 +909,15 @@ export function VehiclesView() {
             </thead>
             <tbody>
               {filtered.map(v => (
-                <tr key={v.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                <tr key={v.id} onClick={() => setDrawerVehicle(v)} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', transition: 'background .1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {enableVehiclePhotos && (
                         thumbs[v.id]?.[0]
-                          ? <img src={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={() => setGalleryVehicle(v)} />
-                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={() => setGalleryVehicle(v)}>🚗</div>
+                          ? <img src={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }} />
+                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>🚗</div>
                       )}
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{v.label}</span>
                     </div>
@@ -778,7 +939,7 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </td>
-                  <td style={{ padding: '10px 12px' }}>
+                  <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
                       {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}
                       <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
