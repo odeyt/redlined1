@@ -12,7 +12,7 @@ import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
 import type { Vehicle } from '@/lib/types';
 
-const BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
+const DEFAULT_BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
 const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 'Checked in'];
 
 const EMPTY_FORM = { time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' };
@@ -38,6 +38,7 @@ export function AppointmentsView() {
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
+  const [bays, setBays] = useState<string[]>(DEFAULT_BAYS);
   const [toast, setToast] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -45,7 +46,10 @@ export function AppointmentsView() {
     fetchCustomers().then(setCustomers).catch(() => {});
     fetchTechnicians().then(setTechnicians).catch(() => {});
     fetchVehicles().then(v => setAllVehicles(v as (Vehicle & { id: string })[])).catch(() => {});
-    fetchShopSettings().then(s => setEnableAppointmentBay(s.enableAppointmentBay ?? true)).catch(() => {});
+    fetchShopSettings().then(s => {
+      setEnableAppointmentBay(s.enableAppointmentBay ?? true);
+      setBays(s.appointmentBays ?? DEFAULT_BAYS);
+    }).catch(() => {});
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
@@ -191,7 +195,7 @@ export function AppointmentsView() {
                   <label>Bay / Route</label>
                   <select value={form.bay} onChange={e => set('bay', e.target.value)}>
                     <option value="">— Select bay or route —</option>
-                    {BAYS.map(b => <option key={b} value={b}>{b}</option>)}
+                    {bays.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
               )}

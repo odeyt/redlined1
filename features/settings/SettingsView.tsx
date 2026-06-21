@@ -57,6 +57,8 @@ export function SettingsView() {
   const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
+  const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
+  const [newBayName, setNewBayName] = useState('');
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
@@ -105,6 +107,7 @@ export function SettingsView() {
       setEnableTechnicianReport(s.enableTechnicianReport ?? true);
       setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
       setEnableAppointmentBay(s.enableAppointmentBay ?? true);
+      setAppointmentBays(s.appointmentBays ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -192,6 +195,7 @@ export function SettingsView() {
         enableTechnicianReport,
         enableJobCompletionReport,
         enableAppointmentBay,
+        appointmentBays,
       });
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking } }));
       flashSaved(setSavedPortal);
@@ -453,6 +457,31 @@ export function SettingsView() {
             {serviceTypes.split(',').map(s => s.trim()).filter(Boolean).map(s => (
               <span key={s} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 12 }}>{s}</span>
             ))}
+          </div>
+        </div>
+
+        {/* Bay / Route Locations */}
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>Bay / Route Locations</h3>
+          <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--muted)' }}>Locations available in the Appointments booking form</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            {appointmentBays.map(bay => (
+              <span key={bay} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 13 }}>
+                {bay}
+                <button onClick={() => setAppointmentBays(prev => prev.filter(b => b !== bay))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={newBayName} onChange={e => setNewBayName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && newBayName.trim()) { setAppointmentBays(prev => [...prev, newBayName.trim()]); setNewBayName(''); } }}
+              placeholder="e.g. Bay 5 or Mobile Route 3"
+              style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+            <button className="btn btn-primary" style={{ padding: '8px 16px' }}
+              onClick={() => { if (newBayName.trim()) { setAppointmentBays(prev => [...prev, newBayName.trim()]); setNewBayName(''); } }}>
+              Add
+            </button>
           </div>
         </div>
 

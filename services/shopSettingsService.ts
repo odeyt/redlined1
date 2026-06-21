@@ -44,6 +44,7 @@ export interface ShopSettings {
   enableTechnicianReport: boolean;
   enableJobCompletionReport: boolean;
   enableAppointmentBay: boolean;
+  appointmentBays: string[];
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -86,6 +87,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableTechnicianReport: data.enable_technician_report ?? true,
     enableJobCompletionReport: data.enable_job_completion_report ?? true,
     enableAppointmentBay: data.enable_appointment_bay ?? true,
+    appointmentBays: (data.appointment_bays as string[] | null) ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'],
   };
 }
 
@@ -115,6 +117,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableTechnicianReport !== undefined) update.enable_technician_report = settings.enableTechnicianReport;
   if (settings.enableJobCompletionReport !== undefined) update.enable_job_completion_report = settings.enableJobCompletionReport;
   if (settings.enableAppointmentBay !== undefined) update.enable_appointment_bay = settings.enableAppointmentBay;
+  if (settings.appointmentBays !== undefined) update.appointment_bays = settings.appointmentBays;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)
