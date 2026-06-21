@@ -62,25 +62,49 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
   const [images, setImages] = useState<VehicleImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [lightbox, setLightbox] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [camMode, setCamMode] = useState<'off' | 'webcam'>('off');
   const [camReady, setCamReady] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const thumbStripRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     fetchVehicleImages(vehicle.id)
-      .then(setImages)
+      .then(imgs => { setImages(imgs); setActiveIdx(0); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
     return () => stopStream();
   }, [vehicle.id]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+      if (e.key === 'Escape')     { stopStream(); onClose(); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  function prev() { setActiveIdx(i => (i > 0 ? i - 1 : images.length - 1)); }
+  function next() { setActiveIdx(i => (i < images.length - 1 ? i + 1 : 0)); }
+
+  // Scroll active thumbnail into view
+  useEffect(() => {
+    const strip = thumbStripRef.current;
+    if (!strip) return;
+    const thumb = strip.children[activeIdx] as HTMLElement | undefined;
+    thumb?.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+  }, [activeIdx]);
 
   function stopStream() {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -95,11 +119,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-        setCamReady(true);
-      }
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); setCamReady(true); }
     } catch {
       setError('Camera access denied. Check browser permissions.');
       setCamMode('off');
@@ -110,20 +130,17 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     canvas.getContext('2d')!.drawImage(video, 0, 0);
     canvas.toBlob(async blob => {
       if (!blob) return;
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      stopStream();
-      setUploading(true);
+      stopStream(); setUploading(true);
       try {
         const img = await uploadVehicleImage(vehicle.id, file, 'Camera capture');
-        setImages(prev => [...prev, img]);
-      } catch (err: unknown) {
-        setError('Upload failed: ' + (err instanceof Error ? err.message : ''));
-      } finally { setUploading(false); }
+        setImages(prev => { const next = [...prev, img]; setActiveIdx(next.length - 1); return next; });
+      } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : '')); }
+      finally { setUploading(false); }
     }, 'image/jpeg', 0.92);
   }
 
@@ -132,126 +149,182 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
     setUploading(true);
     try {
       const uploaded = await Promise.all(files.map(f => uploadVehicleImage(vehicle.id, f)));
-      setImages(prev => [...prev, ...uploaded]);
-    } catch (err: unknown) {
-      setError('Upload failed: ' + (err instanceof Error ? err.message : ''));
-    } finally {
+      setImages(prev => { const next = [...prev, ...uploaded]; setActiveIdx(next.length - 1); return next; });
+    } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : '')); }
+    finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
       if (cameraRef.current) cameraRef.current.value = '';
     }
   }
 
-  async function handleDelete(img: VehicleImage) {
+  async function handleDelete(idx: number) {
+    const img = images[idx];
     if (!confirm('Remove this photo?')) return;
     try {
       await deleteVehicleImage(img.id, img.url);
-      setImages(prev => prev.filter(i => i.id !== img.id));
-    } catch (err: unknown) {
-      setError('Delete failed: ' + (err instanceof Error ? err.message : ''));
-    }
+      setImages(prev => {
+        const next = prev.filter((_, i) => i !== idx);
+        setActiveIdx(i => Math.min(i, Math.max(0, next.length - 1)));
+        return next;
+      });
+    } catch (err: unknown) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
   }
 
+  const current = images[activeIdx];
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 780, maxHeight: '92vh', overflow: 'auto', padding: 28 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 820, maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{vehicle.label}</h2>
-            <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 13 }}>{vehicle.plate} · {vehicle.vin}</p>
+            <h2 style={{ margin: 0, fontSize: 17 }}>{vehicle.label}</h2>
+            <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 12 }}>{vehicle.plate} · {vehicle.vin}</p>
           </div>
-          <button onClick={() => { stopStream(); onClose(); }} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <button onClick={() => { stopStream(); onClose(); }} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
 
-        {error && <p style={{ color: 'var(--danger)', marginBottom: 12, padding: '8px 12px', background: '#fff0f0', borderRadius: 6 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--danger)', margin: '8px 20px 0', padding: '8px 12px', background: '#fff0f0', borderRadius: 6, fontSize: 13 }}>{error}</p>}
 
-        {camMode === 'webcam' && (
-          <div style={{ marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '2px solid var(--accent)', background: '#000' }}>
-            <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 340, display: 'block', objectFit: 'cover' }} />
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
-            <div style={{ display: 'flex', gap: 10, padding: 12, background: 'var(--surface-soft)', justifyContent: 'center' }}>
-              <button className="btn btn-primary" onClick={captureWebcam} disabled={!camReady || uploading} style={{ fontSize: 15 }}>
-                📸 {uploading ? 'Saving…' : 'Capture Photo'}
-              </button>
-              <button className="btn" onClick={stopStream}>Cancel</button>
+        {/* ── Main scrollable body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* Webcam */}
+          {camMode === 'webcam' && (
+            <div style={{ borderRadius: 10, overflow: 'hidden', border: '2px solid var(--accent)', background: '#000' }}>
+              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 320, display: 'block', objectFit: 'cover' }} />
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              <div style={{ display: 'flex', gap: 10, padding: 12, justifyContent: 'center' }}>
+                <button className="btn btn-primary" onClick={captureWebcam} disabled={!camReady || uploading}>📸 {uploading ? 'Saving…' : 'Capture'}</button>
+                <button className="btn" onClick={stopStream}>Cancel</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {camMode === 'off' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 16 }}>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading}
-              style={{ padding: '16px 10px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 26 }}>🖼️</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{uploading ? 'Uploading…' : 'Upload Files'}</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>JPG, PNG, HEIC</span>
-            </button>
-            <button onClick={() => cameraRef.current?.click()} disabled={uploading}
-              style={{ padding: '16px 10px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 26 }}>📱</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Phone Camera</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Opens device camera</span>
-            </button>
-            <button onClick={startWebcam} disabled={uploading}
-              style={{ padding: '16px 10px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 26 }}>📷</span>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Webcam</span>
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>Use connected camera</span>
-            </button>
-          </div>
-        )}
+          {/* ── Carousel (shown when photos exist and not in webcam mode) ── */}
+          {camMode === 'off' && images.length > 0 && (
+            <div>
+              {/* Main photo */}
+              <div
+                style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}
+                onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
+                onTouchEnd={e => {
+                  if (touchStartX.current === null) return;
+                  const dx = e.changedTouches[0].clientX - touchStartX.current;
+                  if (dx > 40) prev();
+                  else if (dx < -40) next();
+                  touchStartX.current = null;
+                }}
+              >
+                {current && (
+                  <img
+                    key={current.id}
+                    src={current.url}
+                    alt={current.label}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', transition: 'opacity .15s' }}
+                  />
+                )}
 
-        {camMode === 'off' && (
-          <div
-            onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-            onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
-            onDrop={e => {
-              e.preventDefault(); e.stopPropagation(); setDragOver(false);
-              let files: File[] = [];
-              if (e.dataTransfer.files?.length) {
-                files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-              } else if (e.dataTransfer.items?.length) {
-                files = Array.from(e.dataTransfer.items).filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter((f): f is File => f !== null);
-              }
-              if (!files.length) { setError('No image files detected.'); return; }
-              uploadFiles(files);
-            }}
-            onClick={() => fileRef.current?.click()}
-            style={{ border: `2px dashed ${dragOver ? 'var(--accent,#cc0000)' : 'var(--line)'}`, borderRadius: 10, padding: '28px 18px', textAlign: 'center', marginBottom: 20, background: dragOver ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)', color: dragOver ? 'var(--accent,#cc0000)' : 'var(--muted)', fontSize: 13, cursor: 'pointer', transition: 'border-color .15s, background .15s, color .15s', minHeight: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-          >
-            <span style={{ fontSize: 28 }}>{dragOver ? '📸' : '🖼️'}</span>
-            <span style={{ fontWeight: 600 }}>{dragOver ? 'Release to upload' : 'Drop photos here or click to browse'}</span>
-            <span style={{ fontSize: 11 }}>JPG, PNG, HEIC — multiple files at once</span>
-          </div>
-        )}
+                {/* Left arrow */}
+                {images.length > 1 && (
+                  <button onClick={prev} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.55)')}>‹</button>
+                )}
 
-        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
+                {/* Right arrow */}
+                {images.length > 1 && (
+                  <button onClick={next} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.55)')}>›</button>
+                )}
 
-        {loading && <p style={{ color: 'var(--muted)' }}>Loading photos…</p>}
-        {!loading && images.length === 0 && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>No photos yet.</p>}
-        {images.length > 0 && (
-          <>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 10 }}>{images.length} photo{images.length !== 1 ? 's' : ''}</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-              {images.map(img => (
-                <div key={img.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--line)', background: '#000', aspectRatio: '4/3' }}>
-                  <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', display: 'block' }} onClick={() => setLightbox(img.url)} />
-                  <button onClick={() => handleDelete(img)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.65)', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', padding: '3px 7px', fontSize: 12 }}>✕</button>
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, padding: '4px 8px' }}>{img.label}</div>
+                {/* Counter + delete */}
+                <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px' }}>
+                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, padding: '3px 10px', borderRadius: 20 }}>
+                    {activeIdx + 1} / {images.length}
+                  </span>
+                  {current?.label && (
+                    <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, padding: '3px 10px', borderRadius: 20, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.label}</span>
+                  )}
+                  <button onClick={() => handleDelete(activeIdx)} style={{ background: 'rgba(180,0,0,0.75)', border: 'none', borderRadius: 20, color: '#fff', fontSize: 12, padding: '4px 12px', cursor: 'pointer' }}>🗑 Delete</button>
                 </div>
-              ))}
+              </div>
+
+              {/* Thumbnail strip */}
+              <div
+                ref={thumbStripRef}
+                style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginTop: 10, scrollbarWidth: 'thin' }}
+              >
+                {images.map((img, i) => (
+                  <div
+                    key={img.id}
+                    onClick={() => setActiveIdx(i)}
+                    style={{ flexShrink: 0, width: 72, height: 54, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: i === activeIdx ? '2px solid var(--accent,#cc0000)' : '2px solid transparent', opacity: i === activeIdx ? 1 : 0.6, transition: 'opacity .15s, border-color .15s', background: '#000' }}
+                  >
+                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </>
-        )}
+          )}
+
+          {/* Upload buttons */}
+          {camMode === 'off' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 22 }}>🖼️</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{uploading ? 'Uploading…' : 'Upload Files'}</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>JPG, PNG, HEIC</span>
+              </button>
+              <button onClick={() => cameraRef.current?.click()} disabled={uploading}
+                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 22 }}>📱</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>Phone Camera</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Opens device camera</span>
+              </button>
+              <button onClick={startWebcam} disabled={uploading}
+                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 22 }}>📷</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>Webcam</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Use connected camera</span>
+              </button>
+            </div>
+          )}
+
+          {/* Drag & drop zone */}
+          {camMode === 'off' && (
+            <div
+              onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+              onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
+              onDrop={e => {
+                e.preventDefault(); e.stopPropagation(); setDragOver(false);
+                let files: File[] = [];
+                if (e.dataTransfer.files?.length) files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+                else if (e.dataTransfer.items?.length) files = Array.from(e.dataTransfer.items).filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter((f): f is File => f !== null);
+                if (!files.length) { setError('No image files detected.'); return; }
+                uploadFiles(files);
+              }}
+              onClick={() => fileRef.current?.click()}
+              style={{ border: `2px dashed ${dragOver ? 'var(--accent,#cc0000)' : 'var(--line)'}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', background: dragOver ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)', color: dragOver ? 'var(--accent,#cc0000)' : 'var(--muted)', fontSize: 13, cursor: 'pointer', transition: 'all .15s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+            >
+              <span style={{ fontSize: 24 }}>{dragOver ? '📸' : '🖼️'}</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{dragOver ? 'Release to upload' : 'Drop photos here or click to browse'}</span>
+              <span style={{ fontSize: 11 }}>JPG, PNG, HEIC — multiple files at once</span>
+            </div>
+          )}
+
+          {loading && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>Loading photos…</p>}
+          {!loading && images.length === 0 && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 10 }}>No photos yet. Use the options above to add some.</p>}
+        </div>
       </div>
 
-      {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-          <img src={lightbox} alt="Full size" style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', borderRadius: 8 }} />
-        </div>
-      )}
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
     </div>
   );
 }
