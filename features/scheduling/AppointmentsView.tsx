@@ -8,6 +8,56 @@ import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
 import { fetchVehicles } from '@/services/vehicleService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+
+const SERVICE_SUGGESTIONS = [
+  'Oil Change – Conventional',
+  'Oil Change – Synthetic',
+  'Oil Change – High Mileage',
+  'Tire Rotation',
+  'Tire Rotation & Balance',
+  'Tire Replacement – All Four',
+  'Brake Inspection',
+  'Brake Pad Replacement – Front',
+  'Brake Pad Replacement – Rear',
+  'Brake Pad & Rotor Replacement',
+  'Battery Replacement',
+  'Battery Test',
+  'Air Filter Replacement',
+  'Cabin Air Filter Replacement',
+  'Transmission Service',
+  'Transmission Fluid Flush',
+  'Coolant Flush',
+  'Power Steering Flush',
+  'Brake Fluid Flush',
+  'Fuel System Cleaning',
+  'Spark Plug Replacement',
+  'Timing Belt Replacement',
+  'Serpentine Belt Replacement',
+  'AC Recharge',
+  'AC Inspection',
+  'Engine Diagnostic',
+  'Check Engine Light Diagnosis',
+  'Wheel Alignment',
+  'Suspension Inspection',
+  'Shocks & Struts Replacement',
+  'CV Axle Replacement',
+  'Alternator Replacement',
+  'Starter Replacement',
+  'Radiator Replacement',
+  'Water Pump Replacement',
+  'Thermostat Replacement',
+  'Pre-Purchase Inspection',
+  'State Inspection',
+  'Emissions Test',
+  '30,000 Mile Service',
+  '60,000 Mile Service',
+  '90,000 Mile Service',
+  'Multi-Point Inspection',
+  'Windshield Wiper Replacement',
+  'Headlight Restoration',
+  'Exhaust Repair',
+  'Catalytic Converter Replacement',
+];
 import {
   fetchAppointments, createAppointment, updateAppointment, deleteAppointment,
   type AppointmentRecord,
@@ -48,8 +98,10 @@ export function AppointmentsView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [serviceSuggestions, setServiceSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
   const [bays, setBays] = useState<string[]>(DEFAULT_BAYS);
   const [toast, setToast] = useState('');
@@ -61,12 +113,10 @@ export function AppointmentsView() {
     Promise.all([
       fetchCustomers(),
       fetchTechnicians(),
-      fetchVehicles(),
       fetchShopSettings(),
-    ]).then(([custs, techs, vehs, settings]) => {
+    ]).then(([custs, techs, settings]) => {
       setCustomers(custs);
       setTechnicians(techs);
-      setAllVehicles(vehs as (Vehicle & { id: string })[]);
       setEnableAppointmentBay(settings.enableAppointmentBay ?? true);
       setBays(settings.appointmentBays ?? DEFAULT_BAYS);
     }).catch(() => {});
@@ -91,12 +141,29 @@ export function AppointmentsView() {
     setForm(f => ({ ...f, [field]: value }));
     if (field === 'customer') {
       const cust = customers.find(c => c.name === value);
-      const vehicles = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
-      setCustomerVehicles(vehicles);
-      if (vehicles.length === 1) {
-        setForm(f => ({ ...f, customer: value, vehicle: vehicles[0].label }));
+      setCustomerVehicles([]);
+      setForm(f => ({ ...f, customer: value, vehicle: '' }));
+      if (cust) {
+        setVehiclesLoading(true);
+        fetchVehicles()
+          .then(all => {
+            const vehs = (all as (Vehicle & { id: string })[]).filter(v => v.customerId === cust.id);
+            setCustomerVehicles(vehs);
+            if (vehs.length === 1) {
+              setForm(f => ({ ...f, vehicle: vehs[0].label }));
+            }
+          })
+          .catch(() => {})
+          .finally(() => setVehiclesLoading(false));
+      }
+    }
+    if (field === 'service') {
+      const q = value.trim().toLowerCase();
+      if (q.length >= 2) {
+        setServiceSuggestions(SERVICE_SUGGESTIONS.filter(s => s.toLowerCase().includes(q)));
+        setShowSuggestions(true);
       } else {
-        setForm(f => ({ ...f, customer: value, vehicle: '' }));
+        setShowSuggestions(false);
       }
     }
   }
@@ -112,8 +179,15 @@ export function AppointmentsView() {
     const a = record.data;
     setEditingId(record.id);
     setForm({ date: record.date, time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: a[7] ?? '', reminder: a[6] });
+    setCustomerVehicles([]);
     const cust = customers.find(c => c.name === a[1]);
-    setCustomerVehicles(cust ? allVehicles.filter(v => v.customerId === cust.id) : []);
+    if (cust) {
+      setVehiclesLoading(true);
+      fetchVehicles()
+        .then(all => setCustomerVehicles((all as (Vehicle & { id: string })[]).filter(v => v.customerId === cust.id)))
+        .catch(() => {})
+        .finally(() => setVehiclesLoading(false));
+    }
     setShowForm(true);
   }
 
@@ -254,7 +328,7 @@ export function AppointmentsView() {
               </div>
 
               <div className="login-field">
-                <label>Vehicle</label>
+                <label>Vehicle {vehiclesLoading && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11 }}>loading…</span>}</label>
                 {customerVehicles.length > 0 ? (
                   <select value={form.vehicle} onChange={e => set('vehicle', e.target.value)}>
                     <option value="">— Select vehicle —</option>
@@ -263,13 +337,40 @@ export function AppointmentsView() {
                     ))}
                   </select>
                 ) : (
-                  <input placeholder="e.g. 2021 Toyota RAV4" value={form.vehicle} onChange={e => set('vehicle', e.target.value)} />
+                  <input placeholder={form.customer ? 'No registered vehicles — type manually' : 'Select a customer first'} value={form.vehicle} onChange={e => set('vehicle', e.target.value)} />
                 )}
               </div>
 
-              <div className="login-field">
+              <div className="login-field" style={{ position: 'relative' }}>
                 <label>Requested Service *</label>
-                <input placeholder="e.g. Oil change, Brake inspection" value={form.service} onChange={e => set('service', e.target.value)} required />
+                <input
+                  placeholder="Start typing: Oil, Brake, Tire…"
+                  value={form.service}
+                  onChange={e => set('service', e.target.value)}
+                  onFocus={() => { if (form.service.length >= 2) setShowSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  required
+                  autoComplete="off"
+                />
+                {showSuggestions && serviceSuggestions.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto',
+                  }}>
+                    {serviceSuggestions.map(s => (
+                      <div
+                        key={s}
+                        onMouseDown={() => { setForm(f => ({ ...f, service: s })); setShowSuggestions(false); }}
+                        style={{ padding: '9px 14px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--line)' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {enableAppointmentBay && (
