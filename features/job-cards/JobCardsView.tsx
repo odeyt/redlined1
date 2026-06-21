@@ -12,7 +12,8 @@ import {
   fetchJobCards, fetchClosedJobs, createJobCard,
   updateJobCard, closeJob, deleteJobCard, type JobCardFull,
 } from '@/services/jobCardService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import type { Vehicle } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -157,7 +158,15 @@ export function JobCardsView() {
     if (openNewJobCard) {
       setShowCreateModal(true);
       // Apply any prefilled data from navigation
-      if (prefill?.customerName) setFCustomer(prefill.customerName);
+      if (prefill?.customerName) {
+        setFCustomer(prefill.customerName);
+        const cust = customers.find(c => c.name === prefill.customerName);
+        if (cust) {
+          const veh = allVehicles.filter(v => v.customerId === cust.id);
+          setCustomerVehicles(veh);
+          if (!prefill?.vehicle && veh.length === 1) setFVehicle(veh[0].label);
+        }
+      }
       if (prefill?.vehicle) setFVehicle(prefill.vehicle);
       dispatch({ type: 'CLOSE_NEW_JOB_CARD' });
     }
@@ -165,6 +174,8 @@ export function JobCardsView() {
   const [jobs, setJobs] = useState<JobCardFull[]>([]);
   const [closedJobs, setClosedJobs] = useState<JobCardFull[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [techs, setTechs] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -196,9 +207,10 @@ export function JobCardsView() {
   const [newTechEmail, setNewTechEmail] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings()])
-      .then(([j, c, custs, t, settings]) => {
+    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings(), fetchVehicles()])
+      .then(([j, c, custs, t, settings, v]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
+        setAllVehicles(v as (Vehicle & { id: string })[]);
         if (settings.serviceTypes) {
           const opts = settings.serviceTypes.split(',').map((s: string) => s.trim()).filter(Boolean);
           if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceType(opts[0]); }
@@ -214,6 +226,15 @@ export function JobCardsView() {
     setFTechs(prev => prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]);
   }
 
+  function handleCustomerChange(name: string) {
+    setFCustomer(name);
+    const cust = customers.find(c => c.name === name);
+    const veh = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
+    setCustomerVehicles(veh);
+    if (veh.length === 1) setFVehicle(veh[0].label);
+    else setFVehicle('');
+  }
+
   async function handleCreate() {
     if (!fCustomer) return setError('Select a customer.');
     setError(''); setCreating(true);
@@ -221,7 +242,7 @@ export function JobCardsView() {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
       const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fServiceType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
-      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]);
+      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
       notify(`${job.id} created.`);
     } catch (err: unknown) { setError('Create failed: ' + (err instanceof Error ? err.message : JSON.stringify(err))); }
     finally { setCreating(false); }
@@ -440,17 +461,26 @@ export function JobCardsView() {
               <div className="field">
                 <label>Customer</label>
                 {customers.length > 0 ? (
-                  <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
+                  <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
                     <option value="">— select customer —</option>
                     {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 ) : (
-                  <input value={fCustomer} onChange={e => setFCustomer(e.target.value)} placeholder="Customer name" />
+                  <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
                 )}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
-                <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+                {customerVehicles.length > 1 ? (
+                  <select value={fVehicle} onChange={e => setFVehicle(e.target.value)}>
+                    <option value="">— select vehicle —</option>
+                    {customerVehicles.map(v => (
+                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+                )}
               </div>
               <div className="field">
                 <label>Service Type</label>
@@ -547,17 +577,26 @@ export function JobCardsView() {
               <div className="field">
                 <label>Customer</label>
                 {customers.length > 0 ? (
-                  <select value={fCustomer} onChange={e => setFCustomer(e.target.value)}>
+                  <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
                     <option value="">— select customer —</option>
                     {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 ) : (
-                  <input value={fCustomer} onChange={e => setFCustomer(e.target.value)} placeholder="Customer name" />
+                  <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
                 )}
               </div>
               <div className="field">
                 <label>Vehicle / VIN</label>
-                <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+                {customerVehicles.length > 1 ? (
+                  <select value={fVehicle} onChange={e => setFVehicle(e.target.value)}>
+                    <option value="">— select vehicle —</option>
+                    {customerVehicles.map(v => (
+                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+                )}
               </div>
             </div>
             <div className="form-row">
@@ -609,7 +648,7 @@ export function JobCardsView() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-              <button className="btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
+              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); }}>Cancel</button>
               <button className="btn primary" onClick={async () => { await handleCreate(); setShowCreateModal(false); }} disabled={creating}>
                 <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
               </button>
