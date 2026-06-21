@@ -87,6 +87,15 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
   return toVehicle(data);
 }
 
+export async function deleteVehicle(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('vehicles')
+    .delete()
+    .eq('id', id)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}
+
 export async function fetchCustomerNames(): Promise<{ id: string; name: string }[]> {
   const { data, error } = await supabase
     .from('customers')

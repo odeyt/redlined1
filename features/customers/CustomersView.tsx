@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
-import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp } from '@/services/customerService';
+import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCustomer } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
@@ -100,6 +100,16 @@ export function CustomersView() {
     finally { setSaving(false); }
   }
 
+  async function handleDelete(c: Customer) {
+    if (!confirm(`Delete ${c.name}? This cannot be undone.`)) return;
+    try {
+      await deleteCustomer(c.id);
+      setCustomers(prev => prev.filter(x => x.id !== c.id));
+      if (selected?.id === c.id) setSelected(null);
+      notify(`${c.name} deleted.`);
+    } catch { notify('Delete failed. Check your connection.'); }
+  }
+
   async function handleFollowUp(customerId: string, customerName: string) {
     const msg = 'Follow-up sent just now';
     try {
@@ -174,13 +184,10 @@ export function CustomersView() {
                   <td>{c.followUp}</td>
                   <td>
                     <div className="row-actions">
-                      <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>Send follow-up</button>
-                      {c.portalToken && (
-                        <button className="mini-btn" title="Copy customer portal link"
-                          onClick={() => { const url = `${window.location.origin}/portal/${c.portalToken}`; navigator.clipboard.writeText(url).then(() => notify(`Portal link for ${c.name} copied!`)); }}>
-                          🔗 Portal Link
-                        </button>
-                      )}
+                      <button className="mini-btn" onClick={() => openDetail(c)}>View</button>
+                      <button className="mini-btn" onClick={() => { openDetail(c); }}>Edit</button>
+                      <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>Follow-up</button>
+                      <button className="mini-btn" style={{ color: 'var(--accent)' }} onClick={() => handleDelete(c)}>Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -420,6 +427,9 @@ export function CustomersView() {
                 )}
                 <button className="btn" onClick={() => setSelected(null)}>Close</button>
               </div>
+              <button className="btn" style={{ color: '#ef4444', borderColor: '#ef4444', width: '100%' }} onClick={() => handleDelete(selected)}>
+                🗑 Delete Customer
+              </button>
             </div>
           </div>
         </>

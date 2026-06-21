@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { fetchVehicles, saveVehicle, updateVehicle, fetchCustomerNames } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, updateVehicle, deleteVehicle, fetchCustomerNames } from '@/services/vehicleService';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
@@ -302,6 +302,15 @@ export function VehiclesView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
+  async function handleDeleteVehicle(v: VehicleWithId) {
+    if (!confirm(`Delete ${v.label}? This cannot be undone.`)) return;
+    try {
+      await deleteVehicle(v.id);
+      setVehicles(prev => prev.filter(x => x.id !== v.id));
+      notify(`${v.label} deleted.`);
+    } catch (err) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     // VIN validation — must be exactly 17 alphanumeric characters if provided
@@ -513,7 +522,7 @@ export function VehiclesView() {
           <Panel title="Vehicle Service History" hint="Ownership, job cards, repair orders, diagnostics, and recommendations">
             <table>
               <thead>
-                <tr><th>Vehicle</th><th>Transmission</th><th>Status</th><th>Recommendation</th>{enableVehiclePhotos && <th>Photos</th>}</tr>
+                <tr><th>Vehicle</th><th>Transmission</th><th>Status</th><th>Recommendation</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {vehicles.map(v => (
@@ -530,7 +539,12 @@ export function VehiclesView() {
                     <td>{v.transmission}</td>
                     <td><Badge text={v.status || 'No open jobs'} /></td>
                     <td>{v.recommendation}</td>
-                    {enableVehiclePhotos && <td><button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button></td>}
+                    <td>
+                      <div className="row-actions">
+                        {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
+                        <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

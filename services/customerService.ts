@@ -83,6 +83,15 @@ export async function updateCustomer(id: string, customer: Omit<Customer, 'id' |
   };
 }
 
+export async function deleteCustomer(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', id)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}
+
 export async function updateFollowUp(customerId: string, followUp: string): Promise<void> {
   const { error } = await supabase
     .from('customers')
