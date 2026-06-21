@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { moduleTitles } from '@/lib/mock-data';
 import { Icon } from './Icon';
@@ -117,7 +117,7 @@ export function Header() {
     setOpen(false);
     setQuery('');
     setResults([]);
-    dispatch({ type: 'SET_MODULE', module: result.module as Parameters<typeof dispatch>[0] extends { type: 'SET_MODULE'; module: infer M } ? M : string } as Parameters<typeof dispatch>[0]);
+    dispatch({ type: 'SET_MODULE', module: result.module });
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -184,10 +184,10 @@ export function Header() {
                 </div>
               ) : (
                 <>
-                  {/* VIN shortcut banner */}
-                  {/^[A-Z0-9]{5,}$/i.test(query.trim()) && (
+                  {/* VIN / Plate search banner */}
+                  {/^[A-Z0-9]{3,}$/i.test(query.trim()) && (
                     <div style={{ padding: '8px 14px', background: 'rgba(204,0,0,0.06)', borderBottom: '1px solid var(--line)', fontSize: 12, color: 'var(--accent,#cc0000)', fontWeight: 600 }}>
-                      🔍 Searching by VIN / Plate across all records
+                      🔍 Searching by VIN &amp; Plate number across all records
                     </div>
                   )}
 
