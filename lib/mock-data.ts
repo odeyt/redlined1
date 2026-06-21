@@ -76,12 +76,7 @@ export const initialRepairOrders: RepairOrder[] = [
   { ro: 'RO-24021', jobCard: 'JC-3110', customer: 'Westside Auto Group', vehicle: '2020 BMW 330i', concern: 'Check engine light', cause: 'Catalyst efficiency fault stored', correction: 'Perform smoke test and oxygen sensor graphing', tech: 'Alex Kim', status: 'In Progress', approval: 'Internal', total: 210 },
 ];
 
-export const initialAppointments: AppointmentRow[] = [
-  ['8:00 AM', 'Northline Fleet', 'Ford F-150', 'Brakes', 'JC-3108', 'Bay 2', 'Confirmed', ''],
-  ['10:30 AM', 'Maya Rodriguez', 'Toyota RAV4', '60k mobile service', 'JC-3109', 'Mobile Route 1', 'Reminder sent', ''],
-  ['1:00 PM', 'Apex Logistics', 'Transit 250', 'No start', 'New Job', 'Depot Dispatch', 'Awaiting tow', ''],
-  ['3:30 PM', 'Westside Auto Group', 'BMW 330i', 'CEL diagnostic', 'JC-3110', 'Bay 3', 'Checked in', ''],
-];
+export const initialAppointments: AppointmentRow[] = [];
 
 export const initialInvoices: Invoice[] = [
   {

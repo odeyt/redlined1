@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAppState, useAppDispatch } from '@/lib/store';
+import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
 import { fetchVehicles } from '@/services/vehicleService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import {
+  fetchAppointments, createAppointment, updateAppointment, deleteAppointment,
+  type AppointmentRecord,
+} from '@/services/appointmentService';
 import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
 import type { Vehicle } from '@/lib/types';
@@ -28,11 +32,12 @@ const modal: React.CSSProperties = {
 };
 
 export function AppointmentsView() {
-  const { appointments } = useAppState();
   const dispatch = useAppDispatch();
 
+  const [appts, setAppts] = useState<AppointmentRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
@@ -43,13 +48,21 @@ export function AppointmentsView() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
-    fetchCustomers().then(setCustomers).catch(() => {});
-    fetchTechnicians().then(setTechnicians).catch(() => {});
-    fetchVehicles().then(v => setAllVehicles(v as (Vehicle & { id: string })[])).catch(() => {});
-    fetchShopSettings().then(s => {
-      setEnableAppointmentBay(s.enableAppointmentBay ?? true);
-      setBays(s.appointmentBays ?? DEFAULT_BAYS);
-    }).catch(() => {});
+    Promise.all([
+      fetchCustomers(),
+      fetchTechnicians(),
+      fetchVehicles(),
+      fetchShopSettings(),
+      fetchAppointments(),
+    ]).then(([custs, techs, vehs, settings, records]) => {
+      setCustomers(custs);
+      setTechnicians(techs);
+      setAllVehicles(vehs as (Vehicle & { id: string })[]);
+      setEnableAppointmentBay(settings.enableAppointmentBay ?? true);
+      setBays(settings.appointmentBays ?? DEFAULT_BAYS);
+      setAppts(records);
+      setLoading(false);
+    }).catch(() => setLoading(false));
 
     function onSettingsUpdate(e: Event) {
       const d = (e as CustomEvent).detail ?? {};
@@ -68,7 +81,6 @@ export function AppointmentsView() {
       const cust = customers.find(c => c.name === value);
       const vehicles = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
       setCustomerVehicles(vehicles);
-      // Auto-fill if exactly one vehicle
       if (vehicles.length === 1) {
         setForm(f => ({ ...f, customer: value, vehicle: vehicles[0].label }));
       } else {
@@ -78,39 +90,63 @@ export function AppointmentsView() {
   }
 
   function openNew() {
-    setEditingIndex(null);
+    setEditingId(null);
     setForm(EMPTY_FORM);
+    setCustomerVehicles([]);
     setShowForm(true);
   }
 
-  function openEdit(index: number) {
-    const a = appointments[index];
-    setEditingIndex(index);
+  function openEdit(record: AppointmentRecord) {
+    const a = record.data;
+    setEditingId(record.id);
     setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: a[7] ?? '', reminder: a[6] });
     const cust = customers.find(c => c.name === a[1]);
     setCustomerVehicles(cust ? allVehicles.filter(v => v.customerId === cust.id) : []);
     setShowForm(true);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.time || !form.customer || !form.service) return;
-    const row = [form.time, form.customer, form.vehicle, form.service,
-      editingIndex !== null ? appointments[editingIndex][4] : 'New Job',
-      form.bay, form.reminder, form.technician] as [string, string, string, string, string, string, string, string];
+    const row = [form.time, form.customer, form.vehicle, form.service, editingId ? (appts.find(a => a.id === editingId)?.data[4] ?? 'New Job') : 'New Job', form.bay, form.reminder, form.technician] as [string, string, string, string, string, string, string, string];
 
-    if (editingIndex !== null) {
-      dispatch({ type: 'EDIT_APPOINTMENT', appointmentIndex: editingIndex, appointment: row });
-    } else {
-      dispatch({ type: 'ADD_APPOINTMENT', appointment: row });
+    try {
+      if (editingId) {
+        await updateAppointment(editingId, row);
+        setAppts(prev => prev.map(a => a.id === editingId ? { id: editingId, data: row } : a));
+        notify(`Appointment updated for ${row[1]}.`);
+      } else {
+        const created = await createAppointment(row);
+        setAppts(prev => [...prev, created]);
+        notify(`Appointment booked for ${row[1]}.`);
+      }
+    } catch {
+      notify('Failed to save appointment. Please try again.');
     }
-    setForm(EMPTY_FORM); setShowForm(false); setEditingIndex(null);
+    setForm(EMPTY_FORM); setShowForm(false); setEditingId(null);
   }
 
-  function handleDelete(index: number) {
+  async function handleCheckIn(record: AppointmentRecord) {
+    const updated = [...record.data] as typeof record.data;
+    updated[6] = 'Checked in';
+    try {
+      await updateAppointment(record.id, updated);
+      setAppts(prev => prev.map(a => a.id === record.id ? { id: record.id, data: updated } : a));
+      dispatch({ type: 'NOTIFY', message: `${record.data[1]} checked in for ${record.data[3]}.` });
+    } catch {
+      notify('Check-in failed. Please try again.');
+    }
+  }
+
+  async function handleDelete(record: AppointmentRecord) {
     if (!confirm('Remove this appointment?')) return;
-    dispatch({ type: 'DELETE_APPOINTMENT', appointmentIndex: index });
-    notify('Appointment removed.');
+    try {
+      await deleteAppointment(record.id);
+      setAppts(prev => prev.filter(a => a.id !== record.id));
+      notify('Appointment removed.');
+    } catch {
+      notify('Delete failed. Please try again.');
+    }
   }
 
   return (
@@ -126,39 +162,54 @@ export function AppointmentsView() {
           </div>
         )}
 
-        <table>
-          <thead>
-            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th>{enableAppointmentBay && <th>Bay / Location</th>}<th>Reminder</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            {appointments.map((a, i) => (
-              <tr key={i}>
-                <td>{a[0]}</td>
-                <td>{a[1]}</td>
-                <td>{a[2]}</td>
-                <td>{a[3]}</td>
-                <td><Badge text={a[4]} /></td>
-                <td>{a[7] ? <span style={{ background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{a[7]}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}</td>
-                {enableAppointmentBay && <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>}
-                <td><Badge text={a[6]} /></td>
-                <td>
-                  <div className="row-actions">
-                    <button className="mini-btn" onClick={() => dispatch({ type: 'CHECK_IN', appointmentIndex: i })}>Check in</button>
-                    <button className="mini-btn" onClick={() => openEdit(i)}>Edit</button>
-                    <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(i)}>Remove</button>
-                  </div>
-                </td>
+        {loading ? (
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Loading appointments…</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th>
+                <th>Technician</th>
+                {enableAppointmentBay && <th>Bay / Location</th>}
+                <th>Reminder</th><th>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {appts.length === 0 && (
+                <tr><td colSpan={enableAppointmentBay ? 9 : 8} style={{ color: 'var(--muted)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No appointments yet. Click "+ Book Appointment" to add one.</td></tr>
+              )}
+              {appts.map((record) => {
+                const a = record.data;
+                return (
+                  <tr key={record.id}>
+                    <td>{a[0]}</td>
+                    <td>{a[1]}</td>
+                    <td>{a[2]}</td>
+                    <td>{a[3]}</td>
+                    <td><Badge text={a[4]} /></td>
+                    <td>{a[7] ? <span style={{ background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{a[7]}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}</td>
+                    {enableAppointmentBay && <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>}
+                    <td><Badge text={a[6]} /></td>
+                    <td>
+                      <div className="row-actions">
+                        <button className="mini-btn" onClick={() => handleCheckIn(record)}>Check in</button>
+                        <button className="mini-btn" onClick={() => openEdit(record)}>Edit</button>
+                        <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(record)}>Remove</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </Panel>
 
       {showForm && (
-        <div style={overlay} onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditingIndex(null); } }}>
+        <div style={overlay} onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditingId(null); } }}>
           <div style={modal}>
             <h2 style={{ margin: '0 0 24px', fontSize: 20, fontWeight: 700 }}>
-              {editingIndex !== null ? 'Edit Appointment' : 'Book Appointment'}
+              {editingId !== null ? 'Edit Appointment' : 'Book Appointment'}
             </h2>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -172,7 +223,6 @@ export function AppointmentsView() {
                 <select value={form.customer} onChange={e => set('customer', e.target.value)} required>
                   <option value="">— Select customer —</option>
                   {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  {/* Keep the existing name if not in the list */}
                   {form.customer && !customers.find(c => c.name === form.customer) && (
                     <option value={form.customer}>{form.customer}</option>
                   )}
@@ -224,9 +274,9 @@ export function AppointmentsView() {
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingIndex(null); setForm(EMPTY_FORM); }}>Cancel</button>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>Cancel</button>
                 <button type="submit" className="btn btn-primary">
-                  {editingIndex !== null ? 'Update Appointment' : 'Book Appointment'}
+                  {editingId !== null ? 'Update Appointment' : 'Book Appointment'}
                 </button>
               </div>
             </form>
