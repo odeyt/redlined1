@@ -194,7 +194,7 @@ export function TechniciansView() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>🔧 Technicians</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>👥 Employees</h1>
           <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 13 }}>
             Profiles · Work board · Labor tracking · Performance stats
           </p>
