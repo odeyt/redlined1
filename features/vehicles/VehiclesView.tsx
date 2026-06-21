@@ -112,7 +112,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  });
+  }, [onClose, images.length]);
 
   function prev() { setActiveIdx(i => (i > 0 ? i - 1 : images.length - 1)); }
   function next() { setActiveIdx(i => (i < images.length - 1 ? i + 1 : 0)); }
