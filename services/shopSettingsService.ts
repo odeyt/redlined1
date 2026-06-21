@@ -45,6 +45,10 @@ export interface ShopSettings {
   enableJobCompletionReport: boolean;
   enableAppointmentBay: boolean;
   appointmentBays: string[];
+  enableJobCardPriority: boolean;
+  enableJobCardBranchRoute: boolean;
+  enableJobCardServiceLocation: boolean;
+  enableJobCardApprovalCode: boolean;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -88,6 +92,10 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableJobCompletionReport: data.enable_job_completion_report ?? true,
     enableAppointmentBay: data.enable_appointment_bay ?? true,
     appointmentBays: (data.appointment_bays as string[] | null) ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'],
+    enableJobCardPriority: data.enable_job_card_priority ?? true,
+    enableJobCardBranchRoute: data.enable_job_card_branch_route ?? true,
+    enableJobCardServiceLocation: data.enable_job_card_service_location ?? true,
+    enableJobCardApprovalCode: data.enable_job_card_approval_code ?? true,
   };
 }
 
@@ -118,6 +126,10 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableJobCompletionReport !== undefined) update.enable_job_completion_report = settings.enableJobCompletionReport;
   if (settings.enableAppointmentBay !== undefined) update.enable_appointment_bay = settings.enableAppointmentBay;
   if (settings.appointmentBays !== undefined) update.appointment_bays = settings.appointmentBays;
+  if (settings.enableJobCardPriority !== undefined) update.enable_job_card_priority = settings.enableJobCardPriority;
+  if (settings.enableJobCardBranchRoute !== undefined) update.enable_job_card_branch_route = settings.enableJobCardBranchRoute;
+  if (settings.enableJobCardServiceLocation !== undefined) update.enable_job_card_service_location = settings.enableJobCardServiceLocation;
+  if (settings.enableJobCardApprovalCode !== undefined) update.enable_job_card_approval_code = settings.enableJobCardApprovalCode;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)

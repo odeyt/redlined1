@@ -58,6 +58,10 @@ export function SettingsView() {
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
   const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
+  const [enableJobCardPriority, setEnableJobCardPriority] = useState(true);
+  const [enableJobCardBranchRoute, setEnableJobCardBranchRoute] = useState(true);
+  const [enableJobCardServiceLocation, setEnableJobCardServiceLocation] = useState(true);
+  const [enableJobCardApprovalCode, setEnableJobCardApprovalCode] = useState(true);
   const [newBayName, setNewBayName] = useState('');
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
@@ -108,6 +112,10 @@ export function SettingsView() {
       setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
       setEnableAppointmentBay(s.enableAppointmentBay ?? true);
       setAppointmentBays(s.appointmentBays ?? ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
+      setEnableJobCardPriority(s.enableJobCardPriority ?? true);
+      setEnableJobCardBranchRoute(s.enableJobCardBranchRoute ?? true);
+      setEnableJobCardServiceLocation(s.enableJobCardServiceLocation ?? true);
+      setEnableJobCardApprovalCode(s.enableJobCardApprovalCode ?? true);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -196,8 +204,12 @@ export function SettingsView() {
         enableJobCompletionReport,
         enableAppointmentBay,
         appointmentBays,
+        enableJobCardPriority,
+        enableJobCardBranchRoute,
+        enableJobCardServiceLocation,
+        enableJobCardApprovalCode,
       });
-      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking, appointmentBays, enableAppointmentBay } }));
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking, appointmentBays, enableAppointmentBay, enableJobCardPriority, enableJobCardBranchRoute, enableJobCardServiceLocation, enableJobCardApprovalCode } }));
       flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
@@ -392,6 +404,10 @@ export function SettingsView() {
               { key: 'enableTechnicianReport', set: setEnableTechnicianReport, val: enableTechnicianReport, icon: '🔧', label: 'Technician Assignment Report', desc: 'Show the Technicians tab in Reports — tracks jobs and hours per technician.' },
               { key: 'enableJobCompletionReport', set: setEnableJobCompletionReport, val: enableJobCompletionReport, icon: '✅', label: 'Job Completion Report', desc: 'Show the Job Completion tab in Reports — tracks turnaround time and job status trends.' },
               { key: 'enableAppointmentBay', set: setEnableAppointmentBay, val: enableAppointmentBay, icon: '📍', label: 'Appointment Bay / Location Field', desc: 'Show the Bay / Location assignment field on the Appointments booking form and table column.' },
+              { key: 'enableJobCardPriority', set: setEnableJobCardPriority, val: enableJobCardPriority, icon: '🔺', label: 'Job Card — Priority Field', desc: 'Show the Priority dropdown (Normal / High / Roadside / Fleet SLA) on the Create Job Card form.' },
+              { key: 'enableJobCardBranchRoute', set: setEnableJobCardBranchRoute, val: enableJobCardBranchRoute, icon: '🗺️', label: 'Job Card — Branch / Route Field', desc: 'Show the Branch / Route dropdown on the Create Job Card form.' },
+              { key: 'enableJobCardServiceLocation', set: setEnableJobCardServiceLocation, val: enableJobCardServiceLocation, icon: '📌', label: 'Job Card — Service Location Field', desc: 'Show the Service Location text field on the Create Job Card form.' },
+              { key: 'enableJobCardApprovalCode', set: setEnableJobCardApprovalCode, val: enableJobCardApprovalCode, icon: '🔑', label: 'Job Card — PO / Approval Code Field', desc: 'Show the PO / Approval Code field on the Create Job Card form.' },
             ] as Array<{ key: string; set: (v: (p: boolean) => boolean) => void; val: boolean; icon: string; label: string; desc: string }>).map(({ set, val, icon, label, desc }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
                 <div>

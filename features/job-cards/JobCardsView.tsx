@@ -200,6 +200,12 @@ export function JobCardsView() {
   const [fApproval, setFApproval] = useState('');
   const [creating, setCreating] = useState(false);
 
+  // Job card field toggles
+  const [enableJobCardPriority, setEnableJobCardPriority] = useState(true);
+  const [enableJobCardBranchRoute, setEnableJobCardBranchRoute] = useState(true);
+  const [enableJobCardServiceLocation, setEnableJobCardServiceLocation] = useState(true);
+  const [enableJobCardApprovalCode, setEnableJobCardApprovalCode] = useState(true);
+
   // Add tech form
   const [newTechName, setNewTechName] = useState('');
   const [newTechRole, setNewTechRole] = useState('Technician');
@@ -215,9 +221,23 @@ export function JobCardsView() {
           const opts = settings.serviceTypes.split(',').map((s: string) => s.trim()).filter(Boolean);
           if (opts.length > 0) { setServiceTypeOptions(opts); setFServiceType(opts[0]); }
         }
+        setEnableJobCardPriority(settings.enableJobCardPriority ?? true);
+        setEnableJobCardBranchRoute(settings.enableJobCardBranchRoute ?? true);
+        setEnableJobCardServiceLocation(settings.enableJobCardServiceLocation ?? true);
+        setEnableJobCardApprovalCode(settings.enableJobCardApprovalCode ?? true);
       })
       .catch(err => setError('Load error: ' + (err?.message || err)))
       .finally(() => setLoading(false));
+
+    function onSettingsUpdate(e: Event) {
+      const d = (e as CustomEvent).detail ?? {};
+      if (d.enableJobCardPriority !== undefined) setEnableJobCardPriority(d.enableJobCardPriority);
+      if (d.enableJobCardBranchRoute !== undefined) setEnableJobCardBranchRoute(d.enableJobCardBranchRoute);
+      if (d.enableJobCardServiceLocation !== undefined) setEnableJobCardServiceLocation(d.enableJobCardServiceLocation);
+      if (d.enableJobCardApprovalCode !== undefined) setEnableJobCardApprovalCode(d.enableJobCardApprovalCode);
+    }
+    window.addEventListener('shop-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('shop-settings-updated', onSettingsUpdate);
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 4000); }
@@ -494,28 +514,36 @@ export function JobCardsView() {
                   <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
                 </select>
               </div>
-              <div className="field">
-                <label>Priority</label>
-                <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
-                  <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
-                </select>
-              </div>
+              {enableJobCardPriority && (
+                <div className="field">
+                  <label>Priority</label>
+                  <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
+                    <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="form-row">
-              <div className="field">
-                <label>Branch / Route</label>
-                <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                  <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Service Location</label>
-                <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
-              </div>
-              <div className="field">
-                <label>PO / Approval Code</label>
-                <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
-              </div>
+              {enableJobCardBranchRoute && (
+                <div className="field">
+                  <label>Branch / Route</label>
+                  <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
+                    <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
+                  </select>
+                </div>
+              )}
+              {enableJobCardServiceLocation && (
+                <div className="field">
+                  <label>Service Location</label>
+                  <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
+                </div>
+              )}
+              {enableJobCardApprovalCode && (
+                <div className="field">
+                  <label>PO / Approval Code</label>
+                  <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
+                </div>
+              )}
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
@@ -612,28 +640,36 @@ export function JobCardsView() {
                   <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
                 </select>
               </div>
-              <div className="field">
-                <label>Priority</label>
-                <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
-                  <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
-                </select>
-              </div>
+              {enableJobCardPriority && (
+                <div className="field">
+                  <label>Priority</label>
+                  <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
+                    <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="form-row">
-              <div className="field">
-                <label>Branch / Route</label>
-                <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                  <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
-                </select>
-              </div>
-              <div className="field">
-                <label>Service Location</label>
-                <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
-              </div>
-              <div className="field">
-                <label>PO / Approval Code</label>
-                <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
-              </div>
+              {enableJobCardBranchRoute && (
+                <div className="field">
+                  <label>Branch / Route</label>
+                  <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
+                    <option>Mobile Route 1</option><option>Downtown Branch</option><option>North Branch</option><option>Enterprise Depot</option>
+                  </select>
+                </div>
+              )}
+              {enableJobCardServiceLocation && (
+                <div className="field">
+                  <label>Service Location</label>
+                  <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
+                </div>
+              )}
+              {enableJobCardApprovalCode && (
+                <div className="field">
+                  <label>PO / Approval Code</label>
+                  <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
+                </div>
+              )}
             </div>
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
