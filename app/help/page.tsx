@@ -146,24 +146,36 @@ const PAID_SECTIONS = [
         content: `Open a customer profile and click "+ Add Vehicle". Enter the Year Make Model (e.g. 2023 Ford F-150), VIN (exactly 17 characters — a live counter shows progress), plate, engine, transmission, mileage, and any recommended service notes. You can add multiple vehicles per customer. Each vehicle maintains its own complete service history.`,
       },
       {
-        title: 'Editing an Existing Vehicle',
-        content: `On any vehicle card in Vehicle Management, click the "✏ Edit" button at the bottom of the card. The form at the top of the page opens pre-filled with that vehicle's current details — Year/Make/Model, VIN, trim, engine, transmission, mileage, plate, recommended service, and status. Make your changes and click "Update Vehicle". The card updates immediately in the list without a page reload. Click Cancel at any time to discard changes.`,
+        title: 'Three View Modes — Grid, List, Service Records',
+        content: `Vehicle Management has three view modes toggled from the toolbar:\n\n• Grid — photo cards showing engine, mileage, VIN, plate, and status badge. Best for visually scanning a small fleet.\n• List (default) — a compact table showing all vehicles with VIN, plate, fuel type, status pill, assigned tech badges, and date received. Click any row to open the full edit drawer.\n• Service Records — Notion-style cards with all service fields plus a summary bar showing counts for In Progress, Pending, and Completed. Click a summary card to jump straight to that filtered list.`,
       },
       {
-        title: 'Vehicle Photo Grid (1–5 Photos)',
-        content: `Each vehicle card displays up to 5 photos in a smart grid layout: 1 photo shows a full-width hero image. 2 photos split 50/50 side by side. 3–5 photos use a 62% hero on the left with up to 4 stacked thumbnails on the right. If more than 5 photos exist, the last thumbnail shows a "+N more" overlay. A 📷 badge in the corner shows the total photo count. Click anywhere on the photo area to open the full image gallery.`,
+        title: 'Editing a Vehicle — Click Any Row',
+        content: `In List view, click anywhere on a vehicle row to open the edit drawer on the right side of the screen. The drawer is split into two sections:\n\n• Basic Info — label, customer, year, make, model, fuel type, plate, mileage, VIN, engine, transmission, status, date received.\n• Service Record — assigned techs (semicolon-separated), issues/work needed, damage at intake, parts needed, parts exchanged, flat rate (LAK), tech pay notes, recommended service, and an "Issues Resolved" checkbox.\n\nAction buttons at the top of the drawer let you open a Job Card, open the photo gallery, or delete the vehicle. Click "✓ Save Changes" at the bottom to commit all edits. The row updates instantly without a page reload.`,
       },
       {
-        title: 'Vehicle Photos — Gallery & Camera',
-        content: `Click "📷 Photos" on any vehicle card to open the photo gallery modal. From there you can: Upload files (JPG, PNG, HEIC — multiple at once), open your Phone/Tablet Camera (native camera app), use a Webcam (for desktop computers), or drag and drop images directly from File Explorer. Each photo is stored securely and linked permanently to the vehicle. Click any thumbnail to open a full-screen lightbox. Click the ✕ on any photo to remove it.`,
+        title: 'Vehicle Photos — Sliding Carousel',
+        content: `Click "📷 Photos" on any vehicle row, or the photo thumbnail in the drawer, to open the photo gallery modal. Photos are displayed in a full-width sliding carousel:\n\n• Left ‹ and Right › arrow buttons navigate between photos, overlaid on the main image.\n• Swipe left or right on touch screens.\n• Use keyboard ← → arrow keys to navigate; Esc closes the modal.\n• A counter in the bottom-left shows the current position (e.g. 2 / 4).\n• A scrollable thumbnail strip below the main photo shows all photos — click any thumbnail to jump directly to it.\n• The Delete button in the bottom-right removes the current photo and moves to the adjacent one.\n\nUpload options: file picker (JPG, PNG, HEIC, multiple at once), phone/tablet camera, webcam capture, or drag and drop from File Explorer.`,
       },
       {
-        title: 'Vehicle Service History',
-        content: `The Vehicle Service History table below the cards shows every vehicle with its transmission, status, recommended service, and a photo thumbnail. Click the thumbnail or the 📷 Photos button to open the gallery. Use this table for a quick across-the-fleet overview — all vehicles in one sortable list.`,
+        title: 'Assigned Tech Color Badges',
+        content: `In both List view and Service Records view, each assigned technician appears as a colour-coded pill badge. Every technician name has a unique, deterministic colour (blue, green, pink, amber, purple, orange, cyan, etc.) derived from their name — so the same tech always appears in the same colour across every vehicle and every view. Multiple techs on one vehicle are shown as a row of coloured badges. Enter tech names in the "Assigned Tech(s)" field separated by semicolons, e.g. Beck; Kat; Wally.`,
+      },
+      {
+        title: 'Status Filters — In Progress, Completed, Pending',
+        content: `In List and Service Records views, filter by status using the pill buttons at the top: All, In Progress, Completed, Pending. The count in brackets updates in real time as you search. In Service Records view, click the summary stat cards (e.g. "9 IN PROGRESS") to jump directly to the filtered List view for that status.`,
+      },
+      {
+        title: 'Search Vehicles Within the Module',
+        content: `The search bar in List and Service Records views filters across vehicle label, VIN, plate number, assigned tech name, and known issues simultaneously. Results update as you type with no delay.`,
+      },
+      {
+        title: 'Vehicle Photo Grid — Grid View (1–5 Photos)',
+        content: `In Grid view, each vehicle card displays up to 5 photos in a smart collage: 1 photo = full-width hero. 2 photos = 50/50 side by side. 3–5 photos = 62% hero left with up to 4 stacked thumbnails right. If more than 5 photos exist, the last thumbnail shows "+N more". A 📷 badge shows the total count. Click the photo area to open the full carousel gallery.`,
       },
       {
         title: 'Mileage Tracking',
-        content: `Record the odometer reading every time a vehicle comes in by editing the vehicle and updating the Mileage field. Track mileage over visits to flag when a vehicle is approaching a service interval. The Recommended Service field is visible on the vehicle card and in the service history table — use it to note upcoming needs like "Oil change due at 50k".`,
+        content: `Record the odometer reading at every visit by opening the row edit drawer and updating the Mileage field. Track mileage over time to flag approaching service intervals. The Recommended Service field is visible in the edit drawer — note upcoming needs like "Oil change due at 50k".`,
       },
     ],
   },
@@ -296,16 +308,24 @@ const PAID_SECTIONS = [
   },
   {
     id: 'technicians',
-    icon: '👷',
-    title: 'Technician Management',
+    icon: '👥',
+    title: 'Employees',
     subsections: [
       {
-        title: 'Adding Technicians',
-        content: `Go to Technicians → Add Technician. Enter their name, role, and contact details. Each technician can be assigned to job cards. Their work history, completed jobs, and billed hours are all tracked automatically as you create and complete job cards assigned to them.`,
+        title: 'Adding Employees',
+        content: `Go to Employees in the sidebar and click "+ Add Employee". Enter their name and role (Owner, Shop Manager, Master Mechanic, Mechanic, Parts Runner, Office Manager, etc.). Each employee can be assigned to job cards and tracked in Time Tracking. Their work history, completed jobs, and billed hours are recorded automatically.`,
       },
       {
-        title: 'Tracking Technician Performance',
-        content: `The Technician report shows each tech's completed jobs, total billed hours, revenue generated, and average job time. Use this to identify your most productive team members, spot bottlenecks, and have data-backed conversations about performance. Filter by date range to review weekly or monthly output.`,
+        title: 'Assigning Employees to Vehicles',
+        content: `In Vehicle Management List view, click any vehicle row to open the edit drawer. In the Service Record section, enter one or more employee names in the "Assigned Tech(s)" field separated by semicolons — e.g. Beck; Kat; Wally. Each name appears as a unique colour-coded badge on the vehicle row, making it easy to see at a glance who is working on each car.`,
+      },
+      {
+        title: 'Tracking Employee Performance',
+        content: `The Reports module → Technicians tab shows each employee's active jobs, completed jobs, total labour hours, and a completion rate bar. Click any employee row to expand a sub-table of every job card assigned to them — with customer name, vehicle, status, and check-in date. Use this to balance workload and review output by week, month, or all time.`,
+      },
+      {
+        title: 'Employee Time Tracking',
+        content: `Go to Time Tracking to log exactly how long each employee spends on each job. Select the employee from the dropdown, optionally link to a Job Card, and click Clock In. The session starts immediately with a live timer. Clock Out when done. Every session is recorded with employee name, job card, start/end time, and duration — giving you accurate labour data for billing and payroll.`,
       },
     ],
   },
@@ -736,6 +756,37 @@ const PAID_SECTIONS = [
     ],
   },
   {
+    id: 'whats-new',
+    icon: '✨',
+    title: "What's New",
+    subsections: [
+      {
+        title: 'Vehicle List View — Default & Row Click to Edit',
+        content: `Vehicle Management now opens in List view by default instead of Grid. The List view is a fast, compact table showing plate, VIN, fuel type, status, assigned techs, and date received for every vehicle at a glance.\n\nClick any vehicle row to open a full edit drawer on the right side of the screen. The drawer lets you edit all basic vehicle fields (label, customer, year/make/model, fuel, plate, mileage, VIN, engine, transmission, status, date received) and all service record fields (assigned techs, issues, damage at intake, parts needed/exchanged, flat rate, tech pay notes, issues resolved). Action buttons at the top open the Job Card form, photo gallery, or confirm delete. Save changes without leaving the page.`,
+      },
+      {
+        title: 'Vehicle Photo Carousel',
+        content: `The photo gallery modal now displays photos as a full-width sliding carousel instead of a grid. Navigate with ‹ › arrow buttons, swipe left/right on touch screens, or use keyboard arrow keys. A counter (e.g. 2 / 4) shows your position. A scrollable thumbnail strip below the main photo lets you jump to any photo instantly. The Delete button removes the current photo and automatically moves to the next one. Upload via file picker, phone camera, webcam, or drag and drop — new photos jump the carousel to the latest upload.`,
+      },
+      {
+        title: 'Assigned Tech Colour Badges',
+        content: `Each technician name now appears as a unique colour-coded pill badge in List view and Service Records view. Colours are determined by the technician's name so they are always consistent — Beck is always the same colour across every vehicle and every view. This makes it instantly clear who is responsible for which cars without having to read every badge. Enter multiple techs separated by semicolons in the vehicle edit drawer.`,
+      },
+      {
+        title: 'Service Records View — Stat Cards Jump to Filtered List',
+        content: `In Service Records view, the summary bar at the top shows three stat cards: In Progress, Pending, and Completed with live counts. Clicking any stat card now filters the list to that status and switches you directly to List view — no need to manually click the status filter chip. This makes it faster to drill into a specific group of vehicles from the summary.`,
+      },
+      {
+        title: 'Global VIN & Plate Search',
+        content: `The header search bar now searches across VIN numbers and licence plate numbers in addition to vehicle labels, customer names, job cards, repair orders, and invoices. Type any partial plate or VIN (3+ characters) to find a vehicle instantly. Results are grouped by type — vehicles appear first, sorted with plate matches before VIN matches. A banner appears when the query looks like a VIN or plate number. Use keyboard ↑↓ to navigate results, Enter to open, Esc to close.`,
+      },
+      {
+        title: 'Employees Module (formerly Technicians)',
+        content: `The "Technicians" sidebar item has been renamed to "Employees" to better reflect the full range of staff roles — Owner, Shop Manager, Master Mechanic, Mechanic, Parts Runner, Office Manager, and more. All existing records and assignments are unchanged. Anywhere you previously saw "Technicians" in the sidebar now shows "Employees".`,
+      },
+    ],
+  },
+  {
     id: 'settings',
     icon: '⚙️',
     title: 'Settings & Customisation',
@@ -769,7 +820,7 @@ const FAQS = [
   { q: 'Can I import my existing parts list?', a: 'Yes. Go to Parts → Bulk Import and upload a CSV or Excel (.xlsx) file. The importer maps your columns to Redlined1 fields automatically. You can also drag and drop the file directly onto the upload area.' },
   { q: 'How do I track parts I order from suppliers?', a: 'Use the Parts Orders module (sidebar under "Parts Orders"). Create an order for each part, link it to a customer, vehicle, and job card, set the ETR date, and track the deposit and balance. The module shows live stats for orders on order, received, balance due, and deposits paid.' },
   { q: 'Can I edit a customer after saving them?', a: 'Yes. Click any customer in the Customers list to open their detail drawer, then click "✏ Edit" to update their details inline without leaving the screen.' },
-  { q: 'Can I edit an existing vehicle?', a: 'Yes. In Vehicle Management, each vehicle card has an "✏ Edit" button. Clicking it opens the vehicle form pre-filled with the current details. Update any field — VIN, mileage, engine, plate, recommended service — and click "Update Vehicle" to save. The card refreshes immediately.' },
+  { q: 'Can I edit an existing vehicle?', a: 'Yes. In Vehicle Management List view (the default), click anywhere on a vehicle row to open the edit drawer on the right. Update any field — VIN, mileage, engine, plate, status, assigned techs, service notes, parts, and more — then click "✓ Save Changes". The row updates instantly without a page reload.' },
   { q: 'Can I edit or cancel an appointment?', a: 'Yes. In the Appointments module, each row has Edit and Remove buttons. Edit reopens the booking form pre-filled with current data. Remove asks for confirmation before deleting.' },
   { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector supporting USD, CAD, EUR, GBP, MXN, AUD, and JPY. The selected currency is saved with the order and shown correctly when you reopen it.' },
   { q: 'Where do completed jobs go after they are closed?', a: 'Completed, Closed, and Invoiced jobs are automatically available in the Job Archive (sidebar). The archive is permanent — every finished job is stored indefinitely for reference, warranty lookups, and maintenance history. Search by customer, vehicle, technician, RO number, or invoice number. Filter by Month, Quarter, Year, or All Time. Export to CSV at any time.' },
