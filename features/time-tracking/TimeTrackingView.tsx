@@ -97,6 +97,7 @@ export function TimeTrackingView() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirm('Delete this time entry? This cannot be undone.')) return;
     try {
       await deleteTimeEntry(id);
       setEntries(prev => prev.filter(e => e.id !== id));
