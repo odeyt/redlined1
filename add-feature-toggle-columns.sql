@@ -5,3 +5,4 @@ alter table shop_settings add column if not exists enable_vehicle_photos boolean
 alter table shop_settings add column if not exists enable_vehicle_edit boolean default true;
 alter table shop_settings add column if not exists enable_technician_report boolean default true;
 alter table shop_settings add column if not exists enable_job_completion_report boolean default true;
+alter table shop_settings add column if not exists enable_appointment_bay boolean default true;

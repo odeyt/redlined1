@@ -56,6 +56,7 @@ export function SettingsView() {
   const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
   const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
+  const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
@@ -103,6 +104,7 @@ export function SettingsView() {
       setEnableVehicleEdit(s.enableVehicleEdit ?? true);
       setEnableTechnicianReport(s.enableTechnicianReport ?? true);
       setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
+      setEnableAppointmentBay(s.enableAppointmentBay ?? true);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -189,6 +191,7 @@ export function SettingsView() {
         enableVehicleEdit,
         enableTechnicianReport,
         enableJobCompletionReport,
+        enableAppointmentBay,
       });
       window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking } }));
       flashSaved(setSavedPortal);
@@ -384,6 +387,7 @@ export function SettingsView() {
               { key: 'enableVehicleEdit', set: setEnableVehicleEdit, val: enableVehicleEdit, icon: '✏️', label: 'Vehicle Inline Edit', desc: 'Show the Edit button on vehicle cards to update vehicle details directly from the list.' },
               { key: 'enableTechnicianReport', set: setEnableTechnicianReport, val: enableTechnicianReport, icon: '🔧', label: 'Technician Assignment Report', desc: 'Show the Technicians tab in Reports — tracks jobs and hours per technician.' },
               { key: 'enableJobCompletionReport', set: setEnableJobCompletionReport, val: enableJobCompletionReport, icon: '✅', label: 'Job Completion Report', desc: 'Show the Job Completion tab in Reports — tracks turnaround time and job status trends.' },
+              { key: 'enableAppointmentBay', set: setEnableAppointmentBay, val: enableAppointmentBay, icon: '🔧', label: 'Appointment Bay / Route Field', desc: 'Show the Bay / Route assignment field on the Appointments booking form and table column.' },
             ] as Array<{ key: string; set: (v: (p: boolean) => boolean) => void; val: boolean; icon: string; label: string; desc: string }>).map(({ set, val, icon, label, desc }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
                 <div>

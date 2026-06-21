@@ -7,6 +7,7 @@ import { Badge } from '@/components/Badge';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
 import { fetchVehicles } from '@/services/vehicleService';
+import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
 import type { Vehicle } from '@/lib/types';
@@ -36,6 +37,7 @@ export function AppointmentsView() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
   const [toast, setToast] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -43,6 +45,7 @@ export function AppointmentsView() {
     fetchCustomers().then(setCustomers).catch(() => {});
     fetchTechnicians().then(setTechnicians).catch(() => {});
     fetchVehicles().then(v => setAllVehicles(v as (Vehicle & { id: string })[])).catch(() => {});
+    fetchShopSettings().then(s => setEnableAppointmentBay(s.enableAppointmentBay ?? true)).catch(() => {});
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
@@ -113,7 +116,7 @@ export function AppointmentsView() {
 
         <table>
           <thead>
-            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th><th>Bay / Route</th><th>Reminder</th><th>Action</th></tr>
+            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th>{enableAppointmentBay && <th>Bay / Route</th>}<th>Reminder</th><th>Action</th></tr>
           </thead>
           <tbody>
             {appointments.map((a, i) => (
@@ -124,7 +127,7 @@ export function AppointmentsView() {
                 <td>{a[3]}</td>
                 <td><Badge text={a[4]} /></td>
                 <td>{a[7] ? <span style={{ background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{a[7]}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}</td>
-                <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>
+                {enableAppointmentBay && <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>}
                 <td><Badge text={a[6]} /></td>
                 <td>
                   <div className="row-actions">
@@ -183,13 +186,15 @@ export function AppointmentsView() {
                 <input placeholder="e.g. Oil change, Brake inspection" value={form.service} onChange={e => set('service', e.target.value)} required />
               </div>
 
-              <div className="login-field">
-                <label>Bay / Route</label>
-                <select value={form.bay} onChange={e => set('bay', e.target.value)}>
-                  <option value="">— Select bay or route —</option>
-                  {BAYS.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
+              {enableAppointmentBay && (
+                <div className="login-field">
+                  <label>Bay / Route</label>
+                  <select value={form.bay} onChange={e => set('bay', e.target.value)}>
+                    <option value="">— Select bay or route —</option>
+                    {BAYS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              )}
 
               <div className="login-field">
                 <label>Technician</label>
