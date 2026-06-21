@@ -50,6 +50,14 @@ export function AppointmentsView() {
       setEnableAppointmentBay(s.enableAppointmentBay ?? true);
       setBays(s.appointmentBays ?? DEFAULT_BAYS);
     }).catch(() => {});
+
+    function onSettingsUpdate(e: Event) {
+      const d = (e as CustomEvent).detail ?? {};
+      if (d.appointmentBays !== undefined) setBays(d.appointmentBays);
+      if (d.enableAppointmentBay !== undefined) setEnableAppointmentBay(d.enableAppointmentBay);
+    }
+    window.addEventListener('shop-settings-updated', onSettingsUpdate);
+    return () => window.removeEventListener('shop-settings-updated', onSettingsUpdate);
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
@@ -107,7 +115,7 @@ export function AppointmentsView() {
 
   return (
     <>
-      <Panel title="Appointments" hint="Daily booking list — customer, vehicle, bay/route assignment, technician, and check-in">
+      <Panel title="Appointments" hint="Daily booking list — customer, vehicle, bay/location assignment, technician, and check-in">
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
           <button className="btn btn-primary" onClick={openNew}>+ Book Appointment</button>
         </div>
@@ -120,7 +128,7 @@ export function AppointmentsView() {
 
         <table>
           <thead>
-            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th>{enableAppointmentBay && <th>Bay / Route</th>}<th>Reminder</th><th>Action</th></tr>
+            <tr><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th><th>Technician</th>{enableAppointmentBay && <th>Bay / Location</th>}<th>Reminder</th><th>Action</th></tr>
           </thead>
           <tbody>
             {appointments.map((a, i) => (
@@ -192,9 +200,9 @@ export function AppointmentsView() {
 
               {enableAppointmentBay && (
                 <div className="login-field">
-                  <label>Bay / Route</label>
+                  <label>Bay / Location</label>
                   <select value={form.bay} onChange={e => set('bay', e.target.value)}>
-                    <option value="">— Select bay or route —</option>
+                    <option value="">— Select bay or location —</option>
                     {bays.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>

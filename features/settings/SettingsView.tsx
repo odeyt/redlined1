@@ -197,7 +197,7 @@ export function SettingsView() {
         enableAppointmentBay,
         appointmentBays,
       });
-      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking } }));
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { hiddenModules, enabledPaymentMethods, enableJobArchive, enableTimeTracking, appointmentBays, enableAppointmentBay } }));
       flashSaved(setSavedPortal);
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
@@ -391,7 +391,7 @@ export function SettingsView() {
               { key: 'enableVehicleEdit', set: setEnableVehicleEdit, val: enableVehicleEdit, icon: '✏️', label: 'Vehicle Inline Edit', desc: 'Show the Edit button on vehicle cards to update vehicle details directly from the list.' },
               { key: 'enableTechnicianReport', set: setEnableTechnicianReport, val: enableTechnicianReport, icon: '🔧', label: 'Technician Assignment Report', desc: 'Show the Technicians tab in Reports — tracks jobs and hours per technician.' },
               { key: 'enableJobCompletionReport', set: setEnableJobCompletionReport, val: enableJobCompletionReport, icon: '✅', label: 'Job Completion Report', desc: 'Show the Job Completion tab in Reports — tracks turnaround time and job status trends.' },
-              { key: 'enableAppointmentBay', set: setEnableAppointmentBay, val: enableAppointmentBay, icon: '🔧', label: 'Appointment Bay / Route Field', desc: 'Show the Bay / Route assignment field on the Appointments booking form and table column.' },
+              { key: 'enableAppointmentBay', set: setEnableAppointmentBay, val: enableAppointmentBay, icon: '📍', label: 'Appointment Bay / Location Field', desc: 'Show the Bay / Location assignment field on the Appointments booking form and table column.' },
             ] as Array<{ key: string; set: (v: (p: boolean) => boolean) => void; val: boolean; icon: string; label: string; desc: string }>).map(({ set, val, icon, label, desc }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
                 <div>
@@ -462,8 +462,8 @@ export function SettingsView() {
 
         {/* Bay / Route Locations */}
         <div style={{ marginBottom: 24 }}>
-          <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>Bay / Route Locations</h3>
-          <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--muted)' }}>Locations available in the Appointments booking form</p>
+          <h3 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700 }}>Bay / Location List</h3>
+          <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--muted)' }}>Locations available in the Appointments booking form — add or remove as needed</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
             {appointmentBays.map(bay => (
               <span key={bay} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', fontSize: 13 }}>
@@ -476,7 +476,7 @@ export function SettingsView() {
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={newBayName} onChange={e => setNewBayName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && newBayName.trim()) { setAppointmentBays(prev => [...prev, newBayName.trim()]); setNewBayName(''); } }}
-              placeholder="e.g. Bay 5 or Mobile Route 3"
+              placeholder="e.g. Bay 5 or Location 3"
               style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 8, padding: '8px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
             <button className="btn btn-primary" style={{ padding: '8px 16px' }}
               onClick={() => { if (newBayName.trim()) { setAppointmentBays(prev => [...prev, newBayName.trim()]); setNewBayName(''); } }}>
