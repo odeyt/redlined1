@@ -158,10 +158,13 @@ export function AppointmentsView() {
       }
     }
     if (field === 'service') {
-      const q = value.trim().toLowerCase();
-      if (q.length >= 2) {
-        setServiceSuggestions(SERVICE_SUGGESTIONS.filter(s => s.toLowerCase().includes(q)));
-        setShowSuggestions(true);
+      const words = value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (words.length > 0 && value.trim().length >= 2) {
+        const matches = SERVICE_SUGGESTIONS.filter(s =>
+          words.every(w => s.toLowerCase().includes(w))
+        );
+        setServiceSuggestions(matches);
+        setShowSuggestions(matches.length > 0);
       } else {
         setShowSuggestions(false);
       }
@@ -341,22 +344,30 @@ export function AppointmentsView() {
                 )}
               </div>
 
-              <div className="login-field" style={{ position: 'relative' }}>
+              <div className="login-field">
                 <label>Requested Service *</label>
                 <input
                   placeholder="Start typing: Oil, Brake, Tire…"
                   value={form.service}
                   onChange={e => set('service', e.target.value)}
-                  onFocus={() => { if (form.service.length >= 2) setShowSuggestions(true); }}
+                  onFocus={() => {
+                    const words = form.service.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                    if (words.length > 0 && form.service.trim().length >= 2) {
+                      const matches = SERVICE_SUGGESTIONS.filter(s => words.every(w => s.toLowerCase().includes(w)));
+                      setServiceSuggestions(matches);
+                      setShowSuggestions(matches.length > 0);
+                    }
+                  }}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   required
                   autoComplete="off"
                 />
                 {showSuggestions && serviceSuggestions.length > 0 && (
                   <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                    background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto',
+                    marginTop: 4, background: 'var(--surface)',
+                    border: '1px solid var(--line)', borderRadius: 8,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                    maxHeight: 180, overflowY: 'auto',
                   }}>
                     {serviceSuggestions.map(s => (
                       <div
