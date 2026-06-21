@@ -164,7 +164,10 @@ export function JobCardsView() {
         if (cust) {
           const veh = allVehicles.filter(v => v.customerId === cust.id);
           setCustomerVehicles(veh);
-          if (!prefill?.vehicle && veh.length === 1) setFVehicle(veh[0].label);
+          if (!prefill?.vehicle && veh.length === 1) {
+            setFVehicle(veh[0].label);
+            setSelectedVehicleEngine(veh[0].engine ?? '');
+          }
         }
       }
       if (prefill?.vehicle) setFVehicle(prefill.vehicle);
@@ -247,10 +250,42 @@ export function JobCardsView() {
     return () => window.removeEventListener('shop-settings-updated', onSettingsUpdate);
   }, []);
 
+  const [selectedVehicleEngine, setSelectedVehicleEngine] = useState('');
+  const [oilSuggestion, setOilSuggestion] = useState('');
+
+  function inferOilWeight(engine: string): string {
+    const e = engine.toLowerCase();
+    if (/diesel|tdi|cdi|duramax|powerstroke|cummins|6\.7|6\.6|3\.0.*diesel/.test(e)) return '15W-40';
+    if (/hybrid|electric/.test(e)) return '0W-20';
+    if (/turbo|tfsi|tsi|sti|wrx|boost/.test(e)) return '5W-40';
+    const liters = parseFloat(e.match(/(\d+\.\d+)\s*l/)?.[1] ?? '0');
+    if (liters > 0) {
+      if (liters <= 1.6) return '0W-20';
+      if (liters <= 2.4) return '0W-20';
+      if (liters <= 3.0) return '5W-30';
+      if (liters <= 4.0) return '5W-30';
+      return '10W-30';
+    }
+    if (/v8|v10|v12/.test(e)) return '5W-30';
+    if (/v6/.test(e)) return '5W-30';
+    if (/4.?cyl|4-?cyl|inline.?4|i4/.test(e)) return '0W-20';
+    return '';
+  }
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 4000); }
 
   function toggleFTech(name: string) {
     setFTechs(prev => prev.includes(name) ? prev.filter(t => t !== name) : [...prev, name]);
+  }
+
+  function applyOilSuggestion(engine: string, serviceType: string, subTypes: Record<string, string[]>) {
+    if (serviceType !== 'Oil Change') { setOilSuggestion(''); return; }
+    const suggested = inferOilWeight(engine);
+    if (!suggested) { setOilSuggestion(''); return; }
+    setOilSuggestion(suggested);
+    const oilOptions = subTypes['Oil Change'] ?? [];
+    const match = oilOptions.find(o => o.includes(suggested));
+    if (match) setFSubType(match);
   }
 
   function handleCustomerChange(name: string) {
@@ -258,8 +293,30 @@ export function JobCardsView() {
     const cust = customers.find(c => c.name === name);
     const veh = cust ? allVehicles.filter(v => v.customerId === cust.id) : [];
     setCustomerVehicles(veh);
-    if (veh.length === 1) setFVehicle(veh[0].label);
-    else setFVehicle('');
+    if (veh.length === 1) {
+      setFVehicle(veh[0].label);
+      const engine = veh[0].engine ?? '';
+      setSelectedVehicleEngine(engine);
+      applyOilSuggestion(engine, fServiceType, serviceSubTypes);
+    } else {
+      setFVehicle('');
+      setSelectedVehicleEngine('');
+      setOilSuggestion('');
+    }
+  }
+
+  function handleVehicleSelect(label: string) {
+    setFVehicle(label);
+    const veh = customerVehicles.find(v => v.label === label);
+    const engine = veh?.engine ?? '';
+    setSelectedVehicleEngine(engine);
+    applyOilSuggestion(engine, fServiceType, serviceSubTypes);
+  }
+
+  function handleServiceTypeChange(svcType: string) {
+    setFServiceType(svcType);
+    setFSubType('');
+    applyOilSuggestion(selectedVehicleEngine, svcType, serviceSubTypes);
   }
 
   async function handleCreate() {
@@ -270,7 +327,7 @@ export function JobCardsView() {
       const fullServiceType = fSubType ? `${fServiceType} — ${fSubType}` : fServiceType;
       const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fullServiceType, channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
-      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]); setFSubType('');
+      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]); setFSubType(''); setSelectedVehicleEngine(''); setOilSuggestion('');
       notify(`${job.id} created.`);
     } catch (err: unknown) { setError('Create failed: ' + (err instanceof Error ? err.message : JSON.stringify(err))); }
     finally { setCreating(false); }
@@ -500,7 +557,7 @@ export function JobCardsView() {
               <div className="field">
                 <label>Vehicle / VIN</label>
                 {customerVehicles.length > 1 ? (
-                  <select value={fVehicle} onChange={e => setFVehicle(e.target.value)}>
+                  <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
                     <option value="">— select vehicle —</option>
                     {customerVehicles.map(v => (
                       <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
@@ -512,17 +569,31 @@ export function JobCardsView() {
               </div>
               <div className="field">
                 <label>Service Type</label>
-                <select value={fServiceType} onChange={e => { setFServiceType(e.target.value); setFSubType(''); }}>
+                <select value={fServiceType} onChange={e => handleServiceTypeChange(e.target.value)}>
                   {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               {enableJobCardSubType && (serviceSubTypes[fServiceType] ?? []).length > 0 && (
                 <div className="field">
-                  <label>Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>({fServiceType})</span></label>
-                  <select value={fSubType} onChange={e => setFSubType(e.target.value)}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Sub-Type
+                    {oilSuggestion && fServiceType === 'Oil Change' && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
+                        ✓ Suggested from engine
+                      </span>
+                    )}
+                  </label>
+                  <select value={fSubType} onChange={e => { setFSubType(e.target.value); setOilSuggestion(''); }}>
                     <option value="">— select sub-type —</option>
-                    {(serviceSubTypes[fServiceType] ?? []).map(s => <option key={s} value={s}>{s}</option>)}
+                    {(serviceSubTypes[fServiceType] ?? []).map(s => (
+                      <option key={s} value={s}>{s}{oilSuggestion && s.includes(oilSuggestion) ? ' ← recommended' : ''}</option>
+                    ))}
                   </select>
+                  {selectedVehicleEngine && fServiceType === 'Oil Change' && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
+                      Engine: {selectedVehicleEngine}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="field">
@@ -633,7 +704,7 @@ export function JobCardsView() {
               <div className="field">
                 <label>Vehicle / VIN</label>
                 {customerVehicles.length > 1 ? (
-                  <select value={fVehicle} onChange={e => setFVehicle(e.target.value)}>
+                  <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
                     <option value="">— select vehicle —</option>
                     {customerVehicles.map(v => (
                       <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
@@ -647,17 +718,31 @@ export function JobCardsView() {
             <div className="form-row">
               <div className="field">
                 <label>Service Type</label>
-                <select value={fServiceType} onChange={e => { setFServiceType(e.target.value); setFSubType(''); }}>
+                <select value={fServiceType} onChange={e => handleServiceTypeChange(e.target.value)}>
                   {serviceTypeOptions.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               {enableJobCardSubType && (serviceSubTypes[fServiceType] ?? []).length > 0 && (
                 <div className="field">
-                  <label>Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>({fServiceType})</span></label>
-                  <select value={fSubType} onChange={e => setFSubType(e.target.value)}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    Sub-Type
+                    {oilSuggestion && fServiceType === 'Oil Change' && (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
+                        ✓ Suggested from engine
+                      </span>
+                    )}
+                  </label>
+                  <select value={fSubType} onChange={e => { setFSubType(e.target.value); setOilSuggestion(''); }}>
                     <option value="">— select sub-type —</option>
-                    {(serviceSubTypes[fServiceType] ?? []).map(s => <option key={s} value={s}>{s}</option>)}
+                    {(serviceSubTypes[fServiceType] ?? []).map(s => (
+                      <option key={s} value={s}>{s}{oilSuggestion && s.includes(oilSuggestion) ? ' ← recommended' : ''}</option>
+                    ))}
                   </select>
+                  {selectedVehicleEngine && fServiceType === 'Oil Change' && (
+                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
+                      Engine: {selectedVehicleEngine}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="field">
@@ -710,7 +795,7 @@ export function JobCardsView() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); }}>Cancel</button>
+              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); setSelectedVehicleEngine(''); setOilSuggestion(''); }}>Cancel</button>
               <button className="btn primary" onClick={async () => { await handleCreate(); setShowCreateModal(false); }} disabled={creating}>
                 <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
               </button>
