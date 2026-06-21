@@ -56,21 +56,25 @@ export function AppointmentsView() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
+    // Load form data (customers, vehicles, settings) independently from appointments
+    // so a failing appointments query never breaks the booking form
     Promise.all([
       fetchCustomers(),
       fetchTechnicians(),
       fetchVehicles(),
       fetchShopSettings(),
-      fetchAppointments(),
-    ]).then(([custs, techs, vehs, settings, records]) => {
+    ]).then(([custs, techs, vehs, settings]) => {
       setCustomers(custs);
       setTechnicians(techs);
       setAllVehicles(vehs as (Vehicle & { id: string })[]);
       setEnableAppointmentBay(settings.enableAppointmentBay ?? true);
       setBays(settings.appointmentBays ?? DEFAULT_BAYS);
-      setAppts(records);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(() => {});
+
+    fetchAppointments()
+      .then(records => setAppts(records))
+      .catch(() => {})
+      .finally(() => setLoading(false));
 
     function onSettingsUpdate(e: Event) {
       const d = (e as CustomEvent).detail ?? {};

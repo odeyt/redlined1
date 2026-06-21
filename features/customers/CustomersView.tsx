@@ -96,7 +96,11 @@ export function CustomersView() {
         notify(`${newCustomer.name} saved.`);
       }
       setForm(EMPTY_FORM); setShowForm(false); setEditingId(null); setDrawerEditing(false);
-    } catch { notify('Save failed. Check your connection.'); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      notify('Save failed: ' + msg);
+      setError('Save failed: ' + msg);
+    }
     finally { setSaving(false); }
   }
 
@@ -185,7 +189,7 @@ export function CustomersView() {
                   <td>
                     <div className="row-actions">
                       <button className="mini-btn" onClick={() => openDetail(c)}>View</button>
-                      <button className="mini-btn" onClick={() => { openDetail(c); }}>Edit</button>
+                      <button className="mini-btn" onClick={() => { setSelected(c); openEdit(c); }}>Edit</button>
                       <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>Follow-up</button>
                       <button className="mini-btn" style={{ color: 'var(--accent)' }} onClick={() => handleDelete(c)}>Delete</button>
                     </div>
