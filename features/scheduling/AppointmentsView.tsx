@@ -19,7 +19,8 @@ import type { Vehicle } from '@/lib/types';
 const DEFAULT_BAYS = ['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch'];
 const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 'Checked in'];
 
-const EMPTY_FORM = { time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' };
+const today = new Date().toISOString().slice(0, 10);
+const EMPTY_FORM = { date: today, time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' };
 
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
@@ -30,6 +31,13 @@ const modal: React.CSSProperties = {
   padding: 32, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto',
   position: 'relative',
 };
+
+function formatDate(iso: string) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[Number(m) - 1]} ${Number(d)}, ${y}`;
+}
 
 export function AppointmentsView() {
   const dispatch = useAppDispatch();
@@ -91,7 +99,7 @@ export function AppointmentsView() {
 
   function openNew() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10) });
     setCustomerVehicles([]);
     setShowForm(true);
   }
@@ -99,7 +107,7 @@ export function AppointmentsView() {
   function openEdit(record: AppointmentRecord) {
     const a = record.data;
     setEditingId(record.id);
-    setForm({ time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: a[7] ?? '', reminder: a[6] });
+    setForm({ date: record.date, time: a[0], customer: a[1], vehicle: a[2], service: a[3], bay: a[5], technician: a[7] ?? '', reminder: a[6] });
     const cust = customers.find(c => c.name === a[1]);
     setCustomerVehicles(cust ? allVehicles.filter(v => v.customerId === cust.id) : []);
     setShowForm(true);
@@ -107,17 +115,21 @@ export function AppointmentsView() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.time || !form.customer || !form.service) return;
-    const row = [form.time, form.customer, form.vehicle, form.service, editingId ? (appts.find(a => a.id === editingId)?.data[4] ?? 'New Job') : 'New Job', form.bay, form.reminder, form.technician] as [string, string, string, string, string, string, string, string];
+    if (!form.date || !form.time || !form.customer || !form.service) return;
+    const row = [
+      form.time, form.customer, form.vehicle, form.service,
+      editingId ? (appts.find(a => a.id === editingId)?.data[4] ?? 'New Job') : 'New Job',
+      form.bay, form.reminder, form.technician,
+    ] as [string, string, string, string, string, string, string, string];
 
     try {
       if (editingId) {
-        await updateAppointment(editingId, row);
-        setAppts(prev => prev.map(a => a.id === editingId ? { id: editingId, data: row } : a));
+        await updateAppointment(editingId, form.date, row);
+        setAppts(prev => prev.map(a => a.id === editingId ? { id: editingId, date: form.date, data: row } : a));
         notify(`Appointment updated for ${row[1]}.`);
       } else {
-        const created = await createAppointment(row);
-        setAppts(prev => [...prev, created]);
+        const created = await createAppointment(form.date, row);
+        setAppts(prev => [...prev, created].sort((a, b) => a.date.localeCompare(b.date) || a.data[0].localeCompare(b.data[0])));
         notify(`Appointment booked for ${row[1]}.`);
       }
     } catch {
@@ -130,8 +142,8 @@ export function AppointmentsView() {
     const updated = [...record.data] as typeof record.data;
     updated[6] = 'Checked in';
     try {
-      await updateAppointment(record.id, updated);
-      setAppts(prev => prev.map(a => a.id === record.id ? { id: record.id, data: updated } : a));
+      await updateAppointment(record.id, record.date, updated);
+      setAppts(prev => prev.map(a => a.id === record.id ? { ...a, data: updated } : a));
       dispatch({ type: 'NOTIFY', message: `${record.data[1]} checked in for ${record.data[3]}.` });
     } catch {
       notify('Check-in failed. Please try again.');
@@ -148,6 +160,8 @@ export function AppointmentsView() {
       notify('Delete failed. Please try again.');
     }
   }
+
+  const colSpan = enableAppointmentBay ? 10 : 9;
 
   return (
     <>
@@ -168,7 +182,7 @@ export function AppointmentsView() {
           <table>
             <thead>
               <tr>
-                <th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th>
+                <th>Date</th><th>Time</th><th>Customer</th><th>Vehicle</th><th>Requested Service</th><th>Job Card</th>
                 <th>Technician</th>
                 {enableAppointmentBay && <th>Bay / Location</th>}
                 <th>Reminder</th><th>Action</th>
@@ -176,12 +190,13 @@ export function AppointmentsView() {
             </thead>
             <tbody>
               {appts.length === 0 && (
-                <tr><td colSpan={enableAppointmentBay ? 9 : 8} style={{ color: 'var(--muted)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No appointments yet. Click "+ Book Appointment" to add one.</td></tr>
+                <tr><td colSpan={colSpan} style={{ color: 'var(--muted)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>No appointments yet. Click "+ Book Appointment" to add one.</td></tr>
               )}
               {appts.map((record) => {
                 const a = record.data;
                 return (
                   <tr key={record.id}>
+                    <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>{formatDate(record.date)}</td>
                     <td>{a[0]}</td>
                     <td>{a[1]}</td>
                     <td>{a[2]}</td>
@@ -212,6 +227,11 @@ export function AppointmentsView() {
               {editingId !== null ? 'Edit Appointment' : 'Book Appointment'}
             </h2>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              <div className="login-field">
+                <label>Date *</label>
+                <input type="date" value={form.date} onChange={e => set('date', e.target.value)} required />
+              </div>
 
               <div className="login-field">
                 <label>Time *</label>

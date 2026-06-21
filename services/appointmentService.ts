@@ -4,11 +4,13 @@ import type { AppointmentRow } from '@/lib/types';
 
 export type AppointmentRecord = {
   id: string;
+  date: string;
   data: AppointmentRow;
 };
 
 type DbRow = {
   id: string;
+  date: string;
   time: string;
   customer: string;
   vehicle: string;
@@ -22,6 +24,7 @@ type DbRow = {
 function toRow(r: DbRow): AppointmentRecord {
   return {
     id: r.id,
+    date: r.date ?? '',
     data: [r.time, r.customer, r.vehicle, r.service, r.job_card, r.bay, r.reminder, r.technician] as AppointmentRow,
   };
 }
@@ -31,16 +34,18 @@ export async function fetchAppointments(): Promise<AppointmentRecord[]> {
     .from('appointments')
     .select('*')
     .eq('shop_id', getShopId())
-    .order('created_at', { ascending: true });
+    .order('date', { ascending: true })
+    .order('time', { ascending: true });
   if (error) throw error;
   return (data as DbRow[]).map(toRow);
 }
 
-export async function createAppointment(row: AppointmentRow): Promise<AppointmentRecord> {
+export async function createAppointment(date: string, row: AppointmentRow): Promise<AppointmentRecord> {
   const { data, error } = await supabase
     .from('appointments')
     .insert({
       shop_id: getShopId(),
+      date,
       time: row[0],
       customer: row[1],
       vehicle: row[2],
@@ -56,10 +61,11 @@ export async function createAppointment(row: AppointmentRow): Promise<Appointmen
   return toRow(data as DbRow);
 }
 
-export async function updateAppointment(id: string, row: AppointmentRow): Promise<void> {
+export async function updateAppointment(id: string, date: string, row: AppointmentRow): Promise<void> {
   const { error } = await supabase
     .from('appointments')
     .update({
+      date,
       time: row[0],
       customer: row[1],
       vehicle: row[2],
