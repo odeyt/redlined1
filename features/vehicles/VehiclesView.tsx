@@ -442,7 +442,7 @@ export function VehiclesView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
   const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [search, setSearch] = useState('');
 
@@ -783,7 +783,10 @@ export function VehiclesView() {
             {(['In Progress', 'Pending', 'Completed'] as StatusFilter[]).map(s => {
               const c = statusColor(s);
               return (
-                <div key={s} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: '10px 18px', minWidth: 110 }}>
+                <div key={s} onClick={() => { setStatusFilter(s); setViewMode('list'); }} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: '10px 18px', minWidth: 110, cursor: 'pointer', transition: 'opacity .15s' }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
                   <div style={{ fontSize: 22, fontWeight: 800, color: c.color }}>{counts[s] ?? 0}</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: c.color, opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s}</div>
                 </div>
