@@ -19,6 +19,25 @@ const EMPTY_FORM = {
   engine: '', transmission: '', mileage: '', plate: '', status: 'Active', recommendation: '',
 };
 
+// Deterministic per-tech color from name hash
+const TECH_PALETTES = [
+  { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' }, // blue
+  { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' }, // green
+  { bg: '#fce7f3', color: '#9d174d', border: '#fbcfe8' }, // pink
+  { bg: '#fef3c7', color: '#92400e', border: '#fde68a' }, // amber
+  { bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe' }, // purple
+  { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' }, // orange
+  { bg: '#cffafe', color: '#155e75', border: '#a5f3fc' }, // cyan
+  { bg: '#f0fdf4', color: '#14532d', border: '#bbf7d0' }, // emerald
+  { bg: '#fdf4ff', color: '#701a75', border: '#f5d0fe' }, // fuchsia
+  { bg: '#fff7ed', color: '#7c2d12', border: '#fed7aa' }, // red-orange
+];
+function techColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return TECH_PALETTES[hash % TECH_PALETTES.length];
+}
+
 function statusColor(status: string) {
   if (status === 'Completed') return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' };
   if (status === 'In Progress') return { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' };
@@ -377,9 +396,10 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         {/* Assigned techs */}
         {techList.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {techList.map(t => (
-              <span key={t} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{t}</span>
-            ))}
+            {techList.map(t => {
+              const c = techColor(t);
+              return <span key={t} style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{t}</span>;
+            })}
           </div>
         )}
 
@@ -748,9 +768,10 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px' }}><StatusPill status={v.status} /></td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>
                     {v.assignedTech
-                      ? v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => (
-                        <span key={t} style={{ display: 'inline-block', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 20, padding: '1px 7px', fontSize: 11, marginRight: 3, marginBottom: 2 }}>{t}</span>
-                      ))
+                      ? v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
+                          const c = techColor(t);
+                          return <span key={t} style={{ display: 'inline-block', background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600, marginRight: 3, marginBottom: 2 }}>{t}</span>;
+                        })
                       : <span style={{ color: 'var(--muted)' }}>—</span>
                     }
                   </td>
