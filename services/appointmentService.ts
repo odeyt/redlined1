@@ -19,88 +19,59 @@ type DbRow = {
   bay: string;
   reminder: string;
   technician?: string;
+  shop_id?: string;
 };
 
 function toRow(r: DbRow): AppointmentRecord {
   return {
     id: r.id,
     date: r.date ?? '',
-    data: [r.time, r.customer, r.vehicle, r.service, r.job_card, r.bay, r.reminder, r.technician ?? ''] as AppointmentRow,
+    data: [r.time, r.customer, r.vehicle, r.service, r.job_card ?? '', r.bay ?? '', r.reminder ?? 'Confirmed', r.technician ?? ''] as AppointmentRow,
   };
 }
 
-// Tracks whether the technician column has been confirmed to exist.
-// Starts as null (unknown), set to true/false after first INSERT attempt.
 let technicianColumnExists: boolean | null = null;
+let shopIdColumnExists:     boolean | null = null;
 
 export async function fetchAppointments(): Promise<AppointmentRecord[]> {
-  const { data, error } = await supabase
-    .from('appointments')
-    .select('*')
-    .eq('shop_id', getShopId())
-    .order('date', { ascending: true })
-    .order('time', { ascending: true });
-  if (error) throw error;
-  const rows = (data as DbRow[]);
-  // Detect column existence from first row
-  if (rows.length > 0 && technicianColumnExists === null) {
-    technicianColumnExists = 'technician' in rows[0];
+  const shopId = getShopId();
+
+  // If we have a valid shop ID and know the column exists, filter by it
+  let query = supabase.from('appointments').select('*').order('date', { ascending: true }).order('time', { ascending: true });
+
+  if (shopId && shopIdColumnExists !== false) {
+    query = query.eq('shop_id', shopId) as typeof query;
   }
+
+  const { data, error } = await query;
+
+  if (error) {
+    // shop_id column missing — retry without filter
+    if (error.code === '42703' || error.message?.includes('shop_id')) {
+      shopIdColumnExists = false;
+      const { data: d2, error: e2 } = await supabase
+        .from('appointments').select('*')
+        .order('date', { ascending: true }).order('time', { ascending: true });
+      if (e2) throw e2;
+      return ((d2 ?? []) as DbRow[]).map(toRow);
+    }
+    throw error;
+  }
+
+  const rows = (data ?? []) as DbRow[];
+  if (rows.length > 0) {
+    if (technicianColumnExists === null) technicianColumnExists = 'technician' in rows[0];
+    if (shopIdColumnExists === null)     shopIdColumnExists     = 'shop_id' in rows[0];
+  } else {
+    shopIdColumnExists = true; // assume it exists if we got no error
+  }
+
   return rows.map(toRow);
 }
 
 function basePayload(date: string, row: AppointmentRow) {
-  return {
-    shop_id:    getShopId(),
-    date,
-    time:       row[0],
-    customer:   row[1],
-    vehicle:    row[2],
-    service:    row[3],
-    job_card:   row[4] ?? '',
-    bay:        row[5] ?? '',
-    reminder:   row[6] ?? 'Confirmed',
-  };
-}
-
-export async function createAppointment(date: string, row: AppointmentRow): Promise<AppointmentRecord> {
-  const base = basePayload(date, row);
-
-  // If we already know the column is missing, skip it
-  if (technicianColumnExists === false) {
-    const { data, error } = await supabase
-      .from('appointments').insert(base).select().single();
-    if (error) throw error;
-    return toRow(data as DbRow);
-  }
-
-  // Try with technician column first
-  const { data, error } = await supabase
-    .from('appointments')
-    .insert({ ...base, technician: row[7] ?? '' })
-    .select()
-    .single();
-
-  if (!error) {
-    technicianColumnExists = true;
-    return toRow(data as DbRow);
-  }
-
-  // If the error is about the missing technician column, retry without it
-  if (error.message?.toLowerCase().includes('technician') ||
-      error.code === '42703') {
-    technicianColumnExists = false;
-    const { data: d2, error: e2 } = await supabase
-      .from('appointments').insert(base).select().single();
-    if (e2) throw e2;
-    return toRow(d2 as DbRow);
-  }
-
-  throw error;
-}
-
-export async function updateAppointment(id: string, date: string, row: AppointmentRow): Promise<void> {
-  const base = {
+  const shopId = getShopId();
+  const payload: Record<string, unknown> = {
     date,
     time:     row[0],
     customer: row[1],
@@ -110,38 +81,82 @@ export async function updateAppointment(id: string, date: string, row: Appointme
     bay:      row[5] ?? '',
     reminder: row[6] ?? 'Confirmed',
   };
+  // Only include shop_id if we have a valid non-empty UUID
+  if (shopId && shopIdColumnExists !== false) {
+    payload.shop_id = shopId;
+  }
+  return payload;
+}
 
-  if (technicianColumnExists === false) {
-    const { error } = await supabase
-      .from('appointments').update(base).eq('id', id).eq('shop_id', getShopId());
-    if (error) throw error;
-    return;
+export async function createAppointment(date: string, row: AppointmentRow): Promise<AppointmentRecord> {
+  const base = basePayload(date, row);
+
+  const withTech = { ...base, ...(technicianColumnExists !== false ? { technician: row[7] ?? '' } : {}) };
+
+  const { data, error } = await supabase
+    .from('appointments').insert(withTech).select().single();
+
+  if (!error) {
+    if (technicianColumnExists === null) technicianColumnExists = true;
+    return toRow(data as DbRow);
   }
 
-  const { error } = await supabase
-    .from('appointments')
-    .update({ ...base, technician: row[7] ?? '' })
-    .eq('id', id)
-    .eq('shop_id', getShopId());
-
-  if (!error) { technicianColumnExists = true; return; }
-
-  if (error.message?.toLowerCase().includes('technician') || error.code === '42703') {
+  // Missing technician column — retry without it
+  if (error.code === '42703' && error.message?.toLowerCase().includes('technician')) {
     technicianColumnExists = false;
-    const { error: e2 } = await supabase
-      .from('appointments').update(base).eq('id', id).eq('shop_id', getShopId());
+    const { data: d2, error: e2 } = await supabase
+      .from('appointments').insert(base).select().single();
     if (e2) throw e2;
-    return;
+    return toRow(d2 as DbRow);
+  }
+
+  // shop_id column missing or bad UUID — retry without shop_id
+  if (error.code === '42703' || error.code === '22P02' || error.message?.includes('shop_id') || error.message?.includes('uuid')) {
+    shopIdColumnExists = false;
+    const { shop_id: _, ...noShopPayload } = { ...withTech, shop_id: undefined };
+    const clean = Object.fromEntries(Object.entries(noShopPayload).filter(([, v]) => v !== undefined));
+    const { data: d3, error: e3 } = await supabase
+      .from('appointments').insert(clean).select().single();
+    if (e3) throw e3;
+    return toRow(d3 as DbRow);
   }
 
   throw error;
 }
 
+export async function updateAppointment(id: string, date: string, row: AppointmentRow): Promise<void> {
+  const payload: Record<string, unknown> = {
+    date,
+    time:     row[0],
+    customer: row[1],
+    vehicle:  row[2],
+    service:  row[3],
+    job_card: row[4] ?? '',
+    bay:      row[5] ?? '',
+    reminder: row[6] ?? 'Confirmed',
+    ...(technicianColumnExists !== false ? { technician: row[7] ?? '' } : {}),
+  };
+
+  let q = supabase.from('appointments').update(payload).eq('id', id);
+  const shopId = getShopId();
+  if (shopId && shopIdColumnExists !== false) q = q.eq('shop_id', shopId) as typeof q;
+
+  const { error } = await q;
+  if (!error) return;
+
+  // Retry without technician if column missing
+  if (error.code === '42703' && error.message?.toLowerCase().includes('technician')) {
+    technicianColumnExists = false;
+    delete payload.technician;
+    const { error: e2 } = await supabase.from('appointments').update(payload).eq('id', id);
+    if (e2) throw e2;
+    return;
+  }
+  throw error;
+}
+
 export async function deleteAppointment(id: string): Promise<void> {
   const { error } = await supabase
-    .from('appointments')
-    .delete()
-    .eq('id', id)
-    .eq('shop_id', getShopId());
+    .from('appointments').delete().eq('id', id);
   if (error) throw error;
 }

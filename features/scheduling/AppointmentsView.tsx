@@ -105,6 +105,7 @@ export function AppointmentsView() {
   const [enableAppointmentBay, setEnableAppointmentBay] = useState(true);
   const [bays, setBays] = useState<string[]>(DEFAULT_BAYS);
   const [toast, setToast] = useState('');
+  const [fetchError, setFetchError] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
@@ -122,8 +123,8 @@ export function AppointmentsView() {
     }).catch(() => {});
 
     fetchAppointments()
-      .then(records => setAppts(records))
-      .catch(() => {})
+      .then(records => { setAppts(records); setFetchError(''); })
+      .catch(err => setFetchError(err?.message ?? 'Unknown error loading appointments'))
       .finally(() => setLoading(false));
 
     function onSettingsUpdate(e: Event) {
@@ -254,6 +255,12 @@ export function AppointmentsView() {
         {toast && (
           <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(0,160,80,0.12)', border: '1px solid rgba(0,160,80,0.3)', borderRadius: 8, color: '#00a050', fontSize: 14 }}>
             {toast}
+          </div>
+        )}
+
+        {fetchError && (
+          <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 8, color: '#dc2626', fontSize: 13 }}>
+            <strong>⚠ Error loading appointments:</strong> {fetchError}
           </div>
         )}
 
