@@ -13,8 +13,8 @@ import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 
 type VehicleWithId = Vehicle & { id: string };
-type ViewMode = 'grid' | 'list' | 'service';
-type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived';
+type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
+type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived' | 'Pending Parts' | 'Returned Job';
 
 const EMPTY_FORM = {
   customerId: '', vin: '', label: '', trim: '',
@@ -46,6 +46,8 @@ function statusColor(status: string) {
   if (status === 'Pending') return { bg: '#fef9c3', color: '#854d0e', border: '#fef08a' };
   if (status === 'Pending Approval') return { bg: '#fdf4ff', color: '#7e22ce', border: '#e9d5ff' };
   if (status === 'Archived') return { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' };
+  if (status === 'Pending Parts') return { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' };
+  if (status === 'Returned Job') return { bg: '#fef3c7', color: '#b45309', border: '#fde68a' };
   return { bg: 'var(--surface-soft)', color: 'var(--muted)', border: 'var(--line)' };
 }
 
@@ -592,7 +594,16 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
 }
 
 // ── Vehicle Edit Drawer ─────────────────────────────────────────
-const STATUSES = ['In Progress', 'Completed', 'Pending', 'Pending Approval', 'Active', 'No open jobs', 'Archived'];
+const STATUSES = ['In Progress', 'Pending Parts', 'Pending Approval', 'Completed', 'Returned Job', 'Active', 'No open jobs', 'Archived'];
+
+const KANBAN_COLUMNS = [
+  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: '⏳', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe' },
+  { status: 'In Progress',      label: 'Work In Progress',          icon: '🔧', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe' },
+  { status: 'Pending Parts',    label: 'Pending Parts',             icon: '📦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5' },
+  { status: 'Completed',        label: 'Completed',                 icon: '✅', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7' },
+  { status: 'Returned Job',     label: 'Returned Job',              icon: '↩',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3' },
+  { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6' },
+] as const;
 
 function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
   vehicle: VehicleRecord;
@@ -712,35 +723,39 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
         </div>
 
         {/* Action buttons row 2 — status shortcuts */}
-        <div style={{ display: 'flex', gap: 8, padding: '0 20px 12px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, padding: '0 20px 10px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
           {f.status !== 'Pending Approval' && f.status !== 'Archived' && (
-            <button
-              disabled={saving}
-              onClick={() => quickStatus('Pending Approval')}
-              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '2px solid #a855f7', background: 'rgba(168,85,247,0.08)', color: '#7e22ce', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ⏳ Pending Customer Approval
+            <button disabled={saving} onClick={() => quickStatus('Pending Approval')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '2px solid #a855f7', background: 'rgba(168,85,247,0.08)', color: '#7e22ce', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              ⏳ Pending Approval
             </button>
           )}
           {f.status === 'Pending Approval' && (
-            <button
-              disabled={saving}
-              onClick={() => quickStatus('In Progress')}
-              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button disabled={saving} onClick={() => quickStatus('In Progress')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
               ✓ Approved — Resume Work
             </button>
           )}
+          {f.status !== 'Pending Parts' && f.status !== 'Archived' && (
+            <button disabled={saving} onClick={() => quickStatus('Pending Parts')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #fed7aa', background: 'rgba(249,115,22,0.07)', color: '#9a3412', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              📦 Pending Parts
+            </button>
+          )}
+          {f.status === 'Pending Parts' && (
+            <button disabled={saving} onClick={() => quickStatus('In Progress')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              🔧 Parts In — Resume Work
+            </button>
+          )}
           {f.status !== 'Archived' ? (
-            <button
-              disabled={saving}
-              onClick={() => quickStatus('Archived')}
-              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #d1d5db', background: 'rgba(107,114,128,0.07)', color: '#6b7280', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button disabled={saving} onClick={() => quickStatus('Archived')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #d1d5db', background: 'rgba(107,114,128,0.07)', color: '#6b7280', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
               🗄 Archive Vehicle
             </button>
           ) : (
-            <button
-              disabled={saving}
-              onClick={() => quickStatus('Active')}
-              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#166534', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button disabled={saving} onClick={() => quickStatus('Active')}
+              style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#166534', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
               ♻ Restore from Archive
             </button>
           )}
@@ -906,6 +921,8 @@ export function VehiclesView() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [search, setSearch] = useState('');
+  const [kanbanDragId, setKanbanDragId] = useState<string | null>(null);
+  const [kanbanDragOver, setKanbanDragOver] = useState<string | null>(null);
 
   useEffect(() => {
     fetchShopSettings().then(s => {
@@ -941,6 +958,20 @@ export function VehiclesView() {
   }, []);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  async function handleKanbanMove(vehicleId: string, newStatus: string) {
+    const v = vehicles.find(x => x.id === vehicleId);
+    if (!v || v.status === newStatus) return;
+    try {
+      await updateVehicle(v.id, {
+        customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim,
+        engine: v.engine, transmission: v.transmission, mileage: v.mileage,
+        plate: v.plate, status: newStatus, recommendation: v.recommendation,
+      });
+      setVehicles(prev => prev.map(x => x.id === vehicleId ? { ...x, status: newStatus } : x));
+      notify(`${v.label} → ${newStatus}`);
+    } catch { notify('Status update failed'); }
+  }
 
   async function handleDeleteVehicle(v: VehicleRecord) {
     if (!confirm(`Delete ${v.label}? This cannot be undone.`)) return;
@@ -1031,7 +1062,7 @@ export function VehiclesView() {
   }
 
   // Filtered + searched list
-  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Completed', 'Pending', 'Archived'];
+  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Archived'];
   const filtered = vehicles.filter(v => {
     // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
@@ -1083,6 +1114,7 @@ export function VehiclesView() {
           <ViewBtn mode="grid"    current={viewMode} icon="⊞" label="Grid"           onClick={() => setViewMode('grid')} />
           <ViewBtn mode="list"    current={viewMode} icon="☰" label="List"           onClick={() => setViewMode('list')} />
           <ViewBtn mode="service" current={viewMode} icon="📋" label="Service Records" onClick={() => setViewMode('service')} />
+          <ViewBtn mode="kanban"  current={viewMode} icon="🗂" label="Kanban"         onClick={() => setViewMode('kanban')} />
         </div>
         <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
@@ -1422,6 +1454,144 @@ export function VehiclesView() {
       )}
       {viewMode === 'list' && filtered.length === 0 && !loading && (
         <p style={{ color: 'var(--muted)', padding: 20, textAlign: 'center' }}>No vehicles match your filters.</p>
+      )}
+
+      {/* ══════════════════════════════════════════════════ */}
+      {/* KANBAN VIEW                                        */}
+      {/* ══════════════════════════════════════════════════ */}
+      {viewMode === 'kanban' && (
+        <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', alignItems: 'flex-start' }}>
+            {KANBAN_COLUMNS.map(col => {
+              const colVehicles = vehicles.filter(v => v.status === col.status);
+              const isDropTarget = kanbanDragOver === col.status;
+              return (
+                <div
+                  key={col.status}
+                  onDragOver={e => { e.preventDefault(); setKanbanDragOver(col.status); }}
+                  onDragLeave={() => setKanbanDragOver(null)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (kanbanDragId) handleKanbanMove(kanbanDragId, col.status);
+                    setKanbanDragId(null); setKanbanDragOver(null);
+                  }}
+                  style={{
+                    width: 240, minHeight: 200, borderRadius: 12, overflow: 'hidden',
+                    border: isDropTarget ? `2px solid ${col.color}` : `2px solid ${col.border}`,
+                    background: isDropTarget ? col.bg : 'var(--surface)',
+                    transition: 'border-color .15s, background .15s',
+                    boxShadow: isDropTarget ? `0 0 0 3px ${col.border}` : 'none',
+                    flexShrink: 0,
+                  }}
+                >
+                  {/* Column header */}
+                  <div style={{ background: col.headerBg, borderBottom: `1px solid ${col.border}`, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>{col.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 12, color: col.color, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.2 }}>{col.label}</div>
+                    </div>
+                    <span style={{ background: col.color, color: '#fff', borderRadius: 20, padding: '1px 8px', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{colVehicles.length}</span>
+                  </div>
+
+                  {/* Cards */}
+                  <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {colVehicles.length === 0 && (
+                      <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
+                        {isDropTarget ? '📥 Drop here' : 'No vehicles'}
+                      </div>
+                    )}
+                    {colVehicles.map(v => {
+                      const owner = customers.find(c => c.id === v.customerId);
+                      const thumb = thumbs[v.id]?.[0];
+                      return (
+                        <div
+                          key={v.id}
+                          draggable
+                          onDragStart={() => setKanbanDragId(v.id)}
+                          onDragEnd={() => { setKanbanDragId(null); setKanbanDragOver(null); }}
+                          style={{
+                            background: kanbanDragId === v.id ? 'rgba(0,0,0,0.04)' : 'var(--surface)',
+                            border: `1px solid ${col.border}`,
+                            borderRadius: 10, overflow: 'hidden', cursor: 'grab',
+                            opacity: kanbanDragId === v.id ? 0.4 : 1,
+                            transition: 'opacity .15s, box-shadow .15s',
+                            boxShadow: kanbanDragId !== v.id ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+                          }}
+                        >
+                          {/* Thumbnail */}
+                          {enableVehiclePhotos && (
+                            <div
+                              onClick={() => setGalleryVehicle(v)}
+                              style={{ height: 80, background: thumb ? '#000' : col.bg, cursor: 'pointer', overflow: 'hidden', borderBottom: `1px solid ${col.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+                            >
+                              {thumb
+                                ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <span style={{ fontSize: 26, opacity: 0.4 }}>🚗</span>
+                              }
+                              <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>📷</div>
+                            </div>
+                          )}
+
+                          {/* Card body */}
+                          <div style={{ padding: '8px 10px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>{v.label}</div>
+                            {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>👤 {owner.name}</div>}
+                            {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>🔢 {v.plate}</div>}
+                            {v.assignedTech && (
+                              <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                {v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
+                                  const c = techColor(t);
+                                  return <span key={t} style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{t}</span>;
+                                })}
+                              </div>
+                            )}
+
+                            {/* Linked feature actions */}
+                            <div style={{ marginTop: 8, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => setDrawerVehicle(v)}
+                                style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: `1px solid ${col.border}`, background: col.bg, color: col.color, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                Open →
+                              </button>
+                              <button
+                                onClick={() => {
+                                  dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
+                                }}
+                                style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                + Job
+                              </button>
+                            </div>
+
+                            {/* Move to column dropdown */}
+                            <select
+                              value=""
+                              onChange={e => { if (e.target.value) handleKanbanMove(v.id, e.target.value); }}
+                              onClick={e => e.stopPropagation()}
+                              style={{ marginTop: 6, width: '100%', padding: '4px 6px', borderRadius: 6, border: `1px solid ${col.border}`, background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
+                            >
+                              <option value="">Move to…</option>
+                              {KANBAN_COLUMNS.filter(c => c.status !== col.status).map(c => (
+                                <option key={c.status} value={c.status}>{c.icon} {c.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Drop hint when dragging */}
+                    {kanbanDragId && kanbanDragOver !== col.status && (
+                      <div style={{ border: `2px dashed ${col.border}`, borderRadius: 8, padding: '14px 0', textAlign: 'center', fontSize: 11, color: col.color, opacity: 0.6 }}>
+                        Drop here to move
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status · or use the "Move to…" dropdown on each card</p>
+        </div>
       )}
 
       {/* ══════════════════════════════════════════════════ */}
