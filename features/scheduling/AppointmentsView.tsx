@@ -336,7 +336,7 @@ export function AppointmentsView() {
                   <select value={form.vehicle} onChange={e => set('vehicle', e.target.value)}>
                     <option value="">— Select vehicle —</option>
                     {customerVehicles.map(v => (
-                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                      <option key={v.id} value={v.label}>{v.label}</option>
                     ))}
                   </select>
                 ) : (
