@@ -14,7 +14,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service';
-type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending';
+type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived';
 
 const EMPTY_FORM = {
   customerId: '', vin: '', label: '', trim: '',
@@ -44,6 +44,8 @@ function statusColor(status: string) {
   if (status === 'Completed') return { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' };
   if (status === 'In Progress') return { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' };
   if (status === 'Pending') return { bg: '#fef9c3', color: '#854d0e', border: '#fef08a' };
+  if (status === 'Pending Approval') return { bg: '#fdf4ff', color: '#7e22ce', border: '#e9d5ff' };
+  if (status === 'Archived') return { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' };
   return { bg: 'var(--surface-soft)', color: 'var(--muted)', border: 'var(--line)' };
 }
 
@@ -590,7 +592,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
 }
 
 // ── Vehicle Edit Drawer ─────────────────────────────────────────
-const STATUSES = ['In Progress', 'Completed', 'Pending', 'Active', 'No open jobs'];
+const STATUSES = ['In Progress', 'Completed', 'Pending', 'Pending Approval', 'Active', 'No open jobs', 'Archived'];
 
 function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
   vehicle: VehicleRecord;
@@ -616,6 +618,23 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
   function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  async function quickStatus(newStatus: string) {
+    setSaving(true); setErr('');
+    try {
+      await updateVehicle(vehicle.id, {
+        customerId: f.customerId, vin: f.vin, label: f.label, trim: f.trim,
+        engine: f.engine, transmission: f.transmission, mileage: f.mileage,
+        plate: f.plate, status: newStatus, recommendation: f.recommendation,
+      });
+      const updated = { ...f, status: newStatus } as VehicleRecord;
+      setF(updated);
+      onSaved(updated);
+      notify(`Status → ${newStatus}`);
+    } catch (e: unknown) {
+      setErr('Update failed: ' + (e instanceof Error ? e.message : ''));
+    } finally { setSaving(false); }
+  }
 
   function handleCustSelect(customerId: string) {
     set('customerId', customerId);
@@ -675,12 +694,56 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
           <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8, padding: '12px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
+        {/* Status badge in header area */}
+        {f.status && (
+          <div style={{ padding: '6px 20px', background: statusColor(f.status).bg, borderBottom: '1px solid ' + statusColor(f.status).border, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>● {f.status}</span>
+            {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>— Awaiting customer decision on repair</span>}
+            {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>— Vehicle archived for future reference</span>}
+          </div>
+        )}
+
+        {/* Action buttons row 1 */}
+        <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
           <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>＋ Job Card</button>
           <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
           <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
+        </div>
+
+        {/* Action buttons row 2 — status shortcuts */}
+        <div style={{ display: 'flex', gap: 8, padding: '0 20px 12px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
+          {f.status !== 'Pending Approval' && f.status !== 'Archived' && (
+            <button
+              disabled={saving}
+              onClick={() => quickStatus('Pending Approval')}
+              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '2px solid #a855f7', background: 'rgba(168,85,247,0.08)', color: '#7e22ce', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              ⏳ Pending Customer Approval
+            </button>
+          )}
+          {f.status === 'Pending Approval' && (
+            <button
+              disabled={saving}
+              onClick={() => quickStatus('In Progress')}
+              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              ✓ Approved — Resume Work
+            </button>
+          )}
+          {f.status !== 'Archived' ? (
+            <button
+              disabled={saving}
+              onClick={() => quickStatus('Archived')}
+              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #d1d5db', background: 'rgba(107,114,128,0.07)', color: '#6b7280', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              🗄 Archive Vehicle
+            </button>
+          ) : (
+            <button
+              disabled={saving}
+              onClick={() => quickStatus('Active')}
+              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#166534', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              ♻ Restore from Archive
+            </button>
+          )}
         </div>
 
         {/* Form body */}
@@ -968,16 +1031,18 @@ export function VehiclesView() {
   }
 
   // Filtered + searched list
-  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Completed', 'Pending'];
+  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Completed', 'Pending', 'Archived'];
   const filtered = vehicles.filter(v => {
+    // Archived vehicles hidden from "All" — must use Archived filter to see them
+    if (statusFilter === 'All' && v.status === 'Archived') return false;
     const matchStatus = statusFilter === 'All' || v.status === statusFilter;
     const q = search.toLowerCase();
     const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, v.assignedTech, v.issues].some(f => f?.toLowerCase().includes(q));
     return matchStatus && matchSearch;
   });
 
-  // Status counts for filter chips
-  const counts: Record<string, number> = { All: vehicles.length };
+  // Status counts for filter chips (All excludes archived)
+  const counts: Record<string, number> = { All: vehicles.filter(v => v.status !== 'Archived').length };
   vehicles.forEach(v => { counts[v.status] = (counts[v.status] ?? 0) + 1; });
 
   return (
