@@ -77,15 +77,19 @@ function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; curr
 }
 
 // ── Image Gallery Modal ──────────────────────────────────────────
-function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: () => void }) {
+function ImageGallery({ vehicle, onClose }: { vehicle: VehicleRecord; onClose: () => void }) {
   const [images, setImages] = useState<VehicleImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [camMode, setCamMode] = useState<'off' | 'webcam'>('off');
   const [camReady, setCamReady] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
+  const [orderChanged, setOrderChanged] = useState(false);
+  const [thumbDragFrom, setThumbDragFrom] = useState<number | null>(null);
+  const [thumbDragOver, setThumbDragOver] = useState<number | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -98,11 +102,25 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
 
   useEffect(() => {
     fetchVehicleImages(vehicle.id)
-      .then(imgs => { setImages(imgs); setActiveIdx(0); })
+      .then(imgs => {
+        // Sort by saved imageIds order if present
+        if (vehicle.imageIds?.length) {
+          const order = vehicle.imageIds;
+          imgs.sort((a, b) => {
+            const ai = order.indexOf(a.id);
+            const bi = order.indexOf(b.id);
+            if (ai === -1 && bi === -1) return 0;
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+          });
+        }
+        setImages(imgs); setActiveIdx(0);
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
     return () => stopStream();
-  }, [vehicle.id]);
+  }, [vehicle.id, vehicle.imageIds]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -224,6 +242,43 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
     }
   }
 
+  // Thumbnail drag-to-reorder handlers
+  function onThumbDragStart(idx: number, e: React.DragEvent) {
+    setThumbDragFrom(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function onThumbDragOver(idx: number, e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setThumbDragOver(idx);
+  }
+  function onThumbDrop(toIdx: number, e: React.DragEvent) {
+    e.preventDefault();
+    if (thumbDragFrom === null || thumbDragFrom === toIdx) { setThumbDragFrom(null); setThumbDragOver(null); return; }
+    setImages(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(thumbDragFrom, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+    setActiveIdx(toIdx);
+    setOrderChanged(true);
+    setThumbDragFrom(null);
+    setThumbDragOver(null);
+  }
+  function onThumbDragEnd() { setThumbDragFrom(null); setThumbDragOver(null); }
+
+  async function saveOrder() {
+    if (!confirm(`Save this photo order for ${vehicle.label}?`)) return;
+    setSaving(true);
+    try {
+      await updateVehicleServiceRecord(vehicle.id, { imageIds: images.map(i => i.id) });
+      setOrderChanged(false);
+    } catch (e: unknown) {
+      setError('Save order failed: ' + (e instanceof Error ? e.message : ''));
+    } finally { setSaving(false); }
+  }
+
   async function handleDelete(idx: number) {
     const img = images[idx];
     if (!confirm('Remove this photo?')) return;
@@ -319,21 +374,51 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
                 </div>
               </div>
 
-              {/* Thumbnail strip */}
+              {/* Save order bar — shown when order has changed */}
+              {orderChanged && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: '8px 12px', background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--accent,#cc0000)', fontWeight: 600 }}>⇄ Photo order changed — save to keep it</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setOrderChanged(false); setImages(prev => [...prev]); }} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer' }}>Discard</button>
+                    <button onClick={saveOrder} disabled={saving} style={{ fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 6, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                      {saving ? 'Saving…' : '✓ Save Order'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Thumbnail strip — draggable to reorder */}
               <div
                 ref={thumbStripRef}
-                style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginTop: 10, scrollbarWidth: 'thin' }}
+                style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginTop: orderChanged ? 6 : 10, scrollbarWidth: 'thin' }}
               >
                 {images.map((img, i) => (
                   <div
                     key={img.id}
+                    draggable
+                    onDragStart={e => onThumbDragStart(i, e)}
+                    onDragOver={e => onThumbDragOver(i, e)}
+                    onDrop={e => onThumbDrop(i, e)}
+                    onDragEnd={onThumbDragEnd}
                     onClick={() => setActiveIdx(i)}
-                    style={{ flexShrink: 0, width: 72, height: 54, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: i === activeIdx ? '2px solid var(--accent,#cc0000)' : '2px solid transparent', opacity: i === activeIdx ? 1 : 0.6, transition: 'opacity .15s, border-color .15s', background: '#000' }}
+                    title="Drag to reorder"
+                    style={{
+                      flexShrink: 0, width: 72, height: 54, borderRadius: 8, overflow: 'hidden',
+                      cursor: thumbDragFrom !== null ? 'grabbing' : 'grab',
+                      border: i === activeIdx ? '2px solid var(--accent,#cc0000)' : thumbDragOver === i && thumbDragFrom !== i ? '2px dashed var(--accent,#cc0000)' : '2px solid transparent',
+                      opacity: thumbDragFrom === i ? 0.35 : i === activeIdx ? 1 : 0.65,
+                      transition: 'opacity .15s, border-color .15s',
+                      background: '#000',
+                      transform: thumbDragOver === i && thumbDragFrom !== i ? 'scale(1.08)' : 'scale(1)',
+                    }}
                   >
-                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
                   </div>
                 ))}
               </div>
+              {images.length > 1 && !orderChanged && (
+                <p style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>Drag thumbnails to reorder · changes prompt to save</p>
+              )}
             </div>
           )}
 
