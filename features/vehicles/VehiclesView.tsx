@@ -762,6 +762,16 @@ export function VehiclesView() {
         setCustomers(c);
         v.forEach(vehicle => {
           fetchVehicleImages(vehicle.id).then(imgs => {
+            // Apply saved photo order so list thumbnail matches carousel first photo
+            if (vehicle.imageIds?.length) {
+              const order = vehicle.imageIds;
+              imgs.sort((a, b) => {
+                const ai = order.indexOf(a.id), bi = order.indexOf(b.id);
+                if (ai === -1 && bi === -1) return 0;
+                if (ai === -1) return 1; if (bi === -1) return -1;
+                return ai - bi;
+              });
+            }
             const urls = imgs.slice(0, 5).map(i => i.url);
             if (urls.length > 0) setThumbs(prev => ({ ...prev, [vehicle.id]: urls }));
           }).catch(() => {});
