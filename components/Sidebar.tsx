@@ -8,7 +8,6 @@ import { Icon, iconColors } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { fetchAppointments } from '@/services/appointmentService';
 import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
@@ -93,8 +92,14 @@ export function Sidebar() {
         q('technicians'), q('conversations'),
       ]);
 
-      // Use the same service the appointments page uses — handles shop_id/no-column fallback
-      const apptCount = await fetchAppointments().then(a => a.length).catch(() => 0);
+      // Count appointments: try unfiltered first (matches what the page shows),
+      // fall back to shop-filtered if unfiltered errors (RLS or permissions)
+      const apptCount = await (async () => {
+        const r1 = await supabase.from('appointments').select('*', { count: 'exact', head: true });
+        if (!r1.error && r1.count !== null) return r1.count;
+        const r2 = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('shop_id', sid);
+        return (!r2.error && r2.count !== null) ? r2.count : 0;
+      })();
 
       setRealCounts({
         customers:       pick(customerR),
