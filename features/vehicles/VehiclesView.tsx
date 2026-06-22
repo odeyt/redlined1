@@ -824,6 +824,7 @@ export function VehiclesView() {
   const [newCust, setNewCust] = useState({ name: '', phone: '', email: '', type: 'Individual' });
   const [custSearch, setCustSearch] = useState('');
   const [savingCust, setSavingCust] = useState(false);
+  const [custVehicles, setCustVehicles] = useState<VehicleRecord[]>([]); // vehicles for selected customer in add form
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -886,26 +887,32 @@ export function VehiclesView() {
   }
 
   function handleCustomerSelect(customerId: string) {
-    setForm(f => ({ ...f, customerId }));
     setCustSearch('');
-    if (!customerId) return;
-    // Auto-fill from most recent vehicle for this customer
-    const prev = [...vehicles]
-      .filter(v => v.customerId === customerId)
+    setShowAddCustomer(false);
+    if (!customerId) { setForm(f => ({ ...f, customerId: '' })); setCustVehicles([]); return; }
+    const cvs = vehicles.filter(v => v.customerId === customerId)
       .sort((a, b) => (b.dateReceived ?? '').localeCompare(a.dateReceived ?? ''));
-    if (prev.length > 0) {
-      const p = prev[0];
-      setForm(f => ({
-        ...f,
-        customerId,
-        label:        f.label        || p.label,
-        vin:          f.vin          || p.vin,
-        trim:         f.trim         || p.trim,
-        engine:       f.engine       || p.engine,
-        transmission: f.transmission || p.transmission,
-        plate:        f.plate        || p.plate,
-      }));
+    setCustVehicles(cvs);
+    if (cvs.length === 1) {
+      // Only one car — auto-fill immediately
+      applyVehicleTemplate(customerId, cvs[0]);
+    } else {
+      // Multiple cars — set customer only, let user pick which car to pre-fill from
+      setForm(f => ({ ...f, customerId, label: '', vin: '', trim: '', engine: '', transmission: '', plate: '' }));
     }
+  }
+
+  function applyVehicleTemplate(customerId: string, v: VehicleRecord) {
+    setForm(f => ({
+      ...f,
+      customerId,
+      label:        v.label,
+      vin:          v.vin,
+      trim:         v.trim,
+      engine:       v.engine,
+      transmission: v.transmission,
+      plate:        v.plate,
+    }));
   }
 
   async function handleAddCustomer() {
@@ -1005,7 +1012,7 @@ export function VehiclesView() {
           <ViewBtn mode="list"    current={viewMode} icon="☰" label="List"           onClick={() => setViewMode('list')} />
           <ViewBtn mode="service" current={viewMode} icon="📋" label="Service Records" onClick={() => setViewMode('service')} />
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); }}>
+        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
@@ -1120,6 +1127,40 @@ export function VehiclesView() {
               </div>
             )}
           </div>
+          {/* ── Existing vehicle picker (shown when customer has multiple cars) ── */}
+          {custVehicles.length > 0 && form.customerId && (
+            <div style={{ gridColumn: '1 / -1', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 14px', background: 'rgba(33,150,243,0.08)', borderBottom: '1px solid rgba(33,150,243,0.15)', fontSize: 11, fontWeight: 800, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                🚗 {customers.find(c => c.id === form.customerId)?.name} has {custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''} on file — select to pre-fill, or fill in manually below
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1, background: 'rgba(33,150,243,0.1)' }}>
+                {custVehicles.map(v => {
+                  const isSelected = form.label === v.label && form.vin === v.vin;
+                  return (
+                    <div key={v.id} onClick={() => applyVehicleTemplate(form.customerId, v)}
+                      style={{ padding: '10px 14px', cursor: 'pointer', background: isSelected ? 'rgba(33,150,243,0.12)' : 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 3, borderLeft: isSelected ? '3px solid #2196f3' : '3px solid transparent', transition: 'all .12s' }}
+                      onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'rgba(33,150,243,0.06)'; }}
+                      onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface)'; }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#2196f3' : 'var(--text)' }}>{v.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 8 }}>
+                        {v.plate && <span>🔢 {v.plate}</span>}
+                        {v.vin && <span style={{ fontFamily: 'monospace' }}>{v.vin.slice(0, 8)}…</span>}
+                      </div>
+                      {v.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#2196f3', alignSelf: 'flex-start', marginTop: 2 }}>{isSelected ? '✓ Selected' : 'Click to pre-fill →'}</span>}
+                    </div>
+                  );
+                })}
+                <div onClick={() => setForm(f => ({ ...f, label: '', vin: '', trim: '', engine: '', transmission: '', plate: '' }))}
+                  style={{ padding: '10px 14px', cursor: 'pointer', background: (!form.label && !form.vin) ? 'rgba(76,175,80,0.08)' : 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 3, justifyContent: 'center', borderLeft: (!form.label && !form.vin) ? '3px solid #4caf50' : '3px solid transparent', transition: 'all .12s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(76,175,80,0.06)'}
+                  onMouseLeave={e => e.currentTarget.style.background = (!form.label && !form.vin) ? 'rgba(76,175,80,0.08)' : 'var(--surface)'}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#4caf50' }}>＋ New vehicle</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Fill in the fields below manually</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {field('label', 'Vehicle (Year Make Model) *', '2023 Ford F-150')}
           <div className="login-field">
             <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1141,7 +1182,7 @@ export function VehiclesView() {
             <input value={form.recommendation} onChange={e => setForm(f => ({ ...f, recommendation: e.target.value }))} placeholder="e.g. Oil change due at 50k" />
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setShowAddCustomer(false); setCustSearch(''); }}>Cancel</button>
+            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
           </div>
         </form>
