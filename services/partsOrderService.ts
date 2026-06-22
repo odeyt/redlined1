@@ -138,10 +138,13 @@ export async function deleteVendor(id: string): Promise<void> {
 /* ── Parts Orders ── */
 
 export async function fetchPartsOrders(): Promise<PartsOrder[]> {
+  const sid = getShopId();
+  // Fetch records for the current shop AND legacy records saved with no shop_id
+  // (empty string or null) so the page count matches the sidebar badge.
   const { data, error } = await supabase
     .from('parts_orders')
     .select('*')
-    .eq('shop_id', getShopId())
+    .or(`shop_id.eq.${sid},shop_id.is.null,shop_id.eq.`)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapOrder);
