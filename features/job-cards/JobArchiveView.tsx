@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { Panel } from '@/components/Panel';
+import { useAppDispatch } from '@/lib/store';
 
 interface ArchivedJob {
   id: string;
@@ -39,6 +40,7 @@ function fmtDate(iso: string | null) {
 }
 
 export function JobArchiveView() {
+  const dispatch = useAppDispatch();
   const [jobs, setJobs] = useState<ArchivedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -94,6 +96,17 @@ export function JobArchiveView() {
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  function handleReturnJob(j: ArchivedJob) {
+    dispatch({
+      type: 'OPEN_NEW_JOB_CARD',
+      prefill: {
+        customerName: j.customer,
+        vehicle: j.vehicle,
+        notes: `↩ RETURN JOB — Original: ${j.ro || j.id} closed ${j.closed ? new Date(j.closed).toLocaleDateString() : ''}. Original issue: ${j.notes || ''}`.trim(),
+      },
+    });
+  }
 
   // Period cutoff
   const periodStart = (() => {
@@ -313,6 +326,14 @@ export function JobArchiveView() {
                                     <span style={{ background: `${STATUS_COLOR[j.status] ?? '#888'}18`, color: STATUS_COLOR[j.status] ?? '#888', borderRadius: 5, padding: '3px 10px', fontSize: 12, fontWeight: 700 }}>
                                       {j.status}
                                     </span>
+                                  </div>
+                                  <div style={{ marginTop: 10 }}>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); handleReturnJob(j); }}
+                                      style={{ padding: '7px 16px', borderRadius: 7, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                                    >
+                                      ↩ Return Job
+                                    </button>
                                   </div>
                                 </div>
                               </div>

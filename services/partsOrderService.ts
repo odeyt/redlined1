@@ -115,6 +115,26 @@ export async function createVendor(v: Omit<PartsVendor, 'id'>): Promise<PartsVen
   return mapVendor(data);
 }
 
+export async function updateVendor(id: string, v: Omit<PartsVendor, 'id'>): Promise<PartsVendor> {
+  const { data, error } = await supabase
+    .from('parts_vendors')
+    .update({ name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes })
+    .eq('id', id)
+    .eq('shop_id', getShopId())
+    .select().single();
+  if (error) throw error;
+  return mapVendor(data);
+}
+
+export async function deleteVendor(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('parts_vendors')
+    .delete()
+    .eq('id', id)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}
+
 /* ── Parts Orders ── */
 
 export async function fetchPartsOrders(): Promise<PartsOrder[]> {

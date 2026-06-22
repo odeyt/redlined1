@@ -53,8 +53,8 @@ const WORKFLOW_SECTION = {
       content: `ROLE: Technician | MODULE: Time Tracking + Repair Orders\n\nGo to Time Tracking → select your name → enter the Job Card # → click "Clock In". A live elapsed timer starts. Open Repair Orders → create a new RO linked to this job card using the 3C format: Concern (customer complaint), Cause (your finding), Correction (work performed). List parts used and labour time. Advance Status Tracker to "In Repair" when work begins.`,
     },
     {
-      title: 'Step 10 — Complete Repairs & Quality Check',
-      content: `ROLE: Technician clocks out / Service Advisor QC | MODULE: Time Tracking → Job Cards\n\nTechnician clicks "Clock Out" when all repair tasks are done — duration is auto-calculated and logged. Service Advisor inspects the finished vehicle (test drive if needed). Advance Status Tracker to "Quality Check". Update the job card status to "Complete". Add internal notes about what was performed. Never skip QC — it catches mistakes before the customer does.`,
+      title: 'Step 10 — Complete Repairs & Mandatory QA Sign-Off',
+      content: `ROLE: Technician clocks out → Service Advisor QA | MODULE: Time Tracking → Repair Orders\n\nTechnician clicks "Clock Out" when all repair tasks are done — duration is auto-calculated and logged. The technician then sets the Repair Order status to "Complete" and stops there — they cannot close it themselves.\n\nThe Service Advisor opens the Repair Order. Because the status is "Complete", a mandatory QA Inspection panel appears below the 3C worksheet. The advisor must:\n1. PASS or FAIL each checklist item (auto-generated from the job's concern, cause, and correction keywords — e.g. brake jobs include brake fluid/pad/rotor checks; oil jobs include oil level and torque checks).\n2. Mark every item before the Approve button becomes active.\n3. Type their full name as a service advisor sign-off signature.\n4. Click "✓ Approve & Close RO" — only this action can move the RO to Closed status.\n\nIf the vehicle fails inspection, click "↩ Send Back to Technician" — the RO reverts to "In Progress" with a timestamped QA Return note in the notes field, and the technician corrects the issue before the cycle repeats.\n\n⚠ The status dropdown no longer contains "Closed" as a selectable option — the only path to Closed is through the QA panel approval. Any RO that was closed without QA will show a red "⚠ QA Not Completed" banner and the QA panel until the advisor retroactively signs off.`,
     },
     {
       title: 'Step 11 — Create & Send Invoice',
@@ -71,6 +71,10 @@ const WORKFLOW_SECTION = {
     {
       title: 'Pro Tip — Follow the → Arrow Buttons',
       content: `Every module has shortcut arrow buttons so you never re-enter data. Customer → + New Job Card. Job Card → Inspection or Repair Order or Status Tracker. Inspection → Estimate. Invoice → Payment. These arrows carry the customer and vehicle context automatically. Follow the arrows and you will never lose your place in the workflow.`,
+    },
+    {
+      title: 'Step 13 — Handle a Return Job (Customer Comeback)',
+      content: `ROLE: Service Advisor | MODULE: Job Archive / Repair Orders / Vehicle Drawer / Job Cards\n\nIf a customer returns weeks later with a complaint related to a previously closed job, use the Return Job feature instead of creating a blank job card. This preserves the link to the original work and makes it clear this is a warranty or comeback situation.\n\nReturn Job buttons appear in 4 places:\n• Job Archive → expand any closed job row → "↩ Return Job" button in the Financials panel\n• Repair Orders → select a Closed RO → "↩ Return Job" in the action bar\n• Vehicle Drawer → open any vehicle → "↩ Return Job" in the action button row\n• Job Cards → Closed Jobs tab → "↩ Return Job" on any closed job row\n\nClicking "↩ Return Job" opens the New Job Card form pre-filled with the customer name, vehicle, and a note: "↩ RETURN JOB — Original: [RO/Job ID] closed [date]. Original issue: [original concern]." The advisor adds the new complaint and proceeds through the standard workflow from Step 3. The pre-filled note ensures the technician immediately knows this is a comeback and can reference the original repair.`,
     },
   ],
 };
@@ -301,8 +305,8 @@ const PAID_SECTIONS = [
         content: `Four stat cards at the top of Parts Orders give a live summary: On Order (count of parts currently Ordered, Deposit Paid, or Backordered), Received (count of parts received), Balance Due (total outstanding owed to all vendors), and Deposits Paid (total deposits across all orders). Use these to understand your outstanding vendor commitments at a glance.`,
       },
       {
-        title: 'Managing Vendors',
-        content: `Vendors are stored in a shared directory for your shop. When you add a vendor via the "+ Add" button in the parts order form, they are saved to the vendors list and available for every future order. Each vendor record stores name, phone, email, website, and account notes. Selecting a vendor from the dropdown auto-fills their phone and email on the order form.`,
+        title: 'Managing Vendors — Add, Edit & Remove',
+        content: `Vendors are stored in a shared directory for your shop. Two buttons appear next to the Vendor Name dropdown in the parts order form:\n\n• "+ Add" — opens the Vendor Manager modal directly to the Add Vendor tab. Enter vendor name (required), phone, email, website, and account notes (account numbers, net-30 terms, etc.). Click "+ Add Vendor" to save. The new vendor is immediately selected in the form.\n\n• "⚙ Manage" — opens the Vendor Manager to the All Vendors tab. Every saved vendor is listed with their contact details. Each row has:\n  — "✏ Edit" — pre-fills the Add/Edit tab with the vendor's current data. Make changes and click "✓ Save Changes".\n  — "🗑 Remove" — asks for confirmation then permanently removes the vendor from your directory. Existing parts orders that reference the vendor are not affected.\n\nSelecting a vendor from the dropdown in any parts order form auto-fills their phone and email so you never re-enter contact details.`,
       },
     ],
   },
@@ -784,6 +788,30 @@ const PAID_SECTIONS = [
         title: 'Employees Module (formerly Technicians)',
         content: `The "Technicians" sidebar item has been renamed to "Employees" to better reflect the full range of staff roles — Owner, Shop Manager, Master Mechanic, Mechanic, Parts Runner, Office Manager, and more. All existing records and assignments are unchanged. Anywhere you previously saw "Technicians" in the sidebar now shows "Employees".`,
       },
+      {
+        title: 'Mandatory QA Sign-Off Before Closing Repair Orders',
+        content: `Repair Orders can no longer be closed directly through the status dropdown. "Closed" has been removed as a selectable option — the only path to Closed is through the mandatory QA Sign-Off panel.\n\nWhen a technician marks a Repair Order as "Complete", a QA Inspection panel appears for the service advisor below the 3C worksheet. The panel auto-generates a checklist based on the job keywords (brake jobs get brake-specific checks, oil jobs get oil-level checks, A/C jobs get refrigerant and belt checks, etc.). The advisor must PASS or FAIL every item, then sign with their name before the "Approve & Close RO" button activates.\n\nIf the vehicle fails QA, the advisor clicks "↩ Send Back to Technician" — the RO reverts to "In Progress" with a timestamped QA Return note, and the cycle repeats until the advisor approves.\n\nAny RO that was previously closed without a QA sign-off shows a red "⚠ QA Not Completed" warning and the full QA panel, allowing a retroactive sign-off at any time. The QA sign-off is permanently recorded in the RO notes with the advisor name, date, item-by-item results, and any notes.`,
+      },
+      {
+        title: '↩ Return Job — Customer Comeback Tracking',
+        content: `A new "↩ Return Job" button appears in 4 places across the platform, making it fast to handle customer comebacks and warranty returns:\n\n• Job Archive — in the expanded detail panel of any archived job\n• Repair Orders — in the action bar when a Closed RO is selected\n• Vehicle Drawer — in the action button row at the top of any vehicle drawer\n• Job Cards — on every row in the Closed Jobs tab\n\nClicking the button opens the New Job Card form pre-filled with the original customer, vehicle, and a return job note referencing the original job ID, close date, and original complaint. This creates a clear linked record of the comeback, makes it immediately visible to the technician that this is a return visit, and ensures the job is tracked and billed appropriately.`,
+      },
+      {
+        title: 'Vendor Manager — Add, Edit & Remove Vendors',
+        content: `The Vendor section in the Parts Orders form now has two buttons: "+ Add" and "⚙ Manage".\n\nThe Vendor Manager modal has two tabs:\n• All Vendors — lists every saved vendor with contact info. Each row has Edit and Remove buttons.\n• Add/Edit Vendor — a form to create a new vendor or edit an existing one. Fields: Vendor Name, Phone, Email, Website, and Account Notes (account numbers, payment terms, etc.).\n\nEditing a vendor updates all future order auto-fills. Removing a vendor deletes it from your directory without affecting any existing orders that referenced it.`,
+      },
+      {
+        title: '50+ World Currencies in Parts Orders',
+        content: `The Currency dropdown in Parts Orders now includes over 50 world currencies, covering every major region:\n\nAmericas: USD, CAD, MXN, BRL, CLP, COP, ARS, PEN\nEurope: EUR, GBP, CHF, SEK, NOK, DKK, PLN, CZK, HUF, RON, TRY, RUB, UAH\nAsia-Pacific: JPY, CNY, HKD, SGD, KRW, AUD, NZD, TWD, INR, PKR, BDT, THB, MYR, IDR, PHP, VND, LAK, KHR\nMiddle East: AED, SAR, KWD, QAR, BHD, OMR, JOD, ILS\nAfrica: ZAR, NGN, KES, GHS, EGP, MAD\n\nThe selected currency is stored with each order and displayed correctly on all order views.`,
+      },
+      {
+        title: 'Vehicle Auto-Fill in Repair Orders',
+        content: `When creating a new Repair Order, selecting a customer from the dropdown now automatically fills the Vehicle field:\n\n• If the customer has exactly 1 registered vehicle — the vehicle field auto-fills immediately.\n• If the customer has multiple vehicles — the vehicle field becomes a dropdown showing all their registered vehicles to choose from.\n• If the customer has no vehicles on file — the field remains a free-text input.\n\nThis eliminates the need to manually type the vehicle every time and ensures the vehicle linked to the RO matches your vehicle records exactly.`,
+      },
+      {
+        title: 'Appointments Sidebar Count Fixed',
+        content: `The Appointments badge in the left sidebar now shows the correct real-time count of appointments in the database. Previously the badge always showed 0 because it was reading from an in-memory store that was never populated. It now queries the appointments table directly, the same way all other sidebar badges (Customers, Vehicles, Job Cards, etc.) work.`,
+      },
     ],
   },
   {
@@ -822,7 +850,7 @@ const FAQS = [
   { q: 'Can I edit a customer after saving them?', a: 'Yes. Click any customer in the Customers list to open their detail drawer, then click "✏ Edit" to update their details inline without leaving the screen.' },
   { q: 'Can I edit an existing vehicle?', a: 'Yes. In Vehicle Management List view (the default), click anywhere on a vehicle row to open the edit drawer on the right. Update any field — VIN, mileage, engine, plate, status, assigned techs, service notes, parts, and more — then click "✓ Save Changes". The row updates instantly without a page reload.' },
   { q: 'Can I edit or cancel an appointment?', a: 'Yes. In the Appointments module, each row has Edit and Remove buttons. Edit reopens the booking form pre-filled with current data. Remove asks for confirmation before deleting.' },
-  { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector supporting USD, CAD, EUR, GBP, MXN, AUD, and JPY. The selected currency is saved with the order and shown correctly when you reopen it.' },
+  { q: 'Can I order parts in foreign currencies?', a: 'Yes. The Parts Orders form has a Currency selector with over 50 world currencies including USD, EUR, GBP, JPY, CAD, AUD, CHF, CNY, THB, VND, LAK, AED, SAR, NGN, KES, BRL, MXN, INR, and many more. The selected currency is saved with each order and displayed correctly when you reopen it.' },
   { q: 'Where do completed jobs go after they are closed?', a: 'Completed, Closed, and Invoiced jobs are automatically available in the Job Archive (sidebar). The archive is permanent — every finished job is stored indefinitely for reference, warranty lookups, and maintenance history. Search by customer, vehicle, technician, RO number, or invoice number. Filter by Month, Quarter, Year, or All Time. Export to CSV at any time.' },
   { q: 'Can I see which technician is assigned to which cars?', a: 'Yes. Go to Reports → Technicians tab. Each technician row shows their active jobs, completed jobs, total hours, and a completion rate bar. Click any row to expand a sub-table of every job card assigned to them with customer, vehicle, status, and check-in date.' },
   { q: 'Can I run a job completion report for a specific time period?', a: 'Yes. Go to Reports → Job Completion tab. Use the period filter pills — Week, Month, Quarter, Year, All Time — to filter completed jobs by close date. The report shows every finished job with turnaround time, labour hours, assigned technicians, and a status distribution bar.' },

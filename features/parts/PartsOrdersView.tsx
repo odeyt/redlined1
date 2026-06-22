@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useShop } from '@/lib/useShop';
 import {
   fetchPartsOrders, createPartsOrder, updatePartsOrder, deletePartsOrder,
-  fetchVendors, createVendor,
+  fetchVendors, createVendor, updateVendor, deleteVendor,
   PartsOrder, PartsVendor,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
 } from '@/services/partsOrderService';
@@ -14,13 +14,59 @@ import type { Customer } from '@/lib/types';
 
 /* ── Currency support ── */
 const CURRENCIES = [
-  { code: 'USD', symbol: '$', label: 'USD — US Dollar' },
+  { code: 'USD', symbol: '$',    label: 'USD — US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'EUR — Euro' },
+  { code: 'GBP', symbol: '£',   label: 'GBP — British Pound' },
+  { code: 'JPY', symbol: '¥',   label: 'JPY — Japanese Yen' },
   { code: 'CAD', symbol: 'CA$', label: 'CAD — Canadian Dollar' },
-  { code: 'EUR', symbol: '€', label: 'EUR — Euro' },
-  { code: 'GBP', symbol: '£', label: 'GBP — British Pound' },
+  { code: 'AUD', symbol: 'A$',  label: 'AUD — Australian Dollar' },
+  { code: 'CHF', symbol: 'Fr',  label: 'CHF — Swiss Franc' },
+  { code: 'CNY', symbol: '¥',   label: 'CNY — Chinese Yuan' },
+  { code: 'HKD', symbol: 'HK$', label: 'HKD — Hong Kong Dollar' },
+  { code: 'SGD', symbol: 'S$',  label: 'SGD — Singapore Dollar' },
   { code: 'MXN', symbol: 'MX$', label: 'MXN — Mexican Peso' },
-  { code: 'AUD', symbol: 'A$', label: 'AUD — Australian Dollar' },
-  { code: 'JPY', symbol: '¥', label: 'JPY — Japanese Yen' },
+  { code: 'BRL', symbol: 'R$',  label: 'BRL — Brazilian Real' },
+  { code: 'INR', symbol: '₹',   label: 'INR — Indian Rupee' },
+  { code: 'KRW', symbol: '₩',   label: 'KRW — South Korean Won' },
+  { code: 'SEK', symbol: 'kr',  label: 'SEK — Swedish Krona' },
+  { code: 'NOK', symbol: 'kr',  label: 'NOK — Norwegian Krone' },
+  { code: 'DKK', symbol: 'kr',  label: 'DKK — Danish Krone' },
+  { code: 'NZD', symbol: 'NZ$', label: 'NZD — New Zealand Dollar' },
+  { code: 'ZAR', symbol: 'R',   label: 'ZAR — South African Rand' },
+  { code: 'AED', symbol: 'د.إ', label: 'AED — UAE Dirham' },
+  { code: 'SAR', symbol: '﷼',   label: 'SAR — Saudi Riyal' },
+  { code: 'THB', symbol: '฿',   label: 'THB — Thai Baht' },
+  { code: 'MYR', symbol: 'RM',  label: 'MYR — Malaysian Ringgit' },
+  { code: 'IDR', symbol: 'Rp',  label: 'IDR — Indonesian Rupiah' },
+  { code: 'PHP', symbol: '₱',   label: 'PHP — Philippine Peso' },
+  { code: 'VND', symbol: '₫',   label: 'VND — Vietnamese Dong' },
+  { code: 'LAK', symbol: '₭',   label: 'LAK — Lao Kip' },
+  { code: 'KHR', symbol: '៛',   label: 'KHR — Cambodian Riel' },
+  { code: 'TWD', symbol: 'NT$', label: 'TWD — Taiwan Dollar' },
+  { code: 'PKR', symbol: '₨',   label: 'PKR — Pakistani Rupee' },
+  { code: 'BDT', symbol: '৳',   label: 'BDT — Bangladeshi Taka' },
+  { code: 'TRY', symbol: '₺',   label: 'TRY — Turkish Lira' },
+  { code: 'RUB', symbol: '₽',   label: 'RUB — Russian Ruble' },
+  { code: 'PLN', symbol: 'zł',  label: 'PLN — Polish Złoty' },
+  { code: 'CZK', symbol: 'Kč',  label: 'CZK — Czech Koruna' },
+  { code: 'HUF', symbol: 'Ft',  label: 'HUF — Hungarian Forint' },
+  { code: 'RON', symbol: 'lei', label: 'RON — Romanian Leu' },
+  { code: 'EGP', symbol: '£',   label: 'EGP — Egyptian Pound' },
+  { code: 'NGN', symbol: '₦',   label: 'NGN — Nigerian Naira' },
+  { code: 'KES', symbol: 'KSh', label: 'KES — Kenyan Shilling' },
+  { code: 'GHS', symbol: '₵',   label: 'GHS — Ghanaian Cedi' },
+  { code: 'CLP', symbol: '$',   label: 'CLP — Chilean Peso' },
+  { code: 'COP', symbol: '$',   label: 'COP — Colombian Peso' },
+  { code: 'ARS', symbol: '$',   label: 'ARS — Argentine Peso' },
+  { code: 'PEN', symbol: 'S/',  label: 'PEN — Peruvian Sol' },
+  { code: 'ILS', symbol: '₪',   label: 'ILS — Israeli New Shekel' },
+  { code: 'QAR', symbol: '﷼',   label: 'QAR — Qatari Riyal' },
+  { code: 'KWD', symbol: 'د.ك', label: 'KWD — Kuwaiti Dinar' },
+  { code: 'BHD', symbol: '.د.ب', label: 'BHD — Bahraini Dinar' },
+  { code: 'OMR', symbol: '﷼',   label: 'OMR — Omani Rial' },
+  { code: 'JOD', symbol: 'JD',  label: 'JOD — Jordanian Dinar' },
+  { code: 'MAD', symbol: 'MAD', label: 'MAD — Moroccan Dirham' },
+  { code: 'UAH', symbol: '₴',   label: 'UAH — Ukrainian Hryvnia' },
 ];
 
 function fmt(v: number, currency: string) {
@@ -87,7 +133,9 @@ export function PartsOrdersView() {
   /* vendor modal */
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendorForm, setVendorForm]           = useState(EMPTY_VENDOR);
+  const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
   const [savingVendor, setSavingVendor]       = useState(false);
+  const [vendorTab, setVendorTab]             = useState<'list' | 'add'>('list');
 
   /* filters */
   const [filterStatus, setFilterStatus] = useState('All');
@@ -200,14 +248,43 @@ export function PartsOrdersView() {
     if (!vendorForm.name.trim()) return;
     setSavingVendor(true);
     try {
-      const v = await createVendor(vendorForm);
-      setVendors(prev => [...prev, v]);
-      setF({ vendorName: v.name, vendorPhone: v.phone, vendorEmail: v.email });
+      if (editingVendorId) {
+        const v = await updateVendor(editingVendorId, vendorForm);
+        setVendors(prev => prev.map(x => x.id === v.id ? v : x));
+        notify(`Vendor "${v.name}" updated.`);
+      } else {
+        const v = await createVendor(vendorForm);
+        setVendors(prev => [...prev, v]);
+        setF({ vendorName: v.name, vendorPhone: v.phone, vendorEmail: v.email });
+        notify(`Vendor "${v.name}" added.`);
+      }
       setVendorForm(EMPTY_VENDOR);
-      setShowVendorModal(false);
-      notify(`Vendor "${v.name}" added.`);
-    } catch { notify('Failed to add vendor.'); }
+      setEditingVendorId(null);
+      setVendorTab('list');
+    } catch { notify('Failed to save vendor.'); }
     finally { setSavingVendor(false); }
+  }
+
+  async function handleDeleteVendor(id: string, name: string) {
+    if (!confirm(`Remove vendor "${name}"? This won't affect existing orders.`)) return;
+    try {
+      await deleteVendor(id);
+      setVendors(prev => prev.filter(v => v.id !== id));
+      notify(`Vendor "${name}" removed.`);
+    } catch { notify('Failed to remove vendor.'); }
+  }
+
+  function openAddVendor() {
+    setEditingVendorId(null);
+    setVendorForm(EMPTY_VENDOR);
+    setVendorTab('add');
+    setShowVendorModal(true);
+  }
+
+  function openEditVendor(v: PartsVendor) {
+    setEditingVendorId(v.id);
+    setVendorForm({ name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes });
+    setVendorTab('add');
   }
 
   function handleVendorSelect(name: string) {
@@ -548,9 +625,13 @@ export function PartsOrdersView() {
                         <option value={form.vendorName}>{form.vendorName}</option>
                       )}
                     </select>
-                    <button type="button" onClick={() => setShowVendorModal(true)}
+                    <button type="button" onClick={openAddVendor}
                       style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       + Add
+                    </button>
+                    <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      ⚙ Manage
                     </button>
                   </div>
                 </div>
@@ -643,49 +724,87 @@ export function PartsOrdersView() {
         </div>
       )}
 
-      {/* ── Add Vendor Modal ── */}
+      {/* ── Vendor Manager Modal ── */}
       {showVendorModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowVendorModal(false); }}>
-          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Add Vendor</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>Type to search existing vendors or enter a new name.</div>
-            <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Vendor name with datalist autocomplete from existing vendors */}
-              <datalist id="vendor-name-list">
-                {vendors.map(v => <option key={v.id} value={v.name} />)}
-              </datalist>
-              <div className="login-field">
-                <label>Vendor Name *</label>
-                <input
-                  required
-                  list="vendor-name-list"
-                  value={vendorForm.name}
-                  onChange={e => {
-                    const name = e.target.value;
-                    // Auto-fill phone/email if an existing vendor is selected
-                    const existing = vendors.find(v => v.name === name);
-                    setVendorForm(f => ({
-                      ...f,
-                      name,
-                      phone: existing ? existing.phone : f.phone,
-                      email: existing ? existing.email : f.email,
-                      website: existing ? existing.website : f.website,
-                      notes: existing ? existing.notes : f.notes,
-                    }));
-                  }}
-                  placeholder="e.g. AutoZone Pro"
-                />
+          onClick={e => { if (e.target === e.currentTarget) { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); } }}>
+          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>Vendor Manager</div>
+              <button onClick={() => { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>✕</button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+              <button onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
+                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                All Vendors ({vendors.length})
+              </button>
+              <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
+                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                {editingVendorId ? '✏ Edit Vendor' : '+ Add Vendor'}
+              </button>
+            </div>
+
+            {/* List tab */}
+            {vendorTab === 'list' && (
+              <div>
+                {vendors.length === 0 ? (
+                  <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No vendors yet. Click "+ Add Vendor" to create one.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {vendors.map(v => (
+                      <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>{v.name}</div>
+                          {v.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{v.phone}</div>}
+                          {v.email && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{v.email}</div>}
+                          {v.website && <div style={{ fontSize: 11, color: '#3b82f6' }}>{v.website}</div>}
+                          {v.notes && <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', marginTop: 2 }}>{v.notes}</div>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => openEditVendor(v)}
+                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            ✏ Edit
+                          </button>
+                          <button onClick={() => handleDeleteVendor(v.id, v.name)}
+                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            🗑 Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
+                  className="btn btn-primary" style={{ marginTop: 16, width: '100%' }}>
+                  + Add New Vendor
+                </button>
               </div>
-              <div className="login-field"><label>Phone</label><input value={vendorForm.phone} onChange={e => setVendorForm(f => ({ ...f, phone: e.target.value }))} placeholder="555-000-0000" /></div>
-              <div className="login-field"><label>Email</label><input type="email" value={vendorForm.email} onChange={e => setVendorForm(f => ({ ...f, email: e.target.value }))} placeholder="parts@vendor.com" /></div>
-              <div className="login-field"><label>Website</label><input value={vendorForm.website} onChange={e => setVendorForm(f => ({ ...f, website: e.target.value }))} placeholder="www.vendor.com" /></div>
-              <div className="login-field"><label>Notes</label><input value={vendorForm.notes} onChange={e => setVendorForm(f => ({ ...f, notes: e.target.value }))} placeholder="Account #, terms, etc." /></div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                <button type="button" className="btn" onClick={() => setShowVendorModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={savingVendor}>{savingVendor ? 'Saving…' : 'Add Vendor'}</button>
-              </div>
-            </form>
+            )}
+
+            {/* Add / Edit tab */}
+            {vendorTab === 'add' && (
+              <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="login-field">
+                  <label>Vendor Name *</label>
+                  <input required value={vendorForm.name} onChange={e => setVendorForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. AutoZone Pro" />
+                </div>
+                <div className="login-field"><label>Phone</label><input value={vendorForm.phone} onChange={e => setVendorForm(f => ({ ...f, phone: e.target.value }))} placeholder="555-000-0000" /></div>
+                <div className="login-field"><label>Email</label><input type="email" value={vendorForm.email} onChange={e => setVendorForm(f => ({ ...f, email: e.target.value }))} placeholder="parts@vendor.com" /></div>
+                <div className="login-field"><label>Website</label><input value={vendorForm.website} onChange={e => setVendorForm(f => ({ ...f, website: e.target.value }))} placeholder="www.vendor.com" /></div>
+                <div className="login-field"><label>Account # / Notes</label><input value={vendorForm.notes} onChange={e => setVendorForm(f => ({ ...f, notes: e.target.value }))} placeholder="Account #, terms, net-30, etc." /></div>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                  <button type="button" className="btn" onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}>← Back</button>
+                  <button type="submit" className="btn btn-primary" disabled={savingVendor}>
+                    {savingVendor ? 'Saving…' : editingVendorId ? '✓ Save Changes' : '+ Add Vendor'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ import {
   RO_STATUSES, type RepairOrder,
 } from '@/services/repairOrderService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
@@ -125,37 +125,50 @@ function generateChecklist(concern: string, cause: string, correction: string): 
     .map(i => ({ ...i, passed: null }));
 }
 
+// ── Misc items that SA must confirm are not left in the vehicle ──
+const MISC_ITEMS: { id: string; label: string }[] = [
+  { id: 'misc_tools',   label: 'No shop tools or equipment left in vehicle (ratchets, sockets, pliers, etc.)' },
+  { id: 'misc_bolts',   label: 'No loose bolts, nuts, or hardware left inside vehicle or engine bay' },
+  { id: 'misc_caps',    label: 'All caps and covers reinstalled (oil cap, air filter cover, fuse box lid, etc.)' },
+  { id: 'misc_install', label: 'All parts that were removed and are to be reinstalled have been reinstalled' },
+  { id: 'misc_drain',   label: 'All drain plugs and fill plugs properly torqued and sealed' },
+  { id: 'misc_rags',    label: 'No shop rags, funnels, or catch pans left in or under the vehicle' },
+  { id: 'misc_mats',    label: "Customer's floor mats, seat covers, and personal items returned to original position" },
+];
+
 // ── QA Sign-Off Panel ────────────────────────────────────────────
 function QAPanel({ ro, onApprove, onSendBack }: {
   ro: RepairOrder;
-  onApprove: (checklist: QAItem[], advisorName: string, notes: string) => void;
+  onApprove: (checklist: QAItem[], miscItems: QAItem[], advisorName: string, notes: string) => void;
   onSendBack: (advisorName: string, notes: string) => void;
 }) {
   const [items, setItems] = useState<QAItem[]>(() => generateChecklist(ro.concern, ro.cause, ro.correction));
+  const [misc,  setMisc]  = useState<QAItem[]>(() => MISC_ITEMS.map(i => ({ ...i, passed: null })));
   const [advisorName, setAdvisorName] = useState('');
   const [qaNotes, setQaNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const allChecked = items.every(i => i.passed !== null);
-  const allPassed  = items.every(i => i.passed === true);
-  const failCount  = items.filter(i => i.passed === false).length;
+  const allChecked = items.every(i => i.passed !== null) && misc.every(i => i.passed !== null);
+  const allPassed  = items.every(i => i.passed === true) && misc.every(i => i.passed === true);
+  const failCount  = [...items, ...misc].filter(i => i.passed === false).length;
 
-  function toggle(id: string, passed: boolean) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, passed: i.passed === passed ? null : passed } : i));
+  function toggle(id: string, passed: boolean, isMisc = false) {
+    const setter = isMisc ? setMisc : setItems;
+    setter(prev => prev.map(i => i.id === id ? { ...i, passed: i.passed === passed ? null : passed } : i));
   }
 
   async function handleApprove() {
     if (!advisorName.trim()) { alert('Please enter your name to sign off.'); return; }
-    if (!allChecked) { alert('Please mark each checklist item Pass or Fail before signing off.'); return; }
-    if (failCount > 0 && !confirm(`${failCount} item${failCount > 1 ? 's' : ''} marked FAIL. Approve anyway and close the RO?`)) return;
+    if (!allChecked) { alert('Please mark every checklist item Pass or Fail before signing off.'); return; }
+    if (failCount > 0 && !confirm(`${failCount} item${failCount > 1 ? 's' : ''} marked FAIL. Approve anyway and mark RO Complete?`)) return;
     setSubmitting(true);
-    await onApprove(items, advisorName.trim(), qaNotes);
+    await onApprove(items, misc, advisorName.trim(), qaNotes);
     setSubmitting(false);
   }
 
   async function handleSendBack() {
     if (!advisorName.trim()) { alert('Please enter your name before returning to technician.'); return; }
-    if (!confirm(`Return ${ro.roNumber} to technician (In Progress)?`)) return;
+    if (!confirm(`Return ${ro.roNumber} to technician for rework?`)) return;
     setSubmitting(true);
     await onSendBack(advisorName.trim(), qaNotes);
     setSubmitting(false);
@@ -163,60 +176,84 @@ function QAPanel({ ro, onApprove, onSendBack }: {
 
   const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
 
+  function CheckRow({ item, isMisc = false }: { item: QAItem; isMisc?: boolean }) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: item.passed === true ? 'rgba(76,175,80,0.07)' : item.passed === false ? 'rgba(244,67,54,0.07)' : 'var(--surface-soft)', border: `1px solid ${item.passed === true ? 'rgba(76,175,80,0.25)' : item.passed === false ? 'rgba(244,67,54,0.25)' : 'var(--line)'}`, transition: 'all .15s' }}>
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <button type="button" onClick={() => toggle(item.id, true, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === true ? '#4caf50' : '#e0e0e0', color: item.passed === true ? '#fff' : '#555', transition: 'all .1s' }}>✓ PASS</button>
+          <button type="button" onClick={() => toggle(item.id, false, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === false ? '#f44336' : '#e0e0e0', color: item.passed === false ? '#fff' : '#555', transition: 'all .1s' }}>✗ FAIL</button>
+        </div>
+        <span style={{ fontSize: 13, flex: 1, color: item.passed === false ? '#f44336' : 'var(--text)', fontWeight: item.passed === false ? 600 : 400 }}>{item.label}</span>
+      </div>
+    );
+  }
+
   return (
     <div style={{ border: '2px solid #f59e0b', borderRadius: 14, background: 'rgba(245,158,11,0.04)', overflow: 'hidden', marginTop: 16 }}>
-      {/* Banner */}
       <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontSize: 18 }}>🔍</span>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 14 }}>QA Inspection Required — Awaiting Service Advisor Sign-Off</div>
-          <div style={{ fontSize: 12, opacity: 0.9 }}>Technician marked job Complete. Review the checklist below before closing the RO.</div>
+          <div style={{ fontWeight: 800, fontSize: 14 }}>SA QA Inspection — Awaiting Sign-Off</div>
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Technician submitted work. Complete all checks before marking the RO Complete.</div>
         </div>
       </div>
 
       <div style={{ padding: '16px 20px' }}>
-        {/* Concern summary */}
-        <div style={{ background: 'rgba(244,67,54,0.07)', border: '1px solid rgba(244,67,54,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
-          <span style={{ fontWeight: 700, color: '#f44336' }}>🔴 Concern: </span>{ro.concern || <em style={{ color: 'var(--muted)' }}>Not recorded</em>}
-          {ro.correction && <><br /><span style={{ fontWeight: 700, color: '#4caf50' }}>🟢 Correction: </span>{ro.correction}</>}
-        </div>
-
-        {/* Checklist */}
-        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
-          Inspection Checklist — {items.length} items · {items.filter(i => i.passed === true).length} passed · {failCount} failed
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
-          {items.map(item => (
-            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: item.passed === true ? 'rgba(76,175,80,0.07)' : item.passed === false ? 'rgba(244,67,54,0.07)' : 'var(--surface-soft)', border: `1px solid ${item.passed === true ? 'rgba(76,175,80,0.25)' : item.passed === false ? 'rgba(244,67,54,0.25)' : 'var(--line)'}`, transition: 'all .15s' }}>
-              <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                <button onClick={() => toggle(item.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === true ? '#4caf50' : '#e0e0e0', color: item.passed === true ? '#fff' : '#555', transition: 'all .1s' }}>✓ PASS</button>
-                <button onClick={() => toggle(item.id, false)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === false ? '#f44336' : '#e0e0e0', color: item.passed === false ? '#fff' : '#555', transition: 'all .1s' }}>✗ FAIL</button>
-              </div>
-              <span style={{ fontSize: 13, flex: 1, color: item.passed === false ? '#f44336' : 'var(--text)', fontWeight: item.passed === false ? 600 : 400 }}>{item.label}</span>
+        {/* 3C summary */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+          {[
+            { color: '#f44336', label: '🔴 Concern', text: ro.concern },
+            { color: '#ff9800', label: '🟡 Cause', text: ro.cause },
+            { color: '#4caf50', label: '🟢 Correction', text: ro.correction },
+          ].map(({ label, text, color }) => (
+            <div key={label} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 7, background: 'var(--surface-soft)', border: '1px solid var(--line)' }}>
+              <span style={{ fontWeight: 700, color }}>{label}: </span>
+              {text || <em style={{ color: 'var(--muted)' }}>Not recorded</em>}
             </div>
           ))}
         </div>
 
-        {/* QA Notes + Signature */}
+        {/* Repair-specific checklist */}
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+          Step 1 — Repair Verification ({items.length} items)
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+          {items.map(item => <CheckRow key={item.id} item={item} />)}
+        </div>
+
+        {/* Misc items */}
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+          Step 2 — Vehicle Walk-Around & Misc Items ({misc.length} items)
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+          {misc.map(item => <CheckRow key={item.id} item={item} isMisc />)}
+        </div>
+
+        {/* Notes + Signature */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>QA Notes (optional)</label>
-            <textarea value={qaNotes} onChange={e => setQaNotes(e.target.value)} placeholder="Any observations, follow-up items, or customer instructions…" style={{ ...inp, minHeight: 70, resize: 'vertical' }} />
+            <textarea value={qaNotes} onChange={e => setQaNotes(e.target.value)} placeholder="Observations, follow-up items, or customer instructions…" style={{ ...inp, minHeight: 70, resize: 'vertical' }} />
           </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Service Advisor Signature *</label>
             <input value={advisorName} onChange={e => setAdvisorName(e.target.value)} placeholder="Type your full name to sign off…" style={inp} />
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>By signing, you confirm the vehicle was inspected and meets quality standards.</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>By signing, you confirm the vehicle passed inspection and is ready for the customer.</div>
           </div>
         </div>
 
-        {/* Action buttons */}
+        {!allChecked && (
+          <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 8, padding: '8px 14px', fontSize: 12, color: '#b45309', marginBottom: 12 }}>
+            ⚠ Mark every item Pass or Fail to enable sign-off. ({[...items, ...misc].filter(i => i.passed === null).length} remaining)
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-          <button onClick={handleSendBack} disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.07)', color: '#f44336', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+          <button type="button" onClick={handleSendBack} disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.07)', color: '#f44336', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer' }}>
             ↩ Send Back to Technician
           </button>
-          <button onClick={handleApprove} disabled={submitting || !allChecked} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: allChecked && allPassed ? '#4caf50' : allChecked ? '#f59e0b' : '#ccc', color: '#fff', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
-            {submitting ? 'Processing…' : allChecked ? (allPassed ? '✓ Approve & Close RO' : '⚠ Approve with Fails & Close') : `Complete all ${items.length} checks to sign off`}
+          <button type="button" onClick={handleApprove} disabled={submitting || !allChecked || !advisorName.trim()} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: allChecked && advisorName.trim() ? (allPassed ? '#4caf50' : '#f59e0b') : '#aaa', color: '#fff', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked || !advisorName.trim()) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Processing…' : allChecked && advisorName.trim() ? (allPassed ? '✓ Approve — Mark Complete' : '⚠ Approve with Fails — Mark Complete') : 'Complete all checks + sign to approve'}
           </button>
         </div>
       </div>
@@ -274,15 +311,18 @@ export function RepairOrdersView() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<RepairOrder | null>(null);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [allVehicles, setAllVehicles] = useState<{ id: string; customerId: string; label: string }[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [qaTarget, setQaTarget] = useState<RepairOrder | null>(null); // RO awaiting QA modal
 
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchVehicles().then(vs => setAllVehicles(vs.map(v => ({ id: v.id, customerId: v.customerId, label: v.label })))).catch(() => {});
     fetchTechnicians().then(setTechnicians).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
@@ -352,6 +392,7 @@ export function RepairOrdersView() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.customerName) return setError('Customer name is required.');
+    if (form.status === 'Complete' || form.status === 'Closed') return setError('Cannot set status to Complete or Closed directly — complete the QA sign-off process.');
     setSaving(true); setError('');
     try {
       if (editingId) {
@@ -373,6 +414,8 @@ export function RepairOrdersView() {
   }
 
   async function handleStatusChange(ro: RepairOrder, status: string) {
+    // Complete and Closed only reachable through QA modal
+    if (status === 'Closed' || status === 'Complete') return;
     try {
       await updateRepairOrder(ro.id, { status });
       const updated = { ...ro, status };
@@ -382,41 +425,28 @@ export function RepairOrdersView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
-  async function handleClose(ro: RepairOrder) {
-    if (!confirm(`Close ${ro.roNumber}? This will record the closed date.`)) return;
-    try {
-      await closeRepairOrder(ro.id);
-      if (ro.correction || ro.concern) {
-        seedLaborGuide({
-          vehicle: ro.vehicle,
-          jobDescription: ro.correction || ro.concern,
-          laborHours: ro.laborHours,
-          laborRate: ro.laborRate,
-        });
-      }
-      const updated = { ...ro, status: 'Closed', closedDate: new Date().toISOString() };
-      setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
-      setSelected(updated);
-      notify(`${ro.roNumber} closed.`);
-    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  function handleClose(ro: RepairOrder) {
+    // Always route through QA — never use browser confirm()
+    setQaTarget(ro);
   }
 
-  async function handleQAApprove(ro: RepairOrder, checklist: QAItem[], advisorName: string, qaNotes: string) {
+  async function handleQAApprove(ro: RepairOrder, checklist: QAItem[], miscItems: QAItem[], advisorName: string, qaNotes: string) {
     const now = new Date().toLocaleString();
-    const passed = checklist.filter(i => i.passed === true).length;
-    const failed = checklist.filter(i => i.passed === false).length;
-    const checklistText = checklist.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
-    const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\n${checklistText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
+    const allItems = [...checklist, ...miscItems];
+    const passed = allItems.filter(i => i.passed === true).length;
+    const failed = allItems.filter(i => i.passed === false).length;
+    const repairText = checklist.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
+    const miscText   = miscItems.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
+    const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\nRepair Verification:\n${repairText}\nVehicle Walk-Around:\n${miscText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
     try {
-      await closeRepairOrder(ro.id);
-      await updateRepairOrder(ro.id, { notes: (ro.notes || '') + signOff });
+      await updateRepairOrder(ro.id, { status: 'Complete', notes: (ro.notes || '') + signOff });
       if (ro.correction || ro.concern) {
         seedLaborGuide({ vehicle: ro.vehicle, jobDescription: ro.correction || ro.concern, laborHours: ro.laborHours, laborRate: ro.laborRate });
       }
-      const updated = { ...ro, status: 'Closed', closedDate: new Date().toISOString(), notes: (ro.notes || '') + signOff };
+      const updated = { ...ro, status: 'Complete', notes: (ro.notes || '') + signOff };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`✓ QA approved by ${advisorName}. ${ro.roNumber} closed.`);
+      notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — ready for invoicing.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -577,14 +607,21 @@ export function RepairOrdersView() {
                   <label>Status</label>
                   <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
                     style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    {RO_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    {isTech
+                      ? ['Open', 'In Progress', 'Pending Parts'].map(s => <option key={s}>{s}</option>)
+                      : RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)
+                    }
+                    {/* Show read-only display for locked statuses */}
+                    {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{form.status}</option>}
                   </select>
                 </div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>Customer</label>
                   <select value={form.customerId} onChange={e => {
                     const c = customers.find(c => c.id === e.target.value);
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
+                    const cvs = allVehicles.filter(v => v.customerId === e.target.value);
+                    const autoVehicle = cvs.length === 1 ? cvs[0].label : '';
+                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
                   }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
                     <option value="">— select customer —</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -596,7 +633,18 @@ export function RepairOrdersView() {
                 </div>
                 <div className="login-field">
                   <label>Vehicle</label>
-                  <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                  {(() => {
+                    const cvs = allVehicles.filter(v => v.customerId === form.customerId);
+                    return cvs.length > 0 ? (
+                      <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
+                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                        <option value="">— select vehicle —</option>
+                        {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
+                      </select>
+                    ) : (
+                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                    );
+                  })()}
                 </div>
                 <div className="login-field">
                   <label>Technician</label>
@@ -699,23 +747,74 @@ export function RepairOrdersView() {
         {/* ── Right: RO Detail ── */}
         {selected && !showForm && (
           <div>
-            {/* Action bar */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <select value={selected.status} onChange={e => handleStatusChange(selected, e.target.value)}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontWeight: 600 }}>
-                {RO_STATUSES.map(s => <option key={s}>{s}</option>)}
-              </select>
+            {/* Action bar — role-based */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+
+              {/* Status display / dropdown — techs see read-only badge; others get limited dropdown */}
+              {isTech ? (
+                <span style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontWeight: 700, fontSize: 13, color: STATUS_COLORS[selected.status] || '#888' }}>
+                  {selected.status}
+                </span>
+              ) : (
+                <select value={selected.status} onChange={e => handleStatusChange(selected, e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontWeight: 600 }}>
+                  {/* SA/Manager/Owner: can set any status except Complete/Closed (those go through QA) */}
+                  {RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)}
+                  {(selected.status === 'Complete' || selected.status === 'Closed') && <option value={selected.status}>{selected.status}</option>}
+                </select>
+              )}
+
               <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Edit</button>
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
-              {selected.status !== 'Complete' && selected.status !== 'Closed' && selected.status !== 'Void' && (
-                <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleClose(selected)}>✓ Close RO</button>
+
+              {/* TECH: Submit work done → Pending Approval */}
+              {isTech && ['Open', 'In Progress', 'Pending Parts'].includes(selected.status) && (
+                <button className="btn" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '1px solid #f59e0b', fontWeight: 700 }}
+                  onClick={async () => {
+                    try {
+                      await updateRepairOrder(selected.id, { status: 'Pending Approval' });
+                      const updated = { ...selected, status: 'Pending Approval' };
+                      setOrders(prev => prev.map(r => r.id === selected.id ? updated : r));
+                      setSelected(updated);
+                      notify(`${selected.roNumber} submitted for SA review.`);
+                    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+                  }}>
+                  ✓ Submit for SA Review
+                </button>
               )}
-              {selected.status === 'Complete' && (
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '6px 12px' }}>🔍 QA Inspection Required — see below</span>
+
+              {/* SA / MANAGER / OWNER: QA Sign-Off when Pending Approval */}
+              {!isTech && selected.status === 'Pending Approval' && (
+                <button className="btn" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '2px solid #f59e0b', fontWeight: 800, fontSize: 13 }}
+                  onClick={() => setQaTarget(selected)}>
+                  🔍 QA Sign-Off
+                </button>
               )}
-              {!isTech && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
-                <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }} onClick={() => handleConvertToInvoice(selected)}>⚡ Create Invoice</button>
+
+              {/* SA / MANAGER / OWNER: re-open QA if Complete but no sign-off recorded */}
+              {!isTech && selected.status === 'Complete' && !selected.notes?.includes('QA SIGN-OFF') && (
+                <button className="btn" style={{ background: 'rgba(245,158,11,0.1)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)', fontWeight: 700 }}
+                  onClick={() => setQaTarget(selected)}>
+                  ⚠ Complete QA Sign-Off
+                </button>
               )}
+
+              {/* OWNER ONLY: Create Invoice from Complete ROs */}
+              {role === 'owner' && selected.status === 'Complete' && !selected.invoiceNumber && (
+                <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
+                  onClick={() => handleConvertToInvoice(selected)}>
+                  ⚡ Create Invoice
+                </button>
+              )}
+
+              {/* Return Job — shown to non-tech on closed/complete */}
+              {!isTech && (selected.status === 'Closed' || selected.status === 'Complete') && (
+                <button className="btn" style={{ background: 'rgba(245,158,11,0.08)', color: '#b45309', border: '1px solid #f59e0b', fontWeight: 700 }}
+                  onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: selected.customerName, vehicle: selected.vehicle, notes: `↩ RETURN JOB — Original: ${selected.roNumber}. Original issue: ${selected.concern || selected.correction || ''}`.trim() } })}>
+                  ↩ Return Job
+                </button>
+              )}
+
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 
@@ -773,13 +872,12 @@ export function RepairOrdersView() {
                 ))}
               </div>
 
-              {/* QA Sign-Off Panel — shown when status is Complete */}
-              {selected.status === 'Complete' && (
-                <QAPanel
-                  ro={selected}
-                  onApprove={(checklist, advisorName, notes) => handleQAApprove(selected, checklist, advisorName, notes)}
-                  onSendBack={(advisorName, notes) => handleQASendBack(selected, advisorName, notes)}
-                />
+              {/* QA sign-off summary — shown after sign-off is complete */}
+              {selected.notes?.includes('QA SIGN-OFF') && (
+                <div style={{ border: '1px solid rgba(76,175,80,0.4)', borderRadius: 10, background: 'rgba(76,175,80,0.06)', padding: '12px 16px', marginTop: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf50', marginBottom: 4 }}>✓ QA Sign-Off Recorded</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{selected.notes.split('--- QA').slice(1).map(s => '--- QA' + s).join('\n')}</div>
+                </div>
               )}
 
               {/* Labor + Parts — hidden for technicians */}
@@ -911,6 +1009,65 @@ export function RepairOrdersView() {
 
             <div style={{ marginTop: 32, textAlign: 'center', fontSize: 11, color: '#aaa', borderTop: '1px solid #eee', paddingTop: 14 }}>
               {shopSettings?.companyName || 'Redlined1'}{shopSettings?.phone ? ` · ${shopSettings.phone}` : ''}{shopSettings?.email ? ` · ${shopSettings.email}` : ''}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mandatory QA Modal ── */}
+      {qaTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 760, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.6)', border: '2px solid #f59e0b' }}>
+            {/* Modal Header */}
+            <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '20px 28px', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>🔍 QA Inspection — {qaTarget.roNumber}</div>
+                <div style={{ fontSize: 13, opacity: 0.9, marginTop: 3 }}>Complete all checks before the vehicle is returned to the customer</div>
+              </div>
+              <button onClick={() => setQaTarget(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 18, cursor: 'pointer', padding: '4px 10px', lineHeight: 1 }}>✕</button>
+            </div>
+
+            <div style={{ padding: '20px 28px' }}>
+              {/* RO Summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Customer · Vehicle</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.customerName}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>{qaTarget.vehicle || '—'}</div>
+                </div>
+                <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Technician · Job Card</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.technician || '—'}</div>
+                  {qaTarget.jobCardId && <div style={{ fontSize: 11, color: '#2196f3' }}>🔗 {qaTarget.jobCardId}</div>}
+                </div>
+              </div>
+
+              {/* 3C Quick View */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
+                {[
+                  { emoji: '🔴', label: 'Concern', text: qaTarget.concern, bg: 'rgba(244,67,54,0.06)', border: 'rgba(244,67,54,0.2)' },
+                  { emoji: '🟡', label: 'Cause', text: qaTarget.cause, bg: 'rgba(255,152,0,0.06)', border: 'rgba(255,152,0,0.2)' },
+                  { emoji: '🟢', label: 'Correction', text: qaTarget.correction, bg: 'rgba(76,175,80,0.06)', border: 'rgba(76,175,80,0.2)' },
+                ].map(({ emoji, label, text, bg, border }) => (
+                  <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13 }}>
+                    <span style={{ fontWeight: 700 }}>{emoji} {label}: </span>
+                    {text || <em style={{ color: 'var(--muted)' }}>Not recorded</em>}
+                  </div>
+                ))}
+              </div>
+
+              {/* The actual QA checklist + sign-off */}
+              <QAPanel
+                ro={qaTarget}
+                onApprove={async (checklist, miscItems, advisorName, notes) => {
+                  await handleQAApprove(qaTarget, checklist, miscItems, advisorName, notes);
+                  setQaTarget(null);
+                }}
+                onSendBack={async (advisorName, notes) => {
+                  await handleQASendBack(qaTarget, advisorName, notes);
+                  setQaTarget(null);
+                }}
+              />
             </div>
           </div>
         </div>

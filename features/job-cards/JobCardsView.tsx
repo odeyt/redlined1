@@ -720,7 +720,7 @@ export function JobCardsView() {
           {closedJobs.length > 0 && (
             <table>
               <thead>
-                <tr><th>Job Card</th><th>Customer / Vehicle</th><th>Service</th><th>Technicians</th><th>Check-In</th><th>Closed</th><th>Status</th></tr>
+                <tr><th>Job Card</th><th>Customer / Vehicle</th><th>Service</th><th>Technicians</th><th>Check-In</th><th>Closed</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {closedJobs.map(job => (
@@ -732,6 +732,12 @@ export function JobCardsView() {
                     <td style={{ fontSize: 12 }}>{fmt(job.checkInDate)}</td>
                     <td style={{ fontSize: 12 }}>{fmt(job.closedDate)}</td>
                     <td><Badge text="Closed" /></td>
+                    <td>
+                      <button
+                        onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: job.customer, vehicle: job.vehicle, notes: `↩ RETURN JOB — Original: ${job.id} closed ${job.closedDate ? new Date(job.closedDate).toLocaleDateString() : ''}` } })}
+                        style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >↩ Return Job</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

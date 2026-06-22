@@ -69,39 +69,63 @@ export function Sidebar() {
     async function loadCounts() {
       const { getShopId } = await import('@/lib/shopStore');
       const sid = getShopId();
+      if (!sid) return;
+
       const q = (table: string) =>
         supabase.from(table).select('*', { count: 'exact', head: true }).eq('shop_id', sid);
-      const pick = (r: PromiseSettledResult<{ count: number | null }>) =>
-        r.status === 'fulfilled' ? (r.value.count ?? 0) : 0;
+
+      // pick works on both Supabase { count } and PromiseSettledResult wrappers
+      const pick = (r: PromiseSettledResult<unknown>) => {
+        if (r.status !== 'fulfilled') return 0;
+        const v = r.value as { count?: number | null; error?: unknown };
+        if (v.error) return 0;
+        return v.count ?? 0;
+      };
+
+      // Appointments: try with shop_id filter first; fall back to unfiltered if column missing
+      const apptQuery = async () => {
+        const res = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('shop_id', sid);
+        if (res.error && (res.error as { code?: string }).code === '42703') {
+          // shop_id column doesn't exist — count without filter
+          return supabase.from('appointments').select('*', { count: 'exact', head: true });
+        }
+        return res;
+      };
 
       const [
         customerR, vehicleR, jobR, invoiceR, estimateR, paymentR,
-        roR, inspR, maintR, partsR, techR, commR,
+        roR, inspR, maintR, partsR, partsOrderR, techR, commR, apptR,
       ] = await Promise.allSettled([
         q('customers'), q('vehicles'), q('job_cards'), q('invoices'),
         q('estimates'), q('payments'), q('repair_orders'), q('inspections'),
-        q('maintenance_schedules'), q('parts'),
+        q('maintenance_schedules'), q('parts'), q('parts_orders'),
         q('technicians'), q('conversations'),
+        apptQuery(),
       ]);
 
       setRealCounts({
-        customers:      pick(customerR),
-        vehicles:       pick(vehicleR),
-        'job-cards':    pick(jobR),
-        invoices:       pick(invoiceR),
-        estimates:      pick(estimateR),
-        payments:       pick(paymentR),
+        customers:       pick(customerR),
+        vehicles:        pick(vehicleR),
+        'job-cards':     pick(jobR),
+        invoices:        pick(invoiceR),
+        estimates:       pick(estimateR),
+        payments:        pick(paymentR),
         'repair-orders': pick(roR),
-        inspections:    pick(inspR),
-        scheduling:     pick(maintR),
-        parts:          pick(partsR),
-        technicians:    pick(techR),
-        communication:  pick(commR),
+        inspections:     pick(inspR),
+        scheduling:      pick(maintR),
+        parts:           pick(partsR),
+        'parts-orders':  pick(partsOrderR),
+        technicians:     pick(techR),
+        communication:   pick(commR),
+        appointments:    pick(apptR),
         dashboard: 0, diagnostics: 0, ai: 0,
       });
     }
     loadCounts();
-  }, []);
+  }, [currentShop]);
 
   async function handleSignOut() {
     await signOut();
@@ -110,7 +134,6 @@ export function Sidebar() {
   }
 
   function getCount(id: string, mockCount: string) {
-    if (id === 'appointments') return String(appointments.length);
     if (id in realCounts) return String(realCounts[id]);
     return mockCount;
   }
@@ -228,7 +251,7 @@ export function Sidebar() {
             >
               <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
               <span className="label">{label}</span>
-              {locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : count && <span className="count">{getCount(id, count)}</span>}
+              {locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null}
             </button>
           );
         })}

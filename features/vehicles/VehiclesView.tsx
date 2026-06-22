@@ -592,7 +592,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
 // ── Vehicle Edit Drawer ─────────────────────────────────────────
 const STATUSES = ['In Progress', 'Completed', 'Pending', 'Active', 'No open jobs'];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onSwitchVehicle }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -601,6 +601,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
   onDelete: () => void;
   onPhotos: () => void;
   onJobCard: () => void;
+  onReturnJob: () => void;
   onSwitchVehicle: (v: VehicleRecord) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
@@ -675,8 +676,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
         </div>
 
         {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8, padding: '12px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, padding: '12px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
           <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>＋ Job Card</button>
+          <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
           <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
         </div>
@@ -999,6 +1001,11 @@ export function VehiclesView() {
           onJobCard={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label } });
+            setDrawerVehicle(null);
+          }}
+          onReturnJob={() => {
+            const owner = customers.find(c => c.id === drawerVehicle.customerId);
+            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
             setDrawerVehicle(null);
           }}
         />
