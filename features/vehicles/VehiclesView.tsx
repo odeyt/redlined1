@@ -592,22 +592,35 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
 // ── Vehicle Edit Drawer ─────────────────────────────────────────
 const STATUSES = ['In Progress', 'Completed', 'Pending', 'Active', 'No open jobs'];
 
-function VehicleDrawer({ vehicle, customers, onClose, onSaved, onDelete, onPhotos, onJobCard }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onSwitchVehicle }: {
   vehicle: VehicleRecord;
-  customers: { id: string; name: string }[];
+  customers: Customer[];
+  allVehicles: VehicleRecord[];
   onClose: () => void;
   onSaved: (v: VehicleRecord) => void;
   onDelete: () => void;
   onPhotos: () => void;
   onJobCard: () => void;
+  onSwitchVehicle: (v: VehicleRecord) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
+  const [custSearch, setCustSearch] = useState('');
+  const [showAddForCust, setShowAddForCust] = useState(false);
+
+  // Vehicles belonging to the currently-selected customer (excluding this one)
+  const custVehicles = f.customerId ? allVehicles.filter(v => v.customerId === f.customerId && v.id !== vehicle.id) : [];
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
   function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  function handleCustSelect(customerId: string) {
+    set('customerId', customerId);
+    setCustSearch('');
+    setShowAddForCust(false);
+  }
 
   async function handleSave() {
     setSaving(true); setErr('');
@@ -675,12 +688,86 @@ function VehicleDrawer({ vehicle, customers, onClose, onSaved, onDelete, onPhoto
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
 
           {row('Vehicle Label', <input style={inp} value={f.label} onChange={e => set('label', e.target.value)} placeholder="2023 Ford F-150" />)}
-          {row('Customer', (
-            <select style={{ ...inp }} value={f.customerId} onChange={e => set('customerId', e.target.value)}>
-              <option value="">Select customer…</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          ))}
+
+          {/* ── Customer picker ── */}
+          <div style={{ marginBottom: 12 }}>
+            <span style={label}>Customer</span>
+            <div style={{ position: 'relative' }}>
+              <input
+                value={custSearch !== '' ? custSearch : (customers.find(c => c.id === f.customerId)?.name ?? '')}
+                onChange={e => { setCustSearch(e.target.value); if (!e.target.value) set('customerId', ''); }}
+                onFocus={e => { setCustSearch(''); e.target.select(); }}
+                placeholder="Search customers…"
+                style={{ ...inp, borderColor: f.customerId ? '#22c55e' : 'var(--line)' }}
+              />
+              {custSearch && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                  {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0
+                    ? <div style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>No customers found</div>
+                    : customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).map(c => {
+                        const n = allVehicles.filter(v => v.customerId === c.id).length;
+                        return (
+                          <div key={c.id} onClick={() => handleCustSelect(c.id)}
+                            style={{ padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)') as unknown as void}
+                            onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{c.name}</div>
+                              {c.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}</div>}
+                            </div>
+                            {n > 0 && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 10, padding: '2px 7px', flexShrink: 0 }}>{n} vehicle{n !== 1 ? 's' : ''}</span>}
+                          </div>
+                        );
+                      })
+                  }
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Other vehicles for this customer ── */}
+          {custVehicles.length > 0 && (
+            <div style={{ marginBottom: 14, background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(33,150,243,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🚗 {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
+                <button type="button" onClick={() => setShowAddForCust(v => !v)}
+                  style={{ fontSize: 11, fontWeight: 700, color: showAddForCust ? '#888' : '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  {showAddForCust ? '✕ cancel' : '+ New vehicle'}
+                </button>
+              </div>
+              {custVehicles.map(v => (
+                <div key={v.id} onClick={() => onSwitchVehicle(v)}
+                  style={{ padding: '9px 12px', borderBottom: '1px solid rgba(33,150,243,0.1)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(33,150,243,0.07)') as unknown as void}
+                  onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{v.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || '—'} · {v.vin || 'No VIN'}</div>
+                  </div>
+                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open →</span>
+                </div>
+              ))}
+              {showAddForCust && (
+                <div style={{ padding: '10px 12px', background: 'rgba(33,150,243,0.04)', borderTop: '1px solid rgba(33,150,243,0.15)', fontSize: 12, color: 'var(--muted)' }}>
+                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer — their info will auto-fill.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* If no other vehicles, offer to add one */}
+          {custVehicles.length === 0 && f.customerId && (
+            <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--muted)', padding: '6px 10px', background: 'var(--surface-soft)', borderRadius: 7, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Only vehicle on file for this customer</span>
+              <button type="button" onClick={() => setShowAddForCust(v => !v)}
+                style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>+ Add another</button>
+            </div>
+          )}
+          {showAddForCust && custVehicles.length === 0 && (
+            <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--muted)' }}>
+              Close this drawer, then click <strong>+ Add Vehicle</strong> — the customer will be pre-selected and their info auto-filled.
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
             <div><span style={label}>Year</span><input style={inp} value={f.year} onChange={e => set('year', e.target.value)} placeholder="2023" /></div>
             <div><span style={label}>Make</span><input style={inp} value={f.make} onChange={e => set('make', e.target.value)} placeholder="Ford" /></div>
@@ -892,7 +979,9 @@ export function VehiclesView() {
         <VehicleDrawer
           vehicle={drawerVehicle}
           customers={customers}
+          allVehicles={vehicles}
           onClose={() => setDrawerVehicle(null)}
+          onSwitchVehicle={v => setDrawerVehicle(v)}
           onSaved={updated => {
             setVehicles(prev => prev.map(v => v.id === updated.id ? updated : v));
             setDrawerVehicle(updated);
