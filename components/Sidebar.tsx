@@ -71,51 +71,56 @@ export function Sidebar() {
       const sid = getShopId();
       if (!sid) return;
 
-      const q = (table: string) =>
-        supabase.from(table).select('*', { count: 'exact', head: true }).eq('shop_id', sid);
+      // Count rows for a table — catches records saved with the correct shop_id,
+      // with an empty-string shop_id (inserted before shop was configured),
+      // or with null shop_id. Sums correct + legacy so sidebar matches the page.
+      async function count(table: string): Promise<number> {
+        // Primary: correct shop
+        const r1 = await supabase
+          .from(table).select('*', { count: 'exact', head: true }).eq('shop_id', sid);
+        const c1 = (!r1.error && r1.count != null) ? r1.count : 0;
 
-      // pick works on both Supabase { count } and PromiseSettledResult wrappers
-      const pick = (r: PromiseSettledResult<unknown>) => {
-        if (r.status !== 'fulfilled') return 0;
-        const v = r.value as { count?: number | null; error?: unknown };
-        if (v.error) return 0;
-        return v.count ?? 0;
-      };
+        // Legacy: rows saved with no shop_id (null or empty string)
+        const r2 = await supabase
+          .from(table).select('*', { count: 'exact', head: true })
+          .or('shop_id.is.null,shop_id.eq.');
+        const c2 = (!r2.error && r2.count != null) ? r2.count : 0;
+
+        return c1 + c2;
+      }
+
+      // Appointments: unfiltered matches page behavior (service falls back to no-filter)
+      async function countAppts(): Promise<number> {
+        const r = await supabase.from('appointments').select('*', { count: 'exact', head: true });
+        if (!r.error && r.count != null) return r.count;
+        return count('appointments');
+      }
 
       const [
-        customerR, vehicleR, jobR, invoiceR, estimateR, paymentR,
-        roR, inspR, maintR, partsR, partsOrderR, techR, commR,
-      ] = await Promise.allSettled([
-        q('customers'), q('vehicles'), q('job_cards'), q('invoices'),
-        q('estimates'), q('payments'), q('repair_orders'), q('inspections'),
-        q('maintenance_schedules'), q('parts'), q('parts_orders'),
-        q('technicians'), q('conversations'),
+        customers, vehicles, jobCards, invoices, estimates, payments,
+        repairOrders, inspections, schedules, parts, partsOrders,
+        technicians, conversations, appointments,
+      ] = await Promise.all([
+        count('customers'), count('vehicles'), count('job_cards'),
+        count('invoices'), count('estimates'), count('payments'),
+        count('repair_orders'), count('inspections'), count('maintenance_schedules'),
+        count('parts'), count('parts_orders'),
+        count('technicians'), count('conversations'),
+        countAppts(),
       ]);
 
-      // Count appointments: try unfiltered first (matches what the page shows),
-      // fall back to shop-filtered if unfiltered errors (RLS or permissions)
-      const apptCount = await (async () => {
-        const r1 = await supabase.from('appointments').select('*', { count: 'exact', head: true });
-        if (!r1.error && r1.count !== null) return r1.count;
-        const r2 = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('shop_id', sid);
-        return (!r2.error && r2.count !== null) ? r2.count : 0;
-      })();
-
       setRealCounts({
-        customers:       pick(customerR),
-        vehicles:        pick(vehicleR),
-        'job-cards':     pick(jobR),
-        invoices:        pick(invoiceR),
-        estimates:       pick(estimateR),
-        payments:        pick(paymentR),
-        'repair-orders': pick(roR),
-        inspections:     pick(inspR),
-        scheduling:      pick(maintR),
-        parts:           pick(partsR),
-        'parts-orders':  pick(partsOrderR),
-        technicians:     pick(techR),
-        communication:   pick(commR),
-        appointments:    apptCount,
+        customers, vehicles,
+        'job-cards':     jobCards,
+        invoices, estimates, payments,
+        'repair-orders': repairOrders,
+        inspections,
+        scheduling:      schedules,
+        parts,
+        'parts-orders':  partsOrders,
+        technicians,
+        communication:   conversations,
+        appointments,
         dashboard: 0, diagnostics: 0, ai: 0,
       });
     }
