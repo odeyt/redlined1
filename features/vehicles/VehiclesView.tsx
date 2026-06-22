@@ -89,6 +89,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const htmlRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -174,6 +175,52 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
       if (cameraRef.current) cameraRef.current.value = '';
+    }
+  }
+
+  // Extract images from a dropped/selected HTML file and upload them
+  async function uploadFromHtml(file: File) {
+    setUploading(true); setError('');
+    try {
+      const html = await file.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const imgs = Array.from(doc.querySelectorAll('img'));
+      if (!imgs.length) { setError('No images found in the HTML file.'); return; }
+
+      let uploaded = 0;
+      for (const img of imgs) {
+        const src = img.getAttribute('src') || '';
+        if (!src) continue;
+        let blob: Blob | null = null;
+
+        if (src.startsWith('data:image/')) {
+          // base64 embedded image
+          const [meta, b64] = src.split(',');
+          const mime = meta.split(':')[1].split(';')[0];
+          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+          blob = new Blob([bytes], { type: mime });
+        } else if (src.startsWith('blob:') || src.startsWith('http')) {
+          // remote or blob URL — fetch it
+          try { const r = await fetch(src); if (r.ok) blob = await r.blob(); } catch { continue; }
+        } else if (!src.startsWith('data:')) {
+          // relative path — try fetching relative to the file's origin
+          continue;
+        }
+
+        if (!blob || !blob.type.startsWith('image/')) continue;
+        const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+        const f = new File([blob], `html-import-${Date.now()}-${uploaded}.${ext}`, { type: blob.type });
+        const result = await uploadVehicleImage(vehicle.id, f, img.getAttribute('alt') || 'Vehicle photo');
+        setImages(prev => { const next = [...prev, result]; setActiveIdx(next.length - 1); return next; });
+        uploaded++;
+      }
+
+      if (uploaded === 0) setError('No uploadable images found in the HTML file (images may be remote URLs not reachable from this browser).');
+    } catch (err: unknown) {
+      setError('HTML import failed: ' + (err instanceof Error ? err.message : ''));
+    } finally {
+      setUploading(false);
+      if (htmlRef.current) htmlRef.current.value = '';
     }
   }
 
@@ -292,7 +339,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
 
           {/* Upload buttons */}
           {camMode === 'off' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
               <button onClick={() => fileRef.current?.click()} disabled={uploading}
                 style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
                 <span style={{ fontSize: 22 }}>🖼️</span>
@@ -311,6 +358,12 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
                 <span style={{ fontSize: 12, fontWeight: 600 }}>Webcam</span>
                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>Use connected camera</span>
               </button>
+              <button onClick={() => htmlRef.current?.click()} disabled={uploading}
+                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--accent,#cc0000)', background: 'rgba(204,0,0,0.04)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 22 }}>📄</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent,#cc0000)' }}>HTML Import</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>WhatsApp / Notion</span>
+              </button>
             </div>
           )}
 
@@ -322,18 +375,21 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
               onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
               onDrop={e => {
                 e.preventDefault(); e.stopPropagation(); setDragOver(false);
-                let files: File[] = [];
-                if (e.dataTransfer.files?.length) files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-                else if (e.dataTransfer.items?.length) files = Array.from(e.dataTransfer.items).filter(i => i.kind === 'file' && i.type.startsWith('image/')).map(i => i.getAsFile()).filter((f): f is File => f !== null);
-                if (!files.length) { setError('No image files detected.'); return; }
-                uploadFiles(files);
+                const all: File[] = e.dataTransfer.files?.length
+                  ? Array.from(e.dataTransfer.files)
+                  : Array.from(e.dataTransfer.items ?? []).filter(i => i.kind === 'file').map(i => i.getAsFile()).filter((f): f is File => f !== null);
+                const htmlFiles = all.filter(f => f.name.endsWith('.html') || f.type === 'text/html');
+                const imgFiles  = all.filter(f => f.type.startsWith('image/'));
+                if (htmlFiles.length) { htmlFiles.forEach(uploadFromHtml); return; }
+                if (imgFiles.length)  { uploadFiles(imgFiles); return; }
+                setError('No image or HTML files detected. Drop a JPG/PNG/HEIC photo or an HTML file containing photos.');
               }}
               onClick={() => fileRef.current?.click()}
               style={{ border: `2px dashed ${dragOver ? 'var(--accent,#cc0000)' : 'var(--line)'}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', background: dragOver ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)', color: dragOver ? 'var(--accent,#cc0000)' : 'var(--muted)', fontSize: 13, cursor: 'pointer', transition: 'all .15s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}
             >
               <span style={{ fontSize: 24 }}>{dragOver ? '📸' : '🖼️'}</span>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{dragOver ? 'Release to upload' : 'Drop photos here or click to browse'}</span>
-              <span style={{ fontSize: 11 }}>JPG, PNG, HEIC — multiple files at once</span>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>{dragOver ? 'Release to upload' : 'Drop photos or HTML file here'}</span>
+              <span style={{ fontSize: 11 }}>JPG, PNG, HEIC · or WhatsApp/Notion .html export</span>
             </div>
           )}
 
@@ -344,6 +400,7 @@ function ImageGallery({ vehicle, onClose }: { vehicle: VehicleWithId; onClose: (
 
       <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
+      <input ref={htmlRef} type="file" accept=".html,text/html" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFromHtml(f); }} />
     </div>
   );
 }
