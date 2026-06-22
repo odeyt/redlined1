@@ -18,6 +18,212 @@ import { seedLaborGuide } from '@/services/laborGuideService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
+// ── Smart QA checklist generator ────────────────────────────────
+interface QAItem { id: string; label: string; passed: boolean | null; }
+
+function generateChecklist(concern: string, cause: string, correction: string): QAItem[] {
+  const text = [concern, cause, correction].join(' ').toLowerCase();
+  const items: { id: string; label: string }[] = [];
+
+  // Always-present base items
+  items.push(
+    { id: 'clean', label: 'Vehicle returned clean — no grease or fingerprints on interior/exterior' },
+    { id: 'personal', label: 'Customer personal items returned and undisturbed' },
+    { id: 'paperwork', label: 'All paperwork and keys ready for customer' },
+  );
+
+  // Fluid / leak checks
+  if (/oil|leak|drip|seal|gasket|pan|sump/.test(text))
+    items.push(
+      { id: 'oil_leak', label: 'No oil leaks visible — check under vehicle with white paper' },
+      { id: 'oil_level', label: 'Engine oil level correct on dipstick' },
+    );
+
+  if (/coolant|radiator|overheat|water pump|thermostat|hose/.test(text))
+    items.push(
+      { id: 'coolant_level', label: 'Coolant level correct in reservoir and radiator' },
+      { id: 'coolant_leak', label: 'No coolant leaks at hoses, radiator, or water pump' },
+      { id: 'temp', label: 'Engine temperature gauge reads normal after warm-up' },
+    );
+
+  if (/transmission|gearbox|gear|shift/.test(text))
+    items.push(
+      { id: 'trans_fluid', label: 'Transmission fluid level correct' },
+      { id: 'shift', label: 'All gears engage smoothly — no slipping or hesitation' },
+    );
+
+  if (/brake|caliper|rotor|pad|disc|stop/.test(text))
+    items.push(
+      { id: 'brake_feel', label: 'Brake pedal firm — no sponginess' },
+      { id: 'brake_noise', label: 'No squealing or grinding noise during braking' },
+      { id: 'brake_straight', label: 'Vehicle stops straight — no pull to either side' },
+      { id: 'brake_fluid', label: 'Brake fluid level correct' },
+    );
+
+  if (/a\/c|ac |air.con|aircon|refrigerant|freon|compressor|blower|hvac/.test(text))
+    items.push(
+      { id: 'ac_cold', label: 'A/C blows cold — outlet temperature below 10°C / 50°F' },
+      { id: 'ac_noise', label: 'No A/C compressor noise or rattling' },
+      { id: 'ac_leak', label: 'No refrigerant leaks at connections' },
+    );
+
+  if (/engine light|check engine|ecu|obd|code|dtc|scanner/.test(text))
+    items.push(
+      { id: 'no_light', label: 'No warning lights on dashboard after engine warm-up' },
+      { id: 'scan_clear', label: 'OBD scan shows no stored or pending fault codes' },
+    );
+
+  if (/engine|misfire|idle|knock|timing|spark|ignition/.test(text))
+    items.push(
+      { id: 'idle', label: 'Engine idles smoothly — no rough idle or misfires' },
+      { id: 'start', label: 'Engine starts cleanly on first crank' },
+      { id: 'rev', label: 'Engine revs freely — no hesitation or stumble' },
+    );
+
+  if (/suspension|shock|strut|spring|bushing|noise|rattle|clunk/.test(text))
+    items.push(
+      { id: 'susp_noise', label: 'No clunking or rattling over bumps' },
+      { id: 'susp_straight', label: 'Vehicle tracks straight — no wandering' },
+    );
+
+  if (/steering|power steering|alignment|wheel|tie rod/.test(text))
+    items.push(
+      { id: 'steer_straight', label: 'Steering wheel centered — no pull on straight road' },
+      { id: 'steer_smooth', label: 'Steering smooth — no stiffness or noise on full lock' },
+    );
+
+  if (/tyre|tire|wheel|rotation|balance/.test(text))
+    items.push(
+      { id: 'tyre_pres', label: 'All tyre pressures set to spec' },
+      { id: 'torque', label: 'Wheel lug nuts torqued to spec' },
+    );
+
+  if (/battery|alternator|electrical|wiring|fuse|starter|charge/.test(text))
+    items.push(
+      { id: 'battery', label: 'Battery voltage above 12.4V (engine off)' },
+      { id: 'charge', label: 'Alternator charging — voltage 13.5–14.5V at idle' },
+    );
+
+  if (/exhaust|muffler|cat|catalytic|emission|smoke/.test(text))
+    items.push(
+      { id: 'exhaust_leak', label: 'No exhaust leaks — no ticking or soot marks at joints' },
+      { id: 'smoke', label: 'No blue, white, or black smoke from exhaust' },
+    );
+
+  if (/sensor|abs|traction|stability|esc|esp/.test(text))
+    items.push(
+      { id: 'abs_light', label: 'ABS / traction / stability warning lights off' },
+    );
+
+  // Road test (always present for any mechanical work)
+  items.push({ id: 'road_test', label: 'Road test completed — concern resolved and no new issues found' });
+
+  // Dedup by id
+  const seen = new Set<string>();
+  return items
+    .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
+    .map(i => ({ ...i, passed: null }));
+}
+
+// ── QA Sign-Off Panel ────────────────────────────────────────────
+function QAPanel({ ro, onApprove, onSendBack }: {
+  ro: RepairOrder;
+  onApprove: (checklist: QAItem[], advisorName: string, notes: string) => void;
+  onSendBack: (advisorName: string, notes: string) => void;
+}) {
+  const [items, setItems] = useState<QAItem[]>(() => generateChecklist(ro.concern, ro.cause, ro.correction));
+  const [advisorName, setAdvisorName] = useState('');
+  const [qaNotes, setQaNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const allChecked = items.every(i => i.passed !== null);
+  const allPassed  = items.every(i => i.passed === true);
+  const failCount  = items.filter(i => i.passed === false).length;
+
+  function toggle(id: string, passed: boolean) {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, passed: i.passed === passed ? null : passed } : i));
+  }
+
+  async function handleApprove() {
+    if (!advisorName.trim()) { alert('Please enter your name to sign off.'); return; }
+    if (!allChecked) { alert('Please mark each checklist item Pass or Fail before signing off.'); return; }
+    if (failCount > 0 && !confirm(`${failCount} item${failCount > 1 ? 's' : ''} marked FAIL. Approve anyway and close the RO?`)) return;
+    setSubmitting(true);
+    await onApprove(items, advisorName.trim(), qaNotes);
+    setSubmitting(false);
+  }
+
+  async function handleSendBack() {
+    if (!advisorName.trim()) { alert('Please enter your name before returning to technician.'); return; }
+    if (!confirm(`Return ${ro.roNumber} to technician (In Progress)?`)) return;
+    setSubmitting(true);
+    await onSendBack(advisorName.trim(), qaNotes);
+    setSubmitting(false);
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
+
+  return (
+    <div style={{ border: '2px solid #f59e0b', borderRadius: 14, background: 'rgba(245,158,11,0.04)', overflow: 'hidden', marginTop: 16 }}>
+      {/* Banner */}
+      <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 18 }}>🔍</span>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14 }}>QA Inspection Required — Awaiting Service Advisor Sign-Off</div>
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Technician marked job Complete. Review the checklist below before closing the RO.</div>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 20px' }}>
+        {/* Concern summary */}
+        <div style={{ background: 'rgba(244,67,54,0.07)', border: '1px solid rgba(244,67,54,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+          <span style={{ fontWeight: 700, color: '#f44336' }}>🔴 Concern: </span>{ro.concern || <em style={{ color: 'var(--muted)' }}>Not recorded</em>}
+          {ro.correction && <><br /><span style={{ fontWeight: 700, color: '#4caf50' }}>🟢 Correction: </span>{ro.correction}</>}
+        </div>
+
+        {/* Checklist */}
+        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+          Inspection Checklist — {items.length} items · {items.filter(i => i.passed === true).length} passed · {failCount} failed
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 16 }}>
+          {items.map(item => (
+            <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: item.passed === true ? 'rgba(76,175,80,0.07)' : item.passed === false ? 'rgba(244,67,54,0.07)' : 'var(--surface-soft)', border: `1px solid ${item.passed === true ? 'rgba(76,175,80,0.25)' : item.passed === false ? 'rgba(244,67,54,0.25)' : 'var(--line)'}`, transition: 'all .15s' }}>
+              <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                <button onClick={() => toggle(item.id, true)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === true ? '#4caf50' : '#e0e0e0', color: item.passed === true ? '#fff' : '#555', transition: 'all .1s' }}>✓ PASS</button>
+                <button onClick={() => toggle(item.id, false)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === false ? '#f44336' : '#e0e0e0', color: item.passed === false ? '#fff' : '#555', transition: 'all .1s' }}>✗ FAIL</button>
+              </div>
+              <span style={{ fontSize: 13, flex: 1, color: item.passed === false ? '#f44336' : 'var(--text)', fontWeight: item.passed === false ? 600 : 400 }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* QA Notes + Signature */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>QA Notes (optional)</label>
+            <textarea value={qaNotes} onChange={e => setQaNotes(e.target.value)} placeholder="Any observations, follow-up items, or customer instructions…" style={{ ...inp, minHeight: 70, resize: 'vertical' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Service Advisor Signature *</label>
+            <input value={advisorName} onChange={e => setAdvisorName(e.target.value)} placeholder="Type your full name to sign off…" style={inp} />
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>By signing, you confirm the vehicle was inspected and meets quality standards.</div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+          <button onClick={handleSendBack} disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.07)', color: '#f44336', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer' }}>
+            ↩ Send Back to Technician
+          </button>
+          <button onClick={handleApprove} disabled={submitting || !allChecked} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: allChecked && allPassed ? '#4caf50' : allChecked ? '#f59e0b' : '#ccc', color: '#fff', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Processing…' : allChecked ? (allPassed ? '✓ Approve & Close RO' : '⚠ Approve with Fails & Close') : `Complete all ${items.length} checks to sign off`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_COLORS: Record<string, string> = {
   'Open': '#2196f3',
   'In Progress': '#ff9800',
@@ -180,7 +386,6 @@ export function RepairOrdersView() {
     if (!confirm(`Close ${ro.roNumber}? This will record the closed date.`)) return;
     try {
       await closeRepairOrder(ro.id);
-      // Seed historical guide in background — silent, no await
       if (ro.correction || ro.concern) {
         seedLaborGuide({
           vehicle: ro.vehicle,
@@ -193,6 +398,37 @@ export function RepairOrdersView() {
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`${ro.roNumber} closed.`);
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
+  async function handleQAApprove(ro: RepairOrder, checklist: QAItem[], advisorName: string, qaNotes: string) {
+    const now = new Date().toLocaleString();
+    const passed = checklist.filter(i => i.passed === true).length;
+    const failed = checklist.filter(i => i.passed === false).length;
+    const checklistText = checklist.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
+    const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\n${checklistText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
+    try {
+      await closeRepairOrder(ro.id);
+      await updateRepairOrder(ro.id, { notes: (ro.notes || '') + signOff });
+      if (ro.correction || ro.concern) {
+        seedLaborGuide({ vehicle: ro.vehicle, jobDescription: ro.correction || ro.concern, laborHours: ro.laborHours, laborRate: ro.laborRate });
+      }
+      const updated = { ...ro, status: 'Closed', closedDate: new Date().toISOString(), notes: (ro.notes || '') + signOff };
+      setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
+      setSelected(updated);
+      notify(`✓ QA approved by ${advisorName}. ${ro.roNumber} closed.`);
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
+  async function handleQASendBack(ro: RepairOrder, advisorName: string, qaNotes: string) {
+    const now = new Date().toLocaleString();
+    const signOff = `\n\n--- QA RETURNED TO TECH ---\nReviewed by: ${advisorName}\nDate: ${now}${qaNotes ? `\nReason: ${qaNotes}` : ''}`;
+    try {
+      await updateRepairOrder(ro.id, { status: 'In Progress', notes: (ro.notes || '') + signOff });
+      const updated = { ...ro, status: 'In Progress', notes: (ro.notes || '') + signOff };
+      setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
+      setSelected(updated);
+      notify(`↩ ${ro.roNumber} returned to technician.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -471,8 +707,11 @@ export function RepairOrdersView() {
               </select>
               <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Edit</button>
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
-              {selected.status !== 'Closed' && selected.status !== 'Void' && (
+              {selected.status !== 'Complete' && selected.status !== 'Closed' && selected.status !== 'Void' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleClose(selected)}>✓ Close RO</button>
+              )}
+              {selected.status === 'Complete' && (
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '6px 12px' }}>🔍 QA Inspection Required — see below</span>
               )}
               {!isTech && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }} onClick={() => handleConvertToInvoice(selected)}>⚡ Create Invoice</button>
@@ -533,6 +772,15 @@ export function RepairOrdersView() {
                   </div>
                 ))}
               </div>
+
+              {/* QA Sign-Off Panel — shown when status is Complete */}
+              {selected.status === 'Complete' && (
+                <QAPanel
+                  ro={selected}
+                  onApprove={(checklist, advisorName, notes) => handleQAApprove(selected, checklist, advisorName, notes)}
+                  onSendBack={(advisorName, notes) => handleQASendBack(selected, advisorName, notes)}
+                />
+              )}
 
               {/* Labor + Parts — hidden for technicians */}
               {!isTech && (
