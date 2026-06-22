@@ -96,12 +96,25 @@ export function Sidebar() {
         return count('appointments');
       }
 
+      // Vehicles: exclude Archived to match what the "All" filter shows on the page
+      async function countVehicles(): Promise<number> {
+        const r1 = await supabase
+          .from('vehicles').select('*', { count: 'exact', head: true })
+          .eq('shop_id', sid).neq('status', 'Archived');
+        const c1 = (!r1.error && r1.count != null) ? r1.count : 0;
+        const r2 = await supabase
+          .from('vehicles').select('*', { count: 'exact', head: true })
+          .or('shop_id.is.null,shop_id.eq.').neq('status', 'Archived');
+        const c2 = (!r2.error && r2.count != null) ? r2.count : 0;
+        return c1 + c2;
+      }
+
       const [
         customers, vehicles, jobCards, invoices, estimates, payments,
         repairOrders, inspections, schedules, parts, partsOrders,
         technicians, conversations, appointments,
       ] = await Promise.all([
-        count('customers'), count('vehicles'), count('job_cards'),
+        count('customers'), countVehicles(), count('job_cards'),
         count('invoices'), count('estimates'), count('payments'),
         count('repair_orders'), count('inspections'), count('maintenance_schedules'),
         count('parts'), count('parts_orders'),
