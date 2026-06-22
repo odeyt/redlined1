@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, fetchCustomerNames } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle } from '@/services/vehicleService';
 import type { VehicleRecord } from '@/services/vehicleService';
+import { fetchCustomers, saveCustomer } from '@/services/customerService';
+import type { Customer } from '@/lib/types';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
@@ -730,7 +732,11 @@ function VehicleDrawer({ vehicle, customers, onClose, onSaved, onDelete, onPhoto
 export function VehiclesView() {
   const dispatch = useAppDispatch();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCust, setNewCust] = useState({ name: '', phone: '', email: '', type: 'Individual' });
+  const [custSearch, setCustSearch] = useState('');
+  const [savingCust, setSavingCust] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -756,7 +762,7 @@ export function VehiclesView() {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchVehicles(), fetchCustomerNames()])
+    Promise.all([fetchVehicles(), fetchCustomers()])
       .then(([v, c]) => {
         setVehicles(v as VehicleRecord[]);
         setCustomers(c);
@@ -790,6 +796,43 @@ export function VehiclesView() {
       setVehicles(prev => prev.filter(x => x.id !== v.id));
       notify(`${v.label} deleted.`);
     } catch (err) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
+  }
+
+  function handleCustomerSelect(customerId: string) {
+    setForm(f => ({ ...f, customerId }));
+    setCustSearch('');
+    if (!customerId) return;
+    // Auto-fill from most recent vehicle for this customer
+    const prev = [...vehicles]
+      .filter(v => v.customerId === customerId)
+      .sort((a, b) => (b.dateReceived ?? '').localeCompare(a.dateReceived ?? ''));
+    if (prev.length > 0) {
+      const p = prev[0];
+      setForm(f => ({
+        ...f,
+        customerId,
+        label:        f.label        || p.label,
+        vin:          f.vin          || p.vin,
+        trim:         f.trim         || p.trim,
+        engine:       f.engine       || p.engine,
+        transmission: f.transmission || p.transmission,
+        plate:        f.plate        || p.plate,
+      }));
+    }
+  }
+
+  async function handleAddCustomer() {
+    if (!newCust.name.trim()) return;
+    setSavingCust(true);
+    try {
+      const created = await saveCustomer({ name: newCust.name.trim(), phone: newCust.phone, email: newCust.email, type: newCust.type, address: '', tags: [], followUp: '', portalToken: null });
+      setCustomers(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      handleCustomerSelect(created.id);
+      setShowAddCustomer(false);
+      setNewCust({ name: '', phone: '', email: '', type: 'Individual' });
+      notify(`Customer "${created.name}" created and selected.`);
+    } catch (err) { notify('Failed to create customer: ' + (err instanceof Error ? err.message : '')); }
+    finally { setSavingCust(false); }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -873,7 +916,7 @@ export function VehiclesView() {
           <ViewBtn mode="list"    current={viewMode} icon="☰" label="List"           onClick={() => setViewMode('list')} />
           <ViewBtn mode="service" current={viewMode} icon="📋" label="Service Records" onClick={() => setViewMode('service')} />
         </div>
-        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); }}>
+        <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
@@ -908,13 +951,85 @@ export function VehiclesView() {
       {showForm && (
         <form onSubmit={handleSave} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? '✏ Edit Vehicle' : '+ Add Vehicle'}</div>
-          <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-            <label>Customer *</label>
-            <select required value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))}
-              style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface-soft)', color: 'var(--text)' }}>
-              <option value="">Select customer…</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          {/* ── Customer picker with search + quick-add ── */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer *</label>
+              <button type="button" onClick={() => { setShowAddCustomer(v => !v); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); }}
+                style={{ fontSize: 12, fontWeight: 700, color: '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                {showAddCustomer ? '✕ Cancel' : '+ New Customer'}
+              </button>
+            </div>
+
+            {/* Search + dropdown */}
+            {!showAddCustomer && (
+              <div style={{ position: 'relative' }}>
+                <input
+                  value={custSearch || (form.customerId ? (customers.find(c => c.id === form.customerId)?.name ?? '') : '')}
+                  onChange={e => { setCustSearch(e.target.value); if (!e.target.value) setForm(f => ({ ...f, customerId: '' })); }}
+                  onFocus={e => { setCustSearch(''); e.target.select(); }}
+                  placeholder="Search customers…"
+                  required={!form.customerId}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${form.customerId ? '#22c55e' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', boxSizing: 'border-box', fontSize: 14 }}
+                />
+                {custSearch && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                    {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0 ? (
+                      <div style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: 13 }}>
+                        No match — <button type="button" onClick={() => { setShowAddCustomer(true); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); setCustSearch(''); }}
+                          style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Create "{custSearch}" as new customer →</button>
+                      </div>
+                    ) : customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).map(c => {
+                      const custVehicles = vehicles.filter(v => v.customerId === c.id);
+                      return (
+                        <div key={c.id} onClick={() => handleCustomerSelect(c.id)}
+                          style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)') as unknown as void}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent') as unknown as void}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
+                            {(c.phone || c.email) && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}{c.phone && c.email ? ' · ' : ''}{c.email}</div>}
+                          </div>
+                          {custVehicles.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 10, padding: '2px 8px', flexShrink: 0 }}>{custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {form.customerId && !custSearch && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Customer selected</div>
+                )}
+              </div>
+            )}
+
+            {/* Inline new-customer mini-form */}
+            {showAddCustomer && (
+              <div style={{ background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 2 }}>➕ New Customer</div>
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Name *</label>
+                  <input value={newCust.name} onChange={e => setNewCust(n => ({ ...n, name: e.target.value }))} placeholder="Company or person name" autoFocus />
+                </div>
+                <div className="login-field">
+                  <label>Phone</label>
+                  <input value={newCust.phone} onChange={e => setNewCust(n => ({ ...n, phone: e.target.value }))} placeholder="+66 81 234 5678" />
+                </div>
+                <div className="login-field">
+                  <label>Email</label>
+                  <input value={newCust.email} onChange={e => setNewCust(n => ({ ...n, email: e.target.value }))} placeholder="email@example.com" type="email" />
+                </div>
+                <div className="login-field">
+                  <label>Type</label>
+                  <select value={newCust.type} onChange={e => setNewCust(n => ({ ...n, type: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px', background: 'var(--surface-soft)', color: 'var(--text)' }}>
+                    <option>Individual</option><option>Business</option><option>Fleet</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 8, gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn" onClick={() => setShowAddCustomer(false)}>Cancel</button>
+                  <button type="button" className="btn btn-primary" disabled={savingCust || !newCust.name.trim()} onClick={handleAddCustomer}>{savingCust ? 'Saving…' : 'Create & Select'}</button>
+                </div>
+              </div>
+            )}
           </div>
           {field('label', 'Vehicle (Year Make Model) *', '2023 Ford F-150')}
           <div className="login-field">
@@ -937,7 +1052,7 @@ export function VehiclesView() {
             <input value={form.recommendation} onChange={e => setForm(f => ({ ...f, recommendation: e.target.value }))} placeholder="e.g. Oil change due at 50k" />
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}>Cancel</button>
+            <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setShowAddCustomer(false); setCustSearch(''); }}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
           </div>
         </form>
