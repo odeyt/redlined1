@@ -8,6 +8,7 @@ import { Icon, iconColors } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { fetchAppointments } from '@/services/appointmentService';
 import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
@@ -82,30 +83,18 @@ export function Sidebar() {
         return v.count ?? 0;
       };
 
-      // Appointments: count rows matching this shop OR rows with no shop assigned
-      // (some appointments may have been inserted before shop_id was added)
-      const apptQuery = async () => {
-        const res = await supabase
-          .from('appointments')
-          .select('*', { count: 'exact', head: true })
-          .or(`shop_id.eq.${sid},shop_id.is.null`);
-        if (res.error) {
-          // Fallback: column may not exist — count all
-          return supabase.from('appointments').select('*', { count: 'exact', head: true });
-        }
-        return res;
-      };
-
       const [
         customerR, vehicleR, jobR, invoiceR, estimateR, paymentR,
-        roR, inspR, maintR, partsR, partsOrderR, techR, commR, apptR,
+        roR, inspR, maintR, partsR, partsOrderR, techR, commR,
       ] = await Promise.allSettled([
         q('customers'), q('vehicles'), q('job_cards'), q('invoices'),
         q('estimates'), q('payments'), q('repair_orders'), q('inspections'),
         q('maintenance_schedules'), q('parts'), q('parts_orders'),
         q('technicians'), q('conversations'),
-        apptQuery(),
       ]);
+
+      // Use the same service the appointments page uses — handles shop_id/no-column fallback
+      const apptCount = await fetchAppointments().then(a => a.length).catch(() => 0);
 
       setRealCounts({
         customers:       pick(customerR),
@@ -121,7 +110,7 @@ export function Sidebar() {
         'parts-orders':  pick(partsOrderR),
         technicians:     pick(techR),
         communication:   pick(commR),
-        appointments:    pick(apptR),
+        appointments:    apptCount,
         dashboard: 0, diagnostics: 0, ai: 0,
       });
     }
