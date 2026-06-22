@@ -213,10 +213,10 @@ export function AppointmentsView() {
         setAppts(prev => [...prev, created].sort((a, b) => a.date.localeCompare(b.date) || a.data[0].localeCompare(b.data[0])));
         notify(`Appointment booked for ${row[1]}.`);
       }
-    } catch {
-      notify('Failed to save appointment. Please try again.');
+      setForm(EMPTY_FORM); setShowForm(false); setEditingId(null);
+    } catch (err: unknown) {
+      notify('Failed to save appointment: ' + (err instanceof Error ? err.message : 'Please try again.'));
     }
-    setForm(EMPTY_FORM); setShowForm(false); setEditingId(null);
   }
 
   async function handleCheckIn(record: AppointmentRecord) {
