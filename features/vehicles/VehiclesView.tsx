@@ -859,7 +859,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
             <div><span style={label}>Plate</span><input style={inp} value={f.plate} onChange={e => set('plate', e.target.value)} /></div>
             <div><span style={label}>Mileage</span><input style={inp} value={f.mileage} onChange={e => set('mileage', e.target.value)} /></div>
           </div>
-          {row('VIN', <input style={{ ...inp, fontFamily: 'monospace', letterSpacing: '0.06em' }} value={f.vin} onChange={e => set('vin', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17))} maxLength={17} />)}
+          {row('VIN', <input style={{ ...inp, fontFamily: 'monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }} value={f.vin} onChange={e => set('vin', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17))} maxLength={17} />)}
           {row('Engine', <input style={inp} value={f.engine} onChange={e => set('engine', e.target.value)} />)}
           {row('Transmission', <input style={inp} value={f.transmission} onChange={e => set('transmission', e.target.value)} />)}
           {row('Status', (
