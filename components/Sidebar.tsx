@@ -82,14 +82,15 @@ export function Sidebar() {
         return v.count ?? 0;
       };
 
-      // Appointments: try with shop_id filter first; fall back to unfiltered if column missing
+      // Appointments: count rows matching this shop OR rows with no shop assigned
+      // (some appointments may have been inserted before shop_id was added)
       const apptQuery = async () => {
         const res = await supabase
           .from('appointments')
           .select('*', { count: 'exact', head: true })
-          .eq('shop_id', sid);
-        if (res.error && (res.error as { code?: string }).code === '42703') {
-          // shop_id column doesn't exist — count without filter
+          .or(`shop_id.eq.${sid},shop_id.is.null`);
+        if (res.error) {
+          // Fallback: column may not exist — count all
           return supabase.from('appointments').select('*', { count: 'exact', head: true });
         }
         return res;
