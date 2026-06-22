@@ -1009,11 +1009,13 @@ export function VehiclesView() {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchVehicles(), fetchCustomers(), fetchTechnicians()])
-      .then(([v, c, t]) => {
+    // Fetch technicians independently so a failure there never blocks vehicles/customers
+    fetchTechnicians().then(t => setTechnicians(t.filter(x => x.status !== 'Inactive'))).catch(() => {});
+
+    Promise.all([fetchVehicles(), fetchCustomers()])
+      .then(([v, c]) => {
         setVehicles(v as VehicleRecord[]);
         setCustomers(c);
-        setTechnicians((t as Technician[]).filter(t => t.status !== 'Inactive'));
         v.forEach(vehicle => {
           fetchVehicleImages(vehicle.id).then(imgs => {
             // Apply saved photo order so list thumbnail matches carousel first photo
