@@ -14,7 +14,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
-type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived' | 'Pending Parts' | 'Returned Job';
+type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived' | 'Pending Parts' | 'Returned Job' | 'Active' | 'No open jobs';
 
 const EMPTY_FORM = {
   customerId: '', vin: '', label: '', trim: '',
@@ -48,6 +48,8 @@ function statusColor(status: string) {
   if (status === 'Archived') return { bg: '#f3f4f6', color: '#6b7280', border: '#d1d5db' };
   if (status === 'Pending Parts') return { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' };
   if (status === 'Returned Job') return { bg: '#fef3c7', color: '#b45309', border: '#fde68a' };
+  if (status === 'Active') return { bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' };
+  if (status === 'No open jobs') return { bg: '#f8fafc', color: '#64748b', border: '#cbd5e1' };
   return { bg: 'var(--surface-soft)', color: 'var(--muted)', border: 'var(--line)' };
 }
 
@@ -597,13 +599,14 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
 const STATUSES = ['In Progress', 'Pending Parts', 'Pending Approval', 'Completed', 'Returned Job', 'Active', 'No open jobs', 'Archived'];
 
 const KANBAN_COLUMNS = [
-  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: '⏳', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe' },
-  { status: 'In Progress',      label: 'Work In Progress',          icon: '🔧', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe' },
-  { status: 'Pending Parts',    label: 'Pending Parts',             icon: '📦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5' },
-  { status: 'Completed',        label: 'Completed',                 icon: '✅', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7' },
-  { status: 'Returned Job',     label: 'Returned Job',              icon: '↩',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3' },
-  { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6' },
-] as const;
+  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: '⏳', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe', extraStatuses: [] as string[] },
+  { status: 'In Progress',      label: 'Work In Progress',          icon: '🔧', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe', extraStatuses: [] as string[] },
+  { status: 'Pending Parts',    label: 'Pending Parts',             icon: '📦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5', extraStatuses: [] as string[] },
+  { status: 'Completed',        label: 'Completed',                 icon: '✅', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7', extraStatuses: [] as string[] },
+  { status: 'Returned Job',     label: 'Returned Job',              icon: '↩',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3', extraStatuses: [] as string[] },
+  { status: 'Active',           label: 'Active / No Open Jobs',     icon: '🟢', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0', headerBg: '#f0fdf4', extraStatuses: ['No open jobs', 'Pending'] },
+  { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
+];
 
 function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
   vehicle: VehicleRecord;
@@ -1062,7 +1065,7 @@ export function VehiclesView() {
   }
 
   // Filtered + searched list
-  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Archived'];
+  const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
   const filtered = vehicles.filter(v => {
     // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
@@ -1463,7 +1466,7 @@ export function VehiclesView() {
         <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', alignItems: 'flex-start' }}>
             {KANBAN_COLUMNS.map(col => {
-              const colVehicles = vehicles.filter(v => v.status === col.status);
+              const colVehicles = vehicles.filter(v => v.status === col.status || col.extraStatuses.includes(v.status));
               const isDropTarget = kanbanDragOver === col.status;
               return (
                 <div
@@ -1601,7 +1604,7 @@ export function VehiclesView() {
         <>
           {/* Summary bar */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-            {(['In Progress', 'Pending', 'Completed'] as StatusFilter[]).map(s => {
+            {(['In Progress', 'Pending', 'Pending Approval', 'Pending Parts', 'Active', 'Completed', 'Returned Job', 'No open jobs', 'Archived'] as StatusFilter[]).filter(s => counts[s]).map(s => {
               const c = statusColor(s);
               return (
                 <div key={s} onClick={() => { setStatusFilter(s); setViewMode('list'); }} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: '10px 18px', minWidth: 110, cursor: 'pointer', transition: 'opacity .15s' }}
