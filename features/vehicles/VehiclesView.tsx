@@ -11,6 +11,7 @@ import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type Vehicl
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { fetchTechnicians, type Technician } from '@/services/technicianService';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -608,10 +609,11 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
+  technicians: Technician[];
   onClose: () => void;
   onSaved: (v: VehicleRecord) => void;
   onDelete: () => void;
@@ -626,6 +628,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
   const [toast, setToast] = useState('');
   const [custSearch, setCustSearch] = useState('');
   const [showAddForCust, setShowAddForCust] = useState(false);
+  const [techDropdownOpen, setTechDropdownOpen] = useState(false);
 
   // Vehicles belonging to the currently-selected customer (excluding this one)
   const custVehicles = f.customerId ? allVehicles.filter(v => v.customerId === f.customerId && v.id !== vehicle.id) : [];
@@ -871,7 +874,77 @@ function VehicleDrawer({ vehicle, customers, allVehicles, onClose, onSaved, onDe
 
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '16px 0 10px' }}>Service Record</div>
 
-          {row('Assigned Tech(s)', <input style={inp} value={f.assignedTech} onChange={e => set('assignedTech', e.target.value)} placeholder="Beck; Kat; Wally" />)}
+          {/* Assigned Tech multi-select dropdown */}
+          <div style={{ marginBottom: 12 }}>
+            <span style={label}>Assigned Tech(s)</span>
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setTechDropdownOpen(o => !o)}
+                style={{ ...inp, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 36 }}
+              >
+                <span style={{ color: f.assignedTech ? 'var(--text)' : 'var(--muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {f.assignedTech || 'Select technicians…'}
+                </span>
+                <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0, marginLeft: 6 }}>{techDropdownOpen ? '▲' : '▼'}</span>
+              </button>
+              {techDropdownOpen && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                  {technicians.length === 0 && (
+                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found — add them in the Employees module.</div>
+                  )}
+                  {technicians.map(tech => {
+                    const selected = (f.assignedTech ?? '').split(';').map(s => s.trim()).filter(Boolean).includes(tech.name);
+                    const c = techColor(tech.name);
+                    return (
+                      <div
+                        key={tech.id}
+                        onClick={() => {
+                          const current = (f.assignedTech ?? '').split(';').map(s => s.trim()).filter(Boolean);
+                          const next = selected ? current.filter(n => n !== tech.name) : [...current, tech.name];
+                          set('assignedTech', next.join('; '));
+                        }}
+                        style={{ padding: '9px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--line)', background: selected ? c.bg : 'transparent', transition: 'background .1s' }}
+                        onMouseEnter={e => { if (!selected) e.currentTarget.style.background = 'var(--surface-soft)'; }}
+                        onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected ? c.color : 'var(--line)'}`, background: selected ? c.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, color: '#fff', fontWeight: 800 }}>
+                          {selected ? '✓' : ''}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: selected ? c.color : 'var(--text)' }}>{tech.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{tech.role}</div>
+                        </div>
+                        {selected && <span style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>Selected</span>}
+                      </div>
+                    );
+                  })}
+                  {f.assignedTech && (
+                    <div
+                      onClick={() => { set('assignedTech', ''); setTechDropdownOpen(false); }}
+                      style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: '#dc2626', fontWeight: 600, textAlign: 'center', borderTop: '1px solid var(--line)' }}>
+                      ✕ Clear selection
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Selected tech chips */}
+            {f.assignedTech && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                {f.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
+                  const c = techColor(t);
+                  return (
+                    <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
+                      {t}
+                      <button onClick={() => { const next = f.assignedTech.split(';').map(s => s.trim()).filter(s => s && s !== t); set('assignedTech', next.join('; ')); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.color, fontSize: 12, padding: 0, lineHeight: 1, fontWeight: 800 }}>×</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {row('Issues / Work Needed', <textarea style={{ ...inp, minHeight: 70, resize: 'vertical' }} value={f.issues} onChange={e => set('issues', e.target.value)} />)}
           {row('Damage at Intake', <textarea style={{ ...inp, minHeight: 60, resize: 'vertical' }} value={f.damageIntake} onChange={e => set('damageIntake', e.target.value)} />)}
           {row('Parts Needed', <textarea style={{ ...inp, minHeight: 55, resize: 'vertical' }} value={f.partsNeeded} onChange={e => set('partsNeeded', e.target.value)} />)}
@@ -903,6 +976,7 @@ export function VehiclesView() {
   const dispatch = useAppDispatch();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newCust, setNewCust] = useState({ name: '', phone: '', email: '', type: 'Individual' });
   const [custSearch, setCustSearch] = useState('');
@@ -935,10 +1009,11 @@ export function VehiclesView() {
   }, []);
 
   useEffect(() => {
-    Promise.all([fetchVehicles(), fetchCustomers()])
-      .then(([v, c]) => {
+    Promise.all([fetchVehicles(), fetchCustomers(), fetchTechnicians()])
+      .then(([v, c, t]) => {
         setVehicles(v as VehicleRecord[]);
         setCustomers(c);
+        setTechnicians((t as Technician[]).filter(t => t.status !== 'Inactive'));
         v.forEach(vehicle => {
           fetchVehicleImages(vehicle.id).then(imgs => {
             // Apply saved photo order so list thumbnail matches carousel first photo
@@ -1088,6 +1163,7 @@ export function VehiclesView() {
           vehicle={drawerVehicle}
           customers={customers}
           allVehicles={vehicles}
+          technicians={technicians}
           onClose={() => setDrawerVehicle(null)}
           onSwitchVehicle={v => setDrawerVehicle(v)}
           onSaved={updated => {
