@@ -8,6 +8,8 @@ import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
 import { fetchVehicles } from '@/services/vehicleService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
+import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 
 const SERVICE_SUGGESTIONS = [
   'Oil Change – Conventional',
@@ -107,6 +109,7 @@ export function AppointmentsView() {
   const [toast, setToast] = useState('');
   const [fetchError, setFetchError] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [photoAppt, setPhotoAppt] = useState<{ id: string; label: string } | null>(null);
 
   useEffect(() => {
     // Load form data (customers, vehicles, settings) independently from appointments
@@ -297,6 +300,7 @@ export function AppointmentsView() {
                       <div className="row-actions">
                         <button className="mini-btn" onClick={() => handleCheckIn(record)}>Check in</button>
                         <button className="mini-btn" onClick={() => openEdit(record)}>Edit</button>
+                        <button className="mini-btn" onClick={() => setPhotoAppt({ id: record.id, label: `${a[0]} — ${a[1]}` })}>📷</button>
                         <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(record)}>Remove</button>
                       </div>
                     </td>
@@ -425,6 +429,17 @@ export function AppointmentsView() {
             </form>
           </div>
         </div>
+      )}
+
+      {photoAppt && (
+        <PhotoGalleryModal
+          title={photoAppt.label}
+          fetchImages={() => fetchEntityImages('appointment', photoAppt.id)}
+          uploadImage={(file, label) => uploadEntityImage('appointment', photoAppt.id, file, label)}
+          deleteImage={deleteEntityImage}
+          saveOrder={(ids) => saveEntityImageOrder('appointment', photoAppt.id, ids)}
+          onClose={() => setPhotoAppt(null)}
+        />
       )}
     </>
   );

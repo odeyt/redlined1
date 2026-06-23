@@ -8,6 +8,7 @@ import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
+import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -85,8 +86,8 @@ function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; curr
   );
 }
 
-// ── Image Gallery Modal ──────────────────────────────────────────
-function ImageGallery({ vehicle, onClose }: { vehicle: VehicleRecord; onClose: () => void }) {
+// ── Image Gallery Modal (kept for reference — rendering now uses PhotoGalleryModal) ──
+function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onClose: () => void }) {
   const [images, setImages] = useState<VehicleImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1188,7 +1189,18 @@ export function VehiclesView() {
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
-      {galleryVehicle && <ImageGallery vehicle={galleryVehicle} onClose={() => setGalleryVehicle(null)} />}
+      {galleryVehicle && (
+        <PhotoGalleryModal
+          title={galleryVehicle.label}
+          subtitle={`${galleryVehicle.plate} · ${galleryVehicle.vin}`}
+          fetchImages={() => fetchVehicleImages(galleryVehicle.id)}
+          uploadImage={(file, label) => uploadVehicleImage(galleryVehicle.id, file, label)}
+          deleteImage={(id, url) => deleteVehicleImage(id, url)}
+          saveOrder={async (ids) => { await updateVehicleServiceRecord(galleryVehicle.id, { imageIds: ids }); }}
+          initialOrder={galleryVehicle.imageIds}
+          onClose={() => setGalleryVehicle(null)}
+        />
+      )}
       {drawerVehicle && (
         <VehicleDrawer
           vehicle={drawerVehicle}

@@ -15,6 +15,8 @@ import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsSer
 import { useShop } from '@/lib/useShop';
 import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
+import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
+import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -317,7 +319,8 @@ export function RepairOrdersView() {
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [qaTarget, setQaTarget] = useState<RepairOrder | null>(null); // RO awaiting QA modal
+  const [qaTarget, setQaTarget] = useState<RepairOrder | null>(null);
+  const [photoRO, setPhotoRO] = useState<RepairOrder | null>(null);
 
   useEffect(() => {
     load();
@@ -781,6 +784,7 @@ export function RepairOrdersView() {
 
               <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Edit</button>
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
+              <button className="btn" onClick={() => setPhotoRO(selected)}>📷 Photos</button>
 
               {/* TECH: Submit work done → Pending Approval */}
               {isTech && ['Open', 'In Progress', 'Pending Parts'].includes(selected.status) && (
@@ -1086,6 +1090,18 @@ export function RepairOrdersView() {
             </div>
           </div>
         </div>
+      )}
+
+      {photoRO && (
+        <PhotoGalleryModal
+          title={photoRO.roNumber}
+          subtitle={`${photoRO.vehicle} · ${photoRO.customerName}`}
+          fetchImages={() => fetchEntityImages('repair_order', photoRO.id)}
+          uploadImage={(file, label) => uploadEntityImage('repair_order', photoRO.id, file, label)}
+          deleteImage={deleteEntityImage}
+          saveOrder={(ids) => saveEntityImageOrder('repair_order', photoRO.id, ids)}
+          onClose={() => setPhotoRO(null)}
+        />
       )}
     </>
   );

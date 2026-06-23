@@ -18,6 +18,8 @@ import type { Vehicle, Customer } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
+import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 
 // OEM-based service intervals: [miles, days]
 const SERVICE_INTERVALS: Record<string, [number, number]> = {
@@ -154,6 +156,7 @@ export function JobCardsView() {
   }
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [photoJob, setPhotoJob] = useState<JobCardFull | null>(null);
 
   useEffect(() => {
     if (openNewJobCard) {
@@ -925,6 +928,7 @@ export function JobCardsView() {
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8, borderTop: '1px solid var(--line)', marginTop: 'auto' }}>
               <button className="mini-btn" onClick={() => { setSelectedJob(null); startEdit(selectedJob); }}>Edit</button>
+              <button className="mini-btn" onClick={() => setPhotoJob(selectedJob)}>📷 Photos</button>
               <button className="mini-btn" onClick={() => { handleApprove(selectedJob); setSelectedJob(null); }}>Approve</button>
               <button className="mini-btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }}
                 onClick={() => {
@@ -1099,6 +1103,18 @@ export function JobCardsView() {
             )}
           </Panel>
         </>
+      )}
+
+      {photoJob && (
+        <PhotoGalleryModal
+          title={`JC — ${photoJob.customer}`}
+          subtitle={`${photoJob.vehicle} · ${photoJob.serviceType}`}
+          fetchImages={() => fetchEntityImages('job_card', photoJob.id)}
+          uploadImage={(file, label) => uploadEntityImage('job_card', photoJob.id, file, label)}
+          deleteImage={deleteEntityImage}
+          saveOrder={(ids) => saveEntityImageOrder('job_card', photoJob.id, ids)}
+          onClose={() => setPhotoJob(null)}
+        />
       )}
     </>
   );
