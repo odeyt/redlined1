@@ -773,6 +773,32 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
 
+          {/* Status-reason callout — shown for statuses that need an explanation */}
+          {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) && (() => {
+            const sc = statusColor(f.status);
+            const statusLabels: Record<string, string> = {
+              'Pending': 'Reason vehicle is Pending',
+              'Pending Approval': 'Reason awaiting customer approval',
+              'Pending Parts': 'Parts needed / reason parts are pending',
+              'Returned Job': 'Reason for return / what went wrong',
+            };
+            return (
+              <div style={{ marginBottom: 14, padding: '10px 14px', background: sc.bg, border: `1.5px solid ${sc.border}`, borderRadius: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📝</span> {statusLabels[f.status] ?? 'Status Note'}
+                </div>
+                <textarea
+                  value={f.recommendation}
+                  onChange={e => set('recommendation', e.target.value)}
+                  placeholder={`Enter reason or notes for "${f.status}" status…`}
+                  rows={3}
+                  style={{ ...inp, resize: 'vertical', minHeight: 64, borderColor: sc.border, background: 'var(--surface)' }}
+                />
+                <div style={{ fontSize: 10, color: sc.color, marginTop: 4, opacity: 0.8 }}>This note is visible to all staff and saved with the vehicle record.</div>
+              </div>
+            );
+          })()}
+
           {row('Vehicle Label', <input style={inp} value={f.label} onChange={e => set('label', e.target.value)} placeholder="2023 Ford F-150" />)}
 
           {/* ── Customer picker ── */}
@@ -951,7 +977,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {row('Parts Exchanged', <textarea style={{ ...inp, minHeight: 55, resize: 'vertical' }} value={f.partsExchanged} onChange={e => set('partsExchanged', e.target.value)} />)}
           {row('Flat Rate (LAK)', <input type="number" style={inp} value={f.flatRateLak ?? ''} onChange={e => set('flatRateLak', e.target.value ? Number(e.target.value) : null)} />)}
           {row('Tech Pay Notes', <input style={inp} value={f.techPayEntries} onChange={e => set('techPayEntries', e.target.value)} />)}
-          {row('Recommended Service', <input style={inp} value={f.recommendation} onChange={e => set('recommendation', e.target.value)} />)}
+          {/* Hide when status-reason callout above is already editing recommendation */}
+          {!['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) &&
+            row('Recommended Service / Notes', <input style={inp} value={f.recommendation} onChange={e => set('recommendation', e.target.value)} placeholder="e.g. Oil change due at 50k" />)
+          }
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <input type="checkbox" id="issues-resolved" checked={f.issuesResolved} onChange={e => set('issuesResolved', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
@@ -1508,7 +1537,14 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || '—'}</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || '—'}</td>
                   <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || '—'}</td>
-                  <td style={{ padding: '10px 12px' }}><StatusPill status={v.status} /></td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <StatusPill status={v.status} />
+                    {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.recommendation}>
+                        📝 {v.recommendation}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>
                     {v.assignedTech
                       ? v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
