@@ -178,6 +178,15 @@ export async function updateVehicleServiceRecord(
   if (error) throw error;
 }
 
+export async function transferVehicle(id: string, targetShopId: string): Promise<void> {
+  const { error } = await supabase
+    .from('vehicles')
+    .update({ shop_id: targetShopId })
+    .eq('id', id)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}
+
 export async function deleteVehicle(id: string): Promise<void> {
   const { error } = await supabase
     .from('vehicles')

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
+import { useShop } from '@/lib/useShop';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
@@ -1004,6 +1005,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 // ── Main View ───────────────────────────────────────────────────
 export function VehiclesView() {
   const dispatch = useAppDispatch();
+  const { shops, currentShop, role } = useShop();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -1021,6 +1023,8 @@ export function VehiclesView() {
   const [toast, setToast] = useState('');
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleRecord | null>(null);
   const [drawerVehicle, setDrawerVehicle] = useState<VehicleRecord | null>(null);
+  const [transferTarget, setTransferTarget] = useState<VehicleRecord | null>(null);
+  const [transferring, setTransferring] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
@@ -1090,6 +1094,19 @@ export function VehiclesView() {
       setVehicles(prev => prev.filter(x => x.id !== v.id));
       notify(`${v.label} deleted.`);
     } catch (err) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
+  }
+
+  async function handleTransfer(toShopId: string) {
+    if (!transferTarget) return;
+    setTransferring(true);
+    try {
+      await transferVehicle(transferTarget.id, toShopId);
+      setVehicles(prev => prev.filter(x => x.id !== transferTarget.id));
+      const toName = shops.find(s => s.id === toShopId)?.name ?? 'other location';
+      notify(`${transferTarget.label} transferred to ${toName}.`);
+      setTransferTarget(null);
+    } catch (err) { setError('Transfer failed: ' + (err instanceof Error ? err.message : '')); }
+    finally { setTransferring(false); }
   }
 
   function handleCustomerSelect(customerId: string) {
@@ -1189,6 +1206,52 @@ export function VehiclesView() {
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* ── Transfer Modal ── */}
+      {transferTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={e => { if (e.target === e.currentTarget) setTransferTarget(null); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 420, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ marginBottom: 20 }}>
+              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>⇄ Transfer Vehicle</h2>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>{transferTarget.label} · {transferTarget.plate}</p>
+            </div>
+
+            <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: 'var(--muted)' }}>
+              Currently at: <strong style={{ color: 'var(--text)' }}>{currentShop?.name ?? '—'}</strong>
+            </div>
+
+            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Move to:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {shops.filter(s => s.id !== currentShop?.id).map(s => (
+                <button
+                  key={s.id}
+                  disabled={transferring}
+                  onClick={() => handleTransfer(s.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '14px 18px', borderRadius: 10, border: '1px solid var(--line)',
+                    background: 'var(--surface)', cursor: transferring ? 'not-allowed' : 'pointer',
+                    fontSize: 14, fontWeight: 600, color: 'var(--text)', textAlign: 'left',
+                    transition: 'background .15s, border-color .15s',
+                    opacity: transferring ? 0.6 : 1,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(37,99,235,0.07)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--line)'; }}
+                >
+                  <span>🏢 {s.name}</span>
+                  <span style={{ fontSize: 18, color: '#2563eb' }}>→</span>
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn" onClick={() => setTransferTarget(null)} disabled={transferring}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {galleryVehicle && (
         <PhotoGalleryModal
           title={galleryVehicle.label}
@@ -1503,6 +1566,9 @@ export function VehiclesView() {
                     <td>
                       <div className="row-actions">
                         {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
+                        {role === 'owner' && shops.length > 1 && (
+                          <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
+                        )}
                         <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                       </div>
                     </td>
@@ -1572,6 +1638,9 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
                       {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}
+                      {role === 'owner' && shops.length > 1 && (
+                        <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
+                      )}
                       <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                     </div>
                   </td>
