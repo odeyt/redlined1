@@ -139,12 +139,11 @@ export async function deleteVendor(id: string): Promise<void> {
 
 export async function fetchPartsOrders(): Promise<PartsOrder[]> {
   const sid = getShopId();
-  // Fetch records for the current shop AND legacy records saved with no shop_id
-  // (empty string or null) so the page count matches the sidebar badge.
+  // shop_id is UUID NOT NULL — only filter by current shop (no legacy null/empty rows possible)
   const { data, error } = await supabase
     .from('parts_orders')
     .select('*')
-    .or(`shop_id.eq.${sid},shop_id.is.null,shop_id.eq.`)
+    .eq('shop_id', sid)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapOrder);
@@ -167,7 +166,6 @@ export async function createPartsOrder(o: Omit<PartsOrder, 'id' | 'createdAt'>):
       estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
       vehicle: o.vehicle, customer_name: o.customerName,
       warranty: o.warranty, notes: o.notes,
-      currency: (o as Record<string, unknown>).currency ?? 'USD',
     })
     .select().single();
   if (error) throw error;
@@ -192,7 +190,6 @@ export async function updatePartsOrder(id: string, o: Partial<Omit<PartsOrder, '
       estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
       vehicle: o.vehicle, customer_name: o.customerName,
       warranty: o.warranty, notes: o.notes,
-      currency: (o as Record<string, unknown>).currency ?? 'USD',
     })
     .eq('id', id).eq('shop_id', getShopId())
     .select().single();

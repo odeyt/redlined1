@@ -155,9 +155,14 @@ export function PartsOrdersView() {
     const [ordersR, vendorsR, customersR, vehiclesR] = await Promise.allSettled([
       fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
     ]);
-    if (ordersR.status === 'fulfilled')    setOrders(ordersR.value);
-    if (vendorsR.status === 'fulfilled')   { setVendors(vendorsR.value); setError(''); }
-    else setError('Vendor list unavailable — run: grant select, insert, update, delete on parts_vendors to authenticated;');
+    if (ordersR.status === 'fulfilled') {
+      setOrders(ordersR.value);
+    } else {
+      const msg = (ordersR.reason as {message?: string})?.message ?? String(ordersR.reason);
+      setError(`Could not load parts orders: ${msg}`);
+    }
+    if (vendorsR.status === 'fulfilled')   { setVendors(vendorsR.value); }
+    else if (ordersR.status === 'fulfilled') setError('Vendor list unavailable — check parts_vendors table permissions.');
     if (customersR.status === 'fulfilled') setCustomers(customersR.value);
     if (vehiclesR.status === 'fulfilled')  setVehicles(vehiclesR.value);
     setLoading(false);
