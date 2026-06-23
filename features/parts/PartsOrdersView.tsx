@@ -85,6 +85,7 @@ const STATUS_COLOR: Record<string, string> = {
   'Ordered':          '#3b82f6',
   'Deposit Paid':     '#8b5cf6',
   'Waiting Customer': '#f59e0b',
+  'Pending Customer': '#ec4899',
   'Backordered':      '#f97316',
   'Received':         '#22c55e',
   'Returned':         '#94a3b8',

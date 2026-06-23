@@ -50,7 +50,7 @@ export interface PartsOrder {
   createdAt: string;
 }
 
-export const ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Backordered', 'Received', 'Returned', 'Cancelled'];
+export const ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered', 'Received', 'Returned', 'Cancelled'];
 export const PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid in Full'];
 export const PART_CONDITIONS = ['New', 'Genuine', 'OEM', 'Aftermarket', 'Remanufactured', 'Used', 'Refurbished'];
 
