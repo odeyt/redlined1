@@ -80,7 +80,9 @@ textarea {
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .brand {
@@ -120,6 +122,9 @@ textarea {
   display: grid;
   gap: 4px;
   margin-top: 18px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .nav button {
