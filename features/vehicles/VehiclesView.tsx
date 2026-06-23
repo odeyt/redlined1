@@ -188,7 +188,7 @@ function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onC
       try {
         const img = await uploadVehicleImage(vehicle.id, file, 'Camera capture');
         setImages(prev => { const next = [...prev, img]; setActiveIdx(next.length - 1); return next; });
-      } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : '')); }
+      } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
       finally { setUploading(false); }
     }, 'image/jpeg', 0.92);
   }
@@ -199,7 +199,7 @@ function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onC
     try {
       const uploaded = await Promise.all(files.map(f => uploadVehicleImage(vehicle.id, f)));
       setImages(prev => { const next = [...prev, ...uploaded]; setActiveIdx(next.length - 1); return next; });
-    } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
     finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -246,7 +246,7 @@ function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onC
 
       if (uploaded === 0) setError('No uploadable images found in the HTML file (images may be remote URLs not reachable from this browser).');
     } catch (err: unknown) {
-      setError('HTML import failed: ' + (err instanceof Error ? err.message : ''));
+      setError('HTML import failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err)));
     } finally {
       setUploading(false);
       if (htmlRef.current) htmlRef.current.value = '';
@@ -286,7 +286,7 @@ function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onC
       await updateVehicleServiceRecord(vehicle.id, { imageIds: images.map(i => i.id) });
       setOrderChanged(false);
     } catch (e: unknown) {
-      setError('Save order failed: ' + (e instanceof Error ? e.message : ''));
+      setError('Save order failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
     } finally { setSaving(false); }
   }
 
@@ -300,7 +300,7 @@ function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onC
         setActiveIdx(i => Math.min(i, Math.max(0, next.length - 1)));
         return next;
       });
-    } catch (err: unknown) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err: unknown) { setError('Delete failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
   }
 
   const current = images[activeIdx];
@@ -611,7 +611,7 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle, onGoToCustomer }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -624,6 +624,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   onReturnJob: () => void;
   onSwitchVehicle: (v: VehicleRecord) => void;
   onGoToCustomer: (customerId: string) => void;
+  onCustomerCreated: (c: Customer) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
@@ -656,7 +657,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
       onSaved(updated);
       notify(`Status → ${newStatus}`);
     } catch (e: unknown) {
-      setErr('Update failed: ' + (e instanceof Error ? e.message : ''));
+      setErr('Update failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
     } finally { setSaving(false); }
   }
 
@@ -686,7 +687,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
       notify('Saved!');
       onSaved(f as VehicleRecord);
     } catch (e: unknown) {
-      setErr('Save failed: ' + (e instanceof Error ? e.message : ''));
+      setErr('Save failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
     } finally { setSaving(false); }
   }
 
@@ -939,10 +940,13 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                             setSavingNewCust(true);
                             try {
                               const created = await saveCustomer({ name: inlineNewCust.name.trim(), phone: inlineNewCust.phone, email: inlineNewCust.email, type: 'Individual', address: '', tags: [], followUp: '', portalToken: null });
+                              onCustomerCreated(created);
                               handleCustSelect(created.id);
                               setCustSearch('');
                               setShowInlineNewCust(false);
                               setInlineNewCust({ name: '', phone: '', email: '' });
+                            } catch (e: unknown) {
+                              setErr('Failed to create customer: ' + ((e as {message?: string})?.message ?? String(e)));
                             } finally {
                               setSavingNewCust(false);
                             }
@@ -1220,7 +1224,7 @@ export function VehiclesView() {
       await deleteVehicle(v.id);
       setVehicles(prev => prev.filter(x => x.id !== v.id));
       notify(`${v.label} deleted.`);
-    } catch (err) { setError('Delete failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err) { setError('Delete failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
   }
 
   async function handleTransfer(toShopId: string) {
@@ -1232,7 +1236,7 @@ export function VehiclesView() {
       const toName = shops.find(s => s.id === toShopId)?.name ?? 'other location';
       notify(`${transferTarget.label} transferred to ${toName}.`);
       setTransferTarget(null);
-    } catch (err) { setError('Transfer failed: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err) { setError('Transfer failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
     finally { setTransferring(false); }
   }
 
@@ -1275,7 +1279,7 @@ export function VehiclesView() {
       setShowAddCustomer(false);
       setNewCust({ name: '', phone: '', email: '', type: 'Individual' });
       notify(`Customer "${created.name}" created and selected.`);
-    } catch (err) { notify('Failed to create customer: ' + (err instanceof Error ? err.message : '')); }
+    } catch (err) { notify('Failed to create customer: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
     finally { setSavingCust(false); }
   }
 
@@ -1302,7 +1306,7 @@ export function VehiclesView() {
       setShowForm(false);
       setEditingId(null);
     } catch (err: unknown) {
-      notify('Save failed: ' + (err instanceof Error ? err.message : ''));
+      notify('Save failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err)));
     } finally { setSaving(false); }
   }
 
@@ -1420,6 +1424,9 @@ export function VehiclesView() {
             setDrawerVehicle(null);
             dispatch({ type: 'SET_MODULE', module: 'customers' });
             setTimeout(() => window.dispatchEvent(new CustomEvent('open-customer', { detail: { customerId } })), 50);
+          }}
+          onCustomerCreated={(newCust) => {
+            setCustomers(prev => [...prev, newCust].sort((a, b) => a.name.localeCompare(b.name)));
           }}
         />
       )}
