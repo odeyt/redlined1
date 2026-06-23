@@ -129,6 +129,7 @@ export function PartsOrdersView() {
 
   /* confirm modal */
   const [showConfirm, setShowConfirm] = useState(false);
+  const [formError, setFormError] = useState('');
 
   /* vendor modal */
   const [showVendorModal, setShowVendorModal] = useState(false);
@@ -217,6 +218,7 @@ export function PartsOrdersView() {
   async function handleConfirmedSave() {
     setShowConfirm(false);
     setSaving(true);
+    setFormError('');
     try {
       if (editingId) {
         const updated = await updatePartsOrder(editingId, form as Omit<PartsOrder, 'id' | 'createdAt'>);
@@ -229,7 +231,8 @@ export function PartsOrdersView() {
       }
       setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER);
     } catch (e: unknown) {
-      setError((e as Record<string, unknown>)?.message as string || 'Save failed');
+      const msg = (e as Record<string, unknown>)?.message as string || 'Save failed — please try again.';
+      setFormError(msg);  // show error INSIDE the form, not behind it
     } finally { setSaving(false); }
   }
 
@@ -570,12 +573,22 @@ export function PartsOrdersView() {
 
       {/* ── Add/Edit Form Modal ── */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}
-          onClick={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditingId(null); } }}>
-          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 700, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 20 }}>
-              {editingId ? '✏ Edit Parts Order' : '+ New Parts Order'}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 700, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 800 }}>
+                {editingId ? '✏ Edit Parts Order' : '+ New Parts Order'}
+              </div>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', lineHeight: 1 }}>✕</button>
             </div>
+
+            {formError && (
+              <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#dc2626', borderRadius: 8, fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>⚠ {formError}</span>
+                <button onClick={() => setFormError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16 }}>✕</button>
+              </div>
+            )}
 
             <form onSubmit={handleFormSubmit}>
 
@@ -684,7 +697,7 @@ export function PartsOrdersView() {
               </div>
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); }}>Cancel</button>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {editingId ? 'Review & Update' : 'Review & Save'}
                 </button>
@@ -715,7 +728,7 @@ export function PartsOrdersView() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setShowConfirm(false)}>← Back to Edit</button>
+              <button className="btn" onClick={() => { setShowConfirm(false); }}>← Back to Edit</button>
               <button className="btn btn-primary" onClick={handleConfirmedSave} disabled={saving}>
                 {saving ? 'Saving…' : editingId ? '✓ Confirm Update' : '✓ Confirm & Save'}
               </button>
