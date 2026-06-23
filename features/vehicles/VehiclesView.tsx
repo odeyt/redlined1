@@ -726,31 +726,49 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         {/* Owner card */}
         {(() => {
           const owner = customers.find(c => c.id === f.customerId);
-          if (!owner) return null;
+          if (owner) {
+            return (
+              <button
+                onClick={() => { onClose(); onGoToCustomer(owner.id); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  margin: '10px 20px 0', padding: '10px 14px',
+                  background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)',
+                  borderRadius: 10, cursor: 'pointer', width: 'calc(100% - 40px)',
+                  textAlign: 'left', transition: 'background .15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.12)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.06)')}
+                title="Go to customer record"
+              >
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#1d4ed8', flexShrink: 0 }}>
+                  {owner.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
+                  <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 700 }}>{owner.name}</div>
+                  {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>📞 {owner.phone}</div>}
+                  {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>✉ {owner.email}</div>}
+                </div>
+                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View →</div>
+              </button>
+            );
+          }
           return (
-            <button
-              onClick={() => { onClose(); onGoToCustomer(owner.id); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                margin: '10px 20px 0', padding: '10px 14px',
-                background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)',
-                borderRadius: 10, cursor: 'pointer', width: 'calc(100% - 40px)',
-                textAlign: 'left', transition: 'background .15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.06)')}
-              title="Go to customer record"
-            >
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#1d4ed8', flexShrink: 0 }}>
-                {owner.name.charAt(0).toUpperCase()}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              margin: '10px 20px 0', padding: '10px 14px',
+              background: 'rgba(251,191,36,0.06)', border: '1px dashed rgba(251,191,36,0.5)',
+              borderRadius: 10, width: 'calc(100% - 40px)',
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                👤
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 700 }}>{owner.name}</div>
-                {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>📞 {owner.phone}</div>}
-                {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>✉ {owner.email}</div>}
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
+                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned — search below in Basic Info</div>
               </div>
-              <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View →</div>
-            </button>
+            </div>
           );
         })()}
 
