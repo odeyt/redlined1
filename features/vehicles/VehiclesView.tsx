@@ -631,6 +631,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [toast, setToast] = useState('');
   const [custSearch, setCustSearch] = useState('');
   const [showAddForCust, setShowAddForCust] = useState(false);
+  const custInputRef = useRef<HTMLInputElement>(null);
   const [techDropdownOpen, setTechDropdownOpen] = useState(false);
 
   // Vehicles belonging to the currently-selected customer (excluding this one)
@@ -755,20 +756,28 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             );
           }
           return (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              margin: '10px 20px 0', padding: '10px 14px',
-              background: 'rgba(251,191,36,0.06)', border: '1px dashed rgba(251,191,36,0.5)',
-              borderRadius: 10, width: 'calc(100% - 40px)',
-            }}>
+            <button
+              onClick={() => { custInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => custInputRef.current?.focus(), 200); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                margin: '10px 20px 0', padding: '10px 14px',
+                background: 'rgba(251,191,36,0.06)', border: '1px dashed rgba(251,191,36,0.5)',
+                borderRadius: 10, width: 'calc(100% - 40px)', cursor: 'pointer', textAlign: 'left',
+                transition: 'background .15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(251,191,36,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(251,191,36,0.06)')}
+              title="Assign a customer to this vehicle"
+            >
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
                 👤
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
-                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned — search below in Basic Info</div>
+                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned — tap to assign</div>
               </div>
-            </div>
+              <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600, flexShrink: 0 }}>+ Add →</div>
+            </button>
           );
         })()}
 
@@ -858,6 +867,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <span style={label}>Customer</span>
             <div style={{ position: 'relative' }}>
               <input
+                ref={custInputRef}
                 value={custSearch !== '' ? custSearch : (customers.find(c => c.id === f.customerId)?.name ?? '')}
                 onChange={e => { setCustSearch(e.target.value); if (!e.target.value) set('customerId', ''); }}
                 onFocus={e => { setCustSearch(''); e.target.select(); }}
