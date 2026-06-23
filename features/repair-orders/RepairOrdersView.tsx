@@ -327,6 +327,21 @@ export function RepairOrdersView() {
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
+  // Deep-link: open a specific RO when notification "Open RO →" is clicked
+  useEffect(() => {
+    function handleOpenRO(e: Event) {
+      const { roId, roNumber } = (e as CustomEvent).detail ?? {};
+      if (!roId && !roNumber) return;
+      setOrders(current => {
+        const found = current.find(o => o.id === roId || o.roNumber === roNumber);
+        if (found) { setSelected(found); setShowForm(false); }
+        return current;
+      });
+    }
+    window.addEventListener('open-ro', handleOpenRO);
+    return () => window.removeEventListener('open-ro', handleOpenRO);
+  }, []);
+
   // Open new form pre-filled when navigated from Job Card → Repair Order
   useEffect(() => {
     if (!prefill?.customerName) return;

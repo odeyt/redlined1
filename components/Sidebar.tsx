@@ -13,11 +13,15 @@ import { fetchShopSettings, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey }
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
+import { useNotifications } from '@/lib/useNotifications';
 
 export function Sidebar() {
   const { activeModule, appointments } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const { notifications, unreadCount, markAllRead, dismiss, clearAll, STATUS_EMOJI } = useNotifications();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { status: planStatus, daysLeft } = usePlan();
   const { shops, currentShop, switchShop, role, loading: roleLoading } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
@@ -30,12 +34,11 @@ export function Sidebar() {
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
 
-  // Close shop menu when clicking outside
+  // Close shop menu / notification panel when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (shopMenuRef.current && !shopMenuRef.current.contains(e.target as Node)) {
-        setShopMenuOpen(false);
-      }
+      if (shopMenuRef.current && !shopMenuRef.current.contains(e.target as Node)) setShopMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -264,6 +267,78 @@ export function Sidebar() {
           );
         })}
         </nav>
+
+      {/* ── Notification Bell ── */}
+      <div ref={notifRef} style={{ position: 'relative', margin: '4px 10px 6px' }}>
+        <button
+          onClick={() => { setNotifOpen(o => !o); if (!notifOpen) markAllRead(); }}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '9px 12px', background: unreadCount > 0 ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${unreadCount > 0 ? 'rgba(220,38,38,0.35)' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 8, color: unreadCount > 0 ? '#fca5a5' : '#888', cursor: 'pointer', fontSize: 13,
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 15 }}>🔔</span>
+            <span style={{ fontWeight: unreadCount > 0 ? 700 : 400 }}>Notifications</span>
+          </span>
+          {unreadCount > 0 && (
+            <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 800 }}>{unreadCount}</span>
+          )}
+        </button>
+
+        {notifOpen && (
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0,
+            background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 10, zIndex: 999, boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
+            maxHeight: 380, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: '#eee' }}>RO Status Changes</span>
+              {notifications.length > 0 && (
+                <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#666', fontSize: 11, cursor: 'pointer', padding: 0 }}>Clear all</button>
+              )}
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {notifications.length === 0 && (
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: '#555', fontSize: 12 }}>No notifications yet.<br />Status changes on Repair Orders will appear here.</div>
+              )}
+              {notifications.map(n => (
+                <div key={n.id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: n.read ? 'transparent' : 'rgba(220,38,38,0.07)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 12, color: '#eee', marginBottom: 2 }}>{n.roNumber}</div>
+                      <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.customer}{n.vehicle ? ` · ${n.vehicle}` : ''}</div>
+                      <div style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ color: '#666' }}>{STATUS_EMOJI[n.oldStatus] ?? '•'} {n.oldStatus}</span>
+                        <span style={{ color: '#555' }}>→</span>
+                        <span style={{ color: '#4ade80', fontWeight: 700 }}>{STATUS_EMOJI[n.newStatus] ?? '•'} {n.newStatus}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 3 }}>{new Date(n.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                      <button
+                        onClick={() => {
+                          dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
+                          window.dispatchEvent(new CustomEvent('open-ro', { detail: { roId: n.roId, roNumber: n.roNumber } }));
+                          setNotifOpen(false);
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(220,38,38,0.4)', background: 'rgba(220,38,38,0.12)', color: '#fca5a5', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        Open RO →
+                      </button>
+                      <button onClick={() => dismiss(n.id)} style={{ background: 'none', border: 'none', color: '#555', fontSize: 10, cursor: 'pointer', padding: 0, textAlign: 'center' }}>✕</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <a
         href="/help"
         target="_blank"
