@@ -668,6 +668,11 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   }
 
   async function handleSave() {
+    // If user typed in the customer search but never selected/created one, warn them
+    if (custSearch.trim() && !f.customerId) {
+      setErr('Please select a customer from the list or click "Create & Assign" to add the new customer first.');
+      return;
+    }
     setSaving(true); setErr('');
     try {
       // Save basic vehicle fields

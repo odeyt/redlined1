@@ -115,7 +115,7 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
   const { data, error } = await supabase
     .from('vehicles')
     .update({
-      customer_id:  vehicle.customerId,
+      customer_id:  vehicle.customerId || null,
       vin:          vehicle.vin,
       label:        vehicle.label,
       trim:         vehicle.trim,
