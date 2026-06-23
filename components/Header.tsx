@@ -118,6 +118,24 @@ export function Header() {
     setQuery('');
     setResults([]);
     dispatch({ type: 'SET_MODULE', module: result.module });
+    // Fire a deep-link event so the target module opens the specific record
+    const eventMap: Partial<Record<SearchResultType, string>> = {
+      vehicle:      'open-vehicle',
+      customer:     'open-customer',
+      job_card:     'open-job-card',
+      repair_order: 'open-ro',
+    };
+    const eventName = eventMap[result.type];
+    if (eventName) {
+      setTimeout(() => window.dispatchEvent(new CustomEvent(eventName, {
+        detail: {
+          vehicleId:      result.id,
+          customerId:     result.id,
+          jobCardId:      result.id,
+          repairOrderId:  result.id,
+        },
+      })), 80);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

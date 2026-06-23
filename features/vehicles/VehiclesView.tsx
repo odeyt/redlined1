@@ -1202,6 +1202,21 @@ export function VehiclesView() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Deep-link: open a specific vehicle drawer from global search or other modules
+  useEffect(() => {
+    function handleOpenVehicle(e: Event) {
+      const { vehicleId } = (e as CustomEvent).detail ?? {};
+      if (!vehicleId) return;
+      setVehicles(current => {
+        const found = current.find(v => v.id === vehicleId);
+        if (found) setDrawerVehicle(found);
+        return current;
+      });
+    }
+    window.addEventListener('open-vehicle', handleOpenVehicle);
+    return () => window.removeEventListener('open-vehicle', handleOpenVehicle);
+  }, []);
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   async function handleKanbanMove(vehicleId: string, newStatus: string) {
