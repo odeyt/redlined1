@@ -632,6 +632,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [custSearch, setCustSearch] = useState('');
   const [showAddForCust, setShowAddForCust] = useState(false);
   const custInputRef = useRef<HTMLInputElement>(null);
+  const [showInlineNewCust, setShowInlineNewCust] = useState(false);
+  const [inlineNewCust, setInlineNewCust] = useState({ name: '', phone: '', email: '' });
+  const [savingNewCust, setSavingNewCust] = useState(false);
   const [techDropdownOpen, setTechDropdownOpen] = useState(false);
 
   // Vehicles belonging to the currently-selected customer (excluding this one)
@@ -875,13 +878,13 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 style={{ ...inp, borderColor: f.customerId ? '#22c55e' : 'var(--line)' }}
               />
               {custSearch && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: 320, overflowY: 'auto', marginTop: 2 }}>
                   {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0
                     ? <div style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>No customers found</div>
                     : customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).map(c => {
                         const n = allVehicles.filter(v => v.customerId === c.id).length;
                         return (
-                          <div key={c.id} onClick={() => handleCustSelect(c.id)}
+                          <div key={c.id} onClick={() => { handleCustSelect(c.id); setShowInlineNewCust(false); }}
                             style={{ padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)') as unknown as void}
                             onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
@@ -894,6 +897,70 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                         );
                       })
                   }
+                  {/* ── Add new customer inline ── */}
+                  {!showInlineNewCust ? (
+                    <button
+                      type="button"
+                      onClick={() => { setShowInlineNewCust(true); setInlineNewCust({ name: custSearch, phone: '', email: '' }); }}
+                      style={{ width: '100%', padding: '10px 12px', background: 'rgba(37,99,235,0.04)', border: 'none', borderTop: '1px solid var(--line)', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: '#2563eb', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.1)') as unknown as void}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.04)') as unknown as void}
+                    >
+                      <span style={{ fontSize: 16 }}>＋</span> Add &ldquo;{custSearch}&rdquo; as new customer
+                    </button>
+                  ) : (
+                    <div style={{ padding: '12px', borderTop: '1px solid var(--line)', background: 'rgba(37,99,235,0.03)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>New Customer</div>
+                      <input
+                        autoFocus
+                        placeholder="Full name *"
+                        value={inlineNewCust.name}
+                        onChange={e => setInlineNewCust(p => ({ ...p, name: e.target.value }))}
+                        style={{ ...inp, marginBottom: 6 }}
+                      />
+                      <input
+                        placeholder="Phone"
+                        value={inlineNewCust.phone}
+                        onChange={e => setInlineNewCust(p => ({ ...p, phone: e.target.value }))}
+                        style={{ ...inp, marginBottom: 6 }}
+                      />
+                      <input
+                        placeholder="Email"
+                        value={inlineNewCust.email}
+                        onChange={e => setInlineNewCust(p => ({ ...p, email: e.target.value }))}
+                        style={{ ...inp, marginBottom: 10 }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          type="button"
+                          disabled={!inlineNewCust.name.trim() || savingNewCust}
+                          onClick={async () => {
+                            if (!inlineNewCust.name.trim()) return;
+                            setSavingNewCust(true);
+                            try {
+                              const created = await saveCustomer({ name: inlineNewCust.name.trim(), phone: inlineNewCust.phone, email: inlineNewCust.email, type: 'Individual', address: '', tags: [], followUp: '', portalToken: null });
+                              handleCustSelect(created.id);
+                              setCustSearch('');
+                              setShowInlineNewCust(false);
+                              setInlineNewCust({ name: '', phone: '', email: '' });
+                            } finally {
+                              setSavingNewCust(false);
+                            }
+                          }}
+                          style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !inlineNewCust.name.trim() || savingNewCust ? 0.5 : 1 }}
+                        >
+                          {savingNewCust ? 'Saving…' : 'Create & Assign'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowInlineNewCust(false)}
+                          style={{ padding: '8px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'none', fontSize: 12, cursor: 'pointer', color: 'var(--muted)' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
