@@ -166,6 +166,7 @@ export async function createPartsOrder(o: Omit<PartsOrder, 'id' | 'createdAt'>):
       estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
       vehicle: o.vehicle, customer_name: o.customerName,
       warranty: o.warranty, notes: o.notes,
+      currency: o.currency || 'USD',
     })
     .select().single();
   if (error) throw error;
@@ -190,6 +191,7 @@ export async function updatePartsOrder(id: string, o: Partial<Omit<PartsOrder, '
       estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
       vehicle: o.vehicle, customer_name: o.customerName,
       warranty: o.warranty, notes: o.notes,
+      currency: o.currency || 'USD',
     })
     .eq('id', id).eq('shop_id', getShopId())
     .select().single();
