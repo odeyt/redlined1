@@ -10,12 +10,21 @@ export interface PartsVendor {
   notes: string;
 }
 
+export interface LineItem {
+  partName: string;
+  partNumber: string;
+  condition: string;
+  quantity: number;
+  unitCost: number;
+}
+
 export interface PartsOrder {
   id: string;
   partName: string;
   partNumber: string;
   quantity: number;
   condition: string;
+  lineItems: LineItem[];
   vendorName: string;
   vendorPhone: string;
   vendorEmail: string;
@@ -41,9 +50,9 @@ export interface PartsOrder {
   createdAt: string;
 }
 
-export const ORDER_STATUSES = ['Ordered', 'Deposit Paid', 'Backordered', 'Received', 'Returned', 'Cancelled'];
+export const ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Backordered', 'Received', 'Returned', 'Cancelled'];
 export const PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid in Full'];
-export const PART_CONDITIONS = ['New', 'OEM', 'Aftermarket', 'Remanufactured', 'Used'];
+export const PART_CONDITIONS = ['New', 'Genuine', 'OEM', 'Aftermarket', 'Remanufactured', 'Used', 'Refurbished'];
 
 function mapOrder(r: Record<string, unknown>): PartsOrder {
   const unitCost  = Number(r.unit_cost  ?? 0);
@@ -51,12 +60,34 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
   const deposit   = Number(r.deposit_paid ?? 0);
   const core      = Number(r.core_charge ?? 0);
   const total     = Number(r.total_cost ?? unitCost * quantity);
+
+  // Parse line_items JSONB; fall back to single legacy item if empty
+  let lineItems: LineItem[] = [];
+  try {
+    const raw = r.line_items as LineItem[] | string | null;
+    const parsed: LineItem[] = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? []);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      lineItems = parsed;
+    }
+  } catch { /* ignore parse errors */ }
+
+  if (lineItems.length === 0) {
+    lineItems = [{
+      partName:   (r.part_name as string)   || '',
+      partNumber: (r.part_number as string) || '',
+      condition:  (r.condition as string)   || 'New',
+      quantity,
+      unitCost,
+    }];
+  }
+
   return {
     id:                 r.id as string,
     partName:           (r.part_name as string)        || '',
     partNumber:         (r.part_number as string)      || '',
     quantity,
     condition:          (r.condition as string)        || 'New',
+    lineItems,
     vendorName:         (r.vendor_name as string)      || '',
     vendorPhone:        (r.vendor_phone as string)     || '',
     vendorEmail:        (r.vendor_email as string)     || '',
@@ -65,7 +96,7 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
     coreCharge:         core,
     depositPaid:        deposit,
     balanceDue:         Number(r.balance_due ?? Math.max(0, total + core - deposit)),
-    status:             (r.status as string)           || 'Ordered',
+    status:             (r.status as string)           || 'Pending',
     paymentStatus:      (r.payment_status as string)   || 'Unpaid',
     orderDate:          (r.order_date as string)       || '',
     etr:                (r.etr as string)              || '',
@@ -80,6 +111,39 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
     notes:              (r.notes as string)            || '',
     currency:           (r.currency as string)         || 'USD',
     createdAt:          (r.created_at as string)       || '',
+  };
+}
+
+function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
+  const items = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{
+    partName: o.partName, partNumber: o.partNumber,
+    condition: o.condition, quantity: o.quantity, unitCost: o.unitCost,
+  }];
+  const total = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const balance = Math.max(0, total + o.coreCharge - o.depositPaid);
+  const firstItem = items[0];
+  const partNameSummary = items.length === 1
+    ? firstItem.partName
+    : items.map(i => i.partName).filter(Boolean).join(', ');
+  return {
+    line_items: items,
+    part_name: partNameSummary,
+    part_number: firstItem.partNumber,
+    quantity: items.reduce((s, i) => s + i.quantity, 0),
+    condition: firstItem.condition,
+    unit_cost: items.length === 1 ? firstItem.unitCost : 0,
+    total_cost: total,
+    core_charge: o.coreCharge,
+    deposit_paid: o.depositPaid,
+    balance_due: balance,
+    vendor_name: o.vendorName, vendor_phone: o.vendorPhone, vendor_email: o.vendorEmail,
+    status: o.status, payment_status: o.paymentStatus,
+    order_date: o.orderDate || null, etr: o.etr || null, received_date: o.receivedDate || null,
+    job_card_number: o.jobCardNumber, repair_order_number: o.repairOrderNumber,
+    estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
+    vehicle: o.vehicle, customer_name: o.customerName,
+    warranty: o.warranty, notes: o.notes,
+    currency: o.currency || 'USD',
   };
 }
 
@@ -150,49 +214,18 @@ export async function fetchPartsOrders(): Promise<PartsOrder[]> {
 }
 
 export async function createPartsOrder(o: Omit<PartsOrder, 'id' | 'createdAt'>): Promise<PartsOrder> {
-  const total = o.unitCost * o.quantity;
-  const balance = Math.max(0, total + o.coreCharge - o.depositPaid);
   const { data, error } = await supabase
     .from('parts_orders')
-    .insert({
-      shop_id: getShopId(),
-      part_name: o.partName, part_number: o.partNumber, quantity: o.quantity, condition: o.condition,
-      vendor_name: o.vendorName, vendor_phone: o.vendorPhone, vendor_email: o.vendorEmail,
-      unit_cost: o.unitCost, total_cost: total, core_charge: o.coreCharge,
-      deposit_paid: o.depositPaid, balance_due: balance,
-      status: o.status, payment_status: o.paymentStatus,
-      order_date: o.orderDate || null, etr: o.etr || null, received_date: o.receivedDate || null,
-      job_card_number: o.jobCardNumber, repair_order_number: o.repairOrderNumber,
-      estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
-      vehicle: o.vehicle, customer_name: o.customerName,
-      warranty: o.warranty, notes: o.notes,
-      currency: o.currency || 'USD',
-    })
+    .insert({ shop_id: getShopId(), ...buildOrderPayload(o) })
     .select().single();
   if (error) throw error;
   return mapOrder(data);
 }
 
 export async function updatePartsOrder(id: string, o: Partial<Omit<PartsOrder, 'id' | 'createdAt'>>): Promise<PartsOrder> {
-  const unitCost = o.unitCost ?? 0;
-  const qty      = o.quantity ?? 1;
-  const total    = unitCost * qty;
-  const balance  = Math.max(0, total + (o.coreCharge ?? 0) - (o.depositPaid ?? 0));
   const { data, error } = await supabase
     .from('parts_orders')
-    .update({
-      part_name: o.partName, part_number: o.partNumber, quantity: o.quantity, condition: o.condition,
-      vendor_name: o.vendorName, vendor_phone: o.vendorPhone, vendor_email: o.vendorEmail,
-      unit_cost: o.unitCost, total_cost: total, core_charge: o.coreCharge,
-      deposit_paid: o.depositPaid, balance_due: balance,
-      status: o.status, payment_status: o.paymentStatus,
-      order_date: o.orderDate || null, etr: o.etr || null, received_date: o.receivedDate || null,
-      job_card_number: o.jobCardNumber, repair_order_number: o.repairOrderNumber,
-      estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
-      vehicle: o.vehicle, customer_name: o.customerName,
-      warranty: o.warranty, notes: o.notes,
-      currency: o.currency || 'USD',
-    })
+    .update(buildOrderPayload(o as Omit<PartsOrder, 'id' | 'createdAt'>))
     .eq('id', id).eq('shop_id', getShopId())
     .select().single();
   if (error) throw error;

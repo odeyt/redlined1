@@ -5,7 +5,7 @@ import { useShop } from '@/lib/useShop';
 import {
   fetchPartsOrders, createPartsOrder, updatePartsOrder, deletePartsOrder,
   fetchVendors, createVendor, updateVendor, deleteVendor,
-  PartsOrder, PartsVendor,
+  PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
@@ -81,12 +81,14 @@ function fmt(v: number, currency: string) {
 const today = () => new Date().toISOString().split('T')[0];
 
 const STATUS_COLOR: Record<string, string> = {
-  'Ordered':      '#3b82f6',
-  'Deposit Paid': '#8b5cf6',
-  'Backordered':  '#f59e0b',
-  'Received':     '#22c55e',
-  'Returned':     '#6b7280',
-  'Cancelled':    '#ef4444',
+  'Pending':          '#6b7280',
+  'Ordered':          '#3b82f6',
+  'Deposit Paid':     '#8b5cf6',
+  'Waiting Customer': '#f59e0b',
+  'Backordered':      '#f97316',
+  'Received':         '#22c55e',
+  'Returned':         '#94a3b8',
+  'Cancelled':        '#ef4444',
 };
 const PAY_COLOR: Record<string, string> = {
   'Unpaid':       '#ef4444',
@@ -94,11 +96,27 @@ const PAY_COLOR: Record<string, string> = {
   'Paid in Full': '#22c55e',
 };
 
-const EMPTY_ORDER: Omit<PartsOrder, 'id' | 'createdAt'> & { currency: string } = {
-  partName: '', partNumber: '', quantity: 1, condition: 'New',
+const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0 };
+
+type FormState = {
+  lineItems: LineItem[];
+  vendorName: string; vendorPhone: string; vendorEmail: string;
+  coreCharge: number; depositPaid: number;
+  totalCost: number; balanceDue: number; paymentStatus: string;
+  status: string;
+  orderDate: string; etr: string; receivedDate: string;
+  jobCardNumber: string; repairOrderNumber: string; estimateNumber: string; invoiceNumber: string;
+  vehicle: string; customerName: string;
+  warranty: string; notes: string;
+  currency: string;
+};
+
+const EMPTY_ORDER: FormState = {
+  lineItems: [{ ...EMPTY_LINE }],
   vendorName: '', vendorPhone: '', vendorEmail: '',
-  unitCost: 0, totalCost: 0, coreCharge: 0, depositPaid: 0, balanceDue: 0,
-  status: 'Ordered', paymentStatus: 'Unpaid',
+  coreCharge: 0, depositPaid: 0,
+  totalCost: 0, balanceDue: 0, paymentStatus: 'Unpaid',
+  status: 'Pending',
   orderDate: today(), etr: '', receivedDate: '',
   jobCardNumber: '', repairOrderNumber: '', estimateNumber: '', invoiceNumber: '',
   vehicle: '', customerName: '',
@@ -108,7 +126,12 @@ const EMPTY_ORDER: Omit<PartsOrder, 'id' | 'createdAt'> & { currency: string } =
 
 const EMPTY_VENDOR = { name: '', phone: '', email: '', website: '', notes: '' };
 
-type FormState = typeof EMPTY_ORDER;
+function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number) {
+  const total = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const balance = Math.max(0, total + coreCharge - depositPaid);
+  const payStatus = depositPaid <= 0 ? 'Unpaid' : balance <= 0 ? 'Paid in Full' : 'Partial';
+  return { totalCost: total, balanceDue: balance, paymentStatus: payStatus };
+}
 
 export function PartsOrdersView() {
   const { shopId } = useShop();
@@ -151,7 +174,6 @@ export function PartsOrdersView() {
   const load = useCallback(async () => {
     if (!shopId) return;
     setLoading(true);
-    // Use allSettled so a permission error on parts_vendors doesn't block customers/vehicles
     const [ordersR, vendorsR, customersR, vehiclesR] = await Promise.allSettled([
       fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
     ]);
@@ -178,15 +200,36 @@ export function PartsOrdersView() {
       })
     : vehicles;
 
-  /* auto-calc totals */
+  /* patch form fields and recompute totals */
   function setF(patch: Partial<FormState>) {
     setForm(prev => {
       const next = { ...prev, ...patch };
-      const total = next.unitCost * next.quantity;
-      const balance = Math.max(0, total + next.coreCharge - next.depositPaid);
-      const payStatus = next.depositPaid <= 0 ? 'Unpaid'
-        : balance <= 0 ? 'Paid in Full' : 'Partial';
-      return { ...next, totalCost: total, balanceDue: balance, paymentStatus: payStatus };
+      const totals = calcTotals(next.lineItems, next.coreCharge, next.depositPaid);
+      return { ...next, ...totals };
+    });
+  }
+
+  /* line item operations */
+  function updateLineItem(idx: number, field: keyof LineItem, value: string | number) {
+    setForm(prev => {
+      const lineItems = prev.lineItems.map((item, i) =>
+        i === idx ? { ...item, [field]: value } : item
+      );
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
+    });
+  }
+
+  function addLineItem() {
+    setForm(prev => {
+      const lineItems = [...prev.lineItems, { ...EMPTY_LINE }];
+      return { ...prev, lineItems };
+    });
+  }
+
+  function removeLineItem(idx: number) {
+    setForm(prev => {
+      const lineItems = prev.lineItems.filter((_, i) => i !== idx);
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
     });
   }
 
@@ -196,18 +239,23 @@ export function PartsOrdersView() {
 
   function openEdit(o: PartsOrder) {
     setEditingId(o.id);
+    const lineItems = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{
+      partName: o.partName, partNumber: o.partNumber,
+      condition: o.condition, quantity: o.quantity, unitCost: o.unitCost,
+    }];
+    const totals = calcTotals(lineItems, o.coreCharge, o.depositPaid);
     setForm({
-      partName: o.partName, partNumber: o.partNumber, quantity: o.quantity, condition: o.condition,
+      lineItems,
       vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
-      unitCost: o.unitCost, totalCost: o.totalCost, coreCharge: o.coreCharge,
-      depositPaid: o.depositPaid, balanceDue: o.balanceDue,
+      coreCharge: o.coreCharge, depositPaid: o.depositPaid,
+      ...totals,
       status: o.status, paymentStatus: o.paymentStatus,
       orderDate: o.orderDate, etr: o.etr, receivedDate: o.receivedDate,
       jobCardNumber: o.jobCardNumber, repairOrderNumber: o.repairOrderNumber,
       estimateNumber: o.estimateNumber, invoiceNumber: o.invoiceNumber,
       vehicle: o.vehicle, customerName: o.customerName,
       warranty: o.warranty, notes: o.notes,
-      currency: (o as PartsOrder).currency || 'USD',
+      currency: o.currency || 'USD',
     });
     setSelected(null); setShowForm(true);
   }
@@ -215,7 +263,8 @@ export function PartsOrdersView() {
   /* step 1: form submit → show confirm modal */
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.partName.trim()) return;
+    const hasItem = form.lineItems.some(i => i.partName.trim());
+    if (!hasItem) return;
     setShowConfirm(true);
   }
 
@@ -224,20 +273,39 @@ export function PartsOrdersView() {
     setShowConfirm(false);
     setSaving(true);
     setFormError('');
+    // Build the PartsOrder payload from form
+    const payload: Omit<PartsOrder, 'id' | 'createdAt'> = {
+      lineItems: form.lineItems,
+      partName: form.lineItems[0]?.partName || '',
+      partNumber: form.lineItems[0]?.partNumber || '',
+      condition: form.lineItems[0]?.condition || 'New',
+      quantity: form.lineItems.reduce((s, i) => s + i.quantity, 0),
+      unitCost: form.lineItems.length === 1 ? form.lineItems[0].unitCost : 0,
+      vendorName: form.vendorName, vendorPhone: form.vendorPhone, vendorEmail: form.vendorEmail,
+      coreCharge: form.coreCharge, depositPaid: form.depositPaid,
+      totalCost: form.totalCost, balanceDue: form.balanceDue,
+      status: form.status, paymentStatus: form.paymentStatus,
+      orderDate: form.orderDate, etr: form.etr, receivedDate: form.receivedDate,
+      jobCardNumber: form.jobCardNumber, repairOrderNumber: form.repairOrderNumber,
+      estimateNumber: form.estimateNumber, invoiceNumber: form.invoiceNumber,
+      vehicle: form.vehicle, customerName: form.customerName,
+      warranty: form.warranty, notes: form.notes,
+      currency: form.currency,
+    };
     try {
       if (editingId) {
-        const updated = await updatePartsOrder(editingId, form as Omit<PartsOrder, 'id' | 'createdAt'>);
+        const updated = await updatePartsOrder(editingId, payload);
         setOrders(prev => prev.map(o => o.id === editingId ? updated : o));
-        notify(`✓ "${updated.partName}" order updated.`);
+        notify(`✓ Order updated.`);
       } else {
-        const created = await createPartsOrder(form as Omit<PartsOrder, 'id' | 'createdAt'>);
+        const created = await createPartsOrder(payload);
         setOrders(prev => [created, ...prev]);
-        notify(`✓ "${created.partName}" order saved.`);
+        notify(`✓ Order saved.`);
       }
       setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER);
     } catch (e: unknown) {
       const msg = (e as Record<string, unknown>)?.message as string || 'Save failed — please try again.';
-      setFormError(msg);  // show error INSIDE the form, not behind it
+      setFormError(msg);
     } finally { setSaving(false); }
   }
 
@@ -301,7 +369,7 @@ export function PartsOrdersView() {
   }
 
   function handleCustomerSelect(name: string) {
-    setF({ customerName: name, vehicle: '' }); // clear vehicle when customer changes
+    setF({ customerName: name, vehicle: '' });
   }
 
   /* filters */
@@ -317,15 +385,14 @@ export function PartsOrdersView() {
   });
 
   /* stats */
-  const totalOrdered  = orders.filter(o => ['Ordered','Deposit Paid','Backordered'].includes(o.status)).length;
+  const totalOrdered  = orders.filter(o => ['Pending','Ordered','Deposit Paid','Waiting Customer','Backordered'].includes(o.status)).length;
   const totalReceived = orders.filter(o => o.status === 'Received').length;
   const totalOwed     = orders.reduce((s, o) => s + o.balanceDue, 0);
   const totalDeposits = orders.reduce((s, o) => s + o.depositPaid, 0);
   const uniqueVendorNames = [...new Set(orders.map(o => o.vendorName).filter(Boolean))];
 
   const money = (v: number) => fmt(v, form.currency || 'USD');
-  const moneyO = (v: number, o?: PartsOrder) =>
-    fmt(v, o?.currency || 'USD');
+  const moneyO = (v: number, o?: PartsOrder) => fmt(v, o?.currency || 'USD');
 
   /* small helpers */
   const field = (label: string, children: React.ReactNode, full?: boolean) => (
@@ -341,25 +408,40 @@ export function PartsOrdersView() {
     border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px',
     background: 'var(--surface-soft)', width: '100%',
   };
+  const cellInput: React.CSSProperties = {
+    border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px',
+    background: 'var(--surface-soft)', fontSize: 13, width: '100%', boxSizing: 'border-box',
+  };
+  const thStyle: React.CSSProperties = {
+    padding: '8px 10px', fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+    textTransform: 'uppercase', letterSpacing: '.05em', textAlign: 'left',
+    borderBottom: '2px solid var(--line)', whiteSpace: 'nowrap',
+  };
+  const tdStyle: React.CSSProperties = { padding: '6px 6px 6px 0', verticalAlign: 'top' };
 
   /* ─── confirm summary ─── */
   const confirmSummary = () => {
     const cur = form.currency;
-    return [
-      { label: 'Part', value: `${form.partName}${form.partNumber ? ` (${form.partNumber})` : ''}` },
-      { label: 'Qty / Condition', value: `${form.quantity} × ${form.condition}` },
-      { label: 'Vendor', value: form.vendorName || '—' },
-      { label: 'Customer', value: form.customerName || '—' },
-      { label: 'Vehicle', value: form.vehicle || '—' },
-      { label: 'Unit Cost', value: fmt(form.unitCost, cur) },
-      { label: 'Total Cost', value: fmt(form.totalCost, cur) },
-      { label: 'Core Charge', value: fmt(form.coreCharge, cur) },
+    const rows: { label: string; value: string; highlight?: boolean }[] = [];
+    form.lineItems.forEach((item, idx) => {
+      rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(),
+        value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
+      rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
+      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, cur)} → ${fmt(item.unitCost * item.quantity, cur)}` });
+    });
+    rows.push(
+      { label: 'Vendor',       value: form.vendorName || '—' },
+      { label: 'Customer',     value: form.customerName || '—' },
+      { label: 'Vehicle',      value: form.vehicle || '—' },
+      { label: 'Parts Total',  value: fmt(form.totalCost, cur) },
+      { label: 'Core Charge',  value: fmt(form.coreCharge, cur) },
       { label: 'Deposit Paid', value: fmt(form.depositPaid, cur) },
-      { label: 'Balance Due', value: fmt(form.balanceDue, cur), highlight: form.balanceDue > 0 },
-      { label: 'Currency', value: cur },
-      { label: 'Status', value: form.status },
-      { label: 'ETR', value: form.etr ? new Date(form.etr).toLocaleDateString() : '—' },
-    ];
+      { label: 'Balance Due',  value: fmt(form.balanceDue, cur), highlight: form.balanceDue > 0 },
+      { label: 'Currency',     value: cur },
+      { label: 'Status',       value: form.status },
+      { label: 'ETR',          value: form.etr ? new Date(form.etr).toLocaleDateString() : '—' },
+    );
+    return rows;
   };
 
   return (
@@ -381,7 +463,7 @@ export function PartsOrdersView() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'On Order',      value: totalOrdered,           color: '#3b82f6', sub: 'ordered / deposit / backorder' },
+          { label: 'On Order',      value: totalOrdered,           color: '#3b82f6', sub: 'pending / ordered / waiting' },
           { label: 'Received',      value: totalReceived,          color: '#22c55e', sub: 'this shop' },
           { label: 'Balance Due',   value: fmt(totalOwed, 'USD'),  color: '#ef4444', sub: 'outstanding to vendors' },
           { label: 'Deposits Paid', value: fmt(totalDeposits,'USD'), color: '#8b5cf6', sub: 'across all orders' },
@@ -422,20 +504,25 @@ export function PartsOrdersView() {
               <table>
                 <thead>
                   <tr>
-                    <th>Part</th><th>Vendor</th><th>Customer / Vehicle</th><th>Qty</th>
-                    <th>Unit Cost</th><th>Deposit</th><th>Balance</th>
+                    <th>Parts</th><th>Vendor</th><th>Customer / Vehicle</th>
+                    <th>Total Cost</th><th>Deposit</th><th>Balance</th>
                     <th>Status</th><th>Payment</th><th>ETR</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {visible.map(o => {
                     const oc = o.currency || 'USD';
+                    const items = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }];
+                    const firstItem = items[0];
                     return (
                       <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(o)}>
                         <td>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{o.partName}</div>
-                          {o.partNumber && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.partNumber}</div>}
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.condition}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{firstItem.partName}</div>
+                          {firstItem.partNumber && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.partNumber}</div>}
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} · qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
+                          {items.length > 1 && (
+                            <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{items.length - 1} more part{items.length > 2 ? 's' : ''}</div>
+                          )}
                         </td>
                         <td>
                           <div style={{ fontSize: 13 }}>{o.vendorName || '—'}</div>
@@ -445,8 +532,7 @@ export function PartsOrdersView() {
                           {o.customerName && <div style={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</div>}
                           {o.vehicle && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vehicle}</div>}
                         </td>
-                        <td style={{ textAlign: 'center' }}>{o.quantity}</td>
-                        <td>{fmt(o.unitCost, oc)}</td>
+                        <td>{fmt(o.totalCost, oc)}</td>
                         <td style={{ color: o.depositPaid > 0 ? '#8b5cf6' : 'var(--muted)' }}>{fmt(o.depositPaid, oc)}</td>
                         <td style={{ fontWeight: 700, color: o.balanceDue > 0 ? '#ef4444' : '#22c55e' }}>{fmt(o.balanceDue, oc)}</td>
                         <td onClick={e => e.stopPropagation()}>
@@ -482,8 +568,7 @@ export function PartsOrdersView() {
           <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 480, maxWidth: '95vw', background: 'var(--bg)', borderLeft: '1px solid var(--line)', zIndex: 301, overflowY: 'auto', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'var(--surface-soft)' }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{selected.partName}</div>
-                {selected.partNumber && <div style={{ fontSize: 12, color: 'var(--muted)' }}>#{selected.partNumber}</div>}
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{selected.partName || selected.lineItems?.[0]?.partName || 'Parts Order'}</div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLOR[selected.status] || '#888') + '22', color: STATUS_COLOR[selected.status] || '#888' }}>{selected.status}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (PAY_COLOR[selected.paymentStatus] || '#888') + '22', color: PAY_COLOR[selected.paymentStatus] || '#888' }}>{selected.paymentStatus}</span>
@@ -496,16 +581,36 @@ export function PartsOrdersView() {
             </div>
 
             <div style={{ padding: '20px 24px', flex: 1 }}>
-              {/* Pricing */}
-              <SectionLabel label="Pricing" />
+              {/* Line Items */}
+              <SectionLabel label={`Parts (${(selected.lineItems?.length ?? 1)} item${(selected.lineItems?.length ?? 1) !== 1 ? 's' : ''})`} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {(selected.lineItems && selected.lineItems.length > 0 ? selected.lineItems : [{
+                  partName: selected.partName, partNumber: selected.partNumber,
+                  condition: selected.condition, quantity: selected.quantity, unitCost: selected.unitCost,
+                }]).map((item, idx) => (
+                  <div key={idx} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 12 }}>
+                      {item.partNumber && <span>#{item.partNumber}</span>}
+                      <span>{item.condition}</span>
+                      <span>Qty: {item.quantity}</span>
+                      <span>{moneyO(item.unitCost, selected)} each</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: 'var(--accent)' }}>
+                      Line total: {moneyO(item.unitCost * item.quantity, selected)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pricing summary */}
+              <SectionLabel label="Pricing Summary" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
                 {[
-                  { label: 'Unit Cost',   value: moneyO(selected.unitCost, selected) },
-                  { label: 'Qty × Total', value: `${selected.quantity} × ${moneyO(selected.unitCost, selected)} = ${moneyO(selected.totalCost, selected)}` },
-                  { label: 'Core Charge', value: moneyO(selected.coreCharge, selected) },
+                  { label: 'Parts Total',  value: moneyO(selected.totalCost, selected) },
+                  { label: 'Core Charge',  value: moneyO(selected.coreCharge, selected) },
                   { label: 'Deposit Paid', value: moneyO(selected.depositPaid, selected), color: '#8b5cf6' },
-                  { label: 'Balance Due', value: moneyO(selected.balanceDue, selected), color: selected.balanceDue > 0 ? '#ef4444' : '#22c55e' },
-                  { label: 'Condition',   value: selected.condition },
+                  { label: 'Balance Due',  value: moneyO(selected.balanceDue, selected), color: selected.balanceDue > 0 ? '#ef4444' : '#22c55e' },
                 ].map(({ label, value, color }) => (
                   <InfoBox key={label} label={label} value={String(value)} color={color} />
                 ))}
@@ -579,7 +684,7 @@ export function PartsOrdersView() {
       {/* ── Add/Edit Form Modal ── */}
       {showForm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 700, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 {editingId ? '✏ Edit Parts Order' : '+ New Parts Order'}
@@ -597,14 +702,88 @@ export function PartsOrdersView() {
 
             <form onSubmit={handleFormSubmit}>
 
-              {/* ── Part Details ── */}
-              <FormSection label="Part Details" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-                {field('Part Name *', inp('text', form.partName, v => setF({ partName: v }), 'e.g. Front Brake Rotor'), true)}
-                {field('Part Number / SKU', inp('text', form.partNumber, v => setF({ partNumber: v }), 'e.g. BR-12345'))}
-                {field('Condition', <select value={form.condition} onChange={e => setF({ condition: e.target.value })} style={selStyle}>{PART_CONDITIONS.map(o => <option key={o}>{o}</option>)}</select>)}
-                {field('Quantity', <input type="number" min={1} value={form.quantity} onFocus={e => e.target.select()} onChange={e => setF({ quantity: Number(e.target.value) || 1 })} />)}
+              {/* ── Parts Table ── */}
+              <FormSection label="Parts" />
+              <div style={{ overflowX: 'auto', marginBottom: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Part Name *</th>
+                      <th style={thStyle}>Part # / SKU</th>
+                      <th style={thStyle}>Condition</th>
+                      <th style={{ ...thStyle, width: 70 }}>Qty</th>
+                      <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
+                      <th style={{ ...thStyle, width: 100 }}>Line Total</th>
+                      <th style={{ ...thStyle, width: 36 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.lineItems.map((item, idx) => (
+                      <tr key={idx}>
+                        <td style={tdStyle}>
+                          <input
+                            value={item.partName}
+                            onChange={e => updateLineItem(idx, 'partName', e.target.value)}
+                            placeholder="e.g. Brake Rotor"
+                            style={cellInput}
+                          />
+                        </td>
+                        <td style={tdStyle}>
+                          <input
+                            value={item.partNumber}
+                            onChange={e => updateLineItem(idx, 'partNumber', e.target.value)}
+                            placeholder="SKU"
+                            style={cellInput}
+                          />
+                        </td>
+                        <td style={tdStyle}>
+                          <select
+                            value={item.condition}
+                            onChange={e => updateLineItem(idx, 'condition', e.target.value)}
+                            style={{ ...cellInput, paddingRight: 6 }}
+                          >
+                            {PART_CONDITIONS.map(c => <option key={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td style={tdStyle}>
+                          <input
+                            type="number" min={1}
+                            value={item.quantity}
+                            onFocus={e => e.target.select()}
+                            onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
+                            style={{ ...cellInput, textAlign: 'center' }}
+                          />
+                        </td>
+                        <td style={tdStyle}>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={item.unitCost || ''}
+                            placeholder="0.00"
+                            onFocus={e => e.target.select()}
+                            onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)}
+                            style={cellInput}
+                          />
+                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>
+                          {fmt(item.unitCost * item.quantity, form.currency)}
+                        </td>
+                        <td style={tdStyle}>
+                          {form.lineItems.length > 1 && (
+                            <button type="button" onClick={() => removeLineItem(idx)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>
+                              ✕
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <button type="button" onClick={addLineItem}
+                style={{ padding: '7px 16px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
+                + Add Part
+              </button>
 
               {/* ── Customer & Vehicle ── */}
               <FormSection label="Customer & Vehicle" />
@@ -666,13 +845,12 @@ export function PartsOrdersView() {
                   </select>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 12 }}>
-                {field(`Unit Cost (${form.currency})`, <input type="number" min={0} step="0.01" value={form.unitCost || ''} placeholder="0.00" onChange={e => setF({ unitCost: Number(e.target.value) || 0 })} />)}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge || ''} placeholder="0.00" onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
                 {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid || ''} placeholder="0.00" onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
-                <CalcBox label="Total Cost" value={money(form.totalCost)} />
+                <CalcBox label="Parts Total" value={money(form.totalCost)} />
                 <CalcBox label="Balance Due" value={money(form.balanceDue)} color={form.balanceDue > 0 ? '#ef4444' : '#22c55e'} />
                 <CalcBox label="Payment" value={form.paymentStatus} color={PAY_COLOR[form.paymentStatus]} />
               </div>
@@ -715,7 +893,7 @@ export function PartsOrdersView() {
       {/* ── Confirm Save Modal ── */}
       {showConfirm && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 480, boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>
               {editingId ? 'Confirm Update' : 'Confirm Order'}
             </div>
@@ -724,9 +902,9 @@ export function PartsOrdersView() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
-              {confirmSummary().map(({ label, value, highlight }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', background: 'var(--surface-soft)', borderRadius: 7, fontSize: 13 }}>
-                  <span style={{ color: 'var(--muted)', minWidth: 120 }}>{label}</span>
+              {confirmSummary().map(({ label, value, highlight }, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', background: label.startsWith('  ') ? 'transparent' : 'var(--surface-soft)', borderRadius: 7, fontSize: 13 }}>
+                  <span style={{ color: 'var(--muted)', minWidth: 140 }}>{label.trim()}</span>
                   <span style={{ fontWeight: 700, color: highlight ? '#ef4444' : 'var(--text)', textAlign: 'right' }}>{value}</span>
                 </div>
               ))}
@@ -748,14 +926,12 @@ export function PartsOrdersView() {
           onClick={e => { if (e.target === e.currentTarget) { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); } }}>
           <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
 
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>Vendor Manager</div>
               <button onClick={() => { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>✕</button>
             </div>
 
-            {/* Tabs */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
               <button onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
                 style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
@@ -767,7 +943,6 @@ export function PartsOrdersView() {
               </button>
             </div>
 
-            {/* List tab */}
             {vendorTab === 'list' && (
               <div>
                 {vendors.length === 0 ? (
@@ -804,7 +979,6 @@ export function PartsOrdersView() {
               </div>
             )}
 
-            {/* Add / Edit tab */}
             {vendorTab === 'add' && (
               <form onSubmit={handleSaveVendor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div className="login-field">
@@ -853,3 +1027,6 @@ function CalcBox({ label, value, color }: { label: string; value: string; color?
     </div>
   );
 }
+
+// Suppress unused import warning
+void (PAYMENT_STATUSES);
