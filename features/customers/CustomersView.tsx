@@ -41,6 +41,20 @@ export function CustomersView() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    function handleOpenCustomer(e: Event) {
+      const { customerId } = (e as CustomEvent).detail ?? {};
+      if (!customerId) return;
+      setCustomers(current => {
+        const found = current.find(c => c.id === customerId);
+        if (found) openDetail(found);
+        return current;
+      });
+    }
+    window.addEventListener('open-customer', handleOpenCustomer);
+    return () => window.removeEventListener('open-customer', handleOpenCustomer);
+  }, []);
+
   async function openDetail(c: Customer) {
     setSelected(c);
     setDetailLoading(true);

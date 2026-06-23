@@ -611,7 +611,7 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle, onGoToCustomer }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -623,6 +623,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   onJobCard: () => void;
   onReturnJob: () => void;
   onSwitchVehicle: (v: VehicleRecord) => void;
+  onGoToCustomer: (customerId: string) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
@@ -721,6 +722,37 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>— Vehicle archived for future reference</span>}
           </div>
         )}
+
+        {/* Owner card */}
+        {(() => {
+          const owner = customers.find(c => c.id === f.customerId);
+          if (!owner) return null;
+          return (
+            <button
+              onClick={() => { onClose(); onGoToCustomer(owner.id); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                margin: '10px 20px 0', padding: '10px 14px',
+                background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)',
+                borderRadius: 10, cursor: 'pointer', width: 'calc(100% - 40px)',
+                textAlign: 'left', transition: 'background .15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.06)')}
+              title="Go to customer record"
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(37,99,235,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#1d4ed8', flexShrink: 0 }}>
+                {owner.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 700 }}>{owner.name}</div>
+                {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>📞 {owner.phone}</div>}
+                {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>✉ {owner.email}</div>}
+              </div>
+              <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View →</div>
+            </button>
+          );
+        })()}
 
         {/* Action buttons row 1 */}
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
@@ -1288,6 +1320,11 @@ export function VehiclesView() {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
             setDrawerVehicle(null);
+          }}
+          onGoToCustomer={(customerId) => {
+            setDrawerVehicle(null);
+            dispatch({ type: 'SET_MODULE', module: 'customers' });
+            setTimeout(() => window.dispatchEvent(new CustomEvent('open-customer', { detail: { customerId } })), 50);
           }}
         />
       )}
