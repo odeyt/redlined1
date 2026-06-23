@@ -70,6 +70,20 @@ export function InvoicesView() {
   }, []);
 
   useEffect(() => {
+    function handleOpenInvoice(e: Event) {
+      const { invoiceNumber } = (e as CustomEvent).detail ?? {};
+      if (!invoiceNumber) return;
+      setInvoices(current => {
+        const found = current.find(inv => inv.invoiceNumber === invoiceNumber);
+        if (found) { setSelected(found); setShowForm(false); }
+        return current;
+      });
+    }
+    window.addEventListener('open-invoice', handleOpenInvoice);
+    return () => window.removeEventListener('open-invoice', handleOpenInvoice);
+  }, []);
+
+  useEffect(() => {
     if (!selected) { setInvoicePayments([]); return; }
     fetchPayments().then(all => {
       setInvoicePayments(all.filter(p =>

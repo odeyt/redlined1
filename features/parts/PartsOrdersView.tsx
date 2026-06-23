@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useShop } from '@/lib/useShop';
+import { useAppDispatch } from '@/lib/store';
 import {
   fetchPartsOrders, createPartsOrder, updatePartsOrder, deletePartsOrder,
   fetchVendors, createVendor, updateVendor, deleteVendor,
@@ -136,6 +137,7 @@ function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number) 
 
 export function PartsOrdersView() {
   const { shopId } = useShop();
+  const dispatch = useAppDispatch();
 
   const [orders, setOrders]     = useState<PartsOrder[]>([]);
   const [vendors, setVendors]   = useState<PartsVendor[]>([]);
@@ -391,6 +393,12 @@ export function PartsOrdersView() {
   const totalOwed     = orders.reduce((s, o) => s + o.balanceDue, 0);
   const totalDeposits = orders.reduce((s, o) => s + o.depositPaid, 0);
   const uniqueVendorNames = [...new Set(orders.map(o => o.vendorName).filter(Boolean))];
+
+  function navigateToLinkedRecord(module: string, eventName: string, detail: Record<string, string>) {
+    setSelected(null);
+    dispatch({ type: 'SET_MODULE', module });
+    setTimeout(() => window.dispatchEvent(new CustomEvent(eventName, { detail })), 80);
+  }
 
   const money = (v: number) => fmt(v, form.currency || 'USD');
   const moneyO = (v: number, o?: PartsOrder) => fmt(v, o?.currency || 'USD');
@@ -656,11 +664,43 @@ export function PartsOrdersView() {
               {(selected.jobCardNumber || selected.repairOrderNumber || selected.estimateNumber || selected.invoiceNumber) && (
                 <>
                   <SectionLabel label="Linked Records" />
-                  <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {selected.jobCardNumber && <div style={{ fontSize: 13 }}>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></div>}
-                    {selected.repairOrderNumber && <div style={{ fontSize: 13 }}>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></div>}
-                    {selected.estimateNumber && <div style={{ fontSize: 13 }}>📋 Estimate: <strong>{selected.estimateNumber}</strong></div>}
-                    {selected.invoiceNumber && <div style={{ fontSize: 13 }}>🧾 Invoice: <strong>{selected.invoiceNumber}</strong></div>}
+                  <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {selected.jobCardNumber && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></span>
+                        <button onClick={() => navigateToLinkedRecord('job-cards', 'open-job-card', { jobCardId: selected.jobCardNumber })}
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          Open →
+                        </button>
+                      </div>
+                    )}
+                    {selected.repairOrderNumber && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
+                        <button onClick={() => navigateToLinkedRecord('repair-orders', 'open-ro', { roNumber: selected.repairOrderNumber })}
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          Open →
+                        </button>
+                      </div>
+                    )}
+                    {selected.estimateNumber && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>📋 Estimate: <strong>{selected.estimateNumber}</strong></span>
+                        <button onClick={() => navigateToLinkedRecord('estimates', 'open-estimate', { estimateNumber: selected.estimateNumber })}
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          Open →
+                        </button>
+                      </div>
+                    )}
+                    {selected.invoiceNumber && (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>🧾 Invoice: <strong>{selected.invoiceNumber}</strong></span>
+                        <button onClick={() => navigateToLinkedRecord('invoices', 'open-invoice', { invoiceNumber: selected.invoiceNumber })}
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          Open →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

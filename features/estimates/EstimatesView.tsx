@@ -65,6 +65,20 @@ export function EstimatesView() {
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    function handleOpenEstimate(e: Event) {
+      const { estimateNumber } = (e as CustomEvent).detail ?? {};
+      if (!estimateNumber) return;
+      setEstimates(current => {
+        const found = current.find(est => est.estimateNumber === estimateNumber);
+        if (found) { setSelected(found); setShowForm(false); }
+        return current;
+      });
+    }
+    window.addEventListener('open-estimate', handleOpenEstimate);
+    return () => window.removeEventListener('open-estimate', handleOpenEstimate);
+  }, []);
+
   // Open new form pre-filled when navigated from another module (e.g. Inspection → Estimate)
   useEffect(() => {
     if (!prefill?.customerName) return;
