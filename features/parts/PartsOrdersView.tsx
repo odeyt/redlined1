@@ -101,7 +101,7 @@ const PAY_COLOR: Record<string, string> = {
   'Paid in Full': '#22c55e',
 };
 
-const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0 };
+const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '' };
 
 type FormState = {
   lineItems: LineItem[];
@@ -228,7 +228,7 @@ export function PartsOrdersView() {
 
   function addLineItem() {
     setForm(prev => {
-      const lineItems = [...prev.lineItems, { ...EMPTY_LINE }];
+      const lineItems = [...prev.lineItems, { ...EMPTY_LINE, vendorName: prev.vendorName }];
       return { ...prev, lineItems };
     });
   }
@@ -464,7 +464,14 @@ export function PartsOrdersView() {
 
   function handleVendorSelect(name: string) {
     const v = vendors.find(v => v.name === name);
-    setF({ vendorName: name, vendorPhone: v?.phone ?? '', vendorEmail: v?.email ?? '' });
+    setForm(prev => ({
+      ...prev,
+      vendorName: name,
+      vendorPhone: v?.phone ?? '',
+      vendorEmail: v?.email ?? '',
+      // Apply to line items that have no vendor set yet
+      lineItems: prev.lineItems.map(li => (!li.vendorName ? { ...li, vendorName: name } : li)),
+    }));
   }
 
   function handleCustomerSelect(name: string) {
@@ -543,6 +550,7 @@ export function PartsOrdersView() {
         value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
       rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
       rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, cur)} → ${fmt(item.unitCost * item.quantity, cur)}` });
+      if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
     });
     rows.push(
       { label: 'Vendor',       value: form.vendorName || '—' },
@@ -766,7 +774,14 @@ export function PartsOrdersView() {
                   condition: selected.condition, quantity: selected.quantity, unitCost: selected.unitCost,
                 }]).map((item, idx) => (
                   <div key={idx} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
+                      {item.vendorName && (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                          🏭 {item.vendorName}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 12 }}>
                       {item.partNumber && <span>#{item.partNumber}</span>}
                       <span>{item.condition}</span>
@@ -951,6 +966,7 @@ export function PartsOrdersView() {
                     <tr>
                       <th style={thStyle}>Part Name *</th>
                       <th style={thStyle}>Part # / SKU</th>
+                      <th style={thStyle}>Vendor</th>
                       <th style={thStyle}>Condition</th>
                       <th style={{ ...thStyle, width: 70 }}>Qty</th>
                       <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
@@ -976,6 +992,19 @@ export function PartsOrdersView() {
                             placeholder="SKU"
                             style={cellInput}
                           />
+                        </td>
+                        <td style={tdStyle}>
+                          <select
+                            value={item.vendorName || ''}
+                            onChange={e => updateLineItem(idx, 'vendorName', e.target.value)}
+                            style={{ ...cellInput, paddingRight: 6, minWidth: 130 }}
+                          >
+                            <option value="">— Vendor —</option>
+                            {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
+                            {item.vendorName && !vendors.find(v => v.name === item.vendorName) && (
+                              <option value={item.vendorName}>{item.vendorName}</option>
+                            )}
+                          </select>
                         </td>
                         <td style={tdStyle}>
                           <select
@@ -1050,7 +1079,7 @@ export function PartsOrdersView() {
               </div>
 
               {/* ── Vendor ── */}
-              <FormSection label="Vendor" />
+              <FormSection label="Default Vendor (auto-fills new rows)" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <div className="login-field">
                   <label>Vendor Name</label>

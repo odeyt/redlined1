@@ -16,6 +16,7 @@ export interface LineItem {
   condition: string;
   quantity: number;
   unitCost: number;
+  vendorName?: string;
 }
 
 export interface PartsOrder {
