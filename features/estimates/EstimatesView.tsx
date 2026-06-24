@@ -9,7 +9,8 @@ import {
   type EstimateFull, type EstimateLine,
 } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import type { Vehicle } from '@/lib/types';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { CURRENCIES, formatMoney } from '@/services/invoiceService';
 
@@ -54,6 +55,13 @@ export function EstimatesView() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<EstimateFull | null>(null);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
+  const [custQuery, setCustQuery] = useState('');
+  const [custOpen, setCustOpen] = useState(false);
+  const [vehQuery, setVehQuery] = useState('');
+  const [vehOpen, setVehOpen] = useState(false);
+  const custRef = useRef<HTMLDivElement>(null);
+  const vehRef = useRef<HTMLDivElement>(null);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -62,7 +70,15 @@ export function EstimatesView() {
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchVehicles().then(vs => setAllVehicles(vs as (Vehicle & { id: string })[])).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
+
+    function handleClick(e: MouseEvent) {
+      if (custRef.current && !custRef.current.contains(e.target as Node)) setCustOpen(false);
+      if (vehRef.current && !vehRef.current.contains(e.target as Node)) setVehOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   useEffect(() => {
@@ -108,6 +124,8 @@ export function EstimatesView() {
     const num = await nextEstimateNumber();
     setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }] });
     setEditingId(null);
+    setCustQuery('');
+    setVehQuery('');
     setShowForm(true);
     setSelected(null);
   }
@@ -130,6 +148,8 @@ export function EstimatesView() {
       currency: est.currency || 'USD',
     });
     setEditingId(est.id);
+    setCustQuery(est.customerName);
+    setVehQuery(est.vehicle);
     setShowForm(true);
   }
 
@@ -308,23 +328,105 @@ export function EstimatesView() {
                     {['Draft', 'Sent', 'Approved', 'Declined', 'Converted'].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                {/* Customer autocomplete */}
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }} ref={custRef}>
                   <label>Customer</label>
-                  <select value={form.customerId} onChange={e => {
-                    const c = customers.find(c => c.id === e.target.value);
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
-                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <input
+                    value={custQuery}
+                    onChange={e => {
+                      setCustQuery(e.target.value);
+                      setForm(f => ({ ...f, customerName: e.target.value, customerId: '' }));
+                      setCustOpen(true);
+                    }}
+                    onFocus={() => setCustOpen(true)}
+                    placeholder="Type to search customers…"
+                    required
+                    autoComplete="off"
+                    style={{ border: `1px solid ${custOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {form.customerId && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>✓ Matched: {form.customerName}</div>}
+                  {custOpen && custQuery.length > 0 && (() => {
+                    const q = custQuery.toLowerCase();
+                    const matches = customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(c => (
+                          <div key={c.id}
+                            onMouseDown={() => {
+                              setForm(f => ({ ...f, customerId: c.id, customerName: c.name }));
+                              setCustQuery(c.name);
+                              setCustOpen(false);
+                              // Auto-load this customer's vehicles
+                              const cvs = allVehicles.filter(v => v.customerId === c.id);
+                              if (cvs.length === 1) { setForm(f => ({ ...f, vehicle: cvs[0].label })); setVehQuery(cvs[0].label); }
+                            }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
-                <div className="login-field">
-                  <label>Customer Name</label>
-                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Customer name" required />
-                </div>
-                <div className="login-field">
-                  <label>Vehicle</label>
-                  <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+
+                {/* Vehicle autocomplete — search by label, VIN, plate */}
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }} ref={vehRef}>
+                  <label>Vehicle <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>— search by year, make, model, VIN, or plate</span></label>
+                  <input
+                    value={vehQuery}
+                    onChange={e => {
+                      setVehQuery(e.target.value);
+                      setForm(f => ({ ...f, vehicle: e.target.value }));
+                      setVehOpen(true);
+                    }}
+                    onFocus={() => setVehOpen(true)}
+                    placeholder="e.g. 2022 Ford F-150, KNHMF37AB…, ABC-1234"
+                    autoComplete="off"
+                    style={{ border: `1px solid ${vehOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {vehOpen && vehQuery.length > 0 && (() => {
+                    const q = vehQuery.toLowerCase();
+                    const matches = allVehicles.filter(v => {
+                      const label = (v.label ?? '').toLowerCase();
+                      const vin   = (v.vin ?? '').toLowerCase();
+                      const plate = (v.plate ?? '').toLowerCase();
+                      return label.includes(q) || vin.includes(q) || plate.includes(q);
+                    }).slice(0, 10);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 260, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(v => {
+                          const owner = customers.find(c => c.id === v.customerId);
+                          return (
+                            <div key={v.id}
+                              onMouseDown={() => {
+                                setForm(f => ({ ...f, vehicle: v.label }));
+                                setVehQuery(v.label);
+                                setVehOpen(false);
+                                // Auto-fill customer if not already set
+                                if (!form.customerId && owner) {
+                                  setForm(f => ({ ...f, vehicle: v.label, customerId: owner.id, customerName: owner.name }));
+                                  setCustQuery(owner.name);
+                                }
+                              }}
+                              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <div style={{ fontWeight: 600 }}>{v.label}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                                {owner ? `${owner.name} · ` : ''}{v.vin ? `VIN: ${v.vin}` : ''}{v.plate ? ` · ${v.plate}` : ''}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="login-field">
                   <label>Valid Until</label>
