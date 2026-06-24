@@ -656,184 +656,6 @@ export function RepairOrdersView() {
             <button className="btn btn-primary" onClick={openNew}>+ New RO</button>
           </div>
 
-          {/* New / Edit Form */}
-          {showForm && (
-            <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.roNumber}` : 'New Repair Order'}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div className="login-field">
-                  <label>RO Number</label>
-                  <input value={form.roNumber} onChange={e => setForm(f => ({ ...f, roNumber: e.target.value }))} required readOnly={!!editingId} style={editingId ? { opacity: 0.6 } : {}} />
-                </div>
-                <div className="login-field">
-                  <label>Status</label>
-                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    {isTech
-                      ? ['Open', 'In Progress', 'Pending Parts'].map(s => <option key={s}>{s}</option>)
-                      : RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)
-                    }
-                    {/* Show read-only display for locked statuses */}
-                    {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{form.status}</option>}
-                  </select>
-                </div>
-                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-                  <label>Customer</label>
-                  <select value={form.customerId} onChange={e => {
-                    const c = customers.find(c => c.id === e.target.value);
-                    const cvs = allVehicles.filter(v => v.customerId === e.target.value);
-                    const autoVehicle = cvs.length === 1 ? cvs[0].label : '';
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
-                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="login-field">
-                  <label>Customer Name</label>
-                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
-                </div>
-                <div className="login-field">
-                  <label>Vehicle</label>
-                  {(() => {
-                    const cvs = allVehicles.filter(v => v.customerId === form.customerId);
-                    return cvs.length > 0 ? (
-                      <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
-                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                        <option value="">— select vehicle —</option>
-                        {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
-                      </select>
-                    ) : (
-                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
-                    );
-                  })()}
-                </div>
-                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
-                  <label>
-                    Technician
-                    {form.technician && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11, marginLeft: 6 }}>({form.technician.split(',').filter(Boolean).length} selected)</span>}
-                  </label>
-                  {technicians.length > 0 ? (
-                    <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {technicians.map(t => {
-                        const selected = form.technician.split(',').map(s => s.trim()).filter(Boolean).includes(t.name);
-                        return (
-                          <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: selected ? 'rgba(204,0,0,0.08)' : 'transparent', border: selected ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>
-                            <input type="checkbox" checked={selected} onChange={() => {
-                              const cur = form.technician.split(',').map(s => s.trim()).filter(Boolean);
-                              const next = selected ? cur.filter(n => n !== t.name) : [...cur, t.name];
-                              setForm(f => ({ ...f, technician: next.join(', ') }));
-                            }} style={{ accentColor: 'var(--accent)' }} />
-                            {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }} />
-                  )}
-                </div>
-                <div className="login-field">
-                  <label>Job Card ID</label>
-                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
-                </div>
-              </div>
-
-              {/* 3C Fields */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-                <div className="login-field">
-                  <label>🔴 Concern (Customer Complaint)</label>
-                  <textarea value={form.concern} onChange={e => setForm(f => ({ ...f, concern: e.target.value }))} rows={2} placeholder="What the customer reports…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
-                </div>
-                <div className="login-field">
-                  <label>🟡 Cause (Technician Finding)</label>
-                  <textarea value={form.cause} onChange={e => setForm(f => ({ ...f, cause: e.target.value }))} rows={2} placeholder="Root cause found…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
-                </div>
-                <div className="login-field">
-                  <label>🟢 Correction (Work Performed)</label>
-                  <textarea value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} rows={2} placeholder="Work performed to correct…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
-                </div>
-              </div>
-
-              {/* Parts to Install */}
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Parts to Install</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                      {['Description', 'Part #', 'Qty', 'Unit Cost', 'Total', ''].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '4px 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {form.formParts.map((p, i) => (
-                      <tr key={i}>
-                        <td style={{ padding: '4px 6px' }}>
-                          <input value={p.description} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], description: e.target.value }; return { ...f, formParts: fp }; })} placeholder="Part name / description" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
-                        </td>
-                        <td style={{ padding: '4px 6px' }}>
-                          <input value={p.partNumber} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], partNumber: e.target.value }; return { ...f, formParts: fp }; })} placeholder="SKU / Part #" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
-                        </td>
-                        <td style={{ padding: '4px 6px', width: 70 }}>
-                          <input type="number" value={p.qty} min="1" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
-                        </td>
-                        <td style={{ padding: '4px 6px', width: 100 }}>
-                          <input type="number" value={p.unitCost} min="0" step="0.01" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
-                        </td>
-                        <td style={{ padding: '4px 6px', width: 90, fontWeight: 600, textAlign: 'right' }}>
-                          ${((Number(p.qty) || 0) * (Number(p.unitCost) || 0)).toFixed(2)}
-                        </td>
-                        <td style={{ padding: '4px 6px', width: 36 }}>
-                          <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, formParts: [...f.formParts, { ...EMPTY_PART }] }))} style={{ background: 'none', border: '1px dashed var(--line)', borderRadius: 7, padding: '5px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>+ Add Part</button>
-                  {form.formParts.some(p => p.description.trim()) && (
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                      Parts subtotal: <strong>${form.formParts.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unitCost) || 0), 0).toFixed(2)}</strong>
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div className="login-field">
-                  <label>Labor Hours</label>
-                  <input type="number" value={form.laborHours} onChange={e => setForm(f => ({ ...f, laborHours: Number(e.target.value) }))} min="0" step="0.5" />
-                </div>
-                <div className="login-field">
-                  <label>Labor Rate ($/hr)</label>
-                  <input type="number" value={form.laborRate} onChange={e => setForm(f => ({ ...f, laborRate: Number(e.target.value) }))} min="0" step="5" />
-                </div>
-                <div className="login-field">
-                  <label>Parts Total ($)</label>
-                  <input type="number" value={form.partsTotal} onChange={e => setForm(f => ({ ...f, partsTotal: Number(e.target.value) }))} min="0" step="0.01" />
-                </div>
-                <div className="login-field">
-                  <label>Currency</label>
-                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
-                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="login-field" style={{ marginBottom: 12 }}>
-                <label>Internal Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Internal notes, parts ordered, warranty info…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create RO'}</button>
-              </div>
-            </form>
-          )}
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading repair orders…</p>}
           {!loading && filtered.length === 0 && (
@@ -1268,6 +1090,198 @@ export function RepairOrdersView() {
           saveOrder={(ids) => saveEntityImageOrder('repair_order', photoRO.id, ids)}
           onClose={() => setPhotoRO(null)}
         />
+      )}
+
+      {/* ── RO Form Modal ── */}
+      {showForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
+          <form onSubmit={handleSave} style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 860, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.5)', border: '1px solid var(--line)', marginBottom: 32 }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid var(--line)', background: 'var(--surface-soft)', borderRadius: '16px 16px 0 0' }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800 }}>{editingId ? `✏️ Edit ${form.roNumber}` : '+ New Repair Order'}</div>
+                {editingId && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{form.customerName}{form.vehicle ? ` · ${form.vehicle}` : ''}</div>}
+              </div>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', fontSize: 18, cursor: 'pointer', padding: '4px 12px', lineHeight: 1 }}>✕</button>
+            </div>
+
+            <div style={{ padding: '24px 28px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div className="login-field">
+                  <label>RO Number</label>
+                  <input value={form.roNumber} onChange={e => setForm(f => ({ ...f, roNumber: e.target.value }))} required readOnly={!!editingId} style={editingId ? { opacity: 0.6 } : {}} />
+                </div>
+                <div className="login-field">
+                  <label>Status</label>
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {isTech
+                      ? ['Open', 'In Progress', 'Pending Parts'].map(s => <option key={s}>{s}</option>)
+                      : RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)
+                    }
+                    {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{form.status}</option>}
+                  </select>
+                </div>
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Customer</label>
+                  <select value={form.customerId} onChange={e => {
+                    const c = customers.find(c => c.id === e.target.value);
+                    const cvs = allVehicles.filter(v => v.customerId === e.target.value);
+                    const autoVehicle = cvs.length === 1 ? cvs[0].label : '';
+                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
+                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                    <option value="">— select customer —</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="login-field">
+                  <label>Customer Name</label>
+                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
+                </div>
+                <div className="login-field">
+                  <label>Vehicle</label>
+                  {(() => {
+                    const cvs = allVehicles.filter(v => v.customerId === form.customerId);
+                    return cvs.length > 0 ? (
+                      <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
+                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
+                        <option value="">— select vehicle —</option>
+                        {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
+                      </select>
+                    ) : (
+                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                    );
+                  })()}
+                </div>
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>
+                    Technician
+                    {form.technician && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11, marginLeft: 6 }}>({form.technician.split(',').filter(Boolean).length} selected)</span>}
+                  </label>
+                  {technicians.length > 0 ? (
+                    <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {technicians.map(t => {
+                        const isSel = form.technician.split(',').map(s => s.trim()).filter(Boolean).includes(t.name);
+                        return (
+                          <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: isSel ? 'rgba(204,0,0,0.08)' : 'transparent', border: isSel ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>
+                            <input type="checkbox" checked={isSel} onChange={() => {
+                              const cur = form.technician.split(',').map(s => s.trim()).filter(Boolean);
+                              const next = isSel ? cur.filter(n => n !== t.name) : [...cur, t.name];
+                              setForm(f => ({ ...f, technician: next.join(', ') }));
+                            }} style={{ accentColor: 'var(--accent)' }} />
+                            {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }} />
+                  )}
+                </div>
+                <div className="login-field">
+                  <label>Job Card ID</label>
+                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
+                </div>
+              </div>
+
+              {/* 3C Fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div className="login-field">
+                  <label>🔴 Concern (Customer Complaint)</label>
+                  <textarea value={form.concern} onChange={e => setForm(f => ({ ...f, concern: e.target.value }))} rows={4} placeholder="What the customer reports…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+                <div className="login-field">
+                  <label>🟡 Cause (Technician Finding)</label>
+                  <textarea value={form.cause} onChange={e => setForm(f => ({ ...f, cause: e.target.value }))} rows={4} placeholder="Root cause found…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+                <div className="login-field">
+                  <label>🟢 Correction (Work Performed)</label>
+                  <textarea value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} rows={4} placeholder="Work performed to correct…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              {/* Parts to Install */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Parts to Install</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      {['Description', 'Part #', 'Qty', 'Unit Cost', 'Total', ''].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '4px 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.formParts.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: '4px 6px' }}>
+                          <input value={p.description} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], description: e.target.value }; return { ...f, formParts: fp }; })} placeholder="Part name / description" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px' }}>
+                          <input value={p.partNumber} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], partNumber: e.target.value }; return { ...f, formParts: fp }; })} placeholder="SKU / Part #" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 70 }}>
+                          <input type="number" value={p.qty} min="1" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 110 }}>
+                          <input type="number" value={p.unitCost} min="0" step="0.01" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 90, fontWeight: 600, textAlign: 'right' }}>
+                          ${((Number(p.qty) || 0) * (Number(p.unitCost) || 0)).toFixed(2)}
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 36 }}>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, formParts: [...f.formParts, { ...EMPTY_PART }] }))} style={{ background: 'none', border: '1px dashed var(--line)', borderRadius: 7, padding: '5px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>+ Add Part</button>
+                  {form.formParts.some(p => p.description.trim()) && (
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      Parts subtotal: <strong>${form.formParts.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unitCost) || 0), 0).toFixed(2)}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div className="login-field">
+                  <label>Labor Hours</label>
+                  <input type="number" value={form.laborHours} onChange={e => setForm(f => ({ ...f, laborHours: Number(e.target.value) }))} min="0" step="0.5" />
+                </div>
+                <div className="login-field">
+                  <label>Labor Rate ($/hr)</label>
+                  <input type="number" value={form.laborRate} onChange={e => setForm(f => ({ ...f, laborRate: Number(e.target.value) }))} min="0" step="5" />
+                </div>
+                <div className="login-field">
+                  <label>Parts Total ($)</label>
+                  <input type="number" value={form.partsTotal} readOnly style={{ opacity: 0.6 }} />
+                </div>
+                <div className="login-field">
+                  <label>Currency</label>
+                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="login-field" style={{ marginBottom: 20 }}>
+                <label>Internal Notes</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Internal notes, parts ordered, warranty info…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+              </div>
+
+              {error && <p style={{ color: 'var(--danger)', marginBottom: 12, fontSize: 13 }}>{error}</p>}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 16 }}>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setError(''); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: 130 }}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create RO'}</button>
+              </div>
+            </div>
+          </form>
+        </div>
       )}
     </>
   );
