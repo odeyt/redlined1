@@ -11,6 +11,8 @@ import {
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
+import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
+import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import type { Customer } from '@/lib/types';
 
 /* ── Currency support ── */
@@ -311,6 +313,98 @@ export function PartsOrdersView() {
       const msg = (e as Record<string, unknown>)?.message as string || 'Save failed — please try again.';
       setFormError(msg);
     } finally { setSaving(false); }
+  }
+
+  async function handleCreateEstimate(o?: PartsOrder) {
+    const items = o
+      ? (o.lineItems?.length ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }])
+      : form.lineItems.filter(i => i.partName.trim());
+    if (!items.length) return;
+    const cur = o?.currency ?? form.currency;
+    const customer = o?.customerName ?? form.customerName;
+    const vehicle = o?.vehicle ?? form.vehicle;
+    try {
+      const estNum = await nextEstimateNumber();
+      const est = await createEstimate({
+        estimateNumber: estNum,
+        customerName: customer,
+        customerId: '',
+        vehicle,
+        jobCardId: o?.jobCardNumber ?? form.jobCardNumber,
+        status: 'Draft',
+        lines: items.map(i => ({ note: i.partNumber || '', description: i.partName, qty: i.quantity, rate: i.unitCost })),
+        discount: 0,
+        shopSupplies: 0,
+        taxRate: 0.08,
+        notes: '',
+        validUntil: '',
+        approvedDate: null,
+        currency: cur,
+      });
+      // Link estimate number back to the parts order
+      if (o) {
+        await updatePartsOrder(o.id, { ...o, estimateNumber: est.estimateNumber });
+        setOrders(prev => prev.map(x => x.id === o.id ? { ...x, estimateNumber: est.estimateNumber } : x));
+        if (selected?.id === o.id) setSelected(s => s ? { ...s, estimateNumber: est.estimateNumber } : s);
+      } else {
+        setF({ estimateNumber: est.estimateNumber });
+      }
+      notify(`✓ Estimate ${est.estimateNumber} created`);
+      setTimeout(() => {
+        setSelected(null); setShowForm(false);
+        dispatch({ type: 'SET_MODULE', module: 'estimates' });
+        setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: est.estimateNumber } })), 100);
+      }, 600);
+    } catch (e: unknown) {
+      notify('Failed to create estimate');
+      console.error(e);
+    }
+  }
+
+  async function handleCreateInvoice(o?: PartsOrder) {
+    const items = o
+      ? (o.lineItems?.length ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }])
+      : form.lineItems.filter(i => i.partName.trim());
+    if (!items.length) return;
+    const cur = o?.currency ?? form.currency;
+    const customer = o?.customerName ?? form.customerName;
+    const vehicle = o?.vehicle ?? form.vehicle;
+    try {
+      const invNum = await nextInvoiceNumber();
+      const inv = await createInvoice({
+        invoiceNumber: invNum,
+        customerName: customer,
+        customerId: '',
+        vehicle,
+        jobCardId: o?.jobCardNumber ?? form.jobCardNumber,
+        status: 'Draft',
+        lines: items.map(i => ({ note: i.partNumber || '', description: i.partName, qty: i.quantity, rate: i.unitCost })),
+        discount: 0,
+        shopSupplies: 0,
+        taxRate: 0.08,
+        notes: '',
+        dueDate: '',
+        paidDate: null,
+        currency: cur,
+      });
+      // Link invoice number back to the parts order
+      if (o) {
+        await updatePartsOrder(o.id, { ...o, invoiceNumber: inv.invoiceNumber });
+        setOrders(prev => prev.map(x => x.id === o.id ? { ...x, invoiceNumber: inv.invoiceNumber } : x));
+        if (selected?.id === o.id) setSelected(s => s ? { ...s, invoiceNumber: inv.invoiceNumber } : s);
+      } else {
+        setF({ invoiceNumber: inv.invoiceNumber });
+      }
+      notify(`✓ Invoice ${inv.invoiceNumber} created`);
+      setTimeout(() => {
+        setSelected(null); setShowForm(false);
+        dispatch({ type: 'SET_MODULE', module: 'invoices' });
+        setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: inv.invoiceNumber } })), 100);
+      }, 600);
+    } catch (e: unknown) {
+      notify('Failed to create invoice');
+      console.error(e);
+    }
   }
 
   async function handleDelete(id: string, name: string) {
@@ -730,10 +824,22 @@ export function PartsOrdersView() {
               )}
             </div>
 
-            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
-              <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
-              <button className="btn" onClick={() => setSelected(null)}>Close</button>
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => handleCreateEstimate(selected)}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  📋 Create Estimate
+                </button>
+                <button onClick={() => handleCreateInvoice(selected)}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  🧾 Create Invoice
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
+                <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
+                <button className="btn" onClick={() => setSelected(null)}>Close</button>
+              </div>
             </div>
           </div>
         </>
@@ -937,11 +1043,23 @@ export function PartsOrdersView() {
                 {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Any additional notes…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
               </div>
 
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {editingId ? 'Review & Update' : 'Review & Save'}
-                </button>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => handleCreateEstimate()}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    📋 Create Estimate
+                  </button>
+                  <button type="button" onClick={() => handleCreateInvoice()}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    🧾 Create Invoice
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {editingId ? 'Review & Update' : 'Review & Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
