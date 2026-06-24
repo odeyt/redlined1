@@ -197,7 +197,7 @@ export function JobCardsView() {
   const [fCustomer, setFCustomer] = useState('');
   const [fVehicle, setFVehicle] = useState('');
   const [fServiceTypes, setFServiceTypes] = useState<string[]>(['Oil Change']);
-  const [fSubTypes, setFSubTypes] = useState<Record<string, string>>({});
+  const [fSubTypes, setFSubTypes] = useState<Record<string, string[]>>({});
   const [fWorkType, setFWorkType] = useState('Mobile service');
   const [fPriority, setFPriority] = useState('Normal');
   const [serviceTypeOptions, setServiceTypeOptions] = useState<string[]>([
@@ -297,7 +297,7 @@ export function JobCardsView() {
     if (!suggested) { setOilSuggestion(''); return; }
     setOilSuggestion(suggested);
     const match = (subTypes['Oil Change'] ?? []).find(o => o.includes(suggested));
-    if (match) setFSubTypes(prev => ({ ...prev, 'Oil Change': match }));
+    if (match) setFSubTypes(prev => ({ ...prev, 'Oil Change': [match] }));
   }
 
   function handleCustomerChange(name: string) {
@@ -365,7 +365,7 @@ export function JobCardsView() {
     setError(''); setCreating(true);
     try {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
-      const fullServiceType = fServiceTypes.map(s => fSubTypes[s] ? `${s} — ${fSubTypes[s]}` : s).join(' + ');
+      const fullServiceType = fServiceTypes.map(s => fSubTypes[s]?.length ? `${s} — ${fSubTypes[s].join(', ')}` : s).join(' + ');
       const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fullServiceType || 'General Service', channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
       setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
@@ -638,21 +638,31 @@ export function JobCardsView() {
                 {fServiceTypes.length === 0 && <div style={{ fontSize: 12, color: 'var(--red,#cc0000)', marginTop: 4 }}>Select at least one service type</div>}
               </div>
               {enableJobCardSubType && fServiceTypes.filter(s => (serviceSubTypes[s] ?? []).length > 0).map(svc => (
-                <div key={svc} className="field">
+                <div key={svc} className="field" style={{ minWidth: '100%' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {svc} — Sub-Type
+                    {svc} — Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span>
                     {oilSuggestion && svc === 'Oil Change' && (
                       <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
                         ✓ Suggested from engine
                       </span>
                     )}
                   </label>
-                  <select value={fSubTypes[svc] ?? ''} onChange={e => { setFSubTypes(prev => ({ ...prev, [svc]: e.target.value })); if (svc === 'Oil Change') setOilSuggestion(''); }}>
-                    <option value="">— select sub-type —</option>
-                    {(serviceSubTypes[svc] ?? []).map(s => (
-                      <option key={s} value={s}>{s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ← recommended' : ''}</option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {(serviceSubTypes[svc] ?? []).map(s => {
+                      const checked = (fSubTypes[svc] ?? []).includes(s);
+                      return (
+                        <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '5px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`, background: checked ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', userSelect: 'none' }}>
+                          <input type="checkbox" checked={checked} onChange={() => {
+                            const cur = fSubTypes[svc] ?? [];
+                            const next = checked ? cur.filter(x => x !== s) : [...cur, s];
+                            setFSubTypes(prev => ({ ...prev, [svc]: next }));
+                            if (svc === 'Oil Change') setOilSuggestion('');
+                          }} style={{ accentColor: 'var(--accent)' }} />
+                          {s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ✓' : ''}
+                        </label>
+                      );
+                    })}
+                  </div>
                   {selectedVehicleEngine && svc === 'Oil Change' && (
                     <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>Engine: {selectedVehicleEngine}</div>
                   )}
@@ -802,21 +812,31 @@ export function JobCardsView() {
                 {fServiceTypes.length === 0 && <div style={{ fontSize: 12, color: 'var(--red,#cc0000)', marginTop: 4 }}>Select at least one service type</div>}
               </div>
               {enableJobCardSubType && fServiceTypes.filter(s => (serviceSubTypes[s] ?? []).length > 0).map(svc => (
-                <div key={svc} className="field">
+                <div key={svc} className="field" style={{ minWidth: '100%' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {svc} — Sub-Type
+                    {svc} — Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span>
                     {oilSuggestion && svc === 'Oil Change' && (
                       <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
                         ✓ Suggested from engine
                       </span>
                     )}
                   </label>
-                  <select value={fSubTypes[svc] ?? ''} onChange={e => { setFSubTypes(prev => ({ ...prev, [svc]: e.target.value })); if (svc === 'Oil Change') setOilSuggestion(''); }}>
-                    <option value="">— select sub-type —</option>
-                    {(serviceSubTypes[svc] ?? []).map(s => (
-                      <option key={s} value={s}>{s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ← recommended' : ''}</option>
-                    ))}
-                  </select>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {(serviceSubTypes[svc] ?? []).map(s => {
+                      const checked = (fSubTypes[svc] ?? []).includes(s);
+                      return (
+                        <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '5px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`, background: checked ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', userSelect: 'none' }}>
+                          <input type="checkbox" checked={checked} onChange={() => {
+                            const cur = fSubTypes[svc] ?? [];
+                            const next = checked ? cur.filter(x => x !== s) : [...cur, s];
+                            setFSubTypes(prev => ({ ...prev, [svc]: next }));
+                            if (svc === 'Oil Change') setOilSuggestion('');
+                          }} style={{ accentColor: 'var(--accent)' }} />
+                          {s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ✓' : ''}
+                        </label>
+                      );
+                    })}
+                  </div>
                   {selectedVehicleEngine && svc === 'Oil Change' && (
                     <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>Engine: {selectedVehicleEngine}</div>
                   )}
