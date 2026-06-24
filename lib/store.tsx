@@ -211,7 +211,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           ['Parts and materials', 1, refreshedJob.partsTotal],
           [refreshedJob.channel.includes('Mobile') ? 'Mobile service call' : 'Shop supplies', 1, refreshedJob.channel.includes('Mobile') ? 65 : 18],
         ],
-        discount: 0, shopSupplies: 12, taxRate: 0.0825,
+        discount: 0, shopSupplies: 12, taxRate: 0,
       };
       const jobCards = s.jobCards.map(j => {
         if (j.id !== action.jobId) return j;

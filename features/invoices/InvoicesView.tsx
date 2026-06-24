@@ -36,7 +36,7 @@ const EMPTY_FORM = {
   lines: [{ ...EMPTY_LINE }] as InvoiceLine[],
   discount: 0,
   shopSupplies: 0,
-  taxRate: 0.08,
+  taxRate: 0,
   notes: '',
   dueDate: '',
   paidDate: null as string | null,

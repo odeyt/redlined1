@@ -1652,7 +1652,7 @@ export function VehiclesView() {
                 jobCardId: '',
                 status: 'Draft',
                 lines: [{ note: '', description: `Service — ${v.label}`, qty: 1, rate: 0 }],
-                discount: 0, shopSupplies: 0, taxRate: 0.08,
+                discount: 0, shopSupplies: 0, taxRate: 0,
                 notes: `Vehicle: ${v.label}${v.issues ? `\nIssues: ${v.issues}` : ''}`,
                 dueDate: '', paidDate: null, currency: 'USD',
               });

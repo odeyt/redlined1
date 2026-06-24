@@ -528,7 +528,7 @@ export function RepairOrdersView() {
         ],
         discount: 0,
         shopSupplies: 0,
-        taxRate: (shopSettings?.defaultTaxRate ?? 0.08),
+        taxRate: (shopSettings?.defaultTaxRate ?? 0),
         notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(),
         dueDate: '',
         paidDate: null,
