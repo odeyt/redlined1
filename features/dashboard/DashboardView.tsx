@@ -305,7 +305,19 @@ export function DashboardView() {
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
           </div>
           <div style={{ fontSize: 26, fontWeight: 800, color: s.openROs > 0 ? '#ff9800' : 'var(--text)', marginTop: 4 }}>{s.openROs}</div>
-          <div style={{ fontSize: 12, color: s.pendingROs > 0 ? '#f59e0b' : 'var(--muted)', marginTop: 4 }}>{s.pendingROs > 0 ? `⚠ ${s.pendingROs} pending action` : 'No pending'}</div>
+          {s.pendingROs > 0 ? (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                nav('repair-orders');
+                setTimeout(() => window.dispatchEvent(new CustomEvent('filter-ro-status', { detail: { status: 'Pending' } })), 80);
+              }}
+              style={{ fontSize: 12, color: '#f59e0b', fontWeight: 700, background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginTop: 4, display: 'block', textAlign: 'left' }}>
+              ⚠ {s.pendingROs} pending action →
+            </button>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>No pending</div>
+          )}
         </div>
         <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('estimates')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

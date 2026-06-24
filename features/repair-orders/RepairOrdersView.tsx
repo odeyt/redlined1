@@ -345,6 +345,16 @@ export function RepairOrdersView() {
     return () => window.removeEventListener('open-ro', handleOpenRO);
   }, []);
 
+  // Deep-link: set status filter (e.g. from dashboard "pending action" click)
+  useEffect(() => {
+    function handleFilterStatus(e: Event) {
+      const { status } = (e as CustomEvent).detail ?? {};
+      if (status) setFilterStatus(status);
+    }
+    window.addEventListener('filter-ro-status', handleFilterStatus);
+    return () => window.removeEventListener('filter-ro-status', handleFilterStatus);
+  }, []);
+
   // Open new form pre-filled when navigated from Job Card → Repair Order
   useEffect(() => {
     if (!prefill?.customerName) return;
@@ -539,7 +549,9 @@ export function RepairOrdersView() {
   }
 
   const filtered = orders.filter(ro => {
-    const matchStatus = filterStatus === 'All' || ro.status === filterStatus;
+    const matchStatus = filterStatus === 'All'
+      || (filterStatus === 'Pending' && (ro.status === 'Pending Approval' || ro.status === 'Pending Parts'))
+      || ro.status === filterStatus;
     const matchSearch = !search || [ro.roNumber, ro.customerName, ro.vehicle, ro.technician]
       .some(v => v.toLowerCase().includes(search.toLowerCase()));
     return matchStatus && matchSearch;
