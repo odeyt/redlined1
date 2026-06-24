@@ -15,6 +15,7 @@ import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { getTechColor as _getTechColor } from '@/lib/techColors';
+import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -627,7 +628,7 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -638,6 +639,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   onPhotos: () => void;
   onJobCard: () => void;
   onReturnJob: () => void;
+  onCreateInvoice: () => void;
   onSwitchVehicle: (v: VehicleRecord) => void;
   onGoToCustomer: (customerId: string) => void;
   onCustomerCreated: (c: Customer) => void;
@@ -920,6 +922,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
           <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>＋ Job Card</button>
           <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
+          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
           <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
         </div>
@@ -1634,6 +1637,29 @@ export function VehiclesView() {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
             setDrawerVehicle(null);
+          }}
+          onCreateInvoice={async () => {
+            const v = drawerVehicle;
+            const owner = customers.find(c => c.id === v.customerId);
+            try {
+              const invNum = await nextInvoiceNumber();
+              const inv = await createInvoice({
+                invoiceNumber: invNum,
+                customerName: owner?.name ?? '',
+                customerId: owner?.id ?? '',
+                vehicle: v.label,
+                jobCardId: '',
+                status: 'Draft',
+                lines: [{ note: '', description: `Service — ${v.label}`, qty: 1, rate: 0 }],
+                discount: 0, shopSupplies: 0, taxRate: 0.08,
+                notes: `Vehicle: ${v.label}${v.issues ? `\nIssues: ${v.issues}` : ''}`,
+                dueDate: '', paidDate: null, currency: 'USD',
+              });
+              setDrawerVehicle(null);
+              notify(`✓ Invoice ${inv.invoiceNumber} created`);
+              dispatch({ type: 'SET_MODULE', module: 'invoices' });
+              setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: inv.invoiceNumber } })), 100);
+            } catch { notify('Failed to create invoice'); }
           }}
           onGoToCustomer={(customerId) => {
             setDrawerVehicle(null);
