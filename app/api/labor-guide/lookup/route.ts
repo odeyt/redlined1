@@ -21,12 +21,15 @@ export async function POST(req: NextRequest) {
 
   const { serviceType, vehicle, shopId: clientShopId } = await req.json();
 
-  // Verify the authenticated user is actually a member of the requested shop
-  const { data: memberships } = await admin
-    .from('shop_users').select('role, shop_id').eq('user_id', user.id).eq('shop_id', clientShopId);
-  if (!memberships?.length) return NextResponse.json({ error: 'Not a member of this shop' }, { status: 403 });
+  // Use the user client (session-scoped, respects RLS) to verify membership —
+  // matches exactly what useShop does on the client, avoiding any user.id mismatch
+  const { data: memberships } = await userClient
+    .from('shop_users').select('role, shop_id').eq('user_id', user.id);
+  if (!memberships?.length) return NextResponse.json({ error: 'Not a member of any shop' }, { status: 403 });
 
-  const shopId = clientShopId as string;
+  // Use the requested shopId if the user belongs to it, otherwise fall back to first shop
+  const match = memberships.find((m: Record<string, unknown>) => m.shop_id === clientShopId);
+  const shopId = (match?.shop_id ?? memberships[0].shop_id) as string;
   const slug = slugifyJob(serviceType ?? '');
   const { year, make } = parseVehicle(vehicle ?? '');
 
