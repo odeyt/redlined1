@@ -10,6 +10,7 @@ import {
 } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
 import type { Vehicle } from '@/lib/types';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { CURRENCIES, formatMoney } from '@/services/invoiceService';
@@ -35,7 +36,7 @@ const EMPTY_FORM = {
   lines: [{ ...EMPTY_LINE }] as FormLine[],
   discount: 0,
   shopSupplies: 0,
-  taxRate: 0.08,
+  taxRate: 0,
   notes: '',
   validUntil: '',
   approvedDate: null as string | null,
@@ -60,8 +61,12 @@ export function EstimatesView() {
   const [custOpen, setCustOpen] = useState(false);
   const [vehQuery, setVehQuery] = useState('');
   const [vehOpen, setVehOpen] = useState(false);
+  const [allJobCards, setAllJobCards] = useState<JobCardFull[]>([]);
+  const [jcQuery, setJcQuery] = useState('');
+  const [jcOpen, setJcOpen] = useState(false);
   const custRef = useRef<HTMLDivElement>(null);
   const vehRef = useRef<HTMLDivElement>(null);
+  const jcRef = useRef<HTMLDivElement>(null);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -71,11 +76,13 @@ export function EstimatesView() {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchVehicles().then(vs => setAllVehicles(vs as (Vehicle & { id: string })[])).catch(() => {});
+    fetchJobCards().then(setAllJobCards).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
 
     function handleClick(e: MouseEvent) {
       if (custRef.current && !custRef.current.contains(e.target as Node)) setCustOpen(false);
       if (vehRef.current && !vehRef.current.contains(e.target as Node)) setVehOpen(false);
+      if (jcRef.current && !jcRef.current.contains(e.target as Node)) setJcOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -126,6 +133,7 @@ export function EstimatesView() {
     setEditingId(null);
     setCustQuery('');
     setVehQuery('');
+    setJcQuery('');
     setShowForm(true);
     setSelected(null);
   }
@@ -150,6 +158,7 @@ export function EstimatesView() {
     setEditingId(est.id);
     setCustQuery(est.customerName);
     setVehQuery(est.vehicle);
+    setJcQuery(est.jobCardId);
     setShowForm(true);
   }
 
@@ -438,9 +447,59 @@ export function EstimatesView() {
                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.symbol})</option>)}
                   </select>
                 </div>
-                <div className="login-field">
+                {/* Job Card autocomplete */}
+                <div className="login-field" style={{ position: 'relative' }} ref={jcRef}>
                   <label>Job Card ID (optional)</label>
-                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
+                  <input
+                    value={jcQuery}
+                    onChange={e => {
+                      setJcQuery(e.target.value);
+                      setForm(f => ({ ...f, jobCardId: e.target.value }));
+                      setJcOpen(true);
+                    }}
+                    onFocus={() => setJcOpen(true)}
+                    placeholder="Search JC number or customer…"
+                    autoComplete="off"
+                    style={{ border: `1px solid ${jcOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {jcOpen && jcQuery.length > 0 && (() => {
+                    const q = jcQuery.toLowerCase();
+                    const matches = allJobCards.filter(jc =>
+                      jc.id.toLowerCase().includes(q) ||
+                      jc.customer.toLowerCase().includes(q) ||
+                      (jc.vehicle ?? '').toLowerCase().includes(q)
+                    ).slice(0, 8);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(jc => (
+                          <div key={jc.id}
+                            onMouseDown={() => {
+                              setForm(f => ({
+                                ...f,
+                                jobCardId: jc.id,
+                                customerName: f.customerName || jc.customer,
+                                customerId: f.customerId || '',
+                                vehicle: f.vehicle || jc.vehicle || '',
+                              }));
+                              setJcQuery(jc.id);
+                              if (!form.customerName) setCustQuery(jc.customer);
+                              if (!form.vehicle) setVehQuery(jc.vehicle || '');
+                              setJcOpen(false);
+                            }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div style={{ fontWeight: 600 }}>{jc.id}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                              {jc.customer}{jc.vehicle ? ` · ${jc.vehicle}` : ''} · <span style={{ color: '#888' }}>{jc.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
