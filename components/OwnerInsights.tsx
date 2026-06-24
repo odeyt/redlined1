@@ -45,7 +45,7 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
       const res = await fetch('/api/labor-guide/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceType, vehicle }),
+        body: JSON.stringify({ serviceType, vehicle, shopId }),
       });
 
       const json = await res.json();

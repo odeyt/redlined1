@@ -19,12 +19,14 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: memberships } = await admin
-    .from('shop_users').select('role, shop_id').eq('user_id', user.id).eq('role', 'owner');
-  if (!memberships?.length) return NextResponse.json({ error: 'Owner required' }, { status: 403 });
+  const { serviceType, vehicle, shopId: clientShopId } = await req.json();
 
-  const shopId = memberships[0].shop_id as string;
-  const { serviceType, vehicle } = await req.json();
+  // Verify the authenticated user is actually a member of the requested shop
+  const { data: memberships } = await admin
+    .from('shop_users').select('role, shop_id').eq('user_id', user.id).eq('shop_id', clientShopId);
+  if (!memberships?.length) return NextResponse.json({ error: 'Not a member of this shop' }, { status: 403 });
+
+  const shopId = clientShopId as string;
   const slug = slugifyJob(serviceType ?? '');
   const { year, make } = parseVehicle(vehicle ?? '');
 
