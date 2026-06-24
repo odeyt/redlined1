@@ -1203,9 +1203,48 @@ export function RepairOrdersView() {
                 </div>
               </div>
 
-              {/* Parts to Install */}
+              {/* Parts to Install — currency picker sits here so it's clear it affects all amounts */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Parts to Install</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parts to Install</div>
+                  {/* Currency picker inline */}
+                  <div style={{ position: 'relative', width: 220 }}>
+                    <input
+                      value={currencyOpen ? currencyQuery : (() => { const c = CURRENCIES.find(c => c.code === form.currency); return c ? `${c.code} — ${c.symbol} ${c.name}` : form.currency; })()}
+                      onChange={e => { setCurrencyQuery(e.target.value); setCurrencyOpen(true); }}
+                      onFocus={() => { setCurrencyQuery(''); setCurrencyOpen(true); }}
+                      onBlur={() => setTimeout(() => setCurrencyOpen(false), 150)}
+                      placeholder="Currency…"
+                      style={{ border: '1px solid var(--line)', borderRadius: 7, padding: '5px 10px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box', fontSize: 13 }}
+                      autoComplete="off"
+                    />
+                    {currencyOpen && (() => {
+                      const q = currencyQuery.toLowerCase();
+                      const matches = CURRENCIES.filter(c =>
+                        c.code.toLowerCase().includes(q) ||
+                        c.name.toLowerCase().includes(q) ||
+                        c.symbol.toLowerCase().includes(q)
+                      );
+                      return matches.length > 0 ? (
+                        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2, minWidth: 260 }}>
+                          {matches.map(c => (
+                            <div
+                              key={c.code}
+                              onMouseDown={() => { setForm(f => ({ ...f, currency: c.code })); setCurrencyQuery(''); setCurrencyOpen(false); }}
+                              style={{ padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, background: form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent')}
+                            >
+                              <span style={{ fontWeight: 700, minWidth: 44, color: 'var(--accent)' }}>{c.code}</span>
+                              <span style={{ color: 'var(--muted)', fontSize: 12, flex: 1 }}>{c.name}</span>
+                              <span style={{ fontWeight: 600, fontSize: 15 }}>{c.symbol}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--line)' }}>
@@ -1226,11 +1265,11 @@ export function RepairOrdersView() {
                         <td style={{ padding: '4px 6px', width: 70 }}>
                           <input type="number" value={p.qty} min="1" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
-                        <td style={{ padding: '4px 6px', width: 110 }}>
+                        <td style={{ padding: '4px 6px', width: 120 }}>
                           <input type="number" value={p.unitCost} min="0" step="0.01" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
-                        <td style={{ padding: '4px 6px', width: 90, fontWeight: 600, textAlign: 'right' }}>
-                          ${((Number(p.qty) || 0) * (Number(p.unitCost) || 0)).toFixed(2)}
+                        <td style={{ padding: '4px 6px', width: 110, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {formatMoney((Number(p.qty) || 0) * (Number(p.unitCost) || 0), form.currency)}
                         </td>
                         <td style={{ padding: '4px 6px', width: 36 }}>
                           <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
@@ -1243,61 +1282,24 @@ export function RepairOrdersView() {
                   <button type="button" onClick={() => setForm(f => ({ ...f, formParts: [...f.formParts, { ...EMPTY_PART }] }))} style={{ background: 'none', border: '1px dashed var(--line)', borderRadius: 7, padding: '5px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>+ Add Part</button>
                   {form.formParts.some(p => p.description.trim()) && (
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-                      Parts subtotal: <strong>${form.formParts.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unitCost) || 0), 0).toFixed(2)}</strong>
+                      Parts subtotal: <strong>{formatMoney(form.formParts.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unitCost) || 0), 0), form.currency)}</strong>
                     </span>
                   )}
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div className="login-field">
                   <label>Labor Hours</label>
                   <input type="number" value={form.laborHours} onChange={e => setForm(f => ({ ...f, laborHours: Number(e.target.value) }))} min="0" step="0.5" />
                 </div>
                 <div className="login-field">
-                  <label>Labor Rate ($/hr)</label>
+                  <label>Labor Rate ({CURRENCIES.find(c => c.code === form.currency)?.symbol ?? form.currency}/hr)</label>
                   <input type="number" value={form.laborRate} onChange={e => setForm(f => ({ ...f, laborRate: Number(e.target.value) }))} min="0" step="5" />
                 </div>
                 <div className="login-field">
-                  <label>Parts Total ($)</label>
+                  <label>Parts Total ({form.currency})</label>
                   <input type="number" value={form.partsTotal} readOnly style={{ opacity: 0.6 }} />
-                </div>
-                <div className="login-field" style={{ position: 'relative' }}>
-                  <label>Currency</label>
-                  <input
-                    value={currencyOpen ? currencyQuery : (() => { const c = CURRENCIES.find(c => c.code === form.currency); return c ? `${c.code} — ${c.name} ${c.symbol}` : form.currency; })()}
-                    onChange={e => { setCurrencyQuery(e.target.value); setCurrencyOpen(true); }}
-                    onFocus={() => { setCurrencyQuery(''); setCurrencyOpen(true); }}
-                    onBlur={() => setTimeout(() => setCurrencyOpen(false), 150)}
-                    placeholder="Type to search currency…"
-                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
-                    autoComplete="off"
-                  />
-                  {currencyOpen && (() => {
-                    const q = currencyQuery.toLowerCase();
-                    const matches = CURRENCIES.filter(c =>
-                      c.code.toLowerCase().includes(q) ||
-                      c.name.toLowerCase().includes(q) ||
-                      c.symbol.toLowerCase().includes(q)
-                    );
-                    return matches.length > 0 ? (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-                        {matches.map(c => (
-                          <div
-                            key={c.code}
-                            onMouseDown={() => { setForm(f => ({ ...f, currency: c.code })); setCurrencyQuery(''); setCurrencyOpen(false); }}
-                            style={{ padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, background: form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent')}
-                          >
-                            <span style={{ fontWeight: 700, minWidth: 44, color: 'var(--accent)' }}>{c.code}</span>
-                            <span style={{ color: 'var(--muted)', fontSize: 12, flex: 1 }}>{c.name}</span>
-                            <span style={{ fontWeight: 600, fontSize: 15 }}>{c.symbol}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
               </div>
 
