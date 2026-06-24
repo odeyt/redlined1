@@ -485,9 +485,19 @@ export function PartsOrdersView() {
   /* stats */
   const totalOrdered  = orders.filter(o => ['Pending','Ordered','Deposit Paid','Waiting Customer','Backordered'].includes(o.status)).length;
   const totalReceived = orders.filter(o => o.status === 'Received').length;
-  const totalOwed     = orders.reduce((s, o) => s + o.balanceDue, 0);
-  const totalDeposits = orders.reduce((s, o) => s + o.depositPaid, 0);
   const uniqueVendorNames = [...new Set(orders.map(o => o.vendorName).filter(Boolean))];
+
+  // Group balance due and deposits by currency
+  const balanceByCurrency = orders.reduce<Record<string, number>>((acc, o) => {
+    const cur = o.currency || 'USD';
+    acc[cur] = (acc[cur] || 0) + o.balanceDue;
+    return acc;
+  }, {});
+  const depositsByCurrency = orders.reduce<Record<string, number>>((acc, o) => {
+    const cur = o.currency || 'USD';
+    acc[cur] = (acc[cur] || 0) + o.depositPaid;
+    return acc;
+  }, {});
 
   function navigateToLinkedRecord(module: string, eventName: string, detail: Record<string, string>) {
     setSelected(null);
@@ -566,18 +576,66 @@ export function PartsOrdersView() {
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-        {[
-          { label: 'On Order',      value: totalOrdered,           color: '#3b82f6', sub: 'pending / ordered / waiting' },
-          { label: 'Received',      value: totalReceived,          color: '#22c55e', sub: 'this shop' },
-          { label: 'Balance Due',   value: fmt(totalOwed, 'USD'),  color: '#ef4444', sub: 'outstanding to vendors' },
-          { label: 'Deposits Paid', value: fmt(totalDeposits,'USD'), color: '#8b5cf6', sub: 'across all orders' },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>{label}</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color }}>{value}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{sub}</div>
-          </div>
-        ))}
+        {/* On Order */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>On Order</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: '#3b82f6' }}>{totalOrdered}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>pending / ordered / waiting</div>
+        </div>
+        {/* Received */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Received</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: '#22c55e' }}>{totalReceived}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>this shop</div>
+        </div>
+        {/* Balance Due — multi-currency */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Balance Due</div>
+          {Object.entries(balanceByCurrency).filter(([, v]) => v > 0).length === 0 ? (
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#22c55e' }}>$0.00</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {Object.entries(balanceByCurrency)
+                .filter(([, v]) => v > 0)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([cur, amt]) => (
+                  <div key={cur} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: Object.keys(balanceByCurrency).filter(k => balanceByCurrency[k] > 0).length === 1 ? 22 : 16, fontWeight: 900, color: '#ef4444' }}>
+                      {fmt(amt, cur)}
+                    </span>
+                    {Object.keys(balanceByCurrency).filter(k => balanceByCurrency[k] > 0).length > 1 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>{cur}</span>
+                    )}
+                  </div>
+                ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>outstanding to vendors</div>
+        </div>
+        {/* Deposits Paid — multi-currency */}
+        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Deposits Paid</div>
+          {Object.entries(depositsByCurrency).filter(([, v]) => v > 0).length === 0 ? (
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {Object.entries(depositsByCurrency)
+                .filter(([, v]) => v > 0)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([cur, amt]) => (
+                  <div key={cur} style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: Object.keys(depositsByCurrency).filter(k => depositsByCurrency[k] > 0).length === 1 ? 22 : 16, fontWeight: 900, color: '#8b5cf6' }}>
+                      {fmt(amt, cur)}
+                    </span>
+                    {Object.keys(depositsByCurrency).filter(k => depositsByCurrency[k] > 0).length > 1 && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)' }}>{cur}</span>
+                    )}
+                  </div>
+                ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>across all orders</div>
+        </div>
       </div>
 
       {/* Toolbar */}
