@@ -513,7 +513,7 @@ export function PartsOrdersView() {
               <table>
                 <thead>
                   <tr>
-                    <th>Parts</th><th>Vendor</th><th>Customer / Vehicle</th>
+                    <th>Customer / Vehicle</th><th>Parts</th><th>Vendor</th>
                     <th>Total Cost</th><th>Deposit</th><th>Balance</th>
                     <th>Status</th><th>Payment</th><th>ETR</th><th>Actions</th>
                   </tr>
@@ -526,6 +526,10 @@ export function PartsOrdersView() {
                     return (
                       <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(o)}>
                         <td>
+                          {o.customerName && <div style={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</div>}
+                          {o.vehicle && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vehicle}</div>}
+                        </td>
+                        <td>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{firstItem.partName}</div>
                           {firstItem.partNumber && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.partNumber}</div>}
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} · qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
@@ -536,10 +540,6 @@ export function PartsOrdersView() {
                         <td>
                           <div style={{ fontSize: 13 }}>{o.vendorName || '—'}</div>
                           {o.vendorPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vendorPhone}</div>}
-                        </td>
-                        <td>
-                          {o.customerName && <div style={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</div>}
-                          {o.vehicle && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vehicle}</div>}
                         </td>
                         <td>{fmt(o.totalCost, oc)}</td>
                         <td style={{ color: o.depositPaid > 0 ? '#8b5cf6' : 'var(--muted)' }}>{fmt(o.depositPaid, oc)}</td>
