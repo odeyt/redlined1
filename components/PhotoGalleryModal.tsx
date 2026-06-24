@@ -33,6 +33,7 @@ export function PhotoGalleryModal({
   const [orderChanged, setOrderChanged] = useState(false);
   const [thumbDragFrom, setThumbDragFrom] = useState<number | null>(null);
   const [thumbDragOver, setThumbDragOver] = useState<number | null>(null);
+  const [dropHover, setDropHover]         = useState(false);
 
   const fileRef     = useRef<HTMLInputElement>(null);
   const cameraRef   = useRef<HTMLInputElement>(null);
@@ -208,11 +209,39 @@ export function PhotoGalleryModal({
   }
 
   const current = images[activeIdx];
+  function onDropZoneDragOver(e: React.DragEvent) {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    setDropHover(true);
+  }
+  function onDropZoneDragLeave(e: React.DragEvent) {
+    // only clear when leaving the modal container itself
+    if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) return;
+    setDropHover(false);
+  }
+  function onDropZoneDrop(e: React.DragEvent) {
+    e.preventDefault(); setDropHover(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) uploadFiles(files);
+  }
+
   const btn: React.CSSProperties = { padding: '10px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--muted)' };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 820, maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div
+        style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 820, maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}
+        onDragOver={onDropZoneDragOver}
+        onDragLeave={onDropZoneDragLeave}
+        onDrop={onDropZoneDrop}
+      >
+        {/* Full-modal drop overlay */}
+        {dropHover && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(34,197,94,0.15)', border: '3px dashed #22c55e', borderRadius: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, pointerEvents: 'none' }}>
+            <div style={{ fontSize: 52 }}>🖼️</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>Drop images here to upload</div>
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
@@ -317,11 +346,12 @@ export function PhotoGalleryModal({
             </div>
           )}
 
-          {/* Empty state */}
+          {/* Empty state / drop zone hint */}
           {camMode === 'off' && !loading && images.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--muted)', fontSize: 13 }}>
+            <div style={{ textAlign: 'center', padding: '32px 20px', color: 'var(--muted)', fontSize: 13, border: '2px dashed var(--line)', borderRadius: 12 }}>
               <div style={{ fontSize: 40, marginBottom: 10 }}>📷</div>
-              No photos yet. Use the buttons below to add photos.
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>No photos yet</div>
+              <div>Drag &amp; drop images here, or use the buttons below</div>
             </div>
           )}
 
