@@ -74,6 +74,10 @@ const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 
 const today = new Date().toISOString().slice(0, 10);
 const EMPTY_FORM = { date: today, time: '', customer: '', vehicle: '', service: '', bay: '', technician: '', reminder: 'Confirmed' };
 
+function parseTechs(val: string): string[] {
+  return val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+}
+
 const overlay: React.CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -406,11 +410,28 @@ export function AppointmentsView() {
               )}
 
               <div className="login-field">
-                <label>Technician</label>
-                <select value={form.technician} onChange={e => set('technician', e.target.value)}>
-                  <option value="">— Assign technician —</option>
-                  {technicians.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
+                <label>Technician{parseTechs(form.technician).length > 0 && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11, marginLeft: 6 }}>({parseTechs(form.technician).length} selected)</span>}</label>
+                <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {technicians.length === 0 && <span style={{ fontSize: 13, color: 'var(--muted)' }}>No technicians added yet</span>}
+                  {technicians.map(t => {
+                    const selected = parseTechs(form.technician).includes(t.name);
+                    return (
+                      <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: selected ? 'rgba(204,0,0,0.08)' : 'transparent', border: selected ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => {
+                            const current = parseTechs(form.technician);
+                            const next = selected ? current.filter(n => n !== t.name) : [...current, t.name];
+                            setForm(f => ({ ...f, technician: next.join(', ') }));
+                          }}
+                          style={{ accentColor: 'var(--accent)' }}
+                        />
+                        {t.name}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="login-field">
