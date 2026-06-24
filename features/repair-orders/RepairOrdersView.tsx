@@ -1263,10 +1263,17 @@ export function RepairOrdersView() {
                           <input value={p.partNumber} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], partNumber: e.target.value }; return { ...f, formParts: fp }; })} placeholder="SKU / Part #" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
                         <td style={{ padding: '4px 6px', width: 70 }}>
-                          <input type="number" value={p.qty} min="1" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                          <input type="number" value={p.qty} min="1"
+                            onFocus={e => e.target.select()}
+                            onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })}
+                            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
-                        <td style={{ padding: '4px 6px', width: 120 }}>
-                          <input type="number" value={p.unitCost} min="0" step="0.01" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        <td style={{ padding: '4px 6px', width: 130 }}>
+                          <input type="text" inputMode="decimal" value={p.unitCost}
+                            onFocus={e => e.target.select()}
+                            onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: v }; return { ...f, formParts: fp }; }); }}
+                            placeholder="0"
+                            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
                         <td style={{ padding: '4px 6px', width: 110, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {formatMoney((Number(p.qty) || 0) * (Number(p.unitCost) || 0), form.currency)}
