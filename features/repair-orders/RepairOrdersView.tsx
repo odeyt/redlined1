@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
+import { TechPills } from '@/components/TechPill';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
   closeRepairOrder, deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
@@ -639,7 +640,7 @@ export function RepairOrdersView() {
               <div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>⚡ Most Recent</span>
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{orders[0].roNumber} — {orders[0].customerName}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{orders[0].vehicle} · {orders[0].technician || 'Unassigned'}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>{orders[0].vehicle} · <TechPills value={orders[0].technician} /></div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 {!isTech && <div style={{ fontWeight: 700 }}>{formatMoney(calcROTotal(orders[0]), orders[0].currency)}</div>}
@@ -679,7 +680,7 @@ export function RepairOrdersView() {
                       <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[ro.status] || '#888', textTransform: 'uppercase' }}>{ro.status}</span>
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{ro.customerName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ro.vehicle} {ro.technician ? `· ${ro.technician}` : ''}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{ro.vehicle} {ro.technician ? <><span>·</span><TechPills value={ro.technician} /></> : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {!isTech && <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoney(calcROTotal(ro), ro.currency)}</div>}
@@ -835,8 +836,8 @@ export function RepairOrdersView() {
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Technician</div>
-                  <div style={{ fontWeight: 600 }}>{selected.technician || '—'}</div>
-                  {selected.jobCardId && <div style={{ fontSize: 11, color: 'var(--muted)' }}>JC: {selected.jobCardId}</div>}
+                  <TechPills value={selected.technician} gap={4} />
+                  {selected.jobCardId && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>JC: {selected.jobCardId}</div>}
                 </div>
               </div>
 

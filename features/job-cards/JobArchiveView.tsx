@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
+import { TechPill } from '@/components/TechPill';
 import { Panel } from '@/components/Panel';
 import { useAppDispatch } from '@/lib/store';
 
@@ -262,11 +263,7 @@ export function JobArchiveView() {
                         <td style={{ padding: '11px 10px', color: 'var(--muted)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.vehicle}</td>
                         <td style={{ padding: '11px 10px', maxWidth: 130 }}>
                           {j.technicians.length > 0
-                            ? j.technicians.map((t, i) => (
-                                <span key={i} style={{ display: 'inline-flex', background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 7px', fontSize: 11, fontWeight: 700, marginRight: 3 }}>
-                                  {t.length > 10 ? t.slice(0, 9) + '…' : t}
-                                </span>
-                              ))
+                            ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>{j.technicians.map(t => <TechPill key={t} name={t} />)}</div>
                             : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>
                           }
                         </td>

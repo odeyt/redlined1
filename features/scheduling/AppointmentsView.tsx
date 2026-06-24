@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
+import { TechPills } from '@/components/TechPill';
 import { Badge } from '@/components/Badge';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchTechnicians } from '@/services/technicianService';
@@ -297,7 +298,7 @@ export function AppointmentsView() {
                     <td>{a[2]}</td>
                     <td>{a[3]}</td>
                     <td><Badge text={a[4]} /></td>
-                    <td>{a[7] ? <span style={{ background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>{a[7]}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}</td>
+                    <td><TechPills value={a[7] ?? ''} /></td>
                     {enableAppointmentBay && <td style={{ color: 'var(--muted)', fontSize: 12 }}>{a[5] || '—'}</td>}
                     <td><Badge text={a[6]} /></td>
                     <td>

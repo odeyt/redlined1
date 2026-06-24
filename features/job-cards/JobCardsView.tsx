@@ -5,6 +5,7 @@ import { useAppState, useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
+import { TechPill, TechPills } from '@/components/TechPill';
 import { Workflow } from '@/components/Workflow';
 import { Icon } from '@/components/Icon';
 import { StatCard } from '@/components/StatCard';
@@ -571,7 +572,7 @@ export function JobCardsView() {
                         </td>
                         <td>
                           {job.technicians.length > 0
-                            ? job.technicians.map((t, i) => <div key={i} style={{ fontSize: 12 }}>{t}</div>)
+                            ? <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>{job.technicians.map(t => <TechPill key={t} name={t} />)}</div>
                             : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}
                         </td>
                         <td>
@@ -741,7 +742,7 @@ export function JobCardsView() {
                     <td><strong>{job.id}</strong><div className="meta">{job.invoice ?? '—'}</div></td>
                     <td>{job.customer}<div className="meta">{job.vehicle}</div></td>
                     <td>{job.serviceType}<div className="meta"><Badge text={job.priority} /></div></td>
-                    <td>{job.technicians.join(', ') || '—'}</td>
+                    <td><TechPills value={job.technicians.join(', ')} /></td>
                     <td style={{ fontSize: 12 }}>{fmt(job.checkInDate)}</td>
                     <td style={{ fontSize: 12 }}>{fmt(job.closedDate)}</td>
                     <td><Badge text="Closed" /></td>
@@ -930,9 +931,7 @@ export function JobCardsView() {
 
             <div>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>TECHNICIANS</div>
-              {selectedJob.technicians.length > 0
-                ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{selectedJob.technicians.map((t, i) => <span key={i} style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--surface-soft)', fontSize: 13, border: '1px solid var(--line)' }}>{t}</span>)}</div>
-                : <span style={{ color: 'var(--muted)', fontSize: 13 }}>Unassigned</span>}
+              <TechPills value={selectedJob.technicians.join(', ')} gap={6} />
             </div>
 
             <div>

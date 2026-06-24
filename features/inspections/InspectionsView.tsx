@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
+import { TechPills } from '@/components/TechPill';
 import {
   fetchInspections, createInspection, updateInspection, deleteInspection,
   nextInspectionNumber, uploadInspectionPhoto,
@@ -802,7 +803,7 @@ export function InspectionsView() {
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontWeight: 700, color: selected.status === 'Completed' || selected.status === 'Customer Approved' ? '#4caf50' : selected.status === 'Partially Approved' ? '#ff9800' : selected.status === 'Customer Declined' ? '#f44336' : '#2196f3' }}>{selected.status}</span>
                     {selected.mileage > 0 && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selected.mileage.toLocaleString()} mi</div>}
-                    {selected.technician && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Tech: {selected.technician}</div>}
+                    {selected.technician && <div style={{ marginTop: 4 }}><TechPills value={selected.technician} gap={4} /></div>}
                   </div>
                 </div>
 

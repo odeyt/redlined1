@@ -14,6 +14,7 @@ import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
+import { getTechColor as _getTechColor } from '@/lib/techColors';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -53,23 +54,9 @@ const EMPTY_FORM = {
   engine: '', transmission: '', mileage: '', plate: '', status: 'Active', recommendation: '',
 };
 
-// Deterministic per-tech color from name hash
-const TECH_PALETTES = [
-  { bg: '#dbeafe', color: '#1e40af', border: '#bfdbfe' }, // blue
-  { bg: '#dcfce7', color: '#166534', border: '#bbf7d0' }, // green
-  { bg: '#fce7f3', color: '#9d174d', border: '#fbcfe8' }, // pink
-  { bg: '#fef3c7', color: '#92400e', border: '#fde68a' }, // amber
-  { bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe' }, // purple
-  { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' }, // orange
-  { bg: '#cffafe', color: '#155e75', border: '#a5f3fc' }, // cyan
-  { bg: '#f0fdf4', color: '#14532d', border: '#bbf7d0' }, // emerald
-  { bg: '#fdf4ff', color: '#701a75', border: '#f5d0fe' }, // fuchsia
-  { bg: '#fff7ed', color: '#7c2d12', border: '#fed7aa' }, // red-orange
-];
 function techColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return TECH_PALETTES[hash % TECH_PALETTES.length];
+  const c = _getTechColor(name);
+  return { bg: c.bg, color: c.text, border: c.border };
 }
 
 function statusColor(status: string) {
