@@ -171,6 +171,7 @@ export function PartsOrdersView() {
 
   /* detail drawer */
   const [selected, setSelected] = useState<PartsOrder | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const notify = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -524,7 +525,23 @@ export function PartsOrdersView() {
                     const items = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }];
                     const firstItem = items[0];
                     return (
-                      <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(o)}>
+                      <tr
+                        key={o.id}
+                        style={{
+                          cursor: 'pointer',
+                          background: hoveredId === o.id
+                            ? 'rgba(204,0,0,0.06)'
+                            : selected?.id === o.id
+                            ? 'rgba(204,0,0,0.03)'
+                            : 'transparent',
+                          transition: 'background 0.12s',
+                          outline: hoveredId === o.id ? '1px solid rgba(204,0,0,0.18)' : 'none',
+                          outlineOffset: -1,
+                        }}
+                        onMouseEnter={() => setHoveredId(o.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        onClick={() => setSelected(o)}
+                      >
                         <td>
                           {o.customerName && <div style={{ fontSize: 13, fontWeight: 600 }}>{o.customerName}</div>}
                           {o.vehicle && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vehicle}</div>}
