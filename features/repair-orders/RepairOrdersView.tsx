@@ -924,6 +924,7 @@ export function RepairOrdersView() {
                 serviceType={selected.correction || selected.concern || selected.cause}
                 vehicle={selected.vehicle}
                 currentHours={selected.laborHours}
+                parts={selected.parts}
                 onApply={(hours) => handleApplyFlatRate(selected, hours)}
               />
             </div>

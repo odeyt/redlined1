@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useShop } from '@/lib/useShop';
+import type { RoPart } from '@/services/repairOrderService';
 
 interface LookupResult {
   suggestedHours: number;
@@ -13,13 +14,14 @@ interface LookupResult {
 }
 
 interface Props {
-  serviceType: string;   // from RO concern/correction field
-  vehicle: string;       // "2019 Honda Civic"
+  serviceType: string;
+  vehicle: string;
   currentHours: number;
+  parts?: RoPart[];
   onApply: (hours: number) => void;
 }
 
-export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: Props) {
+export function OwnerInsights({ serviceType, vehicle, currentHours, parts = [], onApply }: Props) {
   const { role, shopId, loading: shopLoading } = useShop();
   const [result, setResult] = useState<LookupResult | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -31,8 +33,11 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
   if (shopLoading || role !== 'owner' || !shopId) return null;
 
   async function lookup() {
-    if (!serviceType.trim()) {
-      setError('Add a Concern or Correction description first — it is used to match the labor operation.');
+    // Build a richer search term: combine serviceType + part descriptions
+    const partTerms = parts.map(p => p.description).filter(Boolean).join(' ');
+    const combinedServiceType = [serviceType, partTerms].filter(Boolean).join(' ');
+    if (!combinedServiceType.trim()) {
+      setError('Add a Concern, Correction, or Parts to Install description first — it is used to match the labor operation.');
       return;
     }
     setLoading(true);
@@ -45,7 +50,7 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
       const res = await fetch('/api/labor-guide/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceType, vehicle, shopId }),
+        body: JSON.stringify({ serviceType: combinedServiceType, vehicle, shopId }),
       });
 
       const json = await res.json();
@@ -140,8 +145,8 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, onApply }: P
 
         {notFound && (
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
-            No standard flat-rate found for <em>"{serviceType}"</em>.
-            Try editing the Concern or Correction field to match a common operation (e.g. "Brake Pads Front", "Oil Change").
+            No standard flat-rate found for <em>"{[serviceType, ...parts.map(p => p.description)].filter(Boolean).join(', ')}"</em>.
+            Try editing the Concern, Correction, or Parts to Install to match a common operation (e.g. "Brake Pads Front", "Oil Change").
           </p>
         )}
 
