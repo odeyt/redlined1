@@ -17,6 +17,35 @@ import { fetchTechnicians, type Technician } from '@/services/technicianService'
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
+
+const CAR_MODELS: Record<string, string[]> = {
+  'Toyota':        ['Camry','Corolla','RAV4','Hilux','Land Cruiser','Prius','Yaris','4Runner','Tacoma','Tundra','Vios','Fortuner','Innova','Alphard','Vellfire'],
+  'Honda':         ['Civic','Accord','CR-V','HR-V','Pilot','Jazz','City','Odyssey','Fit','Ridgeline','Passport'],
+  'Ford':          ['F-150','F-250','Mustang','Explorer','Escape','Edge','Expedition','Ranger','Bronco','Focus','Fusion'],
+  'BMW':           ['3 Series','5 Series','7 Series','X1','X3','X5','X6','X7','M3','M5','1 Series','2 Series','4 Series','6 Series','8 Series','i3','i4','iX'],
+  'Mercedes-Benz': ['C-Class','E-Class','S-Class','GLC','GLE','GLS','A-Class','B-Class','CLA','GLA','GLB','AMG GT','G-Class','EQC','EQS'],
+  'Audi':          ['A3','A4','A5','A6','A7','A8','Q3','Q5','Q7','Q8','TT','R8','e-tron'],
+  'Volkswagen':    ['Golf','Jetta','Passat','Tiguan','Touareg','Polo','Arteon','ID.4','Atlas'],
+  'Nissan':        ['Altima','Sentra','Maxima','Rogue','Murano','Pathfinder','Frontier','Titan','Leaf','370Z','GT-R','Navara'],
+  'Hyundai':       ['Elantra','Sonata','Tucson','Santa Fe','Palisade','Kona','Ioniq','Veloster','Accent'],
+  'Kia':           ['Optima','Sorento','Sportage','Telluride','Stinger','Soul','Forte','Carnival','EV6'],
+  'Chevrolet':     ['Silverado','Colorado','Tahoe','Suburban','Traverse','Equinox','Blazer','Camaro','Corvette','Malibu','Spark'],
+  'Jeep':          ['Wrangler','Cherokee','Grand Cherokee','Compass','Renegade','Gladiator'],
+  'Subaru':        ['Outback','Forester','Crosstrek','Impreza','Legacy','Ascent','WRX','BRZ'],
+  'Mazda':         ['Mazda3','Mazda6','CX-3','CX-5','CX-9','MX-5 Miata','CX-30','CX-50'],
+  'Land Rover':    ['Defender','Discovery','Range Rover','Range Rover Sport','Range Rover Evoque','Range Rover Velar','Freelander'],
+  'Porsche':       ['911','Cayenne','Macan','Panamera','Taycan','718 Boxster','718 Cayman'],
+  'Lexus':         ['ES','IS','GS','LS','RX','NX','GX','LX','LC','UX','RC'],
+  'Tesla':         ['Model 3','Model S','Model X','Model Y','Cybertruck'],
+  'Mitsubishi':    ['Outlander','Eclipse Cross','ASX','Pajero','L200','Lancer','Galant'],
+  'Suzuki':        ['Swift','Vitara','Jimny','Celerio','Baleno','S-Cross','Ignis'],
+  'Isuzu':         ['D-Max','MU-X','Trooper'],
+  'Volvo':         ['XC40','XC60','XC90','S60','S90','V60','V90','C40'],
+  'Peugeot':       ['208','308','508','2008','3008','5008','407','207'],
+  'Renault':       ['Clio','Megane','Kadjar','Duster','Koleos','Captur','Zoe'],
+  'Fiat':          ['500','Panda','Tipo','500X','Doblo'],
+};
+
 type StatusFilter = 'All' | 'In Progress' | 'Completed' | 'Pending' | 'Pending Approval' | 'Archived' | 'Pending Parts' | 'Returned Job' | 'Active' | 'No open jobs';
 
 const EMPTY_FORM = {
@@ -637,12 +666,121 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [inlineNewCust, setInlineNewCust] = useState({ name: '', phone: '', email: '' });
   const [savingNewCust, setSavingNewCust] = useState(false);
   const [techDropdownOpen, setTechDropdownOpen] = useState(false);
+  const [vinDecoding, setVinDecoding] = useState(false);
+  const [vinDecodeMsg, setVinDecodeMsg] = useState('');
+  const [showVinScan, setShowVinScan] = useState(false);
+  const vinScanVideoRef = useRef<HTMLVideoElement>(null);
+  const vinScanStreamRef = useRef<MediaStream | null>(null);
+  const vinScanRafRef = useRef<number>(0);
+  const vinFileRef = useRef<HTMLInputElement>(null);
 
   // Vehicles belonging to the currently-selected customer (excluding this one)
   const custVehicles = f.customerId ? allVehicles.filter(v => v.customerId === f.customerId && v.id !== vehicle.id) : [];
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
   function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  async function decodeVin(vin: string) {
+    if (vin.length !== 17) return;
+    setVinDecoding(true); setVinDecodeMsg('');
+    try {
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
+      const json = await res.json();
+      const get = (var_: string) => (json.Results as {Variable: string; Value: string | null}[])
+        .find(r => r.Variable === var_)?.Value || '';
+      const year  = get('Model Year');
+      const make  = get('Make');
+      const model = get('Model');
+      const fuel  = get('Fuel Type - Primary');
+      if (!year && !make && !model) { setVinDecodeMsg('VIN not found in NHTSA database.'); return; }
+      const fuelMapped = fuel.includes('Diesel') ? 'Diesel'
+        : fuel.includes('Electric') && fuel.includes('Gas') ? 'Hybrid'
+        : fuel.includes('Electric') ? 'EV'
+        : fuel.includes('Gasoline') || fuel.includes('Petrol') ? 'Petrol'
+        : fuel || '';
+      setF(prev => ({
+        ...prev,
+        year:     year  || prev.year,
+        make:     make  ? make.charAt(0) + make.slice(1).toLowerCase() : prev.make,
+        model:    model || prev.model,
+        fuelType: fuelMapped || prev.fuelType,
+      }));
+      setVinDecodeMsg(`✓ Decoded: ${year} ${make} ${model}`);
+    } catch { setVinDecodeMsg('Decode failed — check connection.'); }
+    finally { setVinDecoding(false); }
+  }
+
+  function stopVinScan() {
+    vinScanStreamRef.current?.getTracks().forEach(t => t.stop());
+    vinScanStreamRef.current = null;
+    cancelAnimationFrame(vinScanRafRef.current);
+    setShowVinScan(false);
+  }
+
+  async function startVinScan() {
+    setShowVinScan(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      vinScanStreamRef.current = stream;
+      setTimeout(() => {
+        if (vinScanVideoRef.current) {
+          vinScanVideoRef.current.srcObject = stream;
+          vinScanVideoRef.current.play();
+          scanFrames();
+        }
+      }, 100);
+    } catch { setShowVinScan(false); vinFileRef.current?.click(); }
+  }
+
+  function scanFrames() {
+    if (!vinScanVideoRef.current || !vinScanStreamRef.current) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const BD = (window as any).BarcodeDetector;
+    if (!BD) { stopVinScan(); vinFileRef.current?.click(); return; }
+    const detector = new BD({ formats: ['code_39', 'code_128', 'qr_code', 'pdf417', 'data_matrix'] });
+    const tick = async () => {
+      if (!vinScanVideoRef.current || !vinScanStreamRef.current) return;
+      try {
+        const barcodes = await detector.detect(vinScanVideoRef.current);
+        for (const bc of barcodes) {
+          const raw = bc.rawValue?.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 17);
+          if (raw && raw.length === 17) {
+            stopVinScan();
+            setF(prev => ({ ...prev, vin: raw }));
+            setVinDecodeMsg('');
+            decodeVin(raw);
+            return;
+          }
+        }
+      } catch { /* keep scanning */ }
+      vinScanRafRef.current = requestAnimationFrame(tick);
+    };
+    vinScanRafRef.current = requestAnimationFrame(tick);
+  }
+
+  async function handleVinFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const BD2 = (window as any).BarcodeDetector;
+    if (!BD2) { setVinDecodeMsg('Barcode scanning not supported on this browser.'); return; }
+    const detector = new BD2({ formats: ['code_39', 'code_128', 'qr_code', 'pdf417', 'data_matrix'] });
+    const bitmap = await createImageBitmap(file);
+    try {
+      const barcodes = await detector.detect(bitmap);
+      for (const bc of barcodes) {
+        const raw = bc.rawValue?.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 17);
+        if (raw && raw.length === 17) {
+          setF(prev => ({ ...prev, vin: raw }));
+          setVinDecodeMsg('');
+          decodeVin(raw);
+          return;
+        }
+      }
+      setVinDecodeMsg('No VIN barcode found in photo. Try again closer to the barcode.');
+    } catch { setVinDecodeMsg('Could not read barcode from photo.'); }
+    e.target.value = '';
+  }
 
   async function quickStatus(newStatus: string) {
     setSaving(true); setErr('');
@@ -1018,15 +1156,77 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               Close this drawer, then click <strong>+ Add Vehicle</strong> — the customer will be pre-selected and their info auto-filled.
             </div>
           )}
+          {/* VIN with scan — placed first so decode populates fields below */}
+          <div style={{ marginBottom: 12 }}>
+            <span style={{ ...label, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>VIN</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: f.vin?.length === 17 ? '#22c55e' : f.vin?.length > 0 ? '#f59e0b' : 'var(--muted)' }}>{f.vin?.length ?? 0}/17</span>
+            </span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input style={{ ...inp, flex: 1, fontFamily: 'monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }}
+                value={f.vin} maxLength={17}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17);
+                  set('vin', v);
+                  if (v.length === 17) { setVinDecodeMsg(''); decodeVin(v); }
+                }}
+                placeholder="1FTFW1E85PFA24680" />
+              <button type="button" title="Scan VIN barcode with camera"
+                onClick={startVinScan}
+                style={{ padding: '0 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>
+                📷
+              </button>
+            </div>
+            {vinDecoding && <div style={{ marginTop: 4, fontSize: 11, color: '#3b82f6' }}>⏳ Decoding VIN…</div>}
+            {vinDecodeMsg && <div style={{ marginTop: 4, fontSize: 11, color: vinDecodeMsg.startsWith('✓') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{vinDecodeMsg}</div>}
+            {/* hidden file input for photo fallback */}
+            <input ref={vinFileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleVinFileUpload} />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-            <div><span style={label}>Year</span><input style={inp} value={f.year} onChange={e => set('year', e.target.value)} placeholder="2023" /></div>
-            <div><span style={label}>Make</span><input style={inp} value={f.make} onChange={e => set('make', e.target.value)} placeholder="Ford" /></div>
-            <div><span style={label}>Model</span><input style={inp} value={f.model} onChange={e => set('model', e.target.value)} placeholder="F-150" /></div>
-            <div><span style={label}>Fuel Type</span><input style={inp} value={f.fuelType} onChange={e => set('fuelType', e.target.value)} placeholder="Petrol" /></div>
+            <div>
+              <span style={label}>Year</span>
+              <select style={inp} value={f.year ?? ''} onChange={e => set('year', e.target.value)}>
+                <option value="">— Select —</option>
+                {Array.from({ length: new Date().getFullYear() - 1949 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <span style={label}>Make</span>
+              <input list="vd-makes" style={inp} value={f.make ?? ''} onChange={e => set('make', e.target.value)} placeholder="e.g. Toyota" />
+              <datalist id="vd-makes">
+                {['Acura','Alfa Romeo','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','Cadillac','Chevrolet','Chrysler','Citroën','Dacia','Dodge','Ferrari','Fiat','Ford','Genesis','GMC','Honda','Hyundai','Infiniti','Jaguar','Jeep','Kia','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Maserati','Mazda','McLaren','Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche','RAM','Renault','Rolls-Royce','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo'].map(m => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div>
+              <span style={label}>Model</span>
+              <input list="vd-models" style={inp} value={f.model ?? ''} onChange={e => set('model', e.target.value)} placeholder="e.g. Camry" />
+              <datalist id="vd-models">
+                {(CAR_MODELS[f.make ?? ''] ?? []).map(m => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div>
+              <span style={label}>Fuel Type</span>
+              <select style={inp} value={f.fuelType ?? ''} onChange={e => set('fuelType', e.target.value)}>
+                <option value="">— Select —</option>
+                {['Petrol','Diesel','Hybrid','EV','CNG','LPG'].map(ft => <option key={ft} value={ft}>{ft}</option>)}
+              </select>
+            </div>
             <div><span style={label}>Plate</span><input style={inp} value={f.plate} onChange={e => set('plate', e.target.value)} /></div>
             <div><span style={label}>Mileage</span><input style={inp} value={f.mileage} onChange={e => set('mileage', e.target.value)} /></div>
           </div>
-          {row('VIN', <input style={{ ...inp, fontFamily: 'monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }} value={f.vin} onChange={e => set('vin', e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17))} maxLength={17} />)}
+
+          {/* VIN camera scan modal */}
+          {showVinScan && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+              <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Point camera at VIN barcode</div>
+              <video ref={vinScanVideoRef} playsInline muted style={{ width: '90vw', maxWidth: 480, borderRadius: 12, border: '2px solid #22c55e' }} />
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automatically…</div>
+              <button onClick={stopVinScan} style={{ padding: '10px 28px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          )}
           {row('Engine', <input style={inp} value={f.engine} onChange={e => set('engine', e.target.value)} />)}
           {row('Transmission', <input style={inp} value={f.transmission} onChange={e => set('transmission', e.target.value)} />)}
           {row('Status', (
