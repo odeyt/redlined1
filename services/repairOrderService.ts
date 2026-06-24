@@ -1,6 +1,13 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 
+export interface RoPart {
+  description: string;
+  partNumber: string;
+  qty: number;
+  unitCost: number;
+}
+
 export interface RepairOrder {
   id: string;
   roNumber: string;
@@ -22,6 +29,7 @@ export interface RepairOrder {
   openedDate: string;
   closedDate: string | null;
   createdAt: string;
+  parts: RoPart[];
   // Owner-only fields — never shown to technicians, advisors, or managers
   suggestedHours: number | null;
   flatRateCost: number | null;
@@ -51,11 +59,16 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
     openedDate: (r.opened_date as string) || '',
     closedDate: (r.closed_date as string) || null,
     createdAt: (r.created_at as string) || '',
+    parts: Array.isArray(r.parts) ? (r.parts as RoPart[]) : [],
     suggestedHours: r.suggested_hours != null ? Number(r.suggested_hours) : null,
     flatRateCost: r.flat_rate_cost != null ? Number(r.flat_rate_cost) : null,
     laborSource: (r.labor_source as string) || null,
     laborLookupAt: (r.labor_lookup_at as string) || null,
   };
+}
+
+export function calcPartsTotal(parts: RoPart[]): number {
+  return parts.reduce((s, p) => s + p.qty * p.unitCost, 0);
 }
 
 export function calcROTotal(ro: RepairOrder): number {
@@ -95,6 +108,7 @@ export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'
       currency: ro.currency,
       opened_date: ro.openedDate || new Date().toISOString(),
       closed_date: ro.closedDate || null,
+      parts: ro.parts ?? [],
     })
     .select()
     .single();
@@ -125,6 +139,7 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.flatRateCost !== undefined) payload.flat_rate_cost = updates.flatRateCost;
   if (updates.laborSource !== undefined) payload.labor_source = updates.laborSource;
   if (updates.laborLookupAt !== undefined) payload.labor_lookup_at = updates.laborLookupAt;
+  if (updates.parts !== undefined) payload.parts = updates.parts;
   const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }

@@ -5,9 +5,10 @@ import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
-  closeRepairOrder, deleteRepairOrder, nextRONumber, calcROTotal,
-  RO_STATUSES, type RepairOrder,
+  closeRepairOrder, deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
+  RO_STATUSES, type RepairOrder, type RoPart,
 } from '@/services/repairOrderService';
+import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
@@ -273,6 +274,9 @@ const STATUS_COLORS: Record<string, string> = {
   'Void': '#f44336',
 };
 
+type FormPart = { description: string; partNumber: string; qty: string; unitCost: string };
+const EMPTY_PART: FormPart = { description: '', partNumber: '', qty: '1', unitCost: '0' };
+
 const EMPTY_FORM = {
   roNumber: '',
   jobCardId: '',
@@ -296,6 +300,7 @@ const EMPTY_FORM = {
   flatRateCost: null as number | null,
   laborSource: null as string | null,
   laborLookupAt: null as string | null,
+  formParts: [{ ...EMPTY_PART }] as FormPart[],
 };
 
 export function RepairOrdersView() {
@@ -389,6 +394,9 @@ export function RepairOrdersView() {
   }
 
   function openEdit(ro: RepairOrder) {
+    const fp: FormPart[] = ro.parts.length > 0
+      ? ro.parts.map(p => ({ description: p.description, partNumber: p.partNumber, qty: String(p.qty), unitCost: String(p.unitCost) }))
+      : [{ ...EMPTY_PART }];
     setForm({
       roNumber: ro.roNumber,
       jobCardId: ro.jobCardId,
@@ -412,6 +420,7 @@ export function RepairOrdersView() {
       flatRateCost: ro.flatRateCost ?? null,
       laborSource: ro.laborSource ?? null,
       laborLookupAt: ro.laborLookupAt ?? null,
+      formParts: fp,
     });
     setEditingId(ro.id);
     setShowForm(true);
@@ -423,14 +432,19 @@ export function RepairOrdersView() {
     if (form.status === 'Complete' || form.status === 'Closed') return setError('Cannot set status to Complete or Closed directly — complete the QA sign-off process.');
     setSaving(true); setError('');
     try {
+      const roParts: RoPart[] = form.formParts
+        .filter(p => p.description.trim())
+        .map(p => ({ description: p.description.trim(), partNumber: p.partNumber.trim(), qty: Number(p.qty) || 1, unitCost: Number(p.unitCost) || 0 }));
+      const computedPartsTotal = calcPartsTotal(roParts);
+      const saveData = { ...form, parts: roParts, partsTotal: computedPartsTotal };
       if (editingId) {
-        await updateRepairOrder(editingId, { ...form });
-        const updated: RepairOrder = { ...selected!, ...form, id: editingId, createdAt: selected?.createdAt ?? '' };
+        await updateRepairOrder(editingId, saveData);
+        const updated: RepairOrder = { ...selected!, ...saveData, id: editingId, createdAt: selected?.createdAt ?? '' };
         setOrders(prev => prev.map(r => r.id === editingId ? updated : r));
         setSelected(updated);
         notify(`${form.roNumber} updated.`);
       } else {
-        const saved = await createRepairOrder(form);
+        const saved = await createRepairOrder(saveData);
         setOrders(prev => [saved, ...prev]);
         setSelected(saved);
         notify(`${saved.roNumber} created.`);
@@ -504,7 +518,9 @@ export function RepairOrdersView() {
         status: 'Draft',
         lines: [
           { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },
-          ...(ro.partsTotal > 0 ? [{ note: '', description: 'Parts', qty: 1, rate: ro.partsTotal }] : []),
+          ...(ro.parts.length > 0
+            ? ro.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }))
+            : ro.partsTotal > 0 ? [{ note: '', description: 'Parts', qty: 1, rate: ro.partsTotal }] : []),
         ],
         discount: 0,
         shopSupplies: 0,
@@ -739,6 +755,52 @@ export function RepairOrdersView() {
                 </div>
               </div>
 
+              {/* Parts to Install */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Parts to Install</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      {['Description', 'Part #', 'Qty', 'Unit Cost', 'Total', ''].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '4px 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.formParts.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: '4px 6px' }}>
+                          <input value={p.description} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], description: e.target.value }; return { ...f, formParts: fp }; })} placeholder="Part name / description" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px' }}>
+                          <input value={p.partNumber} onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], partNumber: e.target.value }; return { ...f, formParts: fp }; })} placeholder="SKU / Part #" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 70 }}>
+                          <input type="number" value={p.qty} min="1" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], qty: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 100 }}>
+                          <input type="number" value={p.unitCost} min="0" step="0.01" onChange={e => setForm(f => { const fp = [...f.formParts]; fp[i] = { ...fp[i], unitCost: e.target.value }; return { ...f, formParts: fp }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 90, fontWeight: 600, textAlign: 'right' }}>
+                          ${((Number(p.qty) || 0) * (Number(p.unitCost) || 0)).toFixed(2)}
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 36 }}>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, formParts: [...f.formParts, { ...EMPTY_PART }] }))} style={{ background: 'none', border: '1px dashed var(--line)', borderRadius: 7, padding: '5px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>+ Add Part</button>
+                  {form.formParts.some(p => p.description.trim()) && (
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      Parts subtotal: <strong>${form.formParts.reduce((s, p) => s + (Number(p.qty) || 0) * (Number(p.unitCost) || 0), 0).toFixed(2)}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
                   <label>Labor Hours</label>
@@ -863,6 +925,38 @@ export function RepairOrdersView() {
                 </button>
               )}
 
+              {/* Create Estimate from RO — pre-fills parts + labor */}
+              {!isTech && (
+                <button className="btn" style={{ background: 'rgba(33,150,243,0.08)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
+                  onClick={async () => {
+                    try {
+                      const estNumber = await nextEstimateNumber();
+                      const laborLine = { note: selected.roNumber, description: `Labor — ${selected.correction || selected.concern || 'Repair'}`, qty: selected.laborHours, rate: selected.laborRate };
+                      const partLines = selected.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }));
+                      await createEstimate({
+                        estimateNumber: estNumber,
+                        customerName: selected.customerName,
+                        customerId: selected.customerId,
+                        vehicle: selected.vehicle,
+                        jobCardId: selected.jobCardId,
+                        status: 'Draft',
+                        lines: [laborLine, ...partLines],
+                        taxRate: 0,
+                        discount: 0,
+                        shopSupplies: 0,
+                        notes: `Created from ${selected.roNumber}.`,
+                        validUntil: '',
+                        approvedDate: null,
+                        currency: selected.currency,
+                      });
+                      notify(`Estimate ${estNumber} created from ${selected.roNumber}. Opening Estimates…`);
+                      setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'estimates' }), 800);
+                    } catch (e: unknown) { setError('Create estimate failed: ' + (e instanceof Error ? e.message : '')); }
+                  }}>
+                  📋 Create Estimate
+                </button>
+              )}
+
               {/* OWNER ONLY: Create Invoice from Complete ROs */}
               {role === 'owner' && selected.status === 'Complete' && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
@@ -941,6 +1035,33 @@ export function RepairOrdersView() {
                 <div style={{ border: '1px solid rgba(76,175,80,0.4)', borderRadius: 10, background: 'rgba(76,175,80,0.06)', padding: '12px 16px', marginTop: 16 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf50', marginBottom: 4 }}>✓ QA Sign-Off Recorded</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{selected.notes.split('--- QA').slice(1).map(s => '--- QA' + s).join('\n')}</div>
+                </div>
+              )}
+
+              {/* Parts list — shown to everyone */}
+              {selected.parts.length > 0 && (
+                <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Parts to Install</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                        {['Description', 'Part #', 'Qty', 'Unit Cost', 'Total'].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selected.parts.map((p, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
+                          <td style={{ padding: '7px 8px', fontWeight: 500 }}>{p.description}</td>
+                          <td style={{ padding: '7px 8px', color: 'var(--muted)' }}>{p.partNumber || '—'}</td>
+                          <td style={{ padding: '7px 8px' }}>{p.qty}</td>
+                          <td style={{ padding: '7px 8px' }}>{formatMoney(p.unitCost, selected.currency)}</td>
+                          <td style={{ padding: '7px 8px', fontWeight: 700 }}>{formatMoney(p.qty * p.unitCost, selected.currency)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 

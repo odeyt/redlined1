@@ -1,0 +1,3683 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R] /Count 8 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 2535 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 672 612 120 re
+f
+BT
+1 1 1 rg
+/F1 28 Tf
+50 737 Td
+(Job Archive) Tj
+ET
+BT
+1 0.75 0.75 rg
+/F2 16 Tf
+50 710 Td
+(Staff Test Procedures) Tj
+ET
+BT
+1 0.65 0.65 rg
+/F2 10 Tf
+50 684 Td
+(Redlined1  |  D1 Imports  |  June 20, 2026) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 628 512 52 re
+f
+BT
+0.10 0.10 0.10 rg
+/F1 10 Tf
+60 662 Td
+(Prerequisites) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 9 Tf
+60 646 Td
+(1.  Log in as Owner or Manager  Technician accounts do not see Job Archive.) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 9 Tf
+60 634 Td
+(2.  At least one Job Card must have status: Complete, Closed, or Invoiced.) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 11 Tf
+50 552 Td
+(Tests in this document) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 531 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 531 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 538 Td
+(01) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 538 Td
+(Page loads without error) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 505 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 505 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 512 Td
+(02) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 512 Td
+(Jobs appear in the archive) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 479 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 479 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 486 Td
+(03) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 486 Td
+(Period filter works) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 453 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 453 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 460 Td
+(04) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 460 Td
+(Search filters correctly) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 427 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 427 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 434 Td
+(05) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 434 Td
+(Row expand shows full details) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 401 512 22 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 401 28 22 re
+f
+BT
+1 1 1 rg
+/F1 9 Tf
+57 408 Td
+(06) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 10 Tf
+86 408 Td
+(Export CSV downloads correctly) Tj
+ET
+0.5 w
+0.45 0.45 0.45 RG
+50 358 m
+562 358 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+50 342 Td
+(Result key) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+50 325 40 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+55 329 Td
+(PASS) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+98 329 Td
+(All steps completed correctly) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+50 307 40 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 8 Tf
+55 311 Td
+(FAIL) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+98 311 Td
+(One or more steps did not produce expected result) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+50 289 40 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 8 Tf
+55 293 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+98 293 Td
+(Test not applicable or skipped) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 4037 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 01 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 2 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(01) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Page loads without error) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(Click Job Archive in the sidebar) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(Page loads  no red error text) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 648 Td
+(visible) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 592 512 46 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 592 m
+562 592 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Check the page header) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(Shows "Job Archive" with subtitle) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 614 Td
+(about completed / closed /) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 602 Td
+(invoiced jobs) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 546 512 46 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 546 m
+562 546 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 580 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 580 Td
+(Count the stat cards at the top) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 580 Td
+(4 cards: Archived Jobs, Avg Days) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 568 Td
+(to Close, Total Labor Hours,) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 556 Td
+(Total Parts Value) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 578 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 581 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 578 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 581 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 578 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 581 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 516 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 516 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 526 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 526 Td
+(No red error text visible. All 4 stat cards show.) Tj
+ET
+0.5 w
+0.99 0.97 0.90 rg
+50 488 512 22 re
+f
+0.5 w
+0.93 0.70 0.13 rg
+50 488 4 22 re
+f
+BT
+0.63 0.44 0.05 rg
+/F1 8 Tf
+62 498 Td
+(Note:) Tj
+ET
+BT
+0.63 0.44 0.05 rg
+/F2 8 Tf
+102 498 Td
+(If red text says "column does not exist"  report to admin immediately.) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 420 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 458 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 457 m
+290 457 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 458 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 457 m
+430 457 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 458 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 454 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 458 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 454 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 458 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 454 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 458 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 438 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 437 m
+552 437 l
+S
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+9 0 obj
+<< /Length 4635 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 02 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 3 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(02) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Jobs appear in the archive) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(Go to Job Cards and open any active) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 648 Td
+(job) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(Job card opens successfully) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 604 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 604 m
+562 604 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Change the status to Complete or) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 614 Td
+(Closed and save) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(Status badge updates on the card) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 570 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 570 m
+562 570 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 592 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 592 Td
+(Click Job Archive in the sidebar) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 592 Td
+(That job now appears in the) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 580 Td
+(archive table) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 590 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 593 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 590 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 593 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 590 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 593 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 524 512 46 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 524 m
+562 524 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 558 Td
+(4) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 558 Td
+(Verify all columns are present) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 558 Td
+(Customer, Vehicle, Technician\(s\),) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 546 Td
+(Status, Check-In, Closed, Days,) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 534 Td
+(Labor h, RO/Invoice) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 556 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 559 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 556 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 559 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 556 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 559 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 494 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 494 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 504 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 504 Td
+(Job appears in table after status change. All columns present.) Tj
+ET
+0.5 w
+0.99 0.97 0.90 rg
+50 466 512 22 re
+f
+0.5 w
+0.93 0.70 0.13 rg
+50 466 4 22 re
+f
+BT
+0.63 0.44 0.05 rg
+/F1 8 Tf
+62 476 Td
+(Note:) Tj
+ET
+BT
+0.63 0.44 0.05 rg
+/F2 8 Tf
+102 476 Td
+(Jobs only appear here once status is Complete, Closed, or Invoiced.) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 398 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 436 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 435 m
+290 435 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 436 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 435 m
+430 435 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 436 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 432 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 436 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 432 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 436 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 432 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 436 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 416 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 415 m
+552 415 l
+S
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+11 0 obj
+<< /Length 5022 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 03 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 4 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(03) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Period filter works) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(Click the This Month pill) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(Only jobs closed this calendar) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 648 Td
+(month shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 592 512 46 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 592 m
+562 592 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Click This Quarter) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(Jobs from current quarter) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 614 Td
+(\(Jan-Mar, Apr-Jun, Jul-Sep, or) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 602 Td
+(Oct-Dec\)) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 558 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 558 m
+562 558 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 580 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 580 Td
+(Click This Year) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 580 Td
+(All jobs closed in the current) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 568 Td
+(year shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 578 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 581 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 578 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 581 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 578 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 581 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 524 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 524 m
+562 524 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 546 Td
+(4) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 546 Td
+(Click All Time) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 546 Td
+(All archived jobs regardless of) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 534 Td
+(date shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 544 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 547 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 544 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 547 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 544 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 547 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 490 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 490 m
+562 490 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 512 Td
+(5) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 512 Td
+(Watch the "X of Y jobs" counter while) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 500 Td
+(switching) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 512 Td
+(Number updates correctly with) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 500 Td
+(each filter selection) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 510 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 513 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 510 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 513 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 510 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 513 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 460 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 460 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 470 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 470 Td
+(Job count changes correctly with each period pill. Counter updates.) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 392 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 430 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 429 m
+290 429 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 430 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 429 m
+430 429 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 430 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 426 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 430 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 426 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 430 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 426 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 430 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 410 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 409 m
+552 409 l
+S
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 11 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+13 0 obj
+<< /Length 4813 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 04 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 5 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(04) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Search filters correctly) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(Type a customer name in the search box) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(Only rows with that customer) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 648 Td
+(shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 616 512 22 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 616 m
+562 616 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Clear and type a vehicle name) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(Only matching vehicles shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 594 512 22 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 594 m
+562 594 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 604 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 604 Td
+(Clear and type a technician name) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 604 Td
+(Rows with that technician shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 602 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 605 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 602 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 605 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 602 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 605 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 560 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 560 m
+562 560 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 582 Td
+(4) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 582 Td
+(Clear and type a RO number \(e.g.) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 570 Td
+(RO-001\)) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 582 Td
+(Matching row shown) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 580 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 583 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 580 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 583 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 580 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 583 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 526 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 526 m
+562 526 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 548 Td
+(5) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 548 Td
+(Type random gibberish \(e.g. zzzzz\)) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 548 Td
+("No jobs match your current) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 536 Td
+(filter" message appears) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 546 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 549 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 546 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 549 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 546 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 549 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 496 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 496 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 506 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 506 Td
+(Each search field filters correctly. Gibberish shows "no match" message.) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 428 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 466 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 465 m
+290 465 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 466 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 465 m
+430 465 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 466 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 462 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 466 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 462 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 466 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 462 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 466 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 446 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 445 m
+552 445 l
+S
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 13 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+15 0 obj
+<< /Length 5952 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 05 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 6 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(05) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Row expand shows full details) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(Click any row in the archive table) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(Row expands  arrow changes from) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 648 Td
+(down to up) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 604 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 604 m
+562 604 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Check the 3 sections in the expanded) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 614 Td
+(panel) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(Job Details, Timeline, Financials) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 614 Td
+(& References all visible) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 570 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 570 m
+562 570 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 592 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 592 Td
+(Verify Job Details section) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 592 Td
+(Customer name, vehicle, service) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 580 Td
+(type, notes \(if any\)) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 590 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 593 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 590 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 593 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 590 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 593 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 536 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 536 m
+562 536 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 558 Td
+(4) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 558 Td
+(Verify Timeline section) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 558 Td
+(Check-in date, closed date, total) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 546 Td
+(days, technicians listed) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 556 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 559 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 556 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 559 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 556 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 559 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 490 512 46 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 490 m
+562 490 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 524 Td
+(5) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 524 Td
+(Verify Financials section) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 524 Td
+(Labor hours, parts total, RO) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 512 Td
+(number, invoice number, status) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 500 Td
+(badge) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 522 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 525 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 522 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 525 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 522 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 525 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 468 512 22 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 468 m
+562 468 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 478 Td
+(6) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 478 Td
+(Click the same row again) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 478 Td
+(Row collapses back to single line) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 476 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 479 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 476 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 479 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 476 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 479 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 438 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 438 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 448 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 448 Td
+(Expand/collapse works. All 3 panels visible. No missing data.) Tj
+ET
+0.5 w
+0.99 0.97 0.90 rg
+50 410 512 22 re
+f
+0.5 w
+0.93 0.70 0.13 rg
+50 410 4 22 re
+f
+BT
+0.63 0.44 0.05 rg
+/F1 8 Tf
+62 420 Td
+(Note:) Tj
+ET
+BT
+0.63 0.44 0.05 rg
+/F2 8 Tf
+102 420 Td
+(If a field shows a dash \(--\) that should have data, it may not have been filled in on) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 342 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 380 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 379 m
+290 379 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 380 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 379 m
+430 379 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 380 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 376 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 380 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 376 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 380 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 376 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 380 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 360 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 359 m
+552 359 l
+S
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+17 0 obj
+<< /Length 5410 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Test 06 of 06) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 7 of 8) Tj
+ET
+0.5 w
+0.96 0.96 0.96 rg
+50 712 512 26 re
+f
+0.5 w
+0.93 0.20 0.20 rg
+50 712 36 26 re
+f
+BT
+1 1 1 rg
+/F1 11 Tf
+58 722 Td
+(06) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 12 Tf
+94 722 Td
+(Export CSV downloads correctly) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 678 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+54 684 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+76 684 Td
+(Action) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+314 684 Td
+(Expected result) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+526 684 Td
+(Result) Tj
+ET
+0.5 w
+1 1 1 rg
+50 638 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 660 Td
+(1) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 660 Td
+(With jobs visible on screen, click) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 648 Td
+(Export CSV button) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 660 Td
+(File downloads immediately to) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 648 Td
+(Downloads folder) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 658 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 661 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 658 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 661 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 658 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 661 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 580 512 58 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 580 m
+562 580 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 626 Td
+(2) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 626 Td
+(Open the file in Excel or Google) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 614 Td
+(Sheets) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 626 Td
+(12 columns: Customer, Vehicle,) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 614 Td
+(Technicians, Status, Service) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 602 Td
+(Type, Check-In, Closed, Days,) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 590 Td
+(Labor h, Parts $, RO #, Invoice #) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 624 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 627 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 624 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 627 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 624 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 627 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 546 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 546 m
+562 546 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 568 Td
+(3) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 568 Td
+(Count the data rows in the CSV) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 568 Td
+(Row count matches the number of) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 556 Td
+(jobs shown on screen) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 566 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 569 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 566 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 569 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 566 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 569 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 512 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 512 m
+562 512 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 534 Td
+(4) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 534 Td
+(Switch to This Month filter, export) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 522 Td
+(again) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 534 Td
+(CSV contains only this months) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 522 Td
+(jobs  fewer rows than All Time) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 532 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 535 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 532 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 535 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 532 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 535 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 478 512 34 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 478 m
+562 478 l
+S
+BT
+0.45 0.45 0.45 rg
+/F1 9 Tf
+56 500 Td
+(5) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 500 Td
+(When 0 jobs are showing, check the) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+76 488 Td
+(Export button) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 500 Td
+(Button is greyed out and cannot) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+314 488 Td
+(be clicked) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+510 498 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+512 501 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+537 498 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+539 501 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+564 498 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+566 501 Td
+(SKIP) Tj
+ET
+0.5 w
+0.94 0.98 0.91 rg
+50 448 512 22 re
+f
+0.5 w
+0.40 0.78 0.25 rg
+50 448 4 22 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 8 Tf
+62 458 Td
+(Pass criteria:) Tj
+ET
+BT
+0.22 0.55 0.13 rg
+/F2 8 Tf
+142 458 Td
+(File downloads. 12 columns correct. Row count matches screen. Filter respected.) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 380 512 46 re
+f
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 418 Td
+(Tester name:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+130 417 m
+290 417 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 418 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 417 m
+430 417 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 418 Td
+(Overall result:) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+530 414 26 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 7 Tf
+533 418 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+558 414 26 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 7 Tf
+561 418 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+586 414 26 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 7 Tf
+589 418 Td
+(SKIP) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 398 Td
+(Notes / issues found:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+160 397 m
+552 397 l
+S
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 17 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+19 0 obj
+<< /Length 4414 >>
+stream
+0.5 w
+0.80 0.00 0.00 rg
+0 740 612 52 re
+f
+BT
+1 0.6 0.6 rg
+/F2 8 Tf
+50 772 Td
+(Redlined1  |  D1 Imports) Tj
+ET
+BT
+1 1 1 rg
+/F1 16 Tf
+50 754 Td
+(Job Archive  Staff Test) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+290 754 Td
+(Results Summary) Tj
+ET
+BT
+1 0.8 0.8 rg
+/F2 9 Tf
+522 754 Td
+(Page 8 of 8) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F1 13 Tf
+50 712 Td
+(Test results summary) Tj
+ET
+0.5 w
+0.25 0.25 0.25 rg
+50 684 512 18 re
+f
+BT
+1 1 1 rg
+/F1 8 Tf
+53 690 Td
+(#) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+83 690 Td
+(Test name) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+293 690 Td
+(Tester) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+423 690 Td
+(Date) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+483 690 Td
+(PASS) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+513 690 Td
+(FAIL) Tj
+ET
+BT
+1 1 1 rg
+/F1 8 Tf
+543 690 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 660 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 660 m
+562 660 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 666 Td
+(01) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 666 Td
+(Page loads without error) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 662 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 666 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 662 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 666 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 662 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 666 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 638 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 638 m
+562 638 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 644 Td
+(02) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 644 Td
+(Jobs appear in the archive) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 640 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 644 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 640 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 644 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 640 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 644 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 616 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 616 m
+562 616 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 622 Td
+(03) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 622 Td
+(Period filter works) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 618 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 622 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 618 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 622 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 618 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 622 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 594 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 594 m
+562 594 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 600 Td
+(04) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 600 Td
+(Search filters correctly) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 596 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 600 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 596 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 600 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 596 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 600 Td
+(SKIP) Tj
+ET
+0.5 w
+1 1 1 rg
+50 572 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 572 m
+562 572 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 578 Td
+(05) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 578 Td
+(Row expand shows full details) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 574 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 578 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 574 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 578 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 574 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 578 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 550 512 20 re
+f
+0.5 w
+0.82 0.82 0.82 RG
+50 550 m
+562 550 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+53 556 Td
+(06) Tj
+ET
+BT
+0.10 0.10 0.10 rg
+/F2 8 Tf
+83 556 Td
+(Export CSV downloads correctly) Tj
+ET
+0.5 w
+0.91 0.97 0.87 rg
+480 552 24 14 re
+f
+BT
+0.22 0.55 0.13 rg
+/F1 6 Tf
+482 556 Td
+(PASS) Tj
+ET
+0.5 w
+0.99 0.92 0.92 rg
+510 552 24 14 re
+f
+BT
+0.64 0.17 0.17 rg
+/F1 6 Tf
+512 556 Td
+(FAIL) Tj
+ET
+0.5 w
+0.94 0.94 0.94 rg
+540 552 24 14 re
+f
+BT
+0.37 0.37 0.37 rg
+/F1 6 Tf
+542 556 Td
+(SKIP) Tj
+ET
+0.5 w
+0.97 0.97 0.97 rg
+50 504 512 60 re
+f
+BT
+0.10 0.10 0.10 rg
+/F1 9 Tf
+60 554 Td
+(Final sign-off) Tj
+ET
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 536 Td
+(Tested by:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+115 535 m
+290 535 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+310 536 Td
+(Date:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+338 535 m
+430 535 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+450 536 Td
+(Approved by:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+522 535 m
+552 535 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+60 518 Td
+(Overall pass / fail / notes:) Tj
+ET
+0.4 w
+0.45 0.45 0.45 RG
+195 517 m
+552 517 l
+S
+0.5 w
+0.82 0.82 0.82 RG
+50 424 m
+562 424 l
+S
+BT
+0.45 0.45 0.45 rg
+/F2 8 Tf
+50 410 Td
+(Generated by Redlined1  |  redlined1.com  |  June 20, 2026) Tj
+ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 19 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>
+endobj
+xref
+0 21
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000163 00000 n 
+0000000265 00000 n 
+0000000362 00000 n 
+0000002949 00000 n 
+0000003085 00000 n 
+0000007174 00000 n 
+0000007310 00000 n 
+0000011997 00000 n 
+0000012134 00000 n 
+0000017209 00000 n 
+0000017347 00000 n 
+0000022213 00000 n 
+0000022351 00000 n 
+0000028356 00000 n 
+0000028494 00000 n 
+0000033957 00000 n 
+0000034095 00000 n 
+0000038562 00000 n 
+trailer
+<< /Size 21 /Root 1 0 R >>
+startxref
+38700
+%%EOF

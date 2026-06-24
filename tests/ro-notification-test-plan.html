@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Redlined1 — RO Notification System Test Plan</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 960px; margin: 40px auto; padding: 0 24px; background: #f8fafc; color: #1e293b; }
+  h1 { color: #cc0000; border-bottom: 3px solid #cc0000; padding-bottom: 12px; }
+  h2 { color: #1e40af; margin-top: 36px; }
+  .section-intro { font-size: 13px; color: #475569; margin: -8px 0 16px; }
+  .test-case { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .test-case h3 { margin: 0 0 8px; font-size: 15px; color: #1e293b; }
+  .meta { font-size: 12px; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; user-select: none; transition: background 0.15s; }
+  .pass   { background: #dcfce7; color: #166534; }
+  .fail   { background: #fee2e2; color: #991b1b; }
+  .pending { background: #fef9c3; color: #854d0e; }
+  .steps { background: #f1f5f9; border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+  .steps ol { margin: 0; padding-left: 20px; }
+  .steps li { margin: 6px 0; font-size: 13px; line-height: 1.5; }
+  .expected { background: #f0fdf4; border-left: 3px solid #22c55e; padding: 8px 14px; border-radius: 0 6px 6px 0; font-size: 13px; margin: 8px 0; }
+  .expected ul { margin: 4px 0; padding-left: 18px; }
+  .code { background: #1e293b; color: #e2e8f0; border-radius: 6px; padding: 10px 14px; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 12px; margin: 8px 0; overflow-x: auto; white-space: pre; }
+  .warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #9a3412; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0; }
+  th { background: #1e40af; color: #fff; padding: 8px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+  tr:hover td { background: #f8fafc; }
+  .result-cell { min-width: 120px; }
+  select.result-select { font-size: 12px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 6px; background: #fff; }
+  .notes-cell textarea { width: 100%; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; resize: vertical; min-height: 32px; font-family: inherit; }
+  .summary-bar { display: flex; gap: 16px; margin: 20px 0; flex-wrap: wrap; }
+  .summary-chip { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 18px; font-size: 13px; text-align: center; min-width: 90px; }
+  .summary-chip .count { font-size: 24px; font-weight: 700; display: block; }
+  .chip-pass   .count { color: #16a34a; }
+  .chip-fail   .count { color: #dc2626; }
+  .chip-pend   .count { color: #ca8a04; }
+  .chip-total  .count { color: #1e40af; }
+  footer { margin-top: 48px; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+  @media print {
+    .badge { border: 1px solid #ccc; }
+    select.result-select { border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🔔 RO Notification System — Test Plan</h1>
+<p class="section-intro">
+  Tests for the real-time Repair Order status change notification feature.<br>
+  Feature files: <code>lib/useNotifications.ts</code> · <code>components/Sidebar.tsx</code> · <code>features/repair-orders/RepairOrdersView.tsx</code><br>
+  App: <strong>redlined1.com</strong> · Date generated: <strong>2026-06-23</strong>
+</p>
+
+<div class="warn">
+  ⚠ <strong>Prerequisites:</strong>
+  <ul style="margin:6px 0;padding-left:18px;">
+    <li>Supabase Realtime must be enabled on the <code>repair_orders</code> table (Database → Replication → repair_orders).</li>
+    <li>Log in as Owner or Service Advisor. Have at least 2 Repair Orders (different statuses) in the system.</li>
+    <li>For cross-shop tests (TC-06), have credentials for both Location 1 and Location 2.</li>
+    <li>Badge click toggles status: click <span class="badge pending">Pending</span> → <span class="badge pass">Pass</span> → <span class="badge fail">Fail</span> → back to Pending.</li>
+  </ul>
+</div>
+
+<!-- Live summary bar -->
+<div class="summary-bar" id="summary-bar">
+  <div class="summary-chip chip-total"><span class="count" id="cnt-total">28</span>Total</div>
+  <div class="summary-chip chip-pass"><span class="count" id="cnt-pass">0</span>Pass</div>
+  <div class="summary-chip chip-fail"><span class="count" id="cnt-fail">0</span>Fail</div>
+  <div class="summary-chip chip-pend"><span class="count" id="cnt-pend">28</span>Pending</div>
+</div>
+
+<!-- ───────────────────────── SECTION 1 ───────────────────────── -->
+<h2>1. Bell Icon Visibility</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-01" onclick="cycleBadge(this)">TC-01</span> Sidebar · Bell Renders</div>
+  <h3>Bell icon appears above Help &amp; Manual in the sidebar</h3>
+  <div class="steps"><ol>
+    <li>Log in to redlined1.com as any role.</li>
+    <li>Look at the bottom of the left sidebar, above the "❓ Help &amp; Manual" link.</li>
+  </ol></div>
+  <div class="expected">✅ A "🔔 Notifications" button is visible with a grey border. No red badge is shown when there are no unread notifications.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-02" onclick="cycleBadge(this)">TC-02</span> Sidebar · No Badge on Clean State</div>
+  <h3>No badge shown when notification list is empty</h3>
+  <div class="steps"><ol>
+    <li>Open a fresh browser tab (clears in-memory notification store).</li>
+    <li>Log in and inspect the 🔔 button.</li>
+  </ol></div>
+  <div class="expected">✅ Button has grey border, no red badge, neutral background (<code>rgba(255,255,255,0.05)</code>).</div>
+</div>
+
+<!-- ───────────────────────── SECTION 2 ───────────────────────── -->
+<h2>2. Realtime Status Change Detection</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-03" onclick="cycleBadge(this)">TC-03</span> Realtime · Status Change Triggers Notification</div>
+  <h3>Changing RO status creates a notification entry</h3>
+  <div class="steps"><ol>
+    <li>Open redlined1.com (logged in as Owner).</li>
+    <li>Navigate to <strong>Repair Orders</strong>.</li>
+    <li>Open any RO with status "Open" (e.g. RO-00003).</li>
+    <li>Change the status dropdown to "In Progress" and click <strong>✓ Save Changes</strong>.</li>
+    <li>Watch the sidebar 🔔 Notifications button.</li>
+  </ol></div>
+  <div class="expected">✅ Within 1–2 seconds: bell turns red, badge shows "1". Button border changes to red with <code>rgba(220,38,38,0.12)</code> background.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-04" onclick="cycleBadge(this)">TC-04</span> Realtime · Cross-User Multi-Tab Notification</div>
+  <h3>Notification appears on all connected sessions for the same shop</h3>
+  <div class="steps"><ol>
+    <li>Open redlined1.com in Tab A and Tab B (same shop, same or different user).</li>
+    <li>In Tab A: change an RO status (e.g. "In Progress" → "Pending Parts").</li>
+    <li>Switch to Tab B without interacting.</li>
+  </ol></div>
+  <div class="expected">✅ Tab B's bell badge also shows "1" — the notification was pushed via Supabase realtime without any page action on Tab B.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-05" onclick="cycleBadge(this)">TC-05</span> Realtime · Same-Status Save = No Notification</div>
+  <h3>Saving an RO without changing status produces no notification</h3>
+  <div class="steps"><ol>
+    <li>Open any RO (e.g. status = "Open").</li>
+    <li>Edit the Concern field text only.</li>
+    <li>Click Save without touching the status dropdown.</li>
+    <li>Watch the bell button.</li>
+  </ol></div>
+  <div class="expected">✅ No new notification. Badge count unchanged. (Hook checks: <code>if (oldRow.status === newRow.status) return</code>)</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-06" onclick="cycleBadge(this)">TC-06</span> Realtime · Shop Isolation</div>
+  <h3>Location 1 status changes do NOT appear for Location 2 users</h3>
+  <div class="steps"><ol>
+    <li>Open Tab A logged in as a Location 1 user.</li>
+    <li>Open Tab B logged in as a Location 2 user (different <code>shop_id</code>).</li>
+    <li>In Tab A: change an RO status.</li>
+    <li>Inspect Tab B bell button.</li>
+  </ol></div>
+  <div class="expected">✅ Tab B shows NO notification. Realtime channel is keyed by shop_id: <code>ro-status-{sid}</code>, preventing cross-location leakage.</div>
+</div>
+
+<!-- ───────────────────────── SECTION 3 ───────────────────────── -->
+<h2>3. Notification Panel Content</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-07" onclick="cycleBadge(this)">TC-07</span> Panel · Opens and Shows Correct Data</div>
+  <h3>Clicking bell opens panel with RO details</h3>
+  <div class="steps"><ol>
+    <li>After TC-03, click the 🔔 Notifications button.</li>
+  </ol></div>
+  <div class="expected">✅ Panel opens upward and shows:
+    <ul>
+      <li>Header: "RO Status Changes" + "Clear all" button</li>
+      <li>RO number (e.g. RO-00003) · customer name · vehicle label</li>
+      <li>Status change: <code>📋 Open → 🔧 In Progress</code> (new status in green text)</li>
+      <li>Timestamp (e.g. "03:15 PM")</li>
+      <li>"Open RO →" deep-link button</li>
+      <li>"✕" dismiss button per notification</li>
+    </ul>
+  </div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-08" onclick="cycleBadge(this)">TC-08</span> Panel · Empty State Message</div>
+  <h3>Panel shows helper text when no notifications exist</h3>
+  <div class="steps"><ol>
+    <li>Open a fresh session (no status changes made yet).</li>
+    <li>Click 🔔 Notifications.</li>
+  </ol></div>
+  <div class="expected">✅ Panel shows: "No notifications yet. Status changes on Repair Orders will appear here."</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-09" onclick="cycleBadge(this)">TC-09</span> Panel · Multiple Notifications Stack Newest-First</div>
+  <h3>Multiple status changes stack in the panel, newest at top</h3>
+  <div class="steps"><ol>
+    <li>Change RO-00003 from Open → In Progress.</li>
+    <li>Change RO-00004 from Open → Pending Parts.</li>
+    <li>Open notification panel.</li>
+  </ol></div>
+  <div class="expected">✅ Two rows appear. The most recent change (RO-00004) appears first. Badge shows "2".</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-10" onclick="cycleBadge(this)">TC-10</span> Panel · Opens → Marks All Read</div>
+  <h3>Opening the panel clears the unread badge</h3>
+  <div class="steps"><ol>
+    <li>Trigger a status change (bell shows red badge "1").</li>
+    <li>Click 🔔 to open panel.</li>
+    <li>Close panel by clicking outside.</li>
+    <li>Re-inspect the bell button.</li>
+  </ol></div>
+  <div class="expected">✅ After opening, red badge disappears. Button returns to grey. Notifications still listed but marked read.</div>
+</div>
+
+<!-- ───────────────────────── SECTION 4 ───────────────────────── -->
+<h2>4. Dismiss and Clear</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-11" onclick="cycleBadge(this)">TC-11</span> Panel · Individual Dismiss</div>
+  <h3>Clicking ✕ removes that notification from the list</h3>
+  <div class="steps"><ol>
+    <li>Open the notification panel with 2+ entries.</li>
+    <li>Click "✕" on the first notification.</li>
+    <li>Inspect the remaining list.</li>
+  </ol></div>
+  <div class="expected">✅ That row disappears. Other notifications are unaffected. Badge decrements if that item was unread.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-12" onclick="cycleBadge(this)">TC-12</span> Panel · Clear All</div>
+  <h3>"Clear all" empties the entire notification list</h3>
+  <div class="steps"><ol>
+    <li>Open the notification panel with 3+ entries.</li>
+    <li>Click "Clear all".</li>
+  </ol></div>
+  <div class="expected">✅ All notifications removed. Panel shows empty-state message. Bell badge disappears.</div>
+</div>
+
+<!-- ───────────────────────── SECTION 5 ───────────────────────── -->
+<h2>5. Deep-Link — "Open RO →"</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-13" onclick="cycleBadge(this)">TC-13</span> Deep-link · Navigates to Repair Orders Module</div>
+  <h3>Clicking "Open RO →" switches to Repair Orders</h3>
+  <div class="steps"><ol>
+    <li>Be on the Vehicles module (or any module that is NOT Repair Orders).</li>
+    <li>Trigger a status change (bell turns red).</li>
+    <li>Click 🔔, then click "Open RO →" on the notification.</li>
+  </ol></div>
+  <div class="expected">✅ App immediately switches to the Repair Orders module. Sidebar "Repair Orders" item becomes active.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-14" onclick="cycleBadge(this)">TC-14</span> Deep-link · Auto-Selects the Correct RO</div>
+  <h3>The specific RO is highlighted in the list after clicking the link</h3>
+  <div class="steps"><ol>
+    <li>Change RO-00003 status from Open → In Progress.</li>
+    <li>Navigate away to Dashboard.</li>
+    <li>Click 🔔, then "Open RO →" on the RO-00003 notification.</li>
+    <li>Observe the Repair Orders left panel list.</li>
+  </ol></div>
+  <div class="expected">✅ RO-00003 is selected in the left panel. Its full 3C worksheet is displayed on the right. No manual scrolling or clicking needed.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-15" onclick="cycleBadge(this)">TC-15</span> Deep-link · Panel Closes After Navigation</div>
+  <h3>Notification panel auto-closes when "Open RO →" is clicked</h3>
+  <div class="steps"><ol>
+    <li>Open the notification panel.</li>
+    <li>Click "Open RO →".</li>
+    <li>Check if the panel is still visible.</li>
+  </ol></div>
+  <div class="expected">✅ Panel closes immediately after navigation (<code>setNotifOpen(false)</code> fires in the click handler).</div>
+</div>
+
+<!-- ───────────────────────── SECTION 6 ───────────────────────── -->
+<h2>6. Click-Outside Behavior</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-16" onclick="cycleBadge(this)">TC-16</span> UX · Click Outside Closes Panel</div>
+  <h3>Clicking anywhere outside the notification panel closes it</h3>
+  <div class="steps"><ol>
+    <li>Open the notification panel.</li>
+    <li>Click on the main content area (outside the sidebar).</li>
+  </ol></div>
+  <div class="expected">✅ Panel closes. Handled by the <code>mousedown</code> listener on <code>notifRef</code> in Sidebar.tsx.</div>
+</div>
+
+<!-- ───────────────────────── SECTION 7 ───────────────────────── -->
+<h2>7. Status Emoji Mapping</h2>
+<p class="section-intro">Verify the correct emoji appears for each RO status in the notification panel. Trigger a change TO each status to test.</p>
+
+<table>
+  <thead>
+    <tr><th>TC</th><th>RO Status</th><th>Expected Emoji</th><th>Result</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-17" onclick="cycleBadge(this)" style="cursor:pointer;">TC-17</span></td>
+      <td>Open</td><td>📋</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-17')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-18" onclick="cycleBadge(this)" style="cursor:pointer;">TC-18</span></td>
+      <td>In Progress</td><td>🔧</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-18')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-19" onclick="cycleBadge(this)" style="cursor:pointer;">TC-19</span></td>
+      <td>Pending Parts</td><td>📦</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-19')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-20" onclick="cycleBadge(this)" style="cursor:pointer;">TC-20</span></td>
+      <td>Pending Approval</td><td>⏳</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-20')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-21" onclick="cycleBadge(this)" style="cursor:pointer;">TC-21</span></td>
+      <td>Complete</td><td>✅</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-21')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-22" onclick="cycleBadge(this)" style="cursor:pointer;">TC-22</span></td>
+      <td>Closed</td><td>🔒</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-22')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-23" onclick="cycleBadge(this)" style="cursor:pointer;">TC-23</span></td>
+      <td>Void</td><td>🚫</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-23')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+    <tr>
+      <td><span class="badge pending" data-tc="TC-24" onclick="cycleBadge(this)" style="cursor:pointer;">TC-24</span></td>
+      <td>Unknown / custom</td><td>• (bullet)</td>
+      <td class="result-cell"><select class="result-select" onchange="selectChanged(this,'TC-24')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td>
+      <td><textarea placeholder="Notes…" rows="1"></textarea></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────── SECTION 8 ───────────────────────── -->
+<h2>8. Edge Cases</h2>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-25" onclick="cycleBadge(this)">TC-25</span> Edge · Notification Cap at 50</div>
+  <h3>System keeps only the 50 most recent notifications</h3>
+  <div class="steps"><ol>
+    <li>Simulate 51+ rapid status changes via the Supabase SQL editor:
+      <div class="code">-- Run in Supabase SQL Editor (repeat status flip to trigger updates)
+UPDATE repair_orders SET status = 'In Progress' WHERE id = '&lt;ro-id&gt;';
+UPDATE repair_orders SET status = 'Open'        WHERE id = '&lt;ro-id&gt;';</div>
+    </li>
+    <li>Open the notification panel and count entries.</li>
+  </ol></div>
+  <div class="expected">✅ Maximum 50 entries shown. Oldest entries are dropped. (<code>_notifications = [next, ..._notifications].slice(0, 50)</code>)</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-26" onclick="cycleBadge(this)">TC-26</span> Edge · Page Refresh Clears Notifications</div>
+  <h3>Notifications are in-memory only — reset on refresh</h3>
+  <div class="steps"><ol>
+    <li>Trigger a status change (badge shows red "1").</li>
+    <li>Refresh the page (F5 / Cmd+R).</li>
+    <li>Inspect the bell button.</li>
+  </ol></div>
+  <div class="expected">✅ Bell resets to grey with no badge. Notifications are not persisted to the database — they are session-only in the module-level JS store.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-27" onclick="cycleBadge(this)">TC-27</span> Edge · RO Not Found in Current List</div>
+  <h3>"Open RO →" gracefully handles RO not loaded in current shop view</h3>
+  <div class="steps"><ol>
+    <li>Be logged in as Location 2.</li>
+    <li>Manually trigger a realtime event for an RO that belongs to Location 1 (via Supabase SQL).</li>
+    <li>Click "Open RO →" for that notification.</li>
+  </ol></div>
+  <div class="expected">✅ Navigates to Repair Orders module. No RO is auto-selected (find returns undefined, <code>setSelected</code> is not called). No console errors thrown.</div>
+</div>
+
+<div class="test-case">
+  <div class="meta"><span class="badge pending" data-tc="TC-28" onclick="cycleBadge(this)">TC-28</span> Edge · Supabase Realtime Unavailable</div>
+  <h3>App remains functional if realtime channel fails to subscribe</h3>
+  <div class="steps"><ol>
+    <li>Temporarily disable realtime in Supabase project settings (Database → Replication → disable repair_orders), OR simulate offline by throttling the network to "Offline" in DevTools.</li>
+    <li>Log in and use the app normally (create job cards, view ROs, etc.).</li>
+    <li>Re-enable realtime afterward.</li>
+  </ol></div>
+  <div class="expected">✅ App works fully. Bell renders without notifications. No unhandled errors in the browser console from the failed subscription.</div>
+</div>
+
+<!-- ───────────────────────── MATRIX ───────────────────────── -->
+<h2>Test Summary Matrix</h2>
+
+<table id="matrix-table">
+  <thead>
+    <tr><th>#</th><th>Test Case</th><th>Area</th><th>Result</th><th>Tester Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>TC-01</td><td>Bell icon renders in sidebar</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-01')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-02</td><td>No badge on clean state</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-02')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-03</td><td>Status change triggers notification</td><td>Realtime</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-03')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-04</td><td>Cross-user multi-tab notification</td><td>Realtime</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-04')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-05</td><td>Same-status save = no notification</td><td>Realtime</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-05')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-06</td><td>Shop isolation (Location 1 vs 2)</td><td>Realtime</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-06')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-07</td><td>Panel shows correct RO data</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-07')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-08</td><td>Empty state message</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-08')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-09</td><td>Multiple notifications stack newest-first</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-09')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-10</td><td>Opening panel marks all read</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-10')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-11</td><td>Individual dismiss ✕</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-11')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-12</td><td>Clear all empties list</td><td>Panel</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-12')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-13</td><td>Open RO → navigates to module</td><td>Deep-link</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-13')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-14</td><td>Correct RO auto-selected</td><td>Deep-link</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-14')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-15</td><td>Panel closes after navigation</td><td>Deep-link</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-15')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-16</td><td>Click outside closes panel</td><td>UX</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-16')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-17</td><td>Emoji: Open = 📋</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-17')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-18</td><td>Emoji: In Progress = 🔧</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-18')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-19</td><td>Emoji: Pending Parts = 📦</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-19')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-20</td><td>Emoji: Pending Approval = ⏳</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-20')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-21</td><td>Emoji: Complete = ✅</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-21')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-22</td><td>Emoji: Closed = 🔒</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-22')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-23</td><td>Emoji: Void = 🚫</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-23')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-24</td><td>Emoji: Unknown status = •</td><td>UI</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-24')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-25</td><td>50-notification cap</td><td>Edge</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-25')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-26</td><td>Page refresh clears notifications</td><td>Edge</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-26')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-27</td><td>RO not in current list — graceful</td><td>Edge</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-27')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+    <tr><td>TC-28</td><td>Realtime unavailable — app still works</td><td>Edge</td><td class="result-cell"><select class="result-select" onchange="syncFromMatrix(this,'TC-28')"><option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option></select></td><td><textarea placeholder="Notes…" rows="1"></textarea></td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Generated for <strong>Redlined1</strong> · Feature: RO Status Notification · App: redlined1.com · 2026-06-23<br>
+  Tester: _____________________ &nbsp;&nbsp; Date tested: _____________________ &nbsp;&nbsp; Build/commit: _____________________
+</footer>
+
+<script>
+  const STATES = ['pending','pass','fail'];
+  const CLASS  = { pending:'pending', pass:'pass', fail:'fail' };
+
+  function updateSummary() {
+    const badges = document.querySelectorAll('.badge[data-tc]');
+    let pass = 0, fail = 0, pend = 0;
+    badges.forEach(b => {
+      if (b.classList.contains('pass'))    pass++;
+      else if (b.classList.contains('fail')) fail++;
+      else                                   pend++;
+    });
+    document.getElementById('cnt-pass').textContent = pass;
+    document.getElementById('cnt-fail').textContent = fail;
+    document.getElementById('cnt-pend').textContent = pend;
+  }
+
+  function setBadgeState(badge, state) {
+    badge.classList.remove('pending','pass','fail');
+    badge.classList.add(CLASS[state]);
+  }
+
+  function cycleBadge(badge) {
+    const cur = STATES.find(s => badge.classList.contains(s)) || 'pending';
+    const next = STATES[(STATES.indexOf(cur) + 1) % STATES.length];
+    setBadgeState(badge, next);
+    updateSummary();
+  }
+
+  function selectChanged(sel, tc) {
+    const badge = document.querySelector(`.badge[data-tc="${tc}"]`);
+    if (badge) setBadgeState(badge, sel.value);
+    updateSummary();
+  }
+
+  function syncFromMatrix(sel, tc) {
+    selectChanged(sel, tc);
+  }
+
+  updateSummary();
+</script>
+</body>
+</html>
