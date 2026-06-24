@@ -835,9 +835,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   return (
     <>
       {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 1100 }} />
-      {/* Drawer */}
-      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, maxWidth: '95vw', background: 'var(--surface)', boxShadow: '-4px 0 32px rgba(0,0,0,0.18)', zIndex: 1101, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100 }} />
+      {/* Full-screen modal */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1101, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 1100, boxShadow: '0 24px 80px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {toast && <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#16a34a', color: '#fff', padding: '8px 16px', fontSize: 13, fontWeight: 600 }}>{toast}</div>}
 
         {/* Header */}
@@ -963,9 +964,11 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         </div>
 
         {/* Form body */}
-        <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
+        <div style={{ flex: 1, padding: '20px 28px', overflowY: 'auto' }}>
           {err && <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12 }}>{err}</div>}
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+          <div>{/* ── LEFT: Basic Info ── */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
 
           {/* Status-reason callout — shown for statuses that need an explanation */}
@@ -1223,7 +1226,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           ))}
           {row('Date Received', <input type="date" style={inp} value={f.dateReceived ?? ''} onChange={e => set('dateReceived', e.target.value || null)} />)}
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '16px 0 10px' }}>Service Record</div>
+          </div>{/* end left column */}
+          <div>{/* ── RIGHT: Service Record ── */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Service Record</div>
 
           {/* Assigned Tech multi-select dropdown */}
           <div style={{ marginBottom: 12 }}>
@@ -1311,6 +1316,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <input type="checkbox" id="issues-resolved" checked={f.issuesResolved} onChange={e => set('issuesResolved', e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
             <label htmlFor="issues-resolved" style={{ fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Issues Resolved</label>
           </div>
+          </div>{/* end right column */}
+          </div>{/* end two-column grid */}
         </div>
 
         {/* Save footer */}
@@ -1320,6 +1327,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             {saving ? 'Saving…' : '✓ Save Changes'}
           </button>
         </div>
+      </div>
       </div>
     </>
   );
