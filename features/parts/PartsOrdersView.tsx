@@ -924,6 +924,26 @@ export function PartsOrdersView() {
 
             <form onSubmit={handleFormSubmit}>
 
+              {/* ── Action bar (top) ── */}
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => handleCreateEstimate()}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    📋 Create Estimate
+                  </button>
+                  <button type="button" onClick={() => handleCreateInvoice()}
+                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    🧾 Create Invoice
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {editingId ? 'Review & Update' : 'Review & Save'}
+                  </button>
+                </div>
+              </div>
+
               {/* ── Parts Table ── */}
               <FormSection label="Parts" />
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
@@ -1101,24 +1121,6 @@ export function PartsOrdersView() {
                 {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Any additional notes…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
               </div>
 
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => handleCreateEstimate()}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                    📋 Create Estimate
-                  </button>
-                  <button type="button" onClick={() => handleCreateInvoice()}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                    🧾 Create Invoice
-                  </button>
-                </div>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {editingId ? 'Review & Update' : 'Review & Save'}
-                  </button>
-                </div>
-              </div>
             </form>
           </div>
         </div>
