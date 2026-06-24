@@ -566,24 +566,40 @@ export function RepairOrdersView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
-      {/* Stats */}
+      {/* Stats — click to filter */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Open / In Progress</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#2196f3' }}>{openCount}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pending</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{pendingCount}</div>
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Complete / Closed</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#4caf50' }}>{completeCount}</div>
-        </div>
+        {[
+          { label: 'Open / In Progress', count: openCount,    color: '#2196f3', filter: 'In Progress' },
+          { label: 'Pending',            count: pendingCount, color: '#f59e0b', filter: 'Pending' },
+          { label: 'Complete / Closed',  count: completeCount,color: '#4caf50', filter: 'Complete' },
+        ].map(({ label, count, color, filter }) => {
+          const active = filterStatus === filter;
+          return (
+            <button
+              key={label}
+              onClick={() => { setFilterStatus(active ? 'All' : filter); setSelected(null); }}
+              style={{
+                padding: 16, borderRadius: 12, border: active ? `2px solid ${color}` : '1px solid var(--line)',
+                background: active ? color + '14' : 'var(--card)',
+                cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
+                boxShadow: active ? `0 0 0 3px ${color}22` : undefined,
+              }}
+            >
+              <div style={{ fontSize: 11, color: active ? color : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                <span>{label}</span>
+                {active && <span style={{ fontSize: 10 }}>✕ clear</span>}
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 800, color, marginTop: 4 }}>{count}</div>
+              <div style={{ fontSize: 11, color: active ? color : 'var(--muted)', marginTop: 2 }}>
+                {active ? 'Showing filtered list' : 'Click to filter'}
+              </div>
+            </button>
+          );
+        })}
         {!isTech && (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Labor Value</div>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>${totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>${totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
         )}
       </div>
