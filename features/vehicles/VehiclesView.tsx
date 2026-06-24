@@ -1959,7 +1959,7 @@ export function VehiclesView() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--surface-soft)' }}>
-                {['Vehicle', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
+                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1978,6 +1978,9 @@ export function VehiclesView() {
                       )}
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{v.label}</span>
                     </div>
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    {(() => { const c = customers.find(cu => cu.id === v.customerId); return c ? <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>; })()}
                   </td>
                   <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{[v.year, v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
                   <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || '—'}</td>
