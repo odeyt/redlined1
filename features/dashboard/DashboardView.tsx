@@ -6,6 +6,7 @@ import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
+import { getShopId } from '@/lib/shopStore';
 
 interface DashStats {
   totalCustomers: number;
@@ -128,14 +129,14 @@ export function DashboardView() {
         { data: payData },
         { data: partsData },
       ] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true }),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }),
-        supabase.from('job_cards').select('status'),
-        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date').order('created_at', { ascending: false }),
-        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency').order('created_at', { ascending: false }),
-        supabase.from('estimates').select('status'),
-        supabase.from('payments').select('amount, payment_date, currency').order('payment_date', { ascending: false }),
-        supabase.from('parts').select('id, quantity, reorder_point'),
+        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
+        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
+        supabase.from('job_cards').select('status').eq('shop_id', getShopId()),
+        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
+        supabase.from('estimates').select('status').eq('shop_id', getShopId()),
+        supabase.from('payments').select('amount, payment_date, currency').eq('shop_id', getShopId()).order('payment_date', { ascending: false }),
+        supabase.from('parts').select('id, quantity, reorder_point').eq('shop_id', getShopId()),
       ]);
 
       // Invoice stats
