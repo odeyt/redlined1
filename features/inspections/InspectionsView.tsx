@@ -249,6 +249,17 @@ export function InspectionsView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
+  function parseTechList(val: string): string[] {
+    return val ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
+  }
+  function toggleTech(name: string) {
+    setForm(f => {
+      const cur = parseTechList(f.technician);
+      const next = cur.includes(name) ? cur.filter(n => n !== name) : [...cur, name];
+      return { ...f, technician: next.join(', ') };
+    });
+  }
+
   async function saveNewTech() {
     if (!addTechForm.name.trim()) return;
     setAddTechSaving(true);
@@ -259,7 +270,10 @@ export function InspectionsView() {
         payType: 'Hourly', payRate: 0, hireDate: null, status: 'Active', notes: '',
       });
       setDbTechs(prev => [...prev, { id: t.id, name: t.name, role: t.role }]);
-      setForm(f => ({ ...f, technician: t.name }));
+      setForm(f => {
+        const cur = parseTechList(f.technician);
+        return { ...f, technician: [...cur, t.name].join(', ') };
+      });
       setAddTechForm({ name: '', role: 'Technician' });
       setShowAddTech(false);
       notify(`Technician "${t.name}" added`);
@@ -588,27 +602,24 @@ export function InspectionsView() {
                       const memberOptions = techMembers.map(m => ({
                         value: m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                         label: `${m.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} (${m.role})`,
-                        group: 'Team Members',
                       }));
                       const dbOptions = dbTechs
                         .filter(t => !techMembers.some(m => m.email.toLowerCase().startsWith(t.name.toLowerCase().replace(/ /g, '.'))))
-                        .map(t => ({ value: t.name, label: `${t.name} (${t.role})`, group: 'Technicians' }));
+                        .map(t => ({ value: t.name, label: `${t.name} (${t.role})` }));
                       const allOptions = [...memberOptions, ...dbOptions];
+                      const selected = parseTechList(form.technician);
                       return allOptions.length > 0 ? (
-                        <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
-                          style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                          <option value="">— select technician —</option>
-                          {memberOptions.length > 0 && (
-                            <optgroup label="Team Members">
-                              {memberOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </optgroup>
-                          )}
-                          {dbOptions.length > 0 && (
-                            <optgroup label="Technicians">
-                              {dbOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </optgroup>
-                          )}
-                        </select>
+                        <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {allOptions.map(o => {
+                            const isChecked = selected.includes(o.value);
+                            return (
+                              <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: isChecked ? 'rgba(204,0,0,0.08)' : 'transparent', border: isChecked ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>
+                                <input type="checkbox" checked={isChecked} onChange={() => toggleTech(o.value)} style={{ accentColor: 'var(--accent)' }} />
+                                {o.label}
+                              </label>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" />
                       );
