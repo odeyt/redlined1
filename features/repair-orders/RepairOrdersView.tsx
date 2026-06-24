@@ -326,6 +326,8 @@ export function RepairOrdersView() {
   const [showPreview, setShowPreview] = useState(false);
   const [qaTarget, setQaTarget] = useState<RepairOrder | null>(null);
   const [photoRO, setPhotoRO] = useState<RepairOrder | null>(null);
+  const [currencyQuery, setCurrencyQuery] = useState('');
+  const [currencyOpen, setCurrencyOpen] = useState(false);
 
   useEffect(() => {
     load();
@@ -1259,12 +1261,42 @@ export function RepairOrdersView() {
                   <label>Parts Total ($)</label>
                   <input type="number" value={form.partsTotal} readOnly style={{ opacity: 0.6 }} />
                 </div>
-                <div className="login-field">
+                <div className="login-field" style={{ position: 'relative' }}>
                   <label>Currency</label>
-                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
-                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.symbol}</option>)}
-                  </select>
+                  <input
+                    value={currencyOpen ? currencyQuery : (() => { const c = CURRENCIES.find(c => c.code === form.currency); return c ? `${c.code} — ${c.name} ${c.symbol}` : form.currency; })()}
+                    onChange={e => { setCurrencyQuery(e.target.value); setCurrencyOpen(true); }}
+                    onFocus={() => { setCurrencyQuery(''); setCurrencyOpen(true); }}
+                    onBlur={() => setTimeout(() => setCurrencyOpen(false), 150)}
+                    placeholder="Type to search currency…"
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                    autoComplete="off"
+                  />
+                  {currencyOpen && (() => {
+                    const q = currencyQuery.toLowerCase();
+                    const matches = CURRENCIES.filter(c =>
+                      c.code.toLowerCase().includes(q) ||
+                      c.name.toLowerCase().includes(q) ||
+                      c.symbol.toLowerCase().includes(q)
+                    );
+                    return matches.length > 0 ? (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(c => (
+                          <div
+                            key={c.code}
+                            onMouseDown={() => { setForm(f => ({ ...f, currency: c.code })); setCurrencyQuery(''); setCurrencyOpen(false); }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, background: form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = form.currency === c.code ? 'rgba(204,0,0,0.07)' : 'transparent')}
+                          >
+                            <span style={{ fontWeight: 700, minWidth: 44, color: 'var(--accent)' }}>{c.code}</span>
+                            <span style={{ color: 'var(--muted)', fontSize: 12, flex: 1 }}>{c.name}</span>
+                            <span style={{ fontWeight: 600, fontSize: 15 }}>{c.symbol}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
 
