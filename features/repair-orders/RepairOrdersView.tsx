@@ -692,13 +692,30 @@ export function RepairOrdersView() {
                     );
                   })()}
                 </div>
-                <div className="login-field">
-                  <label>Technician</label>
-                  <select value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))}
-                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                    <option value="">— Unassigned —</option>
-                    {technicians.map(t => <option key={t.id} value={t.name}>{t.name} ({t.role})</option>)}
-                  </select>
+                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                  <label>
+                    Technician
+                    {form.technician && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11, marginLeft: 6 }}>({form.technician.split(',').filter(Boolean).length} selected)</span>}
+                  </label>
+                  {technicians.length > 0 ? (
+                    <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {technicians.map(t => {
+                        const selected = form.technician.split(',').map(s => s.trim()).filter(Boolean).includes(t.name);
+                        return (
+                          <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: selected ? 'rgba(204,0,0,0.08)' : 'transparent', border: selected ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>
+                            <input type="checkbox" checked={selected} onChange={() => {
+                              const cur = form.technician.split(',').map(s => s.trim()).filter(Boolean);
+                              const next = selected ? cur.filter(n => n !== t.name) : [...cur, t.name];
+                              setForm(f => ({ ...f, technician: next.join(', ') }));
+                            }} style={{ accentColor: 'var(--accent)' }} />
+                            {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }} />
+                  )}
                 </div>
                 <div className="login-field">
                   <label>Job Card ID</label>
