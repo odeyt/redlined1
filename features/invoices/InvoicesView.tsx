@@ -14,6 +14,7 @@ import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
+import { FilterPills } from '@/components/FilterPills';
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
 // This portal only uses these 3 currencies
@@ -348,12 +349,12 @@ export function InvoicesView() {
               </div>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="search" style={{ flex: 1, minWidth: 120 }} />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
-              {['All', 'Draft', 'Sent', 'Paid', 'Void'].map(s => <option key={s}>{s}</option>)}
-            </select>
             <button className="btn btn-primary" onClick={openNewForm}>+ New</button>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FilterPills statuses={['All', 'Draft', 'Sent', 'Paid', 'Void']} active={filterStatus} onChange={setFilterStatus} />
           </div>
 
           {/* New Invoice Form */}

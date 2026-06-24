@@ -11,6 +11,7 @@ import {
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
+import { FilterPills } from '@/components/FilterPills';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import type { Customer } from '@/lib/types';
@@ -639,21 +640,19 @@ export function PartsOrdersView() {
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search part, vendor, job card, vehicle…"
           style={{ flex: 1, minWidth: 220, padding: '9px 14px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--surface-soft)' }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          style={{ padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface-soft)', fontSize: 13 }}>
-          <option value="All">All Statuses</option>
-          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
         <select value={filterVendor} onChange={e => setFilterVendor(e.target.value)}
           style={{ padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface-soft)', fontSize: 13 }}>
           <option value="All">All Vendors</option>
           {uniqueVendorNames.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
         <button className="btn btn-primary" onClick={openNew}>+ New Parts Order</button>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <FilterPills statuses={['All', ...ORDER_STATUSES]} active={filterStatus} onChange={setFilterStatus} />
       </div>
 
       {/* Table */}

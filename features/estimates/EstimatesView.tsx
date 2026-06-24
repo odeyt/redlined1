@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppState } from '@/lib/store';
+import { FilterPills } from '@/components/FilterPills';
 import { Panel } from '@/components/Panel';
 import {
   fetchEstimates, createEstimate, updateEstimate, approveEstimate,
@@ -314,12 +315,12 @@ export function EstimatesView() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="search" style={{ flex: 1, minWidth: 120 }} />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
-              {['All', 'Draft', 'Sent', 'Approved', 'Declined', 'Converted'].map(s => <option key={s}>{s}</option>)}
-            </select>
             <button className="btn btn-primary" onClick={openNewForm}>+ New</button>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FilterPills statuses={['All', 'Draft', 'Sent', 'Approved', 'Declined', 'Converted']} active={filterStatus} onChange={setFilterStatus} />
           </div>
 
           {showForm && (

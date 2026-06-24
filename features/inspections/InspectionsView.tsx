@@ -17,6 +17,7 @@ import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { supabase } from '@/lib/supabase';
 import { fetchTechnicians, createTechnician, TECH_ROLES } from '@/services/technicianService';
+import { FilterPills } from '@/components/FilterPills';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50', Attention: '#ff9800', Fail: '#f44336', 'N/A': '#888',
@@ -467,14 +468,12 @@ export function InspectionsView() {
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inspections[0].vehicle}</div>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="search" style={{ flex: 1, minWidth: 100 }} />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
-              <option value="All">All</option>
-              {INSPECTION_STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
             <button className="btn btn-primary" onClick={openNew}>+ New DVI</button>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FilterPills statuses={['All', ...INSPECTION_STATUSES]} active={filterStatus} onChange={setFilterStatus} />
           </div>
           {loading && <p style={{ color: 'var(--muted)' }}>Loading…</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

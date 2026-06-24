@@ -16,6 +16,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { getTechColor as _getTechColor } from '@/lib/techColors';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
+import { FilterPills } from '@/components/FilterPills';
 
 type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -1688,27 +1689,14 @@ export function VehiclesView() {
 
       {/* ── Search + Status filters (list & service views) ── */}
       {(viewMode === 'list' || viewMode === 'service') && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+        <div style={{ marginBottom: 14 }}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search vehicles, VIN, plate, tech, issues…"
-            style={{ flex: 1, minWidth: 200, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}
+            style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box', marginBottom: 10 }}
           />
-          {STATUS_FILTERS.map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer', fontWeight: statusFilter === s ? 700 : 400,
-                background: statusFilter === s ? (s === 'All' ? '#1a1a1a' : statusColor(s).bg) : 'var(--surface-soft)',
-                color: statusFilter === s ? (s === 'All' ? '#fff' : statusColor(s).color) : 'var(--muted)',
-                border: `1px solid ${statusFilter === s ? (s === 'All' ? '#1a1a1a' : statusColor(s).border) : 'var(--line)'}`,
-              }}
-            >
-              {s} {counts[s] !== undefined ? `(${counts[s]})` : ''}
-            </button>
-          ))}
+          <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
         </div>
       )}
 

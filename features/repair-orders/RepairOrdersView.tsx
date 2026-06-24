@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
+import { FilterPills } from '@/components/FilterPills';
 import { TechPills } from '@/components/TechPill';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
@@ -649,14 +650,12 @@ export function RepairOrdersView() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search RO, customer, vehicle…" className="search" style={{ flex: 1, minWidth: 120 }} />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>
-              <option value="All">All Status</option>
-              {RO_STATUSES.map(s => <option key={s}>{s}</option>)}
-            </select>
             <button className="btn btn-primary" onClick={openNew}>+ New RO</button>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <FilterPills statuses={['All', ...RO_STATUSES]} active={filterStatus} onChange={setFilterStatus} />
           </div>
 
 
