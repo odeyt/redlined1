@@ -72,7 +72,8 @@ export function calcPartsTotal(parts: RoPart[]): number {
 }
 
 export function calcROTotal(ro: RepairOrder): number {
-  return ro.laborHours * ro.laborRate + ro.partsTotal;
+  const live = ro.parts && ro.parts.length > 0 ? calcPartsTotal(ro.parts) : ro.partsTotal;
+  return ro.laborHours * ro.laborRate + live;
 }
 
 export async function fetchRepairOrders(): Promise<RepairOrder[]> {
