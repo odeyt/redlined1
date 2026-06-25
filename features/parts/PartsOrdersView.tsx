@@ -924,7 +924,7 @@ export function PartsOrdersView() {
                   </select>
                   <label style={{ flex: 1, minWidth: 140, padding: '7px 14px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', textAlign: 'center', display: 'block' }}>
                     {uploadingImg ? 'Uploading…' : '+ Add Images'}
-                    <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg}
+                    <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
                       onChange={e => handleImageUpload(e.target.files)} />
                   </label>
                 </div>
@@ -1094,7 +1094,7 @@ export function PartsOrdersView() {
                     </select>
                     <label style={{ padding: '7px 16px', borderRadius: 7, background: '#cc0000', color: '#fff', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1, whiteSpace: 'nowrap' }}>
                       {uploadingImg ? 'Uploading…' : '+ Add Images / Invoices'}
-                      <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg}
+                      <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
                         onChange={e => handleImageUpload(e.target.files)} />
                     </label>
                     {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
@@ -1105,31 +1105,45 @@ export function PartsOrdersView() {
               </div>
               {activeOrderId && (
                 <>
+                  {/* Drop zone — accepts any file dragged from OS */}
                   <div style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'default', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
                     onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
                     onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; }}
                     onDrop={async e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = ''; await handleImageUpload(e.dataTransfer.files); }}>
-                    📎 Drag &amp; drop vendor invoices or photos here
+                    📎 Drag &amp; drop photos, invoices, or PDFs here
                   </div>
                   {images.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
-                      {images.map((img, idx) => (
-                        <div key={img.id} draggable
-                          onDragStart={() => { dragSrcIdx.current = idx; }}
-                          onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
-                          onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
-                          onDragEnd={() => setDragOverIdx(null)}
-                          style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab' }}>
-                          <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={() => setLightbox(img.url)} />
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                              {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
-                            </span>
-                            <button type="button" onClick={() => handleDeleteImage(img)}
-                              style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>✕</button>
+                      {images.map((img, idx) => {
+                        const isPdf = img.url.toLowerCase().includes('.pdf');
+                        return (
+                          <div key={img.id} draggable
+                            onDragStart={e => { e.stopPropagation(); dragSrcIdx.current = idx; }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverIdx(idx); }}
+                            onDrop={e => { e.preventDefault(); e.stopPropagation(); handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
+                            onDragEnd={() => setDragOverIdx(null)}
+                            style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
+                            {isPdf ? (
+                              <a href={img.url} target="_blank" rel="noreferrer"
+                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
+                                <span style={{ fontSize: 32 }}>📄</span>
+                                <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
+                              </a>
+                            ) : (
+                              <img src={img.url} alt={img.label} draggable={false}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
+                                onClick={() => setLightbox(img.url)} />
+                            )}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
+                                {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
+                              </span>
+                              <button type="button" onClick={() => handleDeleteImage(img)}
+                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>✕</button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   {!imagesLoading && images.length === 0 && (
