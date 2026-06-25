@@ -124,16 +124,24 @@ export function PhotoGalleryModal({
 
   async function uploadFiles(files: File[]) {
     if (!files.length) return;
-    setUploading(true);
-    try {
-      const uploaded = await Promise.all(files.map(f => uploadImage(f)));
-      setImages(prev => { const next = [...prev, ...uploaded]; setActiveIdx(next.length - 1); return next; });
-    } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : '')); }
-    finally {
-      setUploading(false);
-      if (fileRef.current)   fileRef.current.value = '';
-      if (cameraRef.current) cameraRef.current.value = '';
+    setUploading(true); setError('');
+    const uploaded: GalleryImage[] = [];
+    for (const f of files) {
+      try {
+        const img = await uploadImage(f);
+        uploaded.push(img);
+      } catch (err: unknown) {
+        const msg = (err as { message?: string })?.message ?? String(err);
+        setError(`Upload failed: ${msg}`);
+        console.error('Photo upload error:', err);
+      }
     }
+    if (uploaded.length) {
+      setImages(prev => { const next = [...prev, ...uploaded]; setActiveIdx(next.length - 1); return next; });
+    }
+    setUploading(false);
+    if (fileRef.current)   fileRef.current.value = '';
+    if (cameraRef.current) cameraRef.current.value = '';
   }
 
   async function uploadFromHtml(file: File) {
@@ -210,18 +218,16 @@ export function PhotoGalleryModal({
 
   const current = images[activeIdx];
   function onDropZoneDragOver(e: React.DragEvent) {
-    if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
     setDropHover(true);
   }
   function onDropZoneDragLeave(e: React.DragEvent) {
-    // only clear when leaving the modal container itself
     if ((e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) return;
     setDropHover(false);
   }
   function onDropZoneDrop(e: React.DragEvent) {
     e.preventDefault(); setDropHover(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    const files = Array.from(e.dataTransfer.files);
     if (files.length) uploadFiles(files);
   }
 
@@ -380,7 +386,7 @@ export function PhotoGalleryModal({
         </div>
 
         {/* Hidden file inputs */}
-        <input ref={fileRef}   type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
+        <input ref={fileRef}   type="file" accept="image/*,application/pdf,.pdf,.doc,.docx" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
         <input ref={htmlRef}   type="file" accept=".html,.htm" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFromHtml(f); }} />
       </div>
