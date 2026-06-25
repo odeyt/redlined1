@@ -210,6 +210,7 @@ export function PartsOrdersView() {
   async function handleImageUpload(files: FileList | null) {
     if (!files || !activeOrderId) return;
     setUploadingImg(true);
+    setFormError('');
     let uploaded = 0;
     for (const file of Array.from(files)) {
       try {
@@ -218,7 +219,7 @@ export function PartsOrdersView() {
         uploaded++;
       } catch (err) {
         const msg = (err as { message?: string })?.message ?? String(err);
-        notify(`Upload failed: ${msg}`);
+        setFormError(`Upload failed: ${msg}`);
         console.error('Image upload error:', err);
       }
     }
@@ -1104,13 +1105,12 @@ export function PartsOrdersView() {
               </div>
               {activeOrderId && (
                 <>
-                  <label style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'pointer', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
-                    onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
+                  <div style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'default', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
                     onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; }}
-                    onDrop={async e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = ''; await handleImageUpload(e.dataTransfer.files); }}>
+                    onDrop={async e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = ''; await handleImageUpload(e.dataTransfer.files); }}>
                     📎 Drag &amp; drop vendor invoices or photos here
-                    <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg} onChange={e => handleImageUpload(e.target.files)} />
-                  </label>
+                  </div>
                   {images.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
                       {images.map((img, idx) => (
