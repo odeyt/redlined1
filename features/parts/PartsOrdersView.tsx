@@ -1282,6 +1282,88 @@ export function PartsOrdersView() {
                 {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Any additional notes…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
               </div>
 
+              {/* ── Photos & Invoices (edit mode only — needs a saved order id) ── */}
+              {editingId && (
+                <div style={{ marginBottom: 24 }}>
+                  <FormSection label="Photos & Invoices" />
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontSize: 13 }}>
+                      <option value="Photo">📷 Photo</option>
+                      <option value="Invoice">🧾 Invoice</option>
+                    </select>
+                    <label style={{ padding: '8px 18px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1 }}>
+                      {uploadingImg ? 'Uploading…' : '+ Add Images / Invoices'}
+                      <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg}
+                        onChange={e => handleImageUpload(e.target.files)} />
+                    </label>
+                    {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
+                  </div>
+
+                  {/* Drop zone */}
+                  <label
+                    style={{ display: 'block', border: '2px dashed var(--line)', borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', marginBottom: 12, background: 'var(--surface-soft)', transition: 'border-color .15s' }}
+                    onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; }}
+                    onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; }}
+                    onDrop={async e => {
+                      e.preventDefault();
+                      (e.currentTarget as HTMLElement).style.borderColor = '';
+                      await handleImageUpload(e.dataTransfer.files);
+                    }}
+                  >
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>📎 Drag &amp; drop vendor invoices or photos here</span>
+                    <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg}
+                      onChange={e => handleImageUpload(e.target.files)} />
+                  </label>
+
+                  {/* Thumbnails with drag-to-reorder */}
+                  {images.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                      {images.map((img, idx) => (
+                        <div
+                          key={img.id}
+                          draggable
+                          onDragStart={() => { dragSrcIdx.current = idx; }}
+                          onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                          onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
+                          onDragEnd={() => setDragOverIdx(null)}
+                          style={{
+                            position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1',
+                            border: dragOverIdx === idx ? '2px solid var(--accent)' : '1px solid var(--line)',
+                            cursor: 'grab', background: 'var(--surface-soft)',
+                          }}
+                        >
+                          <img src={img.url} alt={img.label}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            onClick={() => setLightbox(img.url)} />
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '4px 5px' }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
+                              {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
+                            </span>
+                            <button type="button" onClick={() => handleDeleteImage(img)}
+                              style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px', lineHeight: 1 }}>
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!imagesLoading && images.length === 0 && (
+                    <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '8px 0' }}>
+                      No photos or invoices attached yet.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!editingId && (
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 24, padding: '10px 14px', background: 'var(--surface-soft)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                  💡 Save this order first, then re-open it to attach photos and vendor invoices.
+                </p>
+              )}
+
             </form>
           </div>
         </div>
