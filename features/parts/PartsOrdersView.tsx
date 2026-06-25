@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import {
@@ -187,7 +187,7 @@ export function PartsOrdersView() {
   const [imgLabel, setImgLabel]        = useState<'Photo' | 'Invoice'>('Photo');
   const [lightbox, setLightbox]        = useState<string | null>(null);
   const [dragOverIdx, setDragOverIdx]  = useState<number | null>(null);
-  const dragSrcIdx = { current: -1 };
+  const dragSrcIdx = useRef(-1);
 
   const loadImages = useCallback(async (orderId: string) => {
     setImgLoading(true);
@@ -210,14 +210,20 @@ export function PartsOrdersView() {
   async function handleImageUpload(files: FileList | null) {
     if (!files || !activeOrderId) return;
     setUploadingImg(true);
-    try {
-      for (const file of Array.from(files)) {
+    let uploaded = 0;
+    for (const file of Array.from(files)) {
+      try {
         const img = await uploadEntityImage('parts_order', activeOrderId, file, imgLabel);
         setImages(prev => [...prev, img]);
+        uploaded++;
+      } catch (err) {
+        const msg = (err as { message?: string })?.message ?? String(err);
+        notify(`Upload failed: ${msg}`);
+        console.error('Image upload error:', err);
       }
-      notify('✓ Image(s) uploaded.');
-    } catch { notify('Upload failed — check storage bucket permissions.'); }
-    finally { setUploadingImg(false); }
+    }
+    if (uploaded > 0) notify(`✓ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
+    setUploadingImg(false);
   }
 
   async function handleDeleteImage(img: EntityImage) {

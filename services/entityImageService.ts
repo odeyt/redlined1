@@ -47,9 +47,10 @@ export async function uploadEntityImage(
   const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path);
   const url = urlData.publicUrl;
 
+  const shopId = getShopId() || null;
   const { data, error } = await supabase
     .from('entity_images')
-    .insert({ entity_type: entityType, entity_id: entityId, shop_id: getShopId(), url, label, sort_order: 0 })
+    .insert({ entity_type: entityType, entity_id: entityId, shop_id: shopId, url, label, sort_order: 0 })
     .select()
     .single();
   if (error) throw error;
