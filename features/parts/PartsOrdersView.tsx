@@ -173,6 +173,7 @@ export function PartsOrdersView() {
 
   /* filters */
   const [filterStatus, setFilterStatus] = useState('All');
+  const [filterGroup, setFilterGroup]   = useState<string | null>(null);
   const [filterVendor, setFilterVendor] = useState('All');
   const [search, setSearch]             = useState('');
 
@@ -549,8 +550,13 @@ export function PartsOrdersView() {
   }
 
   /* filters */
+  const ON_ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered'];
   const visible = orders.filter(o => {
-    if (filterStatus !== 'All' && o.status !== filterStatus) return false;
+    if (filterGroup === 'on-order' && !ON_ORDER_STATUSES.includes(o.status)) return false;
+    if (filterGroup === 'received' && o.status !== 'Received') return false;
+    if (filterGroup === 'balance' && (o.totalCost - o.deposit) <= 0) return false;
+    if (filterGroup === 'deposits' && o.deposit <= 0) return false;
+    if (!filterGroup && filterStatus !== 'All' && o.status !== filterStatus) return false;
     if (filterVendor !== 'All' && o.vendorName !== filterVendor) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -656,19 +662,22 @@ export function PartsOrdersView() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         {/* On Order */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+        <div onClick={() => setFilterGroup(filterGroup === 'on-order' ? null : 'on-order')}
+          style={{ background: filterGroup === 'on-order' ? 'rgba(59,130,246,0.08)' : 'var(--card)', border: filterGroup === 'on-order' ? '2px solid #3b82f6' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>On Order</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#3b82f6' }}>{totalOrdered}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>pending / ordered / waiting</div>
         </div>
         {/* Received */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+        <div onClick={() => setFilterGroup(filterGroup === 'received' ? null : 'received')}
+          style={{ background: filterGroup === 'received' ? 'rgba(34,197,94,0.08)' : 'var(--card)', border: filterGroup === 'received' ? '2px solid #22c55e' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Received</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#22c55e' }}>{totalReceived}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>this shop</div>
         </div>
         {/* Balance Due — multi-currency */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+        <div onClick={() => setFilterGroup(filterGroup === 'balance' ? null : 'balance')}
+          style={{ background: filterGroup === 'balance' ? 'rgba(239,68,68,0.08)' : 'var(--card)', border: filterGroup === 'balance' ? '2px solid #ef4444' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Balance Due</div>
           {Object.entries(balanceByCurrency).filter(([, v]) => v > 0).length === 0 ? (
             <div style={{ fontSize: 22, fontWeight: 900, color: '#22c55e' }}>$0.00</div>
@@ -692,7 +701,8 @@ export function PartsOrdersView() {
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>outstanding to vendors</div>
         </div>
         {/* Deposits Paid — multi-currency */}
-        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+        <div onClick={() => setFilterGroup(filterGroup === 'deposits' ? null : 'deposits')}
+          style={{ background: filterGroup === 'deposits' ? 'rgba(139,92,246,0.08)' : 'var(--card)', border: filterGroup === 'deposits' ? '2px solid #8b5cf6' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Deposits Paid</div>
           {Object.entries(depositsByCurrency).filter(([, v]) => v > 0).length === 0 ? (
             <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>
@@ -730,7 +740,7 @@ export function PartsOrdersView() {
         <button className="btn btn-primary" onClick={openNew}>+ New Parts Order</button>
       </div>
       <div style={{ marginBottom: 16 }}>
-        <FilterPills statuses={['All', ...ORDER_STATUSES]} active={filterStatus} onChange={setFilterStatus} />
+        <FilterPills statuses={['All', ...ORDER_STATUSES]} active={filterGroup ? 'All' : filterStatus} onChange={s => { setFilterStatus(s); setFilterGroup(null); }} />
       </div>
 
       {/* Table */}
