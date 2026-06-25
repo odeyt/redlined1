@@ -198,17 +198,21 @@ export function PartsOrdersView() {
     finally { setImgLoading(false); }
   }, []);
 
+  /* activeOrderId — works in both detail drawer and edit form */
+  const activeOrderId = editingId ?? selected?.id ?? null;
+
   useEffect(() => {
-    if (selected?.id) loadImages(selected.id);
+    if (activeOrderId) loadImages(activeOrderId);
     else setImages([]);
-  }, [selected?.id, loadImages]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrderId, loadImages]);
 
   async function handleImageUpload(files: FileList | null) {
-    if (!files || !selected?.id) return;
+    if (!files || !activeOrderId) return;
     setUploadingImg(true);
     try {
       for (const file of Array.from(files)) {
-        const img = await uploadEntityImage('parts_order', selected.id, file, imgLabel);
+        const img = await uploadEntityImage('parts_order', activeOrderId, file, imgLabel);
         setImages(prev => [...prev, img]);
       }
       notify('✓ Image(s) uploaded.');
@@ -225,13 +229,13 @@ export function PartsOrdersView() {
   }
 
   async function handleReorder(fromIdx: number, toIdx: number) {
-    if (fromIdx === toIdx || !selected?.id) return;
+    if (fromIdx === toIdx || !activeOrderId) return;
     const next = [...images];
     const [moved] = next.splice(fromIdx, 1);
     next.splice(toIdx, 0, moved);
     setImages(next);
     try {
-      await saveEntityImageOrder('parts_order', selected.id, next.map(i => i.id));
+      await saveEntityImageOrder('parts_order', activeOrderId, next.map(i => i.id));
     } catch { notify('Could not save image order.'); }
   }
 
