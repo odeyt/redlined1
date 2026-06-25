@@ -567,7 +567,7 @@ export function PartsOrdersView() {
   });
 
   /* stats */
-  const totalOrdered  = orders.filter(o => ['Pending','Ordered','Deposit Paid','Waiting Customer','Backordered'].includes(o.status)).length;
+  const totalOrdered  = orders.filter(o => ON_ORDER_STATUSES.includes(o.status)).length;
   const totalReceived = orders.filter(o => o.status === 'Received').length;
   const uniqueVendorNames = [...new Set(orders.map(o => o.vendorName).filter(Boolean))];
 
