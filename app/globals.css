@@ -44,11 +44,19 @@ html,
 body {
   height: 100%;
   margin: 0;
+  /* Fill the full screen including areas behind notch/home bar */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
+  /* Respect iPhone notch, Dynamic Island, and home indicator */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* ── Universal focus ring — red border on all inputs portal-wide ── */

@@ -11,6 +11,12 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Redlined1',
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    viewportFit: 'cover',
+  },
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
