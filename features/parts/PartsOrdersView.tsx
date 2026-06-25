@@ -1095,11 +1095,11 @@ export function PartsOrdersView() {
                 </div>
               </div>
 
-              {/* ── Photos & Invoices — top of form so it's always visible ── */}
-              {editingId ? (
-                <div style={{ marginBottom: 24, padding: '16px 18px', background: 'rgba(239,68,68,0.05)', border: '2px solid rgba(239,68,68,0.3)', borderRadius: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                    <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>📎 Photos &amp; Invoices</span>
+              {/* ── Photos & Invoices ── always visible ── */}
+              <div style={{ marginBottom: 24, padding: '16px 18px', background: 'rgba(239,68,68,0.05)', border: '2px solid rgba(239,68,68,0.3)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>📎 Photos &amp; Invoices</span>
+                  {activeOrderId ? (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
                         style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--card)', fontSize: 13 }}>
@@ -1113,44 +1113,50 @@ export function PartsOrdersView() {
                       </label>
                       {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
                     </div>
-                  </div>
-
-                  <label
-                    style={{ display: 'block', border: '2px dashed #cc0000', borderRadius: 10, padding: '14px', textAlign: 'center', cursor: 'pointer', marginBottom: 10, background: 'var(--card)', transition: 'background .15s' }}
-                    onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.background = 'rgba(204,0,0,0.06)'; }}
-                    onDragLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
-                    onDrop={async e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.background = ''; await handleImageUpload(e.dataTransfer.files); }}
-                  >
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>📎 Drag &amp; drop vendor invoices or photos here</span>
-                    <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg} onChange={e => handleImageUpload(e.target.files)} />
-                  </label>
-
-                  {images.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-                      {images.map((img, idx) => (
-                        <div key={img.id} draggable
-                          onDragStart={() => { dragSrcIdx.current = idx; }}
-                          onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
-                          onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
-                          onDragEnd={() => setDragOverIdx(null)}
-                          style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
-                          <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={() => setLightbox(img.url)} />
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                              {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
-                            </span>
-                            <button type="button" onClick={() => handleDeleteImage(img)}
-                              style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px', lineHeight: 1 }}>✕</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {!imagesLoading && images.length === 0 && (
-                    <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>No photos or invoices attached yet. Click "+ Add Images / Invoices" above.</p>
+                  ) : (
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Save the order first to attach files</span>
                   )}
                 </div>
-              ) : null}
+
+                {activeOrderId ? (
+                  <>
+                    <label
+                      style={{ display: 'block', border: '2px dashed #cc0000', borderRadius: 10, padding: '14px', textAlign: 'center', cursor: 'pointer', marginBottom: 10, background: 'var(--card)', transition: 'background .15s' }}
+                      onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.background = 'rgba(204,0,0,0.06)'; }}
+                      onDragLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
+                      onDrop={async e => { e.preventDefault(); (e.currentTarget as HTMLElement).style.background = ''; await handleImageUpload(e.dataTransfer.files); }}
+                    >
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>📎 Drag &amp; drop vendor invoices or photos here</span>
+                      <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg} onChange={e => handleImageUpload(e.target.files)} />
+                    </label>
+
+                    {images.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                        {images.map((img, idx) => (
+                          <div key={img.id} draggable
+                            onDragStart={() => { dragSrcIdx.current = idx; }}
+                            onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                            onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
+                            onDragEnd={() => setDragOverIdx(null)}
+                            style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
+                            <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={() => setLightbox(img.url)} />
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
+                                {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
+                              </span>
+                              <button type="button" onClick={() => handleDeleteImage(img)}
+                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px', lineHeight: 1 }}>✕</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!imagesLoading && images.length === 0 && (
+                      <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>No photos or invoices attached yet.</p>
+                    )}
+                  </>
+                ) : null}
+              </div>
 
               {/* ── Parts Table ── */}
               <FormSection label="Parts" />
