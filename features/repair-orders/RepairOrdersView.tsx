@@ -13,6 +13,7 @@ import {
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import { addNotification } from '@/lib/useNotifications';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
@@ -468,6 +469,14 @@ export function RepairOrdersView() {
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`Status updated to ${status}.`);
+      addNotification({
+        roId:      ro.id,
+        roNumber:  ro.roNumber ?? ro.id,
+        customer:  ro.customerName ?? 'Unknown',
+        vehicle:   ro.vehicle ?? '',
+        oldStatus: ro.status,
+        newStatus: status,
+      });
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 

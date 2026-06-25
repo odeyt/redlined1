@@ -34,7 +34,7 @@ function broadcast() {
   _listeners.forEach(fn => fn([..._notifications]));
 }
 
-function addNotification(n: Omit<RONotification, 'id' | 'ts' | 'read'>) {
+export function addNotification(n: Omit<RONotification, 'id' | 'ts' | 'read'>) {
   const next: RONotification = { ...n, id: `${Date.now()}-${Math.random()}`, ts: Date.now(), read: false };
   _notifications = [next, ..._notifications].slice(0, 50); // keep last 50
   broadcast();
