@@ -554,8 +554,8 @@ export function PartsOrdersView() {
   const visible = orders.filter(o => {
     if (filterGroup === 'on-order' && !ON_ORDER_STATUSES.includes(o.status)) return false;
     if (filterGroup === 'received' && o.status !== 'Received') return false;
-    if (filterGroup === 'balance' && (o.totalCost - o.deposit) <= 0) return false;
-    if (filterGroup === 'deposits' && o.deposit <= 0) return false;
+    if (filterGroup === 'balance' && o.balanceDue <= 0) return false;
+    if (filterGroup === 'deposits' && o.depositPaid <= 0) return false;
     if (!filterGroup && filterStatus !== 'All' && o.status !== filterStatus) return false;
     if (filterVendor !== 'All' && o.vendorName !== filterVendor) return false;
     if (search) {
