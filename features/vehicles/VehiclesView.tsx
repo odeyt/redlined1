@@ -1214,7 +1214,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           {/* VIN camera scan modal */}
           {showVinScan && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+            <div onClick={e => { if (e.target === e.currentTarget) stopVinScan(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Point camera at VIN barcode</div>
               <video ref={vinScanVideoRef} playsInline muted style={{ width: '90vw', maxWidth: 480, borderRadius: 12, border: '2px solid #22c55e' }} />
               <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automatically…</div>

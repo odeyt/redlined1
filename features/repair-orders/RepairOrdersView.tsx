@@ -940,7 +940,7 @@ export function RepairOrdersView() {
 
       {/* ── Preview Modal ── */}
       {showPreview && selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15 }}>✕ Close</button>
             <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
@@ -1026,7 +1026,7 @@ export function RepairOrdersView() {
 
       {/* ── Mandatory QA Modal ── */}
       {qaTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) setQaTarget(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
           <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 760, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.6)', border: '2px solid #f59e0b' }}>
             {/* Modal Header */}
             <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '20px 28px', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1097,7 +1097,7 @@ export function RepairOrdersView() {
 
       {/* ── RO Form Modal ── */}
       {showForm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
           <form onSubmit={handleSave} style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 860, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.5)', border: '1px solid var(--line)', marginBottom: 32 }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid var(--line)', background: 'var(--surface-soft)', borderRadius: '16px 16px 0 0' }}>

@@ -889,7 +889,7 @@ export function InspectionsView() {
 
       {/* Customer Preview / Print Report */}
       {showPreview && selected && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px 20px', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px 20px', overflowY: 'auto' }}>
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 700, padding: 44, position: 'relative' }}>
             <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 14, right: 14, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>✕ Close</button>
             <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 14, right: 92, background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>🖨 Print</button>
