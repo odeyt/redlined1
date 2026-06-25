@@ -1139,7 +1139,8 @@ export function RepairOrdersView() {
                   <select value={form.customerId} onChange={e => {
                     const c = customers.find(c => c.id === e.target.value);
                     const cvs = allVehicles.filter(v => v.customerId === e.target.value);
-                    const autoVehicle = cvs.length === 1 ? cvs[0].label : '';
+                    // Auto-select first vehicle whenever the customer has any vehicles
+                    const autoVehicle = cvs.length > 0 ? cvs[0].label : '';
                     setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
                   }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
                     <option value="">— select customer —</option>
@@ -1157,7 +1158,6 @@ export function RepairOrdersView() {
                     return cvs.length > 0 ? (
                       <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
                         style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                        <option value="">— select vehicle —</option>
                         {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
                       </select>
                     ) : (
