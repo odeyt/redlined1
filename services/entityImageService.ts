@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 
-export type EntityType = 'job_card' | 'repair_order' | 'appointment';
+export type EntityType = 'job_card' | 'repair_order' | 'appointment' | 'parts_order';
 
 export interface EntityImage {
   id: string;

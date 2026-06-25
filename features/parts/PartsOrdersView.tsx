@@ -14,6 +14,10 @@ import { fetchVehicles } from '@/services/vehicleService';
 import { FilterPills } from '@/components/FilterPills';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
+import {
+  fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder,
+  EntityImage,
+} from '@/services/entityImageService';
 import type { Customer } from '@/lib/types';
 
 /* ── Currency support ── */
@@ -175,6 +179,61 @@ export function PartsOrdersView() {
   /* detail drawer */
   const [selected, setSelected] = useState<PartsOrder | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  /* images */
+  const [images, setImages]           = useState<EntityImage[]>([]);
+  const [imagesLoading, setImgLoading] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [imgLabel, setImgLabel]        = useState<'Photo' | 'Invoice'>('Photo');
+  const [lightbox, setLightbox]        = useState<string | null>(null);
+  const [dragOverIdx, setDragOverIdx]  = useState<number | null>(null);
+  const dragSrcIdx = { current: -1 };
+
+  const loadImages = useCallback(async (orderId: string) => {
+    setImgLoading(true);
+    try {
+      const imgs = await fetchEntityImages('parts_order', orderId);
+      setImages(imgs);
+    } catch { /* non-fatal */ }
+    finally { setImgLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (selected?.id) loadImages(selected.id);
+    else setImages([]);
+  }, [selected?.id, loadImages]);
+
+  async function handleImageUpload(files: FileList | null) {
+    if (!files || !selected?.id) return;
+    setUploadingImg(true);
+    try {
+      for (const file of Array.from(files)) {
+        const img = await uploadEntityImage('parts_order', selected.id, file, imgLabel);
+        setImages(prev => [...prev, img]);
+      }
+      notify('✓ Image(s) uploaded.');
+    } catch { notify('Upload failed — check storage bucket permissions.'); }
+    finally { setUploadingImg(false); }
+  }
+
+  async function handleDeleteImage(img: EntityImage) {
+    if (!confirm('Remove this image?')) return;
+    try {
+      await deleteEntityImage(img.id, img.url);
+      setImages(prev => prev.filter(i => i.id !== img.id));
+    } catch { notify('Delete failed.'); }
+  }
+
+  async function handleReorder(fromIdx: number, toIdx: number) {
+    if (fromIdx === toIdx || !selected?.id) return;
+    const next = [...images];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setImages(next);
+    try {
+      await saveEntityImageOrder('parts_order', selected.id, next.map(i => i.id));
+    } catch { notify('Could not save image order.'); }
+  }
 
   const notify = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3500); };
 
@@ -747,6 +806,17 @@ export function PartsOrdersView() {
       }
 
       {/* ── Detail Drawer ── */}
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={() => setLightbox(null)}
+            style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
+          <img src={lightbox} alt="" onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+        </div>
+      )}
+
       {selected && (
         <>
           <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300 }} />
@@ -830,6 +900,69 @@ export function PartsOrdersView() {
                   </div>
                 </>
               )}
+
+              {/* ── Photos & Invoices ── */}
+              <SectionLabel label="Photos & Invoices" />
+              <div style={{ marginBottom: 20 }}>
+                {/* Upload controls */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
+                    style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontSize: 13 }}>
+                    <option value="Photo">📷 Photo</option>
+                    <option value="Invoice">🧾 Invoice</option>
+                  </select>
+                  <label style={{ flex: 1, minWidth: 140, padding: '7px 14px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                    {uploadingImg ? 'Uploading…' : '+ Add Images'}
+                    <input type="file" multiple accept="image/*,.pdf" style={{ display: 'none' }} disabled={uploadingImg}
+                      onChange={e => handleImageUpload(e.target.files)} />
+                  </label>
+                </div>
+
+                {imagesLoading && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Loading images…</p>}
+
+                {/* Image grid with drag-to-reorder */}
+                {images.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {images.map((img, idx) => (
+                      <div
+                        key={img.id}
+                        draggable
+                        onDragStart={() => { dragSrcIdx.current = idx; }}
+                        onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
+                        onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
+                        onDragEnd={() => setDragOverIdx(null)}
+                        style={{
+                          position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1',
+                          border: dragOverIdx === idx ? '2px solid var(--accent)' : '1px solid var(--line)',
+                          cursor: 'grab', background: 'var(--surface-soft)',
+                        }}
+                      >
+                        <img
+                          src={img.url} alt={img.label}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          onClick={() => setLightbox(img.url)}
+                        />
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 6px' }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
+                            {img.label === 'Invoice' ? '🧾' : '📷'}
+                          </span>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleDeleteImage(img); }}
+                            style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 13, padding: '1px 5px', lineHeight: 1 }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!imagesLoading && images.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '12px 0' }}>
+                    No photos or invoices yet. Upload above.
+                  </p>
+                )}
+              </div>
 
               {/* Dates */}
               <SectionLabel label="Dates" />
