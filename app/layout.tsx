@@ -5,6 +5,16 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Redlined1',
   description: 'Automotive CRM and shop operations',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Redlined1',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+  },
 };
 
 const GA_ID = 'G-9QY4K8MZ1X';
@@ -19,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
           } catch(e) {}
         `}} />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="theme-color" content="#dc2626" />
       </head>
       <body>
         {children}
@@ -33,6 +45,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', '${GA_ID}', { page_path: window.location.pathname });
+          `}
+        </Script>
+        <Script id="register-sw" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+              });
+            }
           `}
         </Script>
       </body>
