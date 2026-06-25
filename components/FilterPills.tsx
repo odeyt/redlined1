@@ -49,6 +49,35 @@ export const STATUS_PILL_COLORS: Record<string, { bg: string; text: string; bord
   'Archived':         { bg: 'rgba(107,114,128,0.08)',     text: '#4b5563',  border: 'rgba(107,114,128,0.2)', dot: '#9ca3af' },
 };
 
+export const STATUS_ICONS: Record<string, string> = {
+  'All':              '☰',
+  'Open':             '📋',
+  'In Progress':      '🔧',
+  'Pending Parts':    '📦',
+  'Pending Approval': '⏳',
+  'Complete':         '✅',
+  'Completed':        '✅',
+  'Closed':           '🔒',
+  'Void':             '🚫',
+  'Draft':            '✏️',
+  'Sent':             '📤',
+  'Approved':         '✅',
+  'Declined':         '❌',
+  'Cancelled':        '🚫',
+  'Returned':         '↩️',
+  'Returned Job':     '↩️',
+  'Overdue':          '⚠️',
+  'Ordered':          '🛒',
+  'Deposit Paid':     '💰',
+  'Backordered':      '⏸️',
+  'Received':         '📬',
+  'Waiting Customer': '👤',
+  'Pending':          '🕐',
+  'Pending Customer': '👤',
+  'Active':           '▶️',
+  'Archived':         '🗃️',
+};
+
 function getColor(status: string) {
   return STATUS_PILL_COLORS[status] ?? { bg: 'rgba(107,114,128,0.1)', text: '#4b5563', border: 'rgba(107,114,128,0.3)', dot: '#6b7280' };
 }
@@ -103,14 +132,17 @@ export function FilterPills({ statuses, active, counts, onChange }: FilterPillsP
               }
             }}
           >
-            {/* Colored dot indicator */}
-            <span style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: isActive ? c.dot : 'var(--muted)',
-              flexShrink: 0,
-              opacity: isActive ? 1 : 0.45,
-              transition: 'background 0.14s',
-            }} />
+            {STATUS_ICONS[s] ? (
+              <span style={{ fontSize: 13, lineHeight: 1 }}>{STATUS_ICONS[s]}</span>
+            ) : (
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: isActive ? c.dot : 'var(--muted)',
+                flexShrink: 0,
+                opacity: isActive ? 1 : 0.45,
+                transition: 'background 0.14s',
+              }} />
+            )}
             {s}
             {count !== undefined && (
               <span style={{

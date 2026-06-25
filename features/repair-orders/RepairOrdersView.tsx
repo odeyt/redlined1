@@ -277,6 +277,18 @@ const STATUS_COLORS: Record<string, string> = {
   'Void': '#f44336',
 };
 
+const STATUS_ICONS: Record<string, string> = {
+  'Open':             '📋',
+  'In Progress':      '🔧',
+  'Pending Parts':    '📦',
+  'Pending Approval': '⏳',
+  'Complete':         '✅',
+  'Closed':           '🔒',
+  'Void':             '🚫',
+};
+
+function statusLabel(s: string) { return `${STATUS_ICONS[s] ?? ''} ${s}`.trim(); }
+
 type FormPart = { description: string; partNumber: string; qty: string; unitCost: string };
 const EMPTY_PART: FormPart = { description: '', partNumber: '', qty: '1', unitCost: '0' };
 
@@ -654,7 +666,7 @@ export function RepairOrdersView() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 {!isTech && <div style={{ fontWeight: 700 }}>{formatMoney(calcROTotal(orders[0]), orders[0].currency)}</div>}
-                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[orders[0].status] || '#888' }}>{orders[0].status}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[orders[0].status] || '#888' }}>{statusLabel(orders[0].status)}</span>
               </div>
             </div>
           )}
@@ -685,7 +697,7 @@ export function RepairOrdersView() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <strong style={{ fontSize: 14 }}>{ro.roNumber}</strong>
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[ro.status] || '#888', textTransform: 'uppercase' }}>{ro.status}</span>
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[ro.status] || '#888', textTransform: 'uppercase' }}>{statusLabel(ro.status)}</span>
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{ro.customerName}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{ro.vehicle} {ro.technician ? <><span>·</span><TechPills value={ro.technician} /></> : ''}</div>
@@ -711,14 +723,14 @@ export function RepairOrdersView() {
               {/* Status display / dropdown — techs see read-only badge; others get limited dropdown */}
               {isTech ? (
                 <span style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontWeight: 700, fontSize: 13, color: STATUS_COLORS[selected.status] || '#888' }}>
-                  {selected.status}
+                  {statusLabel(selected.status)}
                 </span>
               ) : (
                 <select value={selected.status} onChange={e => handleStatusChange(selected, e.target.value)}
                   style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontWeight: 600 }}>
                   {/* SA/Manager/Owner: can set any status except Complete/Closed (those go through QA) */}
-                  {RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)}
-                  {(selected.status === 'Complete' || selected.status === 'Closed') && <option value={selected.status}>{selected.status}</option>}
+                  {RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
+                  {(selected.status === 'Complete' || selected.status === 'Closed') && <option value={selected.status}>{statusLabel(selected.status)}</option>}
                 </select>
               )}
 
@@ -824,7 +836,7 @@ export function RepairOrdersView() {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Repair Order</div>
                   <div style={{ fontSize: 22, fontWeight: 800 }}>{selected.roNumber}</div>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{selected.status.toUpperCase()}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{statusLabel(selected.status)}</span>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
                     Opened: {fmt(selected.openedDate)}<br />
                     {selected.closedDate && <span style={{ color: '#4caf50' }}>Closed: {fmt(selected.closedDate)}</span>}
@@ -968,7 +980,7 @@ export function RepairOrdersView() {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Repair Order</div>
                 <div style={{ fontSize: 28, fontWeight: 900 }}>{selected.roNumber}</div>
-                <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{selected.status}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{statusLabel(selected.status)}</span>
                 <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
                   Opened: {fmt(selected.openedDate)}<br />
                   {selected.closedDate && <>Closed: {fmt(selected.closedDate)}</>}
@@ -1128,10 +1140,10 @@ export function RepairOrdersView() {
                   <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
                     style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
                     {isTech
-                      ? ['Open', 'In Progress', 'Pending Parts'].map(s => <option key={s}>{s}</option>)
-                      : RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s}>{s}</option>)
+                      ? ['Open', 'In Progress', 'Pending Parts'].map(s => <option key={s} value={s}>{statusLabel(s)}</option>)
+                      : RO_STATUSES.filter(s => s !== 'Complete' && s !== 'Closed').map(s => <option key={s} value={s}>{statusLabel(s)}</option>)
                     }
-                    {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{form.status}</option>}
+                    {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{statusLabel(form.status)}</option>}
                   </select>
                 </div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
