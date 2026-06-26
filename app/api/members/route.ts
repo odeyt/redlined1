@@ -11,14 +11,15 @@ export async function DELETE(req: NextRequest) {
     const { userId, shopId } = await req.json();
     if (!userId || !shopId) return NextResponse.json({ error: 'Missing userId or shopId' }, { status: 400 });
 
-    // Require a valid Supabase JWT — proves the caller is authenticated
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
     if (!token || token.split('.').length !== 3) {
       return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
     }
 
-    // Remove the user from all shops that share the same shopId's shop group
-    // Find all shops by looking at every owner of this shop and collecting their shops
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+    // Collect all shops owned by any owner of the target shop
     const { data: owners } = await admin
       .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
     const ownerIds = (owners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
@@ -31,11 +32,31 @@ export async function DELETE(req: NextRequest) {
       if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
     }
 
+    // Use the REST API directly with service key — guarantees RLS bypass + full privileges
+    const errors: string[] = [];
     for (const sid of allShopIds) {
-      await admin.from('shop_users').delete().eq('shop_id', sid).eq('user_id', userId);
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/shop_users?shop_id=eq.${sid}&user_id=eq.${userId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        errors.push(`shop ${sid}: ${res.status} ${body}`);
+      }
     }
 
-    return NextResponse.json({ success: true });
+    if (errors.length > 0) {
+      return NextResponse.json({ error: errors.join('; ') }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, removedFrom: allShopIds.length });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
   }
