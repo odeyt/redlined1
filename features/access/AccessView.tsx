@@ -96,15 +96,18 @@ export function AccessView() {
 
   async function handleRemove(userId: string, email: string) {
     if (!confirm(`Remove ${email} from the shop?`)) return;
+    setMemberError('');
+    if (!shopId) { setMemberError('No shop selected'); return; }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
+      if (!token) { setMemberError('Session expired — please refresh and log in again'); return; }
       const res = await fetch('/api/members', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ userId, shopId }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       loadMembers();
     } catch (e: unknown) {
