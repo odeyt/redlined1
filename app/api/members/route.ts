@@ -14,21 +14,22 @@ export async function DELETE(req: NextRequest) {
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
     if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
 
-    // Use user-scoped client — RLS ensures we can only see our own shop_users row
-    const userClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } }
-    );
+    // Decode JWT to get the requester's UUID (sub claim) without relying on RLS
+    let requesterId: string;
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+      requesterId = payload.sub;
+      if (!requesterId) throw new Error('No sub');
+    } catch {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
 
-    // Verify requester is an owner of this shop
-    const { data: myRow } = await userClient
-      .from('shop_users').select('role, user_id').eq('shop_id', shopId).single();
+    // Verify requester is an owner of this shop using admin client (bypasses RLS)
+    const { data: myRow } = await admin
+      .from('shop_users').select('role').eq('shop_id', shopId).eq('user_id', requesterId).single();
     if (myRow?.role !== 'owner') {
       return NextResponse.json({ error: 'Only owners can remove members' }, { status: 403 });
     }
-
-    const requesterId = myRow.user_id as string;
 
     // Prevent self-removal
     if (userId === requesterId) {
