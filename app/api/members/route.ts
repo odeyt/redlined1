@@ -11,27 +11,33 @@ export async function DELETE(req: NextRequest) {
     const { userId, shopId } = await req.json();
     if (!userId || !shopId) return NextResponse.json({ error: 'Missing userId or shopId' }, { status: 400 });
 
-    // Verify the requester is an owner of this shop
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
     if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
 
-    const { data: { user } } = await admin.auth.getUser(token);
-    if (!user) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    // Use user-scoped client — RLS ensures we can only see our own shop_users row
+    const userClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
 
-    const { data: requesterRole } = await admin
-      .from('shop_users').select('role').eq('shop_id', shopId).eq('user_id', user.id).single();
-    if (requesterRole?.role !== 'owner') {
+    // Verify requester is an owner of this shop
+    const { data: myRow } = await userClient
+      .from('shop_users').select('role, user_id').eq('shop_id', shopId).single();
+    if (myRow?.role !== 'owner') {
       return NextResponse.json({ error: 'Only owners can remove members' }, { status: 403 });
     }
 
+    const requesterId = myRow.user_id as string;
+
     // Prevent self-removal
-    if (userId === user.id) {
+    if (userId === requesterId) {
       return NextResponse.json({ error: 'You cannot remove yourself' }, { status: 400 });
     }
 
-    // Find all shops owned by the same owner(s) and remove from all
+    // Find all shops this owner controls, remove the user from all of them
     const { data: ownerShops } = await admin
-      .from('shop_users').select('shop_id').eq('user_id', user.id).eq('role', 'owner');
+      .from('shop_users').select('shop_id').eq('user_id', requesterId).eq('role', 'owner');
     const allShopIds = (ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string);
 
     for (const sid of allShopIds) {
