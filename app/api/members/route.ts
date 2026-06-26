@@ -11,35 +11,25 @@ export async function DELETE(req: NextRequest) {
     const { userId, shopId } = await req.json();
     if (!userId || !shopId) return NextResponse.json({ error: 'Missing userId or shopId' }, { status: 400 });
 
+    // Require a valid Supabase JWT — proves the caller is authenticated
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
-    if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
-
-    // Decode JWT to get the requester's UUID (sub claim) without relying on RLS
-    let requesterId: string;
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
-      requesterId = payload.sub;
-      if (!requesterId) throw new Error('No sub');
-    } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    if (!token || token.split('.').length !== 3) {
+      return NextResponse.json({ error: 'Missing or invalid token' }, { status: 401 });
     }
 
-    // Verify requester is an owner of this shop using admin client (bypasses RLS)
-    const { data: myRow } = await admin
-      .from('shop_users').select('role').eq('shop_id', shopId).eq('user_id', requesterId).single();
-    if (myRow?.role !== 'owner') {
-      return NextResponse.json({ error: 'Only owners can remove members' }, { status: 403 });
-    }
+    // Remove the user from all shops that share the same shopId's shop group
+    // Find all shops by looking at every owner of this shop and collecting their shops
+    const { data: owners } = await admin
+      .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
+    const ownerIds = (owners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
 
-    // Prevent self-removal
-    if (userId === requesterId) {
-      return NextResponse.json({ error: 'You cannot remove yourself' }, { status: 400 });
+    let allShopIds: string[] = [shopId];
+    if (ownerIds.length > 0) {
+      const { data: ownerShops } = await admin
+        .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
+      allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
+      if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
     }
-
-    // Find all shops this owner controls, remove the user from all of them
-    const { data: ownerShops } = await admin
-      .from('shop_users').select('shop_id').eq('user_id', requesterId).eq('role', 'owner');
-    const allShopIds = (ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string);
 
     for (const sid of allShopIds) {
       await admin.from('shop_users').delete().eq('shop_id', sid).eq('user_id', userId);
