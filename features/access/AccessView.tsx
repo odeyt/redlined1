@@ -94,13 +94,22 @@ export function AccessView() {
     loadMembers();
   }
 
-  async function handleRemove(userId: string) {
-    if (!confirm('Remove this user from the shop?')) return;
-    await supabase.from('shop_users')
-      .delete()
-      .eq('shop_id', shopId)
-      .eq('user_id', userId);
-    loadMembers();
+  async function handleRemove(userId: string, email: string) {
+    if (!confirm(`Remove ${email} from the shop?`)) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      const res = await fetch('/api/members', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, shopId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      loadMembers();
+    } catch (e: unknown) {
+      setMemberError(e instanceof Error ? e.message : 'Remove failed');
+    }
   }
 
   const isOwner = myRole === 'owner';
@@ -223,7 +232,7 @@ export function AccessView() {
                             <button
                               className="mini-btn"
                               style={{ color: '#e74c3c' }}
-                              onClick={() => handleRemove(m.userId)}
+                              onClick={() => handleRemove(m.userId, m.email)}
                             >
                               Remove
                             </button>

@@ -6,6 +6,44 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { userId, shopId } = await req.json();
+    if (!userId || !shopId) return NextResponse.json({ error: 'Missing userId or shopId' }, { status: 400 });
+
+    // Verify the requester is an owner of this shop
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
+    if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
+
+    const { data: { user } } = await admin.auth.getUser(token);
+    if (!user) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+
+    const { data: requesterRole } = await admin
+      .from('shop_users').select('role').eq('shop_id', shopId).eq('user_id', user.id).single();
+    if (requesterRole?.role !== 'owner') {
+      return NextResponse.json({ error: 'Only owners can remove members' }, { status: 403 });
+    }
+
+    // Prevent self-removal
+    if (userId === user.id) {
+      return NextResponse.json({ error: 'You cannot remove yourself' }, { status: 400 });
+    }
+
+    // Find all shops owned by the same owner(s) and remove from all
+    const { data: ownerShops } = await admin
+      .from('shop_users').select('shop_id').eq('user_id', user.id).eq('role', 'owner');
+    const allShopIds = (ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string);
+
+    for (const sid of allShopIds) {
+      await admin.from('shop_users').delete().eq('shop_id', sid).eq('user_id', userId);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const shopId = req.nextUrl.searchParams.get('shopId');
