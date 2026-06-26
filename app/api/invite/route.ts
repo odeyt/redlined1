@@ -157,12 +157,30 @@ export async function PATCH(req: NextRequest) {
     if (!userId || !shopId || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     const validRoles = ['owner', 'manager', 'advisor', 'technician'];
     if (!validRoles.includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
-    const { error } = await admin.from('shop_users')
-      .update({ role })
-      .eq('shop_id', shopId)
-      .eq('user_id', userId);
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    return NextResponse.json({ success: true });
+
+    // Find all shops owned by the same owner(s) as the target shop, then update
+    // the member's role in every one of those shops so it stays in sync.
+    const { data: coOwners } = await admin
+      .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
+    const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
+
+    let allShopIds: string[] = [shopId];
+    if (ownerIds.length > 0) {
+      const { data: ownerShops } = await admin
+        .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
+      allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
+      if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
+    }
+
+    for (const sid of allShopIds) {
+      const { error } = await admin.from('shop_users')
+        .update({ role })
+        .eq('shop_id', sid)
+        .eq('user_id', userId);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, updatedShops: allShopIds.length });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
   }
