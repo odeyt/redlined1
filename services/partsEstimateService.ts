@@ -1,0 +1,161 @@
+import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
+
+export interface PartsEstimate {
+  id: string;
+  partName: string;
+  partNumber: string;
+  quantity: number;
+  condition: string;
+  lineItems: EstimateLineItem[];
+  vendorName: string;
+  vendorPhone: string;
+  vendorEmail: string;
+  unitCost: number;
+  totalCost: number;
+  coreCharge: number;
+  status: string;
+  quoteDate: string;
+  validUntil: string;
+  jobCardNumber: string;
+  repairOrderNumber: string;
+  vehicle: string;
+  customerName: string;
+  notes: string;
+  currency: string;
+  createdAt: string;
+}
+
+export interface EstimateLineItem {
+  partName: string;
+  partNumber: string;
+  condition: string;
+  quantity: number;
+  unitCost: number;
+  vendorName?: string;
+  currency?: string;
+}
+
+export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired'];
+export const PART_CONDITIONS = ['New', 'Genuine', 'OEM', 'Aftermarket', 'Remanufactured', 'Used', 'Refurbished'];
+
+function mapEstimate(r: Record<string, unknown>): PartsEstimate {
+  const unitCost = Number(r.unit_cost ?? 0);
+  const quantity = Number(r.quantity ?? 1);
+  const core     = Number(r.core_charge ?? 0);
+  const total    = Number(r.total_cost ?? unitCost * quantity);
+
+  let lineItems: EstimateLineItem[] = [];
+  try {
+    const raw = r.line_items as EstimateLineItem[] | string | null;
+    const parsed: EstimateLineItem[] = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? []);
+    if (Array.isArray(parsed) && parsed.length > 0) lineItems = parsed;
+  } catch { /* ignore */ }
+
+  if (lineItems.length === 0) {
+    lineItems = [{
+      partName:   (r.part_name as string)   || '',
+      partNumber: (r.part_number as string) || '',
+      condition:  (r.condition as string)   || 'New',
+      quantity,
+      unitCost,
+    }];
+  }
+
+  return {
+    id:                 r.id as string,
+    partName:           (r.part_name as string)        || '',
+    partNumber:         (r.part_number as string)      || '',
+    quantity,
+    condition:          (r.condition as string)        || 'New',
+    lineItems,
+    vendorName:         (r.vendor_name as string)      || '',
+    vendorPhone:        (r.vendor_phone as string)     || '',
+    vendorEmail:        (r.vendor_email as string)     || '',
+    unitCost,
+    totalCost:          total,
+    coreCharge:         core,
+    status:             (r.status as string)           || 'Draft',
+    quoteDate:          (r.quote_date as string)       || '',
+    validUntil:         (r.valid_until as string)      || '',
+    jobCardNumber:      (r.job_card_number as string)  || '',
+    repairOrderNumber:  (r.repair_order_number as string) || '',
+    vehicle:            (r.vehicle as string)          || '',
+    customerName:       (r.customer_name as string)    || '',
+    notes:              (r.notes as string)            || '',
+    currency:           (r.currency as string)         || 'USD',
+    createdAt:          (r.created_at as string)       || '',
+  };
+}
+
+function buildPayload(o: Omit<PartsEstimate, 'id' | 'createdAt'>) {
+  const items = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{
+    partName: o.partName, partNumber: o.partNumber,
+    condition: o.condition, quantity: o.quantity, unitCost: o.unitCost,
+  }];
+  const total = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const firstItem = items[0];
+  const partNameSummary = items.length === 1
+    ? firstItem.partName
+    : items.map(i => i.partName).filter(Boolean).join(', ');
+  return {
+    line_items:           items,
+    part_name:            partNameSummary,
+    part_number:          firstItem.partNumber,
+    quantity:             items.reduce((s, i) => s + i.quantity, 0),
+    condition:            firstItem.condition,
+    unit_cost:            items.length === 1 ? firstItem.unitCost : 0,
+    total_cost:           total,
+    core_charge:          o.coreCharge,
+    vendor_name:          o.vendorName,
+    vendor_phone:         o.vendorPhone,
+    vendor_email:         o.vendorEmail,
+    status:               o.status,
+    quote_date:           o.quoteDate || null,
+    valid_until:          o.validUntil || null,
+    job_card_number:      o.jobCardNumber,
+    repair_order_number:  o.repairOrderNumber,
+    vehicle:              o.vehicle,
+    customer_name:        o.customerName,
+    notes:                o.notes,
+    currency:             o.currency || 'USD',
+  };
+}
+
+export async function fetchPartsEstimates(): Promise<PartsEstimate[]> {
+  const { data, error } = await supabase
+    .from('parts_estimates')
+    .select('*')
+    .eq('shop_id', getShopId())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapEstimate);
+}
+
+export async function createPartsEstimate(o: Omit<PartsEstimate, 'id' | 'createdAt'>): Promise<PartsEstimate> {
+  const { data, error } = await supabase
+    .from('parts_estimates')
+    .insert({ shop_id: getShopId(), ...buildPayload(o) })
+    .select().single();
+  if (error) throw error;
+  return mapEstimate(data);
+}
+
+export async function updatePartsEstimate(id: string, o: Partial<Omit<PartsEstimate, 'id' | 'createdAt'>>): Promise<PartsEstimate> {
+  const { data, error } = await supabase
+    .from('parts_estimates')
+    .update(buildPayload(o as Omit<PartsEstimate, 'id' | 'createdAt'>))
+    .eq('id', id).eq('shop_id', getShopId())
+    .select().single();
+  if (error) throw error;
+  return mapEstimate(data);
+}
+
+export async function deletePartsEstimate(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('parts_estimates')
+    .delete()
+    .eq('id', id)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}

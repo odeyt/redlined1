@@ -21,6 +21,7 @@ import { InvoicesView } from '@/features/invoices/InvoicesView';
 import { PaymentsView } from '@/features/payments/PaymentsView';
 import { PartsView } from '@/features/parts/PartsView';
 import { PartsOrdersView } from '@/features/parts/PartsOrdersView';
+import { PartsEstimatesView } from '@/features/parts/PartsEstimatesView';
 import { TechniciansView } from '@/features/technicians/TechniciansView';
 import { VinView } from '@/features/vin/VinView';
 import { DtcView } from '@/features/dtc/DtcView';
@@ -49,6 +50,7 @@ const views: Record<string, React.ComponentType> = {
   payments: PaymentsView,
   parts: PartsView,
   'parts-orders': PartsOrdersView,
+  'parts-estimates': PartsEstimatesView,
   technicians: TechniciansView,
   vin: VinView,
   dtc: DtcView,
