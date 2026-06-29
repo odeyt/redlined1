@@ -17,6 +17,7 @@ export interface LineItem {
   quantity: number;
   unitCost: number;
   vendorName?: string;
+  currency?: string | null;
 }
 
 export interface PartsOrder {
