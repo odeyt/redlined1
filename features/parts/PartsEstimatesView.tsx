@@ -167,19 +167,21 @@ export function PartsEstimatesView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEstimateId, loadImages]);
 
-  async function handleImageUpload(files: FileList | null) {
-    if (!files || !activeEstimateId) return;
+  async function handleImageUpload(files: FileList | null, targetId?: string) {
+    const id = targetId ?? activeEstimateId;
+    if (!files || files.length === 0 || !id) return;
     setUploadingImg(true);
     setFormError('');
     let uploaded = 0;
     for (const file of Array.from(files)) {
       try {
-        const img = await uploadEntityImage('parts_estimate', activeEstimateId, file, imgLabel);
+        const img = await uploadEntityImage('parts_estimate', id, file, imgLabel);
         setImages(prev => [...prev, img]);
         uploaded++;
       } catch (err) {
         const msg = (err as { message?: string })?.message ?? String(err);
         setFormError(`Upload failed: ${msg}`);
+        notify(`⚠ Upload failed: ${msg}`);
       }
     }
     if (uploaded > 0) notify(`✓ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
@@ -858,8 +860,12 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
       {/* ── Add/Edit Form Modal ── */}
       {showForm && (
-        <div onClick={() => { setShowForm(false); setEditingId(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-          <div onClick={ev => ev.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+        <div
+          onClick={() => { setShowForm(false); setEditingId(null); }}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => e.preventDefault()}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
+          <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Quotation' : '+ New Parts Quotation'}</span>
@@ -900,11 +906,23 @@ CREATE POLICY "Shop members can manage their parts estimates"
               </div>
               {activeEstimateId && (
                 <>
-                  <div style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'default', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
-                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
-                    onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; }}
-                    onDrop={async e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = ''; await handleImageUpload(e.dataTransfer.files); }}>
-                    📎 Drag &amp; drop photos or quote documents here
+                  <div
+                    style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '16px 10px', textAlign: 'center', cursor: uploadingImg ? 'wait' : 'copy', background: 'var(--card)', fontSize: 13, color: 'var(--muted)', transition: 'border-color .15s, background .15s', userSelect: 'none' }}
+                    onDragEnter={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; (e.currentTarget as HTMLElement).style.background = 'rgba(204,0,0,0.05)'; }}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; (e.currentTarget as HTMLElement).style.background = 'rgba(204,0,0,0.05)'; }}
+                    onDragLeave={e => { e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.background = ''; }}
+                    onDrop={async e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      (e.currentTarget as HTMLElement).style.borderColor = '';
+                      (e.currentTarget as HTMLElement).style.background = '';
+                      const capturedId = editingId ?? selected?.id ?? null;
+                      if (!capturedId) { notify('Save the quotation first before uploading files.'); return; }
+                      const files = e.dataTransfer.files;
+                      if (!files || files.length === 0) return;
+                      await handleImageUpload(files, capturedId);
+                    }}>
+                    {uploadingImg ? '⏳ Uploading…' : '📎 Drag & drop photos or quote documents here'}
                   </div>
                   {images.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
