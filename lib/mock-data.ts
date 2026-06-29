@@ -163,7 +163,7 @@ export const navItems: [string, string, string, string][] = [
   ['technicians',   'technician', 'Employees',     '3'],
   ['parts',         'parts',      'Parts Inventory', '486'],
   ['parts-orders',  'parts',      'Parts Orders',  ''],
-  ['parts-estimates', 'parts',    'Parts Estimates', ''],
+  ['parts-estimates', 'parts',    'Parts Quotations', ''],
 
   // ── Billing
   ['invoices',      'invoice',    'Invoicing',     '14'],
@@ -205,7 +205,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   payments: ['Payments', 'Manual payment recording, balances, paid status, and future Stripe-ready workflow'],
   parts: ['Parts Inventory', 'Inventory, suppliers, bin locations, margins, and parts sales'],
   'parts-orders': ['Parts Orders', 'Source, track, receive, and reconcile parts ordered from vendors'],
-  'parts-estimates': ['Parts Estimates', 'Parts quoted to customers pending approval — track, follow up, and convert to orders'],
+  'parts-estimates': ['Parts Quotations', 'Parts quoted to customers pending approval — track, follow up, and convert to orders'],
   technicians: ['Technician Workflow', 'Assigned work, labor time, inspection findings, diagnostics, and completion status'],
   vin: ['VIN Decoder', 'Mock VIN decode flow structured for future provider integration'],
   dtc: ['DTC Lookup', 'Diagnostic trouble code knowledge base and service guidance'],

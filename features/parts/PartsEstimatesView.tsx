@@ -219,7 +219,7 @@ export function PartsEstimatesView() {
       if (msg.includes('parts_estimates') && (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('not found'))) {
         setError('__NEEDS_MIGRATION__');
       } else {
-        setError(`Could not load parts estimates: ${msg}`);
+        setError(`Could not load parts quotations: ${msg}`);
       }
     }
     if (vendorsR.status === 'fulfilled')   setVendors(vendorsR.value);
@@ -576,7 +576,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           <option value="All">All Vendors</option>
           {uniqueVendorNames.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
-        <button className="btn btn-primary" onClick={openNew}>+ New Parts Estimate</button>
+        <button className="btn btn-primary" onClick={openNew}>+ New Parts Quotation</button>
       </div>
       <div style={{ marginBottom: 16 }}>
         <FilterPills statuses={['All', ...ESTIMATE_STATUSES]} active={filterStatus} onChange={s => setFilterStatus(s)} />
@@ -586,7 +586,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
       {loading
         ? <p style={{ color: 'var(--muted)', padding: 16 }}>Loading…</p>
         : visible.length === 0
-          ? <p style={{ color: 'var(--muted)', padding: 16 }}>No parts estimates yet. Click "+ New Parts Estimate" to start tracking.</p>
+          ? <p style={{ color: 'var(--muted)', padding: 16 }}>No parts quotations yet. Click "+ New Parts Quotation" to start tracking.</p>
           : (
             <div style={{ overflowX: 'auto' }}>
               <table>
@@ -668,7 +668,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 480, maxWidth: '95vw', background: 'var(--bg)', borderLeft: '1px solid var(--line)', zIndex: 301, overflowY: 'auto', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: 'var(--surface-soft)' }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{selected.partName || selected.lineItems?.[0]?.partName || 'Parts Estimate'}</div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{selected.partName || selected.lineItems?.[0]?.partName || 'Parts Quotation'}</div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLOR[selected.status] || '#888') + '22', color: STATUS_COLOR[selected.status] || '#888' }}>{selected.status}</span>
                 </div>
@@ -830,7 +830,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           <div onClick={ev => ev.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Estimate' : '+ New Parts Estimate'}</span>
+                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Quotation' : '+ New Parts Quotation'}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#cc0000', color: '#fff' }}>v1</span>
               </div>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ESTIMATE); setFormError(''); }}
