@@ -519,9 +519,7 @@ CREATE INDEX IF NOT EXISTS idx_parts_estimates_shop_id ON parts_estimates(shop_i
 ALTER TABLE parts_estimates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Shop members can manage their parts estimates"
   ON parts_estimates FOR ALL
-  USING (shop_id IN (
-    SELECT shop_id FROM shop_members WHERE user_id = auth.uid()
-  ));`}</pre>
+  USING (shop_id = ANY(public.my_shop_ids()));`}</pre>
         </div>
       )}
       {error && error !== '__NEEDS_MIGRATION__' && (
