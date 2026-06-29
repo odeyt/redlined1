@@ -216,7 +216,11 @@ export function PartsEstimatesView() {
       setEstimates(estimatesR.value);
     } else {
       const msg = (estimatesR.reason as { message?: string })?.message ?? String(estimatesR.reason);
-      setError(`Could not load parts estimates: ${msg}`);
+      if (msg.includes('parts_estimates') && (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('not found'))) {
+        setError('__NEEDS_MIGRATION__');
+      } else {
+        setError(`Could not load parts estimates: ${msg}`);
+      }
     }
     if (vendorsR.status === 'fulfilled')   setVendors(vendorsR.value);
     if (customersR.status === 'fulfilled') setCustomers(customersR.value);
@@ -474,7 +478,53 @@ export function PartsEstimatesView() {
         </div>
       )}
 
-      {error && (
+      {error === '__NEEDS_MIGRATION__' && (
+        <div style={{ marginBottom: 20, padding: '20px 24px', background: 'rgba(245,158,11,0.08)', border: '2px solid #f59e0b', borderRadius: 12, fontSize: 13 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#b45309', marginBottom: 8 }}>⚙ One-time database setup required</div>
+          <p style={{ margin: '0 0 12px', color: '#92400e', lineHeight: 1.6 }}>
+            The <strong>parts_estimates</strong> table doesn't exist yet in Supabase. Run this SQL once in your Supabase dashboard to create it:
+          </p>
+          <ol style={{ margin: '0 0 14px', paddingLeft: 20, color: '#92400e', lineHeight: 2 }}>
+            <li>Go to <strong>supabase.com/dashboard</strong> → your project → <strong>SQL Editor</strong></li>
+            <li>Click <strong>New query</strong></li>
+            <li>Paste the SQL below and click <strong>Run</strong></li>
+            <li>Refresh this page</li>
+          </ol>
+          <pre style={{ background: '#1e1b18', color: '#fef3c7', borderRadius: 8, padding: '14px 16px', fontSize: 11, overflowX: 'auto', lineHeight: 1.6, margin: 0 }}>{`CREATE TABLE IF NOT EXISTS parts_estimates (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id             UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  part_name           TEXT NOT NULL DEFAULT '',
+  part_number         TEXT NOT NULL DEFAULT '',
+  quantity            INTEGER NOT NULL DEFAULT 1,
+  condition           TEXT NOT NULL DEFAULT 'New',
+  line_items          JSONB NOT NULL DEFAULT '[]',
+  vendor_name         TEXT NOT NULL DEFAULT '',
+  vendor_phone        TEXT NOT NULL DEFAULT '',
+  vendor_email        TEXT NOT NULL DEFAULT '',
+  unit_cost           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  total_cost          NUMERIC(12,2) NOT NULL DEFAULT 0,
+  core_charge         NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status              TEXT NOT NULL DEFAULT 'Draft',
+  quote_date          DATE,
+  valid_until         DATE,
+  job_card_number     TEXT NOT NULL DEFAULT '',
+  repair_order_number TEXT NOT NULL DEFAULT '',
+  vehicle             TEXT NOT NULL DEFAULT '',
+  customer_name       TEXT NOT NULL DEFAULT '',
+  notes               TEXT NOT NULL DEFAULT '',
+  currency            TEXT NOT NULL DEFAULT 'USD',
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_parts_estimates_shop_id ON parts_estimates(shop_id);
+ALTER TABLE parts_estimates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Shop members can manage their parts estimates"
+  ON parts_estimates FOR ALL
+  USING (shop_id IN (
+    SELECT shop_id FROM shop_members WHERE user_id = auth.uid()
+  ));`}</pre>
+        </div>
+      )}
+      {error && error !== '__NEEDS_MIGRATION__' && (
         <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#ef4444', borderRadius: 8, fontSize: 13 }}>
           {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>✕</button>
         </div>
