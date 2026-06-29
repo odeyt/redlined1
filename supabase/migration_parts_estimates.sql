@@ -28,10 +28,15 @@ CREATE TABLE IF NOT EXISTS parts_estimates (
 -- Index for fast shop-scoped queries
 CREATE INDEX IF NOT EXISTS idx_parts_estimates_shop_id ON parts_estimates(shop_id);
 
+-- Grant access to authenticated users
+GRANT ALL ON parts_estimates TO authenticated;
+
 -- RLS
 ALTER TABLE parts_estimates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Shop members can manage their parts estimates" ON parts_estimates;
+
 CREATE POLICY "Shop members can manage their parts estimates"
   ON parts_estimates
-  FOR ALL
+  FOR ALL TO authenticated
   USING (shop_id = ANY(public.my_shop_ids()));
