@@ -11,6 +11,7 @@ import {
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
+import { createPartsEstimate } from '@/services/partsEstimateService';
 import { FilterPills } from '@/components/FilterPills';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
@@ -105,7 +106,7 @@ const PAY_COLOR: Record<string, string> = {
   'Paid in Full': '#22c55e',
 };
 
-const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '' };
+const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', currency: 'USD' };
 
 type FormState = {
   lineItems: LineItem[];
@@ -299,7 +300,7 @@ export function PartsOrdersView() {
 
   function addLineItem() {
     setForm(prev => {
-      const lineItems = [...prev.lineItems, { ...EMPTY_LINE, vendorName: prev.vendorName }];
+      const lineItems = [...prev.lineItems, { ...EMPTY_LINE, vendorName: prev.vendorName, currency: prev.currency }];
       return { ...prev, lineItems };
     });
   }
@@ -479,6 +480,29 @@ export function PartsOrdersView() {
     }
   }
 
+  async function handleConvertToQuotation(o: PartsOrder) {
+    if (!confirm(`Convert "${o.partName || 'this order'}" to a Parts Quotation?`)) return;
+    try {
+      await createPartsEstimate({
+        lineItems: o.lineItems?.length ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }],
+        partName: o.partName, partNumber: o.partNumber, condition: o.condition,
+        quantity: o.quantity, unitCost: o.unitCost,
+        vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
+        coreCharge: o.coreCharge, totalCost: o.totalCost,
+        status: 'Draft',
+        quoteDate: new Date().toISOString().split('T')[0], validUntil: '',
+        jobCardNumber: o.jobCardNumber, repairOrderNumber: o.repairOrderNumber,
+        vehicle: o.vehicle, customerName: o.customerName,
+        notes: o.notes ? `Converted from Parts Order. ${o.notes}` : 'Converted from Parts Order.',
+        currency: o.currency,
+      });
+      notify('✓ Converted to Parts Quotation');
+      setTimeout(() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'parts-estimates' }); }, 600);
+    } catch (e: unknown) {
+      notify('Failed to convert — ' + ((e as { message?: string })?.message ?? 'unknown error'));
+    }
+  }
+
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Remove order for "${name}"?`)) return;
     try {
@@ -625,7 +649,8 @@ export function PartsOrdersView() {
       rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(),
         value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
       rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
-      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, cur)} → ${fmt(item.unitCost * item.quantity, cur)}` });
+      const iCur = item.currency || cur;
+      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} → ${fmt(item.unitCost * item.quantity, iCur)}` });
       if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
     });
     rows.push(
@@ -1063,6 +1088,10 @@ export function PartsOrdersView() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
+                <button onClick={() => handleConvertToQuotation(selected)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  ⇄ To Quotation
+                </button>
                 <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
                 <button className="btn" onClick={() => setSelected(null)}>Close</button>
               </div>
@@ -1196,6 +1225,7 @@ export function PartsOrdersView() {
                       <th style={thStyle}>Vendor</th>
                       <th style={thStyle}>Condition</th>
                       <th style={{ ...thStyle, width: 70 }}>Qty</th>
+                      <th style={{ ...thStyle, width: 90 }}>Currency</th>
                       <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
                       <th style={{ ...thStyle, width: 100 }}>Line Total</th>
                       <th style={{ ...thStyle, width: 36 }}></th>
@@ -1252,6 +1282,15 @@ export function PartsOrdersView() {
                           />
                         </td>
                         <td style={tdStyle}>
+                          <select
+                            value={item.currency || form.currency}
+                            onChange={e => updateLineItem(idx, 'currency', e.target.value)}
+                            style={{ ...cellInput, paddingRight: 4, minWidth: 80, fontSize: 12 }}
+                          >
+                            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                          </select>
+                        </td>
+                        <td style={tdStyle}>
                           <input
                             type="number" min={0} step="0.01"
                             value={item.unitCost || ''}
@@ -1262,7 +1301,7 @@ export function PartsOrdersView() {
                           />
                         </td>
                         <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>
-                          {fmt(item.unitCost * item.quantity, form.currency)}
+                          {fmt(item.unitCost * item.quantity, item.currency || form.currency)}
                         </td>
                         <td style={tdStyle}>
                           {form.lineItems.length > 1 && (
@@ -1347,7 +1386,16 @@ export function PartsOrdersView() {
                 {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid || ''} placeholder="0.00" onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
-                <CalcBox label="Parts Total" value={money(form.totalCost)} />
+                <CalcBox label="Parts Total" value={(() => {
+                  const map: Record<string, number> = {};
+                  for (const item of form.lineItems) {
+                    const c = item.currency || form.currency;
+                    map[c] = (map[c] || 0) + item.unitCost * item.quantity;
+                  }
+                  const entries = Object.entries(map);
+                  if (entries.length === 1) return fmt(entries[0][1], entries[0][0]);
+                  return entries.map(([c, v]) => fmt(v, c)).join(' + ');
+                })()} />
                 <CalcBox label="Balance Due" value={money(form.balanceDue)} color={form.balanceDue > 0 ? '#ef4444' : '#22c55e'} />
                 <CalcBox label="Payment" value={form.paymentStatus} color={PAY_COLOR[form.paymentStatus]} />
               </div>

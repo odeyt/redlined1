@@ -10,6 +10,7 @@ import {
 } from '@/services/partsEstimateService';
 import {
   fetchVendors, createVendor, updateVendor, deleteVendor, PartsVendor,
+  createPartsOrder,
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
@@ -336,13 +337,40 @@ export function PartsEstimatesView() {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Remove estimate for "${name}"?`)) return;
+    if (!confirm(`Remove quotation for "${name}"?`)) return;
     try {
       await deletePartsEstimate(id);
       setEstimates(prev => prev.filter(e => e.id !== id));
       setSelected(null);
-      notify(`"${name}" estimate removed.`);
+      notify(`"${name}" quotation removed.`);
     } catch { notify('Delete failed.'); }
+  }
+
+  async function handleConvertToOrder(e: PartsEstimate) {
+    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Parts Order?`)) return;
+    try {
+      await createPartsOrder({
+        lineItems: e.lineItems?.length ? e.lineItems : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost }],
+        partName: e.partName, partNumber: e.partNumber, condition: e.condition,
+        quantity: e.quantity, unitCost: e.unitCost,
+        vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
+        coreCharge: e.coreCharge, totalCost: e.totalCost,
+        depositPaid: 0, balanceDue: e.totalCost + e.coreCharge,
+        status: 'Pending', paymentStatus: 'Unpaid',
+        orderDate: new Date().toISOString().split('T')[0],
+        etr: '', receivedDate: '',
+        jobCardNumber: e.jobCardNumber, repairOrderNumber: e.repairOrderNumber,
+        estimateNumber: '', invoiceNumber: '',
+        vehicle: e.vehicle, customerName: e.customerName,
+        warranty: '',
+        notes: e.notes ? `Converted from Parts Quotation. ${e.notes}` : 'Converted from Parts Quotation.',
+        currency: e.currency,
+      });
+      notify('✓ Converted to Parts Order');
+      setTimeout(() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
+    } catch (err: unknown) {
+      notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
+    }
   }
 
   async function handleSaveVendor(ev: React.FormEvent) {
@@ -816,7 +844,11 @@ CREATE POLICY "Shop members can manage their parts estimates"
             </div>
 
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Estimate</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
+              <button onClick={() => handleConvertToOrder(selected)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ⇄ To Order
+              </button>
               <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
               <button className="btn" onClick={() => setSelected(null)}>Close</button>
             </div>
