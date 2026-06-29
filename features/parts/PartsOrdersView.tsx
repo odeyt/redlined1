@@ -484,7 +484,7 @@ export function PartsOrdersView() {
     if (!confirm(`Convert "${o.partName || 'this order'}" to a Parts Quotation?`)) return;
     try {
       await createPartsEstimate({
-        lineItems: o.lineItems?.length ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }],
+        lineItems: (o.lineItems?.length ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, condition: o.condition, quantity: o.quantity, unitCost: o.unitCost }]).map(i => ({ partName: i.partName, partNumber: i.partNumber, condition: i.condition, quantity: i.quantity, unitCost: i.unitCost, vendorName: i.vendorName, currency: i.currency ?? o.currency })),
         partName: o.partName, partNumber: o.partNumber, condition: o.condition,
         quantity: o.quantity, unitCost: o.unitCost,
         vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
