@@ -167,7 +167,7 @@ export function PartsEstimatesView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEstimateId, loadImages]);
 
-  async function handleImageUpload(files: FileList | null, targetId?: string) {
+  async function handleImageUpload(files: FileList | null, targetId?: string | null) {
     const id = targetId ?? activeEstimateId;
     if (!files || files.length === 0 || !id) return;
     setUploadingImg(true);
