@@ -368,8 +368,11 @@ export function PartsEstimatesView() {
         notes: e.notes ? `Converted from Parts Quotation. ${e.notes}` : 'Converted from Parts Quotation.',
         currency: e.currency,
       });
-      notify('✓ Converted to Parts Order');
-      setTimeout(() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
+      await deletePartsEstimate(e.id);
+      setEstimates(prev => prev.filter(x => x.id !== e.id));
+      setSelected(null);
+      notify('✓ Converted to Parts Order — quotation removed');
+      setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
     }

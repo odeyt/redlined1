@@ -496,8 +496,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         notes: o.notes ? `Converted from Parts Order. ${o.notes}` : 'Converted from Parts Order.',
         currency: o.currency,
       });
-      notify('✓ Converted to Parts Quotation');
-      setTimeout(() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'parts-estimates' }); }, 600);
+      await deletePartsOrder(o.id);
+      setOrders(prev => prev.filter(x => x.id !== o.id));
+      setSelected(null);
+      notify('✓ Converted to Parts Quotation — order removed');
+      setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-estimates' }); }, 600);
     } catch (e: unknown) {
       notify('Failed to convert — ' + ((e as { message?: string })?.message ?? 'unknown error'));
     }
