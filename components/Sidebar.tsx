@@ -107,30 +107,38 @@ export function Sidebar() {
         return (!r.error && r.count != null) ? r.count : 0;
       }
 
+      async function countReceived(): Promise<number> {
+        const r = await supabase
+          .from('parts_orders').select('*', { count: 'exact', head: true })
+          .eq('shop_id', sid).eq('status', 'Received');
+        return (!r.error && r.count != null) ? r.count : 0;
+      }
+
       const [
         customers, vehicles, jobCards, invoices, estimates, payments,
-        repairOrders, inspections, schedules, parts, partsOrders,
+        repairOrders, inspections, schedules, parts, partsOrders, partsReceived,
         technicians, conversations, appointments,
       ] = await Promise.all([
         count('customers'), countVehicles(), count('job_cards'),
         count('invoices'), count('estimates'), count('payments'),
         count('repair_orders'), count('inspections'), count('maintenance_schedules'),
-        count('parts'), count('parts_orders'),
+        count('parts'), count('parts_orders'), countReceived(),
         count('technicians'), count('conversations'),
         countAppts(),
       ]);
 
       setRealCounts({
         customers, vehicles,
-        'job-cards':     jobCards,
+        'job-cards':      jobCards,
         invoices, estimates, payments,
-        'repair-orders': repairOrders,
+        'repair-orders':  repairOrders,
         inspections,
-        scheduling:      schedules,
+        scheduling:       schedules,
         parts,
-        'parts-orders':  partsOrders,
+        'parts-orders':   partsOrders,
+        'parts-received': partsReceived,
         technicians,
-        communication:   conversations,
+        communication:    conversations,
         appointments,
         dashboard: 0, diagnostics: 0, ai: 0,
       });

@@ -143,7 +143,7 @@ function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number) 
   return { totalCost: total, balanceDue: balance, paymentStatus: payStatus };
 }
 
-export function PartsOrdersView() {
+export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: string } = {}) {
   const { shopId } = useShop();
   const dispatch = useAppDispatch();
 
@@ -174,7 +174,7 @@ export function PartsOrdersView() {
 
   /* filters */
   const [filterStatus, setFilterStatus] = useState('All');
-  const [filterGroup, setFilterGroup]   = useState<string | null>(null);
+  const [filterGroup, setFilterGroup]   = useState<string | null>(initialFilterGroup ?? null);
   const [filterVendor, setFilterVendor] = useState('All');
   const [search, setSearch]             = useState('');
 
