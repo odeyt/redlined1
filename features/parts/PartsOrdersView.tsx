@@ -11,7 +11,7 @@ import {
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
-import { createPartsEstimate } from '@/services/partsEstimateService';
+import { createPartsEstimate, ESTIMATE_STATUSES } from '@/services/partsEstimateService';
 import { FilterPills } from '@/components/FilterPills';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
@@ -489,7 +489,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         quantity: o.quantity, unitCost: o.unitCost,
         vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
         coreCharge: o.coreCharge, totalCost: o.totalCost,
-        status: 'Draft',
+        status: ESTIMATE_STATUSES.includes(o.status) ? o.status : 'Draft',
         quoteDate: new Date().toISOString().split('T')[0], validUntil: '',
         jobCardNumber: o.jobCardNumber, repairOrderNumber: o.repairOrderNumber,
         vehicle: o.vehicle, customerName: o.customerName,
