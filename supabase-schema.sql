@@ -56,6 +56,7 @@ create table if not exists job_cards (
   parts_total numeric default 0,
   workflow text[] default '{}',
   next_action text,
+  notes text default '',
   created_at timestamptz default now()
 );
 
