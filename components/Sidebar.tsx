@@ -117,28 +117,30 @@ export function Sidebar() {
       const [
         customers, vehicles, jobCards, invoices, estimates, payments,
         repairOrders, inspections, schedules, parts, partsOrders, partsReceived,
-        technicians, conversations, appointments,
+        partsEstimates, technicians, conversations, appointments,
       ] = await Promise.all([
         count('customers'), countVehicles(), count('job_cards'),
         count('invoices'), count('estimates'), count('payments'),
         count('repair_orders'), count('inspections'), count('maintenance_schedules'),
         count('parts'), count('parts_orders'), countReceived(),
+        count('parts_estimates'),
         count('technicians'), count('conversations'),
         countAppts(),
       ]);
 
       setRealCounts({
         customers, vehicles,
-        'job-cards':      jobCards,
+        'job-cards':       jobCards,
         invoices, estimates, payments,
-        'repair-orders':  repairOrders,
+        'repair-orders':   repairOrders,
         inspections,
-        scheduling:       schedules,
+        scheduling:        schedules,
         parts,
-        'parts-orders':   partsOrders,
-        'parts-received': partsReceived,
+        'parts-orders':    partsOrders,
+        'parts-received':  partsReceived,
+        'parts-estimates': partsEstimates,
         technicians,
-        communication:    conversations,
+        communication:     conversations,
         appointments,
         dashboard: 0, diagnostics: 0, ai: 0,
       });
