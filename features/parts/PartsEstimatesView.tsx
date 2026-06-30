@@ -671,6 +671,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td onClick={ev => ev.stopPropagation()}>
                           <div className="row-actions">
                             <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>
+                            <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>
                             <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(e.id, e.partName)}>Remove</button>
                           </div>
                         </td>
@@ -964,7 +965,18 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
-                <div />
+                <div>
+                  {editingId && (() => {
+                    const est = estimates.find(e => e.id === editingId);
+                    return est ? (
+                      <button type="button"
+                        onClick={() => { setShowForm(false); setEditingId(null); handleConvertToOrder(est); }}
+                        style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        ⇄ Convert to Order
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ESTIMATE); setFormError(''); }}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={saving}>
