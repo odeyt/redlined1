@@ -58,7 +58,7 @@ export function JobArchiveView() {
     try {
       const { data, error: err } = await supabase
         .from('job_cards')
-        .select('id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice')
+        .select('id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice, notes')
         .eq('shop_id', getShopId())
         .in('status', ['Complete', 'Closed', 'Invoiced'])
         .order('closed_date', { ascending: false, nullsFirst: false });
