@@ -534,21 +534,28 @@ export function EstimatesView() {
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Rate', ''].map((h, i) => (
+                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Line Total', ''].map((h, i) => (
                     <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
-                {form.lines.map((line, i) => (
+                {form.lines.map((line, i) => {
+                  const rate = parseFloat(line.rate) || 0;
+                  const qty  = parseFloat(line.qty)  || 0;
+                  const lineTotal = rate * qty;
+                  return (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
                     <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="50" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="text" inputMode="decimal" value={line.rate} onChange={e => setLine(i, 'rate', e.target.value)} placeholder="0.00" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                      {lineTotal > 0 ? lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                    </div>
                     <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
