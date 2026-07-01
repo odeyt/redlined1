@@ -1044,15 +1044,7 @@ export function EstimatesView() {
               );
             })()}
 
-            {selected.notes && (() => {
-              const t = makeLabelFn(printLang);
-              return (
-                <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{t('Notes', 'ໝາຍເຫດ')}</div>
-                  <p style={{ fontSize: 13, color: '#555', margin: 0 }}>{selected.notes}</p>
-                </div>
-              );
-            })()}
+            {/* Notes are internal only — not shown to customers on the estimate print */}
 
             <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #eee', textAlign: 'center', fontSize: 11, color: '#aaa' }}>
               {makeLabelFn(printLang)('This estimate is valid until', 'ໃບປະເມີນນີ້ໃຊ້ໄດ້ຮອດ')} {selected.validUntil ? fmt(selected.validUntil) : makeLabelFn(printLang)('further notice', 'ແຈ້ງເຕືອນຕໍ່ໄປ')} — {shopSettings?.companyName || 'Redlined1'}
