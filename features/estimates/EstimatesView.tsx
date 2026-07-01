@@ -189,7 +189,7 @@ export function EstimatesView() {
     const line = form.lines[i];
     if (!line) return;
 
-    // Immediate UI update for the typed field
+    // Immediate UI update so the field reflects the keystroke right away
     setForm(f => ({
       ...f,
       lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value }),
@@ -199,28 +199,33 @@ export function EstimatesView() {
       const cost   = parseFloat(field === 'cost'   ? value : line.cost) || 0;
       const markup = parseFloat(field === 'markup' ? value : line.markup);
       const pct    = isNaN(markup) ? 50 : markup;
-      if (cost <= 0) return;
 
-      let rate: number;
       if (field === 'currency') {
-        // User is switching display currency — cost is in the OLD line currency;
-        // convert to the NEW currency.  e.g. LAK 1,500,000 → USD uses LAK→USD rate.
+        // Switching display currency: convert cost AND rate from old → new currency
+        // so the numbers stay consistent (e.g. LAK 1,500,000 → USD ≈ $68 cost, $102 rate).
         const fromCur = line.currency || form.currency;
         const toCur   = value         || form.currency;
-        const fx = await getRate(fromCur, toCur);
-        rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
+        if (fromCur === toCur || cost <= 0) return;
+        const fx       = await getRate(fromCur, toCur);
+        const newCost  = +(cost * fx).toFixed(2);
+        const newRate  = +(newCost * (1 + pct / 100)).toFixed(2);
+        setForm(f => ({
+          ...f,
+          lines: f.lines.map((l, idx) =>
+            idx !== i ? l : { ...l, currency: value, cost: String(newCost), rate: String(newRate) }
+          ),
+        }));
       } else {
-        // Cost or markup edited — cost is already in the line's current currency;
-        // no FX conversion needed, just apply markup.
-        rate = +(cost * (1 + pct / 100)).toFixed(2);
+        // Cost or markup edited — cost is in the line's current currency; just apply markup.
+        if (cost <= 0) return;
+        const rate = +(cost * (1 + pct / 100)).toFixed(2);
+        setForm(f => ({
+          ...f,
+          lines: f.lines.map((l, idx) =>
+            idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
+          ),
+        }));
       }
-
-      setForm(f => ({
-        ...f,
-        lines: f.lines.map((l, idx) =>
-          idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
-        ),
-      }));
     }
   }
 
