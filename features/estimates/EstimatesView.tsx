@@ -199,33 +199,20 @@ export function EstimatesView() {
       const cost   = parseFloat(field === 'cost'   ? value : line.cost) || 0;
       const markup = parseFloat(field === 'markup' ? value : line.markup);
       const pct    = isNaN(markup) ? 50 : markup;
+      if (cost <= 0) return;
 
-      if (field === 'currency') {
-        // Switching display currency: convert cost AND rate from old → new currency
-        // so the numbers stay consistent (e.g. LAK 1,500,000 → USD ≈ $68 cost, $102 rate).
-        const fromCur = line.currency || form.currency;
-        const toCur   = value         || form.currency;
-        if (fromCur === toCur || cost <= 0) return;
-        const fx       = await getRate(fromCur, toCur);
-        const newCost  = +(cost * fx).toFixed(2);
-        const newRate  = +(newCost * (1 + pct / 100)).toFixed(2);
-        setForm(f => ({
-          ...f,
-          lines: f.lines.map((l, idx) =>
-            idx !== i ? l : { ...l, currency: value, cost: String(newCost), rate: String(newRate) }
-          ),
-        }));
-      } else {
-        // Cost or markup edited — cost is in the line's current currency; just apply markup.
-        if (cost <= 0) return;
-        const rate = +(cost * (1 + pct / 100)).toFixed(2);
-        setForm(f => ({
-          ...f,
-          lines: f.lines.map((l, idx) =>
-            idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
-          ),
-        }));
-      }
+      // Cost is always in the estimate's MAIN currency (form.currency).
+      // The line Currency = customer billing currency.
+      // Rate = cost × fx(main → billing) × (1 + markup%).
+      const billingCur = field === 'currency' ? (value || form.currency) : (line.currency || form.currency);
+      const fx   = await getRate(form.currency, billingCur);
+      const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
+      setForm(f => ({
+        ...f,
+        lines: f.lines.map((l, idx) =>
+          idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
+        ),
+      }));
     }
   }
 

@@ -393,7 +393,7 @@ export function PartsEstimatesView() {
     const mainCur = e.currency || 'USD';
     const hasMixed = currencies.length > 1 || (currencies.length === 1 && currencies[0] !== mainCur);
     const mixedWarning = hasMixed
-      ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nItems in a different currency than ${mainCur} will need manual rate review in the Estimate.`
+      ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
       : '';
 
     if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be removed.`)) return;
@@ -404,13 +404,39 @@ export function PartsEstimatesView() {
 
     try {
       const estNum = await nextEstimateNumber();
-      const lines = items.map(item => {
-        const cost = item.unitCost ?? 0;
-        const markup = 50;
-        const rate = +(cost * (1 + markup / 100)).toFixed(2);
+
+      // Cost in the estimate is always in mainCur (e.g. THB).
+      // For foreign-currency items, fetch FX to convert supplier cost → mainCur,
+      // then set the line's billing currency so the customer sees the rate in their currency.
+      async function fxRate(from: string, to: string): Promise<number> {
+        if (!from || !to || from === to) return 1;
+        try {
+          const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from.toLowerCase()}.json`);
+          const data = await res.json();
+          return (data[from.toLowerCase()] ?? {})[to.toLowerCase()] ?? 1;
+        } catch { return 1; }
+      }
+
+      const lines = await Promise.all(items.map(async item => {
         const itemCur = item.currency || mainCur;
-        return { note: item.partNumber || '', description: item.partName || '', qty: item.quantity ?? 1, rate, cost, markup, ...(itemCur !== mainCur ? { currency: itemCur } : {}) };
-      });
+        const isForeign = itemCur !== mainCur;
+        // Convert supplier cost to main currency so it's stored consistently
+        const fx_to_main = isForeign ? await fxRate(itemCur, mainCur) : 1;
+        const cost = +((item.unitCost ?? 0) * fx_to_main).toFixed(2);
+        const markup = 50;
+        // Rate is in the billing currency (itemCur if foreign, mainCur otherwise)
+        const fx_to_billing = isForeign ? await fxRate(mainCur, itemCur) : 1;
+        const rate = +(cost * fx_to_billing * (1 + markup / 100)).toFixed(2);
+        return {
+          note: item.partNumber || '',
+          description: item.partName || '',
+          qty: item.quantity ?? 1,
+          rate,
+          cost,
+          markup,
+          ...(isForeign ? { currency: itemCur } : {}),
+        };
+      }));
       await createEstimate({
         estimateNumber: estNum,
         customerName: e.customerName || '',
