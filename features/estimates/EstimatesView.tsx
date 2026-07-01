@@ -779,37 +779,52 @@ export function EstimatesView() {
                 </tbody>
               </table>
 
-              {/* Totals */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <div style={{ width: 300 }}>
-                  {([
-                    ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
-                    totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
-                    totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                    [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
-                  ] as ([string, string] | null)[]).filter((r): r is [string, string] => r !== null).map(([label, val]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted)' }}>{label}</span><span>{val}</span>
+              {/* Totals — grouped by billing currency */}
+              {(() => {
+                const perCur: Record<string, number> = {};
+                for (const l of selected.lines) {
+                  const cur = l.currency || selected.currency;
+                  perCur[cur] = (perCur[cur] || 0) + l.qty * l.rate;
+                }
+                const entries = Object.entries(perCur).filter(([, v]) => v > 0);
+                const mainSub = totals.subtotal; // main-currency lines only (for discount/tax)
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                    <div style={{ width: 300 }}>
+                      {entries.map(([cur, sub]) => {
+                        const isMain = cur === selected.currency;
+                        const disc = isMain ? totals.discount : 0;
+                        const ss = isMain ? totals.shopSupplies : 0;
+                        const tax = isMain ? totals.tax : 0;
+                        const grandTotal = isMain ? totals.total : sub;
+                        return (
+                          <div key={cur}>
+                            {entries.length > 1 && (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: isMain ? 'var(--muted)' : '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '6px 0 2px' }}>{cur} Items</div>
+                            )}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                              <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(sub, cur)}</span>
+                            </div>
+                            {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
+                            {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
+                            {(tax > 0 || isMain) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
+                              <span>Total ({cur})</span>
+                              <span style={{ color: 'var(--accent)' }}>{formatMoney(grandTotal, cur)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {entries.length === 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
+                          <span>Total ({selected.currency})</span>
+                          <span style={{ color: 'var(--accent)' }}>{formatMoney(0, selected.currency)}</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
-                    <span>Total ({selected.currency})</span>
-                    <span style={{ color: 'var(--accent)' }}>{formatMoney(totals.total, selected.currency)}</span>
                   </div>
-                  {(() => {
-                    const fmap: Record<string, number> = {};
-                    for (const l of selected.lines) {
-                      const lc = l.currency;
-                      if (lc && lc !== selected.currency) fmap[lc] = (fmap[lc] || 0) + l.qty * l.rate;
-                    }
-                    return Object.entries(fmap).map(([cur, amt]) => (
-                      <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#d97706' }}>
-                        <span>+ {cur} items</span><span style={{ fontWeight: 700 }}>{formatMoney(amt, cur)}</span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
+                );
+              })()}
 
               {selected.notes && (
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
@@ -899,36 +914,53 @@ export function EstimatesView() {
               </tbody>
             </table>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <div style={{ width: 280 }}>
-                {([
-                  ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
-                  totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
-                  totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                  [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
-                ] as ([string, string] | null)[]).filter((row): row is [string, string] => row !== null).map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                    <span>{label}</span><span>{val}</span>
+            {/* Print totals — grouped by billing currency */}
+            {(() => {
+              const perCur: Record<string, number> = {};
+              for (const l of selected.lines) {
+                const cur = l.currency || selected.currency;
+                perCur[cur] = (perCur[cur] || 0) + l.qty * l.rate;
+              }
+              const entries = Object.entries(perCur).filter(([, v]) => v > 0);
+              return (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                  <div style={{ width: 280 }}>
+                    {entries.map(([cur, sub]) => {
+                      const isMain = cur === selected.currency;
+                      const disc = isMain ? totals.discount : 0;
+                      const ss = isMain ? totals.shopSupplies : 0;
+                      const tax = isMain ? totals.tax : 0;
+                      const grandTotal = isMain ? totals.total : sub;
+                      return (
+                        <div key={cur} style={{ marginBottom: entries.length > 1 ? 12 : 0 }}>
+                          {entries.length > 1 && (
+                            <div style={{ fontSize: 11, fontWeight: 700, color: isMain ? '#666' : '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 0 2px' }}>{cur} Items</div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                            <span>Subtotal</span><span>{formatMoney(sub, cur)}</span>
+                          </div>
+                          {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
+                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                            <span>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
+                            <span>Total ({cur})</span>
+                            <span style={{ color: '#cc0000' }}>{formatMoney(grandTotal, cur)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {entries.length === 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
+                        <span>Total ({selected.currency})</span>
+                        <span style={{ color: '#cc0000' }}>{formatMoney(0, selected.currency)}</span>
+                      </div>
+                    )}
                   </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                  <span>Total ({selected.currency})</span>
-                  <span style={{ color: '#cc0000' }}>{formatMoney(totals.total, selected.currency)}</span>
                 </div>
-                {(() => {
-                  const fmap: Record<string, number> = {};
-                  for (const l of selected.lines) {
-                    const lc = l.currency;
-                    if (lc && lc !== selected.currency) fmap[lc] = (fmap[lc] || 0) + l.qty * l.rate;
-                  }
-                  return Object.entries(fmap).map(([cur, amt]) => (
-                    <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14, color: '#d97706', fontWeight: 600 }}>
-                      <span>+ {cur} items</span><span>{formatMoney(amt, cur)}</span>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
+              );
+            })()}
 
             {selected.notes && (
               <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
