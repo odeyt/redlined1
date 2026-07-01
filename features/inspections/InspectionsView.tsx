@@ -7,7 +7,7 @@ import { TechPills } from '@/components/TechPill';
 import {
   fetchInspections, createInspection, updateInspection, deleteInspection,
   nextInspectionNumber, uploadInspectionPhoto,
-  INSPECTION_TEMPLATE, INSPECTION_STATUSES,
+  INSPECTION_TEMPLATE, INTAKE_OUTTAKE_ITEMS, INSPECTION_STATUSES,
   type Inspection, type InspectionItem, type CustomerApproval,
 } from '@/services/inspectionService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
@@ -284,10 +284,14 @@ export function InspectionsView() {
   }
 
   function getActiveTemplate() {
-    if (shopSettings?.inspectionTemplate && shopSettings.inspectionTemplate.length > 0) {
-      return shopSettings.inspectionTemplate.map(t => freshItem({ ...t, status: 'N/A', notes: '', photoUrl: '' }));
-    }
-    return INSPECTION_TEMPLATE.map(freshItem);
+    const base = (shopSettings?.inspectionTemplate && shopSettings.inspectionTemplate.length > 0)
+      ? shopSettings.inspectionTemplate.map(t => freshItem({ ...t, status: 'N/A', notes: '', photoUrl: '' }))
+      : INSPECTION_TEMPLATE.map(freshItem);
+    const existingNames = new Set(base.map(i => i.name));
+    const extras = INTAKE_OUTTAKE_ITEMS
+      .filter(t => !existingNames.has(t.name))
+      .map(t => freshItem({ ...t, status: 'N/A', notes: '', photoUrl: '' }));
+    return [...base, ...extras];
   }
 
   async function openNew() {

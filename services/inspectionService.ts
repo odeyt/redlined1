@@ -67,6 +67,11 @@ export const INSPECTION_TEMPLATE: Omit<InspectionItem, 'id'>[] = [
   { category: 'Suspension', name: 'Tie rods', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Suspension', name: 'Ball joints', status: 'N/A', notes: '', photoUrl: '' },
 
+];
+
+// Intake & outtake items are always appended on top of any template
+// (including custom shop templates) so they can never be overridden away.
+export const INTAKE_OUTTAKE_ITEMS: Omit<InspectionItem, 'id'>[] = [
   // ── VEHICLE INTAKE ────────────────────────────────────────────────────────
   { category: 'Intake — Exterior', name: 'Body panels & paint (note scratches, dents, chips — photo all 4 sides)', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Intake — Exterior', name: 'Windshield & glass (rock chips, cracks, stars on all windows)', status: 'N/A', notes: '', photoUrl: '' },
