@@ -66,6 +66,43 @@ export const INSPECTION_TEMPLATE: Omit<InspectionItem, 'id'>[] = [
   { category: 'Suspension', name: 'Shocks / struts', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Suspension', name: 'Tie rods', status: 'N/A', notes: '', photoUrl: '' },
   { category: 'Suspension', name: 'Ball joints', status: 'N/A', notes: '', photoUrl: '' },
+
+  // ── VEHICLE INTAKE ────────────────────────────────────────────────────────
+  { category: 'Intake — Exterior', name: 'Body panels & paint (note scratches, dents, chips — photo all 4 sides)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Exterior', name: 'Windshield & glass (rock chips, cracks, stars on all windows)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Exterior', name: 'Wheels & rims (curb rash, scuffs, missing center caps / lug nuts)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Exterior', name: 'Underside / bumpers (low-hanging trim, cracked bumpers, scrape marks)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Exterior', name: 'Lights & lenses (cracked or foggy headlight, taillight, turn signal lenses)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Exterior', name: 'Wiper blades & arms (torn blades, bent or loose arms)', status: 'N/A', notes: '', photoUrl: '' },
+
+  { category: 'Intake — Interior', name: 'Seats & upholstery (tears, burns, major stains — especially driver seat)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Interior', name: 'Dashboard & trim (cracks in dash, loose trim pieces, broken air vents)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Interior', name: 'Floor mats & carpets (missing, heavily soiled, or wet)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Interior', name: 'Odors (smoke, mold, pet, fuel — document any pre-existing smells)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Interior', name: 'Valuables / loose items (note high-value items or ask customer to remove)', status: 'N/A', notes: '', photoUrl: '' },
+
+  { category: 'Intake — Functional', name: 'Mileage & fuel level (record exact odometer reading and fuel gauge)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Warning lights on dash (Check Engine, ABS, Airbag, TPMS — before touching)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Windows & mirrors (power windows roll up/down, mirrors adjust)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Infotainment & radio (screen and sound work, note volume level)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'AC & heater (blower motor works, correct temperature)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Brake feel & noises (squealing, grinding, or spongy pedal)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Steering wheel alignment (crooked when straight, pulls left/right)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Suspension noises (clunks, thumps, or rattles over small bumps)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Intake — Functional', name: 'Key fob & locks (physical key/fob locks and unlocks properly)', status: 'N/A', notes: '', photoUrl: '' },
+
+  // ── VEHICLE OUTTAKE ───────────────────────────────────────────────────────
+  { category: 'Outtake — QA Checklist', name: 'Engine bay clear (no forgotten tools in cowl, radiator shroud, battery tray)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Interior / footwells clear (no tools or hardware on floorboards or under seats)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'All fasteners accounted for (no extra bolts or clips left on workbench)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Old parts in trunk (replaced parts placed securely for customer inspection)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Fluid levels topped off (engine oil, coolant, brake fluid, power steering)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Caps secured (oil cap, dipstick, coolant overflow cap tightly closed)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Lug nut torque verified (if wheels were removed — double-check all wheels)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Tire pressure adjusted (all four tires at recommended PSI)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Protection removed (steering wheel cover, seat covers, floor mats used in repair)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'Wipe down complete (no greasy fingerprints on steering wheel, door handles, hood)', status: 'N/A', notes: '', photoUrl: '' },
+  { category: 'Outtake — QA Checklist', name: 'All panels closed and latched (hood, trunk, and all doors fully closed)', status: 'N/A', notes: '', photoUrl: '' },
 ];
 
 function mapRow(r: Record<string, unknown>): Inspection {
