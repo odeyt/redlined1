@@ -384,17 +384,28 @@ export function PartsEstimatesView() {
   }
 
   async function handleConvertToEstimate(e: PartsEstimate) {
-    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?`)) return;
+    const items = e.lineItems?.length
+      ? e.lineItems
+      : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost, vendorName: e.vendorName, currency: e.currency || 'USD' }];
+
+    // Detect mixed currencies
+    const currencies = [...new Set(items.map(i => i.currency || e.currency || 'USD'))];
+    const mainCur = e.currency || 'USD';
+    const hasMixed = currencies.length > 1 || (currencies.length === 1 && currencies[0] !== mainCur);
+    const mixedWarning = hasMixed
+      ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nItems in a different currency than ${mainCur} will need manual rate review in the Estimate.`
+      : '';
+
+    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be removed.`)) return;
+
     try {
       const estNum = await nextEstimateNumber();
-      const items = e.lineItems?.length
-        ? e.lineItems
-        : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost, vendorName: e.vendorName, currency: e.currency || 'USD' }];
       const lines = items.map(item => {
         const cost = item.unitCost ?? 0;
         const markup = 50;
         const rate = +(cost * (1 + markup / 100)).toFixed(2);
-        return { note: item.partNumber || '', description: item.partName || '', qty: item.quantity ?? 1, rate, cost, markup };
+        const itemCur = item.currency || mainCur;
+        return { note: item.partNumber || '', description: item.partName || '', qty: item.quantity ?? 1, rate, cost, markup, ...(itemCur !== mainCur ? { currency: itemCur } : {}) };
       });
       await createEstimate({
         estimateNumber: estNum,
@@ -410,9 +421,13 @@ export function PartsEstimatesView() {
         notes: e.notes ? `From Parts Quotation. ${e.notes}` : 'Converted from Parts Quotation.',
         validUntil: e.validUntil || '',
         approvedDate: null,
-        currency: e.currency || 'USD',
+        currency: mainCur,
       });
-      notify(`✓ Estimate ${estNum} created — navigate to Estimates to review`);
+      // Remove the source quotation
+      await deletePartsEstimate(e.id);
+      setEstimates(prev => prev.filter(x => x.id !== e.id));
+      setSelected(null);
+      notify(`✓ Estimate ${estNum} created — quotation removed`);
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
