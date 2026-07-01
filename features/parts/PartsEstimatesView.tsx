@@ -417,19 +417,29 @@ export function PartsEstimatesView() {
         } catch { return 1; }
       }
 
+      async function translateToLao(text: string): Promise<string> {
+        if (!text.trim()) return '';
+        try {
+          const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|lo`);
+          const data = await res.json();
+          return data.responseData?.translatedText || '';
+        } catch { return ''; }
+      }
+
       const lines = await Promise.all(items.map(async item => {
         const itemCur = item.currency || mainCur;
         const isForeign = itemCur !== mainCur;
-        // Convert supplier cost to main currency so it's stored consistently
         const fx_to_main = isForeign ? await fxRate(itemCur, mainCur) : 1;
         const cost = +((item.unitCost ?? 0) * fx_to_main).toFixed(2);
         const markup = 50;
-        // Rate is in the billing currency (itemCur if foreign, mainCur otherwise)
         const fx_to_billing = isForeign ? await fxRate(mainCur, itemCur) : 1;
         const rate = +(cost * fx_to_billing * (1 + markup / 100)).toFixed(2);
+        const description = item.partName || '';
+        const laoDescription = await translateToLao(description);
         return {
           note: item.partNumber || '',
-          description: item.partName || '',
+          description,
+          ...(laoDescription ? { laoDescription } : {}),
           qty: item.quantity ?? 1,
           rate,
           cost,

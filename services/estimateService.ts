@@ -4,6 +4,7 @@ import { getShopId } from '@/lib/shopStore';
 export interface EstimateLine {
   note: string;
   description: string;
+  laoDescription?: string;
   qty: number;
   rate: number;
   cost?: number;

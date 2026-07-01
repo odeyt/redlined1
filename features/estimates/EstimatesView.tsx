@@ -24,8 +24,17 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // Form uses strings so the user can type freely (decimals, clearing)
-type FormLine = { note: string; description: string; qty: string; cost: string; markup: string; rate: string; currency: string };
-const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
+type FormLine = { description: string; laoDescription: string; qty: string; cost: string; markup: string; rate: string; currency: string };
+const EMPTY_LINE: FormLine = { description: '', laoDescription: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
+
+async function translateToLao(text: string): Promise<string> {
+  if (!text.trim()) return '';
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|lo`);
+    const data = await res.json();
+    return data.responseData?.translatedText || text;
+  } catch { return text; }
+}
 
 const EMPTY_FORM = {
   estimateNumber: '',
@@ -169,7 +178,7 @@ export function EstimatesView() {
       vehicle: est.vehicle,
       jobCardId: est.jobCardId,
       status: est.status,
-      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' })) : [{ ...EMPTY_LINE }],
+      lines: est.lines.length > 0 ? est.lines.map(l => ({ description: l.description, laoDescription: l.laoDescription || '', qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' })) : [{ ...EMPTY_LINE }],
       discount: est.discount,
       shopSupplies: est.shopSupplies,
       taxRate: est.taxRate,
@@ -225,7 +234,8 @@ export function EstimatesView() {
       const cost = parseFloat(l.cost);
       const markup = parseFloat(l.markup);
       return {
-        note: l.note, description: l.description,
+        note: '', description: l.description,
+        ...(l.laoDescription ? { laoDescription: l.laoDescription } : {}),
         qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0,
         ...(isNaN(cost) ? {} : { cost }),
         ...(isNaN(markup) ? {} : { markup }),
@@ -569,8 +579,8 @@ export function EstimatesView() {
                   <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
+                  {['Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
                     <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: idx === 6 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
@@ -580,9 +590,20 @@ export function EstimatesView() {
                   const lineCur = line.currency || form.currency;
                   const lineTotal = rate * qty;
                   return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 6 }}>
-                    <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 6 }}>
+                    <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..." style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <button type="button" title="Auto-translate to Lao"
+                        onClick={async () => {
+                          if (!line.description) return;
+                          const lao = await translateToLao(line.description);
+                          setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                        }}
+                        style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>
+                        🌐
+                      </button>
+                    </div>
                     <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="50" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
@@ -755,21 +776,22 @@ export function EstimatesView() {
               <table style={{ marginBottom: 0 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', width: 100 }}>Note / Ref</th>
-                    <th style={{ textAlign: 'left' }}>Description</th>
+                    <th style={{ textAlign: 'left' }}>Description / ລາຍລະອຽດ</th>
                     <th style={{ textAlign: 'right', width: 60 }}>Qty</th>
                     <th style={{ textAlign: 'right', width: 90 }}>Rate</th>
                     <th style={{ textAlign: 'right', width: 100 }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selected.lines.length === 0 && <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '14px 0' }}>No line items</td></tr>}
+                  {selected.lines.length === 0 && <tr><td colSpan={4} style={{ color: 'var(--muted)', textAlign: 'center', padding: '14px 0' }}>No line items</td></tr>}
                   {selected.lines.map((line, i) => {
                     const lc = line.currency || selected.currency;
                     return (
                     <tr key={i}>
-                      <td style={{ color: 'var(--muted)', fontSize: 12 }}>{line.note || '—'}</td>
-                      <td>{line.description}</td>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{line.description}</div>
+                        {line.laoDescription && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{line.laoDescription}</div>}
+                      </td>
                       <td style={{ textAlign: 'right' }}>{line.qty}</td>
                       <td style={{ textAlign: 'right' }}>{formatMoney(line.rate, lc)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: lc !== selected.currency ? '#d97706' : undefined }}>{formatMoney(line.qty * line.rate, lc)}</td>
@@ -893,8 +915,8 @@ export function EstimatesView() {
             <table style={{ width: '100%', borderCollapse: 'collapse', color: '#111' }}>
               <thead>
                 <tr style={{ background: '#f0f0f0' }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Rate', 'Amount'].map((h, i) => (
-                    <th key={i} style={{ textAlign: i >= 2 ? 'right' : 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>{h}</th>
+                  {['Description / ລາຍລະອຽດ', 'Qty', 'Rate', 'Amount'].map((h, i) => (
+                    <th key={i} style={{ textAlign: i >= 1 ? 'right' : 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -903,8 +925,10 @@ export function EstimatesView() {
                   const lc = line.currency || selected.currency;
                   return (
                   <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{line.note || ''}</td>
-                    <td style={{ padding: '10px 12px', fontSize: 14 }}>{line.description}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 500 }}>{line.description}</div>
+                      {line.laoDescription && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{line.laoDescription}</div>}
+                    </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, lc)}</td>
