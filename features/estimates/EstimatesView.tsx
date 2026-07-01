@@ -72,6 +72,9 @@ export function EstimatesView() {
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
+  // Exchange rates keyed by base currency, e.g. ratesCache['THB']['USD'] = 0.028
+  const ratesCache = useRef<Record<string, Record<string, number>>>({});
+  const [ratesFetching, setRatesFetching] = useState(false);
 
   useEffect(() => {
     load();
@@ -128,6 +131,25 @@ export function EstimatesView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
+  async function getRate(from: string, to: string): Promise<number> {
+    if (!from || !to || from === to) return 1;
+    if (ratesCache.current[from]?.[to] != null) return ratesCache.current[from][to];
+    try {
+      setRatesFetching(true);
+      const res = await fetch(
+        `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from.toLowerCase()}.json`
+      );
+      const data = await res.json();
+      const rates: Record<string, number> = data[from.toLowerCase()] ?? {};
+      ratesCache.current[from] = rates;
+      return rates[to.toLowerCase()] ?? 1;
+    } catch {
+      return 1;
+    } finally {
+      setRatesFetching(false);
+    }
+  }
+
   async function openNewForm() {
     const num = await nextEstimateNumber();
     setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }] });
@@ -163,22 +185,33 @@ export function EstimatesView() {
     setShowForm(true);
   }
 
-  function setLine(i: number, field: keyof FormLine, value: string) {
+  async function setLine(i: number, field: keyof FormLine, value: string) {
+    const line = form.lines[i];
+    if (!line) return;
+
+    // Immediate UI update for the typed field
     setForm(f => ({
       ...f,
-      lines: f.lines.map((l, idx) => {
-        if (idx !== i) return l;
-        const updated = { ...l, [field]: value };
-        // Auto-compute rate from cost × (1 + markup%) when either changes
-        if (field === 'cost' || field === 'markup') {
-          const c = parseFloat(field === 'cost' ? value : updated.cost) || 0;
-          const m = parseFloat(field === 'markup' ? value : updated.markup);
-          const pct = isNaN(m) ? 50 : m;
-          if (c > 0) updated.rate = String(+(c * (1 + pct / 100)).toFixed(2));
-        }
-        return updated;
-      }),
+      lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value }),
     }));
+
+    // Recompute rate with live FX whenever cost, markup, or currency changes
+    if (field === 'cost' || field === 'markup' || field === 'currency') {
+      const cost    = parseFloat(field === 'cost'    ? value : line.cost) || 0;
+      const markup  = parseFloat(field === 'markup'  ? value : line.markup);
+      const pct     = isNaN(markup) ? 50 : markup;
+      const lineCur = (field === 'currency' ? value : line.currency) || form.currency;
+      if (cost > 0) {
+        const fx   = await getRate(form.currency, lineCur);
+        const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
+        setForm(f => ({
+          ...f,
+          lines: f.lines.map((l, idx) =>
+            idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
+          ),
+        }));
+      }
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -535,8 +568,8 @@ export function EstimatesView() {
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Currency', 'Line Total', ''].map((h, idx) => (
-                    <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
+                  {['Note / Ref', 'Description', 'Qty', `Cost (${form.currency})`, 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: idx === 6 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
                 {form.lines.map((line, i) => {
