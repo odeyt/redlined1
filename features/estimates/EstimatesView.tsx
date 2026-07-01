@@ -604,6 +604,31 @@ export function EstimatesView() {
                   </div>
                   );
                 })}
+
+                {/* Line items totals summary */}
+                {(() => {
+                  // Group totals by currency
+                  const totals: Record<string, number> = {};
+                  form.lines.forEach(l => {
+                    const cur = l.currency || form.currency;
+                    const val = (parseFloat(l.rate) || 0) * (parseFloat(l.qty) || 0);
+                    totals[cur] = (totals[cur] || 0) + val;
+                  });
+                  const entries = Object.entries(totals).filter(([, v]) => v > 0);
+                  if (entries.length === 0) return null;
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, padding: '8px 4px', borderTop: '1px solid var(--line)', marginTop: 4, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: 'var(--muted)', alignSelf: 'center' }}>Subtotal</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                        {entries.map(([cur, total]) => (
+                          <span key={cur} style={{ fontSize: 13, fontWeight: 700, color: cur !== form.currency ? '#d97706' : 'var(--text)' }}>
+                            {formatMoney(total, cur)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
