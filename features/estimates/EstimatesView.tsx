@@ -36,6 +36,34 @@ async function translateToLao(text: string): Promise<string> {
   } catch { return text; }
 }
 
+const LAO: Record<string, string> = {
+  'Estimate': 'ໃບປະເມີນລາຄາ',
+  'Draft': 'ຮ່າງ', 'Sent': 'ສົ່ງແລ້ວ', 'Approved': 'ອະນຸມັດ', 'Declined': 'ປະຕິເສດ', 'Converted': 'ປ່ຽນແລ້ວ',
+  'Prepared For': 'ກຽມໃຫ້',
+  'Reference': 'ອ້າງອີງ',
+  'Description / ລາຍລະອຽດ': 'Description / ລາຍລະອຽດ',
+  'Qty': 'ຈຳນວນ',
+  'Rate': 'ລາຄາ',
+  'Amount': 'ຈຳນວນເງິນ',
+  'Subtotal': 'ລວມຍ່ອຍ',
+  'Discount': 'ສ່ວນຫຼຸດ',
+  'Shop Supplies': 'ອຸປະກອນຮ້ານ',
+  'Tax': 'ພາສີ',
+  'Total': 'ລວມທັງໝົດ',
+  'Notes': 'ໝາຍເຫດ',
+  'Items': 'ລາຍການ',
+  'Date': 'ວັນທີ',
+};
+
+function makeLabelFn(lang: 'en' | 'lo' | 'both') {
+  return function t(en: string, lao?: string): string {
+    const l = lao ?? LAO[en] ?? en;
+    if (lang === 'en') return en;
+    if (lang === 'lo') return l;
+    return l !== en ? `${en} / ${l}` : en;
+  };
+}
+
 const EMPTY_FORM = {
   estimateNumber: '',
   customerName: '',
@@ -84,6 +112,7 @@ export function EstimatesView() {
   // Exchange rates keyed by base currency, e.g. ratesCache['THB']['USD'] = 0.028
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
   const [ratesFetching, setRatesFetching] = useState(false);
+  const [printLang, setPrintLang] = useState<'en' | 'lo' | 'both'>('both');
 
   useEffect(() => {
     load();
@@ -871,6 +900,15 @@ export function EstimatesView() {
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
             <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
+            {/* Language toggle */}
+            <div style={{ position: 'absolute', top: 56, right: 16, display: 'flex', gap: 4 }}>
+              {(['en', 'both', 'lo'] as const).map(lang => (
+                <button key={lang} onClick={() => setPrintLang(lang)}
+                  style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: printLang === lang ? '#cc0000' : '#f5f5f5', color: printLang === lang ? '#fff' : '#555' }}>
+                  {lang === 'en' ? 'EN' : lang === 'lo' ? 'ລາວ' : 'EN+ລາວ'}
+                </button>
+              ))}
+            </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
@@ -886,60 +924,80 @@ export function EstimatesView() {
                   </div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>Estimate</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#111', marginTop: 4 }}>{selected.estimateNumber}</div>
-                <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{selected.status.toUpperCase()}</span>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 8, lineHeight: 1.7 }}>
-                  Date: {fmt(selected.createdAt)}<br />
-                  {selected.validUntil && <>Valid until: {fmt(selected.validUntil)}<br /></>}
-                  {selected.approvedDate && <span style={{ color: '#4caf50', fontWeight: 600 }}>Approved: {fmt(selected.approvedDate)}</span>}
-                </div>
-              </div>
+              {(() => {
+                const t = makeLabelFn(printLang);
+                return (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>{t('Estimate', 'ໃບປະເມີນລາຄາ')}</div>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: '#111', marginTop: 4 }}>{selected.estimateNumber}</div>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{t(selected.status, LAO[selected.status]).toUpperCase()}</span>
+                    <div style={{ fontSize: 12, color: '#666', marginTop: 8, lineHeight: 1.7 }}>
+                      {t('Date', 'ວັນທີ')}: {fmt(selected.createdAt)}<br />
+                      {selected.validUntil && <>{t('Valid until', 'ໃຊ້ໄດ້ຮອດ')}: {fmt(selected.validUntil)}<br /></>}
+                      {selected.approvedDate && <span style={{ color: '#4caf50', fontWeight: 600 }}>{t('Approved', 'ອະນຸມັດ')}: {fmt(selected.approvedDate)}</span>}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-              <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Prepared For</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.customerName}</div>
-                {selected.vehicle && <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>{selected.vehicle}</div>}
-              </div>
-              {selected.jobCardId && (
-                <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Reference</div>
-                  <div>Job Card: <strong>{selected.jobCardId}</strong></div>
+            {(() => {
+              const t = makeLabelFn(printLang);
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
+                  <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{t('Prepared For', 'ກຽມໃຫ້')}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.customerName}</div>
+                    {selected.vehicle && <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>{selected.vehicle}</div>}
+                  </div>
+                  {selected.jobCardId && (
+                    <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{t('Reference', 'ອ້າງອີງ')}</div>
+                      <div>Job Card: <strong>{selected.jobCardId}</strong></div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', color: '#111' }}>
-              <thead>
-                <tr style={{ background: '#f0f0f0' }}>
-                  {['Description / ລາຍລະອຽດ', 'Qty', 'Rate', 'Amount'].map((h, i) => (
-                    <th key={i} style={{ textAlign: i >= 1 ? 'right' : 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {selected.lines.map((line, i) => {
-                  const lc = line.currency || selected.currency;
-                  return (
-                  <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '10px 12px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 500 }}>{line.description}</div>
-                      {line.laoDescription && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{line.laoDescription}</div>}
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, lc)}</td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {(() => {
+              const t = makeLabelFn(printLang);
+              const descHeader = printLang === 'en' ? 'Description' : printLang === 'lo' ? 'ລາຍລະອຽດ' : 'Description / ລາຍລະອຽດ';
+              return (
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#111' }}>
+                  <thead>
+                    <tr style={{ background: '#f0f0f0' }}>
+                      {[descHeader, t('Qty', 'ຈຳນວນ'), t('Rate', 'ລາຄາ'), t('Amount', 'ຈຳນວນເງິນ')].map((h, i) => (
+                        <th key={i} style={{ textAlign: i >= 1 ? 'right' : 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.lines.map((line, i) => {
+                      const lc = line.currency || selected.currency;
+                      const showEn = printLang !== 'lo';
+                      const showLao = printLang !== 'en';
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '10px 12px' }}>
+                            {showEn && <div style={{ fontSize: 14, fontWeight: 500 }}>{line.description}</div>}
+                            {showLao && line.laoDescription && <div style={{ fontSize: printLang === 'lo' ? 14 : 12, fontWeight: printLang === 'lo' ? 500 : 400, color: printLang === 'lo' ? '#111' : '#888', marginTop: showEn ? 2 : 0 }}>{line.laoDescription}</div>}
+                            {showLao && !line.laoDescription && printLang === 'lo' && <div style={{ fontSize: 14 }}>{line.description}</div>}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, lc)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              );
+            })()}
 
             {/* Print totals — grouped by billing currency */}
             {(() => {
+              const t = makeLabelFn(printLang);
               const perCur: Record<string, number> = {};
               for (const l of selected.lines) {
                 const cur = l.currency || selected.currency;
@@ -948,7 +1006,7 @@ export function EstimatesView() {
               const entries = Object.entries(perCur).filter(([, v]) => v > 0);
               return (
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-                  <div style={{ width: 280 }}>
+                  <div style={{ width: 300 }}>
                     {entries.map(([cur, sub]) => {
                       const isMain = cur === selected.currency;
                       const disc = isMain ? totals.discount : 0;
@@ -958,18 +1016,18 @@ export function EstimatesView() {
                       return (
                         <div key={cur} style={{ marginBottom: entries.length > 1 ? 12 : 0 }}>
                           {entries.length > 1 && (
-                            <div style={{ fontSize: 11, fontWeight: 700, color: isMain ? '#666' : '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 0 2px' }}>{cur} Items</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: isMain ? '#666' : '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '4px 0 2px' }}>{cur} {t('Items', 'ລາຍການ')}</div>
                           )}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                            <span>Subtotal</span><span>{formatMoney(sub, cur)}</span>
+                            <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(sub, cur)}</span>
                           </div>
-                          {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
+                          {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
+                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Shop Supplies', 'ອຸປະກອນຮ້ານ')}</span><span>{formatMoney(ss, cur)}</span></div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                            <span>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
+                            <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                            <span>Total ({cur})</span>
+                            <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
                             <span style={{ color: '#cc0000' }}>{formatMoney(grandTotal, cur)}</span>
                           </div>
                         </div>
@@ -977,7 +1035,7 @@ export function EstimatesView() {
                     })}
                     {entries.length === 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                        <span>Total ({selected.currency})</span>
+                        <span>{t('Total', 'ລວມທັງໝົດ')} ({selected.currency})</span>
                         <span style={{ color: '#cc0000' }}>{formatMoney(0, selected.currency)}</span>
                       </div>
                     )}
@@ -986,15 +1044,18 @@ export function EstimatesView() {
               );
             })()}
 
-            {selected.notes && (
-              <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Notes</div>
-                <p style={{ fontSize: 13, color: '#555', margin: 0 }}>{selected.notes}</p>
-              </div>
-            )}
+            {selected.notes && (() => {
+              const t = makeLabelFn(printLang);
+              return (
+                <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{t('Notes', 'ໝາຍເຫດ')}</div>
+                  <p style={{ fontSize: 13, color: '#555', margin: 0 }}>{selected.notes}</p>
+                </div>
+              );
+            })()}
 
             <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #eee', textAlign: 'center', fontSize: 11, color: '#aaa' }}>
-              This estimate is valid until {selected.validUntil ? fmt(selected.validUntil) : 'further notice'} — {shopSettings?.companyName || 'Redlined1'}
+              {makeLabelFn(printLang)('This estimate is valid until', 'ໃບປະເມີນນີ້ໃຊ້ໄດ້ຮອດ')} {selected.validUntil ? fmt(selected.validUntil) : makeLabelFn(printLang)('further notice', 'ແຈ້ງເຕືອນຕໍ່ໄປ')} — {shopSettings?.companyName || 'Redlined1'}
               {shopSettings?.phone && ` · ${shopSettings.phone}`}
             </div>
           </div>
