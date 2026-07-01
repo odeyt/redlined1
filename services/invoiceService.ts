@@ -190,9 +190,13 @@ export const CURRENCIES = [
 const NO_DECIMAL_CURRENCIES = new Set(['LAK', 'JPY', 'KRW', 'VND', 'IDR']);
 
 export function formatMoney(amount: number, currencyCode: string): string {
+  // Round to 1 decimal place (nearest tenth)
+  const rounded = NO_DECIMAL_CURRENCIES.has(currencyCode)
+    ? Math.round(amount)
+    : Math.round(amount * 10) / 10;
   try {
-    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
-    return amount.toLocaleString('en-US', {
+    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 1;
+    return rounded.toLocaleString('en-US', {
       style: 'currency',
       currency: currencyCode,
       minimumFractionDigits: digits,
@@ -200,7 +204,7 @@ export function formatMoney(amount: number, currencyCode: string): string {
     });
   } catch {
     const sym = CURRENCIES.find(c => c.code === currencyCode)?.symbol ?? currencyCode;
-    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
-    return `${sym}${amount.toFixed(digits)}`;
+    const digits = NO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 1;
+    return `${sym}${rounded.toFixed(digits)}`;
   }
 }
