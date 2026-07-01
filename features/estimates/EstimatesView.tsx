@@ -24,8 +24,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // Form uses strings so the user can type freely (decimals, clearing)
-type FormLine = { note: string; description: string; qty: string; cost: string; markup: string; rate: string };
-const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', cost: '', markup: '', rate: '0' };
+type FormLine = { note: string; description: string; qty: string; cost: string; markup: string; rate: string; currency: string };
+const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
 
 const EMPTY_FORM = {
   estimateNumber: '',
@@ -147,7 +147,7 @@ export function EstimatesView() {
       vehicle: est.vehicle,
       jobCardId: est.jobCardId,
       status: est.status,
-      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate) })) : [{ ...EMPTY_LINE }],
+      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' })) : [{ ...EMPTY_LINE }],
       discount: est.discount,
       shopSupplies: est.shopSupplies,
       taxRate: est.taxRate,
@@ -194,6 +194,7 @@ export function EstimatesView() {
         qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0,
         ...(isNaN(cost) ? {} : { cost }),
         ...(isNaN(markup) ? {} : { markup }),
+        ...(l.currency ? { currency: l.currency } : {}),
       };
     });
     try {
@@ -533,24 +534,30 @@ export function EstimatesView() {
                   <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Line Total', ''].map((h, i) => (
-                    <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
+                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Currency', 'Line Total', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
                 {form.lines.map((line, i) => {
                   const rate = parseFloat(line.rate) || 0;
                   const qty  = parseFloat(line.qty)  || 0;
+                  const lineCur = line.currency || form.currency;
                   const lineTotal = rate * qty;
                   return (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 6 }}>
                     <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="50" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                      {lineTotal > 0 ? lineTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                    <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
+                      style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
+                      <option value="">— same —</option>
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                    </select>
+                    <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      {lineTotal > 0 ? formatMoney(lineTotal, lineCur) : '—'}
                     </div>
                     <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                   </div>
@@ -691,21 +698,24 @@ export function EstimatesView() {
                 </thead>
                 <tbody>
                   {selected.lines.length === 0 && <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '14px 0' }}>No line items</td></tr>}
-                  {selected.lines.map((line, i) => (
+                  {selected.lines.map((line, i) => {
+                    const lc = line.currency || selected.currency;
+                    return (
                     <tr key={i}>
                       <td style={{ color: 'var(--muted)', fontSize: 12 }}>{line.note || '—'}</td>
                       <td>{line.description}</td>
                       <td style={{ textAlign: 'right' }}>{line.qty}</td>
-                      <td style={{ textAlign: 'right' }}>{formatMoney(line.rate, selected.currency)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, selected.currency)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatMoney(line.rate, lc)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: lc !== selected.currency ? '#d97706' : undefined }}>{formatMoney(line.qty * line.rate, lc)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 
               {/* Totals */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-                <div style={{ width: 280 }}>
+                <div style={{ width: 300 }}>
                   {([
                     ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
                     totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
@@ -720,6 +730,18 @@ export function EstimatesView() {
                     <span>Total ({selected.currency})</span>
                     <span style={{ color: 'var(--accent)' }}>{formatMoney(totals.total, selected.currency)}</span>
                   </div>
+                  {(() => {
+                    const fmap: Record<string, number> = {};
+                    for (const l of selected.lines) {
+                      const lc = l.currency;
+                      if (lc && lc !== selected.currency) fmap[lc] = (fmap[lc] || 0) + l.qty * l.rate;
+                    }
+                    return Object.entries(fmap).map(([cur, amt]) => (
+                      <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#d97706' }}>
+                        <span>+ {cur} items</span><span style={{ fontWeight: 700 }}>{formatMoney(amt, cur)}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
               </div>
 
@@ -796,15 +818,18 @@ export function EstimatesView() {
                 </tr>
               </thead>
               <tbody>
-                {selected.lines.map((line, i) => (
+                {selected.lines.map((line, i) => {
+                  const lc = line.currency || selected.currency;
+                  return (
                   <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{line.note || ''}</td>
                     <td style={{ padding: '10px 12px', fontSize: 14 }}>{line.description}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, selected.currency)}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, selected.currency)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, lc)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 
@@ -824,6 +849,18 @@ export function EstimatesView() {
                   <span>Total ({selected.currency})</span>
                   <span style={{ color: '#cc0000' }}>{formatMoney(totals.total, selected.currency)}</span>
                 </div>
+                {(() => {
+                  const fmap: Record<string, number> = {};
+                  for (const l of selected.lines) {
+                    const lc = l.currency;
+                    if (lc && lc !== selected.currency) fmap[lc] = (fmap[lc] || 0) + l.qty * l.rate;
+                  }
+                  return Object.entries(fmap).map(([cur, amt]) => (
+                    <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 14, color: '#d97706', fontWeight: 600 }}>
+                      <span>+ {cur} items</span><span>{formatMoney(amt, cur)}</span>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
 

@@ -8,6 +8,7 @@ export interface EstimateLine {
   rate: number;
   cost?: number;
   markup?: number;
+  currency?: string;
 }
 
 export interface EstimateFull {
@@ -59,7 +60,10 @@ function mapRow(r: Record<string, unknown>): EstimateFull {
 }
 
 export function calculateEstimateTotals(est: EstimateFull): EstimateTotals {
-  const subtotal = est.lines.reduce((s, l) => s + l.qty * l.rate, 0);
+  const mainCur = est.currency || 'USD';
+  const subtotal = est.lines
+    .filter(l => !l.currency || l.currency === mainCur)
+    .reduce((s, l) => s + l.qty * l.rate, 0);
   const afterDiscount = Math.max(subtotal - est.discount, 0);
   const taxable = afterDiscount + est.shopSupplies;
   const tax = taxable * est.taxRate;
