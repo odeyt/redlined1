@@ -587,7 +587,13 @@ export function EstimatesView() {
                     <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
                       style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
                       <option value="">— same —</option>
-                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                      {[...CURRENCIES].sort((a, b) => {
+                        const order = ['USD', 'THB', 'LAK'];
+                        const ai = order.indexOf(a.code); const bi = order.indexOf(b.code);
+                        if (ai !== -1 && bi !== -1) return ai - bi;
+                        if (ai !== -1) return -1; if (bi !== -1) return 1;
+                        return 0;
+                      }).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                     </select>
                     <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
                       {lineTotal > 0 ? formatMoney(lineTotal, lineCur) : '—'}

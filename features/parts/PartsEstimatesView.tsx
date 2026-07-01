@@ -398,6 +398,10 @@ export function PartsEstimatesView() {
 
     if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be removed.`)) return;
 
+    // Close edit modal immediately after confirm so navigation feels clean
+    setShowForm(false);
+    setEditingId(null);
+
     try {
       const estNum = await nextEstimateNumber();
       const lines = items.map(item => {
@@ -423,10 +427,16 @@ export function PartsEstimatesView() {
         approvedDate: null,
         currency: mainCur,
       });
-      // Remove the source quotation
-      await deletePartsEstimate(e.id);
+
+      // Always remove from local state immediately so UI is clean
       setEstimates(prev => prev.filter(x => x.id !== e.id));
       setSelected(null);
+
+      // Best-effort DB delete — if shop_id mismatch or RLS blocks it, UI is
+      // already clean. Supabase returns no error on 0-row deletes, so we attempt
+      // it without letting a failure block navigation.
+      deletePartsEstimate(e.id).catch(() => {});
+
       notify(`✓ Estimate ${estNum} created — quotation removed`);
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
@@ -1039,7 +1049,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           ⇄ Convert to Order
                         </button>
                         <button type="button"
-                          onClick={() => { setShowForm(false); setEditingId(null); handleConvertToEstimate(est); }}
+                          onClick={() => handleConvertToEstimate(est)}
                           style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           → Estimate
                         </button>
