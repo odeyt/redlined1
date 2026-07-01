@@ -105,8 +105,12 @@ const EMPTY_ESTIMATE: FormState = {
   currency: 'USD',
 };
 
-function calcTotal(items: EstimateLineItem[], coreCharge: number) {
-  const parts = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+function calcTotal(items: EstimateLineItem[], coreCharge: number, mainCurrency = 'USD') {
+  // Only sum items whose currency matches the estimate currency; mixed-currency
+  // items cannot be added without an exchange rate so they're excluded from the total.
+  const parts = items
+    .filter(i => (i.currency || mainCurrency) === mainCurrency)
+    .reduce((s, i) => s + i.unitCost * i.quantity, 0);
   return { totalCost: parts + coreCharge };
 }
 
@@ -243,7 +247,7 @@ export function PartsEstimatesView() {
   function setF(patch: Partial<FormState>) {
     setForm(prev => {
       const next = { ...prev, ...patch };
-      return { ...next, ...calcTotal(next.lineItems, next.coreCharge) };
+      return { ...next, ...calcTotal(next.lineItems, next.coreCharge, next.currency) };
     });
   }
 
@@ -252,7 +256,7 @@ export function PartsEstimatesView() {
       const lineItems = prev.lineItems.map((item, i) =>
         i === idx ? { ...item, [field]: value } : item
       );
-      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge) };
+      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
     });
   }
 
@@ -266,7 +270,7 @@ export function PartsEstimatesView() {
   function removeLineItem(idx: number) {
     setForm(prev => {
       const lineItems = prev.lineItems.filter((_, i) => i !== idx);
-      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge) };
+      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
     });
   }
 
@@ -282,7 +286,7 @@ export function PartsEstimatesView() {
       lineItems,
       vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
       coreCharge: e.coreCharge,
-      ...calcTotal(lineItems, e.coreCharge),
+      ...calcTotal(lineItems, e.coreCharge, e.currency || 'USD'),
       status: e.status,
       quoteDate: e.quoteDate, validUntil: e.validUntil,
       jobCardNumber: e.jobCardNumber, repairOrderNumber: e.repairOrderNumber,
@@ -1106,7 +1110,19 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   return entries.map(([c, v]) => fmt(v, c)).join(' + ');
                 })()} />
                 <CalcBox label="Core Charge" value={money(form.coreCharge)} />
-                <CalcBox label="Total Quoted" value={money(form.totalCost)} color="var(--accent)" />
+                <CalcBox label="Total Quoted" value={(() => {
+                  // Main-currency items + core charge
+                  const mainTotal = money(form.totalCost);
+                  // Foreign-currency subtotals (excluded from numeric total)
+                  const foreign: string[] = [];
+                  const fMap: Record<string, number> = {};
+                  for (const item of form.lineItems) {
+                    const c = item.currency || form.currency;
+                    if (c !== form.currency) fMap[c] = (fMap[c] || 0) + item.unitCost * item.quantity;
+                  }
+                  for (const [c, v] of Object.entries(fMap)) foreign.push(fmt(v, c));
+                  return foreign.length ? `${mainTotal} + ${foreign.join(' + ')}` : mainTotal;
+                })()} color="var(--accent)" />
               </div>
 
               {/* Status & Dates */}
