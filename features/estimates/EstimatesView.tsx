@@ -195,22 +195,32 @@ export function EstimatesView() {
       lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value }),
     }));
 
-    // Recompute rate with live FX whenever cost, markup, or currency changes
     if (field === 'cost' || field === 'markup' || field === 'currency') {
-      const cost    = parseFloat(field === 'cost'    ? value : line.cost) || 0;
-      const markup  = parseFloat(field === 'markup'  ? value : line.markup);
-      const pct     = isNaN(markup) ? 50 : markup;
-      const lineCur = (field === 'currency' ? value : line.currency) || form.currency;
-      if (cost > 0) {
-        const fx   = await getRate(form.currency, lineCur);
-        const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
-        setForm(f => ({
-          ...f,
-          lines: f.lines.map((l, idx) =>
-            idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
-          ),
-        }));
+      const cost   = parseFloat(field === 'cost'   ? value : line.cost) || 0;
+      const markup = parseFloat(field === 'markup' ? value : line.markup);
+      const pct    = isNaN(markup) ? 50 : markup;
+      if (cost <= 0) return;
+
+      let rate: number;
+      if (field === 'currency') {
+        // User is switching display currency — cost is in the OLD line currency;
+        // convert to the NEW currency.  e.g. LAK 1,500,000 → USD uses LAK→USD rate.
+        const fromCur = line.currency || form.currency;
+        const toCur   = value         || form.currency;
+        const fx = await getRate(fromCur, toCur);
+        rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
+      } else {
+        // Cost or markup edited — cost is already in the line's current currency;
+        // no FX conversion needed, just apply markup.
+        rate = +(cost * (1 + pct / 100)).toFixed(2);
       }
+
+      setForm(f => ({
+        ...f,
+        lines: f.lines.map((l, idx) =>
+          idx !== i ? l : { ...l, [field]: value, rate: String(rate) }
+        ),
+      }));
     }
   }
 
@@ -568,7 +578,7 @@ export function EstimatesView() {
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', `Cost (${form.currency})`, 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
+                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
                     <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: idx === 6 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
