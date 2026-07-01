@@ -23,9 +23,9 @@ const STATUS_COLORS: Record<string, string> = {
   Declined: '#f44336', Converted: '#9c27b0',
 };
 
-// Form uses string for qty/rate so the user can type freely (decimals, clearing)
-type FormLine = { note: string; description: string; qty: string; rate: string };
-const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', rate: '0' };
+// Form uses strings so the user can type freely (decimals, clearing)
+type FormLine = { note: string; description: string; qty: string; cost: string; markup: string; rate: string };
+const EMPTY_LINE: FormLine = { note: '', description: '', qty: '1', cost: '', markup: '', rate: '0' };
 
 const EMPTY_FORM = {
   estimateNumber: '',
@@ -147,7 +147,7 @@ export function EstimatesView() {
       vehicle: est.vehicle,
       jobCardId: est.jobCardId,
       status: est.status,
-      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), rate: String(l.rate) })) : [{ ...EMPTY_LINE }],
+      lines: est.lines.length > 0 ? est.lines.map(l => ({ note: l.note, description: l.description, qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate) })) : [{ ...EMPTY_LINE }],
       discount: est.discount,
       shopSupplies: est.shopSupplies,
       taxRate: est.taxRate,
@@ -164,7 +164,21 @@ export function EstimatesView() {
   }
 
   function setLine(i: number, field: keyof FormLine, value: string) {
-    setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx === i ? { ...l, [field]: value } : l) }));
+    setForm(f => ({
+      ...f,
+      lines: f.lines.map((l, idx) => {
+        if (idx !== i) return l;
+        const updated = { ...l, [field]: value };
+        // Auto-compute rate from cost × (1 + markup%) when either changes
+        if (field === 'cost' || field === 'markup') {
+          const c = parseFloat(field === 'cost' ? value : updated.cost) || 0;
+          const m = parseFloat(field === 'markup' ? value : updated.markup);
+          const pct = isNaN(m) ? 50 : m;
+          if (c > 0) updated.rate = String(+(c * (1 + pct / 100)).toFixed(2));
+        }
+        return updated;
+      }),
+    }));
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -172,7 +186,16 @@ export function EstimatesView() {
     if (!form.customerName) return setError('Customer name is required.');
     if (!form.estimateNumber) return setError('Estimate number is required.');
     setSaving(true); setError('');
-    const parsedLines: EstimateLine[] = form.lines.map(l => ({ note: l.note, description: l.description, qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0 }));
+    const parsedLines: EstimateLine[] = form.lines.map(l => {
+      const cost = parseFloat(l.cost);
+      const markup = parseFloat(l.markup);
+      return {
+        note: l.note, description: l.description,
+        qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0,
+        ...(isNaN(cost) ? {} : { cost }),
+        ...(isNaN(markup) ? {} : { markup }),
+      };
+    });
     try {
       if (editingId) {
         await updateEstimate(editingId, { ...form, lines: parsedLines });
@@ -508,18 +531,20 @@ export function EstimatesView() {
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
-                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { note: '', description: '', qty: '1', rate: '0' }] }))}>+ Add Line</button>
+                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref', 'Description', 'Qty', 'Rate', ''].map((h, i) => (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 4 }}>
+                  {['Note / Ref', 'Description', 'Qty', 'Cost', 'Markup %', 'Rate', ''].map((h, i) => (
                     <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
                 {form.lines.map((line, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr 0.7fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 0.6fr 1fr 0.9fr 1.1fr auto', gap: 4, marginBottom: 6 }}>
                     <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="50" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.rate} onChange={e => setLine(i, 'rate', e.target.value)} placeholder="0.00" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                   </div>

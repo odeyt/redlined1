@@ -6,6 +6,8 @@ export interface EstimateLine {
   description: string;
   qty: number;
   rate: number;
+  cost?: number;
+  markup?: number;
 }
 
 export interface EstimateFull {

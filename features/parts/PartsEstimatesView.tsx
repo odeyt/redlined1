@@ -14,6 +14,7 @@ import {
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles } from '@/services/vehicleService';
+import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { FilterPills } from '@/components/FilterPills';
 import {
   fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder,
@@ -377,6 +378,42 @@ export function PartsEstimatesView() {
       setSelected(null);
       notify('✓ Converted to Parts Order — quotation removed');
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
+    } catch (err: unknown) {
+      notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
+    }
+  }
+
+  async function handleConvertToEstimate(e: PartsEstimate) {
+    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?`)) return;
+    try {
+      const estNum = await nextEstimateNumber();
+      const items = e.lineItems?.length
+        ? e.lineItems
+        : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost, vendorName: e.vendorName, currency: e.currency || 'USD' }];
+      const lines = items.map(item => {
+        const cost = item.unitCost ?? 0;
+        const markup = 50;
+        const rate = +(cost * (1 + markup / 100)).toFixed(2);
+        return { note: item.partNumber || '', description: item.partName || '', qty: item.quantity ?? 1, rate, cost, markup };
+      });
+      await createEstimate({
+        estimateNumber: estNum,
+        customerName: e.customerName || '',
+        customerId: '',
+        vehicle: e.vehicle || '',
+        jobCardId: e.jobCardNumber || '',
+        status: 'Draft',
+        lines,
+        discount: 0,
+        shopSupplies: 0,
+        taxRate: 0,
+        notes: e.notes ? `From Parts Quotation. ${e.notes}` : 'Converted from Parts Quotation.',
+        validUntil: e.validUntil || '',
+        approvedDate: null,
+        currency: e.currency || 'USD',
+      });
+      notify(`✓ Estimate ${estNum} created — navigate to Estimates to review`);
+      setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
     }
@@ -859,6 +896,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 ⇄ To Order
               </button>
+              <button onClick={() => handleConvertToEstimate(selected)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                → Estimate
+              </button>
               <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
               <button className="btn" onClick={() => setSelected(null)}>Close</button>
             </div>
@@ -972,15 +1013,22 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
-                <div>
+                <div style={{ display: 'flex', gap: 8 }}>
                   {editingId && (() => {
                     const est = estimates.find(e => e.id === editingId);
                     return est ? (
-                      <button type="button"
-                        onClick={() => { setShowForm(false); setEditingId(null); handleConvertToOrder(est); }}
-                        style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        ⇄ Convert to Order
-                      </button>
+                      <>
+                        <button type="button"
+                          onClick={() => { setShowForm(false); setEditingId(null); handleConvertToOrder(est); }}
+                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          ⇄ Convert to Order
+                        </button>
+                        <button type="button"
+                          onClick={() => { setShowForm(false); setEditingId(null); handleConvertToEstimate(est); }}
+                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          → Estimate
+                        </button>
+                      </>
                     ) : null;
                   })()}
                 </div>
