@@ -1279,6 +1279,7 @@ tr:last-child td {
    PRINT  — used by invoice/inspection print modals
    ═══════════════════════════════════════════════════════════════ */
 @media print {
+  /* Hide all app chrome */
   .sidebar,
   .topbar,
   .actions,
@@ -1301,6 +1302,24 @@ tr:last-child td {
   body {
     background: #fff !important;
     color: #000 !important;
+  }
+
+  /* Print modal: strip the dark overlay, expand content to full page */
+  .print-overlay {
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .print-content {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 24px !important;
+    position: static !important;
   }
 }
 

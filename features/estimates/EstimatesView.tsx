@@ -898,12 +898,12 @@ export function EstimatesView() {
 
       {/* ── Preview Modal ── */}
       {showPreview && selected && totals && (
-        <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-          <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
+        <div className="print-overlay" onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+          <div className="print-content" style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             {/* UI controls — hidden on print via globals.css .no-print */}
             <div className="no-print">
               <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
-              <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
+              <button onClick={() => window.print()} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
               {/* Language toggle */}
               <div style={{ position: 'absolute', top: 56, right: 16, display: 'flex', gap: 4 }}>
                 {(['en', 'both', 'lo'] as const).map(lang => (
