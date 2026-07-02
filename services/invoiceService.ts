@@ -190,8 +190,8 @@ export const CURRENCIES = [
 const NO_DECIMAL_CURRENCIES = new Set(['LAK', 'JPY', 'KRW', 'VND', 'IDR']);
 
 export function formatMoney(amount: number, currencyCode: string): string {
-  // Round UP to nearest 100
-  const rounded = Math.ceil(amount / 100) * 100;
+  // Round UP to nearest 10
+  const rounded = Math.ceil(amount / 10) * 10;
   try {
     return rounded.toLocaleString('en-US', {
       style: 'currency',
