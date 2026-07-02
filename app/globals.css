@@ -1285,7 +1285,8 @@ tr:last-child td {
   .btn,
   .mini-btn,
   .tab-row,
-  .module-header button {
+  .module-header button,
+  .no-print {
     display: none !important;
   }
 
