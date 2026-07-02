@@ -608,7 +608,13 @@ export function EstimatesView() {
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
-                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))}>+ Add Line</button>
+                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
+                    const ls = [...f.lines];
+                    const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
+                    if (lastIsLabor) ls.splice(ls.length - 1, 0, { ...EMPTY_LINE });
+                    else ls.push({ ...EMPTY_LINE });
+                    return { ...f, lines: ls };
+                  })}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
                   {['Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
