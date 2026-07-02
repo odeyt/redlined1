@@ -75,7 +75,13 @@ const STATUS_COLOR: Record<string, string> = {
   'Approved':         '#22c55e',
   'Declined':         '#ef4444',
   'Expired':          '#f97316',
+  'Converted':        '#9c27b0',
 };
+
+function extractLinkedEstimate(notes: string): string | null {
+  const m = notes?.match(/\[Estimate:\s*(EST-\d+)\]/);
+  return m ? m[1] : null;
+}
 
 const EMPTY_LINE: EstimateLineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', currency: 'USD' };
 const EMPTY_VENDOR = { name: '', phone: '', email: '', website: '', notes: '' };
@@ -396,7 +402,7 @@ export function PartsEstimatesView() {
       ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
       : '';
 
-    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be removed.`)) return;
+    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be kept with status "Converted" so you can still view the original costs.`)) return;
 
     // Close edit modal immediately after confirm so navigation feels clean
     setShowForm(false);
@@ -464,16 +470,13 @@ export function PartsEstimatesView() {
         currency: mainCur,
       });
 
-      // Always remove from local state immediately so UI is clean
-      setEstimates(prev => prev.filter(x => x.id !== e.id));
+      // Mark quotation as Converted (keep it for reference) and link to the new estimate
+      const linkedNote = `[Estimate: ${estNum}]${e.notes ? ' ' + e.notes : ''}`;
+      const updated = await updatePartsEstimate(e.id, { status: 'Converted', notes: linkedNote });
+      setEstimates(prev => prev.map(x => x.id === e.id ? updated : x));
       setSelected(null);
 
-      // Best-effort DB delete — if shop_id mismatch or RLS blocks it, UI is
-      // already clean. Supabase returns no error on 0-row deletes, so we attempt
-      // it without letting a failure block navigation.
-      deletePartsEstimate(e.id).catch(() => {});
-
-      notify(`✓ Estimate ${estNum} created — quotation removed`);
+      notify(`✓ Estimate ${estNum} created — quotation marked Converted`);
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
@@ -775,8 +778,17 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </td>
                         <td onClick={ev => ev.stopPropagation()}>
                           <div className="row-actions">
-                            <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>
-                            <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>
+                            {e.status !== 'Converted' && <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>}
+                            {e.status !== 'Converted' && <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>}
+                            {(() => {
+                              const estNum = extractLinkedEstimate(e.notes);
+                              return estNum ? (
+                                <button className="mini-btn" style={{ color: '#9c27b0' }}
+                                  onClick={() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}>
+                                  View {estNum} →
+                                </button>
+                              ) : null;
+                            })()}
                             <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(e.id, e.partName)}>Remove</button>
                           </div>
                         </td>
@@ -951,16 +963,29 @@ CREATE POLICY "Shop members can manage their parts estimates"
               )}
             </div>
 
-            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
-              <button onClick={() => handleConvertToOrder(selected)}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                ⇄ To Order
-              </button>
-              <button onClick={() => handleConvertToEstimate(selected)}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                → Estimate
-              </button>
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {selected.status !== 'Converted' && (
+                <>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
+                  <button onClick={() => handleConvertToOrder(selected)}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    ⇄ To Order
+                  </button>
+                  <button onClick={() => handleConvertToEstimate(selected)}
+                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    → Estimate
+                  </button>
+                </>
+              )}
+              {selected.status === 'Converted' && (() => {
+                const estNum = extractLinkedEstimate(selected.notes);
+                return estNum ? (
+                  <button onClick={() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}
+                    style={{ flex: 1, padding: '8px 16px', borderRadius: 8, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    📋 View {estNum} in Estimates →
+                  </button>
+                ) : <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)', padding: '8px 0' }}>Converted to estimate</span>;
+              })()}
               <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
               <button className="btn" onClick={() => setSelected(null)}>Close</button>
             </div>

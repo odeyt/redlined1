@@ -36,7 +36,7 @@ export interface EstimateLineItem {
   currency?: string;
 }
 
-export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired'];
+export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired', 'Converted'];
 export const PART_CONDITIONS = ['New', 'Genuine', 'OEM', 'Aftermarket', 'Remanufactured', 'Used', 'Refurbished'];
 
 function mapEstimate(r: Record<string, unknown>): PartsEstimate {
