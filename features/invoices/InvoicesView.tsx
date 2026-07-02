@@ -24,7 +24,17 @@ const STATUS_COLORS: Record<string, string> = {
   Draft: '#888', Sent: '#2196f3', Paid: '#4caf50', Void: '#f44336',
 };
 
-const EMPTY_LINE: InvoiceLine = { note: '', description: '', qty: 1, rate: 0 };
+type FormLine = { note: string; description: string; laoDescription: string; qty: string; cost: string; markup: string; rate: string; currency: string };
+const EMPTY_LINE: FormLine = { note: '', description: '', laoDescription: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
+
+async function translateToLao(text: string): Promise<string> {
+  if (!text.trim()) return '';
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|lo`);
+    const data = await res.json();
+    return data.responseData?.translatedText || text;
+  } catch { return text; }
+}
 
 const EMPTY_FORM = {
   invoiceNumber: '',
@@ -33,7 +43,7 @@ const EMPTY_FORM = {
   vehicle: '',
   jobCardId: '',
   status: 'Draft',
-  lines: [{ ...EMPTY_LINE }] as InvoiceLine[],
+  lines: [{ ...EMPTY_LINE }] as FormLine[],
   discount: 0,
   shopSupplies: 0,
   taxRate: 0,
@@ -63,6 +73,8 @@ export function InvoicesView() {
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
+  const ratesCache = useRef<Record<string, Record<string, number>>>({});
+  const [ratesFetching, setRatesFetching] = useState(false);
 
   useEffect(() => {
     load();
@@ -142,7 +154,9 @@ export function InvoicesView() {
       vehicle: inv.vehicle,
       jobCardId: inv.jobCardId,
       status: inv.status,
-      lines: inv.lines.length > 0 ? inv.lines : [{ ...EMPTY_LINE }],
+      lines: inv.lines.length > 0
+        ? inv.lines.map(l => ({ note: l.note || '', description: l.description || '', laoDescription: l.laoDescription || '', qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' }))
+        : [{ ...EMPTY_LINE }],
       discount: inv.discount,
       shopSupplies: inv.shopSupplies,
       taxRate: inv.taxRate,
@@ -155,11 +169,34 @@ export function InvoicesView() {
     setShowForm(true);
   }
 
-  function setLine(i: number, field: keyof InvoiceLine, value: string | number) {
-    setForm(f => {
-      const lines = f.lines.map((l, idx) => idx === i ? { ...l, [field]: value } : l);
-      return { ...f, lines };
-    });
+  async function getRate(from: string, to: string): Promise<number> {
+    if (!from || !to || from === to) return 1;
+    if (ratesCache.current[from]?.[to] != null) return ratesCache.current[from][to];
+    try {
+      setRatesFetching(true);
+      const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from.toLowerCase()}.json`);
+      const data = await res.json();
+      const rates: Record<string, number> = data[from.toLowerCase()] ?? {};
+      ratesCache.current[from] = rates;
+      return rates[to.toLowerCase()] ?? 1;
+    } catch { return 1; }
+    finally { setRatesFetching(false); }
+  }
+
+  async function setLine(i: number, field: keyof FormLine, value: string) {
+    const line = form.lines[i];
+    if (!line) return;
+    setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value }) }));
+    if (field === 'cost' || field === 'markup' || field === 'currency') {
+      const cost = parseFloat(field === 'cost' ? value : line.cost) || 0;
+      const markup = parseFloat(field === 'markup' ? value : line.markup);
+      const pct = isNaN(markup) ? 0 : markup;
+      if (cost === 0) return;
+      const billingCur = field === 'currency' ? (value || form.currency) : (line.currency || form.currency);
+      const fx = await getRate(form.currency, billingCur);
+      const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
+      setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: String(rate) }) }));
+    }
   }
 
   function addLine() {
@@ -176,6 +213,20 @@ export function InvoicesView() {
     if (!form.invoiceNumber) return setError('Invoice number is required.');
     setSaving(true);
     setError('');
+    const parsedLines: InvoiceLine[] = form.lines.map(l => {
+      const cost = parseFloat(l.cost);
+      const markup = parseFloat(l.markup);
+      return {
+        note: l.note,
+        description: l.description,
+        ...(l.laoDescription ? { laoDescription: l.laoDescription } : {}),
+        qty: parseFloat(l.qty) || 0,
+        rate: parseFloat(l.rate) || 0,
+        ...(isNaN(cost) ? {} : { cost }),
+        ...(isNaN(markup) ? {} : { markup }),
+        ...(l.currency ? { currency: l.currency } : {}),
+      };
+    });
     try {
       if (editingId) {
         // Update existing invoice
@@ -185,7 +236,7 @@ export function InvoicesView() {
           vehicle: form.vehicle,
           jobCardId: form.jobCardId,
           status: form.status,
-          lines: form.lines,
+          lines: parsedLines,
           discount: form.discount,
           shopSupplies: form.shopSupplies,
           taxRate: form.taxRate,
@@ -196,6 +247,7 @@ export function InvoicesView() {
         const updated: InvoiceFull = {
           ...selected!,
           ...form,
+          lines: parsedLines,
           id: editingId,
           createdAt: selected?.createdAt ?? '',
         };
@@ -206,7 +258,7 @@ export function InvoicesView() {
         notify(`Invoice ${form.invoiceNumber} updated.`);
       } else {
         // Create new invoice
-        const saved = await createInvoice(form);
+        const saved = await createInvoice({ ...form, lines: parsedLines });
         setInvoices(prev => [saved, ...prev]);
         setSelected(saved);
         setShowForm(false);
@@ -416,21 +468,78 @@ export function InvoicesView() {
                   <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
                 </div>
                 {/* Column headers */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2.5fr 1fr 1.2fr auto', gap: 6, marginBottom: 4 }}>
-                  {['Note / Ref #', 'Description', 'Qty', 'Amount', ''].map((h, idx) => (
-                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', padding: '0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
+                  {['Note / Ref #', 'Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
-                {form.lines.map((line, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2.5fr 1fr 1.2fr auto', gap: 6, marginBottom: 6 }}>
-                    <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="number" value={line.qty} onChange={e => setLine(i, 'qty', Number(e.target.value))} min="0" step="0.5" placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="number" value={line.rate} onChange={e => setLine(i, 'rate', Number(e.target.value))} step="0.01" placeholder="0.00" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <button type="button" onClick={() => removeLine(i)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
-                  </div>
-                ))}
+                {form.lines.map((line, i) => {
+                  const rate = parseFloat(line.rate) || 0;
+                  const qty = parseFloat(line.qty) || 0;
+                  const lineCur = line.currency || form.currency;
+                  const lineTotal = rate * qty;
+                  return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 6 }}>
+                      <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..." style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                        <button type="button" title="Auto-translate to Lao"
+                          onClick={async () => {
+                            if (!line.description) return;
+                            const lao = await translateToLao(line.description);
+                            setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                          }}
+                          style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>🌐</button>
+                      </div>
+                      <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                      <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
+                        <option value="">— same —</option>
+                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                      </select>
+                      <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                        {lineTotal !== 0 ? formatMoney(lineTotal, lineCur) : '—'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <button type="button" title="Move up" disabled={i === 0}
+                          onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i-1], ls[i]] = [ls[i], ls[i-1]]; return { ...f, lines: ls }; })}
+                          style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === 0 ? 'var(--line)' : 'var(--muted)', cursor: i === 0 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▲</button>
+                        <button type="button" title="Move down" disabled={i === form.lines.length - 1}
+                          onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i], ls[i+1]] = [ls[i+1], ls[i]]; return { ...f, lines: ls }; })}
+                          style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === form.lines.length - 1 ? 'var(--line)' : 'var(--muted)', cursor: i === form.lines.length - 1 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▼</button>
+                        <button type="button" onClick={() => removeLine(i)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, padding: '1px 3px', lineHeight: 1 }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Line items subtotal */}
+              {(() => {
+                const totalsMap: Record<string, number> = {};
+                form.lines.forEach(l => {
+                  const cur = l.currency || form.currency;
+                  const val = (parseFloat(l.rate) || 0) * (parseFloat(l.qty) || 0);
+                  totalsMap[cur] = (totalsMap[cur] || 0) + val;
+                });
+                const entries = Object.entries(totalsMap).filter(([, v]) => v !== 0);
+                if (entries.length === 0) return null;
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, padding: '10px 4px', borderTop: '2px solid var(--line)', marginBottom: 12 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Line Items Total</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      {entries.map(([cur, total]) => (
+                        <span key={cur} style={{ fontSize: 15, fontWeight: 700, color: total < 0 ? '#22c55e' : cur !== form.currency ? '#d97706' : 'var(--text)' }}>
+                          {formatMoney(total, cur)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Adjustments */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -594,15 +703,21 @@ export function InvoicesView() {
                   {selected.lines.length === 0 && (
                     <tr><td colSpan={5} style={{ color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>No line items</td></tr>
                   )}
-                  {selected.lines.map((line, i) => (
+                  {selected.lines.map((line, i) => {
+                    const lc = line.currency || selected.currency;
+                    return (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fffde7' : 'transparent' }}>
                       <td style={{ color: 'var(--muted)', fontSize: 12 }}>{line.note || '—'}</td>
-                      <td>{line.description}</td>
+                      <td>
+                        <div>{line.description}</div>
+                        {line.laoDescription && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{line.laoDescription}</div>}
+                      </td>
                       <td style={{ textAlign: 'right' }}>{line.qty}</td>
-                      <td style={{ textAlign: 'right' }}>{formatMoney(line.rate, selected.currency)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatMoney(line.qty * line.rate, selected.currency)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatMoney(line.rate, lc)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: lc !== selected.currency ? '#d97706' : undefined }}>{formatMoney(line.qty * line.rate, lc)}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -751,15 +866,21 @@ export function InvoicesView() {
                 {selected.lines.length === 0 && (
                   <tr><td colSpan={5} style={{ padding: '20px 12px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>No line items</td></tr>
                 )}
-                {selected.lines.map((line, i) => (
+                {selected.lines.map((line, i) => {
+                  const lc = line.currency || selected.currency;
+                  return (
                   <tr key={i} style={{ borderBottom: '1px solid #eee', background: i % 2 === 0 ? '#fffde7' : '#fff' }}>
                     <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{line.note || ''}</td>
-                    <td style={{ padding: '10px 12px', fontSize: 14 }}>{line.description}</td>
+                    <td style={{ padding: '10px 12px' }}>
+                      <div style={{ fontSize: 14 }}>{line.description}</div>
+                      {line.laoDescription && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{line.laoDescription}</div>}
+                    </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, selected.currency)}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 14 }}>{formatMoney(line.qty * line.rate, selected.currency)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 14, color: lc !== selected.currency ? '#d97706' : undefined }}>{formatMoney(line.qty * line.rate, lc)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
 

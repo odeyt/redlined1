@@ -4,8 +4,12 @@ import { getShopId } from '@/lib/shopStore';
 export interface InvoiceLine {
   note: string;
   description: string;
+  laoDescription?: string;
   qty: number;
   rate: number;
+  cost?: number;
+  markup?: number;
+  currency?: string;
 }
 
 export interface InvoiceFull {
