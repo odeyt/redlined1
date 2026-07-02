@@ -415,19 +415,25 @@ export function InvoicesView() {
                   <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
                   <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
                 </div>
+                {/* Column headers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2.5fr 1fr 1.2fr auto', gap: 6, marginBottom: 4 }}>
+                  {['Note / Ref #', 'Description', 'Qty', 'Amount', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', padding: '0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
+                  ))}
+                </div>
                 {form.lines.map((line, i) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2.5fr 1fr 1.2fr auto', gap: 6, marginBottom: 6 }}>
                     <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Labor / Part description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 10px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="number" value={line.qty} onChange={e => setLine(i, 'qty', Number(e.target.value))} min="0" step="0.5" placeholder="Qty" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="number" value={line.rate} onChange={e => setLine(i, 'rate', Number(e.target.value))} min="0" step="0.01" placeholder="Rate $" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="number" value={line.qty} onChange={e => setLine(i, 'qty', Number(e.target.value))} min="0" step="0.5" placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="number" value={line.rate} onChange={e => setLine(i, 'rate', Number(e.target.value))} step="0.01" placeholder="0.00" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
                     <button type="button" onClick={() => removeLine(i)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                   </div>
                 ))}
               </div>
 
               {/* Adjustments */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
                   <label>Discount ($)</label>
                   <input type="number" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: Number(e.target.value) }))} min="0" step="0.01" />
@@ -435,10 +441,6 @@ export function InvoicesView() {
                 <div className="login-field">
                   <label>Shop Supplies ($)</label>
                   <input type="number" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: Number(e.target.value) }))} min="0" step="0.01" />
-                </div>
-                <div className="login-field">
-                  <label>Tax Rate (%)</label>
-                  <input type="number" value={(form.taxRate * 100).toFixed(1)} onChange={e => setForm(f => ({ ...f, taxRate: Number(e.target.value) / 100 }))} min="0" max="30" step="0.1" />
                 </div>
               </div>
 
@@ -611,7 +613,6 @@ export function InvoicesView() {
                     ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
                     totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
                     totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                    [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
                   ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
                       <span style={{ color: 'var(--muted)' }}>{label}</span>
@@ -767,7 +768,6 @@ export function InvoicesView() {
                   ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
                   totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
                   totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                  [`Tax (${(selected.taxRate * 100).toFixed(1)}%)`, formatMoney(totals.tax, selected.currency)],
                 ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
                     <span>{label}</span>
