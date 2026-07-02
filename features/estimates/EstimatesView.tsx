@@ -188,9 +188,11 @@ export function EstimatesView() {
     }
   }
 
+  const LABOR_LINE: FormLine = { description: 'Labor', laoDescription: 'ແຮງງານ', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
+
   async function openNewForm() {
     const num = await nextEstimateNumber();
-    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }] });
+    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }, { ...LABOR_LINE }] });
     setEditingId(null);
     setCustQuery('');
     setVehQuery('');
