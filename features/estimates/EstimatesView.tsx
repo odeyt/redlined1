@@ -652,7 +652,15 @@ export function EstimatesView() {
                     <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
                       {lineTotal > 0 ? formatMoney(lineTotal, lineCur) : '—'}
                     </div>
-                    <button type="button" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <button type="button" title="Move up" disabled={i === 0}
+                        onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i-1], ls[i]] = [ls[i], ls[i-1]]; return { ...f, lines: ls }; })}
+                        style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === 0 ? 'var(--line)' : 'var(--muted)', cursor: i === 0 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▲</button>
+                      <button type="button" title="Move down" disabled={i === form.lines.length - 1}
+                        onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i], ls[i+1]] = [ls[i+1], ls[i]]; return { ...f, lines: ls }; })}
+                        style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === form.lines.length - 1 ? 'var(--line)' : 'var(--muted)', cursor: i === form.lines.length - 1 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▼</button>
+                      <button type="button" title="Remove line" onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, padding: '1px 3px', lineHeight: 1 }}>✕</button>
+                    </div>
                   </div>
                   );
                 })}
