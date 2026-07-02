@@ -239,7 +239,7 @@ export function EstimatesView() {
       const cost   = parseFloat(field === 'cost'   ? value : line.cost) || 0;
       const markup = parseFloat(field === 'markup' ? value : line.markup);
       const pct    = isNaN(markup) ? 50 : markup;
-      if (cost <= 0) return;
+      if (cost === 0) return;
 
       // Cost is always in the estimate's MAIN currency (form.currency).
       // The line Currency = customer billing currency.
@@ -655,8 +655,8 @@ export function EstimatesView() {
                         return 0;
                       }).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                     </select>
-                    <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                      {lineTotal > 0 ? formatMoney(lineTotal, lineCur) : '—'}
+                    <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      {lineTotal !== 0 ? formatMoney(lineTotal, lineCur) : '—'}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <button type="button" title="Move up" disabled={i === 0}
@@ -681,14 +681,14 @@ export function EstimatesView() {
                   const val = (parseFloat(l.rate) || 0) * (parseFloat(l.qty) || 0);
                   totals[cur] = (totals[cur] || 0) + val;
                 });
-                const entries = Object.entries(totals).filter(([, v]) => v > 0);
+                const entries = Object.entries(totals).filter(([, v]) => v !== 0);
                 if (entries.length === 0) return null;
                 return (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, padding: '10px 4px', borderTop: '2px solid var(--line)', marginBottom: 12 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Line Items Total</span>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                       {entries.map(([cur, total]) => (
-                        <span key={cur} style={{ fontSize: 15, fontWeight: 700, color: cur !== form.currency ? '#d97706' : 'var(--text)' }}>
+                        <span key={cur} style={{ fontSize: 15, fontWeight: 700, color: total < 0 ? '#22c55e' : cur !== form.currency ? '#d97706' : 'var(--text)' }}>
                           {formatMoney(total, cur)}
                         </span>
                       ))}
