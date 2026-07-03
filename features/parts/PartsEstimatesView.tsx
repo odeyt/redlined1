@@ -803,48 +803,94 @@ CREATE POLICY "Shop members can manage their parts estimates"
           )
       }
 
-      {/* ── Detail Drawer ── */}
-      {lightbox && (
-        <div onClick={() => setLightbox(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 1 }}>✕</button>
-          <img src={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} />
-          {/* Label editor */}
-          <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 16px' }}>
-            <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Label:</span>
-            <select
-              value={lightboxLabel}
-              onChange={e => setLightboxLabel(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)', background: '#222', color: '#fff', fontSize: 13 }}>
-              <option value="Photo">📷 Photo</option>
-              <option value="Invoice">🧾 Invoice</option>
-            </select>
-            <button
-              disabled={lightboxSaving || lightboxLabel === lightbox.label}
-              onClick={async () => {
-                setLightboxSaving(true);
-                try {
-                  await updateEntityImageLabel(lightbox.id, lightboxLabel);
-                  setImages(prev => prev.map(i => i.id === lightbox.id ? { ...i, label: lightboxLabel } : i));
-                  setLightbox(prev => prev ? { ...prev, label: lightboxLabel } : prev);
-                } catch { /* non-fatal */ }
-                finally { setLightboxSaving(false); }
-              }}
-              style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
-              {lightboxSaving ? 'Saving…' : 'Save Label'}
-            </button>
-            <button
-              onClick={async () => {
-                if (!confirm('Delete this image?')) return;
-                await handleDeleteImage(lightbox);
-                setLightbox(null);
-              }}
-              style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-              🗑 Delete
-            </button>
+      {/* ── Lightbox ── */}
+      {lightbox && (() => {
+        const photoImages = images.filter(i => !i.url.toLowerCase().includes('.pdf'));
+        const lbIdx = photoImages.findIndex(i => i.id === lightbox.id);
+        const hasPrev = lbIdx > 0;
+        const hasNext = lbIdx < photoImages.length - 1;
+        function goPrev() { if (hasPrev) { const img = photoImages[lbIdx - 1]; setLightbox(img); setLightboxLabel(img.label); } }
+        function goNext() { if (hasNext) { const img = photoImages[lbIdx + 1]; setLightbox(img); setLightboxLabel(img.label); } }
+        return (
+          <div
+            onClick={() => setLightbox(null)}
+            onKeyDown={e => { if (e.key === 'ArrowLeft') goPrev(); if (e.key === 'ArrowRight') goNext(); if (e.key === 'Escape') setLightbox(null); }}
+            tabIndex={-1}
+            ref={el => el?.focus()}
+            style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, outline: 'none' }}>
+            {/* Close */}
+            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 1 }}>✕</button>
+            {/* Counter */}
+            {photoImages.length > 1 && (
+              <div style={{ position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
+                {lbIdx + 1} / {photoImages.length}
+              </div>
+            )}
+            {/* Prev arrow */}
+            {hasPrev && (
+              <button onClick={e => { e.stopPropagation(); goPrev(); }}
+                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ‹
+              </button>
+            )}
+            {/* Next arrow */}
+            {hasNext && (
+              <button onClick={e => { e.stopPropagation(); goNext(); }}
+                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ›
+              </button>
+            )}
+            {/* Image */}
+            <img src={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '80vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: 8 }} />
+            {/* Thumbnail strip */}
+            {photoImages.length > 1 && (
+              <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', gap: 6, overflowX: 'auto', maxWidth: '90vw', padding: '4px 0' }}>
+                {photoImages.map((img, i) => (
+                  <img key={img.id} src={img.url} alt={img.label}
+                    onClick={() => { setLightbox(img); setLightboxLabel(img.label); }}
+                    style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: i === lbIdx ? '2px solid #fff' : '2px solid rgba(255,255,255,0.25)', flexShrink: 0, opacity: i === lbIdx ? 1 : 0.6 }} />
+                ))}
+              </div>
+            )}
+            {/* Label editor */}
+            <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 16px' }}>
+              <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Label:</span>
+              <select
+                value={lightboxLabel}
+                onChange={e => setLightboxLabel(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)', background: '#222', color: '#fff', fontSize: 13 }}>
+                <option value="Photo">📷 Photo</option>
+                <option value="Invoice">🧾 Invoice</option>
+              </select>
+              <button
+                disabled={lightboxSaving || lightboxLabel === lightbox.label}
+                onClick={async () => {
+                  setLightboxSaving(true);
+                  try {
+                    await updateEntityImageLabel(lightbox.id, lightboxLabel);
+                    setImages(prev => prev.map(i => i.id === lightbox.id ? { ...i, label: lightboxLabel } : i));
+                    setLightbox(prev => prev ? { ...prev, label: lightboxLabel } : prev);
+                  } catch { /* non-fatal */ }
+                  finally { setLightboxSaving(false); }
+                }}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
+                {lightboxSaving ? 'Saving…' : 'Save Label'}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete this image?')) return;
+                  await handleDeleteImage(lightbox);
+                  if (hasNext) { const img = photoImages[lbIdx + 1]; setLightbox(img); setLightboxLabel(img.label); }
+                  else if (hasPrev) { const img = photoImages[lbIdx - 1]; setLightbox(img); setLightboxLabel(img.label); }
+                  else setLightbox(null);
+                }}
+                style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                🗑 Delete
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {selected && (
         <>
