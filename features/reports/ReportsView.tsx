@@ -173,21 +173,37 @@ function WorkshopPrintModal({
   function doPrint() {
     const el = document.getElementById('workshop-print-report');
     if (!el) return;
-    const win = window.open('', '_blank', 'width=1400,height=900');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head>
-      <title>Completion Report — ${shopName}</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 10mm; background: #fff; }
+
+    // Inject report HTML directly into body (above React root) so print CSS can target it cleanly
+    const printDiv = document.createElement('div');
+    printDiv.id = 'redline-print-portal';
+    printDiv.innerHTML = el.innerHTML;
+    document.body.appendChild(printDiv);
+
+    const styleTag = document.createElement('style');
+    styleTag.id = 'redline-print-styles';
+    styleTag.innerHTML = `
+      @media print {
+        body > *:not(#redline-print-portal) { display: none !important; }
+        #redline-print-portal {
+          display: block !important;
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          color: #000;
+          padding: 10mm;
+        }
         @page { size: A4 landscape; margin: 12mm 10mm; }
         table { border-collapse: collapse; width: 100%; }
         [contenteditable] { outline: none; }
-      </style>
-    </head><body>${el.innerHTML}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 400);
+      }
+      #redline-print-portal { display: none; }
+    `;
+    document.head.appendChild(styleTag);
+
+    window.print();
+
+    document.body.removeChild(printDiv);
+    document.head.removeChild(styleTag);
   }
 
   const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
