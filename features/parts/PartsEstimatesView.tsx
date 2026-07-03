@@ -18,7 +18,7 @@ import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { FilterPills } from '@/components/FilterPills';
 import {
   fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder,
-  EntityImage,
+  updateEntityImageLabel, EntityImage,
 } from '@/services/entityImageService';
 import type { Customer } from '@/lib/types';
 
@@ -157,7 +157,9 @@ export function PartsEstimatesView() {
   const [imagesLoading, setImgLoading]  = useState(false);
   const [uploadingImg, setUploadingImg] = useState(false);
   const [imgLabel, setImgLabel]         = useState<'Photo' | 'Invoice'>('Photo');
-  const [lightbox, setLightbox]         = useState<string | null>(null);
+  const [lightbox, setLightbox]         = useState<EntityImage | null>(null);
+  const [lightboxLabel, setLightboxLabel] = useState<string>('Photo');
+  const [lightboxSaving, setLightboxSaving] = useState(false);
   const [dragOverIdx, setDragOverIdx]   = useState<number | null>(null);
   const dragSrcIdx = useRef(-1);
 
@@ -804,9 +806,43 @@ CREATE POLICY "Shop members can manage their parts estimates"
       {/* ── Detail Drawer ── */}
       {lightbox && (
         <div onClick={() => setLightbox(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
-          <img src={lightbox} alt="" onClick={ev => ev.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 1 }}>✕</button>
+          <img src={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '78vh', objectFit: 'contain', borderRadius: 8 }} />
+          {/* Label editor */}
+          <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 16px' }}>
+            <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Label:</span>
+            <select
+              value={lightboxLabel}
+              onChange={e => setLightboxLabel(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)', background: '#222', color: '#fff', fontSize: 13 }}>
+              <option value="Photo">📷 Photo</option>
+              <option value="Invoice">🧾 Invoice</option>
+            </select>
+            <button
+              disabled={lightboxSaving || lightboxLabel === lightbox.label}
+              onClick={async () => {
+                setLightboxSaving(true);
+                try {
+                  await updateEntityImageLabel(lightbox.id, lightboxLabel);
+                  setImages(prev => prev.map(i => i.id === lightbox.id ? { ...i, label: lightboxLabel } : i));
+                  setLightbox(prev => prev ? { ...prev, label: lightboxLabel } : prev);
+                } catch { /* non-fatal */ }
+                finally { setLightboxSaving(false); }
+              }}
+              style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
+              {lightboxSaving ? 'Saving…' : 'Save Label'}
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm('Delete this image?')) return;
+                await handleDeleteImage(lightbox);
+                setLightbox(null);
+              }}
+              style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              🗑 Delete
+            </button>
+          </div>
         </div>
       )}
 
@@ -910,7 +946,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
                         onDragEnd={() => setDragOverIdx(null)}
                         style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid var(--accent)' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
-                        <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={() => setLightbox(img.url)} />
+                        <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} onClick={() => { setLightbox(img); setLightboxLabel(img.label); }} />
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 6px' }}>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
                             {img.label === 'Invoice' ? '🧾' : '📷'}
@@ -1069,22 +1105,22 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverIdx(idx); }}
                             onDrop={e => { e.preventDefault(); e.stopPropagation(); handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
                             onDragEnd={() => setDragOverIdx(null)}
-                            style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
+                            style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}
+                            onClick={() => { if (!isPdf) { setLightbox(img); setLightboxLabel(img.label); } }}>
                             {isPdf ? (
-                              <a href={img.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
+                              <a href={img.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
                                 <span style={{ fontSize: 32 }}>📄</span>
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
                               </a>
                             ) : (
                               <img src={img.url} alt={img.label} draggable={false}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
-                                onClick={() => setLightbox(img.url)} />
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
                             )}
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
                                 {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
                               </span>
-                              <button type="button" onClick={() => handleDeleteImage(img)}
+                              <button type="button" onClick={e => { e.stopPropagation(); handleDeleteImage(img); }}
                                 style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>✕</button>
                             </div>
                           </div>

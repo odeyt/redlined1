@@ -64,6 +64,11 @@ export async function deleteEntityImage(id: string, url: string): Promise<void> 
   if (error) throw error;
 }
 
+export async function updateEntityImageLabel(id: string, label: string): Promise<void> {
+  const { error } = await supabase.from('entity_images').update({ label }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function saveEntityImageOrder(entityType: EntityType, entityId: string, ids: string[]): Promise<void> {
   const updates = ids.map((id, i) => ({ id, entity_type: entityType, entity_id: entityId, sort_order: i }));
   const { error } = await supabase
