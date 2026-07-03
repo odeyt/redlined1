@@ -120,82 +120,44 @@ function WorkshopPrintModal({
         ? new Date(year, month, 1).toISOString()
         : new Date(year + 1, 0, 1).toISOString();
 
-      const jcSelect = 'id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number';
-      // Two queries (OR on date ranges with ISO strings breaks PostgREST parser)
-      const [{ data: byCheckIn }, { data: byClosed }] = await Promise.all([
-        supabase.from('job_cards').select(jcSelect).eq('shop_id', shopId)
-          .gte('check_in_date', startIso).lt('check_in_date', endIso),
-        supabase.from('job_cards').select(jcSelect).eq('shop_id', shopId)
-          .gte('closed_date', startIso).lt('closed_date', endIso),
-      ]);
-      // Merge and deduplicate by id
-      const seen = new Set<string>();
-      const jobCards: Record<string, unknown>[] = [];
-      for (const jc of [...(byCheckIn ?? []), ...(byClosed ?? [])] as Record<string, unknown>[]) {
-        if (!seen.has(jc.id as string)) { seen.add(jc.id as string); jobCards.push(jc); }
-      }
-      jobCards.sort((a, b) => new Date(b.check_in_date as string).getTime() - new Date(a.check_in_date as string).getTime());
-      const jobIds = jobCards.map(j => j.id as string);
-
-      // Fetch repair orders linked to those job cards
-      const roMap: Record<string, Record<string, unknown>> = {};
-      if (jobIds.length > 0) {
-        const { data: roData } = await supabase
-          .from('repair_orders')
-          .select('id, job_card_id, concern, cause, correction, parts, labor_hours, labor_rate, parts_total')
+      // Query vehicles with Completed status in the period (date_received)
+      const [{ data: vData }, { data: custData }] = await Promise.all([
+        supabase
+          .from('vehicles')
+          .select('id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak, labor_hours')
           .eq('shop_id', shopId)
-          .in('job_card_id', jobIds);
-        for (const ro of (roData ?? []) as Record<string, unknown>[]) {
-          const jcId = ro.job_card_id as string;
-          if (jcId && !roMap[jcId]) roMap[jcId] = ro;
-        }
-      }
+          .ilike('status', '%complet%')
+          .gte('date_received', startIso)
+          .lt('date_received', endIso)
+          .order('date_received', { ascending: false }),
+        supabase.from('customers').select('id, name').eq('shop_id', shopId),
+      ]);
 
-      // Fetch labor guide for flat rate hints (best-effort)
-      const { data: lgData } = await supabase
-        .from('labor_guide')
-        .select('job_description, suggested_hours')
-        .eq('shop_id', shopId)
-        .not('suggested_hours', 'is', null);
-      const lgEntries = (lgData ?? []) as { job_description: string; suggested_hours: number }[];
+      const vehicles = (vData ?? []) as Record<string, unknown>[];
+      const custMap: Record<string, string> = {};
+      for (const c of (custData ?? []) as { id: string; name: string }[]) custMap[c.id] = c.name;
 
-      function findFlatRate(correction: string): number | undefined {
-        if (!correction || lgEntries.length === 0) return undefined;
-        const lower = correction.toLowerCase();
-        const match = lgEntries.find(e => {
-          const kw = e.job_description?.toLowerCase() ?? '';
-          return kw.length > 4 && lower.includes(kw.split(' ')[0]);
-        });
-        return match?.suggested_hours;
-      }
-
-      const built: PrintRow[] = jobCards.map(jc => {
-        const ro = roMap[jc.id as string];
-        const parts: PrintPart[] = (() => {
-          const raw = ro?.parts;
-          if (!raw) return [];
-          try {
-            const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            return Array.isArray(arr) ? arr : [];
-          } catch { return []; }
-        })();
-        const correction = (ro?.correction as string) ?? '';
+      const built: PrintRow[] = vehicles.map(v => {
+        const partsStr = (v.parts_exchanged as string) ?? '';
+        const parts: PrintPart[] = partsStr
+          ? partsStr.split(/[,\n]+/).map(p => ({ partName: p.trim() })).filter(p => p.partName)
+          : [];
+        const correction = partsStr || '';
         return {
-          jobId: jc.id as string,
-          jobNumber: jc.number as string | undefined,
-          customer: (jc.customer as string) ?? '—',
-          vehicle: (jc.vehicle as string) ?? '—',
-          technicians: (jc.technicians as string[]) ?? [],
-          concern: (ro?.concern as string) ?? '',
-          cause: (ro?.cause as string) ?? '',
+          jobId: v.id as string,
+          customer: custMap[v.customer_id as string] ?? '—',
+          vehicle: `${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim() || (v.label as string) || '—',
+          technicians: (v.assigned_tech as string) ? [(v.assigned_tech as string)] : [],
+          concern: (v.issues as string) ?? '',
+          cause: '',
           correction,
           parts,
-          laborHours: Number(ro?.labor_hours ?? jc.labor_hours ?? 0),
-          laborRate: Number(ro?.labor_rate ?? 0),
-          partsTotal: Number(ro?.parts_total ?? 0),
-          closedDate: (jc.closed_date as string) ?? '',
-          status: (jc.status as string) ?? '',
-          flatRateHours: findFlatRate(correction),
+          laborHours: Number(v.labor_hours ?? 0),
+          laborRate: 0,
+          partsTotal: 0,
+          closedDate: (v.date_received as string) ?? '',
+          status: (v.status as string) ?? '',
+          flatRateHours: v.flat_rate_lak ? Number(v.flat_rate_lak) / 1000 : undefined,
         };
       });
 
