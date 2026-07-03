@@ -37,9 +37,9 @@ BEGIN
       RAISE NOTICE 'sales@d1autozone.com added/updated as manager in D1 Imports - Location 2';
     END IF;
 
-    -- Ensure profile row exists
-    INSERT INTO public.profiles (id, email, name, role)
-    VALUES (v_user_id, 'sales@d1autozone.com', 'sales', 'manager')
+    -- Ensure profile row exists (profiles table has no "name" column)
+    INSERT INTO public.profiles (id, email, role)
+    VALUES (v_user_id, 'sales@d1autozone.com', 'manager')
     ON CONFLICT (id) DO NOTHING;
   END IF;
 END $$;

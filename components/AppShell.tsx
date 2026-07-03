@@ -4,6 +4,8 @@ import { AppProvider, useAppState } from '@/lib/store';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Toast } from './Toast';
+import { ErrorBoundary } from './ErrorBoundary';
+import { useShop, getBlockedModules } from '@/lib/useShop';
 import { DashboardView } from '@/features/dashboard/DashboardView';
 import { AccessView } from '@/features/access/AccessView';
 import { SubscriptionsView } from '@/features/subscriptions/SubscriptionsView';
@@ -66,7 +68,13 @@ const views: Record<string, React.ComponentType> = {
 
 function Shell() {
   const { activeModule, toast } = useAppState();
-  const ActiveView = views[activeModule] || DashboardView;
+  const { role, loading: roleLoading } = useShop();
+
+  // Block direct module access if the role doesn't permit it.
+  // Sidebar already hides the nav items; this is the safety net.
+  const blocked = !roleLoading && role ? getBlockedModules(role) : [];
+  const safeModule = blocked.includes(activeModule) ? 'dashboard' : activeModule;
+  const ActiveView = views[safeModule] || DashboardView;
 
   return (
     <div className="shell">
@@ -75,7 +83,9 @@ function Shell() {
         <Header />
         <div className="content">
           <Toast message={toast} />
-          <ActiveView />
+          <ErrorBoundary>
+            <ActiveView />
+          </ErrorBoundary>
         </div>
       </main>
     </div>
@@ -85,7 +95,9 @@ function Shell() {
 export function AppShell() {
   return (
     <AppProvider>
-      <Shell />
+      <ErrorBoundary>
+        <Shell />
+      </ErrorBoundary>
     </AppProvider>
   );
 }

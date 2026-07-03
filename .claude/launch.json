@@ -5,7 +5,7 @@
       "name": "redlined1-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
+      "port": 3001,
       "autoPort": false
     }
   ]
