@@ -182,9 +182,9 @@ function WorkshopPrintModal({
       {/* Print-only styles */}
       <style>{`
         @media print {
-          body > * { display: none !important; }
-          #workshop-print-report { display: block !important; position: static !important; }
-          .no-print { display: none !important; }
+          body * { visibility: hidden !important; }
+          #workshop-print-report, #workshop-print-report * { visibility: visible !important; }
+          #workshop-print-report { position: fixed !important; top: 0; left: 0; right: 0; bottom: auto; overflow: visible !important; }
           .print-page-break { page-break-after: always; }
           @page { size: A4 landscape; margin: 12mm 10mm; }
         }
