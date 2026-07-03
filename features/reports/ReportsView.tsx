@@ -824,6 +824,19 @@ export function ReportsView() {
     </div>
   );
 
+  // Jobs for the print modal: filter jobRows by PERIOD picker (month/year) using either checkIn or closed date
+  const printStart = filterMonth > 0
+    ? new Date(filterYear, filterMonth - 1, 1).getTime()
+    : new Date(filterYear, 0, 1).getTime();
+  const printEnd = filterMonth > 0
+    ? new Date(filterYear, filterMonth, 1).getTime()
+    : new Date(filterYear + 1, 0, 1).getTime();
+  const printJobRows = jobRows.filter(j => {
+    const dates = [j.checkIn, j.closed].filter(Boolean) as string[];
+    if (dates.length === 0) return true; // no date info, include
+    return dates.some(d => { const t = new Date(d).getTime(); return t >= printStart && t < printEnd; });
+  });
+
   const d = data!;
   const maxMonth = Math.max(...d.monthlyRevenue.map(m => Math.max(m.revenue, m.payments)), 1);
   const maxMethod = Math.max(...d.methodBreakdown.map(m => m.total), 1);
@@ -1434,16 +1447,8 @@ export function ReportsView() {
       {showPrintModal && (
         <WorkshopPrintModal
           shopId={reportShopId}
-          jobs={filteredJobRows}
-          periodLabel={
-            jobPeriod === 'custom'
-              ? (filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`)
-              : jobPeriod === 'week' ? 'This Week'
-              : jobPeriod === 'month' ? 'This Month'
-              : jobPeriod === 'quarter' ? 'This Quarter'
-              : jobPeriod === 'year' ? 'This Year'
-              : 'All Time'
-          }
+          jobs={printJobRows}
+          periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`}
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
         />
