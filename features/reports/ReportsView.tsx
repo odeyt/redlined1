@@ -120,18 +120,21 @@ function WorkshopPrintModal({
         ? new Date(year, month, 1).toISOString()
         : new Date(year + 1, 0, 1).toISOString();
 
-      // Fetch job cards where check_in_date OR closed_date falls in the period (any status)
-      const { data: jcData } = await supabase
-        .from('job_cards')
-        .select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number')
-        .eq('shop_id', shopId)
-        .or(
-          `and(check_in_date.gte.${startIso},check_in_date.lt.${endIso}),` +
-          `and(closed_date.gte.${startIso},closed_date.lt.${endIso})`
-        )
-        .order('check_in_date', { ascending: false });
-
-      const jobCards = (jcData ?? []) as Record<string, unknown>[];
+      const jcSelect = 'id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number';
+      // Two queries (OR on date ranges with ISO strings breaks PostgREST parser)
+      const [{ data: byCheckIn }, { data: byClosed }] = await Promise.all([
+        supabase.from('job_cards').select(jcSelect).eq('shop_id', shopId)
+          .gte('check_in_date', startIso).lt('check_in_date', endIso),
+        supabase.from('job_cards').select(jcSelect).eq('shop_id', shopId)
+          .gte('closed_date', startIso).lt('closed_date', endIso),
+      ]);
+      // Merge and deduplicate by id
+      const seen = new Set<string>();
+      const jobCards: Record<string, unknown>[] = [];
+      for (const jc of [...(byCheckIn ?? []), ...(byClosed ?? [])] as Record<string, unknown>[]) {
+        if (!seen.has(jc.id as string)) { seen.add(jc.id as string); jobCards.push(jc); }
+      }
+      jobCards.sort((a, b) => new Date(b.check_in_date as string).getTime() - new Date(a.check_in_date as string).getTime());
       const jobIds = jobCards.map(j => j.id as string);
 
       // Fetch repair orders linked to those job cards
