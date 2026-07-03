@@ -1434,7 +1434,7 @@ export function ReportsView() {
       {showPrintModal && (
         <WorkshopPrintModal
           shopId={reportShopId}
-          jobs={filteredJobRows}
+          jobs={filteredJobRows.filter(j => j.status === 'Complete' || j.status === 'Closed' || j.status === 'Invoiced')}
           periodLabel={
             jobPeriod === 'custom'
               ? (filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`)
