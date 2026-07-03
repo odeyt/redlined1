@@ -125,7 +125,7 @@ function WorkshopPrintModal({
       const [{ data: vData }, { data: custData }] = await Promise.all([
         supabase
           .from('vehicles')
-          .select('id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak, labor_hours')
+          .select('id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak')
           .eq('shop_id', shopId)
           .ilike('status', '%complet%')
           .gte('date_received', startDate)
@@ -153,7 +153,7 @@ function WorkshopPrintModal({
           cause: '',
           correction,
           parts,
-          laborHours: Number(v.labor_hours ?? 0),
+          laborHours: 0,
           laborRate: 0,
           partsTotal: 0,
           closedDate: (v.date_received as string) ?? '',
