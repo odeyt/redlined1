@@ -170,7 +170,25 @@ function WorkshopPrintModal({
     }
   }
 
-  function doPrint() { window.print(); }
+  function doPrint() {
+    const el = document.getElementById('workshop-print-report');
+    if (!el) return;
+    const win = window.open('', '_blank', 'width=1400,height=900');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head>
+      <title>Completion Report — ${shopName}</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 10mm; background: #fff; }
+        @page { size: A4 landscape; margin: 12mm 10mm; }
+        table { border-collapse: collapse; width: 100%; }
+        [contenteditable] { outline: none; }
+      </style>
+    </head><body>${el.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
+  }
 
   const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
   const totalPartsValue = rows.reduce((s, r) => s + r.partsTotal, 0);
