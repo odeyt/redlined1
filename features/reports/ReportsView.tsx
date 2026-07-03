@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { getShopId } from '@/lib/shopStore';
+import { useShop, type Shop } from '@/lib/useShop';
 
 // ── Technician + Job Completion types ──────────────────────────
 interface TechRow {
@@ -72,33 +73,424 @@ function fmtPct(n: number) {
 }
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_NAMES_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Print Report types ──────────────────────────────────────────
+interface PrintPart { partName: string; partNumber?: string; qty?: number; cost?: number; total?: number; }
+interface PrintRow {
+  jobId: string;
+  jobNumber?: string;
+  customer: string;
+  vehicle: string;
+  vin?: string;
+  technicians: string[];
+  concern: string;
+  cause: string;
+  correction: string;
+  parts: PrintPart[];
+  laborHours: number;
+  laborRate: number;
+  partsTotal: number;
+  closedDate: string;
+  status: string;
+  flatRateHours?: number; // from labor_guide if available
+}
+
+// ── WorkshopPrintModal ──────────────────────────────────────────
+function WorkshopPrintModal({
+  shopId, month, year, shopName, onClose,
+}: {
+  shopId: string; month: number; year: number; shopName: string; onClose: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<PrintRow[]>([]);
+  const [reportNotes, setReportNotes] = useState('');
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const periodLabel = month > 0
+    ? `${MONTH_NAMES_FULL[month - 1]} ${year}`
+    : `Year ${year}`;
+
+  useEffect(() => { fetchData(); }, [shopId, month, year]); // eslint-disable-line
+
+  async function fetchData() {
+    setLoading(true);
+    try {
+      // Build date range
+      const startDate = month > 0
+        ? new Date(year, month - 1, 1).toISOString()
+        : new Date(year, 0, 1).toISOString();
+      const endDate = month > 0
+        ? new Date(year, month, 1).toISOString()
+        : new Date(year + 1, 0, 1).toISOString();
+
+      // Fetch completed job cards in period
+      const { data: jcData } = await supabase
+        .from('job_cards')
+        .select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number')
+        .eq('shop_id', shopId)
+        .in('status', ['Complete', 'Closed', 'Invoiced'])
+        .gte('closed_date', startDate)
+        .lt('closed_date', endDate)
+        .order('closed_date', { ascending: true });
+
+      const jobCards = (jcData ?? []) as Record<string, unknown>[];
+      const jobIds = jobCards.map(j => j.id as string);
+
+      // Fetch repair orders linked to those job cards
+      let roMap: Record<string, Record<string, unknown>> = {};
+      if (jobIds.length > 0) {
+        const { data: roData } = await supabase
+          .from('repair_orders')
+          .select('id, job_card_id, ro_number, concern, cause, correction, parts, labor_hours, labor_rate, parts_total, status')
+          .eq('shop_id', shopId)
+          .in('job_card_id', jobIds);
+        for (const ro of (roData ?? []) as Record<string, unknown>[]) {
+          const jcId = ro.job_card_id as string;
+          if (jcId && !roMap[jcId]) roMap[jcId] = ro;
+        }
+      }
+
+      // Fetch labor guide for flat rate hints (best-effort)
+      const { data: lgData } = await supabase
+        .from('labor_guide')
+        .select('job_description, suggested_hours')
+        .eq('shop_id', shopId)
+        .not('suggested_hours', 'is', null);
+      const lgEntries = (lgData ?? []) as { job_description: string; suggested_hours: number }[];
+
+      function findFlatRate(correction: string): number | undefined {
+        if (!correction || lgEntries.length === 0) return undefined;
+        const lower = correction.toLowerCase();
+        const match = lgEntries.find(e => {
+          const kw = e.job_description?.toLowerCase() ?? '';
+          return kw.length > 4 && lower.includes(kw.split(' ')[0]);
+        });
+        return match?.suggested_hours;
+      }
+
+      const built: PrintRow[] = jobCards.map(jc => {
+        const ro = roMap[jc.id as string];
+        const parts: PrintPart[] = (() => {
+          const raw = ro?.parts;
+          if (!raw) return [];
+          try {
+            const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return Array.isArray(arr) ? arr : [];
+          } catch { return []; }
+        })();
+        const correction = (ro?.correction as string) ?? '';
+        return {
+          jobId: jc.id as string,
+          jobNumber: jc.number as string | undefined,
+          customer: (jc.customer as string) ?? '—',
+          vehicle: (jc.vehicle as string) ?? '—',
+          technicians: (jc.technicians as string[]) ?? [],
+          concern: (ro?.concern as string) ?? '',
+          cause: (ro?.cause as string) ?? '',
+          correction,
+          parts,
+          laborHours: Number(ro?.labor_hours ?? jc.labor_hours ?? 0),
+          laborRate: Number(ro?.labor_rate ?? 0),
+          partsTotal: Number(ro?.parts_total ?? 0),
+          closedDate: jc.closed_date as string,
+          status: jc.status as string,
+          flatRateHours: findFlatRate(correction),
+        };
+      });
+
+      setRows(built);
+    } catch (e) {
+      console.error('Print data fetch failed', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function doPrint() { window.print(); }
+
+  const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
+  const totalPartsValue = rows.reduce((s, r) => s + r.partsTotal, 0);
+  const totalHours = rows.reduce((s, r) => s + r.laborHours, 0);
+  const grandTotal = totalLaborValue + totalPartsValue;
+
+  return (
+    <>
+      {/* Print-only styles */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #workshop-print-report { display: block !important; position: static !important; }
+          .no-print { display: none !important; }
+          .print-page-break { page-break-after: always; }
+          @page { size: A4 landscape; margin: 12mm 10mm; }
+        }
+        #workshop-print-report { font-family: Arial, sans-serif; font-size: 12px; color: #000; }
+      `}</style>
+
+      {/* Backdrop */}
+      <div className="no-print" onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 3000 }} />
+
+      {/* Modal shell */}
+      <div className="no-print" onClick={e => e.stopPropagation()}
+        style={{ position: 'fixed', inset: '2vh 2vw', zIndex: 3001, background: 'var(--surface)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
+
+        {/* Modal header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>🖨 Completion Report — {shopName}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{periodLabel} · {rows.length} completed job{rows.length !== 1 ? 's' : ''} · Click any cell to edit before printing</div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={doPrint}
+              style={{ padding: '9px 20px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              🖨 Print / Save PDF
+            </button>
+            <button onClick={onClose}
+              style={{ padding: '9px 16px', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+              ✕ Close
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          {loading ? (
+            <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>Loading report data…</div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
+              No completed jobs found for {periodLabel}.
+            </div>
+          ) : (
+            /* ── Printable area ── */
+            <div ref={printRef} id="workshop-print-report">
+
+              {/* Report header */}
+              <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '2px solid #cc0000' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: '#cc0000' }}>{shopName}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2 }}>COMPLETION REPORT — {periodLabel.toUpperCase()}</div>
+                    <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
+                      Generated: {new Date().toLocaleString()} · {rows.length} completed job{rows.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: 12 }}>
+                    <div style={{ fontWeight: 700 }}>SUMMARY</div>
+                    <div>Total Jobs: <strong>{rows.length}</strong></div>
+                    <div>Total Hours: <strong>{totalHours.toFixed(1)} h</strong></div>
+                    <div>Labor Value: <strong>{fmtMoney(totalLaborValue)}</strong></div>
+                    <div>Parts Value: <strong>{fmtMoney(totalPartsValue)}</strong></div>
+                    <div style={{ color: '#cc0000', fontWeight: 800 }}>Grand Total: {fmtMoney(grandTotal)}</div>
+                  </div>
+                </div>
+                {/* Editable report notes */}
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#888', marginBottom: 4 }}>REPORT NOTES (editable):</div>
+                  <div
+                    contentEditable suppressContentEditableWarning
+                    onInput={e => setReportNotes((e.target as HTMLElement).innerText)}
+                    style={{ minHeight: 32, border: '1px dashed #ccc', borderRadius: 4, padding: '6px 8px', fontSize: 12, color: '#333', outline: 'none' }}
+                    data-placeholder="Click to add report notes…"
+                  >
+                    {reportNotes || ''}
+                  </div>
+                </div>
+              </div>
+
+              {/* Job rows */}
+              {rows.map((row, idx) => (
+                <div key={row.jobId} style={{ marginBottom: 20, padding: 14, border: '1px solid #ddd', borderRadius: 8, pageBreakInside: 'avoid' }}>
+                  {/* Row header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid #eee' }}>
+                    <div>
+                      <span style={{ fontSize: 11, background: '#cc0000', color: '#fff', borderRadius: 4, padding: '2px 7px', fontWeight: 700, marginRight: 8 }}>
+                        #{idx + 1}{row.jobNumber ? ` · ${row.jobNumber}` : ''}
+                      </span>
+                      <span style={{ fontWeight: 800, fontSize: 14 }}>{row.customer}</span>
+                      <span style={{ color: '#666', marginLeft: 8, fontSize: 13 }}>{row.vehicle}</span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 12 }}>
+                      <div style={{ color: '#4caf50', fontWeight: 700 }}>{row.status}</div>
+                      <div style={{ color: '#666' }}>Closed: {row.closedDate ? new Date(row.closedDate).toLocaleDateString() : '—'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {/* Left: 3C + tech */}
+                    <div>
+                      <Field label="ASSIGNED TECHNICIAN(S)">
+                        <div
+                          contentEditable suppressContentEditableWarning
+                          style={{ minHeight: 20, outline: 'none', borderBottom: '1px dashed #ccc', padding: '2px 0' }}>
+                          {row.technicians.length > 0 ? row.technicians.join(', ') : 'Unassigned'}
+                        </div>
+                      </Field>
+                      <Field label="CONCERN (Customer Complaint)">
+                        <div
+                          contentEditable suppressContentEditableWarning
+                          style={{ minHeight: 24, outline: 'none', borderBottom: '1px dashed #ccc', padding: '2px 0' }}>
+                          {row.concern || '—'}
+                        </div>
+                      </Field>
+                      <Field label="CAUSE (Diagnosis)">
+                        <div
+                          contentEditable suppressContentEditableWarning
+                          style={{ minHeight: 24, outline: 'none', borderBottom: '1px dashed #ccc', padding: '2px 0' }}>
+                          {row.cause || '—'}
+                        </div>
+                      </Field>
+                      <Field label="CORRECTION (Work Performed)">
+                        <div
+                          contentEditable suppressContentEditableWarning
+                          style={{ minHeight: 32, outline: 'none', borderBottom: '1px dashed #ccc', padding: '2px 0' }}>
+                          {row.correction || '—'}
+                        </div>
+                      </Field>
+                    </div>
+
+                    {/* Right: parts + labor */}
+                    <div>
+                      <Field label="PARTS REPLACED">
+                        {row.parts.length > 0 ? (
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, marginTop: 2 }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid #ddd' }}>
+                                {['Part Name', 'Part #', 'Qty', 'Cost', 'Total'].map(h => (
+                                  <th key={h} style={{ textAlign: 'left', padding: '2px 4px', color: '#888', fontWeight: 600 }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {row.parts.map((p, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                  <td style={{ padding: '3px 4px', fontWeight: 600 }}>{p.partName || '—'}</td>
+                                  <td style={{ padding: '3px 4px', color: '#666' }}>{p.partNumber || '—'}</td>
+                                  <td style={{ padding: '3px 4px' }}>{p.qty ?? 1}</td>
+                                  <td style={{ padding: '3px 4px' }}>{p.cost != null ? fmtMoney(p.cost) : '—'}</td>
+                                  <td style={{ padding: '3px 4px', fontWeight: 600 }}>{p.total != null ? fmtMoney(p.total) : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div style={{ color: '#999', fontSize: 12, borderBottom: '1px dashed #ccc', padding: '2px 0', minHeight: 20 }}
+                            contentEditable suppressContentEditableWarning>
+                            No parts recorded
+                          </div>
+                        )}
+                      </Field>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
+                        <ValueBox
+                          label="Labor Hours (Recorded)"
+                          value={row.laborHours > 0 ? `${row.laborHours.toFixed(1)} h` : '—'}
+                          color="#2196f3"
+                        />
+                        <ValueBox
+                          label="Est. Flat Rate (Guide)"
+                          value={row.flatRateHours != null ? `${row.flatRateHours.toFixed(1)} h` : 'N/A'}
+                          color={row.flatRateHours != null ? '#ff9800' : '#999'}
+                          small
+                        />
+                        <ValueBox
+                          label="Parts Total"
+                          value={row.partsTotal > 0 ? fmtMoney(row.partsTotal) : '—'}
+                          color="#4caf50"
+                        />
+                      </div>
+
+                      <div style={{ marginTop: 8, padding: '8px 10px', background: '#f9f9f9', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: '#666', fontWeight: 700 }}>JOB TOTAL (Labor + Parts)</span>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#cc0000' }}>
+                          {fmtMoney(row.laborHours * row.laborRate + row.partsTotal)}
+                        </span>
+                      </div>
+
+                      <Field label="ADDITIONAL NOTES (editable)">
+                        <div
+                          contentEditable suppressContentEditableWarning
+                          style={{ minHeight: 28, outline: 'none', border: '1px dashed #ccc', borderRadius: 4, padding: '4px 6px', fontSize: 11, color: '#333' }}>
+                        </div>
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Footer */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '2px solid #eee', display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#666' }}>
+                <div>
+                  <strong>{shopName}</strong> · {periodLabel} Completion Report · Page 1
+                </div>
+                <div>
+                  Confidential — For internal use only
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Field / ValueBox helpers (print only) ───────────────────────
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+function ValueBox({ label, value, color, small }: { label: string; value: string; color: string; small?: boolean }) {
+  return (
+    <div style={{ padding: '6px 8px', background: '#f5f5f5', borderRadius: 6, border: '1px solid #e0e0e0' }}>
+      <div style={{ fontSize: 9, color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: small ? 12 : 15, fontWeight: 800, color }}>{value}</div>
+    </div>
+  );
+}
 
 export function ReportsView() {
+  const { shops } = useShop();
+  const [reportShopId, setReportShopId] = useState<string>(getShopId());
+
   const [data, setData] = useState<ReportData | null>(null);
   const [techRows, setTechRows] = useState<TechRow[]>([]);
   const [jobRows, setJobRows] = useState<JobCompletionRow[]>([]);
   const [expandedTech, setExpandedTech] = useState<string | null>(null);
   const [jobFilter, setJobFilter] = useState<'all' | 'complete' | 'open' | 'invoiced'>('all');
-  const [jobPeriod, setJobPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('all');
+  const [jobPeriod, setJobPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('completion');
   const [shopName, setShopName] = useState('Redlined1');
   const [toast, setToast] = useState('');
   const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);
 
+  // Month/year filter for completion tab
+  const now = new Date();
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1); // 1-12, 0 = all months in year
+
+  // Print modal
+  const [showPrintModal, setShowPrintModal] = useState(false);
+
   useEffect(() => {
-    load();
+    load(reportShopId);
     fetchShopSettings().then(s => {
       setShopName(s.companyName);
       setEnableTechnicianReport(s.enableTechnicianReport ?? true);
       setEnableJobCompletionReport(s.enableJobCompletionReport ?? true);
     }).catch(() => {});
-  }, []);
+  }, [reportShopId]); // eslint-disable-line
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
-  async function load() {
+  async function load(sid: string) {
     setLoading(true);
     try {
       const [
@@ -111,14 +503,14 @@ export function ReportsView() {
         { data: jcData },
         { data: teData },
       ] = await Promise.all([
-        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at'),
-        supabase.from('payments').select('amount, method, payment_date, currency, status'),
-        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at'),
-        supabase.from('customers').select('*', { count: 'exact', head: true }),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }),
-        supabase.from('estimates').select('status'),
-        supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', getShopId()),
-        supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').eq('shop_id', getShopId()),
+        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').eq('shop_id', sid),
+        supabase.from('payments').select('amount, method, payment_date, currency, status').eq('shop_id', sid),
+        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at').eq('shop_id', sid),
+        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
+        supabase.from('estimates').select('status').eq('shop_id', sid),
+        supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', sid),
+        supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').eq('shop_id', sid),
       ]);
 
       const invoices = invData ?? [];
@@ -405,6 +797,11 @@ export function ReportsView() {
   }
 
   const periodStart = (() => {
+    if (jobPeriod === 'custom') {
+      return filterMonth > 0
+        ? new Date(filterYear, filterMonth - 1, 1).getTime()
+        : new Date(filterYear, 0, 1).getTime();
+    }
     const n = new Date();
     if (jobPeriod === 'week')    return new Date(n.getFullYear(), n.getMonth(), n.getDate() - n.getDay()).getTime();
     if (jobPeriod === 'month')   return new Date(n.getFullYear(), n.getMonth(), 1).getTime();
@@ -413,11 +810,25 @@ export function ReportsView() {
     return 0;
   })();
 
+  const periodEnd = (() => {
+    if (jobPeriod === 'custom') {
+      return filterMonth > 0
+        ? new Date(filterYear, filterMonth, 1).getTime()
+        : new Date(filterYear + 1, 0, 1).getTime();
+    }
+    return Infinity;
+  })();
+
   const filteredJobRows = jobRows.filter(j => {
     if (jobFilter === 'complete') { if (j.status !== 'Complete' && j.status !== 'Closed') return false; }
     else if (jobFilter === 'invoiced') { if (j.status !== 'Invoiced') return false; }
     else if (jobFilter === 'open') { if (j.status === 'Complete' || j.status === 'Closed' || j.status === 'Invoiced') return false; }
-    if (periodStart > 0 && j.checkIn) { if (new Date(j.checkIn).getTime() < periodStart) return false; }
+    // For custom, filter by closed_date; otherwise filter by checkIn
+    const dateField = jobPeriod === 'custom' ? j.closed : j.checkIn;
+    if (periodStart > 0 && dateField) {
+      const t = new Date(dateField).getTime();
+      if (t < periodStart || t >= periodEnd) return false;
+    } else if (periodStart > 0 && !dateField) return false;
     return true;
   });
 
@@ -445,6 +856,52 @@ export function ReportsView() {
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* ── Shop + Period selector bar ── */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10 }}>
+        {/* Shop selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap' }}>🏪 SHOP:</span>
+          <select
+            value={reportShopId}
+            onChange={e => setReportShopId(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            {shops.map((s: Shop) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ width: 1, height: 28, background: 'var(--line)' }} />
+
+        {/* Month picker */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap' }}>📅 PERIOD:</span>
+          <select
+            value={filterMonth}
+            onChange={e => setFilterMonth(Number(e.target.value))}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+            <option value={0}>All months</option>
+            {MONTH_NAMES_FULL.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+          <select
+            value={filterYear}
+            onChange={e => setFilterYear(Number(e.target.value))}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginLeft: 'auto' }}>
+          <button
+            onClick={() => setShowPrintModal(true)}
+            style={{ padding: '8px 18px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            🖨 Print Report
+          </button>
+        </div>
+      </div>
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -846,21 +1303,24 @@ export function ReportsView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {/* Period row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {([
                   { id: 'week',    label: 'This Week' },
                   { id: 'month',   label: 'This Month' },
                   { id: 'quarter', label: 'This Quarter' },
                   { id: 'year',    label: 'This Year' },
                   { id: 'all',     label: 'All Time' },
+                  { id: 'custom',  label: `${filterMonth > 0 ? MONTH_NAMES_FULL[filterMonth - 1] + ' ' : ''}${filterYear}` },
                 ] as { id: typeof jobPeriod; label: string }[]).map(p => (
                   <button key={p.id} onClick={() => setJobPeriod(p.id)}
                     style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${jobPeriod === p.id ? 'var(--accent)' : 'var(--line)'}`, cursor: 'pointer', fontSize: 12, fontWeight: jobPeriod === p.id ? 700 : 400, background: jobPeriod === p.id ? 'rgba(204,0,0,0.1)' : 'var(--surface-soft)', color: jobPeriod === p.id ? 'var(--accent)' : 'var(--muted)' }}>
-                    {p.label}
+                    {p.id === 'custom' ? `📅 ${p.label}` : p.label}
                   </button>
                 ))}
               </div>
-              <button className="btn btn-primary" onClick={exportJobCompletionReport}>⬇ Export CSV</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-primary" onClick={exportJobCompletionReport}>⬇ Export CSV</button>
+              </div>
             </div>
             {/* Status row */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -993,6 +1453,16 @@ export function ReportsView() {
             )}
           </Panel>
         </>
+      )}
+
+      {showPrintModal && (
+        <WorkshopPrintModal
+          shopId={reportShopId}
+          month={filterMonth}
+          year={filterYear}
+          shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
+          onClose={() => setShowPrintModal(false)}
+        />
       )}
     </>
   );
