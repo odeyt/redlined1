@@ -112,29 +112,33 @@ function WorkshopPrintModal({
   async function fetchData() {
     setLoading(true);
     try {
-      // Date-only strings work with both date and timestamp columns in Postgres
       const pad = (n: number) => String(n).padStart(2, '0');
-      const startDate = month > 0
-        ? `${year}-${pad(month)}-01`
-        : `${year}-01-01`;
-      const endDate = month > 0
-        ? (month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`)
-        : `${year + 1}-01-01`;
+      const vSelect = 'id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak';
+      const baseQ = () => supabase.from('vehicles').select(vSelect).eq('shop_id', shopId).ilike('status', '%complet%');
 
-      // Query vehicles with Completed status in the period (date_received)
-      const [{ data: vData }, { data: custData }] = await Promise.all([
-        supabase
-          .from('vehicles')
-          .select('id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak')
-          .eq('shop_id', shopId)
-          .ilike('status', '%complet%')
-          .gte('date_received', startDate)
-          .lt('date_received', endDate)
-          .order('date_received', { ascending: false }),
+      // Build queries: with date filter + always include null-date completed vehicles
+      let vQueryWithDate = baseQ();
+      if (month > 0) {
+        const startDate = `${year}-${pad(month)}-01`;
+        const endDate = month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`;
+        vQueryWithDate = vQueryWithDate.gte('date_received', startDate).lt('date_received', endDate);
+      } else {
+        // All months in year
+        vQueryWithDate = vQueryWithDate.gte('date_received', `${year}-01-01`).lt('date_received', `${year + 1}-01-01`);
+      }
+
+      const [{ data: vByDate }, { data: vNoDate }, { data: custData }] = await Promise.all([
+        vQueryWithDate.order('date_received', { ascending: false }),
+        baseQ().is('date_received', null), // completed with no date set
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
 
-      const vehicles = (vData ?? []) as Record<string, unknown>[];
+      // Merge, deduplicate by id
+      const seenV = new Set<string>();
+      const vehicles: Record<string, unknown>[] = [];
+      for (const v of [...(vByDate ?? []), ...(vNoDate ?? [])] as Record<string, unknown>[]) {
+        if (!seenV.has(v.id as string)) { seenV.add(v.id as string); vehicles.push(v); }
+      }
       const custMap: Record<string, string> = {};
       for (const c of (custData ?? []) as { id: string; name: string }[]) custMap[c.id] = c.name;
 
