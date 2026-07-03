@@ -112,13 +112,14 @@ function WorkshopPrintModal({
   async function fetchData() {
     setLoading(true);
     try {
-      // Date range from period picker
-      const startIso = month > 0
-        ? new Date(year, month - 1, 1).toISOString()
-        : new Date(year, 0, 1).toISOString();
-      const endIso = month > 0
-        ? new Date(year, month, 1).toISOString()
-        : new Date(year + 1, 0, 1).toISOString();
+      // Date-only strings work with both date and timestamp columns in Postgres
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startDate = month > 0
+        ? `${year}-${pad(month)}-01`
+        : `${year}-01-01`;
+      const endDate = month > 0
+        ? (month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`)
+        : `${year + 1}-01-01`;
 
       // Query vehicles with Completed status in the period (date_received)
       const [{ data: vData }, { data: custData }] = await Promise.all([
@@ -127,8 +128,8 @@ function WorkshopPrintModal({
           .select('id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak, labor_hours')
           .eq('shop_id', shopId)
           .ilike('status', '%complet%')
-          .gte('date_received', startIso)
-          .lt('date_received', endIso)
+          .gte('date_received', startDate)
+          .lt('date_received', endDate)
           .order('date_received', { ascending: false }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
