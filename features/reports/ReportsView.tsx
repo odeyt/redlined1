@@ -98,46 +98,23 @@ interface PrintRow {
 
 // ── WorkshopPrintModal ──────────────────────────────────────────
 function WorkshopPrintModal({
-  shopId, month, year, shopName, onClose,
+  shopId, jobs, periodLabel, shopName, onClose,
 }: {
-  shopId: string; month: number; year: number; shopName: string; onClose: () => void;
+  shopId: string; jobs: JobCompletionRow[]; periodLabel: string; shopName: string; onClose: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<PrintRow[]>([]);
   const [reportNotes, setReportNotes] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
-  const periodLabel = month > 0
-    ? `${MONTH_NAMES_FULL[month - 1]} ${year}`
-    : `Year ${year}`;
-
-  useEffect(() => { fetchData(); }, [shopId, month, year]); // eslint-disable-line
+  useEffect(() => { fetchData(); }, [shopId, jobs]); // eslint-disable-line
 
   async function fetchData() {
     setLoading(true);
     try {
-      // Build date range
-      const startDate = month > 0
-        ? new Date(year, month - 1, 1).toISOString()
-        : new Date(year, 0, 1).toISOString();
-      const endDate = month > 0
-        ? new Date(year, month, 1).toISOString()
-        : new Date(year + 1, 0, 1).toISOString();
+      const jobIds = jobs.map(j => j.id);
 
-      // Fetch completed job cards in period
-      const { data: jcData } = await supabase
-        .from('job_cards')
-        .select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number')
-        .eq('shop_id', shopId)
-        .in('status', ['Complete', 'Closed', 'Invoiced'])
-        .gte('closed_date', startDate)
-        .lt('closed_date', endDate)
-        .order('closed_date', { ascending: true });
-
-      const jobCards = (jcData ?? []) as Record<string, unknown>[];
-      const jobIds = jobCards.map(j => j.id as string);
-
-      // Fetch repair orders linked to those job cards
+      // Fetch repair orders for these specific job cards
       let roMap: Record<string, Record<string, unknown>> = {};
       if (jobIds.length > 0) {
         const { data: roData } = await supabase
@@ -169,8 +146,8 @@ function WorkshopPrintModal({
         return match?.suggested_hours;
       }
 
-      const built: PrintRow[] = jobCards.map(jc => {
-        const ro = roMap[jc.id as string];
+      const built: PrintRow[] = jobs.map(jc => {
+        const ro = roMap[jc.id];
         const parts: PrintPart[] = (() => {
           const raw = ro?.parts;
           if (!raw) return [];
@@ -181,20 +158,19 @@ function WorkshopPrintModal({
         })();
         const correction = (ro?.correction as string) ?? '';
         return {
-          jobId: jc.id as string,
-          jobNumber: jc.number as string | undefined,
-          customer: (jc.customer as string) ?? '—',
-          vehicle: (jc.vehicle as string) ?? '—',
-          technicians: (jc.technicians as string[]) ?? [],
+          jobId: jc.id,
+          customer: jc.customer,
+          vehicle: jc.vehicle,
+          technicians: jc.technicians,
           concern: (ro?.concern as string) ?? '',
           cause: (ro?.cause as string) ?? '',
           correction,
           parts,
-          laborHours: Number(ro?.labor_hours ?? jc.labor_hours ?? 0),
+          laborHours: Number(ro?.labor_hours ?? jc.laborHours ?? 0),
           laborRate: Number(ro?.labor_rate ?? 0),
           partsTotal: Number(ro?.parts_total ?? 0),
-          closedDate: jc.closed_date as string,
-          status: jc.status as string,
+          closedDate: jc.closed ?? '',
+          status: jc.status,
           flatRateHours: findFlatRate(correction),
         };
       });
@@ -898,7 +874,7 @@ export function ReportsView() {
           <button
             onClick={() => setShowPrintModal(true)}
             style={{ padding: '8px 18px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-            🖨 Print Report
+            🔍 Search
           </button>
         </div>
       </div>
@@ -1458,8 +1434,16 @@ export function ReportsView() {
       {showPrintModal && (
         <WorkshopPrintModal
           shopId={reportShopId}
-          month={filterMonth}
-          year={filterYear}
+          jobs={filteredJobRows}
+          periodLabel={
+            jobPeriod === 'custom'
+              ? (filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`)
+              : jobPeriod === 'week' ? 'This Week'
+              : jobPeriod === 'month' ? 'This Month'
+              : jobPeriod === 'quarter' ? 'This Quarter'
+              : jobPeriod === 'year' ? 'This Year'
+              : 'All Time'
+          }
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
         />
