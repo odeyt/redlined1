@@ -840,8 +840,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
       {/* Backdrop */}
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100 }} />
       {/* Full-screen modal */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 1101, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 1100, boxShadow: '0 24px 80px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 1101, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 1100, boxShadow: '0 24px 80px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {toast && <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#16a34a', color: '#fff', padding: '8px 16px', fontSize: 13, fontWeight: 600 }}>{toast}</div>}
 
         {/* Header */}
