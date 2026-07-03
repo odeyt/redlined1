@@ -98,28 +98,48 @@ interface PrintRow {
 
 // ── WorkshopPrintModal ──────────────────────────────────────────
 function WorkshopPrintModal({
-  shopId, jobs, periodLabel, shopName, onClose,
+  shopId, month, year, periodLabel, shopName, onClose,
 }: {
-  shopId: string; jobs: JobCompletionRow[]; periodLabel: string; shopName: string; onClose: () => void;
+  shopId: string; month: number; year: number; periodLabel: string; shopName: string; onClose: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<PrintRow[]>([]);
   const [reportNotes, setReportNotes] = useState('');
   const printRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchData(); }, [shopId, jobs]); // eslint-disable-line
+  useEffect(() => { fetchData(); }, [shopId, month, year]); // eslint-disable-line
 
   async function fetchData() {
     setLoading(true);
     try {
-      const jobIds = jobs.map(j => j.id);
+      // Date range from period picker
+      const startIso = month > 0
+        ? new Date(year, month - 1, 1).toISOString()
+        : new Date(year, 0, 1).toISOString();
+      const endIso = month > 0
+        ? new Date(year, month, 1).toISOString()
+        : new Date(year + 1, 0, 1).toISOString();
 
-      // Fetch repair orders for these specific job cards
-      let roMap: Record<string, Record<string, unknown>> = {};
+      // Fetch job cards where check_in_date OR closed_date falls in the period (any status)
+      const { data: jcData } = await supabase
+        .from('job_cards')
+        .select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours, number')
+        .eq('shop_id', shopId)
+        .or(
+          `and(check_in_date.gte.${startIso},check_in_date.lt.${endIso}),` +
+          `and(closed_date.gte.${startIso},closed_date.lt.${endIso})`
+        )
+        .order('check_in_date', { ascending: false });
+
+      const jobCards = (jcData ?? []) as Record<string, unknown>[];
+      const jobIds = jobCards.map(j => j.id as string);
+
+      // Fetch repair orders linked to those job cards
+      const roMap: Record<string, Record<string, unknown>> = {};
       if (jobIds.length > 0) {
         const { data: roData } = await supabase
           .from('repair_orders')
-          .select('id, job_card_id, ro_number, concern, cause, correction, parts, labor_hours, labor_rate, parts_total, status')
+          .select('id, job_card_id, concern, cause, correction, parts, labor_hours, labor_rate, parts_total')
           .eq('shop_id', shopId)
           .in('job_card_id', jobIds);
         for (const ro of (roData ?? []) as Record<string, unknown>[]) {
@@ -146,8 +166,8 @@ function WorkshopPrintModal({
         return match?.suggested_hours;
       }
 
-      const built: PrintRow[] = jobs.map(jc => {
-        const ro = roMap[jc.id];
+      const built: PrintRow[] = jobCards.map(jc => {
+        const ro = roMap[jc.id as string];
         const parts: PrintPart[] = (() => {
           const raw = ro?.parts;
           if (!raw) return [];
@@ -158,19 +178,20 @@ function WorkshopPrintModal({
         })();
         const correction = (ro?.correction as string) ?? '';
         return {
-          jobId: jc.id,
-          customer: jc.customer,
-          vehicle: jc.vehicle,
-          technicians: jc.technicians,
+          jobId: jc.id as string,
+          jobNumber: jc.number as string | undefined,
+          customer: (jc.customer as string) ?? '—',
+          vehicle: (jc.vehicle as string) ?? '—',
+          technicians: (jc.technicians as string[]) ?? [],
           concern: (ro?.concern as string) ?? '',
           cause: (ro?.cause as string) ?? '',
           correction,
           parts,
-          laborHours: Number(ro?.labor_hours ?? jc.laborHours ?? 0),
+          laborHours: Number(ro?.labor_hours ?? jc.labor_hours ?? 0),
           laborRate: Number(ro?.labor_rate ?? 0),
           partsTotal: Number(ro?.parts_total ?? 0),
-          closedDate: jc.closed ?? '',
-          status: jc.status,
+          closedDate: (jc.closed_date as string) ?? '',
+          status: (jc.status as string) ?? '',
           flatRateHours: findFlatRate(correction),
         };
       });
@@ -824,19 +845,6 @@ export function ReportsView() {
     </div>
   );
 
-  // Jobs for the print modal: filter jobRows by PERIOD picker (month/year) using either checkIn or closed date
-  const printStart = filterMonth > 0
-    ? new Date(filterYear, filterMonth - 1, 1).getTime()
-    : new Date(filterYear, 0, 1).getTime();
-  const printEnd = filterMonth > 0
-    ? new Date(filterYear, filterMonth, 1).getTime()
-    : new Date(filterYear + 1, 0, 1).getTime();
-  const printJobRows = jobRows.filter(j => {
-    const dates = [j.checkIn, j.closed].filter(Boolean) as string[];
-    if (dates.length === 0) return true; // no date info, include
-    return dates.some(d => { const t = new Date(d).getTime(); return t >= printStart && t < printEnd; });
-  });
-
   const d = data!;
   const maxMonth = Math.max(...d.monthlyRevenue.map(m => Math.max(m.revenue, m.payments)), 1);
   const maxMethod = Math.max(...d.methodBreakdown.map(m => m.total), 1);
@@ -1447,7 +1455,8 @@ export function ReportsView() {
       {showPrintModal && (
         <WorkshopPrintModal
           shopId={reportShopId}
-          jobs={printJobRows}
+          month={filterMonth}
+          year={filterYear}
           periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`}
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
