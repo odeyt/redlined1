@@ -82,7 +82,7 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-// â”€â”€ View Toggle Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── View Toggle Button ───────────────────────────────────────────
 function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; current: ViewMode; icon: string; label: string; onClick: () => void }) {
   const active = mode === current;
   return (
@@ -104,7 +104,7 @@ function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; curr
 }
 
 
-// â”€â”€ Service Record Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Service Record Card ──────────────────────────────────────────
 function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   v: VehicleRecord; thumbUrl?: string; onPhotos: () => void; enablePhotos: boolean;
 }) {
@@ -118,9 +118,9 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         <div onClick={onPhotos} style={{ height: 120, cursor: 'pointer', background: thumbUrl ? '#000' : 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: '1px solid var(--line)', position: 'relative' }}>
           {thumbUrl
             ? <img src={thumbUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><span style={{ fontSize: 28 }}>ðŸš—</span><span style={{ fontSize: 11 }}>Add photos</span></div>
+            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><span style={{ fontSize: 28 }}>🚗</span><span style={{ fontSize: 11 }}>Add photos</span></div>
           }
-          <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 5 }}>ðŸ“· Photos</div>
+          <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 5 }}>📷 Photos</div>
         </div>
       )}
 
@@ -130,8 +130,8 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.35, marginBottom: 3 }}>{v.label}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-              {[v.year, v.make, v.model].filter(Boolean).join(' ') || 'â€”'}
-              {v.fuelType ? ` Â· ${v.fuelType}` : ''}
+              {[v.year, v.make, v.model].filter(Boolean).join(' ') || '—'}
+              {v.fuelType ? ` · ${v.fuelType}` : ''}
             </div>
           </div>
           <StatusPill status={v.status} />
@@ -140,9 +140,9 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         {/* Key facts grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
           <div style={{ color: 'var(--muted)' }}>Plate</div>
-          <div style={{ fontWeight: 600 }}>{v.plate || 'â€”'}</div>
+          <div style={{ fontWeight: 600 }}>{v.plate || '—'}</div>
           <div style={{ color: 'var(--muted)' }}>VIN</div>
-          <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{v.vin || 'â€”'}</div>
+          <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{v.vin || '—'}</div>
           {v.dateReceived && <>
             <div style={{ color: 'var(--muted)' }}>Received</div>
             <div style={{ fontWeight: 600 }}>{new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
@@ -171,7 +171,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         {(v.damageIntake || v.partsNeeded || v.partsExchanged || v.issuesResolved) && (
           <>
             <button onClick={() => setExpanded(x => !x)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, #cc0000)', fontSize: 12, fontWeight: 600, textAlign: 'left', padding: 0 }}>
-              {expanded ? 'â–² Hide details' : 'â–¼ More details'}
+              {expanded ? '▲ Hide details' : '▼ More details'}
             </button>
             {expanded && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
@@ -189,7 +189,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
                 )}
                 {v.issuesResolved && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                    <span style={{ color: '#166534', fontWeight: 700 }}>âœ“ Issues Resolved</span>
+                    <span style={{ color: '#166534', fontWeight: 700 }}>✓ Issues Resolved</span>
                   </div>
                 )}
               </div>
@@ -201,17 +201,17 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   );
 }
 
-// â”€â”€ Vehicle Edit Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Vehicle Edit Drawer ─────────────────────────────────────────
 const STATUSES = ['In Progress', 'Pending Parts', 'Pending Approval', 'Completed', 'Returned Job', 'Active', 'No open jobs', 'Archived'];
 
 const KANBAN_COLUMNS = [
-  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: 'â³', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe', extraStatuses: [] as string[] },
-  { status: 'In Progress',      label: 'Work In Progress',          icon: 'ðŸ”§', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe', extraStatuses: [] as string[] },
-  { status: 'Pending Parts',    label: 'Pending Parts',             icon: 'ðŸ“¦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5', extraStatuses: [] as string[] },
-  { status: 'Completed',        label: 'Completed',                 icon: 'âœ…', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7', extraStatuses: [] as string[] },
-  { status: 'Returned Job',     label: 'Returned Job',              icon: 'â†©',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3', extraStatuses: [] as string[] },
-  { status: 'Active',           label: 'Active / No Open Jobs',     icon: 'ðŸŸ¢', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0', headerBg: '#f0fdf4', extraStatuses: ['No open jobs', 'Pending'] },
-  { status: 'Archived',         label: 'Archived',                  icon: 'ðŸ—„', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
+  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: '⏳', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe', extraStatuses: [] as string[] },
+  { status: 'In Progress',      label: 'Work In Progress',          icon: '🔧', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe', extraStatuses: [] as string[] },
+  { status: 'Pending Parts',    label: 'Pending Parts',             icon: '📦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5', extraStatuses: [] as string[] },
+  { status: 'Completed',        label: 'Completed',                 icon: '✅', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7', extraStatuses: [] as string[] },
+  { status: 'Returned Job',     label: 'Returned Job',              icon: '↩',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3', extraStatuses: [] as string[] },
+  { status: 'Active',           label: 'Active / No Open Jobs',     icon: '🟢', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0', headerBg: '#f0fdf4', extraStatuses: ['No open jobs', 'Pending'] },
+  { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
 function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
@@ -280,8 +280,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         model:    model || prev.model,
         fuelType: fuelMapped || prev.fuelType,
       }));
-      setVinDecodeMsg(`âœ“ Decoded: ${year} ${make} ${model}`);
-    } catch { setVinDecodeMsg('Decode failed â€” check connection.'); }
+      setVinDecodeMsg(`✓ Decoded: ${year} ${make} ${model}`);
+    } catch { setVinDecodeMsg('Decode failed — check connection.'); }
     finally { setVinDecoding(false); }
   }
 
@@ -368,7 +368,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
       const updated = { ...f, status: newStatus } as VehicleRecord;
       setF(updated);
       onSaved(updated);
-      notify(`Status â†’ ${newStatus}`);
+      notify(`Status → ${newStatus}`);
     } catch (e: unknown) {
       setErr('Update failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
     } finally { setSaving(false); }
@@ -433,17 +433,17 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{f.label || 'Vehicle'}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.plate || 'No plate'} Â· {f.vin || 'No VIN'}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.plate || 'No plate'} · {f.vin || 'No VIN'}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>âœ•</button>
+          <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
 
         {/* Status badge in header area */}
         {f.status && (
           <div style={{ padding: '6px 20px', background: statusColor(f.status).bg, borderBottom: '1px solid ' + statusColor(f.status).border, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>â— {f.status}</span>
-            {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>â€” Awaiting customer decision on repair</span>}
-            {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>â€” Vehicle archived for future reference</span>}
+            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>● {f.status}</span>
+            {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>— Awaiting customer decision on repair</span>}
+            {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>— Vehicle archived for future reference</span>}
           </div>
         )}
 
@@ -471,10 +471,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
                   <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 700 }}>{owner.name}</div>
-                  {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>ðŸ“ž {owner.phone}</div>}
-                  {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>âœ‰ {owner.email}</div>}
+                  {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>📞 {owner.phone}</div>}
+                  {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>✉ {owner.email}</div>}
                 </div>
-                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View â†’</div>
+                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View →</div>
               </button>
             );
           }
@@ -493,13 +493,13 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               title="Assign a customer to this vehicle"
             >
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                ðŸ‘¤
+                👤
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
-                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned â€” tap to assign</div>
+                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned — tap to assign</div>
               </div>
-              <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600, flexShrink: 0 }}>+ Add â†’</div>
+              <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600, flexShrink: 0 }}>+ Add →</div>
             </button>
           );
         })()}
@@ -507,47 +507,47 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         {/* Action buttons row 1 */}
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
           <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>ï¼‹ Job Card</button>
-          <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>â†© Return Job</button>
-          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>ðŸ§¾ Create Invoice</button>
-          <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>ðŸ“· Photos</button>
-          <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>ðŸ—‘ Delete</button>
+          <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
+          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>
+          <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
+          <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
         </div>
 
-        {/* Action buttons row 2 â€” status shortcuts */}
+        {/* Action buttons row 2 — status shortcuts */}
         <div style={{ display: 'flex', gap: 6, padding: '0 20px 10px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
           {f.status !== 'Pending Approval' && f.status !== 'Archived' && (
             <button disabled={saving} onClick={() => quickStatus('Pending Approval')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '2px solid #a855f7', background: 'rgba(168,85,247,0.08)', color: '#7e22ce', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              â³ Pending Approval
+              ⏳ Pending Approval
             </button>
           )}
           {f.status === 'Pending Approval' && (
             <button disabled={saving} onClick={() => quickStatus('In Progress')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              âœ“ Approved â€” Resume Work
+              ✓ Approved — Resume Work
             </button>
           )}
           {f.status !== 'Pending Parts' && f.status !== 'Archived' && (
             <button disabled={saving} onClick={() => quickStatus('Pending Parts')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #fed7aa', background: 'rgba(249,115,22,0.07)', color: '#9a3412', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ðŸ“¦ Pending Parts
+              📦 Pending Parts
             </button>
           )}
           {f.status === 'Pending Parts' && (
             <button disabled={saving} onClick={() => quickStatus('In Progress')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ðŸ”§ Parts In â€” Resume Work
+              🔧 Parts In — Resume Work
             </button>
           )}
           {f.status !== 'Archived' ? (
             <button disabled={saving} onClick={() => quickStatus('Archived')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #d1d5db', background: 'rgba(107,114,128,0.07)', color: '#6b7280', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ðŸ—„ Archive Vehicle
+              🗄 Archive Vehicle
             </button>
           ) : (
             <button disabled={saving} onClick={() => quickStatus('Active')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#166534', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              â™» Restore from Archive
+              ♻ Restore from Archive
             </button>
           )}
         </div>
@@ -557,10 +557,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {err && <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12 }}>{err}</div>}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          <div>{/* â”€â”€ LEFT: Basic Info â”€â”€ */}
+          <div>{/* ── LEFT: Basic Info ── */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
 
-          {/* Status-reason callout â€” shown for statuses that need an explanation */}
+          {/* Status-reason callout — shown for statuses that need an explanation */}
           {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) && (() => {
             const sc = statusColor(f.status);
             const statusLabels: Record<string, string> = {
@@ -572,12 +572,12 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             return (
               <div style={{ marginBottom: 14, padding: '10px 14px', background: sc.bg, border: `1.5px solid ${sc.border}`, borderRadius: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>ðŸ“</span> {statusLabels[f.status] ?? 'Status Note'}
+                  <span>📝</span> {statusLabels[f.status] ?? 'Status Note'}
                 </div>
                 <textarea
                   value={f.recommendation}
                   onChange={e => set('recommendation', e.target.value)}
-                  placeholder={`Enter reason or notes for "${f.status}" statusâ€¦`}
+                  placeholder={`Enter reason or notes for "${f.status}" status…`}
                   rows={3}
                   style={{ ...inp, resize: 'vertical', minHeight: 64, borderColor: sc.border, background: 'var(--surface)' }}
                 />
@@ -588,7 +588,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           {row('Vehicle Label', <input style={inp} value={f.label} onChange={e => set('label', e.target.value)} placeholder="2023 Ford F-150" />)}
 
-          {/* â”€â”€ Customer picker â”€â”€ */}
+          {/* ── Customer picker ── */}
           <div style={{ marginBottom: 12 }}>
             <span style={label}>Customer</span>
             <div style={{ position: 'relative' }}>
@@ -597,7 +597,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 value={custSearch !== '' ? custSearch : (customers.find(c => c.id === f.customerId)?.name ?? '')}
                 onChange={e => { setCustSearch(e.target.value); if (!e.target.value) set('customerId', ''); }}
                 onFocus={e => { setCustSearch(''); e.target.select(); }}
-                placeholder="Search customersâ€¦"
+                placeholder="Search customers…"
                 style={{ ...inp, borderColor: f.customerId ? '#22c55e' : 'var(--line)' }}
               />
               {custSearch && (
@@ -620,7 +620,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                         );
                       })
                   }
-                  {/* â”€â”€ Add new customer inline â”€â”€ */}
+                  {/* ── Add new customer inline ── */}
                   {!showInlineNewCust ? (
                     <button
                       type="button"
@@ -675,7 +675,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                           }}
                           style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !inlineNewCust.name.trim() || savingNewCust ? 0.5 : 1 }}
                         >
-                          {savingNewCust ? 'Savingâ€¦' : 'Create & Assign'}
+                          {savingNewCust ? 'Saving…' : 'Create & Assign'}
                         </button>
                         <button
                           type="button"
@@ -692,14 +692,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             </div>
           </div>
 
-          {/* â”€â”€ Other vehicles for this customer â”€â”€ */}
+          {/* ── Other vehicles for this customer ── */}
           {custVehicles.length > 0 && (
             <div style={{ marginBottom: 14, background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(33,150,243,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>ðŸš— {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
+                <span>🚗 {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
                 <button type="button" onClick={() => setShowAddForCust(v => !v)}
                   style={{ fontSize: 11, fontWeight: 700, color: showAddForCust ? '#888' : '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {showAddForCust ? 'âœ• cancel' : '+ New vehicle'}
+                  {showAddForCust ? '✕ cancel' : '+ New vehicle'}
                 </button>
               </div>
               {custVehicles.map(v => (
@@ -709,14 +709,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                   onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{v.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || 'â€”'} Â· {v.vin || 'No VIN'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || '—'} · {v.vin || 'No VIN'}</div>
                   </div>
-                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open â†’</span>
+                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open →</span>
                 </div>
               ))}
               {showAddForCust && (
                 <div style={{ padding: '10px 12px', background: 'rgba(33,150,243,0.04)', borderTop: '1px solid rgba(33,150,243,0.15)', fontSize: 12, color: 'var(--muted)' }}>
-                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer â€” their info will auto-fill.
+                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer — their info will auto-fill.
                 </div>
               )}
             </div>
@@ -732,10 +732,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           )}
           {showAddForCust && custVehicles.length === 0 && (
             <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--muted)' }}>
-              Close this drawer, then click <strong>+ Add Vehicle</strong> â€” the customer will be pre-selected and their info auto-filled.
+              Close this drawer, then click <strong>+ Add Vehicle</strong> — the customer will be pre-selected and their info auto-filled.
             </div>
           )}
-          {/* VIN with scan â€” placed first so decode populates fields below */}
+          {/* VIN with scan — placed first so decode populates fields below */}
           <div style={{ marginBottom: 12 }}>
             <span style={{ ...label, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>VIN</span>
@@ -753,11 +753,11 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               <button type="button" title="Scan VIN barcode with camera"
                 onClick={startVinScan}
                 style={{ padding: '0 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>
-                ðŸ“·
+                📷
               </button>
             </div>
-            {vinDecoding && <div style={{ marginTop: 4, fontSize: 11, color: '#3b82f6' }}>â³ Decoding VINâ€¦</div>}
-            {vinDecodeMsg && <div style={{ marginTop: 4, fontSize: 11, color: vinDecodeMsg.startsWith('âœ“') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{vinDecodeMsg}</div>}
+            {vinDecoding && <div style={{ marginTop: 4, fontSize: 11, color: '#3b82f6' }}>⏳ Decoding VIN…</div>}
+            {vinDecodeMsg && <div style={{ marginTop: 4, fontSize: 11, color: vinDecodeMsg.startsWith('✓') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{vinDecodeMsg}</div>}
             {/* hidden file input for photo fallback */}
             <input ref={vinFileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleVinFileUpload} />
           </div>
@@ -766,7 +766,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div>
               <span style={label}>Year</span>
               <select style={inp} value={f.year ?? ''} onChange={e => set('year', e.target.value)}>
-                <option value="">â€” Select â€”</option>
+                <option value="">— Select —</option>
                 {Array.from({ length: new Date().getFullYear() - 1949 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
@@ -789,7 +789,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div>
               <span style={label}>Fuel Type</span>
               <select style={inp} value={f.fuelType ?? ''} onChange={e => set('fuelType', e.target.value)}>
-                <option value="">â€” Select â€”</option>
+                <option value="">— Select —</option>
                 {['Petrol','Diesel','Hybrid','EV','CNG','LPG'].map(ft => <option key={ft} value={ft}>{ft}</option>)}
               </select>
             </div>
@@ -802,7 +802,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div onClick={e => { if (e.target === e.currentTarget) stopVinScan(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Point camera at VIN barcode</div>
               <video ref={vinScanVideoRef} playsInline muted style={{ width: '90vw', maxWidth: 480, borderRadius: 12, border: '2px solid #22c55e' }} />
-              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automaticallyâ€¦</div>
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automatically…</div>
               <button onClick={stopVinScan} style={{ padding: '10px 28px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancel</button>
             </div>
           )}
@@ -816,7 +816,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {row('Date Received', <input type="date" style={inp} value={f.dateReceived ?? ''} onChange={e => set('dateReceived', e.target.value || null)} />)}
 
           </div>{/* end left column */}
-          <div>{/* â”€â”€ RIGHT: Service Record â”€â”€ */}
+          <div>{/* ── RIGHT: Service Record ── */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Service Record</div>
 
           {/* Assigned Tech multi-select dropdown */}
@@ -829,14 +829,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 style={{ ...inp, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 36 }}
               >
                 <span style={{ color: f.assignedTech ? 'var(--text)' : 'var(--muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {f.assignedTech || 'Select techniciansâ€¦'}
+                  {f.assignedTech || 'Select technicians…'}
                 </span>
-                <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0, marginLeft: 6 }}>{techDropdownOpen ? 'â–²' : 'â–¼'}</span>
+                <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0, marginLeft: 6 }}>{techDropdownOpen ? '▲' : '▼'}</span>
               </button>
               {techDropdownOpen && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
                   {technicians.length === 0 && (
-                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found â€” add them in the Employees module.</div>
+                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found — add them in the Employees module.</div>
                   )}
                   {technicians.map(tech => {
                     const selected = (f.assignedTech ?? '').split(';').map(s => s.trim()).filter(Boolean).includes(tech.name);
@@ -854,7 +854,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                         onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
                       >
                         <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected ? c.color : 'var(--line)'}`, background: selected ? c.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, color: '#fff', fontWeight: 800 }}>
-                          {selected ? 'âœ“' : ''}
+                          {selected ? '✓' : ''}
                         </span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600, fontSize: 13, color: selected ? c.color : 'var(--text)' }}>{tech.name}</div>
@@ -868,7 +868,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                     <div
                       onClick={() => { set('assignedTech', ''); setTechDropdownOpen(false); }}
                       style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: '#dc2626', fontWeight: 600, textAlign: 'center', borderTop: '1px solid var(--line)' }}>
-                      âœ• Clear selection
+                      ✕ Clear selection
                     </div>
                   )}
                 </div>
@@ -913,7 +913,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', flexShrink: 0, display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Savingâ€¦' : 'âœ“ Save Changes'}
+            {saving ? 'Saving…' : '✓ Save Changes'}
           </button>
         </div>
       </div>
@@ -922,7 +922,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   );
 }
 
-// â”€â”€ Main View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main View ───────────────────────────────────────────────────
 export function VehiclesView() {
   const dispatch = useAppDispatch();
   const { shops, currentShop, role } = useShop();
@@ -1018,7 +1018,7 @@ export function VehiclesView() {
         plate: v.plate, status: newStatus, recommendation: v.recommendation,
       });
       setVehicles(prev => prev.map(x => x.id === vehicleId ? { ...x, status: newStatus } : x));
-      notify(`${v.label} â†’ ${newStatus}`);
+      notify(`${v.label} → ${newStatus}`);
     } catch { notify('Status update failed'); }
   }
 
@@ -1052,10 +1052,10 @@ export function VehiclesView() {
       .sort((a, b) => (b.dateReceived ?? '').localeCompare(a.dateReceived ?? ''));
     setCustVehicles(cvs);
     if (cvs.length === 1) {
-      // Only one car â€” auto-fill immediately
+      // Only one car — auto-fill immediately
       applyVehicleTemplate(customerId, cvs[0]);
     } else {
-      // Multiple cars â€” set customer only, let user pick which car to pre-fill from
+      // Multiple cars — set customer only, let user pick which car to pre-fill from
       setForm(f => ({ ...f, customerId, label: '', vin: '', trim: '', engine: '', transmission: '', plate: '' }));
     }
   }
@@ -1126,7 +1126,7 @@ export function VehiclesView() {
   // Filtered + searched list
   const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
   const filtered = vehicles.filter(v => {
-    // Archived vehicles hidden from "All" â€” must use Archived filter to see them
+    // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
     const matchStatus = statusFilter === 'All' || v.status === statusFilter;
     const q = search.toLowerCase();
@@ -1142,18 +1142,18 @@ export function VehiclesView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
-      {/* â”€â”€ Transfer Modal â”€â”€ */}
+      {/* ── Transfer Modal ── */}
       {transferTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           onClick={e => { if (e.target === e.currentTarget) setTransferTarget(null); }}>
           <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 420, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ marginBottom: 20 }}>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>â‡„ Transfer Vehicle</h2>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>{transferTarget.label} Â· {transferTarget.plate}</p>
+              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>⇄ Transfer Vehicle</h2>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>{transferTarget.label} · {transferTarget.plate}</p>
             </div>
 
             <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: 'var(--muted)' }}>
-              Currently at: <strong style={{ color: 'var(--text)' }}>{currentShop?.name ?? 'â€”'}</strong>
+              Currently at: <strong style={{ color: 'var(--text)' }}>{currentShop?.name ?? '—'}</strong>
             </div>
 
             <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Move to:</p>
@@ -1174,8 +1174,8 @@ export function VehiclesView() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(37,99,235,0.07)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--line)'; }}
                 >
-                  <span>ðŸ¢ {s.name}</span>
-                  <span style={{ fontSize: 18, color: '#2563eb' }}>â†’</span>
+                  <span>🏢 {s.name}</span>
+                  <span style={{ fontSize: 18, color: '#2563eb' }}>→</span>
                 </button>
               ))}
             </div>
@@ -1190,7 +1190,7 @@ export function VehiclesView() {
       {galleryVehicle && (
         <PhotoGalleryModal
           title={galleryVehicle.label}
-          subtitle={`${galleryVehicle.plate} Â· ${galleryVehicle.vin}`}
+          subtitle={`${galleryVehicle.plate} · ${galleryVehicle.vin}`}
           fetchImages={() => fetchVehicleImages(galleryVehicle.id)}
           uploadImage={(file, label) => uploadVehicleImage(galleryVehicle.id, file, label)}
           deleteImage={(id, url) => deleteVehicleImage(id, url)}
@@ -1221,7 +1221,7 @@ export function VehiclesView() {
           }}
           onReturnJob={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
-            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `â†© RETURN JOB â€” Vehicle: ${drawerVehicle.label}` } });
+            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
             setDrawerVehicle(null);
           }}
           onCreateInvoice={async () => {
@@ -1236,13 +1236,13 @@ export function VehiclesView() {
                 vehicle: v.label,
                 jobCardId: '',
                 status: 'Draft',
-                lines: [{ note: '', description: `Service â€” ${v.label}`, qty: 1, rate: 0 }],
+                lines: [{ note: '', description: `Service — ${v.label}`, qty: 1, rate: 0 }],
                 discount: 0, shopSupplies: 0, taxRate: 0,
                 notes: `Vehicle: ${v.label}${v.issues ? `\nIssues: ${v.issues}` : ''}`,
                 dueDate: '', paidDate: null, currency: 'USD',
               });
               setDrawerVehicle(null);
-              notify(`âœ“ Invoice ${inv.invoiceNumber} created`);
+              notify(`✓ Invoice ${inv.invoiceNumber} created`);
               dispatch({ type: 'SET_MODULE', module: 'invoices' });
               setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: inv.invoiceNumber } })), 100);
             } catch { notify('Failed to create invoice'); }
@@ -1258,44 +1258,44 @@ export function VehiclesView() {
         />
       )}
 
-      {/* â”€â”€ Toolbar â”€â”€ */}
+      {/* ── Toolbar ── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 6 }}>
-          <ViewBtn mode="grid"    current={viewMode} icon="âŠž" label="Grid"           onClick={() => setViewMode('grid')} />
-          <ViewBtn mode="list"    current={viewMode} icon="â˜°" label="List"           onClick={() => setViewMode('list')} />
-          <ViewBtn mode="service" current={viewMode} icon="ðŸ“‹" label="Service Records" onClick={() => setViewMode('service')} />
-          <ViewBtn mode="kanban"  current={viewMode} icon="ðŸ—‚" label="Kanban"         onClick={() => setViewMode('kanban')} />
+          <ViewBtn mode="grid"    current={viewMode} icon="⊞" label="Grid"           onClick={() => setViewMode('grid')} />
+          <ViewBtn mode="list"    current={viewMode} icon="☰" label="List"           onClick={() => setViewMode('list')} />
+          <ViewBtn mode="service" current={viewMode} icon="📋" label="Service Records" onClick={() => setViewMode('service')} />
+          <ViewBtn mode="kanban"  current={viewMode} icon="🗂" label="Kanban"         onClick={() => setViewMode('kanban')} />
         </div>
         <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
 
-      {/* â”€â”€ Search + Status filters (list & service views) â”€â”€ */}
+      {/* ── Search + Status filters (list & service views) ── */}
       {(viewMode === 'list' || viewMode === 'service') && (
         <div style={{ marginBottom: 14 }}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search vehicles, VIN, plate, tech, issuesâ€¦"
+            placeholder="Search vehicles, VIN, plate, tech, issues…"
             style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box', marginBottom: 10 }}
           />
           <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
         </div>
       )}
 
-      {/* â”€â”€ Add / Edit Form â”€â”€ */}
+      {/* ── Add / Edit Form ── */}
       {showForm && (
         <form onSubmit={handleSave} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? 'âœ Edit Vehicle' : '+ Add Vehicle'}</div>
-          {/* â”€â”€ Customer picker with search + quick-add â”€â”€ */}
+          <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? '✏ Edit Vehicle' : '+ Add Vehicle'}</div>
+          {/* ── Customer picker with search + quick-add ── */}
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer *</label>
               <button type="button" onClick={() => { setShowAddCustomer(v => !v); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); }}
                 style={{ fontSize: 12, fontWeight: 700, color: '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {showAddCustomer ? 'âœ• Cancel' : '+ New Customer'}
+                {showAddCustomer ? '✕ Cancel' : '+ New Customer'}
               </button>
             </div>
 
@@ -1306,7 +1306,7 @@ export function VehiclesView() {
                   value={custSearch || (form.customerId ? (customers.find(c => c.id === form.customerId)?.name ?? '') : '')}
                   onChange={e => { setCustSearch(e.target.value); if (!e.target.value) setForm(f => ({ ...f, customerId: '' })); }}
                   onFocus={e => { setCustSearch(''); e.target.select(); }}
-                  placeholder="Search customersâ€¦"
+                  placeholder="Search customers…"
                   required={!form.customerId}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${form.customerId ? '#22c55e' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', boxSizing: 'border-box', fontSize: 14 }}
                 />
@@ -1314,8 +1314,8 @@ export function VehiclesView() {
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
                     {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0 ? (
                       <div style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: 13 }}>
-                        No match â€” <button type="button" onClick={() => { setShowAddCustomer(true); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); setCustSearch(''); }}
-                          style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Create "{custSearch}" as new customer â†’</button>
+                        No match — <button type="button" onClick={() => { setShowAddCustomer(true); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); setCustSearch(''); }}
+                          style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Create "{custSearch}" as new customer →</button>
                       </div>
                     ) : customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).map(c => {
                       const custVehicles = vehicles.filter(v => v.customerId === c.id);
@@ -1326,7 +1326,7 @@ export function VehiclesView() {
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent') as unknown as void}>
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
-                            {(c.phone || c.email) && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}{c.phone && c.email ? ' Â· ' : ''}{c.email}</div>}
+                            {(c.phone || c.email) && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}{c.phone && c.email ? ' · ' : ''}{c.email}</div>}
                           </div>
                           {custVehicles.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 10, padding: '2px 8px', flexShrink: 0 }}>{custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''}</span>}
                         </div>
@@ -1335,7 +1335,7 @@ export function VehiclesView() {
                   </div>
                 )}
                 {form.customerId && !custSearch && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>âœ“ Customer selected</div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Customer selected</div>
                 )}
               </div>
             )}
@@ -1343,7 +1343,7 @@ export function VehiclesView() {
             {/* Inline new-customer mini-form */}
             {showAddCustomer && (
               <div style={{ background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 2 }}>âž• New Customer</div>
+                <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 2 }}>➕ New Customer</div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>Name *</label>
                   <input value={newCust.name} onChange={e => setNewCust(n => ({ ...n, name: e.target.value }))} placeholder="Company or person name" autoFocus />
@@ -1364,16 +1364,16 @@ export function VehiclesView() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
                   <button type="button" className="btn" onClick={() => setShowAddCustomer(false)}>Cancel</button>
-                  <button type="button" className="btn btn-primary" disabled={savingCust || !newCust.name.trim()} onClick={handleAddCustomer}>{savingCust ? 'Savingâ€¦' : 'Create & Select'}</button>
+                  <button type="button" className="btn btn-primary" disabled={savingCust || !newCust.name.trim()} onClick={handleAddCustomer}>{savingCust ? 'Saving…' : 'Create & Select'}</button>
                 </div>
               </div>
             )}
           </div>
-          {/* â”€â”€ Existing vehicle picker (shown when customer has multiple cars) â”€â”€ */}
+          {/* ── Existing vehicle picker (shown when customer has multiple cars) ── */}
           {custVehicles.length > 0 && form.customerId && (
             <div style={{ gridColumn: '1 / -1', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ padding: '8px 14px', background: 'rgba(33,150,243,0.08)', borderBottom: '1px solid rgba(33,150,243,0.15)', fontSize: 11, fontWeight: 800, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                ðŸš— {customers.find(c => c.id === form.customerId)?.name} has {custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''} on file â€” select to pre-fill, or fill in manually below
+                🚗 {customers.find(c => c.id === form.customerId)?.name} has {custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''} on file — select to pre-fill, or fill in manually below
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1, background: 'rgba(33,150,243,0.1)' }}>
                 {custVehicles.map(v => {
@@ -1385,10 +1385,10 @@ export function VehiclesView() {
                       onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface)'; }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#2196f3' : 'var(--text)' }}>{v.label}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 8 }}>
-                        {v.plate && <span>ðŸ”¢ {v.plate}</span>}
-                        {v.vin && <span style={{ fontFamily: 'monospace' }}>{v.vin.slice(0, 8)}â€¦</span>}
+                        {v.plate && <span>🔢 {v.plate}</span>}
+                        {v.vin && <span style={{ fontFamily: 'monospace' }}>{v.vin.slice(0, 8)}…</span>}
                       </div>
-                      {v.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#2196f3', alignSelf: 'flex-start', marginTop: 2 }}>{isSelected ? 'âœ“ Selected' : 'Click to pre-fill â†’'}</span>}
+                      {v.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#2196f3', alignSelf: 'flex-start', marginTop: 2 }}>{isSelected ? '✓ Selected' : 'Click to pre-fill →'}</span>}
                     </div>
                   );
                 })}
@@ -1410,9 +1410,9 @@ export function VehiclesView() {
               <span style={{ fontSize: 11, fontWeight: 600, color: form.vin.length === 17 ? '#22c55e' : form.vin.length > 0 ? '#f59e0b' : 'var(--muted)' }}>{form.vin.length}/17</span>
             </label>
             <input value={form.vin} onChange={e => { const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17); setForm(f => ({ ...f, vin: v })); if (vinError) setVinError(''); }} placeholder="1FTFW1E85PFA24680" maxLength={17} style={{ borderColor: vinError ? '#ef4444' : form.vin.length === 17 ? '#22c55e' : undefined, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
-            {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>âš  {vinError}</div>}
+            {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>⚠ {vinError}</div>}
             {!vinError && form.vin.length > 0 && form.vin.length < 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b' }}>{17 - form.vin.length} more needed</div>}
-            {!vinError && form.vin.length === 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>âœ“ Valid length</div>}
+            {!vinError && form.vin.length === 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Valid length</div>}
           </div>
           {field('trim', 'Trim', 'XL SuperCrew 4WD')}
           {field('engine', 'Engine', '3.5L EcoBoost')}
@@ -1425,18 +1425,18 @@ export function VehiclesView() {
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Savingâ€¦' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
           </div>
         </form>
       )}
 
-      {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading vehiclesâ€¦</p>}
+      {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading vehicles…</p>}
       {error && <p style={{ color: 'var(--danger)', padding: 16 }}>{error}</p>}
       {!loading && vehicles.length === 0 && <p style={{ color: 'var(--muted)', padding: 16 }}>No vehicles yet. Add your first one above.</p>}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {/* GRID VIEW                                         */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {viewMode === 'grid' && vehicles.length > 0 && (
         <>
           <div className="grid cols-3">
@@ -1447,7 +1447,7 @@ export function VehiclesView() {
                   const count = photos.length;
                   return (
                     <div onClick={() => setGalleryVehicle(v)} style={{ height: 160, cursor: 'pointer', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)', display: 'flex', background: '#000' }}>
-                      {count === 0 && <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}><span style={{ fontSize: 32 }}>ðŸš—</span><span style={{ fontSize: 12 }}>Add photos</span></div>}
+                      {count === 0 && <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}><span style={{ fontSize: 32 }}>🚗</span><span style={{ fontSize: 12 }}>Add photos</span></div>}
                       {count === 1 && <img src={photos[0]} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                       {count === 2 && (<><img src={photos[0]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block', borderRight: '2px solid #000' }} /><img src={photos[1]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block' }} /></>)}
                       {count >= 3 && (<>
@@ -1461,7 +1461,7 @@ export function VehiclesView() {
                           ))}
                         </div>
                       </>)}
-                      <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6, pointerEvents: 'none' }}>ðŸ“· {count > 0 ? `${count} photo${count !== 1 ? 's' : ''}` : 'Photos'}</div>
+                      <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6, pointerEvents: 'none' }}>📷 {count > 0 ? `${count} photo${count !== 1 ? 's' : ''}` : 'Photos'}</div>
                     </div>
                   );
                 })()}
@@ -1471,10 +1471,10 @@ export function VehiclesView() {
                     <Badge text={v.status || 'No open jobs'} />
                   </div>
                   <div className="kv" style={{ marginTop: 10 }}>
-                    <div><span>VIN</span><strong style={{ fontSize: 11 }}>{v.vin || 'â€”'}</strong></div>
-                    <div><span>Mileage</span><strong>{v.mileage || 'â€”'}</strong></div>
-                    <div><span>Engine</span><strong>{v.engine || 'â€”'}</strong></div>
-                    <div><span>Plate</span><strong>{v.plate || 'â€”'}</strong></div>
+                    <div><span>VIN</span><strong style={{ fontSize: 11 }}>{v.vin || '—'}</strong></div>
+                    <div><span>Mileage</span><strong>{v.mileage || '—'}</strong></div>
+                    <div><span>Engine</span><strong>{v.engine || '—'}</strong></div>
+                    <div><span>Plate</span><strong>{v.plate || '—'}</strong></div>
                   </div>
                   {v.recommendation && <div className="empty-note" style={{ marginTop: 10 }}>Recommended: {v.recommendation}</div>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -1482,14 +1482,14 @@ export function VehiclesView() {
                       const owner = customers.find(c => c.id === v.customerId);
                       dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
                     }}>ï¼‹ Job Card</button>
-                    {enableVehiclePhotos && <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>ðŸ“· Photos</button>}
+                    {enableVehiclePhotos && <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
                     {enableVehicleEdit && <button className="btn" style={{ fontSize: 13 }} onClick={() => {
                       setEditingId(v.id);
                       setForm({ customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim, engine: v.engine, transmission: v.transmission, mileage: v.mileage, plate: v.plate, status: v.status || 'Active', recommendation: v.recommendation });
                       setVinError('');
                       setShowForm(true);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}>âœ Edit</button>}
+                    }}>✏ Edit</button>}
                   </div>
                 </div>
               </article>
@@ -1508,7 +1508,7 @@ export function VehiclesView() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {enableVehiclePhotos && ((thumbs[v.id]?.[0])
                           ? <img src={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
-                          : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>ðŸš—</div>
+                          : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>🚗</div>
                         )}
                         <div><strong>{v.label}</strong><div className="meta">{v.plate}</div></div>
                       </div>
@@ -1518,9 +1518,9 @@ export function VehiclesView() {
                     <td>{v.recommendation}</td>
                     <td>
                       <div className="row-actions">
-                        {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>ðŸ“· Photos</button>}
+                        {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
                         {role === 'owner' && shops.length > 1 && (
-                          <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>â‡„ Transfer</button>
+                          <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
                         )}
                         <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                       </div>
@@ -1533,18 +1533,18 @@ export function VehiclesView() {
         </>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {/* LIST VIEW                                         */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {viewMode === 'list' && filtered.length > 0 && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-            {filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} {statusFilter !== 'All' ? `Â· ${statusFilter}` : ''}
+            {filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} {statusFilter !== 'All' ? `· ${statusFilter}` : ''}
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--surface-soft)' }}>
-                {['Vehicle', 'Customer', 'Year Â· Make Â· Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
+                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1559,23 +1559,23 @@ export function VehiclesView() {
                       {enableVehiclePhotos && (
                         thumbs[v.id]?.[0]
                           ? <img src={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }} />
-                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>ðŸš—</div>
+                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>🚗</div>
                       )}
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{v.label}</span>
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    {(() => { const c = customers.find(cu => cu.id === v.customerId); return c ? <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>â€”</span>; })()}
+                    {(() => { const c = customers.find(cu => cu.id === v.customerId); return c ? <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>; })()}
                   </td>
-                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{[v.year, v.make, v.model].filter(Boolean).join(' ') || 'â€”'}</td>
-                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || 'â€”'}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || 'â€”'}</td>
-                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || 'â€”'}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{[v.year, v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || '—'}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || '—'}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || '—'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusPill status={v.status} />
                     {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.recommendation}>
-                        ðŸ“ {v.recommendation}
+                        📝 {v.recommendation}
                       </div>
                     )}
                   </td>
@@ -1585,17 +1585,17 @@ export function VehiclesView() {
                           const c = techColor(t);
                           return <span key={t} style={{ display: 'inline-block', background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600, marginRight: 3, marginBottom: 2 }}>{t}</span>;
                         })
-                      : <span style={{ color: 'var(--muted)' }}>â€”</span>
+                      : <span style={{ color: 'var(--muted)' }}>—</span>
                     }
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                    {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'â€”'}
+                    {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </td>
                   <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
-                      {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>ðŸ“·</button>}
+                      {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}
                       {role === 'owner' && shops.length > 1 && (
-                        <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>â‡„ Transfer</button>
+                        <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
                       )}
                       <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                     </div>
@@ -1610,9 +1610,9 @@ export function VehiclesView() {
         <p style={{ color: 'var(--muted)', padding: 20, textAlign: 'center' }}>No vehicles match your filters.</p>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {/* KANBAN VIEW                                        */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {viewMode === 'kanban' && (
         <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', alignItems: 'flex-start' }}>
@@ -1651,7 +1651,7 @@ export function VehiclesView() {
                   <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {colVehicles.length === 0 && (
                       <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
-                        {isDropTarget ? 'ðŸ“¥ Drop here' : 'No vehicles'}
+                        {isDropTarget ? '📥 Drop here' : 'No vehicles'}
                       </div>
                     )}
                     {colVehicles.map(v => {
@@ -1680,17 +1680,17 @@ export function VehiclesView() {
                             >
                               {thumb
                                 ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <span style={{ fontSize: 26, opacity: 0.4 }}>ðŸš—</span>
+                                : <span style={{ fontSize: 26, opacity: 0.4 }}>🚗</span>
                               }
-                              <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>ðŸ“·</div>
+                              <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>📷</div>
                             </div>
                           )}
 
                           {/* Card body */}
                           <div style={{ padding: '8px 10px' }}>
                             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>{v.label}</div>
-                            {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>ðŸ‘¤ {owner.name}</div>}
-                            {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>ðŸ”¢ {v.plate}</div>}
+                            {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>👤 {owner.name}</div>}
+                            {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>🔢 {v.plate}</div>}
                             {v.assignedTech && (
                               <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                                 {v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
@@ -1705,7 +1705,7 @@ export function VehiclesView() {
                               <button
                                 onClick={() => setDrawerVehicle(v)}
                                 style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: `1px solid ${col.border}`, background: col.bg, color: col.color, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                                Open â†’
+                                Open →
                               </button>
                               <button
                                 onClick={() => {
@@ -1723,7 +1723,7 @@ export function VehiclesView() {
                               onClick={e => e.stopPropagation()}
                               style={{ marginTop: 6, width: '100%', padding: '4px 6px', borderRadius: 6, border: `1px solid ${col.border}`, background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
                             >
-                              <option value="">Move toâ€¦</option>
+                              <option value="">Move to…</option>
                               {KANBAN_COLUMNS.filter(c => c.status !== col.status).map(c => (
                                 <option key={c.status} value={c.status}>{c.icon} {c.label}</option>
                               ))}
@@ -1744,13 +1744,13 @@ export function VehiclesView() {
               );
             })}
           </div>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status Â· or use the "Move toâ€¦" dropdown on each card</p>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status · or use the "Move to…" dropdown on each card</p>
         </div>
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {/* SERVICE RECORDS VIEW                              */}
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      {/* ══════════════════════════════════════════════════ */}
       {viewMode === 'service' && (
         <>
           {/* Summary bar */}
