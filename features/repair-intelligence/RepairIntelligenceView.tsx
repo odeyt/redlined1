@@ -335,7 +335,7 @@ export function RepairIntelligenceView() {
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   useEffect(() => {
-    listRepairCases()
+    void listRepairCases()
       .then(setCases)
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load repair cases'))
       .finally(() => setLoading(false));
@@ -352,7 +352,7 @@ export function RepairIntelligenceView() {
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadDetail(selectedId);
+    if (selectedId) void loadDetail(selectedId);
     else setDetail(null);
   }, [selectedId, loadDetail]);
 
@@ -452,7 +452,7 @@ export function RepairIntelligenceView() {
               {!detailLoading && detail && (
                 <CaseDetail
                   rc={detail}
-                  onVerify={(status) => handleVerify(detail.id, status)}
+                  onVerify={(status) => { void handleVerify(detail.id, status); }}
                   onClose={() => setSelectedId(null)}
                 />
               )}
