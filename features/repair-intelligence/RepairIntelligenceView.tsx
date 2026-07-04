@@ -337,7 +337,15 @@ export function RepairIntelligenceView() {
   useEffect(() => {
     void listRepairCases()
       .then(setCases)
-      .catch(e => setError(e instanceof Error ? e.message : 'Failed to load repair cases'))
+      .catch(e => {
+        const msg = e instanceof Error ? e.message : String(e);
+        // "42P01" = relation does not exist — migration not yet run
+        if (msg.includes('42P01') || msg.includes('does not exist')) {
+          setError('Repair Intelligence database tables are not set up. Run repair_intelligence_complete.sql in your Supabase SQL Editor.');
+        } else {
+          setError(msg || 'Failed to load repair cases');
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -405,9 +413,18 @@ export function RepairIntelligenceView() {
           {/* List */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {filtered.length === 0 && (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                {search ? 'No cases match your search.' : 'No repair intelligence cases yet. Complete a repair order to create your first case.'}
-              </div>
+              search
+                ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>No cases match your search.</div>
+                : (
+                  <div style={{ padding: '40px 32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 12, background: 'var(--bg-secondary)' }}>
+                    <div style={{ fontSize: 36, marginBottom: 12 }}>🔧</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>No repair cases yet</div>
+                    <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                      Complete your first repair to begin building Repair Intelligence.<br />
+                      Cases are automatically created when repair orders are closed.
+                    </div>
+                  </div>
+                )
             )}
             {filtered.map(rc => {
               const pct = listScore(rc);

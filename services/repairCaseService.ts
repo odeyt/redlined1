@@ -152,6 +152,7 @@ function mapCase(r: Record<string, unknown>): RepairCase {
 
 export async function createRepairCaseFromJob(params: Partial<RepairCase>): Promise<RepairCase> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_cases')
     .insert({
@@ -221,6 +222,7 @@ export async function updateVerificationStatus(id: string, status: VerificationS
 
 export async function fetchRepairCaseWithDetails(id: string): Promise<RepairCaseWithDetails | null> {
   const shopId = getShopId();
+  if (!shopId) return null;
   const [
     { data: caseData, error: caseErr },
     { data: dtcData },
@@ -249,6 +251,7 @@ export async function fetchRepairCaseWithDetails(id: string): Promise<RepairCase
 
 export async function listRepairCases(): Promise<RepairCase[]> {
   const shopId = getShopId();
+  if (!shopId) return [];
   const { data, error } = await supabase
     .from('repair_cases')
     .select('*')
