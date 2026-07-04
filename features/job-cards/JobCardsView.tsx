@@ -671,10 +671,39 @@ export function JobCardsView() {
 
       {/* ── STATS ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <StatCard label="Active Jobs" value={String(jobs.length)} subtext="In queue" />
-        <StatCard label="Approved" value={String(jobs.filter(j => j.approval === 'Approved').length)} subtext="Ready to work" />
-        <StatCard label="Closed This Month" value={String(closedJobs.length)} subtext="Archived" />
-        <StatCard label="Technicians" value={String(techs.length)} subtext="Active staff" />
+        <StatCard
+          label="Active Jobs"
+          value={String(jobs.length)}
+          subtext="In queue"
+          accent="#3b82f6"
+          active={tab === 'active' && !filterStatus && !filterService}
+          onClick={() => { setTab('active'); setFilterStatus(''); setFilterService(''); }}
+          trend={jobs.length > 0 ? { value: jobs.filter(j => j.approval === 'Approved').length > 0 ? Math.round((jobs.filter(j => j.approval === 'Approved').length / jobs.length) * 100) : 0, label: 'approved' } : undefined}
+        />
+        <StatCard
+          label="Approved"
+          value={String(jobs.filter(j => j.approval === 'Approved').length)}
+          subtext="Ready to work"
+          accent="#22c55e"
+          active={tab === 'active' && filterStatus === 'Approved'}
+          onClick={() => { setTab('active'); setFilterStatus('Approved'); setFilterService(''); }}
+        />
+        <StatCard
+          label="Closed This Month"
+          value={String(closedJobs.length)}
+          subtext="View archive"
+          accent="#f59e0b"
+          active={tab === 'closed'}
+          onClick={() => { setTab('closed'); setFilterStatus(''); setFilterService(''); }}
+        />
+        <StatCard
+          label="Technicians"
+          value={String(techs.length)}
+          subtext="Manage staff"
+          accent="#8b5cf6"
+          active={tab === 'techs'}
+          onClick={() => { setTab('techs'); setFilterStatus(''); setFilterService(''); }}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
