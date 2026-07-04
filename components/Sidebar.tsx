@@ -266,7 +266,10 @@ export function Sidebar() {
           <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
         )}
         {!roleLoading && visibleNav.map(([id, icon, label, count]) => {
-          const locked = !canAccess(id, planStatus);
+          // Plan locks only apply to the shop owner.
+          // Staff with a valid role (technician, advisor, manager, etc.) are never plan-locked —
+          // they are covered by role-based access control instead.
+          const locked = (role === 'owner' || !role) && !canAccess(id, planStatus);
           return (
             <button
               key={id}
