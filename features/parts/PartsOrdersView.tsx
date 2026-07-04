@@ -5,12 +5,12 @@ import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import {
   fetchPartsOrders, createPartsOrder, updatePartsOrder, deletePartsOrder,
-  fetchVendors, createVendor, updateVendor, deleteVendor,
+  fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor,
   PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
-import { fetchVehicles } from '@/services/vehicleService';
+import { fetchVehicles, fetchVehiclesAll } from '@/services/vehicleService';
 import { createPartsEstimate, ESTIMATE_STATUSES } from '@/services/partsEstimateService';
 import { FilterPills } from '@/components/FilterPills';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
@@ -210,13 +210,49 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   }, [activeOrderId, loadImages]);
 
   async function handleImageUpload(files: FileList | null) {
-    if (!files || !activeOrderId) return;
+    if (!files) return;
+    let orderId = activeOrderId;
+    // Auto-save a new order so we have an ID before uploading
+    if (!orderId) {
+      const hasItem = form.lineItems.some(i => i.partName.trim());
+      if (!hasItem) { setFormError('Add at least one part name before uploading photos.'); return; }
+      setSaving(true);
+      setFormError('');
+      try {
+        const firstItem = form.lineItems[0];
+        const payload: Omit<PartsOrder, 'id' | 'createdAt'> = {
+          lineItems: form.lineItems,
+          partName: firstItem.partName, partNumber: firstItem.partNumber,
+          condition: firstItem.condition, quantity: firstItem.quantity, unitCost: firstItem.unitCost,
+          vendorName: form.vendorName, vendorPhone: form.vendorPhone, vendorEmail: form.vendorEmail,
+          coreCharge: form.coreCharge, depositPaid: form.depositPaid,
+          totalCost: form.totalCost, balanceDue: form.balanceDue,
+          status: form.status, paymentStatus: form.paymentStatus,
+          orderDate: form.orderDate, etr: form.etr, receivedDate: form.receivedDate,
+          jobCardNumber: form.jobCardNumber, repairOrderNumber: form.repairOrderNumber,
+          estimateNumber: form.estimateNumber, invoiceNumber: form.invoiceNumber,
+          vehicle: form.vehicle, customerName: form.customerName,
+          warranty: form.warranty, notes: form.notes, currency: form.currency,
+        };
+        const created = await createPartsOrder(payload);
+        setOrders(prev => [created, ...prev]);
+        setEditingId(created.id);
+        orderId = created.id;
+        notify('Order saved — uploading photos…');
+      } catch (e: unknown) {
+        const msg = (e as Record<string, unknown>)?.message as string || 'Auto-save failed.';
+        setFormError(msg);
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
     setUploadingImg(true);
     setFormError('');
     let uploaded = 0;
     for (const file of Array.from(files)) {
       try {
-        const img = await uploadEntityImage('parts_order', activeOrderId, file, imgLabel);
+        const img = await uploadEntityImage('parts_order', orderId, file, imgLabel);
         setImages(prev => [...prev, img]);
         uploaded++;
       } catch (err) {
@@ -254,7 +290,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     if (!shopId) return;
     setLoading(true);
     const [ordersR, vendorsR, customersR, vehiclesR] = await Promise.allSettled([
-      fetchPartsOrders(), fetchVendors(), fetchCustomers(), fetchVehicles(),
+      fetchPartsOrders(), fetchVendorsAll(), fetchCustomers(), fetchVehiclesAll(),
     ]);
     if (ordersR.status === 'fulfilled') {
       setOrders(ordersR.value);
@@ -1127,26 +1163,19 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
             <div style={{ marginBottom: 20, padding: '14px 16px', background: 'rgba(239,68,68,0.06)', border: '2px solid #cc0000', borderRadius: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap' }}>📎 Photos &amp; Invoices</span>
-                {activeOrderId ? (
-                  <>
-                    <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
-                      style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--card)', fontSize: 13 }}>
-                      <option value="Photo">📷 Photo</option>
-                      <option value="Invoice">🧾 Invoice</option>
-                    </select>
-                    <label style={{ padding: '7px 16px', borderRadius: 7, background: '#cc0000', color: '#fff', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                      {uploadingImg ? 'Uploading…' : '+ Add Images / Invoices'}
-                      <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
-                        onChange={e => handleImageUpload(e.target.files)} />
-                    </label>
-                    {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
-                  </>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>Save this order first to enable photo/invoice uploads</span>
-                )}
+                <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
+                  style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--card)', fontSize: 13 }}>
+                  <option value="Photo">📷 Photo</option>
+                  <option value="Invoice">🧾 Invoice</option>
+                </select>
+                <label style={{ padding: '7px 16px', borderRadius: 7, background: '#cc0000', color: '#fff', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                  {uploadingImg ? 'Uploading…' : '+ Add Images / Invoices'}
+                  <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
+                    onChange={e => handleImageUpload(e.target.files)} />
+                </label>
+                {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
               </div>
-              {activeOrderId && (
-                <>
+              <>
                   {/* Drop zone — accepts any file dragged from OS */}
                   <div style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'default', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
                     onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
@@ -1191,8 +1220,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                   {!imagesLoading && images.length === 0 && (
                     <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', margin: '8px 0 0' }}>No photos or invoices attached yet.</p>
                   )}
-                </>
-              )}
+              </>
             </div>
 
             <form onSubmit={handleFormSubmit}>

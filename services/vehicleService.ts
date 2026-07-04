@@ -89,6 +89,15 @@ export async function fetchVehicles(): Promise<VehicleRecord[]> {
   return (data ?? []).map(toVehicle);
 }
 
+export async function fetchVehiclesAll(): Promise<VehicleRecord[]> {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*')
+    .order('label');
+  if (error) throw error;
+  return (data ?? []).map(toVehicle);
+}
+
 export async function saveVehicle(vehicle: Omit<Vehicle, 'customerId'> & { customerId: string }): Promise<VehicleRecord> {
   const { data, error } = await supabase
     .from('vehicles')

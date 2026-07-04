@@ -172,6 +172,15 @@ export async function fetchVendors(): Promise<PartsVendor[]> {
   return (data ?? []).map(mapVendor);
 }
 
+export async function fetchVendorsAll(): Promise<PartsVendor[]> {
+  const { data, error } = await supabase
+    .from('parts_vendors')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return (data ?? []).map(mapVendor);
+}
+
 export async function createVendor(v: Omit<PartsVendor, 'id'>): Promise<PartsVendor> {
   const { data, error } = await supabase
     .from('parts_vendors')
