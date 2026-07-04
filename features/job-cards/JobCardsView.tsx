@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
 import { Panel } from '@/components/Panel';
@@ -156,12 +156,12 @@ export function JobCardsView() {
     finally { setAdvancingStage(false); }
   }
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
   const [photoJob, setPhotoJob] = useState<JobCardFull | null>(null);
 
   useEffect(() => {
     if (openNewJobCard) {
-      setShowCreateModal(true);
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       // Apply any prefilled data from navigation
       if (prefill?.customerName) {
         setFCustomer(prefill.customerName);
@@ -361,6 +361,12 @@ export function JobCardsView() {
   }
 
 
+  function resetCreateForm() {
+    setFCustomer(''); setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
+    setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({});
+    setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion('');
+  }
+
   async function handleCreate(): Promise<boolean> {
     if (!fCustomer) { setError('Select a customer.'); return false; }
     setError(''); setCreating(true);
@@ -369,9 +375,7 @@ export function JobCardsView() {
       const fullServiceType = fServiceTypes.map(s => fSubTypes[s]?.length ? `${s} — ${fSubTypes[s].join(', ')}` : s).join(' + ');
       const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fullServiceType || 'General Service', channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
       setJobs(prev => [job, ...prev]);
-      setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
-      setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({});
-      setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion('');
+      resetCreateForm();
       notify(`${job.id} created.`);
       return true;
     } catch (err: unknown) {
@@ -489,6 +493,140 @@ export function JobCardsView() {
       {toast && <div className="toast toast-visible">{toast}</div>}
       {error && <p style={{ color: 'var(--danger)', padding: '10px 14px', background: '#fff0f0', borderRadius: 6, marginBottom: 12 }}>{error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>✕</button></p>}
 
+      {/* ── CREATE JOB CARD (always visible at top) ── */}
+      <div ref={formRef} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 24, marginBottom: 24 }}>
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Create Job Card</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Fill in details and assign one or more technicians</p>
+        </div>
+        {/* ── form fields ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
+          <div className="field">
+            <label>Customer</label>
+            {customers.length > 0 ? (
+              <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
+                <option value="">— select customer —</option>
+                {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+            ) : (
+              <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
+            )}
+            {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
+          </div>
+          <div className="field">
+            <label>Vehicle / VIN</label>
+            {customerVehicles.length > 1 ? (
+              <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
+                <option value="">— select vehicle —</option>
+                {customerVehicles.map(v => (
+                  <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                ))}
+              </select>
+            ) : (
+              <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
+            )}
+            {selectedVehicleMileage && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>🛣 {Number(selectedVehicleMileage).toLocaleString()} km on record</div>}
+          </div>
+          <div className="field">
+            <label>Work Type</label>
+            <select value={fWorkType} onChange={e => handleWorkTypeChange(e.target.value)}>
+              <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
+            </select>
+          </div>
+          {enableJobCardPriority && (
+            <div className="field">
+              <label>Priority</label>
+              <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
+                <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
+              </select>
+            </div>
+          )}
+          {enableJobCardBranchRoute && (
+            <div className="field">
+              <label>Branch / Route</label>
+              <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
+                {appointmentBays.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+          )}
+          {enableJobCardServiceLocation && (
+            <div className="field">
+              <label>Service Location</label>
+              <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
+            </div>
+          )}
+          {enableJobCardApprovalCode && (
+            <div className="field">
+              <label>PO / Approval Code</label>
+              <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
+            </div>
+          )}
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>Service Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span></label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {serviceTypeOptions.map(s => {
+              const active = fServiceTypes.includes(s);
+              return (
+                <button key={s} type="button" onClick={() => toggleServiceType(s)}
+                  style={{ padding: '5px 12px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`, background: active ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 700 : 400, transition: 'all 0.15s' }}>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+          {fServiceTypes.length === 0 && <div style={{ fontSize: 12, color: 'var(--red,#cc0000)', marginTop: 4 }}>Select at least one service type</div>}
+        </div>
+        {enableJobCardSubType && fServiceTypes.filter(s => (serviceSubTypes[s] ?? []).length > 0).map(svc => (
+          <div key={svc} style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              {svc} — Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span>
+              {oilSuggestion && svc === 'Oil Change' && (
+                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>✓ Suggested from engine</span>
+              )}
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {(serviceSubTypes[svc] ?? []).map(s => {
+                const checked = (fSubTypes[svc] ?? []).includes(s);
+                return (
+                  <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '5px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`, background: checked ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', userSelect: 'none' }}>
+                    <input type="checkbox" checked={checked} onChange={() => {
+                      const cur = fSubTypes[svc] ?? [];
+                      const next = checked ? cur.filter(x => x !== s) : [...cur, s];
+                      setFSubTypes(prev => ({ ...prev, [svc]: next }));
+                      if (svc === 'Oil Change') setOilSuggestion('');
+                    }} style={{ accentColor: 'var(--accent)' }} />
+                    {s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ✓' : ''}
+                  </label>
+                );
+              })}
+            </div>
+            {selectedVehicleEngine && svc === 'Oil Change' && (
+              <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>Engine: {selectedVehicleEngine}</div>
+            )}
+          </div>
+        ))}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
+          {techs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {techs.map(t => (
+              <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 8, border: `1px solid ${fTechs.includes(t.name) ? 'var(--accent)' : 'var(--line)'}`, background: fTechs.includes(t.name) ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
+                <input type="checkbox" checked={fTechs.includes(t.name)} onChange={() => toggleFTech(t.name)} style={{ accentColor: 'var(--accent)' }} />
+                {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+          <button className="btn primary" onClick={async () => { await handleCreate(); }} disabled={creating}>
+            <Icon name="add" /> {creating ? 'Creating…' : '+ Create Job Card'}
+          </button>
+          <button className="btn" onClick={resetCreateForm}>Clear</button>
+        </div>
+      </div>
+
+      {/* ── STATS ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <StatCard label="Active Jobs" value={String(jobs.length)} subtext="In queue" />
         <StatCard label="Approved" value={String(jobs.filter(j => j.approval === 'Approved').length)} subtext="Ready to work" />
@@ -764,148 +902,6 @@ export function JobCardsView() {
             </table>
           )}
         </Panel>
-      )}
-
-      {/* ── NEW JOB CARD MODAL ── */}
-      {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowCreateModal(false)}>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 28, width: 640, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>New Job Card</h2>
-              <button className="mini-btn" onClick={() => setShowCreateModal(false)} style={{ fontSize: 18, lineHeight: 1, padding: '4px 10px' }}>✕</button>
-            </div>
-            <div className="form-row">
-              <div className="field">
-                <label>Customer</label>
-                {customers.length > 0 ? (
-                  <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
-                ) : (
-                  <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
-                )}
-                {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
-              </div>
-              <div className="field">
-                <label>Vehicle / VIN</label>
-                {customerVehicles.length > 1 ? (
-                  <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
-                    <option value="">— select vehicle —</option>
-                    {customerVehicles.map(v => (
-                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
-                )}
-                {selectedVehicleMileage && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>🛣 {Number(selectedVehicleMileage).toLocaleString()} km on record</div>}
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="field" style={{ minWidth: '100%' }}>
-                <label>Service Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span></label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {serviceTypeOptions.map(s => {
-                    const active = fServiceTypes.includes(s);
-                    return (
-                      <button key={s} type="button" onClick={() => toggleServiceType(s)}
-                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`, background: active ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 700 : 400, transition: 'all 0.15s' }}>
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-                {fServiceTypes.length === 0 && <div style={{ fontSize: 12, color: 'var(--red,#cc0000)', marginTop: 4 }}>Select at least one service type</div>}
-              </div>
-              {enableJobCardSubType && fServiceTypes.filter(s => (serviceSubTypes[s] ?? []).length > 0).map(svc => (
-                <div key={svc} className="field" style={{ minWidth: '100%' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {svc} — Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span>
-                    {oilSuggestion && svc === 'Oil Change' && (
-                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
-                        ✓ Suggested from engine
-                      </span>
-                    )}
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                    {(serviceSubTypes[svc] ?? []).map(s => {
-                      const checked = (fSubTypes[svc] ?? []).includes(s);
-                      return (
-                        <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '5px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`, background: checked ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', userSelect: 'none' }}>
-                          <input type="checkbox" checked={checked} onChange={() => {
-                            const cur = fSubTypes[svc] ?? [];
-                            const next = checked ? cur.filter(x => x !== s) : [...cur, s];
-                            setFSubTypes(prev => ({ ...prev, [svc]: next }));
-                            if (svc === 'Oil Change') setOilSuggestion('');
-                          }} style={{ accentColor: 'var(--accent)' }} />
-                          {s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ✓' : ''}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {selectedVehicleEngine && svc === 'Oil Change' && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>Engine: {selectedVehicleEngine}</div>
-                  )}
-                </div>
-              ))}
-              <div className="field">
-                <label>Work Type</label>
-                <select value={fWorkType} onChange={e => handleWorkTypeChange(e.target.value)}>
-                  <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
-                </select>
-              </div>
-              {enableJobCardPriority && (
-                <div className="field">
-                  <label>Priority</label>
-                  <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
-                    <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
-                  </select>
-                </div>
-              )}
-            </div>
-            <div className="form-row">
-              {enableJobCardBranchRoute && (
-                <div className="field">
-                  <label>Branch / Route</label>
-                  <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                    {appointmentBays.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-              )}
-              {enableJobCardServiceLocation && (
-                <div className="field">
-                  <label>Service Location</label>
-                  <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
-                </div>
-              )}
-              {enableJobCardApprovalCode && (
-                <div className="field">
-                  <label>PO / Approval Code</label>
-                  <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
-                </div>
-              )}
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
-              {techs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                {techs.map(t => (
-                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 8, border: `1px solid ${fTechs.includes(t.name) ? 'var(--accent)' : 'var(--line)'}`, background: fTechs.includes(t.name) ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
-                    <input type="checkbox" checked={fTechs.includes(t.name)} onChange={() => toggleFTech(t.name)} style={{ accentColor: 'var(--accent)' }} />
-                    {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-              <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({}); setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion(''); }}>Cancel</button>
-              <button className="btn primary" onClick={async () => { const ok = await handleCreate(); if (ok) setShowCreateModal(false); }} disabled={creating}>
-                <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ── JOB DETAIL DRAWER ── */}
