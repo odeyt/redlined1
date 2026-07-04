@@ -361,8 +361,8 @@ export function JobCardsView() {
   }
 
 
-  async function handleCreate() {
-    if (!fCustomer) return setError('Select a customer.');
+  async function handleCreate(): Promise<boolean> {
+    if (!fCustomer) { setError('Select a customer.'); return false; }
     setError(''); setCreating(true);
     try {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
@@ -373,7 +373,13 @@ export function JobCardsView() {
       setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({});
       setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion('');
       notify(`${job.id} created.`);
-    } catch (err: unknown) { setError('Create failed: ' + (err instanceof Error ? err.message : JSON.stringify(err))); }
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('[JobCards] createJobCard failed:', msg);
+      setError('Create failed: ' + msg);
+      return false;
+    }
     finally { setCreating(false); }
   }
 
@@ -894,7 +900,7 @@ export function JobCardsView() {
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
               <button className="btn" onClick={() => { setShowCreateModal(false); setCustomerVehicles([]); setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({}); setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion(''); }}>Cancel</button>
-              <button className="btn primary" onClick={async () => { await handleCreate(); setShowCreateModal(false); }} disabled={creating}>
+              <button className="btn primary" onClick={async () => { const ok = await handleCreate(); if (ok) setShowCreateModal(false); }} disabled={creating}>
                 <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
               </button>
             </div>
