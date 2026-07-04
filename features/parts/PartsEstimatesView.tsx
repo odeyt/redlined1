@@ -9,11 +9,11 @@ import {
   ESTIMATE_STATUSES, PART_CONDITIONS,
 } from '@/services/partsEstimateService';
 import {
-  fetchVendors, createVendor, updateVendor, deleteVendor, PartsVendor,
+  fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor, PartsVendor,
   createPartsOrder,
 } from '@/services/partsOrderService';
 import { fetchCustomers } from '@/services/customerService';
-import { fetchVehicles } from '@/services/vehicleService';
+import { fetchVehiclesAll } from '@/services/vehicleService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { FilterPills } from '@/components/FilterPills';
 import {
@@ -226,7 +226,7 @@ export function PartsEstimatesView() {
     if (!shopId) return;
     setLoading(true);
     const [estimatesR, vendorsR, customersR, vehiclesR] = await Promise.allSettled([
-      fetchPartsEstimates(), fetchVendors(), fetchCustomers(), fetchVehicles(),
+      fetchPartsEstimates(), fetchVendorsAll(), fetchCustomers(), fetchVehiclesAll(),
     ]);
     if (estimatesR.status === 'fulfilled') {
       setEstimates(estimatesR.value);
