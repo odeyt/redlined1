@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 
 // ── Shared status color map used everywhere in the portal ──────────
 export const STATUS_PILL_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {

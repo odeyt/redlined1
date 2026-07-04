@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePagination } from '@/lib/usePagination';
+import { Pagination } from '@/components/Pagination';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { FilterPills } from '@/components/FilterPills';
 import { TechPills } from '@/components/TechPill';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
-  closeRepairOrder, deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
+  deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
   RO_STATUSES, type RepairOrder, type RoPart,
 } from '@/services/repairOrderService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
@@ -21,6 +23,8 @@ import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
+import { RepairCaseWizard } from '@/components/RepairCaseWizard';
+import type { RepairCase } from '@/services/repairCaseService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -340,6 +344,7 @@ export function RepairOrdersView() {
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [qaTarget, setQaTarget] = useState<RepairOrder | null>(null);
+  const [wizardRO, setWizardRO] = useState<RepairOrder | null>(null);
   const [photoRO, setPhotoRO] = useState<RepairOrder | null>(null);
   const [currencyQuery, setCurrencyQuery] = useState('');
   const [currencyOpen, setCurrencyOpen] = useState(false);
@@ -492,10 +497,6 @@ export function RepairOrdersView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
-  function handleClose(ro: RepairOrder) {
-    // Always route through QA — never use browser confirm()
-    setQaTarget(ro);
-  }
 
   async function handleQAApprove(ro: RepairOrder, checklist: QAItem[], miscItems: QAItem[], advisorName: string, qaNotes: string) {
     const now = new Date().toLocaleString();
@@ -514,6 +515,7 @@ export function RepairOrdersView() {
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — ready for invoicing.`);
+      setWizardRO(updated as RepairOrder);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -533,7 +535,6 @@ export function RepairOrdersView() {
     if (!confirm(`Convert ${ro.roNumber} to an invoice?`)) return;
     try {
       const invNumber = await nextInvoiceNumber();
-      const total = calcROTotal(ro);
       await createInvoice({
         invoiceNumber: invNumber,
         customerName: ro.customerName,
@@ -597,6 +598,8 @@ export function RepairOrdersView() {
       .some(v => v.toLowerCase().includes(search.toLowerCase()));
     return matchStatus && matchSearch;
   });
+
+  const roPage = usePagination(filtered, { pageSize: 25 });
 
   const openCount = orders.filter(r => r.status === 'Open' || r.status === 'In Progress').length;
   const pendingCount = orders.filter(r => r.status === 'Pending Parts' || r.status === 'Pending Approval').length;
@@ -688,7 +691,7 @@ export function RepairOrdersView() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {filtered.map(ro => {
+            {roPage.pageItems.map(ro => {
               const isSelected = selected?.id === ro.id;
               const isLatest = ro.id === orders[0]?.id;
               return (
@@ -712,6 +715,13 @@ export function RepairOrdersView() {
               );
             })}
           </div>
+          <Pagination
+            page={roPage.page} totalPages={roPage.totalPages} totalItems={roPage.totalItems}
+            startIndex={roPage.startIndex} endIndex={roPage.endIndex}
+            hasPrev={roPage.hasPrev} hasNext={roPage.hasNext}
+            onPrev={roPage.prevPage} onNext={roPage.nextPage}
+            onFirst={roPage.goToFirst} onLast={roPage.goToLast} onPage={roPage.setPage}
+          />
         </Panel>
 
         {/* ── Right: RO Detail ── */}
@@ -807,6 +817,14 @@ export function RepairOrdersView() {
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => handleConvertToInvoice(selected)}>
                   ⚡ Create Invoice
+                </button>
+              )}
+
+              {/* Repair Intelligence — shown on Complete/Closed */}
+              {(selected.status === 'Complete' || selected.status === 'Closed') && (
+                <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044', fontWeight: 700 }}
+                  onClick={() => setWizardRO(selected)}>
+                  + Repair Intelligence Case
                 </button>
               )}
 
@@ -1345,6 +1363,17 @@ export function RepairOrdersView() {
             </div>
           </form>
         </div>
+      )}
+
+      {wizardRO && (
+        <RepairCaseWizard
+          ro={wizardRO}
+          onClose={() => setWizardRO(null)}
+          onCreated={(rc: RepairCase) => {
+            notify(`Repair Intelligence case created for ${wizardRO.roNumber}.`);
+            setWizardRO(null);
+          }}
+        />
       )}
     </>
   );

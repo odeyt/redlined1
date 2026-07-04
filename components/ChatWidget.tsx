@@ -16,7 +16,7 @@ export function ChatWidget() {
   const [step, setStep] = useState<'intro' | 'name' | 'email' | 'message' | 'done'>('intro');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
+  const [_message, setMessage] = useState('');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { from: 'bot', text: 'Hi there! 👋 Welcome to Redlined1. I\'m here to help. What\'s your name?', time: now() },

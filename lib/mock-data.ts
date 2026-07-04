@@ -178,6 +178,7 @@ export const navItems: [string, string, string, string][] = [
   ['dtc',           'warning',    'DTC Lookup',    ''],
   ['diagnostics',   'scan',       'Diagnostics',   '3'],
   ['ai',            'ai',         'AI Copilot',    '4'],
+  ['repair-intelligence', 'wrench', 'Repair Intelligence', ''],
 
   // ── Reports & Admin
   ['reports',       'chart',      'Reports',       ''],
@@ -191,6 +192,7 @@ export const moduleTitles: Record<string, [string, string]> = {
   dashboard: ['Operations Dashboard', 'Live view of job cards, repair orders, invoices, parts, and diagnostics'],
   access: ['Login and Role Control', 'User authentication, invitations, sessions, roles, and staff permissions'],
   'labor-guide': ['Historical Labor Rate Guide', 'Self-learning flat-rate standards built from your shop history — owner only'],
+  'repair-intelligence': ['Repair Intelligence', 'Knowledge base of verified repair cases — search, verify, and learn from past repairs'],
   subscriptions: ['Subscriptions and Feature Gates', 'Free plan restrictions, paid subscriber controls, limits, and upgrade path'],
   ai: ['AI Copilot', 'Artificial intelligence for estimates, diagnostics, invoices, routing, and customer follow-up'],
   customers: ['Customer CRM', 'Customer accounts, communications, reminders, vehicles, and history'],

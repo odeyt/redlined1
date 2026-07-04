@@ -4,7 +4,7 @@ import { useAppState, useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { StatCard } from '@/components/StatCard';
 import { Badge } from '@/components/Badge';
-import { connectScanTool, readTroubleCodes, clearTroubleCodes } from '@/services/scanToolService';
+import { connectScanTool, readTroubleCodes } from '@/services/scanToolService';
 import { lookupDtc } from '@/services/dtcLookupService';
 
 export function DiagnosticsView() {

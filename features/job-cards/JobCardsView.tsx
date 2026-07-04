@@ -78,7 +78,7 @@ export function JobCardsView() {
 
   // Status tracker state
   const [trackerJob, setTrackerJob] = useState<typeof selectedJob>(null);
-  const [statusToken, setStatusToken] = useState('');
+  const [_statusToken, setStatusToken] = useState('');
   const [statusUrl, setStatusUrl] = useState('');
   const [copiedStatus, setCopiedStatus] = useState(false);
   const [repairStage, setRepairStage] = useState('checked_in');

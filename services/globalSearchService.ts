@@ -60,8 +60,6 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
   });
 
   deduped.slice(0, 8).forEach(v => {
-    const isPlateMatch = String(v.plate ?? '').toLowerCase().includes(q.toLowerCase());
-    const isVinMatch   = String(v.vin   ?? '').toLowerCase().includes(q.toLowerCase());
     results.push({
       type: 'vehicle',
       id: v.id as string,

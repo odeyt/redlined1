@@ -66,7 +66,6 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 function fmtMoney(n: number) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function fmtDate(d: string) { return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'; }
 
 const cardClick: React.CSSProperties = {
   cursor: 'pointer',

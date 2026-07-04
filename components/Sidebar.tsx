@@ -16,7 +16,7 @@ import { useShop, getBlockedModules } from '@/lib/useShop';
 import { useNotifications } from '@/lib/useNotifications';
 
 export function Sidebar() {
-  const { activeModule, appointments } = useAppState();
+  const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { notifications, unreadCount, markAllRead, dismiss, clearAll, STATUS_EMOJI } = useNotifications();

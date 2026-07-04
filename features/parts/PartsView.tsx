@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { usePagination } from '@/lib/usePagination';
+import { Pagination } from '@/components/Pagination';
 import { useShop } from '@/lib/useShop';
 import {
   fetchParts, createPart, updatePart, deletePart,
@@ -199,6 +201,8 @@ export function PartsView() {
     const matchSearch = !q || [p.partNumber, p.brand, p.description, p.supplier, p.barcode, p.compatibility].some(v => v.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
+
+  const partsPage = usePagination(filtered, { pageSize: 25 });
 
   /* ── form handlers ── */
   function startAdd() {
@@ -666,7 +670,7 @@ export function PartsView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(p => {
+                    {partsPage.pageItems.map(p => {
                       const st = stockStatus(p);
                       return (
                         <tr key={p.partNumber} onClick={() => { setSelected(p); setEditing(false); }}
@@ -713,6 +717,13 @@ export function PartsView() {
                     })}
                   </tbody>
                 </table>
+                <Pagination
+                  page={partsPage.page} totalPages={partsPage.totalPages} totalItems={partsPage.totalItems}
+                  startIndex={partsPage.startIndex} endIndex={partsPage.endIndex}
+                  hasPrev={partsPage.hasPrev} hasNext={partsPage.hasNext}
+                  onPrev={partsPage.prevPage} onNext={partsPage.nextPage}
+                  onFirst={partsPage.goToFirst} onLast={partsPage.goToLast} onPage={partsPage.setPage}
+                />
               </div>
             )}
           </div>

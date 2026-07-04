@@ -49,6 +49,7 @@ export const iconColors: Record<string, string> = {
   appointments: '#ec4899',
   reports: '#64748b',
   settings: '#94a3b8',
+  'repair-intelligence': '#4caf50',
 };
 
 interface IconProps {

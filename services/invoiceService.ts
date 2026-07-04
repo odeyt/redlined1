@@ -190,8 +190,6 @@ export const CURRENCIES = [
   { code: 'LAK', symbol: '₭', name: 'Lao Kip' },
 ];
 
-// Currencies with no minor units (no decimal places)
-const NO_DECIMAL_CURRENCIES = new Set(['LAK', 'JPY', 'KRW', 'VND', 'IDR']);
 
 export function formatMoney(amount: number, currencyCode: string): string {
   // Round UP to nearest 10

@@ -9,12 +9,6 @@ const STATUS_COLOR: Record<string, string> = {
   'N/A': '#888888',
 };
 
-const STATUS_BG: Record<string, string> = {
-  Pass: '#f0fdf4',
-  Attention: '#fffbeb',
-  Fail: '#fff5f5',
-  'N/A': '#f5f5f5',
-};
 
 export async function POST(req: NextRequest) {
   try {

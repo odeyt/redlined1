@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { aiRequestSchema } from '@/lib/validation/schemas';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { logger } from '@/lib/logger';
-import { z } from 'zod/v4';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const AI_MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5-20251001';

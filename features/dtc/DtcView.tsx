@@ -7,6 +7,7 @@ import {
   type DtcResult,
 } from '@/services/dtcLookupService';
 import { supabase } from '@/lib/supabase';
+import { explainDtc } from '@/services/aiService';
 
 const SEVERITY_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
   Critical: { bg: '#f4433622', color: '#f44336', icon: '🚨' },
@@ -33,8 +34,33 @@ export function DtcView() {
   const [saveId, setSaveId]     = useState('');
   const [saving, setSaving]     = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [aiExplaining, setAiExplaining] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState<string>('');
+  const [aiMock, setAiMock] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function handleAiExplain() {
+    if (!result) return;
+    setAiExplaining(true); setAiError(''); setAiExplanation('');
+    try {
+      const res = await explainDtc({
+        codes: [result.code],
+        make: '', model: '', year: '', engine: '',
+      });
+      const r = res.result as unknown as Record<string, unknown>;
+      const explanation = typeof r.customerExplanation === 'string'
+        ? r.customerExplanation
+        : typeof r.summary === 'string'
+        ? r.summary
+        : JSON.stringify(r, null, 2);
+      setAiExplanation(explanation);
+      setAiMock(res.mock);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI request failed');
+    } finally { setAiExplaining(false); }
+  }
 
   function handleLookup(code?: string) {
     const q = (code ?? query).trim().toUpperCase();
@@ -228,6 +254,39 @@ export function DtcView() {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* AI: Explain for Customer */}
+              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>🤖 AI — Explain for Customer</div>
+                <button
+                  className="btn"
+                  onClick={handleAiExplain}
+                  disabled={aiExplaining}
+                  style={{ fontSize: 13, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)', color: '#4f46e5' }}
+                >
+                  {aiExplaining ? '⏳ Generating…' : '✨ Explain for Customer'}
+                </button>
+                {aiError && <p style={{ color: 'var(--danger)', fontSize: 12, marginTop: 8 }}>{aiError}</p>}
+                {aiExplanation && (
+                  <div style={{ marginTop: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', textTransform: 'uppercase' }}>AI Suggestion</span>
+                      {aiMock && <span style={{ fontSize: 10, color: '#d97706', background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 10, padding: '1px 6px', fontWeight: 700 }}>MOCK</span>}
+                    </div>
+                    <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>{aiExplanation}</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, fontStyle: 'italic' }}>
+                      ⚠ AI suggestions must be verified by a qualified technician before sharing with customers.
+                    </p>
+                    <button
+                      className="btn"
+                      onClick={() => { navigator.clipboard.writeText(aiExplanation); notify('Copied to clipboard!'); }}
+                      style={{ marginTop: 8, fontSize: 12 }}
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Save to CRM */}

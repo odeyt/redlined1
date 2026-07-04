@@ -45,7 +45,7 @@ export function TimeTrackingView() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
 
   // Live elapsed ticker
-  const [tick, setTick] = useState(0);
+  const [_tick, setTick] = useState(0);
 
   useEffect(() => {
     load();

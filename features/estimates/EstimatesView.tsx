@@ -360,7 +360,6 @@ export function EstimatesView() {
   });
 
   const totals = selected ? calculateEstimateTotals(selected) : null;
-  const totalValue = estimates.reduce((s, e) => s + calculateEstimateTotals(e).total, 0);
   const pendingCount = estimates.filter(e => e.status === 'Sent').length;
   const approvedCount = estimates.filter(e => e.status === 'Approved').length;
   const convertedCount = estimates.filter(e => e.status === 'Converted').length;
@@ -854,7 +853,6 @@ export function EstimatesView() {
                   perCur[cur] = (perCur[cur] || 0) + l.qty * l.rate;
                 }
                 const entries = Object.entries(perCur).filter(([, v]) => v > 0);
-                const mainSub = totals.subtotal; // main-currency lines only (for discount/tax)
                 return (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
                     <div style={{ width: 300 }}>

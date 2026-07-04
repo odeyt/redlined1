@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
@@ -8,9 +8,8 @@ import { useShop } from '@/lib/useShop';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
-import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, type VehicleImage } from '@/services/vehicleImageService';
+import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/services/vehicleImageService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
-import type { Vehicle } from '@/lib/types';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
@@ -18,7 +17,6 @@ import { getTechColor as _getTechColor } from '@/lib/techColors';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { FilterPills } from '@/components/FilterPills';
 
-type VehicleWithId = Vehicle & { id: string };
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
 
 const CAR_MODELS: Record<string, string[]> = {
@@ -84,7 +82,7 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-// ── View Toggle Button ───────────────────────────────────────────
+// â”€â”€ View Toggle Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; current: ViewMode; icon: string; label: string; onClick: () => void }) {
   const active = mode === current;
   return (
@@ -105,421 +103,8 @@ function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; curr
   );
 }
 
-// ── Image Gallery Modal (kept for reference — rendering now uses PhotoGalleryModal) ──
-function _ImageGalleryUnused({ vehicle, onClose }: { vehicle: VehicleRecord; onClose: () => void }) {
-  const [images, setImages] = useState<VehicleImage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [camMode, setCamMode] = useState<'off' | 'webcam'>('off');
-  const [camReady, setCamReady] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [orderChanged, setOrderChanged] = useState(false);
-  const [thumbDragFrom, setThumbDragFrom] = useState<number | null>(null);
-  const [thumbDragOver, setThumbDragOver] = useState<number | null>(null);
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const htmlRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const thumbStripRef = useRef<HTMLDivElement>(null);
-  const touchStartX = useRef<number | null>(null);
-
-  useEffect(() => {
-    fetchVehicleImages(vehicle.id)
-      .then(imgs => {
-        // Sort by saved imageIds order if present
-        if (vehicle.imageIds?.length) {
-          const order = vehicle.imageIds;
-          imgs.sort((a, b) => {
-            const ai = order.indexOf(a.id);
-            const bi = order.indexOf(b.id);
-            if (ai === -1 && bi === -1) return 0;
-            if (ai === -1) return 1;
-            if (bi === -1) return -1;
-            return ai - bi;
-          });
-        }
-        setImages(imgs); setActiveIdx(0);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-    return () => stopStream();
-  }, [vehicle.id, vehicle.imageIds]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
-      if (e.key === 'Escape')     { stopStream(); onClose(); }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, images.length]);
-
-  function prev() { setActiveIdx(i => (i > 0 ? i - 1 : images.length - 1)); }
-  function next() { setActiveIdx(i => (i < images.length - 1 ? i + 1 : 0)); }
-
-  // Scroll active thumbnail into view
-  useEffect(() => {
-    const strip = thumbStripRef.current;
-    if (!strip) return;
-    const thumb = strip.children[activeIdx] as HTMLElement | undefined;
-    thumb?.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
-  }, [activeIdx]);
-
-  function stopStream() {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setCamReady(false);
-    setCamMode('off');
-  }
-
-  async function startWebcam() {
-    setError('');
-    setCamMode('webcam');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-      streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); setCamReady(true); }
-    } catch {
-      setError('Camera access denied. Check browser permissions.');
-      setCamMode('off');
-    }
-  }
-
-  async function captureWebcam() {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
-    canvas.toBlob(async blob => {
-      if (!blob) return;
-      const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      stopStream(); setUploading(true);
-      try {
-        const img = await uploadVehicleImage(vehicle.id, file, 'Camera capture');
-        setImages(prev => { const next = [...prev, img]; setActiveIdx(next.length - 1); return next; });
-      } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
-      finally { setUploading(false); }
-    }, 'image/jpeg', 0.92);
-  }
-
-  async function uploadFiles(files: File[]) {
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const uploaded = await Promise.all(files.map(f => uploadVehicleImage(vehicle.id, f)));
-      setImages(prev => { const next = [...prev, ...uploaded]; setActiveIdx(next.length - 1); return next; });
-    } catch (err: unknown) { setError('Upload failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
-    finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-      if (cameraRef.current) cameraRef.current.value = '';
-    }
-  }
-
-  // Extract images from a dropped/selected HTML file and upload them
-  async function uploadFromHtml(file: File) {
-    setUploading(true); setError('');
-    try {
-      const html = await file.text();
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const imgs = Array.from(doc.querySelectorAll('img'));
-      if (!imgs.length) { setError('No images found in the HTML file.'); return; }
-
-      let uploaded = 0;
-      for (const img of imgs) {
-        const src = img.getAttribute('src') || '';
-        if (!src) continue;
-        let blob: Blob | null = null;
-
-        if (src.startsWith('data:image/')) {
-          // base64 embedded image
-          const [meta, b64] = src.split(',');
-          const mime = meta.split(':')[1].split(';')[0];
-          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-          blob = new Blob([bytes], { type: mime });
-        } else if (src.startsWith('blob:') || src.startsWith('http')) {
-          // remote or blob URL — fetch it
-          try { const r = await fetch(src); if (r.ok) blob = await r.blob(); } catch { continue; }
-        } else if (!src.startsWith('data:')) {
-          // relative path — try fetching relative to the file's origin
-          continue;
-        }
-
-        if (!blob || !blob.type.startsWith('image/')) continue;
-        const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-        const f = new File([blob], `html-import-${Date.now()}-${uploaded}.${ext}`, { type: blob.type });
-        const result = await uploadVehicleImage(vehicle.id, f, img.getAttribute('alt') || 'Vehicle photo');
-        setImages(prev => { const next = [...prev, result]; setActiveIdx(next.length - 1); return next; });
-        uploaded++;
-      }
-
-      if (uploaded === 0) setError('No uploadable images found in the HTML file (images may be remote URLs not reachable from this browser).');
-    } catch (err: unknown) {
-      setError('HTML import failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err)));
-    } finally {
-      setUploading(false);
-      if (htmlRef.current) htmlRef.current.value = '';
-    }
-  }
-
-  // Thumbnail drag-to-reorder handlers
-  function onThumbDragStart(idx: number, e: React.DragEvent) {
-    setThumbDragFrom(idx);
-    e.dataTransfer.effectAllowed = 'move';
-  }
-  function onThumbDragOver(idx: number, e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setThumbDragOver(idx);
-  }
-  function onThumbDrop(toIdx: number, e: React.DragEvent) {
-    e.preventDefault();
-    if (thumbDragFrom === null || thumbDragFrom === toIdx) { setThumbDragFrom(null); setThumbDragOver(null); return; }
-    setImages(prev => {
-      const next = [...prev];
-      const [moved] = next.splice(thumbDragFrom, 1);
-      next.splice(toIdx, 0, moved);
-      return next;
-    });
-    setActiveIdx(toIdx);
-    setOrderChanged(true);
-    setThumbDragFrom(null);
-    setThumbDragOver(null);
-  }
-  function onThumbDragEnd() { setThumbDragFrom(null); setThumbDragOver(null); }
-
-  async function saveOrder() {
-    if (!confirm(`Save this photo order for ${vehicle.label}?`)) return;
-    setSaving(true);
-    try {
-      await updateVehicleServiceRecord(vehicle.id, { imageIds: images.map(i => i.id) });
-      setOrderChanged(false);
-    } catch (e: unknown) {
-      setError('Save order failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
-    } finally { setSaving(false); }
-  }
-
-  async function handleDelete(idx: number) {
-    const img = images[idx];
-    if (!confirm('Remove this photo?')) return;
-    try {
-      await deleteVehicleImage(img.id, img.url);
-      setImages(prev => {
-        const next = prev.filter((_, i) => i !== idx);
-        setActiveIdx(i => Math.min(i, Math.max(0, next.length - 1)));
-        return next;
-      });
-    } catch (err: unknown) { setError('Delete failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err))); }
-  }
-
-  const current = images[activeIdx];
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 820, maxHeight: '94vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* ── Header ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17 }}>{vehicle.label}</h2>
-            <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 12 }}>{vehicle.plate} · {vehicle.vin}</p>
-          </div>
-          <button onClick={() => { stopStream(); onClose(); }} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-        </div>
-
-        {error && <p style={{ color: 'var(--danger)', margin: '8px 20px 0', padding: '8px 12px', background: '#fff0f0', borderRadius: 6, fontSize: 13 }}>{error}</p>}
-
-        {/* ── Main scrollable body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* Webcam */}
-          {camMode === 'webcam' && (
-            <div style={{ borderRadius: 10, overflow: 'hidden', border: '2px solid var(--accent)', background: '#000' }}>
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 320, display: 'block', objectFit: 'cover' }} />
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-              <div style={{ display: 'flex', gap: 10, padding: 12, justifyContent: 'center' }}>
-                <button className="btn btn-primary" onClick={captureWebcam} disabled={!camReady || uploading}>📸 {uploading ? 'Saving…' : 'Capture'}</button>
-                <button className="btn" onClick={stopStream}>Cancel</button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Carousel (shown when photos exist and not in webcam mode) ── */}
-          {camMode === 'off' && images.length > 0 && (
-            <div>
-              {/* Main photo */}
-              <div
-                style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}
-                onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
-                onTouchEnd={e => {
-                  if (touchStartX.current === null) return;
-                  const dx = e.changedTouches[0].clientX - touchStartX.current;
-                  if (dx > 40) prev();
-                  else if (dx < -40) next();
-                  touchStartX.current = null;
-                }}
-              >
-                {current && (
-                  <img
-                    key={current.id}
-                    src={current.url}
-                    alt={current.label}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', transition: 'opacity .15s' }}
-                  />
-                )}
-
-                {/* Left arrow */}
-                {images.length > 1 && (
-                  <button onClick={prev} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.55)')}>‹</button>
-                )}
-
-                {/* Right arrow */}
-                {images.length > 1 && (
-                  <button onClick={next} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: 40, height: 40, cursor: 'pointer', color: '#fff', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.8)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.55)')}>›</button>
-                )}
-
-                {/* Counter + delete */}
-                <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 12px' }}>
-                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, padding: '3px 10px', borderRadius: 20 }}>
-                    {activeIdx + 1} / {images.length}
-                  </span>
-                  {current?.label && (
-                    <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, padding: '3px 10px', borderRadius: 20, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.label}</span>
-                  )}
-                  <button onClick={() => handleDelete(activeIdx)} style={{ background: 'rgba(180,0,0,0.75)', border: 'none', borderRadius: 20, color: '#fff', fontSize: 12, padding: '4px 12px', cursor: 'pointer' }}>🗑 Delete</button>
-                </div>
-              </div>
-
-              {/* Save order bar — shown when order has changed */}
-              {orderChanged && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: '8px 12px', background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 8 }}>
-                  <span style={{ fontSize: 12, color: 'var(--accent,#cc0000)', fontWeight: 600 }}>⇄ Photo order changed — save to keep it</span>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setOrderChanged(false); setImages(prev => [...prev]); }} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer' }}>Discard</button>
-                    <button onClick={saveOrder} disabled={saving} style={{ fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 6, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-                      {saving ? 'Saving…' : '✓ Save Order'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Thumbnail strip — draggable to reorder */}
-              <div
-                ref={thumbStripRef}
-                style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, marginTop: orderChanged ? 6 : 10, scrollbarWidth: 'thin' }}
-              >
-                {images.map((img, i) => (
-                  <div
-                    key={img.id}
-                    draggable
-                    onDragStart={e => onThumbDragStart(i, e)}
-                    onDragOver={e => onThumbDragOver(i, e)}
-                    onDrop={e => onThumbDrop(i, e)}
-                    onDragEnd={onThumbDragEnd}
-                    onClick={() => setActiveIdx(i)}
-                    title="Drag to reorder"
-                    style={{
-                      flexShrink: 0, width: 72, height: 54, borderRadius: 8, overflow: 'hidden',
-                      cursor: thumbDragFrom !== null ? 'grabbing' : 'grab',
-                      border: i === activeIdx ? '2px solid var(--accent,#cc0000)' : thumbDragOver === i && thumbDragFrom !== i ? '2px dashed var(--accent,#cc0000)' : '2px solid transparent',
-                      opacity: thumbDragFrom === i ? 0.35 : i === activeIdx ? 1 : 0.65,
-                      transition: 'opacity .15s, border-color .15s',
-                      background: '#000',
-                      transform: thumbDragOver === i && thumbDragFrom !== i ? 'scale(1.08)' : 'scale(1)',
-                    }}
-                  >
-                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
-                  </div>
-                ))}
-              </div>
-              {images.length > 1 && !orderChanged && (
-                <p style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center', margin: '4px 0 0' }}>Drag thumbnails to reorder · changes prompt to save</p>
-              )}
-            </div>
-          )}
-
-          {/* Upload buttons */}
-          {camMode === 'off' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-              <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 22 }}>🖼️</span>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>{uploading ? 'Uploading…' : 'Upload Files'}</span>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>JPG, PNG, HEIC</span>
-              </button>
-              <button onClick={() => cameraRef.current?.click()} disabled={uploading}
-                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 22 }}>📱</span>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Phone Camera</span>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Opens device camera</span>
-              </button>
-              <button onClick={startWebcam} disabled={uploading}
-                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 22 }}>📷</span>
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Webcam</span>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>Use connected camera</span>
-              </button>
-              <button onClick={() => htmlRef.current?.click()} disabled={uploading}
-                style={{ padding: '14px 8px', borderRadius: 10, border: '2px dashed var(--accent,#cc0000)', background: 'rgba(204,0,0,0.04)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 22 }}>📄</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent,#cc0000)' }}>HTML Import</span>
-                <span style={{ fontSize: 10, color: 'var(--muted)' }}>WhatsApp / Notion</span>
-              </button>
-            </div>
-          )}
-
-          {/* Drag & drop zone */}
-          {camMode === 'off' && (
-            <div
-              onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-              onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-              onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
-              onDrop={e => {
-                e.preventDefault(); e.stopPropagation(); setDragOver(false);
-                const all: File[] = e.dataTransfer.files?.length
-                  ? Array.from(e.dataTransfer.files)
-                  : Array.from(e.dataTransfer.items ?? []).filter(i => i.kind === 'file').map(i => i.getAsFile()).filter((f): f is File => f !== null);
-                const htmlFiles = all.filter(f => f.name.endsWith('.html') || f.type === 'text/html');
-                const imgFiles  = all.filter(f => f.type.startsWith('image/'));
-                if (htmlFiles.length) { htmlFiles.forEach(uploadFromHtml); return; }
-                if (imgFiles.length)  { uploadFiles(imgFiles); return; }
-                setError('No image or HTML files detected. Drop a JPG/PNG/HEIC photo or an HTML file containing photos.');
-              }}
-              onClick={() => fileRef.current?.click()}
-              style={{ border: `2px dashed ${dragOver ? 'var(--accent,#cc0000)' : 'var(--line)'}`, borderRadius: 10, padding: '20px 16px', textAlign: 'center', background: dragOver ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)', color: dragOver ? 'var(--accent,#cc0000)' : 'var(--muted)', fontSize: 13, cursor: 'pointer', transition: 'all .15s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5 }}
-            >
-              <span style={{ fontSize: 24 }}>{dragOver ? '📸' : '🖼️'}</span>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>{dragOver ? 'Release to upload' : 'Drop photos or HTML file here'}</span>
-              <span style={{ fontSize: 11 }}>JPG, PNG, HEIC · or WhatsApp/Notion .html export</span>
-            </div>
-          )}
-
-          {loading && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>Loading photos…</p>}
-          {!loading && images.length === 0 && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 10 }}>No photos yet. Use the options above to add some.</p>}
-        </div>
-      </div>
-
-      <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => uploadFiles(Array.from(e.target.files ?? []))} />
-      <input ref={htmlRef} type="file" accept=".html,text/html" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFromHtml(f); }} />
-    </div>
-  );
-}
-
-// ── Service Record Card ──────────────────────────────────────────
+// â”€â”€ Service Record Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   v: VehicleRecord; thumbUrl?: string; onPhotos: () => void; enablePhotos: boolean;
 }) {
@@ -533,9 +118,9 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         <div onClick={onPhotos} style={{ height: 120, cursor: 'pointer', background: thumbUrl ? '#000' : 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: '1px solid var(--line)', position: 'relative' }}>
           {thumbUrl
             ? <img src={thumbUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><span style={{ fontSize: 28 }}>🚗</span><span style={{ fontSize: 11 }}>Add photos</span></div>
+            : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><span style={{ fontSize: 28 }}>ðŸš—</span><span style={{ fontSize: 11 }}>Add photos</span></div>
           }
-          <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 5 }}>📷 Photos</div>
+          <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 5 }}>ðŸ“· Photos</div>
         </div>
       )}
 
@@ -545,8 +130,8 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.35, marginBottom: 3 }}>{v.label}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-              {[v.year, v.make, v.model].filter(Boolean).join(' ') || '—'}
-              {v.fuelType ? ` · ${v.fuelType}` : ''}
+              {[v.year, v.make, v.model].filter(Boolean).join(' ') || 'â€”'}
+              {v.fuelType ? ` Â· ${v.fuelType}` : ''}
             </div>
           </div>
           <StatusPill status={v.status} />
@@ -555,9 +140,9 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         {/* Key facts grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px 12px', fontSize: 12 }}>
           <div style={{ color: 'var(--muted)' }}>Plate</div>
-          <div style={{ fontWeight: 600 }}>{v.plate || '—'}</div>
+          <div style={{ fontWeight: 600 }}>{v.plate || 'â€”'}</div>
           <div style={{ color: 'var(--muted)' }}>VIN</div>
-          <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{v.vin || '—'}</div>
+          <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{v.vin || 'â€”'}</div>
           {v.dateReceived && <>
             <div style={{ color: 'var(--muted)' }}>Received</div>
             <div style={{ fontWeight: 600 }}>{new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
@@ -586,7 +171,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
         {(v.damageIntake || v.partsNeeded || v.partsExchanged || v.issuesResolved) && (
           <>
             <button onClick={() => setExpanded(x => !x)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent, #cc0000)', fontSize: 12, fontWeight: 600, textAlign: 'left', padding: 0 }}>
-              {expanded ? '▲ Hide details' : '▼ More details'}
+              {expanded ? 'â–² Hide details' : 'â–¼ More details'}
             </button>
             {expanded && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
@@ -604,7 +189,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
                 )}
                 {v.issuesResolved && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                    <span style={{ color: '#166534', fontWeight: 700 }}>✓ Issues Resolved</span>
+                    <span style={{ color: '#166534', fontWeight: 700 }}>âœ“ Issues Resolved</span>
                   </div>
                 )}
               </div>
@@ -616,17 +201,17 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   );
 }
 
-// ── Vehicle Edit Drawer ─────────────────────────────────────────
+// â”€â”€ Vehicle Edit Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const STATUSES = ['In Progress', 'Pending Parts', 'Pending Approval', 'Completed', 'Returned Job', 'Active', 'No open jobs', 'Archived'];
 
 const KANBAN_COLUMNS = [
-  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: '⏳', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe', extraStatuses: [] as string[] },
-  { status: 'In Progress',      label: 'Work In Progress',          icon: '🔧', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe', extraStatuses: [] as string[] },
-  { status: 'Pending Parts',    label: 'Pending Parts',             icon: '📦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5', extraStatuses: [] as string[] },
-  { status: 'Completed',        label: 'Completed',                 icon: '✅', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7', extraStatuses: [] as string[] },
-  { status: 'Returned Job',     label: 'Returned Job',              icon: '↩',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3', extraStatuses: [] as string[] },
-  { status: 'Active',           label: 'Active / No Open Jobs',     icon: '🟢', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0', headerBg: '#f0fdf4', extraStatuses: ['No open jobs', 'Pending'] },
-  { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
+  { status: 'Pending Approval', label: 'Pending Customer Approval', icon: 'â³', color: '#7e22ce', bg: '#fdf4ff', border: '#e9d5ff', headerBg: '#ede9fe', extraStatuses: [] as string[] },
+  { status: 'In Progress',      label: 'Work In Progress',          icon: 'ðŸ”§', color: '#1e40af', bg: '#dbeafe', border: '#bfdbfe', headerBg: '#dbeafe', extraStatuses: [] as string[] },
+  { status: 'Pending Parts',    label: 'Pending Parts',             icon: 'ðŸ“¦', color: '#9a3412', bg: '#ffedd5', border: '#fed7aa', headerBg: '#ffedd5', extraStatuses: [] as string[] },
+  { status: 'Completed',        label: 'Completed',                 icon: 'âœ…', color: '#166534', bg: '#dcfce7', border: '#bbf7d0', headerBg: '#dcfce7', extraStatuses: [] as string[] },
+  { status: 'Returned Job',     label: 'Returned Job',              icon: 'â†©',  color: '#b45309', bg: '#fef9c3', border: '#fde68a', headerBg: '#fef9c3', extraStatuses: [] as string[] },
+  { status: 'Active',           label: 'Active / No Open Jobs',     icon: 'ðŸŸ¢', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0', headerBg: '#f0fdf4', extraStatuses: ['No open jobs', 'Pending'] },
+  { status: 'Archived',         label: 'Archived',                  icon: 'ðŸ—„', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
 function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
@@ -695,8 +280,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         model:    model || prev.model,
         fuelType: fuelMapped || prev.fuelType,
       }));
-      setVinDecodeMsg(`✓ Decoded: ${year} ${make} ${model}`);
-    } catch { setVinDecodeMsg('Decode failed — check connection.'); }
+      setVinDecodeMsg(`âœ“ Decoded: ${year} ${make} ${model}`);
+    } catch { setVinDecodeMsg('Decode failed â€” check connection.'); }
     finally { setVinDecoding(false); }
   }
 
@@ -783,7 +368,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
       const updated = { ...f, status: newStatus } as VehicleRecord;
       setF(updated);
       onSaved(updated);
-      notify(`Status → ${newStatus}`);
+      notify(`Status â†’ ${newStatus}`);
     } catch (e: unknown) {
       setErr('Update failed: ' + (e instanceof Error ? e.message : (e as {message?: string})?.message ?? String(e)));
     } finally { setSaving(false); }
@@ -848,17 +433,17 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{f.label || 'Vehicle'}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.plate || 'No plate'} · {f.vin || 'No VIN'}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.plate || 'No plate'} Â· {f.vin || 'No VIN'}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 7, width: 30, height: 30, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>âœ•</button>
         </div>
 
         {/* Status badge in header area */}
         {f.status && (
           <div style={{ padding: '6px 20px', background: statusColor(f.status).bg, borderBottom: '1px solid ' + statusColor(f.status).border, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>● {f.status}</span>
-            {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>— Awaiting customer decision on repair</span>}
-            {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>— Vehicle archived for future reference</span>}
+            <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>â— {f.status}</span>
+            {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>â€” Awaiting customer decision on repair</span>}
+            {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>â€” Vehicle archived for future reference</span>}
           </div>
         )}
 
@@ -886,10 +471,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
                   <div style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 700 }}>{owner.name}</div>
-                  {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>📞 {owner.phone}</div>}
-                  {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>✉ {owner.email}</div>}
+                  {owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>ðŸ“ž {owner.phone}</div>}
+                  {owner.email && !owner.phone && <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 1 }}>âœ‰ {owner.email}</div>}
                 </div>
-                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View →</div>
+                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, flexShrink: 0 }}>View â†’</div>
               </button>
             );
           }
@@ -908,61 +493,61 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               title="Assign a customer to this vehicle"
             >
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                👤
+                ðŸ‘¤
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Owner</div>
-                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned — tap to assign</div>
+                <div style={{ fontSize: 12, color: '#92400e' }}>No customer assigned â€” tap to assign</div>
               </div>
-              <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600, flexShrink: 0 }}>+ Add →</div>
+              <div style={{ fontSize: 11, color: '#b45309', fontWeight: 600, flexShrink: 0 }}>+ Add â†’</div>
             </button>
           );
         })()}
 
         {/* Action buttons row 1 */}
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
-          <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>＋ Job Card</button>
-          <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
-          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>
-          <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
-          <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
+          <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>ï¼‹ Job Card</button>
+          <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>â†© Return Job</button>
+          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>ðŸ§¾ Create Invoice</button>
+          <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>ðŸ“· Photos</button>
+          <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>ðŸ—‘ Delete</button>
         </div>
 
-        {/* Action buttons row 2 — status shortcuts */}
+        {/* Action buttons row 2 â€” status shortcuts */}
         <div style={{ display: 'flex', gap: 6, padding: '0 20px 10px', borderBottom: '1px solid var(--line)', flexShrink: 0, flexWrap: 'wrap' }}>
           {f.status !== 'Pending Approval' && f.status !== 'Archived' && (
             <button disabled={saving} onClick={() => quickStatus('Pending Approval')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '2px solid #a855f7', background: 'rgba(168,85,247,0.08)', color: '#7e22ce', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ⏳ Pending Approval
+              â³ Pending Approval
             </button>
           )}
           {f.status === 'Pending Approval' && (
             <button disabled={saving} onClick={() => quickStatus('In Progress')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ✓ Approved — Resume Work
+              âœ“ Approved â€” Resume Work
             </button>
           )}
           {f.status !== 'Pending Parts' && f.status !== 'Archived' && (
             <button disabled={saving} onClick={() => quickStatus('Pending Parts')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #fed7aa', background: 'rgba(249,115,22,0.07)', color: '#9a3412', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              📦 Pending Parts
+              ðŸ“¦ Pending Parts
             </button>
           )}
           {f.status === 'Pending Parts' && (
             <button disabled={saving} onClick={() => quickStatus('In Progress')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #2196f3', background: 'rgba(33,150,243,0.08)', color: '#1e40af', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              🔧 Parts In — Resume Work
+              ðŸ”§ Parts In â€” Resume Work
             </button>
           )}
           {f.status !== 'Archived' ? (
             <button disabled={saving} onClick={() => quickStatus('Archived')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #d1d5db', background: 'rgba(107,114,128,0.07)', color: '#6b7280', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              🗄 Archive Vehicle
+              ðŸ—„ Archive Vehicle
             </button>
           ) : (
             <button disabled={saving} onClick={() => quickStatus('Active')}
               style={{ flex: 1, minWidth: '45%', padding: '6px 8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#166534', fontSize: 11, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              ♻ Restore from Archive
+              â™» Restore from Archive
             </button>
           )}
         </div>
@@ -972,10 +557,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {err && <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12 }}>{err}</div>}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-          <div>{/* ── LEFT: Basic Info ── */}
+          <div>{/* â”€â”€ LEFT: Basic Info â”€â”€ */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
 
-          {/* Status-reason callout — shown for statuses that need an explanation */}
+          {/* Status-reason callout â€” shown for statuses that need an explanation */}
           {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) && (() => {
             const sc = statusColor(f.status);
             const statusLabels: Record<string, string> = {
@@ -987,12 +572,12 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             return (
               <div style={{ marginBottom: 14, padding: '10px 14px', background: sc.bg, border: `1.5px solid ${sc.border}`, borderRadius: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>📝</span> {statusLabels[f.status] ?? 'Status Note'}
+                  <span>ðŸ“</span> {statusLabels[f.status] ?? 'Status Note'}
                 </div>
                 <textarea
                   value={f.recommendation}
                   onChange={e => set('recommendation', e.target.value)}
-                  placeholder={`Enter reason or notes for "${f.status}" status…`}
+                  placeholder={`Enter reason or notes for "${f.status}" statusâ€¦`}
                   rows={3}
                   style={{ ...inp, resize: 'vertical', minHeight: 64, borderColor: sc.border, background: 'var(--surface)' }}
                 />
@@ -1003,7 +588,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           {row('Vehicle Label', <input style={inp} value={f.label} onChange={e => set('label', e.target.value)} placeholder="2023 Ford F-150" />)}
 
-          {/* ── Customer picker ── */}
+          {/* â”€â”€ Customer picker â”€â”€ */}
           <div style={{ marginBottom: 12 }}>
             <span style={label}>Customer</span>
             <div style={{ position: 'relative' }}>
@@ -1012,7 +597,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 value={custSearch !== '' ? custSearch : (customers.find(c => c.id === f.customerId)?.name ?? '')}
                 onChange={e => { setCustSearch(e.target.value); if (!e.target.value) set('customerId', ''); }}
                 onFocus={e => { setCustSearch(''); e.target.select(); }}
-                placeholder="Search customers…"
+                placeholder="Search customersâ€¦"
                 style={{ ...inp, borderColor: f.customerId ? '#22c55e' : 'var(--line)' }}
               />
               {custSearch && (
@@ -1035,7 +620,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                         );
                       })
                   }
-                  {/* ── Add new customer inline ── */}
+                  {/* â”€â”€ Add new customer inline â”€â”€ */}
                   {!showInlineNewCust ? (
                     <button
                       type="button"
@@ -1044,7 +629,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.1)') as unknown as void}
                       onMouseLeave={e => (e.currentTarget.style.background = 'rgba(37,99,235,0.04)') as unknown as void}
                     >
-                      <span style={{ fontSize: 16 }}>＋</span> Add &ldquo;{custSearch}&rdquo; as new customer
+                      <span style={{ fontSize: 16 }}>ï¼‹</span> Add &ldquo;{custSearch}&rdquo; as new customer
                     </button>
                   ) : (
                     <div style={{ padding: '12px', borderTop: '1px solid var(--line)', background: 'rgba(37,99,235,0.03)' }}>
@@ -1090,7 +675,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                           }}
                           style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !inlineNewCust.name.trim() || savingNewCust ? 0.5 : 1 }}
                         >
-                          {savingNewCust ? 'Saving…' : 'Create & Assign'}
+                          {savingNewCust ? 'Savingâ€¦' : 'Create & Assign'}
                         </button>
                         <button
                           type="button"
@@ -1107,14 +692,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             </div>
           </div>
 
-          {/* ── Other vehicles for this customer ── */}
+          {/* â”€â”€ Other vehicles for this customer â”€â”€ */}
           {custVehicles.length > 0 && (
             <div style={{ marginBottom: 14, background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(33,150,243,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🚗 {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
+                <span>ðŸš— {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
                 <button type="button" onClick={() => setShowAddForCust(v => !v)}
                   style={{ fontSize: 11, fontWeight: 700, color: showAddForCust ? '#888' : '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {showAddForCust ? '✕ cancel' : '+ New vehicle'}
+                  {showAddForCust ? 'âœ• cancel' : '+ New vehicle'}
                 </button>
               </div>
               {custVehicles.map(v => (
@@ -1124,14 +709,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                   onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{v.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || '—'} · {v.vin || 'No VIN'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || 'â€”'} Â· {v.vin || 'No VIN'}</div>
                   </div>
-                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open →</span>
+                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open â†’</span>
                 </div>
               ))}
               {showAddForCust && (
                 <div style={{ padding: '10px 12px', background: 'rgba(33,150,243,0.04)', borderTop: '1px solid rgba(33,150,243,0.15)', fontSize: 12, color: 'var(--muted)' }}>
-                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer — their info will auto-fill.
+                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer â€” their info will auto-fill.
                 </div>
               )}
             </div>
@@ -1147,10 +732,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           )}
           {showAddForCust && custVehicles.length === 0 && (
             <div style={{ marginBottom: 14, padding: '10px 12px', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--muted)' }}>
-              Close this drawer, then click <strong>+ Add Vehicle</strong> — the customer will be pre-selected and their info auto-filled.
+              Close this drawer, then click <strong>+ Add Vehicle</strong> â€” the customer will be pre-selected and their info auto-filled.
             </div>
           )}
-          {/* VIN with scan — placed first so decode populates fields below */}
+          {/* VIN with scan â€” placed first so decode populates fields below */}
           <div style={{ marginBottom: 12 }}>
             <span style={{ ...label, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>VIN</span>
@@ -1168,11 +753,11 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               <button type="button" title="Scan VIN barcode with camera"
                 onClick={startVinScan}
                 style={{ padding: '0 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>
-                📷
+                ðŸ“·
               </button>
             </div>
-            {vinDecoding && <div style={{ marginTop: 4, fontSize: 11, color: '#3b82f6' }}>⏳ Decoding VIN…</div>}
-            {vinDecodeMsg && <div style={{ marginTop: 4, fontSize: 11, color: vinDecodeMsg.startsWith('✓') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{vinDecodeMsg}</div>}
+            {vinDecoding && <div style={{ marginTop: 4, fontSize: 11, color: '#3b82f6' }}>â³ Decoding VINâ€¦</div>}
+            {vinDecodeMsg && <div style={{ marginTop: 4, fontSize: 11, color: vinDecodeMsg.startsWith('âœ“') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>{vinDecodeMsg}</div>}
             {/* hidden file input for photo fallback */}
             <input ref={vinFileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleVinFileUpload} />
           </div>
@@ -1181,7 +766,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div>
               <span style={label}>Year</span>
               <select style={inp} value={f.year ?? ''} onChange={e => set('year', e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">â€” Select â€”</option>
                 {Array.from({ length: new Date().getFullYear() - 1949 + 1 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
@@ -1191,7 +776,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               <span style={label}>Make</span>
               <input list="vd-makes" style={inp} value={f.make ?? ''} onChange={e => set('make', e.target.value)} placeholder="e.g. Toyota" />
               <datalist id="vd-makes">
-                {['Acura','Alfa Romeo','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','Cadillac','Chevrolet','Chrysler','Citroën','Dacia','Dodge','Ferrari','Fiat','Ford','Genesis','GMC','Honda','Hyundai','Infiniti','Jaguar','Jeep','Kia','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Maserati','Mazda','McLaren','Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche','RAM','Renault','Rolls-Royce','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo'].map(m => <option key={m} value={m} />)}
+                {['Acura','Alfa Romeo','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','Cadillac','Chevrolet','Chrysler','CitroÃ«n','Dacia','Dodge','Ferrari','Fiat','Ford','Genesis','GMC','Honda','Hyundai','Infiniti','Jaguar','Jeep','Kia','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Maserati','Mazda','McLaren','Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche','RAM','Renault','Rolls-Royce','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo'].map(m => <option key={m} value={m} />)}
               </datalist>
             </div>
             <div>
@@ -1204,7 +789,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div>
               <span style={label}>Fuel Type</span>
               <select style={inp} value={f.fuelType ?? ''} onChange={e => set('fuelType', e.target.value)}>
-                <option value="">— Select —</option>
+                <option value="">â€” Select â€”</option>
                 {['Petrol','Diesel','Hybrid','EV','CNG','LPG'].map(ft => <option key={ft} value={ft}>{ft}</option>)}
               </select>
             </div>
@@ -1217,7 +802,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <div onClick={e => { if (e.target === e.currentTarget) stopVinScan(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Point camera at VIN barcode</div>
               <video ref={vinScanVideoRef} playsInline muted style={{ width: '90vw', maxWidth: 480, borderRadius: 12, border: '2px solid #22c55e' }} />
-              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automatically…</div>
+              <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automaticallyâ€¦</div>
               <button onClick={stopVinScan} style={{ padding: '10px 28px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancel</button>
             </div>
           )}
@@ -1231,7 +816,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {row('Date Received', <input type="date" style={inp} value={f.dateReceived ?? ''} onChange={e => set('dateReceived', e.target.value || null)} />)}
 
           </div>{/* end left column */}
-          <div>{/* ── RIGHT: Service Record ── */}
+          <div>{/* â”€â”€ RIGHT: Service Record â”€â”€ */}
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Service Record</div>
 
           {/* Assigned Tech multi-select dropdown */}
@@ -1244,14 +829,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                 style={{ ...inp, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 36 }}
               >
                 <span style={{ color: f.assignedTech ? 'var(--text)' : 'var(--muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {f.assignedTech || 'Select technicians…'}
+                  {f.assignedTech || 'Select techniciansâ€¦'}
                 </span>
-                <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0, marginLeft: 6 }}>{techDropdownOpen ? '▲' : '▼'}</span>
+                <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0, marginLeft: 6 }}>{techDropdownOpen ? 'â–²' : 'â–¼'}</span>
               </button>
               {techDropdownOpen && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
                   {technicians.length === 0 && (
-                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found — add them in the Employees module.</div>
+                    <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found â€” add them in the Employees module.</div>
                   )}
                   {technicians.map(tech => {
                     const selected = (f.assignedTech ?? '').split(';').map(s => s.trim()).filter(Boolean).includes(tech.name);
@@ -1269,7 +854,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                         onMouseLeave={e => { if (!selected) e.currentTarget.style.background = 'transparent'; }}
                       >
                         <span style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected ? c.color : 'var(--line)'}`, background: selected ? c.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, color: '#fff', fontWeight: 800 }}>
-                          {selected ? '✓' : ''}
+                          {selected ? 'âœ“' : ''}
                         </span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600, fontSize: 13, color: selected ? c.color : 'var(--text)' }}>{tech.name}</div>
@@ -1283,7 +868,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                     <div
                       onClick={() => { set('assignedTech', ''); setTechDropdownOpen(false); }}
                       style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, color: '#dc2626', fontWeight: 600, textAlign: 'center', borderTop: '1px solid var(--line)' }}>
-                      ✕ Clear selection
+                      âœ• Clear selection
                     </div>
                   )}
                 </div>
@@ -1298,7 +883,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                     <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
                       {t}
                       <button onClick={() => { const next = f.assignedTech.split(';').map(s => s.trim()).filter(s => s && s !== t); set('assignedTech', next.join('; ')); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.color, fontSize: 12, padding: 0, lineHeight: 1, fontWeight: 800 }}>×</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.color, fontSize: 12, padding: 0, lineHeight: 1, fontWeight: 800 }}>Ã—</button>
                     </span>
                   );
                 })}
@@ -1328,7 +913,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', flexShrink: 0, display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
           <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Saving…' : '✓ Save Changes'}
+            {saving ? 'Savingâ€¦' : 'âœ“ Save Changes'}
           </button>
         </div>
       </div>
@@ -1337,7 +922,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   );
 }
 
-// ── Main View ───────────────────────────────────────────────────
+// â”€â”€ Main View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function VehiclesView() {
   const dispatch = useAppDispatch();
   const { shops, currentShop, role } = useShop();
@@ -1433,7 +1018,7 @@ export function VehiclesView() {
         plate: v.plate, status: newStatus, recommendation: v.recommendation,
       });
       setVehicles(prev => prev.map(x => x.id === vehicleId ? { ...x, status: newStatus } : x));
-      notify(`${v.label} → ${newStatus}`);
+      notify(`${v.label} â†’ ${newStatus}`);
     } catch { notify('Status update failed'); }
   }
 
@@ -1467,10 +1052,10 @@ export function VehiclesView() {
       .sort((a, b) => (b.dateReceived ?? '').localeCompare(a.dateReceived ?? ''));
     setCustVehicles(cvs);
     if (cvs.length === 1) {
-      // Only one car — auto-fill immediately
+      // Only one car â€” auto-fill immediately
       applyVehicleTemplate(customerId, cvs[0]);
     } else {
-      // Multiple cars — set customer only, let user pick which car to pre-fill from
+      // Multiple cars â€” set customer only, let user pick which car to pre-fill from
       setForm(f => ({ ...f, customerId, label: '', vin: '', trim: '', engine: '', transmission: '', plate: '' }));
     }
   }
@@ -1541,7 +1126,7 @@ export function VehiclesView() {
   // Filtered + searched list
   const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
   const filtered = vehicles.filter(v => {
-    // Archived vehicles hidden from "All" — must use Archived filter to see them
+    // Archived vehicles hidden from "All" â€” must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
     const matchStatus = statusFilter === 'All' || v.status === statusFilter;
     const q = search.toLowerCase();
@@ -1557,18 +1142,18 @@ export function VehiclesView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
-      {/* ── Transfer Modal ── */}
+      {/* â”€â”€ Transfer Modal â”€â”€ */}
       {transferTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           onClick={e => { if (e.target === e.currentTarget) setTransferTarget(null); }}>
           <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 420, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ marginBottom: 20 }}>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>⇄ Transfer Vehicle</h2>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>{transferTarget.label} · {transferTarget.plate}</p>
+              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>â‡„ Transfer Vehicle</h2>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>{transferTarget.label} Â· {transferTarget.plate}</p>
             </div>
 
             <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: 'var(--muted)' }}>
-              Currently at: <strong style={{ color: 'var(--text)' }}>{currentShop?.name ?? '—'}</strong>
+              Currently at: <strong style={{ color: 'var(--text)' }}>{currentShop?.name ?? 'â€”'}</strong>
             </div>
 
             <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>Move to:</p>
@@ -1589,8 +1174,8 @@ export function VehiclesView() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(37,99,235,0.07)'; e.currentTarget.style.borderColor = '#93c5fd'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--line)'; }}
                 >
-                  <span>🏢 {s.name}</span>
-                  <span style={{ fontSize: 18, color: '#2563eb' }}>→</span>
+                  <span>ðŸ¢ {s.name}</span>
+                  <span style={{ fontSize: 18, color: '#2563eb' }}>â†’</span>
                 </button>
               ))}
             </div>
@@ -1605,7 +1190,7 @@ export function VehiclesView() {
       {galleryVehicle && (
         <PhotoGalleryModal
           title={galleryVehicle.label}
-          subtitle={`${galleryVehicle.plate} · ${galleryVehicle.vin}`}
+          subtitle={`${galleryVehicle.plate} Â· ${galleryVehicle.vin}`}
           fetchImages={() => fetchVehicleImages(galleryVehicle.id)}
           uploadImage={(file, label) => uploadVehicleImage(galleryVehicle.id, file, label)}
           deleteImage={(id, url) => deleteVehicleImage(id, url)}
@@ -1636,7 +1221,7 @@ export function VehiclesView() {
           }}
           onReturnJob={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
-            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
+            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `â†© RETURN JOB â€” Vehicle: ${drawerVehicle.label}` } });
             setDrawerVehicle(null);
           }}
           onCreateInvoice={async () => {
@@ -1651,13 +1236,13 @@ export function VehiclesView() {
                 vehicle: v.label,
                 jobCardId: '',
                 status: 'Draft',
-                lines: [{ note: '', description: `Service — ${v.label}`, qty: 1, rate: 0 }],
+                lines: [{ note: '', description: `Service â€” ${v.label}`, qty: 1, rate: 0 }],
                 discount: 0, shopSupplies: 0, taxRate: 0,
                 notes: `Vehicle: ${v.label}${v.issues ? `\nIssues: ${v.issues}` : ''}`,
                 dueDate: '', paidDate: null, currency: 'USD',
               });
               setDrawerVehicle(null);
-              notify(`✓ Invoice ${inv.invoiceNumber} created`);
+              notify(`âœ“ Invoice ${inv.invoiceNumber} created`);
               dispatch({ type: 'SET_MODULE', module: 'invoices' });
               setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: inv.invoiceNumber } })), 100);
             } catch { notify('Failed to create invoice'); }
@@ -1673,44 +1258,44 @@ export function VehiclesView() {
         />
       )}
 
-      {/* ── Toolbar ── */}
+      {/* â”€â”€ Toolbar â”€â”€ */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         {/* View toggle */}
         <div style={{ display: 'flex', gap: 6 }}>
-          <ViewBtn mode="grid"    current={viewMode} icon="⊞" label="Grid"           onClick={() => setViewMode('grid')} />
-          <ViewBtn mode="list"    current={viewMode} icon="☰" label="List"           onClick={() => setViewMode('list')} />
-          <ViewBtn mode="service" current={viewMode} icon="📋" label="Service Records" onClick={() => setViewMode('service')} />
-          <ViewBtn mode="kanban"  current={viewMode} icon="🗂" label="Kanban"         onClick={() => setViewMode('kanban')} />
+          <ViewBtn mode="grid"    current={viewMode} icon="âŠž" label="Grid"           onClick={() => setViewMode('grid')} />
+          <ViewBtn mode="list"    current={viewMode} icon="â˜°" label="List"           onClick={() => setViewMode('list')} />
+          <ViewBtn mode="service" current={viewMode} icon="ðŸ“‹" label="Service Records" onClick={() => setViewMode('service')} />
+          <ViewBtn mode="kanban"  current={viewMode} icon="ðŸ—‚" label="Kanban"         onClick={() => setViewMode('kanban')} />
         </div>
         <button className="btn btn-primary" onClick={() => { setShowForm(v => !v); setVinError(''); setForm(EMPTY_FORM); setEditingId(null); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>
           {showForm ? 'Cancel' : '+ Add Vehicle'}
         </button>
       </div>
 
-      {/* ── Search + Status filters (list & service views) ── */}
+      {/* â”€â”€ Search + Status filters (list & service views) â”€â”€ */}
       {(viewMode === 'list' || viewMode === 'service') && (
         <div style={{ marginBottom: 14 }}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search vehicles, VIN, plate, tech, issues…"
+            placeholder="Search vehicles, VIN, plate, tech, issuesâ€¦"
             style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box', marginBottom: 10 }}
           />
           <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
         </div>
       )}
 
-      {/* ── Add / Edit Form ── */}
+      {/* â”€â”€ Add / Edit Form â”€â”€ */}
       {showForm && (
         <form onSubmit={handleSave} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? '✏ Edit Vehicle' : '+ Add Vehicle'}</div>
-          {/* ── Customer picker with search + quick-add ── */}
+          <div style={{ gridColumn: '1 / -1', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{editingId ? 'âœ Edit Vehicle' : '+ Add Vehicle'}</div>
+          {/* â”€â”€ Customer picker with search + quick-add â”€â”€ */}
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer *</label>
               <button type="button" onClick={() => { setShowAddCustomer(v => !v); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); }}
                 style={{ fontSize: 12, fontWeight: 700, color: '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {showAddCustomer ? '✕ Cancel' : '+ New Customer'}
+                {showAddCustomer ? 'âœ• Cancel' : '+ New Customer'}
               </button>
             </div>
 
@@ -1721,7 +1306,7 @@ export function VehiclesView() {
                   value={custSearch || (form.customerId ? (customers.find(c => c.id === form.customerId)?.name ?? '') : '')}
                   onChange={e => { setCustSearch(e.target.value); if (!e.target.value) setForm(f => ({ ...f, customerId: '' })); }}
                   onFocus={e => { setCustSearch(''); e.target.select(); }}
-                  placeholder="Search customers…"
+                  placeholder="Search customersâ€¦"
                   required={!form.customerId}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${form.customerId ? '#22c55e' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', boxSizing: 'border-box', fontSize: 14 }}
                 />
@@ -1729,8 +1314,8 @@ export function VehiclesView() {
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
                     {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0 ? (
                       <div style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: 13 }}>
-                        No match — <button type="button" onClick={() => { setShowAddCustomer(true); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); setCustSearch(''); }}
-                          style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Create "{custSearch}" as new customer →</button>
+                        No match â€” <button type="button" onClick={() => { setShowAddCustomer(true); setNewCust({ name: custSearch, phone: '', email: '', type: 'Individual' }); setCustSearch(''); }}
+                          style={{ color: '#2196f3', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>Create "{custSearch}" as new customer â†’</button>
                       </div>
                     ) : customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).map(c => {
                       const custVehicles = vehicles.filter(v => v.customerId === c.id);
@@ -1741,7 +1326,7 @@ export function VehiclesView() {
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent') as unknown as void}>
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
-                            {(c.phone || c.email) && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}{c.phone && c.email ? ' · ' : ''}{c.email}</div>}
+                            {(c.phone || c.email) && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone}{c.phone && c.email ? ' Â· ' : ''}{c.email}</div>}
                           </div>
                           {custVehicles.length > 0 && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 10, padding: '2px 8px', flexShrink: 0 }}>{custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''}</span>}
                         </div>
@@ -1750,7 +1335,7 @@ export function VehiclesView() {
                   </div>
                 )}
                 {form.customerId && !custSearch && (
-                  <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Customer selected</div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>âœ“ Customer selected</div>
                 )}
               </div>
             )}
@@ -1758,7 +1343,7 @@ export function VehiclesView() {
             {/* Inline new-customer mini-form */}
             {showAddCustomer && (
               <div style={{ background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 2 }}>➕ New Customer</div>
+                <div style={{ gridColumn: '1 / -1', fontSize: 12, fontWeight: 700, color: '#2196f3', marginBottom: 2 }}>âž• New Customer</div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>Name *</label>
                   <input value={newCust.name} onChange={e => setNewCust(n => ({ ...n, name: e.target.value }))} placeholder="Company or person name" autoFocus />
@@ -1779,16 +1364,16 @@ export function VehiclesView() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
                   <button type="button" className="btn" onClick={() => setShowAddCustomer(false)}>Cancel</button>
-                  <button type="button" className="btn btn-primary" disabled={savingCust || !newCust.name.trim()} onClick={handleAddCustomer}>{savingCust ? 'Saving…' : 'Create & Select'}</button>
+                  <button type="button" className="btn btn-primary" disabled={savingCust || !newCust.name.trim()} onClick={handleAddCustomer}>{savingCust ? 'Savingâ€¦' : 'Create & Select'}</button>
                 </div>
               </div>
             )}
           </div>
-          {/* ── Existing vehicle picker (shown when customer has multiple cars) ── */}
+          {/* â”€â”€ Existing vehicle picker (shown when customer has multiple cars) â”€â”€ */}
           {custVehicles.length > 0 && form.customerId && (
             <div style={{ gridColumn: '1 / -1', background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 10, overflow: 'hidden' }}>
               <div style={{ padding: '8px 14px', background: 'rgba(33,150,243,0.08)', borderBottom: '1px solid rgba(33,150,243,0.15)', fontSize: 11, fontWeight: 800, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                🚗 {customers.find(c => c.id === form.customerId)?.name} has {custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''} on file — select to pre-fill, or fill in manually below
+                ðŸš— {customers.find(c => c.id === form.customerId)?.name} has {custVehicles.length} vehicle{custVehicles.length !== 1 ? 's' : ''} on file â€” select to pre-fill, or fill in manually below
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 1, background: 'rgba(33,150,243,0.1)' }}>
                 {custVehicles.map(v => {
@@ -1800,10 +1385,10 @@ export function VehiclesView() {
                       onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface)'; }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: isSelected ? '#2196f3' : 'var(--text)' }}>{v.label}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 8 }}>
-                        {v.plate && <span>🔢 {v.plate}</span>}
-                        {v.vin && <span style={{ fontFamily: 'monospace' }}>{v.vin.slice(0, 8)}…</span>}
+                        {v.plate && <span>ðŸ”¢ {v.plate}</span>}
+                        {v.vin && <span style={{ fontFamily: 'monospace' }}>{v.vin.slice(0, 8)}â€¦</span>}
                       </div>
-                      {v.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#2196f3', alignSelf: 'flex-start', marginTop: 2 }}>{isSelected ? '✓ Selected' : 'Click to pre-fill →'}</span>}
+                      {v.status && <span style={{ fontSize: 10, fontWeight: 700, color: '#2196f3', alignSelf: 'flex-start', marginTop: 2 }}>{isSelected ? 'âœ“ Selected' : 'Click to pre-fill â†’'}</span>}
                     </div>
                   );
                 })}
@@ -1811,7 +1396,7 @@ export function VehiclesView() {
                   style={{ padding: '10px 14px', cursor: 'pointer', background: (!form.label && !form.vin) ? 'rgba(76,175,80,0.08)' : 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 3, justifyContent: 'center', borderLeft: (!form.label && !form.vin) ? '3px solid #4caf50' : '3px solid transparent', transition: 'all .12s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(76,175,80,0.06)'}
                   onMouseLeave={e => e.currentTarget.style.background = (!form.label && !form.vin) ? 'rgba(76,175,80,0.08)' : 'var(--surface)'}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#4caf50' }}>＋ New vehicle</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#4caf50' }}>ï¼‹ New vehicle</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>Fill in the fields below manually</div>
                 </div>
               </div>
@@ -1825,9 +1410,9 @@ export function VehiclesView() {
               <span style={{ fontSize: 11, fontWeight: 600, color: form.vin.length === 17 ? '#22c55e' : form.vin.length > 0 ? '#f59e0b' : 'var(--muted)' }}>{form.vin.length}/17</span>
             </label>
             <input value={form.vin} onChange={e => { const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17); setForm(f => ({ ...f, vin: v })); if (vinError) setVinError(''); }} placeholder="1FTFW1E85PFA24680" maxLength={17} style={{ borderColor: vinError ? '#ef4444' : form.vin.length === 17 ? '#22c55e' : undefined, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
-            {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>⚠ {vinError}</div>}
+            {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>âš  {vinError}</div>}
             {!vinError && form.vin.length > 0 && form.vin.length < 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b' }}>{17 - form.vin.length} more needed</div>}
-            {!vinError && form.vin.length === 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Valid length</div>}
+            {!vinError && form.vin.length === 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>âœ“ Valid length</div>}
           </div>
           {field('trim', 'Trim', 'XL SuperCrew 4WD')}
           {field('engine', 'Engine', '3.5L EcoBoost')}
@@ -1840,18 +1425,18 @@ export function VehiclesView() {
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); setShowAddCustomer(false); setCustSearch(''); setCustVehicles([]); }}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Savingâ€¦' : editingId ? 'Update Vehicle' : 'Save Vehicle'}</button>
           </div>
         </form>
       )}
 
-      {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading vehicles…</p>}
+      {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading vehiclesâ€¦</p>}
       {error && <p style={{ color: 'var(--danger)', padding: 16 }}>{error}</p>}
       {!loading && vehicles.length === 0 && <p style={{ color: 'var(--muted)', padding: 16 }}>No vehicles yet. Add your first one above.</p>}
 
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/* GRID VIEW                                         */}
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {viewMode === 'grid' && vehicles.length > 0 && (
         <>
           <div className="grid cols-3">
@@ -1862,7 +1447,7 @@ export function VehiclesView() {
                   const count = photos.length;
                   return (
                     <div onClick={() => setGalleryVehicle(v)} style={{ height: 160, cursor: 'pointer', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)', display: 'flex', background: '#000' }}>
-                      {count === 0 && <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}><span style={{ fontSize: 32 }}>🚗</span><span style={{ fontSize: 12 }}>Add photos</span></div>}
+                      {count === 0 && <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}><span style={{ fontSize: 32 }}>ðŸš—</span><span style={{ fontSize: 12 }}>Add photos</span></div>}
                       {count === 1 && <img src={photos[0]} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
                       {count === 2 && (<><img src={photos[0]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block', borderRight: '2px solid #000' }} /><img src={photos[1]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block' }} /></>)}
                       {count >= 3 && (<>
@@ -1876,7 +1461,7 @@ export function VehiclesView() {
                           ))}
                         </div>
                       </>)}
-                      <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6, pointerEvents: 'none' }}>📷 {count > 0 ? `${count} photo${count !== 1 ? 's' : ''}` : 'Photos'}</div>
+                      <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 11, padding: '3px 8px', borderRadius: 6, pointerEvents: 'none' }}>ðŸ“· {count > 0 ? `${count} photo${count !== 1 ? 's' : ''}` : 'Photos'}</div>
                     </div>
                   );
                 })()}
@@ -1886,25 +1471,25 @@ export function VehiclesView() {
                     <Badge text={v.status || 'No open jobs'} />
                   </div>
                   <div className="kv" style={{ marginTop: 10 }}>
-                    <div><span>VIN</span><strong style={{ fontSize: 11 }}>{v.vin || '—'}</strong></div>
-                    <div><span>Mileage</span><strong>{v.mileage || '—'}</strong></div>
-                    <div><span>Engine</span><strong>{v.engine || '—'}</strong></div>
-                    <div><span>Plate</span><strong>{v.plate || '—'}</strong></div>
+                    <div><span>VIN</span><strong style={{ fontSize: 11 }}>{v.vin || 'â€”'}</strong></div>
+                    <div><span>Mileage</span><strong>{v.mileage || 'â€”'}</strong></div>
+                    <div><span>Engine</span><strong>{v.engine || 'â€”'}</strong></div>
+                    <div><span>Plate</span><strong>{v.plate || 'â€”'}</strong></div>
                   </div>
                   {v.recommendation && <div className="empty-note" style={{ marginTop: 10 }}>Recommended: {v.recommendation}</div>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button className="btn btn-primary" style={{ flex: 1, fontSize: 13 }} onClick={() => {
                       const owner = customers.find(c => c.id === v.customerId);
                       dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
-                    }}>＋ Job Card</button>
-                    {enableVehiclePhotos && <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
+                    }}>ï¼‹ Job Card</button>
+                    {enableVehiclePhotos && <button className="btn" style={{ fontSize: 13 }} onClick={() => setGalleryVehicle(v)}>ðŸ“· Photos</button>}
                     {enableVehicleEdit && <button className="btn" style={{ fontSize: 13 }} onClick={() => {
                       setEditingId(v.id);
                       setForm({ customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim, engine: v.engine, transmission: v.transmission, mileage: v.mileage, plate: v.plate, status: v.status || 'Active', recommendation: v.recommendation });
                       setVinError('');
                       setShowForm(true);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}>✏ Edit</button>}
+                    }}>âœ Edit</button>}
                   </div>
                 </div>
               </article>
@@ -1923,7 +1508,7 @@ export function VehiclesView() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {enableVehiclePhotos && ((thumbs[v.id]?.[0])
                           ? <img src={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
-                          : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>🚗</div>
+                          : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>ðŸš—</div>
                         )}
                         <div><strong>{v.label}</strong><div className="meta">{v.plate}</div></div>
                       </div>
@@ -1933,9 +1518,9 @@ export function VehiclesView() {
                     <td>{v.recommendation}</td>
                     <td>
                       <div className="row-actions">
-                        {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
+                        {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>ðŸ“· Photos</button>}
                         {role === 'owner' && shops.length > 1 && (
-                          <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
+                          <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>â‡„ Transfer</button>
                         )}
                         <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                       </div>
@@ -1948,18 +1533,18 @@ export function VehiclesView() {
         </>
       )}
 
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/* LIST VIEW                                         */}
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {viewMode === 'list' && filtered.length > 0 && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-            {filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} {statusFilter !== 'All' ? `· ${statusFilter}` : ''}
+            {filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} {statusFilter !== 'All' ? `Â· ${statusFilter}` : ''}
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--surface-soft)' }}>
-                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
+                {['Vehicle', 'Customer', 'Year Â· Make Â· Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -1974,23 +1559,23 @@ export function VehiclesView() {
                       {enableVehiclePhotos && (
                         thumbs[v.id]?.[0]
                           ? <img src={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }} />
-                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>🚗</div>
+                          : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>ðŸš—</div>
                       )}
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{v.label}</span>
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
-                    {(() => { const c = customers.find(cu => cu.id === v.customerId); return c ? <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>; })()}
+                    {(() => { const c = customers.find(cu => cu.id === v.customerId); return c ? <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>â€”</span>; })()}
                   </td>
-                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{[v.year, v.make, v.model].filter(Boolean).join(' ') || '—'}</td>
-                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || '—'}</td>
-                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || '—'}</td>
-                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || '—'}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{[v.year, v.make, v.model].filter(Boolean).join(' ') || 'â€”'}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>{v.vin || 'â€”'}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || 'â€”'}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || 'â€”'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <StatusPill status={v.status} />
                     {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.recommendation}>
-                        📝 {v.recommendation}
+                        ðŸ“ {v.recommendation}
                       </div>
                     )}
                   </td>
@@ -2000,17 +1585,17 @@ export function VehiclesView() {
                           const c = techColor(t);
                           return <span key={t} style={{ display: 'inline-block', background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600, marginRight: 3, marginBottom: 2 }}>{t}</span>;
                         })
-                      : <span style={{ color: 'var(--muted)' }}>—</span>
+                      : <span style={{ color: 'var(--muted)' }}>â€”</span>
                     }
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                    {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                    {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'â€”'}
                   </td>
                   <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
-                      {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}
+                      {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>ðŸ“·</button>}
                       {role === 'owner' && shops.length > 1 && (
-                        <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
+                        <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>â‡„ Transfer</button>
                       )}
                       <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
                     </div>
@@ -2025,9 +1610,9 @@ export function VehiclesView() {
         <p style={{ color: 'var(--muted)', padding: 20, textAlign: 'center' }}>No vehicles match your filters.</p>
       )}
 
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/* KANBAN VIEW                                        */}
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {viewMode === 'kanban' && (
         <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', alignItems: 'flex-start' }}>
@@ -2066,7 +1651,7 @@ export function VehiclesView() {
                   <div style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {colVehicles.length === 0 && (
                       <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
-                        {isDropTarget ? '📥 Drop here' : 'No vehicles'}
+                        {isDropTarget ? 'ðŸ“¥ Drop here' : 'No vehicles'}
                       </div>
                     )}
                     {colVehicles.map(v => {
@@ -2095,17 +1680,17 @@ export function VehiclesView() {
                             >
                               {thumb
                                 ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                : <span style={{ fontSize: 26, opacity: 0.4 }}>🚗</span>
+                                : <span style={{ fontSize: 26, opacity: 0.4 }}>ðŸš—</span>
                               }
-                              <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>📷</div>
+                              <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>ðŸ“·</div>
                             </div>
                           )}
 
                           {/* Card body */}
                           <div style={{ padding: '8px 10px' }}>
                             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>{v.label}</div>
-                            {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>👤 {owner.name}</div>}
-                            {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>🔢 {v.plate}</div>}
+                            {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>ðŸ‘¤ {owner.name}</div>}
+                            {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>ðŸ”¢ {v.plate}</div>}
                             {v.assignedTech && (
                               <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                                 {v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
@@ -2120,7 +1705,7 @@ export function VehiclesView() {
                               <button
                                 onClick={() => setDrawerVehicle(v)}
                                 style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: `1px solid ${col.border}`, background: col.bg, color: col.color, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                                Open →
+                                Open â†’
                               </button>
                               <button
                                 onClick={() => {
@@ -2138,7 +1723,7 @@ export function VehiclesView() {
                               onClick={e => e.stopPropagation()}
                               style={{ marginTop: 6, width: '100%', padding: '4px 6px', borderRadius: 6, border: `1px solid ${col.border}`, background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
                             >
-                              <option value="">Move to…</option>
+                              <option value="">Move toâ€¦</option>
                               {KANBAN_COLUMNS.filter(c => c.status !== col.status).map(c => (
                                 <option key={c.status} value={c.status}>{c.icon} {c.label}</option>
                               ))}
@@ -2159,13 +1744,13 @@ export function VehiclesView() {
               );
             })}
           </div>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status · or use the "Move to…" dropdown on each card</p>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status Â· or use the "Move toâ€¦" dropdown on each card</p>
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {/* SERVICE RECORDS VIEW                              */}
-      {/* ══════════════════════════════════════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       {viewMode === 'service' && (
         <>
           {/* Summary bar */}

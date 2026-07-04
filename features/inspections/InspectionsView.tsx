@@ -18,6 +18,7 @@ import { useShop } from '@/lib/useShop';
 import { supabase } from '@/lib/supabase';
 import { fetchTechnicians, createTechnician, TECH_ROLES } from '@/services/technicianService';
 import { FilterPills } from '@/components/FilterPills';
+import { draftEstimateFromInspection } from '@/services/aiService';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50', Attention: '#ff9800', Fail: '#f44336', 'N/A': '#888',
@@ -182,6 +183,10 @@ export function InspectionsView() {
   const [shareError, setShareError] = useState('');
   const [copiedShare, setCopiedShare] = useState(false);
   const [generatingShare, setGeneratingShare] = useState(false);
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiDraft, setAiDraft] = useState<string>('');
+  const [aiDraftMock, setAiDraftMock] = useState(false);
+  const [aiDraftError, setAiDraftError] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState('');
 
   const EMPTY_FORM = {
@@ -404,6 +409,35 @@ export function InspectionsView() {
       navigator.clipboard.writeText(url).then(() => { setCopiedShare(true); setTimeout(() => setCopiedShare(false), 3000); });
     } catch (e: unknown) { setShareError(e instanceof Error ? e.message : 'Failed to generate link'); }
     finally { setGeneratingShare(false); }
+  }
+
+  async function handleAiDraftEstimate(ins: Inspection) {
+    setAiDrafting(true); setAiDraftError(''); setAiDraft('');
+    try {
+      const failItems = ins.items.filter(it => it.status === 'Fail');
+      const attnItems = ins.items.filter(it => it.status === 'Attention');
+      const findings = [
+        ...failItems.map(it => ({ label: it.name, finding: 'Fail', severity: 'High' })),
+        ...attnItems.map(it => ({ label: it.name, finding: 'Needs Attention', severity: 'Medium' })),
+      ];
+      const res = await draftEstimateFromInspection({
+        make: ins.vehicle,
+        model: '',
+        year: '',
+        mileage: 0,
+        laborRate: 85,
+        currency: 'USD',
+        findings,
+      });
+      const r = res.result as unknown as Record<string, unknown>;
+      const draft = typeof r.estimateSummary === 'string'
+        ? r.estimateSummary
+        : JSON.stringify(r, null, 2);
+      setAiDraft(draft);
+      setAiDraftMock(res.mock);
+    } catch (err) {
+      setAiDraftError(err instanceof Error ? err.message : 'AI request failed');
+    } finally { setAiDrafting(false); }
   }
 
   async function handleSendEmail(ins: Inspection) {
@@ -741,8 +775,36 @@ export function InspectionsView() {
                   onClick={() => { setShareUrl(''); setShareError(''); handleGenerateShareLink(selected); }}>
                   {generatingShare ? '…' : '🔗 Share Link'}
                 </button>
+                <button
+                  className="btn"
+                  onClick={() => handleAiDraftEstimate(selected)}
+                  disabled={aiDrafting}
+                  style={{ background: 'rgba(99,102,241,0.08)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.3)' }}
+                >
+                  {aiDrafting ? '⏳ Drafting…' : '✨ Draft Estimate with AI'}
+                </button>
                 <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
               </div>
+
+              {/* AI Estimate Draft */}
+              {(aiDraft || aiDraftError) && (
+                <div style={{ marginBottom: 12, padding: '12px 14px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', textTransform: 'uppercase' }}>AI Estimate Draft — Suggestion Only</span>
+                    {aiDraftMock && <span style={{ fontSize: 10, color: '#d97706', background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 10, padding: '1px 6px', fontWeight: 700 }}>MOCK</span>}
+                    <button onClick={() => { setAiDraft(''); setAiDraftError(''); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}>✕</button>
+                  </div>
+                  {aiDraftError && <p style={{ color: 'var(--danger)', fontSize: 12, margin: 0 }}>{aiDraftError}</p>}
+                  {aiDraft && (
+                    <>
+                      <pre style={{ fontSize: 12, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{aiDraft}</pre>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, fontStyle: 'italic', marginBottom: 0 }}>
+                        ⚠ AI suggestions must be verified by a qualified technician before presenting to the customer.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Share error modal */}
               {shareError && (

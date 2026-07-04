@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePagination } from '@/lib/usePagination';
+import { Pagination } from '@/components/Pagination';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
-import { Badge } from '@/components/Badge';
 import {
   fetchInvoices, createInvoice, updateInvoice, markInvoicePaid,
   deleteInvoice, nextInvoiceNumber, calculateTotals, formatMoney, CURRENCIES,
@@ -332,9 +333,6 @@ export function InvoicesView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
-  function handlePrint() {
-    window.print();
-  }
 
   const filtered = invoices.filter(inv => {
     const matchStatus = filterStatus === 'All' || inv.status === filterStatus;
@@ -342,6 +340,8 @@ export function InvoicesView() {
       .some(v => v.toLowerCase().includes(search.toLowerCase()));
     return matchStatus && matchSearch;
   });
+
+  const invPage = usePagination(filtered, { pageSize: 25 });
 
   const totals = selected ? calculateTotals(selected) : null;
 
@@ -575,7 +575,7 @@ export function InvoicesView() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {filtered.map((inv, idx) => {
+            {invPage.pageItems.map((inv, idx) => {
               const t = calculateTotals(inv);
               const isSelected = selected?.id === inv.id;
               const isLatest = inv.id === invoices[0]?.id;
@@ -607,6 +607,13 @@ export function InvoicesView() {
               );
             })}
           </div>
+          <Pagination
+            page={invPage.page} totalPages={invPage.totalPages} totalItems={invPage.totalItems}
+            startIndex={invPage.startIndex} endIndex={invPage.endIndex}
+            hasPrev={invPage.hasPrev} hasNext={invPage.hasNext}
+            onPrev={invPage.prevPage} onNext={invPage.nextPage}
+            onFirst={invPage.goToFirst} onLast={invPage.goToLast} onPage={invPage.setPage}
+          />
         </Panel>
 
         {/* ── Right: Invoice Detail ── */}

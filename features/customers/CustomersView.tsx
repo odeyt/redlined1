@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePagination } from '@/lib/usePagination';
+import { Pagination } from '@/components/Pagination';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
@@ -33,6 +35,7 @@ export function CustomersView() {
   const [ros, setRos]                     = useState<RepairOrder[]>([]);
   const [maintSchedules, setMaintSchedules] = useState<MaintenanceSchedule[]>([]);
   const [reminderSending, setReminderSending] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchCustomers()
@@ -138,6 +141,13 @@ export function CustomersView() {
     } catch { notify('Failed to send follow-up.'); }
   }
 
+  const filtered = customers.filter(c => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return [c.name, c.phone, c.email, c.address].some(v => v && v.toLowerCase().includes(q));
+  });
+  const custPage = usePagination(filtered, { pageSize: 25 });
+
   const money = (n: number) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const calcTotal = (i: Invoice) => (i.subtotal || 0) - (i.discount || 0) + (i.tax || 0) + (i.shop_supplies || 0);
 
@@ -180,17 +190,23 @@ export function CustomersView() {
           </form>
         )}
 
+        <div style={{ marginBottom: 12 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers…" className="search" style={{ width: '100%', maxWidth: 340 }} />
+        </div>
+
         {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading customers…</p>}
         {error && <p style={{ color: 'var(--danger)', padding: 16 }}>{error}</p>}
         {!loading && customers.length === 0 && <p style={{ color: 'var(--muted)', padding: 16 }}>No customers yet. Add your first one above.</p>}
+        {!loading && customers.length > 0 && filtered.length === 0 && <p style={{ color: 'var(--muted)', padding: 16 }}>No customers match your search.</p>}
 
-        {customers.length > 0 && (
+        {custPage.pageItems.length > 0 && (
+          <>
           <table>
             <thead>
               <tr><th>Customer</th><th>Type</th><th>Contact</th><th>Tags</th><th>Follow-up</th><th>Action</th></tr>
             </thead>
             <tbody>
-              {customers.map(c => (
+              {custPage.pageItems.map(c => (
                 <tr key={c.id} style={{ cursor: 'pointer' }}>
                   <td onClick={() => openDetail(c)}>
                     <strong style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}>{c.name}</strong>
@@ -212,6 +228,14 @@ export function CustomersView() {
               ))}
             </tbody>
           </table>
+          <Pagination
+            page={custPage.page} totalPages={custPage.totalPages} totalItems={custPage.totalItems}
+            startIndex={custPage.startIndex} endIndex={custPage.endIndex}
+            hasPrev={custPage.hasPrev} hasNext={custPage.hasNext}
+            onPrev={custPage.prevPage} onNext={custPage.nextPage}
+            onFirst={custPage.goToFirst} onLast={custPage.goToLast} onPage={custPage.setPage}
+          />
+          </>
         )}
       </Panel>
 

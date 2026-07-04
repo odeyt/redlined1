@@ -12,7 +12,6 @@ import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchShopSettings, DEFAULT_PAYMENT_METHODS } from '@/services/shopSettingsService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
-const fmtTime = (d: string) => d ? new Date(d).toLocaleString() : '—';
 // Returns "YYYY-MM-DDTHH:mm" in local time for datetime-local inputs
 function localDateTimeValue(date = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, '0');

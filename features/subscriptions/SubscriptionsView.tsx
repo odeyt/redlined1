@@ -6,7 +6,6 @@ import { planCatalog } from '@/lib/mock-data';
 import { StatCard } from '@/components/StatCard';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
-import { calculateTotals as calculateInvoice } from '@/services/invoiceService';
 
 export function SubscriptionsView() {
   const { currentPlan, users, customers, vehicles, jobCards, invoices } = useAppState();
