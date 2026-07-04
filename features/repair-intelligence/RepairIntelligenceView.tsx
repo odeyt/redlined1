@@ -12,8 +12,7 @@ import {
   VERIFICATION_NEXT,
   VERIFICATION_COLORS,
 } from '@/services/repairCaseService';
-import { getGraphStatus } from '@/services/knowledgeGraphService';
-import type { GraphStatus } from '@/lib/knowledge-graph/types';
+import { getGraphStatus, type GraphStatus } from '@/services/knowledgeGraphService';
 import { useShop } from '@/lib/useShop';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString() : '—';

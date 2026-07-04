@@ -212,10 +212,16 @@ function WorkshopPrintModal({
     `;
     document.head.appendChild(styleTag);
 
-    window.print();
-
-    document.body.removeChild(printDiv);
-    document.head.removeChild(styleTag);
+    // Small delay ensures browser applies styles before opening print dialog.
+    // Cleanup runs after dialog closes (window.print blocks on most browsers,
+    // but the timeout is a safety net for Chrome on Windows).
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        if (document.body.contains(printDiv)) document.body.removeChild(printDiv);
+        if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
+      }, 500);
+    }, 100);
   }
 
   const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
@@ -225,18 +231,6 @@ function WorkshopPrintModal({
 
   return (
     <>
-      {/* Print-only styles */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #workshop-print-report, #workshop-print-report * { visibility: visible !important; }
-          #workshop-print-report { position: fixed !important; top: 0; left: 0; right: 0; bottom: auto; overflow: visible !important; }
-          .print-page-break { page-break-after: always; }
-          @page { size: A4 landscape; margin: 12mm 10mm; }
-        }
-        #workshop-print-report { font-family: Arial, sans-serif; font-size: 12px; color: #000; }
-      `}</style>
-
       {/* Backdrop */}
       <div className="no-print" onClick={onClose}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 3000 }} />
