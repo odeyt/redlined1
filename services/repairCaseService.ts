@@ -4,11 +4,35 @@ import { logger } from '@/lib/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type VerificationStatus = 'pending' | 'tech_verified' | 'thirty_day_verified' | 'gold_verified';
+
+export const VERIFICATION_LABELS: Record<VerificationStatus, string> = {
+  pending:              'Pending',
+  tech_verified:        'Tech Verified',
+  thirty_day_verified:  '30-Day Verified',
+  gold_verified:        'Gold Verified ⭐',
+};
+
+export const VERIFICATION_NEXT: Record<VerificationStatus, VerificationStatus | null> = {
+  pending:              'tech_verified',
+  tech_verified:        'thirty_day_verified',
+  thirty_day_verified:  'gold_verified',
+  gold_verified:        null,
+};
+
+export const VERIFICATION_COLORS: Record<VerificationStatus, string> = {
+  pending:              '#9e9e9e',
+  tech_verified:        '#2196f3',
+  thirty_day_verified:  '#ff9800',
+  gold_verified:        '#4caf50',
+};
+
 export interface RepairCase {
   id: string;
   shopId: string;
   jobCardId?: string;
   repairOrderId?: string;
+  roNumber?: string;
   vehicleId?: string;
   customerId?: string;
   vin?: string;
@@ -16,16 +40,28 @@ export interface RepairCase {
   model?: string;
   year?: string;
   engine?: string;
+  transmission?: string;
   mileage?: number;
   complaint?: string;
   technicianNotes?: string;
   finalFix?: string;
+  lessonLearned?: string;
+  laborHours?: number;
   confidenceScore?: number;
+  verificationStatus: VerificationStatus;
   isAnonymized: boolean;
   shareToNetwork: boolean;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RepairCaseWithDetails extends RepairCase {
+  dtcs: RepairCaseDtc[];
+  symptoms: RepairCaseSymptom[];
+  tests: RepairCaseTest[];
+  parts: RepairCasePart[];
+  outcomes: RepairCaseOutcome[];
 }
 
 export interface RepairCaseDtc {
@@ -87,6 +123,7 @@ function mapCase(r: Record<string, unknown>): RepairCase {
     shopId: r.shop_id as string,
     jobCardId: r.job_card_id as string | undefined,
     repairOrderId: r.repair_order_id as string | undefined,
+    roNumber: r.ro_number as string | undefined,
     vehicleId: r.vehicle_id as string | undefined,
     customerId: r.customer_id as string | undefined,
     vin: r.vin as string | undefined,
@@ -94,11 +131,15 @@ function mapCase(r: Record<string, unknown>): RepairCase {
     model: r.model as string | undefined,
     year: r.year as string | undefined,
     engine: r.engine as string | undefined,
+    transmission: r.transmission as string | undefined,
     mileage: r.mileage as number | undefined,
     complaint: r.complaint as string | undefined,
     technicianNotes: r.technician_notes as string | undefined,
     finalFix: r.final_fix as string | undefined,
+    lessonLearned: r.lesson_learned as string | undefined,
+    laborHours: r.labor_hours as number | undefined,
     confidenceScore: r.confidence_score as number | undefined,
+    verificationStatus: ((r.verification_status as string) || 'pending') as VerificationStatus,
     isAnonymized: (r.is_anonymized as boolean) ?? true,
     shareToNetwork: (r.share_to_network as boolean) ?? false,
     createdBy: r.created_by as string | undefined,
@@ -117,6 +158,7 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
       shop_id: shopId,
       job_card_id: params.jobCardId ?? null,
       repair_order_id: params.repairOrderId ?? null,
+      ro_number: params.roNumber ?? null,
       vehicle_id: params.vehicleId ?? null,
       customer_id: params.customerId ?? null,
       vin: params.vin ?? null,
@@ -124,11 +166,15 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
       model: params.model ?? null,
       year: params.year ?? null,
       engine: params.engine ?? null,
+      transmission: params.transmission ?? null,
       mileage: params.mileage ?? null,
       complaint: params.complaint ?? null,
       technician_notes: params.technicianNotes ?? null,
       final_fix: params.finalFix ?? null,
+      lesson_learned: params.lessonLearned ?? null,
+      labor_hours: params.laborHours ?? null,
       confidence_score: params.confidenceScore ?? null,
+      verification_status: params.verificationStatus ?? 'pending',
       is_anonymized: params.isAnonymized ?? true,
       share_to_network: params.shareToNetwork ?? false,
     })
@@ -136,6 +182,69 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
     .single();
   if (error) { logger.error('createRepairCaseFromJob failed', error, { module: 'repairCaseService' }); throw error; }
   return mapCase(data);
+}
+
+export async function updateRepairCase(id: string, params: Partial<RepairCase>): Promise<RepairCase> {
+  const shopId = getShopId();
+  const patch: Record<string, unknown> = {};
+  if (params.vin !== undefined)          patch.vin = params.vin;
+  if (params.make !== undefined)         patch.make = params.make;
+  if (params.model !== undefined)        patch.model = params.model;
+  if (params.year !== undefined)         patch.year = params.year;
+  if (params.engine !== undefined)       patch.engine = params.engine;
+  if (params.transmission !== undefined) patch.transmission = params.transmission;
+  if (params.mileage !== undefined)      patch.mileage = params.mileage;
+  if (params.complaint !== undefined)    patch.complaint = params.complaint;
+  if (params.technicianNotes !== undefined) patch.technician_notes = params.technicianNotes;
+  if (params.finalFix !== undefined)     patch.final_fix = params.finalFix;
+  if (params.lessonLearned !== undefined) patch.lesson_learned = params.lessonLearned;
+  if (params.laborHours !== undefined)   patch.labor_hours = params.laborHours;
+  if (params.confidenceScore !== undefined) patch.confidence_score = params.confidenceScore;
+  if (params.verificationStatus !== undefined) patch.verification_status = params.verificationStatus;
+  if (params.isAnonymized !== undefined) patch.is_anonymized = params.isAnonymized;
+  if (params.shareToNetwork !== undefined) patch.share_to_network = params.shareToNetwork;
+
+  const { data, error } = await supabase
+    .from('repair_cases')
+    .update(patch)
+    .eq('id', id)
+    .eq('shop_id', shopId)
+    .select()
+    .single();
+  if (error) { logger.error('updateRepairCase failed', error, { module: 'repairCaseService' }); throw error; }
+  return mapCase(data);
+}
+
+export async function updateVerificationStatus(id: string, status: VerificationStatus): Promise<RepairCase> {
+  return updateRepairCase(id, { verificationStatus: status });
+}
+
+export async function fetchRepairCaseWithDetails(id: string): Promise<RepairCaseWithDetails | null> {
+  const shopId = getShopId();
+  const [
+    { data: caseData, error: caseErr },
+    { data: dtcData },
+    { data: symptomData },
+    { data: testData },
+    { data: partData },
+    { data: outcomeData },
+  ] = await Promise.all([
+    supabase.from('repair_cases').select('*').eq('id', id).eq('shop_id', shopId).single(),
+    supabase.from('repair_case_dtcs').select('*').eq('repair_case_id', id).eq('shop_id', shopId),
+    supabase.from('repair_case_symptoms').select('*').eq('repair_case_id', id).eq('shop_id', shopId),
+    supabase.from('repair_case_tests').select('*').eq('repair_case_id', id).eq('shop_id', shopId),
+    supabase.from('repair_case_parts').select('*').eq('repair_case_id', id).eq('shop_id', shopId),
+    supabase.from('repair_case_outcomes').select('*').eq('repair_case_id', id).eq('shop_id', shopId),
+  ]);
+  if (caseErr || !caseData) return null;
+  return {
+    ...mapCase(caseData),
+    dtcs: (dtcData ?? []).map(r => ({ id: r.id, shopId: r.shop_id, repairCaseId: r.repair_case_id, code: r.code, description: r.description, module: r.module, status: r.status })),
+    symptoms: (symptomData ?? []).map(r => ({ id: r.id, shopId: r.shop_id, repairCaseId: r.repair_case_id, symptom: r.symptom, severity: r.severity })),
+    tests: (testData ?? []).map(r => ({ id: r.id, shopId: r.shop_id, repairCaseId: r.repair_case_id, testName: r.test_name, result: r.result, passed: r.passed, notes: r.notes })),
+    parts: (partData ?? []).map(r => ({ id: r.id, shopId: r.shop_id, repairCaseId: r.repair_case_id, partName: r.part_name, partNumber: r.part_number, supplier: r.supplier, cost: r.cost, replaced: r.replaced })),
+    outcomes: (outcomeData ?? []).map(r => ({ id: r.id, shopId: r.shop_id, repairCaseId: r.repair_case_id, outcome: r.outcome, comeback: r.comeback, comebackDays: r.comeback_days, warrantyClaim: r.warranty_claim, customerSatisfied: r.customer_satisfied, verifiedFix: r.verified_fix })),
+  };
 }
 
 export async function listRepairCases(): Promise<RepairCase[]> {
