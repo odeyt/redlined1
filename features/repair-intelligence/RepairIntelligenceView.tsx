@@ -12,7 +12,6 @@ import {
   VERIFICATION_NEXT,
   VERIFICATION_COLORS,
 } from '@/services/repairCaseService';
-import { getGraphStatus, type GraphStatus } from '@/services/knowledgeGraphService';
 import { useShop } from '@/lib/useShop';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString() : '—';
@@ -322,55 +321,10 @@ function KV({ k, v }: { k: string; v?: string | number | null }) {
   );
 }
 
-// ─── Graph Status Widget (admin/owner only) ───────────────────────────────────
-
-function GraphStatusWidget({ shopId }: { shopId: string }) {
-  const [status, setStatus] = useState<GraphStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    getGraphStatus(shopId)
-      .then(setStatus)
-      .catch(() => setStatus(null))
-      .finally(() => setLoading(false));
-  }, [shopId]);
-
-  if (loading || !status) return null;
-  if (status.nodeCount === 0 && status.edgeCount === 0) return null;
-
-  const stats: [string, number | string][] = [
-    ['Nodes', status.nodeCount],
-    ['Edges', status.edgeCount],
-    ['Observations', status.observationCount],
-    ['Lessons', status.lessonCount],
-  ];
-
-  return (
-    <div style={{ marginBottom: 16, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--bg-secondary)' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-        Knowledge Graph Status
-      </div>
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-        {stats.map(([label, value]) => (
-          <div key={label} style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent)' }}>{value}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
-          </div>
-        ))}
-      </div>
-      {status.lastUpdated && (
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-          Last updated: {new Date(status.lastUpdated).toLocaleDateString()}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main View ────────────────────────────────────────────────────────────────
 
 export function RepairIntelligenceView() {
-  const { role, shopId } = useShop();
+  const { role } = useShop();
   const [cases, setCases] = useState<RepairCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -434,8 +388,6 @@ export function RepairIntelligenceView() {
       {/* Owner widgets */}
       {role === 'owner' && cases.length > 0 && <OwnerDashboard cases={cases} />}
 
-      {/* Knowledge Graph status — only shown when graph has been populated */}
-      {role === 'owner' && shopId && <GraphStatusWidget shopId={shopId} />}
 
       {/* Search */}
       <div style={{ marginBottom: 16 }}>

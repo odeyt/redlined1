@@ -545,7 +545,7 @@ export async function mapRepairCaseToGraph(
   // ── Lesson node + LEARNED_FROM edge ──────────────────────
 
   if (input.lessonLearned?.trim()) {
-    const lessonNode = await upsertGraphNode({
+    await upsertGraphNode({
       shopId,
       nodeType: 'lesson',
       canonicalName: input.lessonLearned.trim(),
@@ -556,8 +556,8 @@ export async function mapRepairCaseToGraph(
     });
     nodeCount++;
 
-    // Store as a structured lesson
-    const lesson = await createStructuredLesson({
+    // Store as a structured lesson — repair_case_id on the lesson row IS the LEARNED_FROM link
+    await createStructuredLesson({
       shopId,
       repairCaseId,
       title: `Lesson from ${normMake ?? 'vehicle'} ${normModel ?? ''} repair`,
@@ -566,10 +566,6 @@ export async function mapRepairCaseToGraph(
       recommendation: input.lessonLearned.trim(),
       tags: [normMake, normModel, ...(dtcCodes)].filter((t): t is string => Boolean(t)),
     });
-
-    // LEARNED_FROM is stored as a metadata reference (repair_case_id is already on the lesson)
-    void lesson; // lesson is persisted; no edge needed back to case (case is the source)
-    void lessonNode;
   }
 
   return { nodeCount, edgeCount, observationCount };
