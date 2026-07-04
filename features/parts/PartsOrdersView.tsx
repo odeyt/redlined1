@@ -126,7 +126,7 @@ const EMPTY_ORDER: FormState = {
   vendorName: '', vendorPhone: '', vendorEmail: '',
   coreCharge: 0, depositPaid: 0,
   totalCost: 0, balanceDue: 0, paymentStatus: 'Unpaid',
-  status: 'Pending',
+  status: 'Quote',
   orderDate: today(), etr: '', receivedDate: '',
   jobCardNumber: '', repairOrderNumber: '', estimateNumber: '', invoiceNumber: '',
   vehicle: '', customerName: '',
@@ -613,7 +613,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   }
 
   /* filters */
-  const ON_ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered'];
+  const ON_ORDER_STATUSES = ['Quote', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered'];
   const visible = orders.filter(o => {
     if (filterGroup === 'on-order' && !ON_ORDER_STATUSES.includes(o.status)) return false;
     if (filterGroup === 'received' && o.status !== 'Received') return false;

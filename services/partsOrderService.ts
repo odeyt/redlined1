@@ -52,7 +52,7 @@ export interface PartsOrder {
   createdAt: string;
 }
 
-export const ORDER_STATUSES = ['Pending', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered', 'Received', 'Returned', 'Cancelled'];
+export const ORDER_STATUSES = ['Quote', 'Ordered', 'Deposit Paid', 'Backordered', 'Waiting Customer', 'Pending Customer', 'Received', 'Returned', 'Cancelled'];
 export const PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid in Full'];
 export const PART_CONDITIONS = ['New', 'Genuine', 'OEM', 'Aftermarket', 'Remanufactured', 'Used', 'Refurbished'];
 
@@ -98,7 +98,7 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
     coreCharge:         core,
     depositPaid:        deposit,
     balanceDue:         Number(r.balance_due ?? Math.max(0, total + core - deposit)),
-    status:             (r.status as string)           || 'Pending',
+    status:             (r.status as string)           || 'Quote',
     paymentStatus:      (r.payment_status as string)   || 'Unpaid',
     orderDate:          (r.order_date as string)       || '',
     etr:                (r.etr as string)              || '',
