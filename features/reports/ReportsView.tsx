@@ -127,16 +127,19 @@ function WorkshopPrintModal({
         vQueryWithDate = vQueryWithDate.gte('date_received', `${year}-01-01`).lt('date_received', `${year + 1}-01-01`);
       }
 
-      // Null-date vehicles are only included in "All months" view — unknown dates
-      // should not appear in a specific month's report
-      const nullDateQuery = month === 0 ? baseQ().is('date_received', null) : null;
-
-      const [{ data: vByDate }, nullResult, { data: custData }] = await Promise.all([
+      // Run date-filtered query and customer lookup in parallel.
+      // Null-date vehicles only fetched for "All months" (month === 0) —
+      // unknown dates must not appear in a specific month's report.
+      const [{ data: vByDate }, { data: custData }] = await Promise.all([
         vQueryWithDate.order('date_received', { ascending: false }),
-        nullDateQuery ? nullDateQuery : Promise.resolve({ data: [] }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
-      const vNoDate = nullResult?.data ?? [];
+
+      let vNoDate: typeof vByDate = [];
+      if (month === 0) {
+        const { data: nullRows } = await baseQ().is('date_received', null);
+        vNoDate = nullRows;
+      }
 
       // Merge, deduplicate by id
       const seenV = new Set<string>();
