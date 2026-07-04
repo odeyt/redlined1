@@ -482,6 +482,49 @@ export function JobCardsView() {
     } catch (err: unknown) { setError('Remove failed: ' + (err instanceof Error ? err.message : '')); }
   }
 
+  const [filterService, setFilterService] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
+
+  // Color palette for service type pills
+  const SERVICE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+    'Oil Change':    { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+    'Brakes':        { bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' },
+    'Tires':         { bg: '#f1f5f9', color: '#334155', border: '#94a3b8' },
+    'Alignment':     { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
+    'Engine':        { bg: '#fce7f3', color: '#9d174d', border: '#f9a8d4' },
+    'Transmission':  { bg: '#f3e8ff', color: '#7e22ce', border: '#d8b4fe' },
+    'Electrical':    { bg: '#fef9c3', color: '#92400e', border: '#fde047' },
+    'AC/Heat':       { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+    'Diagnostics':   { bg: '#e0e7ff', color: '#4338ca', border: '#a5b4fc' },
+    'Inspection':    { bg: '#ccfbf1', color: '#0f766e', border: '#5eead4' },
+    'Detailing':     { bg: '#fdf4ff', color: '#a21caf', border: '#e879f9' },
+    'Custom':        { bg: '#f3f4f6', color: '#374151', border: '#9ca3af' },
+    'Fleet PM':      { bg: '#fffbeb', color: '#b45309', border: '#fcd34d' },
+    'Parts install': { bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+    'Diagnostic only': { bg: '#e0e7ff', color: '#4338ca', border: '#a5b4fc' },
+  };
+
+  const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+    'Booked':        { bg: '#f3f4f6', color: '#374151', border: '#9ca3af' },
+    'Approved':      { bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+    'In Progress':   { bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+    'Pending Parts': { bg: '#ffedd5', color: '#c2410c', border: '#fdba74' },
+    'Completed':     { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+  };
+
+  // Derive unique service types + statuses from current jobs
+  const queueServiceTypes = Array.from(new Set(
+    jobs.flatMap(j => j.serviceType.split(' + ').map(s => s.split(' — ')[0].trim()))
+  )).sort();
+  const queueStatuses = Array.from(new Set(jobs.map(j => j.status))).sort();
+
+  // Apply filters
+  const filteredJobs = jobs.filter(j => {
+    if (filterService && !j.serviceType.toLowerCase().includes(filterService.toLowerCase())) return false;
+    if (filterStatus && j.status !== filterStatus) return false;
+    return true;
+  });
+
   const tabBtn = (key: typeof tab, label: string, count?: number) => (
     <button onClick={() => setTab(key)} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: tab === key ? 700 : 400, background: tab === key ? 'var(--accent)' : 'var(--surface-soft)', color: tab === key ? '#fff' : 'var(--text)', fontSize: 13 }}>
       {label}{count !== undefined ? ` (${count})` : ''}
@@ -643,16 +686,57 @@ export function JobCardsView() {
       {/* ── ACTIVE JOBS ── */}
       {tab === 'active' && (
         <>
-          <Panel title="Job Card Queue" hint="Active jobs — click Edit to modify any field">
+          {/* ── SERVICE TYPE FILTER PILLS ── */}
+          {jobs.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                <button
+                  onClick={() => { setFilterService(''); setFilterStatus(''); }}
+                  style={{ padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: `2px solid ${!filterService && !filterStatus ? 'var(--accent)' : 'var(--line)'}`, background: !filterService && !filterStatus ? 'var(--accent)' : 'var(--surface-soft)', color: !filterService && !filterStatus ? '#fff' : 'var(--muted)', transition: 'all 0.15s' }}>
+                  All ({jobs.length})
+                </button>
+                {queueServiceTypes.map(svc => {
+                  const c = SERVICE_COLORS[svc] ?? SERVICE_COLORS['Custom'];
+                  const active = filterService === svc;
+                  const count = jobs.filter(j => j.serviceType.toLowerCase().includes(svc.toLowerCase())).length;
+                  return (
+                    <button key={svc} onClick={() => { setFilterService(active ? '' : svc); setFilterStatus(''); }}
+                      style={{ padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer', border: `2px solid ${active ? c.color : c.border}`, background: active ? c.color : c.bg, color: active ? '#fff' : c.color, transition: 'all 0.15s', boxShadow: active ? `0 2px 8px ${c.border}` : 'none' }}>
+                      {svc} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+              {queueStatuses.length > 1 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {queueStatuses.map(st => {
+                    const c = STATUS_COLORS[st] ?? STATUS_COLORS['Booked'];
+                    const active = filterStatus === st;
+                    const count = jobs.filter(j => j.status === st).length;
+                    return (
+                      <button key={st} onClick={() => { setFilterStatus(active ? '' : st); setFilterService(''); }}
+                        style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: 'pointer', border: `1px solid ${active ? c.color : c.border}`, background: active ? c.color : c.bg, color: active ? '#fff' : c.color, transition: 'all 0.15s' }}>
+                        {st} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          <Panel title={`Job Card Queue${filterService ? ` — ${filterService}` : filterStatus ? ` — ${filterStatus}` : ''}`} hint={`${filteredJobs.length} of ${jobs.length} jobs`}>
             {loading && <p style={{ color: 'var(--muted)' }}>Loading…</p>}
-            {!loading && jobs.length === 0 && <p style={{ color: 'var(--muted)' }}>No active jobs. Create one below.</p>}
-            {jobs.length > 0 && (
+            {!loading && jobs.length === 0 && <p style={{ color: 'var(--muted)' }}>No active jobs. Create one above.</p>}
+            {!loading && jobs.length > 0 && filteredJobs.length === 0 && (
+              <p style={{ color: 'var(--muted)' }}>No jobs match this filter. <button onClick={() => { setFilterService(''); setFilterStatus(''); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Clear filter</button></p>
+            )}
+            {filteredJobs.length > 0 && (
               <table>
                 <thead>
                   <tr><th>Job Card</th><th>Customer / Vehicle</th><th>Service</th><th>Techs</th><th>Dates</th><th>Workflow</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  {jobs.map(job => (
+                  {filteredJobs.map(job => (
                     editingId === job.id ? (
                       <tr key={job.id} style={{ background: 'var(--surface-soft)' }}>
                         <td><strong>{job.id}</strong></td>
@@ -739,135 +823,6 @@ export function JobCardsView() {
             )}
           </Panel>
 
-          <Panel title="Create Job Card" hint="Fill in details and assign one or more technicians">
-            <div className="form-row">
-              <div className="field">
-                <label>Customer</label>
-                {customers.length > 0 ? (
-                  <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                  </select>
-                ) : (
-                  <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
-                )}
-                {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
-              </div>
-              <div className="field">
-                <label>Vehicle / VIN</label>
-                {customerVehicles.length > 1 ? (
-                  <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
-                    <option value="">— select vehicle —</option>
-                    {customerVehicles.map(v => (
-                      <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input value={fVehicle} onChange={e => setFVehicle(e.target.value)} placeholder="2023 Ford F-150" />
-                )}
-                {selectedVehicleMileage && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>🛣 {Number(selectedVehicleMileage).toLocaleString()} km on record</div>}
-              </div>
-              <div className="field" style={{ minWidth: '100%' }}>
-                <label>Service Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span></label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {serviceTypeOptions.map(s => {
-                    const active = fServiceTypes.includes(s);
-                    return (
-                      <button key={s} type="button" onClick={() => toggleServiceType(s)}
-                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 13, cursor: 'pointer', border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`, background: active ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', color: active ? 'var(--accent)' : 'var(--text)', fontWeight: active ? 700 : 400, transition: 'all 0.15s' }}>
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-                {fServiceTypes.length === 0 && <div style={{ fontSize: 12, color: 'var(--red,#cc0000)', marginTop: 4 }}>Select at least one service type</div>}
-              </div>
-              {enableJobCardSubType && fServiceTypes.filter(s => (serviceSubTypes[s] ?? []).length > 0).map(svc => (
-                <div key={svc} className="field" style={{ minWidth: '100%' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {svc} — Sub-Type <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>— select one or more</span>
-                    {oilSuggestion && svc === 'Oil Change' && (
-                      <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10, background: 'rgba(0,160,80,0.12)', color: '#00a050', border: '1px solid rgba(0,160,80,0.25)' }}>
-                        ✓ Suggested from engine
-                      </span>
-                    )}
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                    {(serviceSubTypes[svc] ?? []).map(s => {
-                      const checked = (fSubTypes[svc] ?? []).includes(s);
-                      return (
-                        <label key={s} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '5px 12px', borderRadius: 8, border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`, background: checked ? 'rgba(204,0,0,0.08)' : 'var(--surface-soft)', userSelect: 'none' }}>
-                          <input type="checkbox" checked={checked} onChange={() => {
-                            const cur = fSubTypes[svc] ?? [];
-                            const next = checked ? cur.filter(x => x !== s) : [...cur, s];
-                            setFSubTypes(prev => ({ ...prev, [svc]: next }));
-                            if (svc === 'Oil Change') setOilSuggestion('');
-                          }} style={{ accentColor: 'var(--accent)' }} />
-                          {s}{oilSuggestion && svc === 'Oil Change' && s.includes(oilSuggestion) ? ' ✓' : ''}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {selectedVehicleEngine && svc === 'Oil Change' && (
-                    <div style={{ marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>Engine: {selectedVehicleEngine}</div>
-                  )}
-                </div>
-              ))}
-              <div className="field">
-                <label>Work Type</label>
-                <select value={fWorkType} onChange={e => handleWorkTypeChange(e.target.value)}>
-                  <option>Mobile service</option><option>Shop repair</option><option>Fleet PM</option><option>Parts install</option><option>Diagnostic only</option>
-                </select>
-              </div>
-              {enableJobCardPriority && (
-                <div className="field">
-                  <label>Priority</label>
-                  <select value={fPriority} onChange={e => setFPriority(e.target.value)}>
-                    <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
-                  </select>
-                </div>
-              )}
-            </div>
-            <div className="form-row">
-              {enableJobCardBranchRoute && (
-                <div className="field">
-                  <label>Branch / Route</label>
-                  <select value={fRoute} onChange={e => setFRoute(e.target.value)}>
-                    {appointmentBays.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
-              )}
-              {enableJobCardServiceLocation && (
-                <div className="field">
-                  <label>Service Location</label>
-                  <input value={fServiceLoc} onChange={e => setFServiceLoc(e.target.value)} placeholder="Bay, driveway, depot" />
-                </div>
-              )}
-              {enableJobCardApprovalCode && (
-                <div className="field">
-                  <label>PO / Approval Code</label>
-                  <input value={fApproval} onChange={e => setFApproval(e.target.value)} placeholder="PO or SMS approval" />
-                </div>
-              )}
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
-              {techs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                {techs.map(t => (
-                  <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 8, border: `1px solid ${fTechs.includes(t.name) ? 'var(--accent)' : 'var(--line)'}`, background: fTechs.includes(t.name) ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
-                    <input type="checkbox" checked={fTechs.includes(t.name)} onChange={() => toggleFTech(t.name)} style={{ accentColor: 'var(--accent)' }} />
-                    {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="actions" style={{ justifyContent: 'flex-start' }}>
-              <button className="btn primary" onClick={handleCreate} disabled={creating}>
-                <Icon name="add" /> {creating ? 'Creating…' : 'Create Job Card'}
-              </button>
-            </div>
-          </Panel>
         </>
       )}
 
