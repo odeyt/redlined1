@@ -112,41 +112,18 @@ function WorkshopPrintModal({
   async function fetchData() {
     setLoading(true);
     try {
-      const pad = (n: number) => String(n).padStart(2, '0');
       const vSelect = 'id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak';
       const baseQ = () => supabase.from('vehicles').select(vSelect).eq('shop_id', shopId).ilike('status', '%complet%');
 
-      // Build queries: with date filter + always include null-date completed vehicles
-      let vQueryWithDate = baseQ();
-      if (month > 0) {
-        const startDate = `${year}-${pad(month)}-01`;
-        const endDate = month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`;
-        vQueryWithDate = vQueryWithDate.gte('date_received', startDate).lt('date_received', endDate);
-      }
-      // month === 0 means All Time — no date filter applied, matches Vehicle Management total
-
-      // Run query and customer lookup in parallel.
-      // For a specific month: only date-filtered rows (null-date vehicles excluded — unknown date ≠ that month).
-      // For All Time (month === 0): no date filter, includes everything.
-      const [{ data: vByDate }, { data: custData }] = await Promise.all([
-        vQueryWithDate.order('date_received', { ascending: false }),
+      // No date filter — completion report shows ALL completed vehicles regardless of received date.
+      // date_received is when the vehicle arrived, not when work was completed, so filtering by it
+      // would exclude vehicles received in one month but finished in another.
+      const [{ data: allCompleted }, { data: custData }] = await Promise.all([
+        baseQ().order('date_received', { ascending: false }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
 
-      // For specific months, also include null-date completed vehicles so nothing is missed.
-      // For All Time, all rows are already included above (no date filter).
-      let vNoDate: typeof vByDate = [];
-      if (month > 0) {
-        const { data: nullRows } = await baseQ().is('date_received', null);
-        vNoDate = nullRows;
-      }
-
-      // Merge, deduplicate by id
-      const seenV = new Set<string>();
-      const vehicles: Record<string, unknown>[] = [];
-      for (const v of [...(vByDate ?? []), ...(vNoDate ?? [])] as Record<string, unknown>[]) {
-        if (!seenV.has(v.id as string)) { seenV.add(v.id as string); vehicles.push(v); }
-      }
+      const vehicles = (allCompleted ?? []) as Record<string, unknown>[];
       const custMap: Record<string, string> = {};
       for (const c of (custData ?? []) as { id: string; name: string }[]) custMap[c.id] = c.name;
 
@@ -1463,7 +1440,7 @@ export function ReportsView() {
           shopId={reportShopId}
           month={filterMonth}
           year={filterYear}
-          periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : 'All Completed Jobs'}
+          periodLabel="All Completed Jobs"
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
         />
