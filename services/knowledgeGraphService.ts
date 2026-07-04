@@ -18,7 +18,6 @@ import type {
   AutomotiveGraphEdge,
   AutomotiveGraphLesson,
   AutomotiveGraphObservation,
-  AutomotiveGraphMetric,
   GraphNodeType,
   GraphEdgeType,
   GraphStatus,

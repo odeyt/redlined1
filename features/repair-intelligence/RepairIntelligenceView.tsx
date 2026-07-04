@@ -114,7 +114,6 @@ function OwnerDashboard({ cases }: { cases: RepairCase[] }) {
   thisMonth.setDate(1);
   const monthCases = cases.filter(c => new Date(c.createdAt) >= thisMonth);
 
-  const dtcCounts: Record<string, number> = {};
   const verCounts: Record<string, number> = {};
   let totalConf = 0; let confCount = 0;
 
@@ -124,7 +123,6 @@ function OwnerDashboard({ cases }: { cases: RepairCase[] }) {
   });
 
   const avgConf = confCount > 0 ? Math.round(totalConf / confCount) : null;
-  const topDtc = Object.entries(dtcCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
 
   const widgets = [
     { label: 'Total Cases', value: cases.length },
