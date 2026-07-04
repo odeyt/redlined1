@@ -122,21 +122,21 @@ function WorkshopPrintModal({
         const startDate = `${year}-${pad(month)}-01`;
         const endDate = month === 12 ? `${year + 1}-01-01` : `${year}-${pad(month + 1)}-01`;
         vQueryWithDate = vQueryWithDate.gte('date_received', startDate).lt('date_received', endDate);
-      } else {
-        // All months in year
-        vQueryWithDate = vQueryWithDate.gte('date_received', `${year}-01-01`).lt('date_received', `${year + 1}-01-01`);
       }
+      // month === 0 means All Time — no date filter applied, matches Vehicle Management total
 
-      // Run date-filtered query and customer lookup in parallel.
-      // Null-date vehicles only fetched for "All months" (month === 0) —
-      // unknown dates must not appear in a specific month's report.
+      // Run query and customer lookup in parallel.
+      // For a specific month: only date-filtered rows (null-date vehicles excluded — unknown date ≠ that month).
+      // For All Time (month === 0): no date filter, includes everything.
       const [{ data: vByDate }, { data: custData }] = await Promise.all([
         vQueryWithDate.order('date_received', { ascending: false }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
 
+      // For specific months, also include null-date completed vehicles so nothing is missed.
+      // For All Time, all rows are already included above (no date filter).
       let vNoDate: typeof vByDate = [];
-      if (month === 0) {
+      if (month > 0) {
         const { data: nullRows } = await baseQ().is('date_received', null);
         vNoDate = nullRows;
       }
@@ -1463,7 +1463,7 @@ export function ReportsView() {
           shopId={reportShopId}
           month={filterMonth}
           year={filterYear}
-          periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `Year ${filterYear}`}
+          periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : 'All Completed Jobs'}
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
         />
