@@ -127,11 +127,16 @@ function WorkshopPrintModal({
         vQueryWithDate = vQueryWithDate.gte('date_received', `${year}-01-01`).lt('date_received', `${year + 1}-01-01`);
       }
 
-      const [{ data: vByDate }, { data: vNoDate }, { data: custData }] = await Promise.all([
+      // Null-date vehicles are only included in "All months" view — unknown dates
+      // should not appear in a specific month's report
+      const nullDateQuery = month === 0 ? baseQ().is('date_received', null) : null;
+
+      const [{ data: vByDate }, nullResult, { data: custData }] = await Promise.all([
         vQueryWithDate.order('date_received', { ascending: false }),
-        baseQ().is('date_received', null), // completed with no date set
+        nullDateQuery ? nullDateQuery : Promise.resolve({ data: [] }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
+      const vNoDate = nullResult?.data ?? [];
 
       // Merge, deduplicate by id
       const seenV = new Set<string>();
@@ -475,7 +480,7 @@ export function ReportsView() {
   // Month/year filter for completion tab
   const now = new Date();
   const [filterYear, setFilterYear] = useState(now.getFullYear());
-  const [filterMonth, setFilterMonth] = useState(now.getMonth() + 1); // 1-12, 0 = all months in year
+  const [filterMonth, setFilterMonth] = useState(0); // 0 = all months (default matches unfiltered Vehicle Management view)
 
   // Print modal
   const [showPrintModal, setShowPrintModal] = useState(false);
