@@ -163,42 +163,22 @@ function WorkshopPrintModal({
     const el = document.getElementById('workshop-print-report');
     if (!el) return;
 
-    // Inject report HTML directly into body (above React root) so print CSS can target it cleanly
-    const printDiv = document.createElement('div');
-    printDiv.id = 'redline-print-portal';
-    printDiv.innerHTML = el.innerHTML;
-    document.body.appendChild(printDiv);
+    const win = window.open('', '_blank', 'width=1200,height=900');
+    if (!win) return;
 
-    const styleTag = document.createElement('style');
-    styleTag.id = 'redline-print-styles';
-    styleTag.innerHTML = `
-      @media print {
-        body > *:not(#redline-print-portal) { display: none !important; }
-        #redline-print-portal {
-          display: block !important;
-          font-family: Arial, sans-serif;
-          font-size: 12px;
-          color: #000;
-          padding: 10mm;
-        }
-        @page { size: A4 landscape; margin: 12mm 10mm; }
-        table { border-collapse: collapse; width: 100%; }
-        [contenteditable] { outline: none; }
-      }
-      #redline-print-portal { display: none; }
-    `;
-    document.head.appendChild(styleTag);
-
-    // Small delay ensures browser applies styles before opening print dialog.
-    // Cleanup runs after dialog closes (window.print blocks on most browsers,
-    // but the timeout is a safety net for Chrome on Windows).
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        if (document.body.contains(printDiv)) document.body.removeChild(printDiv);
-        if (document.head.contains(styleTag)) document.head.removeChild(styleTag);
-      }, 500);
-    }, 100);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #000; padding: 10mm; }
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  table { border-collapse: collapse; width: 100%; }
+  [contenteditable] { outline: none; }
+  .no-print { display: none !important; }
+</style>
+</head><body>${el.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 400);
   }
 
   const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
