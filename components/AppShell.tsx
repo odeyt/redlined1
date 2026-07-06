@@ -35,6 +35,7 @@ import { SettingsView } from '@/features/settings/SettingsView';
 import { LaborGuideView } from '@/features/labor-guide/LaborGuideView';
 import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
 import { RepairIntelligenceView } from '@/features/repair-intelligence/RepairIntelligenceView';
+import { TriageView } from '@/features/triage/TriageView';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -65,6 +66,7 @@ const views: Record<string, React.ComponentType> = {
   'labor-guide': LaborGuideView,
   'time-tracking': TimeTrackingView,
   'repair-intelligence': RepairIntelligenceView,
+  triage: TriageView,
   settings: SettingsView,
 };
 

@@ -144,6 +144,7 @@ export const navItems: [string, string, string, string][] = [
   ['dashboard',     'dashboard',  'Dashboard',     '12'],
 
   // ── Intake
+  ['triage',        'clipboard',  'Triage',        ''],
   ['customers',     'customers',  'Customers',     '138'],
   ['vehicles',      'vehicle',    'Vehicles',      '312'],
   ['appointments',  'calendar',   'Appointments',  '9'],
@@ -189,6 +190,7 @@ export const navItems: [string, string, string, string][] = [
 ];
 
 export const moduleTitles: Record<string, [string, string]> = {
+  triage: ['Automotive Triage', 'Capture high-quality customer complaints before creating a job card — structured intake with inspection suggestions'],
   dashboard: ['Operations Dashboard', 'Live view of job cards, repair orders, invoices, parts, and diagnostics'],
   access: ['Login and Role Control', 'User authentication, invitations, sessions, roles, and staff permissions'],
   'labor-guide': ['Historical Labor Rate Guide', 'Self-learning flat-rate standards built from your shop history — owner only'],
