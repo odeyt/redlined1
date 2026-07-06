@@ -338,8 +338,9 @@ export function RepairIntelligenceView() {
     void listRepairCases()
       .then(setCases)
       .catch(e => {
-        const msg = e instanceof Error ? e.message : String(e);
-        // "42P01" = relation does not exist — migration not yet run
+        const msg = e instanceof Error
+          ? e.message
+          : (e as { message?: string })?.message ?? String(e);
         if (msg.includes('42P01') || msg.includes('does not exist')) {
           setError('Repair Intelligence database tables are not set up. Run repair_intelligence_complete.sql in your Supabase SQL Editor.');
         } else {

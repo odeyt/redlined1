@@ -181,7 +181,7 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
     })
     .select()
     .single();
-  if (error) { logger.error('createRepairCaseFromJob failed', error, { module: 'repairCaseService' }); throw error; }
+  if (error) { logger.error('createRepairCaseFromJob failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
   return mapCase(data);
 }
 
@@ -213,7 +213,7 @@ export async function updateRepairCase(id: string, params: Partial<RepairCase>):
     .eq('shop_id', shopId)
     .select()
     .single();
-  if (error) { logger.error('updateRepairCase failed', error, { module: 'repairCaseService' }); throw error; }
+  if (error) { logger.error('updateRepairCase failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
   return mapCase(data);
 }
 
@@ -258,7 +258,7 @@ export async function listRepairCases(): Promise<RepairCase[]> {
     .select('*')
     .eq('shop_id', shopId)
     .order('created_at', { ascending: false });
-  if (error) { logger.error('listRepairCases failed', error, { module: 'repairCaseService' }); throw error; }
+  if (error) { logger.error('listRepairCases failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
   return (data ?? []).map(mapCase);
 }
 
