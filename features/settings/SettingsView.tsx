@@ -7,6 +7,7 @@ import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHOD
 import { PAYMENT_METHODS } from '@/services/paymentService';
 import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
+import { FeatureFlagsPanel } from './FeatureFlagsPanel';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -841,6 +842,8 @@ export function SettingsView() {
           {savedTemplate && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Template saved</span>}
         </div>
       </Panel>
+
+      <FeatureFlagsPanel />
     </>
   );
 }
