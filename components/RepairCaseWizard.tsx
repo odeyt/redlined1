@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 import type { RepairOrder } from '@/services/repairOrderService';
 import type { RepairCase } from '@/services/repairCaseService';
 import {
@@ -421,12 +423,48 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
   const [page, setPage] = useState(1);
   const [{ data, autoFilled }] = useState(() => initWizardData(ro));
   const [wizData, setWizData] = useState<WizardData>(data);
+  const [auto, setAuto] = useState<Set<string>>(autoFilled);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function set(patch: Partial<WizardData>) {
     setWizData(prev => ({ ...prev, ...patch }));
   }
+
+  // Fetch vehicle record from vehicles table using customer_id to get VIN + specs
+  useEffect(() => {
+    const customerId = ro.customerId;
+    if (!customerId) return;
+    const shopId = getShopId();
+    supabase
+      .from('vehicles')
+      .select('vin, make, model, year, engine, transmission, mileage')
+      .eq('shop_id', shopId)
+      .eq('customer_id', customerId)
+      .order('date_received', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data: v }) => {
+        if (!v) return;
+        const row = v as Record<string, unknown>;
+        const patch: Partial<WizardData> = {};
+        const newAuto = new Set(auto);
+
+        if (row.vin && !wizData.vin) { patch.vin = row.vin as string; newAuto.add('vin'); }
+        if (row.make && !wizData.make) { patch.make = row.make as string; newAuto.add('make'); }
+        if (row.model && !wizData.model) { patch.model = row.model as string; newAuto.add('model'); }
+        if (row.year && !wizData.year) { patch.year = row.year as string; newAuto.add('year'); }
+        if (row.engine && !wizData.engine) { patch.engine = row.engine as string; newAuto.add('engine'); }
+        if (row.transmission && !wizData.transmission) { patch.transmission = row.transmission as string; newAuto.add('transmission'); }
+        if (row.mileage && !wizData.mileage) { patch.mileage = String(row.mileage); newAuto.add('mileage'); }
+
+        if (Object.keys(patch).length > 0) {
+          setWizData(prev => ({ ...prev, ...patch }));
+          setAuto(newAuto);
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ro.customerId]);
 
   async function handleCreate() {
     setSaving(true);
@@ -488,7 +526,7 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
   }
 
   const roLabel = ro.roNumber || (ro as unknown as Record<string, unknown>).ro_number as string || ro.id?.slice(0, 8);
-  const autoCount = autoFilled.size;
+  const autoCount = auto.size;
 
   return (
     <>
@@ -529,10 +567,10 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
 
         {/* Body */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-          {page === 1 && <PageVehicle data={wizData} set={set} auto={autoFilled} />}
-          {page === 2 && <PageComplaint data={wizData} set={set} auto={autoFilled} />}
+          {page === 1 && <PageVehicle data={wizData} set={set} auto={auto} />}
+          {page === 2 && <PageComplaint data={wizData} set={set} auto={auto} />}
           {page === 3 && <PageTests data={wizData} set={set} />}
-          {page === 4 && <PageRepair data={wizData} set={set} auto={autoFilled} />}
+          {page === 4 && <PageRepair data={wizData} set={set} auto={auto} />}
           {page === 5 && <PageOutcome data={wizData} set={set} />}
           {page === 6 && <PageLesson data={wizData} set={set} />}
 
