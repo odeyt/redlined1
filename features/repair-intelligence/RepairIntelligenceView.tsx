@@ -95,17 +95,17 @@ function RepairTimeline({ rc }: { rc: RepairCase }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 80 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: step.done ? '#4caf50' : 'var(--bg-tertiary)',
-              border: `2px solid ${step.done ? '#4caf50' : 'var(--border)'}`,
-              color: step.done ? '#fff' : 'var(--text-muted)',
+              background: step.done ? '#4caf50' : 'var(--surface-soft)',
+              border: `2px solid ${step.done ? '#4caf50' : 'var(--line)'}`,
+              color: step.done ? '#fff' : 'var(--muted)',
               fontSize: 13, fontWeight: 700,
             }}>
               {step.done ? '✓' : i + 1}
             </div>
-            <span style={{ fontSize: 10, color: step.done ? 'var(--text-primary)' : 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
+            <span style={{ fontSize: 10, color: step.done ? 'var(--text)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.2 }}>{step.label}</span>
           </div>
           {i < steps.length - 1 && (
-            <div style={{ width: 32, height: 2, background: step.done ? '#4caf50' : 'var(--border)', flexShrink: 0 }} />
+            <div style={{ width: 32, height: 2, background: step.done ? '#4caf50' : 'var(--line)', flexShrink: 0 }} />
           )}
         </div>
       ))}
@@ -142,9 +142,9 @@ function OwnerDashboard({ cases }: { cases: RepairCase[] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
       {widgets.map(w => (
-        <div key={w.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)' }}>{w.value}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{w.label}</div>
+        <div key={w.label} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>{w.value}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{w.label}</div>
         </div>
       ))}
     </div>
@@ -169,9 +169,9 @@ function GraphStatusWidget({ status, error }: { status: GraphStatus | null; erro
   const healthColor = health === 'Healthy' ? '#4caf50' : health === 'Building' ? '#ff9800' : '#9e9e9e';
 
   return (
-    <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Knowledge Graph</span>
+        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Knowledge Graph</span>
         {health && (
           <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: `${healthColor}22`, color: healthColor, border: `1px solid ${healthColor}44` }}>
             {health}
@@ -188,13 +188,13 @@ function GraphStatusWidget({ status, error }: { status: GraphStatus | null; erro
             { label: 'Last Mapped', value: status.lastUpdated ? new Date(status.lastUpdated).toLocaleDateString() : '—' },
           ].map(w => (
             <div key={w.label}>
-              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{w.value}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{w.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{w.label}</div>
             </div>
           ))}
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{error || 'Loading…'}</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)' }}>{error || 'Loading…'}</div>
       )}
     </div>
   );
@@ -217,8 +217,8 @@ function IntelligenceCard({
   const mainSymptom = rc.symptoms?.[0]?.symptom;
 
   return (
-    <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 10 }}>Intelligence Card</div>
+    <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>Intelligence Card</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
         {mainDtc && <KV k="Main DTC" v={mainDtc} />}
         {mainSymptom && <KV k="Key Symptom" v={mainSymptom} />}
@@ -228,7 +228,7 @@ function IntelligenceCard({
         <KV k="Completeness" v={`${pct}%`} />
         <KV k="Similar Repairs" v={`${similarCount} found`} />
         <div style={{ fontSize: 13 }}>
-          <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Comeback Risk:</span>
+          <span style={{ color: 'var(--muted)', marginRight: 4 }}>Comeback Risk:</span>
           <span style={{ fontWeight: 700, color: riskColor }}>{comebackRisk}</span>
         </div>
       </div>
@@ -245,7 +245,7 @@ function SimilarRepairsPanel({ matches }: { matches: SimilarRepairMatch[] }) {
       <SectionTitle>Similar Repairs ({matches.length})</SectionTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {matches.map((m, i) => (
-          <div key={m.repairCaseId ?? i} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
+          <div key={m.repairCaseId ?? i} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <span style={{ fontWeight: 600 }}>
                 {[m.year, m.make, m.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
@@ -255,10 +255,10 @@ function SimilarRepairsPanel({ matches }: { matches: SimilarRepairMatch[] }) {
               </span>
             </div>
             {m.dtcCodes[0] && <div style={{ color: '#2196f3', fontFamily: 'monospace', fontSize: 12, marginBottom: 2 }}>{m.dtcCodes[0]}</div>}
-            {m.symptoms[0] && <div style={{ color: 'var(--text-muted)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.symptoms[0]}</div>}
-            {m.finalFix && <div style={{ color: 'var(--text-primary)' }}>Fix: {m.finalFix.length > 80 ? m.finalFix.slice(0, 77) + '…' : m.finalFix}</div>}
+            {m.symptoms[0] && <div style={{ color: 'var(--muted)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.symptoms[0]}</div>}
+            {m.finalFix && <div style={{ color: 'var(--text)' }}>Fix: {m.finalFix.length > 80 ? m.finalFix.slice(0, 77) + '…' : m.finalFix}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              {m.confidence != null && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{Math.round(m.confidence * 100)}% confidence</span>}
+              {m.confidence != null && <span style={{ fontSize: 11, color: 'var(--muted)' }}>{Math.round(m.confidence * 100)}% confidence</span>}
               {m.verificationStatus && <VerificationBadge status={m.verificationStatus} />}
             </div>
           </div>
@@ -277,7 +277,7 @@ function StructuredLessonsPanel({ lessons }: { lessons: AutomotiveGraphLesson[] 
       <SectionTitle>Structured Lessons ({lessons.length})</SectionTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lessons.map(l => (
-          <div key={l.id} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+          <div key={l.id} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px' }}>
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{l.title}</div>
             {l.whatWasWrong && <LessonRow label="What was wrong?" value={l.whatWasWrong} />}
             {l.whatFooledUs && <LessonRow label="What fooled us?" value={l.whatFooledUs} />}
@@ -295,7 +295,7 @@ function StructuredLessonsPanel({ lessons }: { lessons: AutomotiveGraphLesson[] 
 function LessonRow({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ marginBottom: 6, fontSize: 13 }}>
-      <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
+      <div style={{ color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
       <div style={{ lineHeight: 1.5 }}>{value}</div>
     </div>
   );
@@ -305,23 +305,23 @@ function LessonRow({ label, value }: { label: string; value: string }) {
 
 function TechnicianSignalCard({ signal }: { signal: TechnicianLearningSignal }) {
   return (
-    <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+    <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{signal.technicianName}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, marginBottom: 12 }}>
-        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{signal.stats.totalRepairs}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total Repairs</div></div>
-        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{Math.round(signal.stats.firstTimeFixRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>First-Fix Rate</div></div>
-        <div><div style={{ fontSize: 18, fontWeight: 800, color: signal.stats.comebackRate > 0.1 ? '#f44336' : 'inherit' }}>{Math.round(signal.stats.comebackRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Comeback Rate</div></div>
+        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{signal.stats.totalRepairs}</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>Total Repairs</div></div>
+        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{Math.round(signal.stats.firstTimeFixRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>First-Fix Rate</div></div>
+        <div><div style={{ fontSize: 18, fontWeight: 800, color: signal.stats.comebackRate > 0.1 ? '#f44336' : 'inherit' }}>{Math.round(signal.stats.comebackRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--muted)' }}>Comeback Rate</div></div>
       </div>
       {signal.strengths.length > 0 && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#4caf50', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Strengths</div>
-          {signal.strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 2 }}>{s.description}</div>)}
+          {signal.strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>{s.description}</div>)}
         </div>
       )}
       {signal.areasForGrowth.length > 0 && (
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#ff9800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Areas for Growth</div>
-          {signal.areasForGrowth.map((a, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 2 }}>{a.description}</div>)}
+          {signal.areasForGrowth.map((a, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>{a.description}</div>)}
         </div>
       )}
     </div>
@@ -360,9 +360,9 @@ function CaseDetail({
           <h3 style={{ margin: 0, fontSize: 16 }}>
             {rc.year} {rc.make} {rc.model}
           </h3>
-          {rc.vin && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>VIN: {rc.vin}</div>}
+          {rc.vin && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>VIN: {rc.vin}</div>}
         </div>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20 }}>×</button>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20 }}>×</button>
       </div>
 
       {/* Intelligence Card */}
@@ -370,7 +370,7 @@ function CaseDetail({
 
       {/* Verification workflow */}
       {nextStatus && (
-        <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: 13 }}>Advance verification to: <strong>{VERIFICATION_LABELS[nextStatus]}</strong></span>
           <button
             onClick={() => onVerify(nextStatus)}
@@ -419,7 +419,7 @@ function CaseDetail({
           <SectionTitle>Symptoms</SectionTitle>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {rc.symptoms.map(s => (
-              <span key={s.id} style={{ padding: '3px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13 }}>{s.symptom}</span>
+              <span key={s.id} style={{ padding: '3px 10px', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 12, fontSize: 13 }}>{s.symptom}</span>
             ))}
           </div>
         </section>
@@ -486,7 +486,7 @@ function CaseDetail({
       {rc.lessonLearned && (
         <section>
           <SectionTitle>Lesson Learned</SectionTitle>
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px' }}>
             {rc.lessonLearned}
           </p>
         </section>
@@ -502,7 +502,7 @@ function CaseDetail({
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h4 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>{children}</h4>;
+  return <h4 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>{children}</h4>;
 }
 function Grid2({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>{children}</div>;
@@ -511,7 +511,7 @@ function KV({ k, v }: { k: string; v?: string | number | null }) {
   if (!v && v !== 0) return null;
   return (
     <div style={{ fontSize: 13 }}>
-      <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>{k}:</span>
+      <span style={{ color: 'var(--muted)', marginRight: 4 }}>{k}:</span>
       <span>{v}</span>
     </div>
   );
@@ -638,7 +638,7 @@ export function RepairIntelligenceView() {
           <GraphStatusWidget status={graphStatus} error={graphStatusError} />
           <OwnerDashboard cases={cases} />
 
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--line)' }}>
             {(['cases', 'signals'] as const).map(tab => (
               <button
                 key={tab}
@@ -646,7 +646,7 @@ export function RepairIntelligenceView() {
                 style={{
                   padding: '8px 18px', border: 'none', background: 'none', cursor: 'pointer',
                   fontSize: 14, fontWeight: 600,
-                  color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                  color: activeTab === tab ? 'var(--accent)' : 'var(--muted)',
                   borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
                   marginBottom: -1,
                 }}
@@ -657,9 +657,9 @@ export function RepairIntelligenceView() {
           </div>
 
           {activeTab === 'signals' && (
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
               <SectionTitle>Technician Learning Signals</SectionTitle>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '20px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 13, color: 'var(--muted)', padding: '20px 0', textAlign: 'center' }}>
                 Technician signals are generated per repair case.<br />
                 Open a repair case to view that technician&apos;s learning profile and coaching recommendations.
               </div>
@@ -677,11 +677,11 @@ export function RepairIntelligenceView() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by VIN, complaint, repair, DTC, engine, symptoms…"
-              style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' }}
             />
           </div>
 
-          {loading && <p style={{ color: 'var(--text-muted)' }}>Loading…</p>}
+          {loading && <p style={{ color: 'var(--muted)' }}>Loading…</p>}
           {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
           {!loading && !error && (
@@ -690,12 +690,12 @@ export function RepairIntelligenceView() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {filtered.length === 0 && (
                   search
-                    ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>No cases match your search.</div>
+                    ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>No cases match your search.</div>
                     : (
-                      <div style={{ padding: '40px 32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 12, background: 'var(--bg-secondary)' }}>
+                      <div style={{ padding: '40px 32px', textAlign: 'center', border: '1px dashed var(--line)', borderRadius: 12, background: 'var(--surface)' }}>
                         <div style={{ fontSize: 36, marginBottom: 12 }}>🔧</div>
-                        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>No repair cases yet</div>
-                        <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text)' }}>No repair cases yet</div>
+                        <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.6 }}>
                           Complete your first repair to begin building Repair Intelligence.<br />
                           Cases are automatically created when repair orders are closed.
                         </div>
@@ -711,8 +711,8 @@ export function RepairIntelligenceView() {
                       onClick={() => setSelectedId(isSelected ? null : rc.id)}
                       style={{
                         padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
-                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                        background: isSelected ? 'var(--accent-bg)' : 'var(--bg-secondary)',
+                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
+                        background: isSelected ? 'var(--accent-bg)' : 'var(--surface)',
                         transition: 'border-color 0.15s',
                       }}
                     >
@@ -726,11 +726,11 @@ export function RepairIntelligenceView() {
                         </div>
                       </div>
                       {rc.complaint && (
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
+                        <div style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
                           {rc.complaint}
                         </div>
                       )}
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
                         {fmt(rc.createdAt)}{rc.vin ? ` · ${rc.vin}` : ''}{rc.roNumber ? ` · RO #${rc.roNumber}` : ''}
                       </div>
                     </div>
@@ -740,8 +740,8 @@ export function RepairIntelligenceView() {
 
               {/* Detail pane */}
               {selectedId && (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', background: 'var(--bg-secondary)', overflowY: 'auto', maxHeight: '80vh' }}>
-                  {detailLoading && <p style={{ color: 'var(--text-muted)' }}>Loading details…</p>}
+                <div style={{ border: '1px solid var(--line)', borderRadius: 12, padding: '20px 24px', background: 'var(--surface)', overflowY: 'auto', maxHeight: '80vh' }}>
+                  {detailLoading && <p style={{ color: 'var(--muted)' }}>Loading details…</p>}
                   {!detailLoading && detail && (
                     <CaseDetail
                       rc={detail}

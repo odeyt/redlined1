@@ -264,7 +264,36 @@ export async function listRepairCases(): Promise<RepairCase[]> {
     .eq('shop_id', shopId)
     .order('created_at', { ascending: false });
   if (error) { logger.error('listRepairCases failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
-  return (data ?? []).map(mapCase);
+  const cases = (data ?? []).map(mapCase);
+
+  // Back-fill VINs for cases created before VIN was saved to repair_cases.
+  // Queries vehicles by customer_id (most recent first).
+  const needsVin = cases.filter(c => !c.vin && c.customerId);
+  if (needsVin.length > 0) {
+    const customerIds = [...new Set(needsVin.map(c => c.customerId!))];
+    const { data: vehicles } = await supabase
+      .from('vehicles')
+      .select('customer_id, vin')
+      .eq('shop_id', shopId)
+      .in('customer_id', customerIds)
+      .not('vin', 'is', null)
+      .order('date_received', { ascending: false });
+    if (vehicles && vehicles.length > 0) {
+      // First hit per customer_id is the most recent vehicle with a VIN
+      const vinMap: Record<string, string> = {};
+      for (const v of vehicles) {
+        if (v.vin && v.customer_id && !vinMap[v.customer_id]) {
+          vinMap[v.customer_id] = v.vin as string;
+        }
+      }
+      return cases.map(c =>
+        !c.vin && c.customerId && vinMap[c.customerId]
+          ? { ...c, vin: vinMap[c.customerId] }
+          : c
+      );
+    }
+  }
+  return cases;
 }
 
 export async function getRepairCaseById(id: string): Promise<RepairCase | null> {
