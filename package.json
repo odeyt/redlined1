@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "backfill:repair-graph": "tsx scripts/backfill-repair-cases-to-graph.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -19,9 +20,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "^16.2.9",
     "pdfkit": "^0.19.1",

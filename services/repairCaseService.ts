@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { logger } from '@/lib/logger';
+import { mapRepairCaseById } from '@/services/knowledgeGraphService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +183,11 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
     .select()
     .single();
   if (error) { logger.error('createRepairCaseFromJob failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
-  return mapCase(data);
+  const newCase = mapCase(data);
+  mapRepairCaseById(newCase.id, shopId).catch(e => {
+    logger.error('Knowledge graph mapping failed (non-fatal)', e, { module: 'repairCaseService', repairCaseId: newCase.id });
+  });
+  return newCase;
 }
 
 export async function updateRepairCase(id: string, params: Partial<RepairCase>): Promise<RepairCase> {

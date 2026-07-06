@@ -305,6 +305,28 @@ CREATE OR REPLACE TRIGGER trg_agl_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ============================================================
+-- UNIQUE INDEXES (Sprint 5 — required for upsert ON CONFLICT)
+-- ============================================================
+
+CREATE UNIQUE INDEX IF NOT EXISTS automotive_graph_nodes_unique_shop_node
+ON public.automotive_graph_nodes (shop_id, node_type, normalized_key)
+WHERE shop_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS automotive_graph_nodes_unique_global_node
+ON public.automotive_graph_nodes (node_type, normalized_key)
+WHERE is_global = true;
+
+-- ============================================================
+-- GRANTS (Sprint 5 — required; RLS alone is not enough)
+-- ============================================================
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.automotive_graph_nodes        TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.automotive_graph_edges        TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.automotive_graph_observations TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.automotive_graph_lessons      TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.automotive_graph_metrics      TO authenticated;
+
+-- ============================================================
 -- END OF MIGRATION
 -- ============================================================
 -- Manual steps required after running:

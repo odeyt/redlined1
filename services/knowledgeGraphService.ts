@@ -133,7 +133,7 @@ export async function upsertGraphNode(
 
   const { data, error } = await supabase
     .from('automotive_graph_nodes')
-    .upsert(payload, { onConflict: 'normalized_key,shop_id' })
+    .upsert(payload, { onConflict: 'shop_id,node_type,normalized_key' })
     .select()
     .single();
 
@@ -950,6 +950,113 @@ export async function getGraphStatus(shopId: string): Promise<GraphStatus> {
     nodeBreakdown: {},
     edgeBreakdown: {},
   };
+}
+
+// ── 10. mapRepairCaseById ─────────────────────────────────────
+
+/**
+ * Fetch a repair case with all child records and map it into the knowledge graph.
+ * Safe to call multiple times — upserts are idempotent.
+ * Does NOT import from repairCaseService to avoid circular deps.
+ */
+export async function mapRepairCaseById(
+  repairCaseId: string,
+  shopId: string
+): Promise<{ nodeCount: number; edgeCount: number; observationCount: number }> {
+  const [
+    { data: rc },
+    { data: dtcs },
+    { data: symptoms },
+    { data: tests },
+    { data: parts },
+    { data: outcomes },
+  ] = await Promise.all([
+    supabase.from('repair_cases').select('*').eq('id', repairCaseId).eq('shop_id', shopId).single(),
+    supabase.from('repair_case_dtcs').select('code').eq('repair_case_id', repairCaseId).eq('shop_id', shopId),
+    supabase.from('repair_case_symptoms').select('symptom').eq('repair_case_id', repairCaseId).eq('shop_id', shopId),
+    supabase.from('repair_case_tests').select('test_name').eq('repair_case_id', repairCaseId).eq('shop_id', shopId),
+    supabase.from('repair_case_parts').select('part_name').eq('repair_case_id', repairCaseId).eq('shop_id', shopId),
+    supabase.from('repair_case_outcomes').select('comeback, verified_fix').eq('repair_case_id', repairCaseId).eq('shop_id', shopId),
+  ]);
+
+  if (!rc) throw new Error(`Repair case ${repairCaseId} not found`);
+  const r = rc as Record<string, unknown>;
+
+  const outcomeRows = (outcomes ?? []) as { comeback: boolean; verified_fix: boolean }[];
+  const outcome: 'resolved' | 'partial' | 'comeback' | 'unknown' =
+    outcomeRows.some(o => o.comeback) ? 'comeback' :
+    outcomeRows.some(o => o.verified_fix) ? 'resolved' :
+    outcomeRows.length > 0 ? 'partial' : 'unknown';
+
+  return mapRepairCaseToGraph({
+    repairCaseId,
+    shopId,
+    make: r.make as string | null,
+    model: r.model as string | null,
+    year: r.year as string | null,
+    engine: r.engine as string | null,
+    transmission: r.transmission as string | null,
+    dtcCodes: ((dtcs ?? []) as { code: string }[]).map(d => d.code),
+    symptoms: ((symptoms ?? []) as { symptom: string }[]).map(s => s.symptom),
+    testsPerformed: ((tests ?? []) as { test_name: string }[]).map(t => t.test_name),
+    partsReplaced: ((parts ?? []) as { part_name: string }[]).map(p => p.part_name),
+    finalFix: r.final_fix as string | null,
+    concern: r.complaint as string | null,
+    cause: r.technician_notes as string | null,
+    correction: r.final_fix as string | null,
+    technicianNames: [],
+    outcome,
+    lessonLearned: r.lesson_learned as string | null,
+    verificationStatus: ((r.verification_status as string) ?? 'pending') as RepairCaseToGraphInput['verificationStatus'],
+  });
+}
+
+// ── 11. computeComebackRisk ───────────────────────────────────
+
+/**
+ * Compute comeback risk for a repair case based on similar cases' outcome history.
+ * Returns 'Unknown' when insufficient data exists.
+ */
+export async function computeComebackRisk(
+  shopId: string,
+  similarCaseIds: string[]
+): Promise<'Low' | 'Medium' | 'High' | 'Unknown'> {
+  if (similarCaseIds.length === 0) return 'Unknown';
+
+  const { data, error } = await supabase
+    .from('repair_case_outcomes')
+    .select('comeback')
+    .in('repair_case_id', similarCaseIds)
+    .eq('shop_id', shopId);
+
+  if (error || !data || (data as unknown[]).length === 0) return 'Unknown';
+
+  const rows = data as { comeback: boolean }[];
+  const rate = rows.filter(r => r.comeback).length / rows.length;
+
+  if (rate > 0.2) return 'High';
+  if (rate >= 0.1) return 'Medium';
+  return 'Low';
+}
+
+// ── 12. getLessonsByRepairCase ────────────────────────────────
+
+/**
+ * Fetch structured lessons linked to a specific repair case.
+ */
+export async function getLessonsByRepairCase(
+  repairCaseId: string,
+  shopId: string
+): Promise<AutomotiveGraphLesson[]> {
+  const { data, error } = await supabase
+    .from('automotive_graph_lessons')
+    .select('*')
+    .eq('repair_case_id', repairCaseId)
+    .eq('shop_id', shopId)
+    .order('created_at', { ascending: false });
+
+  if (error) return [];
+  return ((data ?? []) as Record<string, unknown>[]).map(mapLesson);
 }
 
 // ── Re-exports for convenience ────────────────────────────────

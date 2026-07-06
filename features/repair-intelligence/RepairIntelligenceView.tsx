@@ -12,6 +12,16 @@ import {
   VERIFICATION_NEXT,
   VERIFICATION_COLORS,
 } from '@/services/repairCaseService';
+import {
+  getGraphStatus,
+  findSimilarRepairCases,
+  getLessonsByRepairCase,
+  computeComebackRisk,
+  type GraphStatus,
+  type SimilarRepairMatch,
+  type AutomotiveGraphLesson,
+  type TechnicianLearningSignal,
+} from '@/services/knowledgeGraphService';
 import { useShop } from '@/lib/useShop';
 
 const fmt = (d?: string) => d ? new Date(d).toLocaleDateString() : '—';
@@ -52,8 +62,6 @@ function VerificationBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Completeness Badge ───────────────────────────────────────────────────────
-
 function CompletenessBadge({ pct }: { pct: number }) {
   const color = scoreColor(pct);
   return (
@@ -62,8 +70,6 @@ function CompletenessBadge({ pct }: { pct: number }) {
     </span>
   );
 }
-
-// ─── Score for list (partial type) ───────────────────────────────────────────
 
 function listScore(rc: RepairCase): number {
   const checks = [!!rc.complaint, !!rc.finalFix, !!rc.lessonLearned, rc.confidenceScore != null];
@@ -145,16 +151,199 @@ function OwnerDashboard({ cases }: { cases: RepairCase[] }) {
   );
 }
 
+// ─── Graph Status Widget ──────────────────────────────────────────────────────
+
+function GraphStatusWidget({ status, error }: { status: GraphStatus | null; error: string }) {
+  if (error && (error.includes('42P01') || error.includes('does not exist'))) {
+    return (
+      <div style={{ background: '#ff980011', border: '1px solid #ff980044', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#ff9800' }}>
+        Knowledge Graph tables not yet active. Run <code>automotive_knowledge_graph_sprint5_patch.sql</code> in Supabase SQL Editor.
+      </div>
+    );
+  }
+
+  const health = status
+    ? (status.nodeCount === 0 ? 'Empty' : status.nodeCount < 20 ? 'Building' : 'Healthy')
+    : null;
+
+  const healthColor = health === 'Healthy' ? '#4caf50' : health === 'Building' ? '#ff9800' : '#9e9e9e';
+
+  return (
+    <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Knowledge Graph</span>
+        {health && (
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: `${healthColor}22`, color: healthColor, border: `1px solid ${healthColor}44` }}>
+            {health}
+          </span>
+        )}
+      </div>
+      {status ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+          {[
+            { label: 'Nodes', value: status.nodeCount },
+            { label: 'Edges', value: status.edgeCount },
+            { label: 'Observations', value: status.observationCount },
+            { label: 'Lessons', value: status.lessonCount },
+            { label: 'Last Mapped', value: status.lastUpdated ? new Date(status.lastUpdated).toLocaleDateString() : '—' },
+          ].map(w => (
+            <div key={w.label}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{w.value}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{w.label}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{error || 'Loading…'}</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Intelligence Card ────────────────────────────────────────────────────────
+
+function IntelligenceCard({
+  rc,
+  similarCount,
+  comebackRisk,
+}: {
+  rc: RepairCaseWithDetails;
+  similarCount: number;
+  comebackRisk: string;
+}) {
+  const pct = completenessScore(rc);
+  const riskColor = comebackRisk === 'High' ? '#f44336' : comebackRisk === 'Medium' ? '#ff9800' : comebackRisk === 'Low' ? '#4caf50' : '#9e9e9e';
+  const mainDtc = rc.dtcs?.[0]?.code;
+  const mainSymptom = rc.symptoms?.[0]?.symptom;
+
+  return (
+    <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 10 }}>Intelligence Card</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
+        {mainDtc && <KV k="Main DTC" v={mainDtc} />}
+        {mainSymptom && <KV k="Key Symptom" v={mainSymptom} />}
+        {rc.finalFix && <KV k="Final Repair" v={rc.finalFix.length > 60 ? rc.finalFix.slice(0, 57) + '…' : rc.finalFix} />}
+        <KV k="Confidence" v={rc.confidenceScore != null ? `${rc.confidenceScore}%` : '—'} />
+        <KV k="Verification" v={VERIFICATION_LABELS[rc.verificationStatus as keyof typeof VERIFICATION_LABELS] ?? rc.verificationStatus} />
+        <KV k="Completeness" v={`${pct}%`} />
+        <KV k="Similar Repairs" v={`${similarCount} found`} />
+        <div style={{ fontSize: 13 }}>
+          <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>Comeback Risk:</span>
+          <span style={{ fontWeight: 700, color: riskColor }}>{comebackRisk}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Similar Repairs Panel ────────────────────────────────────────────────────
+
+function SimilarRepairsPanel({ matches }: { matches: SimilarRepairMatch[] }) {
+  if (matches.length === 0) return null;
+  return (
+    <section>
+      <SectionTitle>Similar Repairs ({matches.length})</SectionTitle>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {matches.map((m, i) => (
+          <div key={m.repairCaseId ?? i} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ fontWeight: 600 }}>
+                {[m.year, m.make, m.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 12, background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>
+                {m.similarityScore}% match
+              </span>
+            </div>
+            {m.dtcCodes[0] && <div style={{ color: '#2196f3', fontFamily: 'monospace', fontSize: 12, marginBottom: 2 }}>{m.dtcCodes[0]}</div>}
+            {m.symptoms[0] && <div style={{ color: 'var(--text-muted)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.symptoms[0]}</div>}
+            {m.finalFix && <div style={{ color: 'var(--text-primary)' }}>Fix: {m.finalFix.length > 80 ? m.finalFix.slice(0, 77) + '…' : m.finalFix}</div>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              {m.confidence != null && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{Math.round(m.confidence * 100)}% confidence</span>}
+              {m.verificationStatus && <VerificationBadge status={m.verificationStatus} />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Structured Lessons Panel ─────────────────────────────────────────────────
+
+function StructuredLessonsPanel({ lessons }: { lessons: AutomotiveGraphLesson[] }) {
+  if (lessons.length === 0) return null;
+  return (
+    <section>
+      <SectionTitle>Structured Lessons ({lessons.length})</SectionTitle>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {lessons.map(l => (
+          <div key={l.id} style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{l.title}</div>
+            {l.whatWasWrong && <LessonRow label="What was wrong?" value={l.whatWasWrong} />}
+            {l.whatFooledUs && <LessonRow label="What fooled us?" value={l.whatFooledUs} />}
+            {l.finalFix && <LessonRow label="What finally fixed it?" value={l.finalFix} />}
+            {l.checkFirstNextTime && <LessonRow label="Check first next time?" value={l.checkFirstNextTime} />}
+            {l.commonMistake && <LessonRow label="Common mistake to avoid?" value={l.commonMistake} />}
+            {l.recommendation && <LessonRow label="Future recommendation?" value={l.recommendation} />}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LessonRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ marginBottom: 6, fontSize: 13 }}>
+      <div style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{label}</div>
+      <div style={{ lineHeight: 1.5 }}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Technician Signals Panel ─────────────────────────────────────────────────
+
+function TechnicianSignalCard({ signal }: { signal: TechnicianLearningSignal }) {
+  return (
+    <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{signal.technicianName}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, marginBottom: 12 }}>
+        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{signal.stats.totalRepairs}</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total Repairs</div></div>
+        <div><div style={{ fontSize: 18, fontWeight: 800 }}>{Math.round(signal.stats.firstTimeFixRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>First-Fix Rate</div></div>
+        <div><div style={{ fontSize: 18, fontWeight: 800, color: signal.stats.comebackRate > 0.1 ? '#f44336' : 'inherit' }}>{Math.round(signal.stats.comebackRate * 100)}%</div><div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Comeback Rate</div></div>
+      </div>
+      {signal.strengths.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#4caf50', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Strengths</div>
+          {signal.strengths.map((s, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 2 }}>{s.description}</div>)}
+        </div>
+      )}
+      {signal.areasForGrowth.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#ff9800', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Areas for Growth</div>
+          {signal.areasForGrowth.map((a, i) => <div key={i} style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 2 }}>{a.description}</div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Case Detail Panel ────────────────────────────────────────────────────────
 
 function CaseDetail({
   rc,
   onVerify,
   onClose,
+  similarRepairs,
+  structuredLessons,
+  comebackRisk,
 }: {
   rc: RepairCaseWithDetails;
   onVerify: (status: string) => void;
   onClose: () => void;
+  similarRepairs: SimilarRepairMatch[];
+  structuredLessons: AutomotiveGraphLesson[];
+  comebackRisk: string;
 }) {
   const pct = completenessScore(rc);
   const nextStatus = VERIFICATION_NEXT[rc.verificationStatus];
@@ -175,6 +364,9 @@ function CaseDetail({
         </div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20 }}>×</button>
       </div>
+
+      {/* Intelligence Card */}
+      <IntelligenceCard rc={rc} similarCount={similarRepairs.length} comebackRisk={comebackRisk} />
 
       {/* Verification workflow */}
       {nextStatus && (
@@ -290,7 +482,7 @@ function CaseDetail({
         </section>
       )}
 
-      {/* Lesson Learned */}
+      {/* Legacy Lesson Learned */}
       {rc.lessonLearned && (
         <section>
           <SectionTitle>Lesson Learned</SectionTitle>
@@ -299,6 +491,12 @@ function CaseDetail({
           </p>
         </section>
       )}
+
+      {/* Structured Lessons from Graph */}
+      <StructuredLessonsPanel lessons={structuredLessons} />
+
+      {/* Similar Repairs */}
+      <SimilarRepairsPanel matches={similarRepairs} />
     </div>
   );
 }
@@ -322,7 +520,9 @@ function KV({ k, v }: { k: string; v?: string | number | null }) {
 // ─── Main View ────────────────────────────────────────────────────────────────
 
 export function RepairIntelligenceView() {
-  const { role } = useShop();
+  const { role, shopId } = useShop();
+  const isOwnerOrManager = role === 'owner' || role === 'manager';
+
   const [cases, setCases] = useState<RepairCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -332,15 +532,20 @@ export function RepairIntelligenceView() {
   const [detail, setDetail] = useState<RepairCaseWithDetails | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  const [graphStatus, setGraphStatus] = useState<GraphStatus | null>(null);
+  const [graphStatusError, setGraphStatusError] = useState('');
+  const [similarRepairs, setSimilarRepairs] = useState<SimilarRepairMatch[]>([]);
+  const [structuredLessons, setStructuredLessons] = useState<AutomotiveGraphLesson[]>([]);
+  const [comebackRisk, setComebackRisk] = useState<string>('Unknown');
+  const [activeTab, setActiveTab] = useState<'cases' | 'signals'>('cases');
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   useEffect(() => {
     void listRepairCases()
       .then(setCases)
       .catch(e => {
-        const msg = e instanceof Error
-          ? e.message
-          : (e as { message?: string })?.message ?? String(e);
+        const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e);
         if (msg.includes('42P01') || msg.includes('does not exist')) {
           setError('Repair Intelligence database tables are not set up. Run repair_intelligence_complete.sql in your Supabase SQL Editor.');
         } else {
@@ -350,11 +555,46 @@ export function RepairIntelligenceView() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!isOwnerOrManager || !shopId) return;
+    getGraphStatus(shopId)
+      .then(setGraphStatus)
+      .catch(e => {
+        const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e);
+        setGraphStatusError(msg);
+      });
+  }, [isOwnerOrManager, shopId]);
+
   const loadDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
+    setSimilarRepairs([]);
+    setStructuredLessons([]);
+    setComebackRisk('Unknown');
     try {
       const d = await fetchRepairCaseWithDetails(id);
+      if (!d) return;
       setDetail(d);
+
+      const dtcCodes = (d.dtcs ?? []).map(x => x.code);
+      const symptoms = (d.symptoms ?? []).map(x => x.symptom);
+
+      const [similar, lessons] = await Promise.all([
+        findSimilarRepairCases({
+          shopId: d.shopId,
+          make: d.make ?? undefined,
+          model: d.model ?? undefined,
+          engine: d.engine ?? undefined,
+          dtcCodes,
+          symptoms,
+        }),
+        getLessonsByRepairCase(id, d.shopId),
+      ]);
+
+      setSimilarRepairs(similar);
+      setStructuredLessons(lessons);
+
+      const risk = await computeComebackRisk(d.shopId, similar.map(s => s.repairCaseId).filter(Boolean) as string[]);
+      setComebackRisk(risk);
     } finally {
       setDetailLoading(false);
     }
@@ -362,7 +602,7 @@ export function RepairIntelligenceView() {
 
   useEffect(() => {
     if (selectedId) void loadDetail(selectedId);
-    else setDetail(null);
+    else { setDetail(null); setSimilarRepairs([]); setStructuredLessons([]); setComebackRisk('Unknown'); }
   }, [selectedId, loadDetail]);
 
   const q = search.trim().toLowerCase();
@@ -379,7 +619,7 @@ export function RepairIntelligenceView() {
       setCases(prev => prev.map(c => c.id === id ? { ...c, verificationStatus: updated.verificationStatus } : c));
       if (detail && detail.id === id) setDetail({ ...detail, verificationStatus: updated.verificationStatus });
       notify(`Verification updated to: ${VERIFICATION_LABELS[updated.verificationStatus]}`);
-    } catch (e) {
+    } catch {
       notify('Failed to update verification.');
     }
   }
@@ -392,91 +632,131 @@ export function RepairIntelligenceView() {
         </div>
       )}
 
-      {/* Owner widgets */}
-      {role === 'owner' && cases.length > 0 && <OwnerDashboard cases={cases} />}
+      {/* Owner/Manager section: tabs for Cases vs Signals */}
+      {isOwnerOrManager && (
+        <>
+          <GraphStatusWidget status={graphStatus} error={graphStatusError} />
+          <OwnerDashboard cases={cases} />
 
-
-      {/* Search */}
-      <div style={{ marginBottom: 16 }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by VIN, complaint, repair, DTC, engine, symptoms…"
-          style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
-        />
-      </div>
-
-      {loading && <p style={{ color: 'var(--text-muted)' }}>Loading…</p>}
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
-
-      {!loading && !error && (
-        <div style={{ display: 'grid', gridTemplateColumns: selectedId ? '340px 1fr' : '1fr', gap: 20 }}>
-          {/* List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filtered.length === 0 && (
-              search
-                ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>No cases match your search.</div>
-                : (
-                  <div style={{ padding: '40px 32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 12, background: 'var(--bg-secondary)' }}>
-                    <div style={{ fontSize: 36, marginBottom: 12 }}>🔧</div>
-                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>No repair cases yet</div>
-                    <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                      Complete your first repair to begin building Repair Intelligence.<br />
-                      Cases are automatically created when repair orders are closed.
-                    </div>
-                  </div>
-                )
-            )}
-            {filtered.map(rc => {
-              const pct = listScore(rc);
-              const isSelected = rc.id === selectedId;
-              return (
-                <div
-                  key={rc.id}
-                  onClick={() => setSelectedId(isSelected ? null : rc.id)}
-                  style={{
-                    padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
-                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isSelected ? 'var(--accent-bg)' : 'var(--bg-secondary)',
-                    transition: 'border-color 0.15s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
-                      {[rc.year, rc.make, rc.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <CompletenessBadge pct={pct} />
-                      <VerificationBadge status={rc.verificationStatus} />
-                    </div>
-                  </div>
-                  {rc.complaint && (
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
-                      {rc.complaint}
-                    </div>
-                  )}
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                    {fmt(rc.createdAt)}{rc.vin ? ` · ${rc.vin}` : ''}{rc.roNumber ? ` · RO #${rc.roNumber}` : ''}
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+            {(['cases', 'signals'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '8px 18px', border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 14, fontWeight: 600,
+                  color: activeTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                  borderBottom: activeTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+                  marginBottom: -1,
+                }}
+              >
+                {tab === 'cases' ? 'Repair Cases' : 'Technician Signals'}
+              </button>
+            ))}
           </div>
 
-          {/* Detail pane */}
-          {selectedId && (
-            <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', background: 'var(--bg-secondary)', overflowY: 'auto', maxHeight: '80vh' }}>
-              {detailLoading && <p style={{ color: 'var(--text-muted)' }}>Loading details…</p>}
-              {!detailLoading && detail && (
-                <CaseDetail
-                  rc={detail}
-                  onVerify={(status) => { void handleVerify(detail.id, status); }}
-                  onClose={() => setSelectedId(null)}
-                />
+          {activeTab === 'signals' && (
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px' }}>
+              <SectionTitle>Technician Learning Signals</SectionTitle>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '20px 0', textAlign: 'center' }}>
+                Technician signals are generated per repair case.<br />
+                Open a repair case to view that technician&apos;s learning profile and coaching recommendations.
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Cases tab (or non-owner view) */}
+      {(activeTab === 'cases' || !isOwnerOrManager) && (
+        <>
+          {/* Search */}
+          <div style={{ marginBottom: 16 }}>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by VIN, complaint, repair, DTC, engine, symptoms…"
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 14, boxSizing: 'border-box' }}
+            />
+          </div>
+
+          {loading && <p style={{ color: 'var(--text-muted)' }}>Loading…</p>}
+          {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+
+          {!loading && !error && (
+            <div style={{ display: 'grid', gridTemplateColumns: selectedId ? '340px 1fr' : '1fr', gap: 20 }}>
+              {/* List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filtered.length === 0 && (
+                  search
+                    ? <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>No cases match your search.</div>
+                    : (
+                      <div style={{ padding: '40px 32px', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 12, background: 'var(--bg-secondary)' }}>
+                        <div style={{ fontSize: 36, marginBottom: 12 }}>🔧</div>
+                        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: 'var(--text-primary)' }}>No repair cases yet</div>
+                        <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                          Complete your first repair to begin building Repair Intelligence.<br />
+                          Cases are automatically created when repair orders are closed.
+                        </div>
+                      </div>
+                    )
+                )}
+                {filtered.map(rc => {
+                  const pct = listScore(rc);
+                  const isSelected = rc.id === selectedId;
+                  return (
+                    <div
+                      key={rc.id}
+                      onClick={() => setSelectedId(isSelected ? null : rc.id)}
+                      style={{
+                        padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                        border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                        background: isSelected ? 'var(--accent-bg)' : 'var(--bg-secondary)',
+                        transition: 'border-color 0.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          {[rc.year, rc.make, rc.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <CompletenessBadge pct={pct} />
+                          <VerificationBadge status={rc.verificationStatus} />
+                        </div>
+                      </div>
+                      {rc.complaint && (
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
+                          {rc.complaint}
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                        {fmt(rc.createdAt)}{rc.vin ? ` · ${rc.vin}` : ''}{rc.roNumber ? ` · RO #${rc.roNumber}` : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Detail pane */}
+              {selectedId && (
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', background: 'var(--bg-secondary)', overflowY: 'auto', maxHeight: '80vh' }}>
+                  {detailLoading && <p style={{ color: 'var(--text-muted)' }}>Loading details…</p>}
+                  {!detailLoading && detail && (
+                    <CaseDetail
+                      rc={detail}
+                      onVerify={(status) => { void handleVerify(detail.id, status); }}
+                      onClose={() => setSelectedId(null)}
+                      similarRepairs={similarRepairs}
+                      structuredLessons={structuredLessons}
+                      comebackRisk={comebackRisk}
+                    />
+                  )}
+                </div>
               )}
             </div>
           )}
-        </div>
+        </>
       )}
     </Panel>
   );

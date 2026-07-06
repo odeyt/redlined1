@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprint 4.1 — Test Checklist</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1a1a1a; font-size: 13px; }
+  .page { max-width: 860px; margin: 0 auto; padding: 32px 28px; }
+
+  /* Header */
+  .header { border-bottom: 2px solid #1a1a1a; padding-bottom: 14px; margin-bottom: 20px; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header .sub { font-size: 12px; color: #555; margin-top: 4px; line-height: 1.5; }
+  .meta-row { display: flex; gap: 28px; margin-top: 10px; flex-wrap: wrap; }
+  .meta-item { font-size: 11px; color: #888; }
+  .meta-item strong { color: #444; }
+
+  /* Tester fields */
+  .tester-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-group label { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field-group input { border: none; border-bottom: 1px solid #ccc; padding: 4px 2px; font-size: 13px; font-family: inherit; outline: none; background: transparent; }
+  .field-group input:focus { border-bottom-color: #1a1a1a; }
+
+  /* Summary bar */
+  .summary-bar { display: flex; gap: 0; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+  .summary-cell { flex: 1; padding: 10px; text-align: center; border-right: 1px solid #ddd; }
+  .summary-cell:last-child { border-right: none; }
+  .summary-cell .num { font-size: 24px; font-weight: 600; }
+  .summary-cell .lbl { font-size: 10px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .s-pass { color: #2e7d1e; } .s-fail { color: #b71c1c; } .s-skip { color: #e65100; } .s-total { color: #1a1a1a; }
+
+  /* Sections */
+  .section { margin-bottom: 18px; }
+  .sec-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 0 4px; border-bottom: 1px solid #e0e0e0; margin-bottom: 8px; }
+
+  /* Steps */
+  .step { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 6px; page-break-inside: avoid; }
+  .step.passed { border-left: 4px solid #4caf50; }
+  .step.failed { border-left: 4px solid #f44336; }
+  .step.skipped { border-left: 4px solid #ff9800; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: #f5f5f5; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #555; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  .step-title { font-size: 13px; font-weight: 600; }
+  .step-desc { font-size: 11px; color: #666; margin-top: 3px; line-height: 1.5; }
+
+  /* Result row */
+  .result-row { display: flex; gap: 16px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .r-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .radio-group { display: flex; gap: 14px; }
+  .radio-opt { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; }
+  .radio-opt input { cursor: pointer; width: 14px; height: 14px; }
+  .pass-lbl { color: #2e7d1e; font-weight: 600; }
+  .fail-lbl { color: #b71c1c; font-weight: 600; }
+  .skip-lbl { color: #e65100; font-weight: 600; }
+
+  /* Notes */
+  .note-wrap { margin-top: 8px; }
+  .note-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 3px; }
+  .note-lines { border: none; border-bottom: 1px solid #ccc; width: 100%; min-height: 28px; font-size: 12px; font-family: inherit; resize: none; outline: none; background: transparent; line-height: 1.6; }
+  .note-lines::placeholder { color: #bbb; }
+  .note-lines:focus { border-bottom-color: #1a1a1a; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .btn { padding: 9px 20px; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; font-family: inherit; font-weight: 500; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .btn-primary:hover { background: #333; }
+  .btn-success { background: #2e7d1e; color: #fff; border-color: #2e7d1e; }
+
+  /* Report output */
+  .report-panel { display: none; margin-top: 24px; border-top: 1px solid #e0e0e0; padding-top: 20px; }
+  .report-panel.visible { display: block; }
+  .report-panel h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .report-panel p { font-size: 12px; color: #666; margin-bottom: 8px; }
+  .report-out { width: 100%; height: 300px; font-family: 'Courier New', monospace; font-size: 11px; border: 1px solid #ccc; border-radius: 6px; padding: 10px; resize: vertical; outline: none; background: #f9f9f9; }
+
+  /* Print */
+  @media print {
+    body { font-size: 12px; }
+    .page { padding: 16px; max-width: 100%; }
+    .no-print { display: none !important; }
+    .step { break-inside: avoid; border: 1px solid #ccc; }
+    .note-lines { border-bottom: 1px solid #999; min-height: 40px; }
+    .field-group input { border-bottom: 1px solid #999; }
+    .report-panel { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Sprint 4.1 — Integration &amp; Stabilization Test Plan</h1>
+    <div class="sub">Repair Intelligence + core workflow regression check. Complete all steps in order. Mark each Pass or Fail and describe any bug found.</div>
+    <div class="meta-row">
+      <div class="meta-item"><strong>Version:</strong> Sprint 4.1</div>
+      <div class="meta-item"><strong>Build:</strong> main — post migration</div>
+      <div class="meta-item"><strong>Date generated:</strong> <span id="gen-date"></span></div>
+    </div>
+  </div>
+
+  <div class="tester-grid">
+    <div class="field-group">
+      <label>Tester name</label>
+      <input id="f-name" type="text" placeholder="Full name" />
+    </div>
+    <div class="field-group">
+      <label>Shop / location</label>
+      <input id="f-shop" type="text" placeholder="D1 Imports / Shop 1" />
+    </div>
+    <div class="field-group">
+      <label>Device / browser</label>
+      <input id="f-device" type="text" placeholder="Chrome / iPhone / etc." />
+    </div>
+  </div>
+
+  <div class="summary-bar">
+    <div class="summary-cell"><div class="num s-pass" id="cnt-pass">0</div><div class="lbl">Pass</div></div>
+    <div class="summary-cell"><div class="num s-fail" id="cnt-fail">0</div><div class="lbl">Fail</div></div>
+    <div class="summary-cell"><div class="num s-skip" id="cnt-skip">0</div><div class="lbl">Skip</div></div>
+    <div class="summary-cell"><div class="num s-total" id="cnt-done">0</div><div class="lbl">of 14 tested</div></div>
+  </div>
+
+  <div id="steps-container"></div>
+
+  <div class="btn-row no-print">
+    <button class="btn btn-primary" onclick="window.print()">Print / Save PDF</button>
+    <button class="btn" onclick="generateReport()">Generate text report</button>
+  </div>
+
+  <div class="report-panel" id="report-panel">
+    <h3>Text report — copy and paste to WhatsApp or email</h3>
+    <p>Select all (Ctrl+A inside the box) then copy.</p>
+    <textarea class="report-out" id="report-out" readonly></textarea>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn" id="copy-btn" onclick="copyReport()">Copy to clipboard</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const STEPS = [
+  { section: 'Setup', items: [
+    { id:1, title:'Sign in and select shop', desc:'Log in with staff credentials. Confirm the correct shop is selected in the top bar (D1 Imports or the relevant location).' },
+    { id:2, title:'Navigate to Repair Intelligence', desc:'Click "Repair Intelligence" in the left sidebar. Page should load without a red error banner.' },
+  ]},
+  { section: 'Repair Intelligence — load and empty state', items: [
+    { id:3, title:'Empty state displays correctly', desc:'If no repair cases exist yet, confirm you see the onboarding card: "No repair cases yet — Complete your first repair to begin building Repair Intelligence." No error message should appear.' },
+    { id:4, title:'No "FAILED TO LOAD" error', desc:'Confirm there is NO red error message saying "Failed to load repair cases" or any database error. If you see one, mark FAIL and paste the exact error text into notes.' },
+  ]},
+  { section: 'Complete a real repair order', items: [
+    { id:5, title:'Open an existing job card', desc:'Go to Job Cards. Open any job that is "In Progress". Confirm technician, vehicle, and customer are filled in.' },
+    { id:6, title:'Close / complete the repair order', desc:'Advance the job to Complete or Closed status using the workflow buttons. Confirm status updates without error.' },
+    { id:7, title:'Repair Intelligence case auto-created', desc:'Return to Repair Intelligence. A new case should appear matching the repair you just closed — with the correct vehicle and date.' },
+  ]},
+  { section: 'Repair Intelligence — case detail and search', items: [
+    { id:8, title:'Open case detail', desc:'Click the repair case in the list. A detail panel should open showing vehicle info, complaint, and technician notes fields.' },
+    { id:9, title:'Search by VIN', desc:'Type a VIN or partial VIN into the search bar. Results should filter to matching cases only.' },
+    { id:10, title:'Search by DTC code', desc:'Type a DTC code (e.g. P0420) into search. If a case with that code exists it should appear. If none exist, results should be empty — not an error.' },
+    { id:11, title:'Search by customer name', desc:'Type a customer name into search. Matching cases should appear.' },
+    { id:12, title:'No error on reopen', desc:'Close the case detail and reopen it. Confirm no error message or blank screen.' },
+  ]},
+  { section: 'Core workflow regression', items: [
+    { id:13, title:'Job card → invoice workflow', desc:'Create a new job card from scratch: add customer, vehicle, assign technician, add a line item. Advance through estimate → repair order → invoice. Each step must save without error.' },
+    { id:14, title:'Parts Ordered — vendor and vehicle dropdowns', desc:'Navigate to Parts Ordered. Create a new order. Confirm the vendor dropdown has options, the vehicle dropdown has options, and photos can be uploaded once a part name is entered.' },
+  ]},
+];
+
+function buildSteps() {
+  const c = document.getElementById('steps-container');
+  STEPS.forEach(sec => {
+    const s = document.createElement('div');
+    s.className = 'section';
+    s.innerHTML = `<div class="sec-title">${sec.section}</div>`;
+    sec.items.forEach(item => {
+      const d = document.createElement('div');
+      d.className = 'step';
+      d.id = `step-${item.id}`;
+      d.innerHTML = `
+        <div class="step-num">${item.id}</div>
+        <div class="step-body">
+          <div class="step-title">${item.title}</div>
+          <div class="step-desc">${item.desc}</div>
+          <div class="result-row">
+            <span class="r-label">Result:</span>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="r${item.id}" value="pass" onchange="mark(${item.id},'pass')"><span class="pass-lbl">Pass</span></label>
+              <label class="radio-opt"><input type="radio" name="r${item.id}" value="fail" onchange="mark(${item.id},'fail')"><span class="fail-lbl">Fail</span></label>
+              <label class="radio-opt"><input type="radio" name="r${item.id}" value="skip" onchange="mark(${item.id},'skip')"><span class="skip-lbl">Skip / N/A</span></label>
+            </div>
+          </div>
+          <div class="note-wrap">
+            <span class="note-label">Notes / bug description</span>
+            <textarea class="note-lines" id="note-${item.id}" placeholder="Describe the bug, error message, or any unexpected behaviour…" rows="2"></textarea>
+          </div>
+        </div>`;
+      s.appendChild(d);
+    });
+    c.appendChild(s);
+  });
+}
+
+function mark(id, val) {
+  const el = document.getElementById(`step-${id}`);
+  el.classList.remove('passed','failed','skipped');
+  if (val === 'pass') el.classList.add('passed');
+  else if (val === 'fail') el.classList.add('failed');
+  else el.classList.add('skipped');
+  updateCounts();
+}
+
+function updateCounts() {
+  let p=0,f=0,sk=0;
+  document.querySelectorAll('input[type=radio]:checked').forEach(r => {
+    if (r.value==='pass') p++; else if (r.value==='fail') f++; else sk++;
+  });
+  document.getElementById('cnt-pass').textContent = p;
+  document.getElementById('cnt-fail').textContent = f;
+  document.getElementById('cnt-skip').textContent = sk;
+  document.getElementById('cnt-done').textContent = p+f+sk;
+}
+
+function generateReport() {
+  const name   = document.getElementById('f-name').value   || 'Unknown';
+  const shop   = document.getElementById('f-shop').value   || '—';
+  const device = document.getElementById('f-device').value || '—';
+  const date   = new Date().toLocaleString();
+  let t = `SPRINT 4.1 TEST REPORT\n${'='.repeat(46)}\nTester : ${name}\nShop   : ${shop}\nDevice : ${device}\nDate   : ${date}\n`;
+  const fails = [];
+  STEPS.forEach(sec => {
+    t += `\n${sec.section.toUpperCase()}\n${'-'.repeat(38)}\n`;
+    sec.items.forEach(item => {
+      const chk = document.querySelector(`input[name="r${item.id}"]:checked`);
+      const res = chk ? chk.value.toUpperCase() : 'NOT TESTED';
+      const note = document.getElementById(`note-${item.id}`).value.trim();
+      t += `[${res.padEnd(10)}] Step ${String(item.id).padStart(2,'0')}: ${item.title}\n`;
+      if (note) t += `               Note: ${note}\n`;
+      if (res === 'FAIL') fails.push(`Step ${item.id}: ${item.title}`);
+    });
+  });
+  const p  = document.getElementById('cnt-pass').textContent;
+  const f  = document.getElementById('cnt-fail').textContent;
+  const sk = document.getElementById('cnt-skip').textContent;
+  t += `\n${'='.repeat(46)}\nSUMMARY\nPass: ${p}   Fail: ${f}   Skip: ${sk}   Total: ${Number(p)+Number(f)+Number(sk)} of 14\n`;
+  if (fails.length) { t += `\nFailed steps:\n`; fails.forEach(x => t += `  - ${x}\n`); }
+  else { t += `\nAll tested steps passed.\n`; }
+  document.getElementById('report-out').value = t;
+  const panel = document.getElementById('report-panel');
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyReport() {
+  const ta = document.getElementById('report-out');
+  ta.select();
+  try {
+    document.execCommand('copy');
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('btn-success');
+    setTimeout(() => { btn.textContent = 'Copy to clipboard'; btn.classList.remove('btn-success'); }, 2000);
+  } catch(e) { ta.focus(); ta.select(); }
+}
+
+document.getElementById('gen-date').textContent = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+buildSteps();
+</script>
+</body>
+</html>
