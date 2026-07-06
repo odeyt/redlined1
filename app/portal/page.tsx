@@ -57,6 +57,57 @@ const FEATURES = [
   { icon: '📊', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and tech performance — every number you need to grow your shop.' },
 ];
 
+const AI_FEATURES = [
+  {
+    icon: '🧠',
+    title: 'Knowledge Graph',
+    desc: 'Every repair you close automatically maps to a live knowledge graph — nodes, edges, lessons, and observations — that grows smarter with every job.',
+    stat: 'Auto-maps on case creation',
+  },
+  {
+    icon: '⚖️',
+    title: 'Evidence Engine',
+    desc: '12 weighted evidence types (DTCs, oscilloscope traces, pressure tests, verified outcomes) scored in real time. Every recommendation is traceable to evidence.',
+    stat: '12 evidence categories',
+  },
+  {
+    icon: '📈',
+    title: 'Confidence Scoring',
+    desc: 'Explainable 0–98% confidence scores with a full breakdown per factor — so your techs know exactly why the system is certain or uncertain.',
+    stat: 'Explainable, never a black box',
+  },
+  {
+    icon: '🔗',
+    title: 'Similar Repair Matching',
+    desc: 'Instantly surfaces the most similar verified repairs from your shop\'s history — same make, model, engine, symptoms, and fault codes.',
+    stat: 'Ranked by similarity score',
+  },
+  {
+    icon: '⚠️',
+    title: 'Comeback Risk Detection',
+    desc: 'Flags High / Medium / Low comeback risk before the customer leaves. Based on verified history across similar cases — not guesswork.',
+    stat: 'Comeback penalty built in',
+  },
+  {
+    icon: '📚',
+    title: 'Technician Lessons',
+    desc: 'Structured lessons (What fooled us? What fixed it? Check first next time?) captured per case and surfaced on the next similar job.',
+    stat: 'Institutional knowledge preserved',
+  },
+];
+
+const COMPETITOR_WINS = [
+  { feature: 'Repair Knowledge Graph', us: true,  them: false },
+  { feature: 'Evidence-Backed Recommendations', us: true,  them: false },
+  { feature: 'Explainable Confidence Scores', us: true,  them: false },
+  { feature: 'Similar Repair Matching', us: true,  them: false },
+  { feature: 'Comeback Risk Prediction', us: true,  them: false },
+  { feature: 'Technician Lesson Capture', us: true,  them: false },
+  { feature: 'Verified Repair Workflow', us: true,  them: true  },
+  { feature: 'DTC Lookup', us: true,  them: true  },
+  { feature: 'Invoicing & Estimates', us: true,  them: true  },
+];
+
 const MOBILE_FEATURES = [
   { icon: '📱', title: 'Phone-First Workflow', desc: 'Create job cards, capture photos, and send invoices entirely from your smartphone — no laptop, no office, no problem.' },
   { icon: '📍', title: 'On-Site Invoicing', desc: 'Generate and send a professional invoice the moment you finish the job. Get paid on the spot via card or digital wallet.' },
@@ -571,6 +622,138 @@ export default function LandingPage() {
                 <p style={{ color: '#777', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── REPAIR INTELLIGENCE / AI ──────────────────────────── */}
+      <section id="repair-intelligence" style={{ padding: '120px 6%', background: '#07070a', position: 'relative', overflow: 'hidden' }}>
+        {/* Subtle grid bg */}
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(204,0,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(204,0,0,0.03) 1px,transparent 1px)', backgroundSize: '60px 60px', pointerEvents: 'none' }} />
+        {/* Glow orb */}
+        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 900, height: 900, borderRadius: '50%', background: 'radial-gradient(circle,rgba(204,0,0,0.07) 0%,transparent 65%)', pointerEvents: 'none' }} />
+
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 80 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.35)', color: '#ff6060', padding: '6px 18px', borderRadius: 30, fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 22 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#cc0000', display: 'inline-block', boxShadow: '0 0 8px #cc0000' }} />
+              Repair Intelligence — Only on Redlined1
+            </span>
+            <h2 style={{ fontSize: 'clamp(28px,3.8vw,52px)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-1px', marginBottom: 22 }}>
+              The Only Shop Software<br />
+              <span style={{ color: '#cc0000' }}>That Gets Smarter Every Repair</span>
+            </h2>
+            <p style={{ color: '#888', fontSize: 17, lineHeight: 1.75, maxWidth: 620, margin: '0 auto' }}>
+              While other platforms just store your data, Redlined1 builds a living knowledge graph from every job closed — surfacing verified evidence, ranked recommendations, and comeback risk before the customer drives away.
+            </p>
+          </div>
+
+          {/* 6 AI feature cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 20, marginBottom: 80 }}>
+            {AI_FEATURES.map((f, i) => (
+              <div key={i}
+                style={{ background: 'rgba(204,0,0,0.05)', border: '1px solid rgba(204,0,0,0.18)', borderRadius: 18, padding: '32px 28px', transition: 'all 0.22s', cursor: 'default', position: 'relative', overflow: 'hidden' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.55)'; e.currentTarget.style.background = 'rgba(204,0,0,0.09)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.18)'; e.currentTarget.style.background = 'rgba(204,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: 'radial-gradient(circle at top right,rgba(204,0,0,0.12),transparent 70%)', pointerEvents: 'none' }} />
+                <div style={{ fontSize: 42, marginBottom: 18 }}>{f.icon}</div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 10, color: '#fff' }}>{f.title}</h3>
+                <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, marginBottom: 18 }}>{f.desc}</p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(204,0,0,0.15)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 20, padding: '4px 12px' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#cc0000', flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: '#ff8080', fontWeight: 700 }}>{f.stat}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* How it works — pipeline strip */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '44px 48px', marginBottom: 80 }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>How Repair Intelligence Works</h3>
+              <p style={{ color: '#666', fontSize: 14 }}>Every closed repair case feeds the engine automatically — no setup, no tagging, no extra steps.</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
+              {[
+                { icon: '🔧', label: 'Repair Case Closed', sub: 'DTCs, symptoms, parts, tests' },
+                { icon: '→', label: '', sub: '', arrow: true },
+                { icon: '🗺️', label: 'Knowledge Graph', sub: 'Auto-mapped in background' },
+                { icon: '→', label: '', sub: '', arrow: true },
+                { icon: '⚖️', label: 'Evidence Engine', sub: '12 weighted evidence types' },
+                { icon: '→', label: '', sub: '', arrow: true },
+                { icon: '📈', label: 'Confidence Score', sub: 'Explainable 0–98%' },
+                { icon: '→', label: '', sub: '', arrow: true },
+                { icon: '🎯', label: 'Ranked Recommendations', sub: 'Evidence-backed actions' },
+              ].map((step, i) =>
+                step.arrow ? (
+                  <div key={i} style={{ color: '#cc0000', fontSize: 22, fontWeight: 700, flexShrink: 0, padding: '0 8px' }}>→</div>
+                ) : (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, minWidth: 130, flexShrink: 0 }}>
+                    <div style={{ width: 54, height: 54, borderRadius: 14, background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>{step.icon}</div>
+                    <div style={{ fontWeight: 700, fontSize: 12, textAlign: 'center', color: '#ddd' }}>{step.label}</div>
+                    <div style={{ fontSize: 11, color: '#555', textAlign: 'center', lineHeight: 1.4 }}>{step.sub}</div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* Competitor comparison + CTA side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, alignItems: 'start' }}>
+
+            {/* Comparison table */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 18, overflow: 'hidden' }}>
+              <div style={{ padding: '20px 28px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'grid', gridTemplateColumns: '1fr 100px 100px', gap: 8 }}>
+                <div style={{ fontSize: 12, color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Capability</div>
+                <div style={{ fontSize: 12, color: '#cc0000', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Redlined1</div>
+                <div style={{ fontSize: 12, color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, textAlign: 'center' }}>Others</div>
+              </div>
+              {COMPETITOR_WINS.map((row, i) => (
+                <div key={i} style={{ padding: '14px 28px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'grid', gridTemplateColumns: '1fr 100px 100px', gap: 8, alignItems: 'center', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                  <span style={{ fontSize: 13, color: '#bbb' }}>{row.feature}</span>
+                  <span style={{ textAlign: 'center', fontSize: 16 }}>{row.us ? '✅' : '❌'}</span>
+                  <span style={{ textAlign: 'center', fontSize: 16 }}>{row.them ? '✅' : '❌'}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Right: stats + CTA */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Pull-quote */}
+              <div style={{ background: 'linear-gradient(135deg,rgba(204,0,0,0.12),rgba(204,0,0,0.04))', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 18, padding: '32px 30px' }}>
+                <div style={{ fontSize: 42, lineHeight: 1, color: '#cc0000', fontWeight: 900, marginBottom: 10 }}>&ldquo;</div>
+                <p style={{ fontSize: 16, lineHeight: 1.75, color: '#ddd', marginBottom: 20 }}>
+                  Every repair your shop closes makes the next repair faster, cheaper, and more accurate. No other auto repair software does this.
+                </p>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#cc0000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🔧</div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>Repair Intelligence Engine</div>
+                    <div style={{ fontSize: 12, color: '#666' }}>Built exclusively for Redlined1</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3 stat pills */}
+              {[
+                { n: '<10ms', label: 'Evidence pipeline — pure computation, no lag' },
+                { n: '12×',   label: 'Evidence categories scored per repair case' },
+                { n: '0–98%', label: 'Explainable confidence range, never a black box' },
+              ].map((s, i) => (
+                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '18px 22px', display: 'flex', gap: 18, alignItems: 'center' }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#cc0000', minWidth: 70, flexShrink: 0 }}>{s.n}</div>
+                  <div style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>{s.label}</div>
+                </div>
+              ))}
+
+              {/* CTA */}
+              <Link href="/signup" style={{ display: 'block', textAlign: 'center', background: '#cc0000', color: '#fff', padding: '16px 28px', borderRadius: 12, textDecoration: 'none', fontWeight: 800, fontSize: 16 }}>
+                See Repair Intelligence in Action →
+              </Link>
+            </div>
           </div>
         </div>
       </section>
