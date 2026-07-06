@@ -152,9 +152,13 @@ export class ConfidenceEngine {
     // ── Warranty penalty ─────────────────────────────────────────────────────
     const warranties = evidence.filter(e => e.type === 'warranty');
     if (warranties.length > 0) {
-      const impact = -15;
+      const impact = -(warranties.length * 15);
       score += impact;
-      breakdown.push({ factor: 'Warranty Claim Filed', impact, description: 'Warranty claims reduce confidence in repair procedure' });
+      breakdown.push({
+        factor: warranties.length > 1 ? `${warranties.length} Warranty Claims Filed` : 'Warranty Claim Filed',
+        impact,
+        description: `Warranty claim${warranties.length > 1 ? 's' : ''} reduce confidence in repair procedure`,
+      });
     }
 
     // ── Missing data deductions ───────────────────────────────────────────────

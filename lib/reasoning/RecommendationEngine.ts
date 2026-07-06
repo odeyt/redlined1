@@ -24,6 +24,7 @@ interface RecommendationCandidate {
   score: number;
   verifiedRepairs: number;
   comebackCount: number;
+  totalCases: number; // total similar repair cases this recommendation is drawn from
   sources: string[];
 }
 
@@ -66,8 +67,8 @@ export class RecommendationEngine {
     return deduped.slice(0, limit).map((c, i) => {
       const support = this.buildSupport(c, evidence);
       const conf = Math.min(98, Math.round(c.score));
-      const avgComebackRate = c.verifiedRepairs > 0
-        ? c.comebackCount / c.verifiedRepairs
+      const avgComebackRate = c.totalCases > 0
+        ? c.comebackCount / c.totalCases
         : null;
 
       return {
@@ -80,7 +81,7 @@ export class RecommendationEngine {
         verifiedRepairs: c.verifiedRepairs,
         avgComebackRate,
         technicianAgreement: c.verifiedRepairs > 1
-          ? Math.min(1, (c.verifiedRepairs - c.comebackCount) / c.verifiedRepairs)
+          ? Math.max(0, Math.min(1, (c.verifiedRepairs - c.comebackCount) / c.verifiedRepairs))
           : null,
         sources: [...new Set(c.sources)],
       };
@@ -133,6 +134,7 @@ export class RecommendationEngine {
         score: Math.max(0, score),
         verifiedRepairs: verifiedCount,
         comebackCount,
+        totalCases: group.length,
         sources: ['knowledge_graph'],
       });
     }
@@ -160,6 +162,7 @@ export class RecommendationEngine {
         score,
         verifiedRepairs: isVerified ? 1 : 0,
         comebackCount: 0,
+        totalCases: 1,
         sources: ['technician_lesson'],
       });
 
@@ -172,6 +175,7 @@ export class RecommendationEngine {
           score: 30,
           verifiedRepairs: isVerified ? 1 : 0,
           comebackCount: 0,
+          totalCases: 1,
           sources: ['technician_lesson'],
         });
       }
@@ -196,6 +200,7 @@ export class RecommendationEngine {
         score: isVerified ? 70 : 50,
         verifiedRepairs: isVerified ? 1 : 0,
         comebackCount: 0,
+        totalCases: 1,
         sources: ['repair_case'],
       });
     }
@@ -211,6 +216,7 @@ export class RecommendationEngine {
           score: 35,
           verifiedRepairs: 0,
           comebackCount: 0,
+          totalCases: 1,
           sources: ['repair_case'],
         });
       }
@@ -235,6 +241,7 @@ export class RecommendationEngine {
         score: 38,
         verifiedRepairs: 0,
         comebackCount: 0,
+        totalCases: 0,
         sources: ['dtc_pattern'],
       });
     }
@@ -264,8 +271,9 @@ export class RecommendationEngine {
       if (!existing || c.score > existing.score) {
         map.set(key, {
           ...c,
-          verifiedRepairs: Math.max(c.verifiedRepairs, existing?.verifiedRepairs ?? 0),
-          comebackCount: Math.max(c.comebackCount, existing?.comebackCount ?? 0),
+          verifiedRepairs: (c.verifiedRepairs) + (existing?.verifiedRepairs ?? 0),
+          comebackCount: (c.comebackCount) + (existing?.comebackCount ?? 0),
+          totalCases: (c.totalCases) + (existing?.totalCases ?? 0),
           sources: [...(existing?.sources ?? []), ...c.sources],
         });
       }

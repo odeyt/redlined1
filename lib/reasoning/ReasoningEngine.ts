@@ -269,13 +269,22 @@ export class ReasoningEngine {
   }
 
   private buildCacheKey(input: ReasoningInput): string {
+    // Fingerprint similar repairs by summing similarity scores — cheap proxy for content change
+    const srFingerprint = (input.similarRepairs ?? [])
+      .reduce((sum, sr) => sum + Math.round(sr.similarityScore), 0);
+    const lessonCount = input.lessons?.length ?? 0;
+    const weightKey = input.weightOverrides
+      ? Object.values(input.weightOverrides).join(',')
+      : '';
     const parts = [
       input.repairCaseId,
       input.verificationStatus,
-      input.dtcCodes.sort().join(','),
+      input.dtcCodes.slice().sort().join(','),
       input.symptoms.length,
-      input.similarRepairs?.length ?? 0,
+      srFingerprint,
+      lessonCount,
       input.confidenceScore ?? 0,
+      weightKey,
     ];
     return `ere:${parts.join('|')}`;
   }
