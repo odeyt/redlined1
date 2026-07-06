@@ -187,7 +187,8 @@ export const navItems: [string, string, string, string][] = [
   ['access',        'userkey',    'Login & Roles', '4'],
   ['subscriptions', 'shield',     'Plans & Gates', 'Pro Trial'],
   ['settings',      'settings',   'Settings',      ''],
-  ['system-health', 'activity',   'System Health', ''],
+  ['system-health',     'activity', 'System Health',     ''],
+  ['testing-dashboard', 'flask',   'Testing Dashboard', ''],
 ];
 
 export const moduleTitles: Record<string, [string, string]> = {

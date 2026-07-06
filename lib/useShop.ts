@@ -17,7 +17,7 @@ export interface Shop {
 // admin settings, subscriptions, or access control.
 export const MANAGER_BLOCKED: string[] = [
   'invoices', 'payments', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health',
+  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'testing-dashboard',
 ];
 
 // Technician: shop-floor only.
@@ -27,7 +27,7 @@ export const MANAGER_BLOCKED: string[] = [
 export const TECHNICIAN_BLOCKED: string[] = [
   'customers', 'vehicles', 'appointments', 'scheduling',
   'estimates', 'invoices', 'payments', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health',
+  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'testing-dashboard',
   'communication', 'vin', 'dtc', 'ai', 'diagnostics', 'job-archive',
 ];
 
@@ -37,7 +37,7 @@ export const TECHNICIAN_BLOCKED: string[] = [
 // Cannot access invoicing, payments, financial reports, admin, or labor-guide.
 export const ADVISOR_BLOCKED: string[] = [
   'invoices', 'payments', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health',
+  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'testing-dashboard',
 ];
 
 // Every non-dashboard module — used to block unverified/loading roles

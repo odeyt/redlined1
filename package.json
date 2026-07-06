@@ -9,7 +9,12 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build",
-    "backfill:repair-graph": "tsx scripts/backfill-repair-cases-to-graph.ts"
+    "backfill:repair-graph": "tsx scripts/backfill-repair-cases-to-graph.ts",
+    "test:e2e":    "playwright test --project=chromium",
+    "test:smoke":  "playwright test --grep @smoke --project=smoke-chromium",
+    "test:visual": "playwright test --project=visual",
+    "test:headed": "playwright test --project=chromium --headed",
+    "test:ci":     "playwright test --reporter=list,junit,html"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
@@ -23,6 +28,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/dotenv": "^6.1.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
