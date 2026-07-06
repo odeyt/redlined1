@@ -1,111 +1,89 @@
 'use client';
 
 import { useState } from 'react';
-import { useAppState, useAppDispatch } from '@/lib/store';
-import { planCatalog } from '@/lib/mock-data';
-import { StatCard } from '@/components/StatCard';
+import { useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
-import { Badge } from '@/components/Badge';
+import { PricingCards } from '@/components/billing/PricingCards';
+import { SubscriptionStatus } from '@/components/billing/SubscriptionStatus';
+import { BillingPortalButton } from '@/components/billing/BillingPortalButton';
+import type { BillingInterval, RedlinedPlanId } from '@/lib/payments/types';
 
 export function SubscriptionsView() {
-  const { currentPlan, users, customers, vehicles, jobCards, invoices } = useAppState();
-  const dispatch = useAppDispatch();
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
+  const { customers, vehicles, jobCards, invoices } = useAppState();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
 
-  const plan = planCatalog[currentPlan] || planCatalog.Free;
+  async function handleSelectPlan(planId: RedlinedPlanId, interval: BillingInterval) {
+    setCheckoutLoading(true);
+    setCheckoutError('');
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId, billingInterval: interval }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? 'Failed to start checkout');
+      }
+      window.location.href = data.url;
+    } catch (e) {
+      setCheckoutError(e instanceof Error ? e.message : 'Something went wrong');
+      setCheckoutLoading(false);
+    }
+  }
+
   const usage = {
-    users: users.length,
-    locations: 3,
     customers: customers.length,
     vehicles: vehicles.length,
     jobs: jobCards.length,
     invoices: invoices.length,
-    aiCredits: 18,
   };
 
   return (
     <>
-      <div className="grid cols-4" style={{ gridTemplateColumns: `repeat(${Object.keys(planCatalog).length}, minmax(0,1fr))` }}>
-        {Object.entries(planCatalog).map(([name, p]) => (
-          <StatCard key={name} label={name} value={p.price} subtext={name === currentPlan ? 'Current plan' : p.features[0]} />
-        ))}
-      </div>
-
-      <div className="split">
-        <Panel title="Plan Controls" hint="Switch plans to test free restrictions and paid subscriber access">
-          <div className="form-row">
-            <div className="field">
-              <label>Current Plan</label>
-              <select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)}>
-                {Object.keys(planCatalog).map(name => <option key={name}>{name}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Billing Status</label>
-              <select>
-                <option>trialing</option><option>free</option><option>active</option><option>past_due</option><option>canceled</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Stripe Customer</label>
-              <input defaultValue="cus_demo_redlined1" />
-            </div>
-            <div className="field">
-              <label>&nbsp;</label>
-              <button className="btn primary" onClick={() => dispatch({ type: 'APPLY_PLAN', plan: selectedPlan })}>Apply Plan</button>
-            </div>
+      {/* Current subscription status */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <SubscriptionStatus
+              status={null}
+              planName="No active subscription"
+            />
           </div>
-        </Panel>
-
-        <Panel title="Feature Gates" hint="Free users are restricted; paid subscribers unlock modules">
-          <table>
-            <thead>
-              <tr><th>Feature</th><th>Free</th><th>Pro $29.99</th><th>Pro Plus $49.99</th></tr>
-            </thead>
-            <tbody>
-              {[
-                ['Invoices & Estimates', 'Limited (10)', 'Unlimited', 'Unlimited'],
-                ['Digital Inspections', 'Locked', 'Included', 'Included'],
-                ['Parts Inventory', 'Locked', 'Included', 'Included'],
-                ['Payments', 'Manual only', 'Online payments', 'Online payments'],
-                ['Appointments & Maintenance Schedules', 'Basic', 'Full + Reminders', 'Full + Reminders'],
-                ['AI Credits', 'None', 'None', '3,000 / mo'],
-                ['Image Attachments', 'Locked', 'Locked', 'Included'],
-                ['Multi-user Access', '1 user', 'Up to 5', 'Up to 20'],
-                ['Priority Support', 'Email', 'Email', 'Priority'],
-              ].map((row, i) => (
-                <tr key={i}>
-                  <td>{row[0]}</td>
-                  {row.slice(1).map((cell, j) => <td key={j}><Badge text={cell} color={cell === 'Locked' || cell === 'None' ? 'gray' : cell.startsWith('Unlimited') || cell === 'Included' || cell === 'Priority' ? 'green' : 'blue'} /></td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
+          <div style={{ paddingTop: 4 }}>
+            <BillingPortalButton label="Manage Billing" />
+          </div>
+        </div>
       </div>
 
-      <Panel title="Usage and Limits" hint="Enforced by plan_features and subscriptions tables">
-        <table>
-          <thead>
-            <tr><th>Limit</th><th>Usage</th><th>Meter</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            {Object.entries(plan.limits).map(([key, limit]) => {
-              const used = (usage as Record<string, number>)[key] ?? 0;
-              const percent = Math.min(100, Math.round((used / limit) * 100));
-              return (
-                <tr key={key}>
-                  <td>{key}</td>
-                  <td>{used} / {limit}</td>
-                  <td>
-                    <div className="meter"><span style={{ width: `${percent}%` }} /></div>
-                  </td>
-                  <td><Badge text={used >= limit ? 'Limit reached' : 'Available'} /></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Pricing plans */}
+      <Panel title="Plans" hint="Choose a plan to unlock features. Annual billing saves up to 17%.">
+        {checkoutError && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,0.08)', borderRadius: 8, color: '#ef4444', fontSize: 13 }}>
+            {checkoutError}
+          </div>
+        )}
+        <PricingCards
+          currentPlanId={null}
+          onSelectPlan={handleSelectPlan}
+          loading={checkoutLoading}
+        />
+      </Panel>
+
+      {/* Shop usage summary */}
+      <Panel title="Shop Usage" hint="Data snapshot from your current workspace">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+          {Object.entries(usage).map(([key, val]) => (
+            <div key={key} style={{
+              background: 'var(--surface-soft)', borderRadius: 10,
+              padding: '14px 18px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>{val}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, textTransform: 'capitalize' }}>{key}</div>
+            </div>
+          ))}
+        </div>
       </Panel>
     </>
   );
