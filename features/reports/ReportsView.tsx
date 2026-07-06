@@ -115,11 +115,19 @@ function WorkshopPrintModal({
       const vSelect = 'id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak';
       const baseQ = () => supabase.from('vehicles').select(vSelect).eq('shop_id', shopId).ilike('status', '%complet%');
 
-      // No date filter — completion report shows ALL completed vehicles regardless of received date.
-      // date_received is when the vehicle arrived, not when work was completed, so filtering by it
-      // would exclude vehicles received in one month but finished in another.
+      // Filter by date_received within the selected month/year.
+      let q = baseQ();
+      if (month > 0) {
+        const from = new Date(year, month - 1, 1).toISOString();
+        const to   = new Date(year, month, 1).toISOString();
+        q = q.gte('date_received', from).lt('date_received', to);
+      } else {
+        const from = new Date(year, 0, 1).toISOString();
+        const to   = new Date(year + 1, 0, 1).toISOString();
+        q = q.gte('date_received', from).lt('date_received', to);
+      }
       const [{ data: allCompleted }, { data: custData }] = await Promise.all([
-        baseQ().order('date_received', { ascending: false }),
+        q.order('date_received', { ascending: false }),
         supabase.from('customers').select('id, name').eq('shop_id', shopId),
       ]);
 
@@ -1420,7 +1428,7 @@ export function ReportsView() {
           shopId={reportShopId}
           month={filterMonth}
           year={filterYear}
-          periodLabel="All Completed Jobs"
+          periodLabel={filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `${filterYear}`}
           shopName={shops.find(s => s.id === reportShopId)?.name ?? 'Workshop'}
           onClose={() => setShowPrintModal(false)}
         />
