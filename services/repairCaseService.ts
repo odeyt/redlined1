@@ -187,6 +187,7 @@ export async function createRepairCaseFromJob(params: Partial<RepairCase>): Prom
 
 export async function updateRepairCase(id: string, params: Partial<RepairCase>): Promise<RepairCase> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const patch: Record<string, unknown> = {};
   if (params.vin !== undefined)          patch.vin = params.vin;
   if (params.make !== undefined)         patch.make = params.make;
@@ -263,6 +264,7 @@ export async function listRepairCases(): Promise<RepairCase[]> {
 
 export async function getRepairCaseById(id: string): Promise<RepairCase | null> {
   const shopId = getShopId();
+  if (!shopId) return null;
   const { data, error } = await supabase
     .from('repair_cases')
     .select('*')
@@ -277,6 +279,7 @@ export async function getRepairCaseById(id: string): Promise<RepairCase | null> 
 
 export async function addDtcToRepairCase(repairCaseId: string, dtc: Omit<RepairCaseDtc, 'id' | 'shopId' | 'repairCaseId'>): Promise<RepairCaseDtc> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_case_dtcs')
     .insert({ shop_id: shopId, repair_case_id: repairCaseId, code: dtc.code, description: dtc.description ?? null, module: dtc.module ?? null, status: dtc.status ?? null })
@@ -289,6 +292,7 @@ export async function addDtcToRepairCase(repairCaseId: string, dtc: Omit<RepairC
 
 export async function addSymptomToRepairCase(repairCaseId: string, symptom: string, severity?: string): Promise<RepairCaseSymptom> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_case_symptoms')
     .insert({ shop_id: shopId, repair_case_id: repairCaseId, symptom, severity: severity ?? null })
@@ -301,6 +305,7 @@ export async function addSymptomToRepairCase(repairCaseId: string, symptom: stri
 
 export async function addTestToRepairCase(repairCaseId: string, test: Omit<RepairCaseTest, 'id' | 'shopId' | 'repairCaseId'>): Promise<RepairCaseTest> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_case_tests')
     .insert({ shop_id: shopId, repair_case_id: repairCaseId, test_name: test.testName, result: test.result ?? null, passed: test.passed ?? null, notes: test.notes ?? null })
@@ -313,6 +318,7 @@ export async function addTestToRepairCase(repairCaseId: string, test: Omit<Repai
 
 export async function addPartToRepairCase(repairCaseId: string, part: Omit<RepairCasePart, 'id' | 'shopId' | 'repairCaseId'>): Promise<RepairCasePart> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_case_parts')
     .insert({ shop_id: shopId, repair_case_id: repairCaseId, part_name: part.partName, part_number: part.partNumber ?? null, supplier: part.supplier ?? null, cost: part.cost ?? null, replaced: part.replaced ?? true })
@@ -325,6 +331,7 @@ export async function addPartToRepairCase(repairCaseId: string, part: Omit<Repai
 
 export async function addOutcomeToRepairCase(repairCaseId: string, outcome: Omit<RepairCaseOutcome, 'id' | 'shopId' | 'repairCaseId'>): Promise<RepairCaseOutcome> {
   const shopId = getShopId();
+  if (!shopId) throw new Error('No active shop selected');
   const { data, error } = await supabase
     .from('repair_case_outcomes')
     .insert({ shop_id: shopId, repair_case_id: repairCaseId, outcome: outcome.outcome, comeback: outcome.comeback ?? false, comeback_days: outcome.comebackDays ?? null, warranty_claim: outcome.warrantyClaim ?? false, customer_satisfied: outcome.customerSatisfied ?? null, verified_fix: outcome.verifiedFix ?? false })
