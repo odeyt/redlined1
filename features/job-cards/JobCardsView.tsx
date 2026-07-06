@@ -21,6 +21,8 @@ import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
+import { SmartIntakePanel } from './SmartIntakePanel';
+import { urgencyToPriority, categoryToServiceHint, type SmartIntakeOutput } from '@/lib/triage/jobCardTriageAdapter';
 
 // OEM-based service intervals: [miles, days]
 const SERVICE_INTERVALS: Record<string, [number, number]> = {
@@ -176,6 +178,7 @@ export function JobCardsView() {
         }
       }
       if (prefill?.vehicle) setFVehicle(prefill.vehicle);
+      if (prefill?.notes) setFNotes(prefill.notes);
       dispatch({ type: 'CLOSE_NEW_JOB_CARD' });
     }
   }, [openNewJobCard]);
@@ -218,6 +221,10 @@ export function JobCardsView() {
   const [enableJobCardBranchRoute, setEnableJobCardBranchRoute] = useState(true);
   const [enableJobCardServiceLocation, setEnableJobCardServiceLocation] = useState(true);
   const [enableJobCardApprovalCode, setEnableJobCardApprovalCode] = useState(true);
+
+  // Smart Intake
+  const [smartIntake, setSmartIntake] = useState<SmartIntakeOutput | null>(null);
+  const [fNotes, setFNotes] = useState('');
 
   // Add tech form
   const [newTechName, setNewTechName] = useState('');
@@ -365,6 +372,7 @@ export function JobCardsView() {
     setFCustomer(''); setFVehicle(''); setFServiceLoc(''); setFApproval(''); setFTechs([]); setCustomerVehicles([]);
     setFServiceTypes([serviceTypeOptions[0] ?? 'Oil Change']); setFSubTypes({});
     setSelectedVehicleEngine(''); setSelectedVehicleMileage(''); setSelectedCustomerPhone(''); setOilSuggestion('');
+    setSmartIntake(null); setFNotes('');
   }
 
   async function handleCreate(): Promise<boolean> {
@@ -373,10 +381,29 @@ export function JobCardsView() {
     try {
       const channel = fWorkType.includes('Mobile') ? 'Mobile mechanic' : fWorkType.includes('Fleet') ? 'Fleet service' : 'Shop bay';
       const fullServiceType = fServiceTypes.map(s => fSubTypes[s]?.length ? `${s} — ${fSubTypes[s].join(', ')}` : s).join(' + ');
-      const job = await createJobCard({ customer: fCustomer, vehicle: fVehicle, serviceType: fullServiceType || 'General Service', channel, location: fServiceLoc, technicians: fTechs, priority: fPriority, approvalCode: fApproval });
+
+      // Smart Intake: auto-apply urgency → priority if user hasn't manually changed it
+      const effectivePriority = smartIntake
+        ? urgencyToPriority(smartIntake.urgency)
+        : fPriority;
+
+      // Notes: prefer Smart Intake edited summary, then prefill notes, then empty
+      const notes = smartIntake?.editedComplaintSummary || fNotes || '';
+
+      const job = await createJobCard({
+        customer: fCustomer,
+        vehicle: fVehicle,
+        serviceType: fullServiceType || 'General Service',
+        channel,
+        location: fServiceLoc,
+        technicians: fTechs,
+        priority: effectivePriority,
+        approvalCode: fApproval,
+        notes,
+      });
       setJobs(prev => [job, ...prev]);
       resetCreateForm();
-      notify(`${job.id} created.`);
+      notify(`${job.id} created${smartIntake ? ' with Smart Intake' : ''}.`);
       return true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
@@ -661,11 +688,38 @@ export function JobCardsView() {
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+        {/* Smart Intake */}
+        <SmartIntakePanel
+          vehicle={fVehicle}
+          vehicleKnown={!!fVehicle}
+          initialNotes={fNotes}
+          onChange={data => {
+            setSmartIntake(data);
+            // Auto-suggest service type from category
+            if (data?.categoryId) {
+              const hint = categoryToServiceHint(data.categoryId);
+              if (hint && serviceTypeOptions.includes(hint) && !fServiceTypes.includes(hint)) {
+                setFServiceTypes(prev => prev.includes(hint) ? prev : [hint, ...prev.filter(s => s !== serviceTypeOptions[0])]);
+              }
+            }
+          }}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12, borderTop: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <button className="btn primary" onClick={async () => { await handleCreate(); }} disabled={creating}>
-            <Icon name="add" /> {creating ? 'Creating…' : '+ Create Job Card'}
+            <Icon name="add" /> {creating ? 'Creating…' : smartIntake?.categoryId ? '+ Create Smart Job Card' : '+ Create Job Card'}
           </button>
           <button className="btn" onClick={resetCreateForm}>Clear</button>
+          {smartIntake?.categoryId && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+              background: smartIntake.dataQualityScore >= 80 ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+              color: smartIntake.dataQualityScore >= 80 ? '#22c55e' : '#f59e0b',
+              border: `1px solid ${smartIntake.dataQualityScore >= 80 ? '#22c55e' : '#f59e0b'}`,
+            }}>
+              Smart Intake · {smartIntake.dataQualityScore}% quality
+            </span>
+          )}
         </div>
       </div>
 

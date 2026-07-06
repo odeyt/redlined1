@@ -7,10 +7,10 @@ create table if not exists public.triage_sessions (
   id                      uuid primary key default gen_random_uuid(),
   shop_id                 uuid not null references public.shops(id) on delete cascade,
 
-  -- Customer / vehicle context
-  customer_id             uuid references public.customers(id) on delete set null,
+  -- Customer / vehicle context (stored as text — no FK constraint)
+  customer_id             text,
   customer_name           text,
-  vehicle_id              uuid references public.vehicles(id) on delete set null,
+  vehicle_id              text,
   vehicle_make            text,
   vehicle_model           text,
   vehicle_year            text,
@@ -33,7 +33,7 @@ create table if not exists public.triage_sessions (
   -- Lifecycle
   status                  text not null default 'draft'
                           check (status in ('draft', 'complete', 'converted')),
-  job_card_id             uuid references public.job_cards(id) on delete set null,
+  job_card_id             text,
 
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now()

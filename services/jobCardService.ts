@@ -30,6 +30,7 @@ export interface JobCardFull {
   stageHistory: StageHistoryEntry[];
   customerPhone: string;
   customerEmail: string;
+  notes: string;
 }
 
 function toJob(row: Record<string, unknown>): JobCardFull {
@@ -57,6 +58,7 @@ function toJob(row: Record<string, unknown>): JobCardFull {
     stageHistory: (row.stage_history as StageHistoryEntry[]) ?? [],
     customerPhone: (row.customer_phone as string) || '',
     customerEmail: (row.customer_email as string) || '',
+    notes: (row.notes as string) || '',
   };
 }
 
@@ -93,6 +95,7 @@ export async function createJobCard(fields: {
   technicians: string[];
   priority: string;
   approvalCode: string;
+  notes?: string;
 }): Promise<JobCardFull> {
   const id = `JC-${Date.now()}`;
   const approved = !!fields.approvalCode;
@@ -117,6 +120,7 @@ export async function createJobCard(fields: {
       workflow: approved ? ['Booked', 'Approved'] : ['Booked'],
       next_action: approved ? 'Convert to repair order' : 'Request approval',
       check_in_date: new Date().toISOString(),
+      notes: fields.notes ?? '',
     })
     .select()
     .single();

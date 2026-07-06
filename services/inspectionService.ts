@@ -197,6 +197,56 @@ export async function deleteInspection(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export function createInspectionFromTriage(
+  session: {
+    vehicle: { year: string; make: string; model: string; mileage: string; customerName?: string; customerId?: string };
+    categoryId: string | null;
+    complaintSummary: string;
+    inspectionSuggestions: string[];
+    techNotes: { additionalObservations?: string };
+  },
+  inspectionNumber: string,
+): Omit<Inspection, 'id' | 'createdAt'> {
+  const categoryLabel = (session.categoryId ?? 'general')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  // Triage-specific items pinned at the top
+  const triageItems: InspectionItem[] = session.inspectionSuggestions.map((suggestion, i) => ({
+    id: `triage-${i}`,
+    category: `${categoryLabel} — Triage Checks`,
+    name: suggestion,
+    status: 'N/A',
+    notes: '',
+    photoUrl: '',
+  }));
+
+  const templateItems: InspectionItem[] = [
+    ...INSPECTION_TEMPLATE,
+    ...INTAKE_OUTTAKE_ITEMS,
+  ].map((item, i) => ({ ...item, id: `tmpl-${i}` }));
+
+  const vehicle = `${session.vehicle.year} ${session.vehicle.make} ${session.vehicle.model}`.trim();
+
+  return {
+    inspectionNumber,
+    jobCardId: '',
+    customerName: session.vehicle.customerName ?? '',
+    customerId: session.vehicle.customerId ?? '',
+    vehicle,
+    vin: '',
+    mileage: Number(session.vehicle.mileage) || 0,
+    technician: '',
+    status: 'In Progress',
+    items: [...triageItems, ...templateItems],
+    notes: session.complaintSummary + (session.techNotes.additionalObservations ? `\n\nTech: ${session.techNotes.additionalObservations}` : ''),
+    customerEmail: '',
+    customerPhone: '',
+    completedAt: null,
+    customerApproval: null,
+  };
+}
+
 export async function nextInspectionNumber(): Promise<string> {
   const { data } = await supabase
     .from('inspections')

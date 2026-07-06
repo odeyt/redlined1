@@ -46,7 +46,7 @@ const SLIDES = [
 ];
 
 const FEATURES = [
-  { img: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=80&h=80&fit=crop&q=85', title: 'Invoices & Estimates', desc: 'Professional invoices and estimates in seconds. Send via email or SMS and collect payment online.' },
+  { img: '/invoices-estimates.png', title: 'Invoices & Estimates', desc: 'Professional invoices and estimates in seconds. Send via email or SMS and collect payment online.' },
   { img: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=80&h=80&fit=crop&q=85', title: 'Digital Inspections', desc: 'Photo-based vehicle inspection reports build customer trust and increase job approvals.' },
   { img: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=80&h=80&fit=crop&q=85', title: 'Appointments & Maintenance Schedules', desc: 'Book appointments, check in customers, and track recurring service intervals for fleet and repeat clients.' },
   { img: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&h=80&fit=crop&q=85', title: 'Customer Management', desc: 'Full CRM with customer history, vehicles, notes, and communication in one place.' },
@@ -614,12 +614,17 @@ export default function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 18 }}>
             {FEATURES.map((f, i) => (
               <div key={i}
-                style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '32px 26px', transition: 'border-color 0.2s,transform 0.2s', cursor: 'default' }}
+                style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', transition: 'border-color 0.2s,transform 0.2s', cursor: 'default' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.45)'; e.currentTarget.style.transform = 'translateY(-3px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                <img src={f.img} alt={f.title} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', marginBottom: 18, border: '1px solid rgba(204,0,0,0.25)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }} />
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
-                <p style={{ color: '#777', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
+                <div style={{ width: '100%', height: 160, overflow: 'hidden', position: 'relative' }}>
+                  <img src={f.img} alt={f.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom, transparent, rgba(10,8,12,0.85))' }} />
+                </div>
+                <div style={{ padding: '22px 26px 28px' }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
+                  <p style={{ color: '#777', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
+                </div>
               </div>
             ))}
           </div>

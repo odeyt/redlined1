@@ -23,6 +23,7 @@ import {
 } from '@/lib/triage/QuestionTypes';
 import { QuestionEngine } from '@/lib/triage/QuestionEngine';
 import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/services/triageService';
+import { createInspection, createInspectionFromTriage, nextInspectionNumber } from '@/services/inspectionService';
 import { getShopId } from '@/lib/shopStore';
 
 import { VehicleStep }    from './steps/VehicleStep';
@@ -186,6 +187,23 @@ export function TriageView() {
     }
   }, [session, startedAt, dispatch]);
 
+  const handleSendToInspection = useCallback(async () => {
+    if (!session) return;
+    setSaving(true);
+    try {
+      const inspNumber = await nextInspectionNumber();
+      const draft = createInspectionFromTriage(session, inspNumber);
+      await createInspection(draft);
+      await saveTriageSession({ ...session, status: 'complete' });
+      showToast('Inspection created — opening Digital Inspections…');
+      dispatch({ type: 'SET_MODULE', module: 'inspections' });
+    } catch (e) {
+      showToast('Failed to create inspection');
+    } finally {
+      setSaving(false);
+    }
+  }, [session, dispatch]);
+
   // ── Reset ──────────────────────────────────────────────────────────────────
 
   function resetForm() {
@@ -218,6 +236,25 @@ export function TriageView() {
           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
         }}>{toast}</div>
       )}
+
+      {/* Info banner */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)',
+        borderRadius: 8, padding: '9px 14px', marginBottom: 16, fontSize: 12, color: 'var(--muted)',
+      }}>
+        <span style={{ fontSize: 15 }}>💡</span>
+        <span>
+          <strong style={{ color: 'var(--text)' }}>Smart Intake</strong> is also available inside{' '}
+          <button
+            onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: {} })}
+            style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontWeight: 700, fontSize: 12, padding: 0 }}
+          >
+            New Job Card
+          </button>
+          {' '}— guided complaint capture without leaving the job card workflow.
+        </span>
+      </div>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -337,6 +374,7 @@ export function TriageView() {
             session={session}
             saving={saving}
             onSendToJobCard={handleSendToJobCard}
+            onSendToInspection={handleSendToInspection}
             onSaveDraft={handleSaveDraft}
             onBack={() => go('tech_notes')}
             knowledgeInsights={insights}

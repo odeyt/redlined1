@@ -7,6 +7,7 @@ interface Props {
   session: TriageSession;
   saving: boolean;
   onSendToJobCard: () => void;
+  onSendToInspection: () => void;
   onSaveDraft: () => void;
   onBack: () => void;
   knowledgeInsights: string[];
@@ -41,7 +42,7 @@ function QualityRing({ score }: { score: number }) {
   );
 }
 
-export function SummaryStep({ session, saving, onSendToJobCard, onSaveDraft, onBack, knowledgeInsights }: Props) {
+export function SummaryStep({ session, saving, onSendToJobCard, onSendToInspection, onSaveDraft, onBack, knowledgeInsights }: Props) {
   const breakdown = scoreWithBreakdown(
     session.vehicle,
     session.categoryId,
@@ -213,6 +214,17 @@ export function SummaryStep({ session, saving, onSendToJobCard, onSaveDraft, onB
           }}
         >
           {saving ? 'Saving…' : 'Save Draft'}
+        </button>
+        <button
+          onClick={onSendToInspection}
+          disabled={saving}
+          style={{
+            background: 'transparent', border: '1px solid #3b82f6',
+            borderRadius: 8, padding: '10px 22px',
+            fontWeight: 700, fontSize: 14, cursor: 'pointer', color: '#3b82f6',
+          }}
+        >
+          {saving ? 'Saving…' : '🔍 Send to Inspection'}
         </button>
         <button
           onClick={onSendToJobCard}
