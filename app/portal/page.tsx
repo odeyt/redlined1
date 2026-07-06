@@ -46,50 +46,50 @@ const SLIDES = [
 ];
 
 const FEATURES = [
-  { icon: '🧾', title: 'Invoices & Estimates', desc: 'Professional invoices and estimates in seconds. Send via email or SMS and collect payment online.' },
-  { icon: '🔍', title: 'Digital Inspections', desc: 'Photo-based vehicle inspection reports build customer trust and increase job approvals.' },
-  { icon: '📅', title: 'Appointments & Maintenance Schedules', desc: 'Book appointments, check in customers, and track recurring service intervals for fleet and repeat clients.' },
-  { icon: '👤', title: 'Customer Management', desc: 'Full CRM with customer history, vehicles, notes, and communication in one place.' },
-  { icon: '🚗', title: 'Vehicle History', desc: 'Complete service history per vehicle. Never lose track of past repairs or upcoming maintenance.' },
-  { icon: '🧰', title: 'Parts & Inventory', desc: 'Track parts inventory, set reorder points, and attach parts directly to job cards.' },
-  { icon: '👷', title: 'Technician Management', desc: 'Assign techs to jobs, track hours, and measure individual productivity at a glance.' },
-  { icon: '💳', title: 'Payments', desc: 'Accept payments online, track outstanding balances, and reconcile accounts with ease.' },
-  { icon: '📊', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and tech performance — every number you need to grow your shop.' },
+  { img: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=80&h=80&fit=crop&q=85', title: 'Invoices & Estimates', desc: 'Professional invoices and estimates in seconds. Send via email or SMS and collect payment online.' },
+  { img: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=80&h=80&fit=crop&q=85', title: 'Digital Inspections', desc: 'Photo-based vehicle inspection reports build customer trust and increase job approvals.' },
+  { img: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=80&h=80&fit=crop&q=85', title: 'Appointments & Maintenance Schedules', desc: 'Book appointments, check in customers, and track recurring service intervals for fleet and repeat clients.' },
+  { img: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80&h=80&fit=crop&q=85', title: 'Customer Management', desc: 'Full CRM with customer history, vehicles, notes, and communication in one place.' },
+  { img: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=80&h=80&fit=crop&q=85', title: 'Vehicle History', desc: 'Complete service history per vehicle. Never lose track of past repairs or upcoming maintenance.' },
+  { img: 'https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?w=80&h=80&fit=crop&q=85', title: 'Parts & Inventory', desc: 'Track parts inventory, set reorder points, and attach parts directly to job cards.' },
+  { img: 'https://images.unsplash.com/photo-1621905252472-943afaa20e20?w=80&h=80&fit=crop&q=85', title: 'Technician Management', desc: 'Assign techs to jobs, track hours, and measure individual productivity at a glance.' },
+  { img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=80&h=80&fit=crop&q=85', title: 'Payments', desc: 'Accept payments online, track outstanding balances, and reconcile accounts with ease.' },
+  { img: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=80&h=80&fit=crop&q=85', title: 'Reports & Analytics', desc: 'Revenue, job profitability, and tech performance — every number you need to grow your shop.' },
 ];
 
 const AI_FEATURES = [
   {
-    icon: '🧠',
+    img: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=80&h=80&fit=crop&q=85',
     title: 'Knowledge Graph',
     desc: 'Every repair you close automatically maps to a live knowledge graph — nodes, edges, lessons, and observations — that grows smarter with every job.',
     stat: 'Auto-maps on case creation',
   },
   {
-    icon: '⚖️',
+    img: 'https://images.unsplash.com/photo-1580757468214-c73f7062a5cb?w=80&h=80&fit=crop&q=85',
     title: 'Evidence Engine',
     desc: '12 weighted evidence types (DTCs, oscilloscope traces, pressure tests, verified outcomes) scored in real time. Every recommendation is traceable to evidence.',
     stat: '12 evidence categories',
   },
   {
-    icon: '📈',
+    img: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=80&h=80&fit=crop&q=85',
     title: 'Confidence Scoring',
     desc: 'Explainable 0–98% confidence scores with a full breakdown per factor — so your techs know exactly why the system is certain or uncertain.',
     stat: 'Explainable, never a black box',
   },
   {
-    icon: '🔗',
+    img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=80&h=80&fit=crop&q=85',
     title: 'Similar Repair Matching',
     desc: 'Instantly surfaces the most similar verified repairs from your shop\'s history — same make, model, engine, symptoms, and fault codes.',
     stat: 'Ranked by similarity score',
   },
   {
-    icon: '⚠️',
+    img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=80&h=80&fit=crop&q=85',
     title: 'Comeback Risk Detection',
     desc: 'Flags High / Medium / Low comeback risk before the customer leaves. Based on verified history across similar cases — not guesswork.',
     stat: 'Comeback penalty built in',
   },
   {
-    icon: '📚',
+    img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&q=85',
     title: 'Technician Lessons',
     desc: 'Structured lessons (What fooled us? What fixed it? Check first next time?) captured per case and surfaced on the next similar job.',
     stat: 'Institutional knowledge preserved',
@@ -109,12 +109,12 @@ const COMPETITOR_WINS = [
 ];
 
 const MOBILE_FEATURES = [
-  { icon: '📱', title: 'Phone-First Workflow', desc: 'Create job cards, capture photos, and send invoices entirely from your smartphone — no laptop, no office, no problem.' },
-  { icon: '📍', title: 'On-Site Invoicing', desc: 'Generate and send a professional invoice the moment you finish the job. Get paid on the spot via card or digital wallet.' },
-  { icon: '🗺️', title: 'Job Location Tracking', desc: 'Log service addresses per job card. Know exactly where each vehicle was serviced and track your territory coverage.' },
-  { icon: '📷', title: 'Photo Inspections On the Go', desc: 'Snap inspection photos on-site, attach them to the job, and send the customer a branded report before you leave their driveway.' },
-  { icon: '💬', title: 'SMS & Email from the Field', desc: 'Send estimates, invoices, and follow-ups via SMS or email directly from the app — no copy-pasting, no separate tools.' },
-  { icon: '🔧', title: 'Mobile Parts Lookup', desc: 'Search your parts inventory and add items to a job card while you\'re under the hood. Reorder low-stock parts on the spot.' },
+  { img: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=80&h=80&fit=crop&q=85', title: 'Phone-First Workflow', desc: 'Create job cards, capture photos, and send invoices entirely from your smartphone — no laptop, no office, no problem.' },
+  { img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=80&h=80&fit=crop&q=85', title: 'On-Site Invoicing', desc: 'Generate and send a professional invoice the moment you finish the job. Get paid on the spot via card or digital wallet.' },
+  { img: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=80&h=80&fit=crop&q=85', title: 'Job Location Tracking', desc: 'Log service addresses per job card. Know exactly where each vehicle was serviced and track your territory coverage.' },
+  { img: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=80&h=80&fit=crop&q=85', title: 'Photo Inspections On the Go', desc: 'Snap inspection photos on-site, attach them to the job, and send the customer a branded report before you leave their driveway.' },
+  { img: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=80&h=80&fit=crop&q=85', title: 'SMS & Email from the Field', desc: 'Send estimates, invoices, and follow-ups via SMS or email directly from the app — no copy-pasting, no separate tools.' },
+  { img: 'https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?w=80&h=80&fit=crop&q=85', title: 'Mobile Parts Lookup', desc: 'Search your parts inventory and add items to a job card while you\'re under the hood. Reorder low-stock parts on the spot.' },
 ];
 
 const TECHS = [
@@ -617,7 +617,7 @@ export default function LandingPage() {
                 style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '32px 26px', transition: 'border-color 0.2s,transform 0.2s', cursor: 'default' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.45)'; e.currentTarget.style.transform = 'translateY(-3px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                <div style={{ fontSize: 40, marginBottom: 18 }}>{f.icon}</div>
+                <img src={f.img} alt={f.title} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', marginBottom: 18, border: '1px solid rgba(204,0,0,0.25)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }} />
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
                 <p style={{ color: '#777', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
               </div>
@@ -659,7 +659,7 @@ export default function LandingPage() {
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.18)'; e.currentTarget.style.background = 'rgba(204,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)'; }}
               >
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, background: 'radial-gradient(circle at top right,rgba(204,0,0,0.12),transparent 70%)', pointerEvents: 'none' }} />
-                <div style={{ fontSize: 42, marginBottom: 18 }}>{f.icon}</div>
+                <img src={f.img} alt={f.title} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', marginBottom: 18, border: '1px solid rgba(204,0,0,0.25)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }} />
                 <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 10, color: '#fff' }}>{f.title}</h3>
                 <p style={{ color: '#888', fontSize: 14, lineHeight: 1.7, marginBottom: 18 }}>{f.desc}</p>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(204,0,0,0.15)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 20, padding: '4px 12px' }}>
@@ -777,7 +777,7 @@ export default function LandingPage() {
                 style={{ background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)', borderRadius: 16, padding: '28px 24px', transition: 'border-color 0.2s,background 0.2s', cursor: 'default' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.55)'; e.currentTarget.style.background = 'rgba(204,0,0,0.1)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(204,0,0,0.2)'; e.currentTarget.style.background = 'rgba(204,0,0,0.06)'; }}>
-                <div style={{ fontSize: 38, marginBottom: 16 }}>{f.icon}</div>
+                <img src={f.img} alt={f.title} style={{ width: 72, height: 72, borderRadius: 14, objectFit: 'cover', marginBottom: 16, border: '1px solid rgba(204,0,0,0.25)', boxShadow: '0 6px 24px rgba(0,0,0,0.5)' }} />
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>{f.title}</h3>
                 <p style={{ color: '#888', fontSize: 14, lineHeight: 1.65 }}>{f.desc}</p>
               </div>
