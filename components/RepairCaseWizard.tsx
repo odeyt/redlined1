@@ -169,7 +169,7 @@ function PageVehicle({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: 'var(--text-muted)' }}>
+      <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: 'var(--muted)' }}>
         Fields marked <span style={{ color: '#4caf50', fontWeight: 700 }}>AUTO-FILLED</span> are pulled directly from the Repair Order. Review and correct if needed.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
@@ -275,7 +275,7 @@ function PageTests({ data, set }: { data: WizardData; set: (d: Partial<WizardDat
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>Select all diagnostic tests performed:</p>
+      <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Select all diagnostic tests performed:</p>
       {STANDARD_TESTS.map(t => (
         <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <input type="checkbox" checked={data.tests.includes(t)} onChange={() => toggle(t)} />
@@ -356,7 +356,7 @@ function PageOutcome({ data, set }: { data: WizardData; set: (d: Partial<WizardD
       </Row>
       <Row label={`Confidence: ${data.confidence}%`}>
         <input type="range" min={0} max={100} value={data.confidence} onChange={e => set({ confidence: Number(e.target.value) })} style={{ width: '100%' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
           <span>0% — Not sure</span><span>50% — Likely</span><span>100% — Certain</span>
         </div>
       </Row>
@@ -367,7 +367,7 @@ function PageOutcome({ data, set }: { data: WizardData; set: (d: Partial<WizardD
 function PageLesson({ data, set }: { data: WizardData; set: (d: Partial<WizardData>) => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
+      <p style={{ margin: 0, fontSize: 14, color: 'var(--muted)' }}>
         What should another technician know before diagnosing this same issue?
       </p>
       <textarea
@@ -386,7 +386,7 @@ function PageLesson({ data, set }: { data: WizardData; set: (d: Partial<WizardDa
 function Row({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>{label}</label>
+      <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>{label}</label>
       {children}
     </div>
   );
@@ -397,9 +397,9 @@ function TagList({ items, onRemove }: { items: string[]; onRemove: (i: number) =
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
       {items.map((item, i) => (
-        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', fontSize: 13 }}>
+        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-soft)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', fontSize: 13 }}>
           {item}
-          <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1, padding: 0, fontSize: 14 }}>×</button>
+          <button onClick={() => onRemove(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', lineHeight: 1, padding: 0, fontSize: 14 }}>×</button>
         </span>
       ))}
     </div>
@@ -498,7 +498,7 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
       {/* Modal */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        zIndex: 1001, background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+        zIndex: 1001, background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: 12, width: 580, maxWidth: '95vw', maxHeight: '90vh',
         display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       }}>
@@ -506,7 +506,7 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>RO #{roLabel}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>RO #{roLabel}</div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Create Repair Intelligence Case</h2>
               {autoCount > 0 && (
                 <div style={{ fontSize: 12, color: '#4caf50', marginTop: 4 }}>
@@ -514,14 +514,14 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
                 </div>
               )}
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
           </div>
           {/* Progress */}
           <div style={{ marginTop: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
               <span>Page {page} of 6 — {PAGE_TITLES[page - 1]}</span>
             </div>
-            <div style={{ height: 4, background: 'var(--bg-tertiary)', borderRadius: 2 }}>
+            <div style={{ height: 4, background: 'var(--surface-soft)', borderRadius: 2 }}>
               <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 2, width: `${(page / 6) * 100}%`, transition: 'width 0.2s' }} />
             </div>
           </div>
@@ -545,7 +545,7 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
 
         {/* Footer */}
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13 }}>
+          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 16px', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
             Skip
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -559,7 +559,7 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
                 Next
               </button>
             ) : (
-              <button onClick={handleCreate} disabled={saving} style={{ background: saving ? 'var(--text-muted)' : 'var(--accent)', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', fontWeight: 600, fontSize: 13 }}>
+              <button onClick={handleCreate} disabled={saving} style={{ background: saving ? 'var(--muted)' : 'var(--accent)', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', fontWeight: 600, fontSize: 13 }}>
                 {saving ? 'Creating…' : 'Create Repair Case'}
               </button>
             )}
@@ -571,10 +571,10 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
         .wiz-input {
           width: 100%;
           padding: 8px 10px;
-          border: 1px solid var(--border);
+          border: 1px solid var(--line);
           border-radius: 6px;
-          background: var(--bg-primary);
-          color: var(--text-primary);
+          background: var(--surface-soft);
+          color: var(--text);
           font-size: 14px;
           box-sizing: border-box;
         }
@@ -584,14 +584,14 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
         .wiz-btn-sm {
           white-space: nowrap;
           padding: 8px 12px;
-          border: 1px solid var(--border);
+          border: 1px solid var(--line);
           border-radius: 6px;
-          background: var(--bg-tertiary);
+          background: var(--surface-soft);
           cursor: pointer;
           font-size: 13px;
-          color: var(--text-primary);
+          color: var(--text);
         }
-        .wiz-btn-sm:hover { background: var(--bg-hover); }
+        .wiz-btn-sm:hover { background: var(--bg); }
       `}</style>
     </>
   );
