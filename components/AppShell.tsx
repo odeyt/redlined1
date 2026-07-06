@@ -37,6 +37,7 @@ import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
 import { RepairIntelligenceView } from '@/features/repair-intelligence/RepairIntelligenceView';
 import { TriageView } from '@/features/triage/TriageView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
+import { EnvBanner } from '@/components/EnvBanner';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -82,7 +83,9 @@ function Shell() {
   const ActiveView = views[safeModule] || DashboardView;
 
   return (
-    <div className="shell">
+    <>
+      <EnvBanner />
+      <div className="shell">
       <Sidebar />
       <main className="main">
         <Header />
@@ -94,6 +97,7 @@ function Shell() {
         </div>
       </main>
     </div>
+    </>
   );
 }
 

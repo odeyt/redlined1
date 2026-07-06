@@ -181,9 +181,4 @@ async function upsertFlag(
   }
 }
 
-export function getCurrentEnvironment(): 'production' | 'staging' | 'development' {
-  const env = process.env.NODE_ENV;
-  if (env === 'production') return 'production';
-  if (process.env.VERCEL_ENV === 'preview') return 'staging';
-  return 'development';
-}
+export { getFeatureFlagEnvironment as getCurrentEnvironment } from '@/lib/environment';
