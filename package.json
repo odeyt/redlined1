@@ -12,6 +12,7 @@
     "backfill:repair-graph": "tsx scripts/backfill-repair-cases-to-graph.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.63.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.108.0",
     "next": "^16.2.9",

@@ -36,6 +36,7 @@ import { LaborGuideView } from '@/features/labor-guide/LaborGuideView';
 import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
 import { RepairIntelligenceView } from '@/features/repair-intelligence/RepairIntelligenceView';
 import { TriageView } from '@/features/triage/TriageView';
+import { SystemHealthView } from '@/features/system-health/SystemHealthView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
 
@@ -70,6 +71,7 @@ const views: Record<string, React.ComponentType> = {
   'repair-intelligence': RepairIntelligenceView,
   triage: TriageView,
   settings: SettingsView,
+  'system-health': SystemHealthView,
 };
 
 function Shell() {

@@ -28,7 +28,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
       module: 'ErrorBoundary',
       componentStack: info.componentStack ?? undefined,
     });
-    // SENTRY_HOOK: Sentry.captureException(error, { extra: info });
   }
 
   handleReset = () => {
@@ -63,7 +62,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               Something went wrong
             </h2>
             <p style={{ color: '#666', fontSize: 14, margin: '0 0 24px', lineHeight: 1.6 }}>
-              The application hit an unexpected error. Your data is safe — this is a display issue only.
+              Something went wrong. Please reload or contact support.
             </p>
             {process.env.NODE_ENV !== 'production' && this.state.error && (
               <pre style={{

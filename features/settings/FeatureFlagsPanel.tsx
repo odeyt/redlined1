@@ -76,6 +76,18 @@ export function FeatureFlagsPanel() {
         setRows(prev => prev.map(r =>
           r.id === row.id ? { ...r, enabled: !row.enabled, _toggling: false } : r
         ));
+        // Log flag toggle event to observability
+        await fetch('/api/observability/flag-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            flagKey:  row.flag_key,
+            oldValue: row.enabled,
+            newValue: !row.enabled,
+            scope:    row.scope,
+          }),
+        }).catch(() => { /* never crash UI over observability */ });
       } else {
         setRows(prev => prev.map(r => r.id === row.id ? { ...r, _toggling: false } : r));
         setError('Toggle failed');
