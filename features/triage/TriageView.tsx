@@ -261,7 +261,7 @@ export function TriageView() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <div>
             <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Automotive Triage
+              Vehicle Intake
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Capture complaint before creating a job card
