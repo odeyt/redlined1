@@ -233,7 +233,7 @@ export function JobCardsView() {
   const [newTechEmail, setNewTechEmail] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(), fetchShopSettings(), fetchVehicles(), fetchCustomers()])
+    Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(true), fetchShopSettings(), fetchVehicles(), fetchCustomers()])
       .then(([j, c, custs, t, settings, v, fc]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
         setAllVehicles(v as (Vehicle & { id: string })[]);

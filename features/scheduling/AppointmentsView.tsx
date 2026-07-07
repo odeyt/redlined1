@@ -121,7 +121,7 @@ export function AppointmentsView() {
     // so a failing appointments query never breaks the booking form
     Promise.all([
       fetchCustomers(),
-      fetchTechnicians(),
+      fetchTechnicians(true),
       fetchShopSettings(),
     ]).then(([custs, techs, settings]) => {
       setCustomers(custs);

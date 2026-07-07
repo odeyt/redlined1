@@ -213,7 +213,7 @@ export function InspectionsView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
-    fetchTechnicians().then(ts => setDbTechs(ts.map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
+    fetchTechnicians(true).then(ts => setDbTechs(ts.map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
     if (shopId) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token ?? '';

@@ -1138,7 +1138,7 @@ export function VehiclesView() {
 
   useEffect(() => {
     // Fetch technicians independently so a failure there never blocks vehicles/customers
-    fetchTechnicians().then(t => setTechnicians(t.filter(x => x.status !== 'Inactive'))).catch(() => {});
+    fetchTechnicians(true).then(setTechnicians).catch(() => {});
 
     Promise.all([fetchVehicles(), fetchCustomers()])
       .then(([v, c]) => {

@@ -353,7 +353,7 @@ export function RepairOrdersView() {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchVehicles().then(vs => setAllVehicles(vs.map(v => ({ id: v.id, customerId: v.customerId, label: v.label })))).catch(() => {});
-    fetchTechnicians().then(setTechnicians).catch(() => {});
+    fetchTechnicians(true).then(setTechnicians).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 

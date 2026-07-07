@@ -63,12 +63,14 @@ function mapRow(r: Record<string, unknown>): Technician {
   };
 }
 
-export async function fetchTechnicians(): Promise<Technician[]> {
-  const { data, error } = await supabase
+export async function fetchTechnicians(activeOnly = false): Promise<Technician[]> {
+  let q = supabase
     .from('technicians')
     .select('*')
     .eq('shop_id', getShopId())
     .order('name');
+  if (activeOnly) q = q.neq('status', 'Inactive');
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }
