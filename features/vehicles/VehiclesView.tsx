@@ -201,6 +201,155 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
   );
 }
 
+// ── Return Job Modal ─────────────────────────────────────────────
+interface ReturnContext {
+  originalResolved: string;
+  sameIssue:        string;
+  reason:           string;
+  newSymptoms:      string;
+}
+
+function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
+  vehicle:   VehicleRecord;
+  onCancel:  () => void;
+  onConfirm: (ctx: ReturnContext) => Promise<void>;
+}) {
+  const [originalResolved, setOriginalResolved] = useState('');
+  const [sameIssue,        setSameIssue]        = useState('');
+  const [reason,           setReason]            = useState('');
+  const [newSymptoms,      setNewSymptoms]       = useState('');
+  const [submitting,       setSubmitting]        = useState(false);
+  const [error,            setError]             = useState('');
+
+  const canSubmit = originalResolved && sameIssue && reason.trim().length > 3;
+
+  async function handleConfirm() {
+    if (!canSubmit) { setError('Please answer all required questions and enter a return reason.'); return; }
+    setSubmitting(true);
+    try { await onConfirm({ originalResolved, sameIssue, reason: reason.trim(), newSymptoms: newSymptoms.trim() }); }
+    finally { setSubmitting(false); }
+  }
+
+  const radioStyle = (selected: boolean) => ({
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 14px', borderRadius: 8, cursor: 'pointer',
+    border: `1.5px solid ${selected ? '#f59e0b' : 'var(--line)'}`,
+    background: selected ? 'rgba(245,158,11,0.08)' : 'var(--surface)',
+    marginBottom: 6, fontSize: 13, fontWeight: selected ? 700 : 500,
+    color: selected ? '#b45309' : 'var(--text)',
+    transition: 'all .12s',
+  } as React.CSSProperties);
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', borderRadius: 8,
+    border: '1.5px solid var(--line)', background: 'var(--surface)',
+    fontSize: 13, color: 'var(--text)', boxSizing: 'border-box',
+    fontFamily: 'inherit', resize: 'vertical',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', padding: 28, boxShadow: '0 24px 64px rgba(0,0,0,0.35)' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <span style={{ fontSize: 22 }}>↩</span>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Return Job Assessment</h2>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{vehicle.label} · {vehicle.plate || vehicle.vin || '—'}</div>
+          <div style={{ marginTop: 10, padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+            Vehicle status will be set to <strong>In Progress</strong> and a new Job Card will open.
+          </div>
+        </div>
+
+        {/* Q1 */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+            1. Was the original issue resolved when the vehicle left? *
+          </div>
+          {[
+            { value: 'Yes — fully resolved',    label: '✓ Yes — fully resolved' },
+            { value: 'Partially resolved',       label: '⚠ Partially resolved' },
+            { value: 'No — still present',       label: '✗ No — still present when it left' },
+          ].map(opt => (
+            <div key={opt.value} style={radioStyle(originalResolved === opt.value)} onClick={() => setOriginalResolved(opt.value)}>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${originalResolved === opt.value ? '#f59e0b' : '#cbd5e1'}`, background: originalResolved === opt.value ? '#f59e0b' : 'transparent', flexShrink: 0, transition: 'all .12s' }} />
+              {opt.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Q2 */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+            2. Is this return related to the previous issue? *
+          </div>
+          {[
+            { value: 'Same issue',                  label: '🔁 Same issue — not fixed' },
+            { value: 'Related issue (same system)',  label: '🔗 Related issue (same system/component)' },
+            { value: 'New / unrelated issue',        label: '🆕 New / unrelated issue' },
+          ].map(opt => (
+            <div key={opt.value} style={radioStyle(sameIssue === opt.value)} onClick={() => setSameIssue(opt.value)}>
+              <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${sameIssue === opt.value ? '#f59e0b' : '#cbd5e1'}`, background: sameIssue === opt.value ? '#f59e0b' : 'transparent', flexShrink: 0, transition: 'all .12s' }} />
+              {opt.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Q3 — Return reason (required) */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            3. Return reason — what is the customer reporting? *
+          </div>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="e.g. Noise still present on cold start. Customer says it got worse after service."
+            rows={3}
+            style={{ ...inp, borderColor: reason.trim().length > 3 ? '#22c55e' : 'var(--line)' }}
+          />
+        </div>
+
+        {/* Q4 — New symptoms (optional) */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            4. Any new symptoms since the vehicle left? <span style={{ fontWeight: 500, textTransform: 'none' }}>(optional)</span>
+          </div>
+          <textarea
+            value={newSymptoms}
+            onChange={e => setNewSymptoms(e.target.value)}
+            placeholder="e.g. New vibration at highway speed, warning light appeared…"
+            rows={2}
+            style={inp}
+          />
+        </div>
+
+        {error && (
+          <div style={{ marginBottom: 14, padding: '8px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onCancel} disabled={submitting} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!canSubmit || submitting}
+            style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: canSubmit ? '#f59e0b' : '#e2e8f0', color: canSubmit ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', transition: 'all .12s' }}
+          >
+            {submitting ? 'Processing…' : '↩ Confirm Return — Set to In Progress'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Vehicle Edit Drawer ─────────────────────────────────────────
 const STATUSES = ['In Progress', 'Pending Parts', 'Pending Approval', 'Completed', 'Returned Job', 'Active', 'No open jobs', 'Archived'];
 
@@ -444,6 +593,22 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             <span style={{ fontSize: 11, fontWeight: 800, color: statusColor(f.status).color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>● {f.status}</span>
             {f.status === 'Pending Approval' && <span style={{ fontSize: 11, color: '#7e22ce' }}>— Awaiting customer decision on repair</span>}
             {f.status === 'Archived' && <span style={{ fontSize: 11, color: '#6b7280' }}>— Vehicle archived for future reference</span>}
+            {f.status === 'Returned Job' && <span style={{ fontSize: 11, color: '#b45309' }}>— Click ↩ Return Job below to assess and reopen</span>}
+          </div>
+        )}
+
+        {/* ── Returned Job Alert Banner ── */}
+        {vehicle.status === 'Returned Job' && (
+          <div style={{ margin: '12px 20px 0', padding: '12px 16px', background: '#fef3c7', border: '1.5px solid #fbbf24', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>↩</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#92400e', marginBottom: 3 }}>This vehicle was returned</div>
+              {vehicle.recommendation?.startsWith('↩ RETURNED') ? (
+                <pre style={{ margin: 0, fontFamily: 'inherit', fontSize: 12, color: '#78350f', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{vehicle.recommendation}</pre>
+              ) : (
+                <div style={{ fontSize: 12, color: '#78350f' }}>Click <strong>↩ Return Job</strong> below to record why this vehicle is back and start a new Job Card.</div>
+              )}
+            </div>
           </div>
         )}
 
@@ -945,6 +1110,7 @@ export function VehiclesView() {
   const [drawerVehicle, setDrawerVehicle] = useState<VehicleRecord | null>(null);
   const [transferTarget, setTransferTarget] = useState<VehicleRecord | null>(null);
   const [transferring, setTransferring] = useState(false);
+  const [returnModalVehicle, setReturnModalVehicle] = useState<VehicleRecord | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
@@ -1142,6 +1308,52 @@ export function VehiclesView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
+      {/* ── Return Job Modal ── */}
+      {returnModalVehicle && (
+        <ReturnJobModal
+          vehicle={returnModalVehicle}
+          onCancel={() => setReturnModalVehicle(null)}
+          onConfirm={async (ctx) => {
+            const v = returnModalVehicle;
+            const returnNote = [
+              `↩ RETURNED ${new Date().toLocaleDateString()}: ${ctx.reason}`,
+              `Original issue resolved: ${ctx.originalResolved}`,
+              `Same issue: ${ctx.sameIssue}`,
+              ctx.newSymptoms ? `New symptoms: ${ctx.newSymptoms}` : '',
+            ].filter(Boolean).join('\n');
+
+            try {
+              await updateVehicleServiceRecord(v.id, {
+                status: 'In Progress',
+                recommendation: returnNote,
+              });
+              setVehicles(prev => prev.map(x => x.id === v.id ? { ...x, status: 'In Progress', recommendation: returnNote } : x));
+              if (drawerVehicle?.id === v.id) setDrawerVehicle(prev => prev ? { ...prev, status: 'In Progress', recommendation: returnNote } : prev);
+              notify(`${v.label} returned — status set to In Progress.`);
+            } catch { /* status update best-effort */ }
+
+            const owner = customers.find(c => c.id === v.customerId);
+            dispatch({
+              type: 'OPEN_NEW_JOB_CARD',
+              prefill: {
+                customerName: owner?.name,
+                customerId: v.customerId,
+                vehicle: v.label,
+                notes: [
+                  `↩ RETURN JOB — ${v.label}`,
+                  `Reason: ${ctx.reason}`,
+                  `Original issue resolved: ${ctx.originalResolved}`,
+                  `Same issue: ${ctx.sameIssue}`,
+                  ctx.newSymptoms ? `New symptoms: ${ctx.newSymptoms}` : '',
+                ].filter(Boolean).join('\n'),
+              },
+            });
+            setReturnModalVehicle(null);
+            setDrawerVehicle(null);
+          }}
+        />
+      )}
+
       {/* ── Transfer Modal ── */}
       {transferTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
@@ -1220,9 +1432,7 @@ export function VehiclesView() {
             setDrawerVehicle(null);
           }}
           onReturnJob={() => {
-            const owner = customers.find(c => c.id === drawerVehicle.customerId);
-            dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label, notes: `↩ RETURN JOB — Vehicle: ${drawerVehicle.label}` } });
-            setDrawerVehicle(null);
+            setReturnModalVehicle(drawerVehicle);
           }}
           onCreateInvoice={async () => {
             const v = drawerVehicle;

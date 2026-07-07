@@ -163,11 +163,13 @@ export async function updateVehicleServiceRecord(
     flatRateLak: number | null;
     imageIds: string[];
     techPayEntries: string;
+    recommendation: string;
   }>
 ): Promise<void> {
   const payload: Record<string, unknown> = {};
-  if (fields.status        !== undefined) payload.status          = fields.status;
-  if (fields.assignedTech  !== undefined) payload.assigned_tech   = fields.assignedTech;
+  if (fields.status          !== undefined) payload.status          = fields.status;
+  if (fields.recommendation  !== undefined) payload.recommendation  = fields.recommendation;
+  if (fields.assignedTech    !== undefined) payload.assigned_tech   = fields.assignedTech;
   if (fields.dateReceived  !== undefined) payload.date_received   = fields.dateReceived;
   if (fields.make          !== undefined) payload.make            = fields.make;
   if (fields.model         !== undefined) payload.model           = fields.model;

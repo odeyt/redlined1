@@ -7,6 +7,9 @@ import { TechPill } from '@/components/TechPill';
 import { Panel } from '@/components/Panel';
 import { useAppDispatch } from '@/lib/store';
 
+type ReturnResolved = 'yes' | 'partial' | 'no' | '';
+type ReturnSameIssue = 'same' | 'related' | 'new' | '';
+
 interface ArchivedJob {
   id: string;
   customer: string;
@@ -49,6 +52,14 @@ export function JobArchiveView() {
   const [period, setPeriod] = useState<Period>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
+
+  // Return Job modal state
+  const [returnModalJob, setReturnModalJob] = useState<ArchivedJob | null>(null);
+  const [returnResolved, setReturnResolved] = useState<ReturnResolved>('');
+  const [returnSameIssue, setReturnSameIssue] = useState<ReturnSameIssue>('');
+  const [returnReason, setReturnReason] = useState('');
+  const [returnSymptoms, setReturnSymptoms] = useState('');
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   useEffect(() => { load(); }, []);
 
@@ -98,15 +109,52 @@ export function JobArchiveView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
-  function handleReturnJob(j: ArchivedJob) {
-    dispatch({
-      type: 'OPEN_NEW_JOB_CARD',
-      prefill: {
-        customerName: j.customer,
-        vehicle: j.vehicle,
-        notes: `↩ RETURN JOB — Original: ${j.ro || j.id} closed ${j.closed ? new Date(j.closed).toLocaleDateString() : ''}. Original issue: ${j.notes || ''}`.trim(),
-      },
-    });
+  function openReturnModal(j: ArchivedJob) {
+    setReturnModalJob(j);
+    setReturnResolved('');
+    setReturnSameIssue('');
+    setReturnReason('');
+    setReturnSymptoms('');
+  }
+
+  async function confirmReturnJob() {
+    if (!returnModalJob || !returnReason.trim() || returnReason.trim().length < 3) return;
+    setReturnSubmitting(true);
+    try {
+      const date = new Date().toLocaleDateString();
+      const resolvedLabel = returnResolved === 'yes' ? 'Yes — fully resolved' : returnResolved === 'partial' ? 'Partially resolved' : returnResolved === 'no' ? 'No — still present' : 'Not specified';
+      const sameLabel = returnSameIssue === 'same' ? 'Same issue' : returnSameIssue === 'related' ? 'Related — same system' : returnSameIssue === 'new' ? 'New unrelated issue' : 'Not specified';
+      const returnNote = [
+        `↩ RETURNED ${date}: ${returnReason.trim()}`,
+        `Original issue resolved: ${resolvedLabel}`,
+        `Same issue: ${sameLabel}`,
+        returnSymptoms.trim() ? `New symptoms: ${returnSymptoms.trim()}` : '',
+      ].filter(Boolean).join('\n');
+
+      // Update job card status back to In Progress
+      await supabase
+        .from('job_cards')
+        .update({ status: 'In Progress', notes: returnNote })
+        .eq('id', returnModalJob.id)
+        .eq('shop_id', getShopId());
+
+      dispatch({
+        type: 'OPEN_NEW_JOB_CARD',
+        prefill: {
+          customerName: returnModalJob.customer,
+          vehicle: returnModalJob.vehicle,
+          notes: returnNote,
+        },
+      });
+
+      setReturnModalJob(null);
+      notify('Job returned to In Progress. New job card opened.');
+      load();
+    } catch {
+      notify('Failed to return job. Please try again.');
+    } finally {
+      setReturnSubmitting(false);
+    }
   }
 
   // Period cutoff
@@ -170,6 +218,80 @@ export function JobArchiveView() {
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* ── Return Job Modal ── */}
+      {returnModalJob && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>↩ Return Job</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              {returnModalJob.vehicle} · {returnModalJob.customer}
+            </div>
+
+            {/* Q1 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Was the original issue resolved?</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([['yes', 'Yes — fully'], ['partial', 'Partially'], ['no', 'No — still present']] as [ReturnResolved, string][]).map(([v, label]) => (
+                  <button key={v} onClick={() => setReturnResolved(v)}
+                    style={{ padding: '7px 14px', borderRadius: 8, border: `1.5px solid ${returnResolved === v ? '#f59e0b' : 'var(--line)'}`, background: returnResolved === v ? 'rgba(245,158,11,0.12)' : 'var(--surface-soft)', color: returnResolved === v ? '#b45309' : 'var(--text)', fontSize: 12, fontWeight: returnResolved === v ? 700 : 400, cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Q2 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Is this the same issue?</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([['same', 'Same issue'], ['related', 'Related — same system'], ['new', 'New unrelated issue']] as [ReturnSameIssue, string][]).map(([v, label]) => (
+                  <button key={v} onClick={() => setReturnSameIssue(v)}
+                    style={{ padding: '7px 14px', borderRadius: 8, border: `1.5px solid ${returnSameIssue === v ? '#f59e0b' : 'var(--line)'}`, background: returnSameIssue === v ? 'rgba(245,158,11,0.12)' : 'var(--surface-soft)', color: returnSameIssue === v ? '#b45309' : 'var(--text)', fontSize: 12, fontWeight: returnSameIssue === v ? 700 : 400, cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Q3 */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Return reason <span style={{ color: 'var(--danger)' }}>*</span></div>
+              <textarea
+                value={returnReason}
+                onChange={e => setReturnReason(e.target.value)}
+                placeholder="Describe why the job is being returned…"
+                rows={3}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1.5px solid ${returnReason.trim().length > 0 && returnReason.trim().length < 3 ? 'var(--danger)' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            {/* Q4 */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>New symptoms <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></div>
+              <textarea
+                value={returnSymptoms}
+                onChange={e => setReturnSymptoms(e.target.value)}
+                placeholder="Any new symptoms or complaints from the customer…"
+                rows={2}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setReturnModalJob(null)} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={confirmReturnJob}
+                disabled={returnSubmitting || returnReason.trim().length < 3}
+                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: returnReason.trim().length < 3 ? 'var(--line)' : '#f59e0b', color: returnReason.trim().length < 3 ? 'var(--muted)' : '#fff', fontSize: 13, fontWeight: 700, cursor: returnReason.trim().length < 3 ? 'not-allowed' : 'pointer' }}>
+                {returnSubmitting ? 'Returning…' : '↩ Confirm Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Header bar ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
@@ -326,7 +448,7 @@ export function JobArchiveView() {
                                   </div>
                                   <div style={{ marginTop: 10 }}>
                                     <button
-                                      onClick={e => { e.stopPropagation(); handleReturnJob(j); }}
+                                      onClick={e => { e.stopPropagation(); openReturnModal(j); }}
                                       style={{ padding: '7px 16px', borderRadius: 7, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                                     >
                                       ↩ Return Job
