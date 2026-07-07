@@ -14,9 +14,10 @@ const APP_VERSION = process.env.npm_package_version ?? '0.1.0';
 async function checkSupabase(): Promise<boolean> {
   try {
     const db = getAdminDb();
-    // Lightest possible query — counts nothing, just validates connection
     const { error } = await db.from('profiles').select('id').limit(1);
-    return !error;
+    // RLS denial (42501) means DB is reachable — only treat network/config errors as failure
+    if (error && error.code !== '42501' && !error.message?.includes('permission')) return false;
+    return true;
   } catch {
     return false;
   }
@@ -26,7 +27,8 @@ async function checkFeatureFlags(): Promise<boolean> {
   try {
     const db = getAdminDb();
     const { error } = await db.from('feature_flags').select('id').limit(1);
-    return !error;
+    if (error && error.code !== '42501' && !error.message?.includes('permission')) return false;
+    return true;
   } catch {
     return false;
   }

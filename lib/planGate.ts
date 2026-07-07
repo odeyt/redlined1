@@ -13,9 +13,11 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
 
 // Modules available after trial expires — just enough to see the value, not enough to run the shop
 const FREE_MODULES = new Set([
-  'dashboard',   // can see their data is there, just locked
-  'settings',    // must be able to manage their account / upgrade
-  'subscriptions', // upgrade path
+  'dashboard',          // can see their data is there, just locked
+  'settings',           // must be able to manage their account / upgrade
+  'subscriptions',      // upgrade path
+  'system-health',      // internal tooling — never plan-locked
+  'testing-dashboard',  // internal tooling — never plan-locked
 ]);
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
