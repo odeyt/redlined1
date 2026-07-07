@@ -48,7 +48,8 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
       .select('id, make, model, year, engine, mileage, fuel_type, transmission')
       .eq('shop_id', shopId)
       .eq('customer_id', customerId)
-      .limit(20);
+      .order('label')
+      .limit(500);
     setVehicleOptions((data ?? []).map(v => ({
       id:           v.id,
       label:        `${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim(),
