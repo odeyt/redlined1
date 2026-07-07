@@ -12,6 +12,8 @@ import {
 } from '@/services/invoiceService';
 import { createPayment, fetchPayments, type Payment } from '@/services/paymentService';
 import { fetchCustomerNames } from '@/services/vehicleService';
+import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
@@ -68,6 +70,7 @@ export function InvoicesView() {
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<InvoiceFull | null>(null);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [custVehicles, setCustVehicles] = useState<{ id: string; label: string }[]>([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -142,6 +145,7 @@ export function InvoicesView() {
   async function openNewForm() {
     const num = await nextInvoiceNumber();
     setForm({ ...EMPTY_FORM, invoiceNumber: num, lines: [{ ...EMPTY_LINE }] });
+    setCustVehicles([]);
     setEditingId(null);
     setShowForm(true);
     setSelected(null);
@@ -168,6 +172,12 @@ export function InvoicesView() {
     });
     setEditingId(inv.id);
     setShowForm(true);
+    // Load vehicles for the existing customer
+    setCustVehicles([]);
+    if (inv.customerId) {
+      supabase.from('vehicles').select('id, label').eq('shop_id', getShopId()).eq('customer_id', inv.customerId).order('label').limit(500)
+        .then(({ data }) => setCustVehicles(data ?? []));
+    }
   }
 
   async function getRate(from: string, to: string): Promise<number> {
@@ -427,21 +437,36 @@ export function InvoicesView() {
                 </div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>Customer</label>
-                  <select value={form.customerId} onChange={e => {
+                  <select value={form.customerId} onChange={async e => {
                     const c = customers.find(c => c.id === e.target.value);
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName }));
+                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? '', vehicle: '' }));
+                    setCustVehicles([]);
+                    if (!e.target.value) return;
+                    const shopId = getShopId();
+                    const { data } = await supabase
+                      .from('vehicles')
+                      .select('id, label')
+                      .eq('shop_id', shopId)
+                      .eq('customer_id', e.target.value)
+                      .order('label')
+                      .limit(500);
+                    setCustVehicles(data ?? []);
                   }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    <option value="">— select or type below —</option>
+                    <option value="">— select customer —</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="login-field">
-                  <label>Customer Name</label>
-                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Customer name" required />
-                </div>
-                <div className="login-field">
                   <label>Vehicle</label>
-                  <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                  {custVehicles.length > 0 ? (
+                    <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
+                      style={{ border: `1px solid ${!form.vehicle ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                      <option value="">— select vehicle —</option>
+                      {custVehicles.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
+                    </select>
+                  ) : (
+                    <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                  )}
                 </div>
                 <div className="login-field">
                   <label>Due Date</label>
