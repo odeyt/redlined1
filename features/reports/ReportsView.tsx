@@ -467,6 +467,11 @@ export function ReportsView() {
   const [customerDetailRows, setCustomerDetailRows] = useState<CustomerDetailRow[]>([]);
   const [custDetailLoading, setCustDetailLoading] = useState(false);
 
+  // Selected customer drill-down
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetailRow | null>(null);
+  const [selectedCustJobs, setSelectedCustJobs] = useState<{id:string; customer:string; vehicle:string; status:string; check_in_date:string|null; closed_date:string|null; technicians:string[]}[]>([]);
+  const [selectedCustJobsLoading, setSelectedCustJobsLoading] = useState(false);
+
   useEffect(() => {
     load(reportShopId);
     fetchShopSettings().then(s => {
@@ -565,7 +570,8 @@ export function ReportsView() {
         const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === nameLow);
 
         const allStatuses = [...new Set(myJobs.map(j => j.status as string))].filter(Boolean);
-        const openJobs      = myJobs.filter(j => OPEN_STATUSES.has(j.status)).length;
+        // catch-all: anything not in archived = open (handles custom statuses like WIP, Booked, etc.)
+        const openJobs      = myJobs.filter(j => !ARCHIVED_STATUSES.has(j.status)).length;
         const completedJobs = myJobs.filter(j => ARCHIVED_STATUSES.has(j.status)).length;
 
         const dates = allMyJobs.map(j => j.closed_date || j.check_in_date).filter(Boolean) as string[];
@@ -593,6 +599,22 @@ export function ReportsView() {
       setCustomerDetailRows(rows);
     } catch { /* non-critical */ } finally {
       setCustDetailLoading(false);
+    }
+  }
+
+  async function openCustomerDetail(c: CustomerDetailRow) {
+    setSelectedCustomer(c);
+    setSelectedCustJobsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('job_cards')
+        .select('id, customer, vehicle, status, check_in_date, closed_date, technicians')
+        .eq('shop_id', reportShopId)
+        .ilike('customer', `%${c.name.replace(/%/g, '')}%`)
+        .order('check_in_date', { ascending: false });
+      setSelectedCustJobs(data ?? []);
+    } catch { setSelectedCustJobs([]); } finally {
+      setSelectedCustJobsLoading(false);
     }
   }
 
@@ -1332,9 +1354,19 @@ export function ReportsView() {
                         const isArchived = !hasOpen && c.completedJobs > 0;
                         const statusColor = hasOpen ? '#f59e0b' : hasPending ? '#7e22ce' : isArchived ? '#64748b' : '#22c55e';
                         const statusLabel = hasOpen ? `${c.openJobs} open` : hasPending ? 'Pending' : isArchived ? 'Archived' : 'No jobs';
+                        const isSelected = selectedCustomer?.id === c.id;
                         return (
-                          <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
-                            <td style={{ padding: '11px 10px', fontWeight: 700 }}>{c.name}</td>
+                          <tr key={c.id}
+                            onClick={() => openCustomerDetail(c)}
+                            style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', background: isSelected ? 'rgba(204,0,0,0.06)' : undefined, transition: 'background 0.15s' }}
+                            onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-soft)'; }}
+                            onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = ''; }}>
+                            <td style={{ padding: '11px 10px', fontWeight: 700 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {c.name}
+                                <span style={{ fontSize: 10, color: 'var(--muted)' }}>›</span>
+                              </span>
+                            </td>
                             <td style={{ padding: '11px 10px', color: 'var(--muted)', fontSize: 12 }}>
                               {c.vehicleLabels.length > 0
                                 ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{c.vehicleLabels.map((v, i) => <span key={i}>{v}</span>)}</div>
@@ -1359,6 +1391,84 @@ export function ReportsView() {
                 </div>
               )}
             </Panel>
+
+            {/* Customer detail drill-down */}
+            {selectedCustomer && (() => {
+              const ARCHIVED_S2 = new Set(['Complete', 'Closed', 'Invoiced', 'Archived']);
+              const SC: Record<string, string> = {
+                'Complete': '#4caf50', 'Closed': '#22c55e', 'Invoiced': '#2196f3',
+                'In Progress': '#f59e0b', 'Returned Job': '#f97316', 'Pending Parts': '#f97316',
+                'Pending Approval': '#8b5cf6', 'Active': '#06b6d4', 'WIP': '#f59e0b',
+              };
+              return (
+                <Panel title={`${selectedCustomer.name} — All Jobs`}
+                  hint={`${selectedCustJobs.length} job${selectedCustJobs.length !== 1 ? 's' : ''} on record · click a customer above to change`}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {selectedCustomer.vehicleLabels.map((v, i) => (
+                        <span key={i} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>🚗 {v}</span>
+                      ))}
+                    </div>
+                    <button onClick={() => setSelectedCustomer(null)}
+                      style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
+                      ✕ Close
+                    </button>
+                  </div>
+                  {selectedCustJobsLoading ? (
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>Loading jobs…</div>
+                  ) : selectedCustJobs.length === 0 ? (
+                    <p style={{ color: 'var(--muted)', fontSize: 13 }}>No job cards found for this customer.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid var(--line)' }}>
+                            {['Vehicle', 'Status', 'Check-In', 'Closed', 'Days Open', 'Technician(s)'].map(h => (
+                              <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedCustJobs.map(j => {
+                            const sc = SC[j.status] ?? '#888';
+                            const isArchived = ARCHIVED_S2.has(j.status);
+                            const checkIn = j.check_in_date ? new Date(j.check_in_date) : null;
+                            const closed = j.closed_date ? new Date(j.closed_date) : null;
+                            const daysOpen = checkIn
+                              ? Math.round(((closed ?? new Date()).getTime() - checkIn.getTime()) / 86400000)
+                              : null;
+                            return (
+                              <tr key={j.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                                <td style={{ padding: '10px', fontWeight: 600, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.vehicle || '—'}</td>
+                                <td style={{ padding: '10px' }}>
+                                  <span style={{ background: `${sc}18`, color: sc, borderRadius: 5, padding: '3px 9px', fontSize: 11, fontWeight: 700 }}>{j.status || '—'}</span>
+                                </td>
+                                <td style={{ padding: '10px', color: 'var(--muted)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                                  {checkIn ? checkIn.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                </td>
+                                <td style={{ padding: '10px', fontSize: 12, whiteSpace: 'nowrap', color: isArchived ? '#4caf50' : 'var(--muted)' }}>
+                                  {closed ? closed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : <span style={{ color: '#f59e0b', fontWeight: 600 }}>Open</span>}
+                                </td>
+                                <td style={{ padding: '10px', fontWeight: 700, color: daysOpen != null && daysOpen > 7 ? '#f44336' : daysOpen != null && daysOpen > 3 ? '#f59e0b' : 'var(--muted)' }}>
+                                  {daysOpen != null ? `${daysOpen}d` : '—'}
+                                </td>
+                                <td style={{ padding: '10px', maxWidth: 160 }}>
+                                  {(j.technicians ?? []).length > 0
+                                    ? (j.technicians as string[]).map((t, i) => (
+                                        <span key={i} style={{ display: 'inline-block', background: 'rgba(204,0,0,0.08)', color: 'var(--accent)', borderRadius: 5, padding: '2px 7px', fontSize: 11, fontWeight: 700, marginRight: 3 }}>{t}</span>
+                                      ))
+                                    : <span style={{ color: 'var(--muted)', fontSize: 12 }}>Unassigned</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Panel>
+              );
+            })()}
 
             {/* Top by revenue panel */}
             {d.topCustomers.length > 0 && (
