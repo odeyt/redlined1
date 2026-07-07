@@ -30,6 +30,7 @@ export function Sidebar() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
+  const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
 
   function toggleCollapse() {
     setCollapsed(c => {
@@ -37,6 +38,16 @@ export function Sidebar() {
       localStorage.setItem('sidebar-collapsed', String(next));
       return next;
     });
+  }
+
+  function showTooltip(e: React.MouseEvent<HTMLElement>, label: string) {
+    if (!collapsed) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTooltip({ label, y: rect.top + rect.height / 2 });
+  }
+
+  function hideTooltip() {
+    setTooltip(null);
   }
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
   const [companyName, setCompanyName] = useState('D1 Imports');
@@ -307,14 +318,16 @@ export function Sidebar() {
           // Staff with a valid role (technician, advisor, manager, etc.) are never plan-locked —
           // they are covered by role-based access control instead.
           const locked = (role === 'owner' || !role) && !canAccess(id, planStatus);
+          const tipLabel = locked ? `${label} — Upgrade to unlock` : label;
           return (
             <button
               key={id}
               className={activeModule === id ? 'active' : ''}
-              title={locked ? `${label} — Upgrade to unlock` : label}
+              title={tipLabel}
               style={{ '--icon-color': locked ? '#555' : (iconColors[id] || '#9eb2c2'), opacity: locked ? 0.5 : 1 } as React.CSSProperties}
               onClick={() => locked ? null : dispatch({ type: 'SET_MODULE', module: id })}
-            >
+              onMouseEnter={e => showTooltip(e, tipLabel)}
+              onMouseLeave={hideTooltip}
               <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
               {!collapsed && <span className="label">{label}</span>}
               {!collapsed && (locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null)}
@@ -328,6 +341,8 @@ export function Sidebar() {
         <button
           onClick={() => { setNotifOpen(o => !o); if (!notifOpen) markAllRead(); }}
           title="Notifications"
+          onMouseEnter={e => showTooltip(e, 'Notifications')}
+          onMouseLeave={hideTooltip}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
             padding: '9px 12px', background: unreadCount > 0 ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.05)',
@@ -400,6 +415,8 @@ export function Sidebar() {
         href="/help"
         target="_blank"
         title="Help & Manual"
+        onMouseEnter={e => showTooltip(e, 'Help & Manual')}
+        onMouseLeave={hideTooltip}
         style={{
           padding: '10px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#666',
@@ -413,6 +430,8 @@ export function Sidebar() {
       <button
         onClick={handleSignOut}
         title="Sign Out"
+        onMouseEnter={e => showTooltip(e, 'Sign Out')}
+        onMouseLeave={hideTooltip}
         style={{
           padding: '12px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#aaa',
@@ -422,6 +441,29 @@ export function Sidebar() {
       >
         <span>⏻</span>{!collapsed && ' Sign Out'}
       </button>
+
+      {/* Fixed-position tooltip — escapes sidebar overflow clipping */}
+      {collapsed && tooltip && (
+        <div style={{
+          position: 'fixed',
+          left: 72,
+          top: tooltip.y,
+          transform: 'translateY(-50%)',
+          background: '#1a1a2e',
+          color: '#eee',
+          padding: '6px 12px',
+          borderRadius: 7,
+          fontSize: 12,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          border: '1px solid rgba(255,255,255,0.18)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          pointerEvents: 'none',
+        }}>
+          {tooltip.label}
+        </div>
+      )}
     </aside>
   );
 }
