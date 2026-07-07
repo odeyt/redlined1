@@ -9,12 +9,13 @@ import { useShop, type Shop } from '@/lib/useShop';
 import { updateVehicleServiceRecord } from '@/services/vehicleService';
 
 // ── Customer detail row (searchable customer report) ──────────
+interface CustVehicle { id: string; label: string; status: string; }
+
 interface CustomerDetailRow {
   id: string;
   name: string;
   vehicleCount: number;
-  vehicleLabels: string[];
-  vehicleIds: string[];   // parallel array — vehicleIds[i] is the DB id for vehicleLabels[i]
+  vehicles: CustVehicle[];       // from vehicles table — editable, deduped
   openJobs: number;
   completedJobs: number;
   allStatuses: string[];
@@ -572,31 +573,12 @@ export function ReportsView() {
           ? tableVehs
           : tableVehs.filter(v => inRange((v as Record<string, unknown>).date_received as string | null));
 
-        // Merge: vehicles from table + vehicles mentioned in ANY job card for this customer
-        // Use all job card vehicles (not just month-filtered) so owner sees full fleet
-        const jobVehicleLabels = [...new Set(allMyJobs.map(j => (j.vehicle as string) || '').filter(Boolean))];
-        const tableVehLabels   = [...new Set(tableVehs.map(v => (v.label as string) || '').filter(Boolean))];
-
-        // Month-filtered job vehicle labels
-        const filteredJobVehLabels = month === 0
-          ? jobVehicleLabels
-          : [...new Set(myJobs.map(j => (j.vehicle as string) || '').filter(Boolean))];
-
-        // Merged unique vehicle labels: prefer filtered, but include all from vehicles table
-        const mergedLabels = [...new Set([
-          ...filteredTableVehs.map(v => (v.label as string) || ''),
-          ...filteredJobVehLabels,
-          // Always include vehicles table entries even if outside month (they belong to the customer)
-          ...tableVehLabels,
-        ])].filter(Boolean).sort();
-
-        // Build a label→id map so chips link back to their DB record
-        const labelToId: Record<string, string> = {};
-        for (const v of tableVehs) {
-          const lbl = (v.label as string) || '';
-          if (lbl) labelToId[lbl] = v.id as string;
-        }
-        const mergedIds = mergedLabels.map(lbl => labelToId[lbl] ?? '');
+        // Vehicles from DB only — deduped by ID, sorted by label
+        // (job_card.vehicle text is used only for job matching, NOT for display)
+        const custVehicles: CustVehicle[] = tableVehs
+          .filter(v => (v.label as string || '').trim())
+          .map(v => ({ id: v.id as string, label: (v.label as string).trim(), status: (v.status as string) || '' }))
+          .sort((a, b) => a.label.localeCompare(b.label));
 
         const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === nameLow);
 
@@ -616,9 +598,8 @@ export function ReportsView() {
         return {
           id:           c.id,
           name:         c.name,
-          vehicleCount: mergedLabels.length,
-          vehicleLabels: mergedLabels,
-          vehicleIds:   mergedIds,
+          vehicleCount: custVehicles.length,
+          vehicles:     custVehicles,
           openJobs,
           completedJobs,
           allStatuses,
@@ -1073,6 +1054,16 @@ export function ReportsView() {
   const maxMethod = Math.max(...d.methodBreakdown.map(m => m.total), 1);
   const maxCust = Math.max(...d.topCustomers.map(c => c.totalSpend), 1);
 
+  function STATUS_COLOR(s: string): string {
+    if (['Complete', 'Completed'].includes(s))               return '#4caf50';
+    if (['Closed', 'Invoiced'].includes(s))                  return '#22c55e';
+    if (['In Progress', 'Active', 'Booked'].includes(s))     return '#f59e0b';
+    if (['Pending', 'Pending Approval', 'Pending Parts'].includes(s)) return '#8b5cf6';
+    if (s === 'Returned Job')                                return '#f97316';
+    if (s === 'Archived' || s === 'No open jobs')            return '#64748b';
+    return '#888';
+  }
+
   return (
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
@@ -1344,7 +1335,7 @@ export function ReportsView() {
         const filtered = customerDetailRows.filter(c => {
           if (custSearch.trim()) {
             const q = custSearch.toLowerCase();
-            if (!c.name.toLowerCase().includes(q) && !c.vehicleLabels.some(v => v.toLowerCase().includes(q))) return false;
+            if (!c.name.toLowerCase().includes(q) && !c.vehicles.some(v => v.label.toLowerCase().includes(q))) return false;
           }
           if (custStatusFilter === 'open') return c.openJobs > 0;
           if (custStatusFilter === 'pending') return c.allStatuses.some(s => PENDING_S.has(s));
@@ -1358,7 +1349,7 @@ export function ReportsView() {
             ['Customer', 'Vehicles', 'Open Jobs', 'Completed Jobs', 'Statuses', 'Last Activity', 'Total Spend', 'Paid Invoices'],
             ...filtered.map(c => [
               c.name,
-              c.vehicleLabels.join('; ') || '—',
+              c.vehicles.map(v => v.label).join('; ') || '—',
               String(c.openJobs),
               String(c.completedJobs),
               c.allStatuses.join(', ') || '—',
@@ -1459,9 +1450,19 @@ export function ReportsView() {
                                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>›</span>
                               </span>
                             </td>
-                            <td style={{ padding: '11px 10px', color: 'var(--muted)', fontSize: 12 }}>
-                              {c.vehicleLabels.length > 0
-                                ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{c.vehicleLabels.map((v, i) => <span key={i}>{v}</span>)}</div>
+                            <td style={{ padding: '11px 10px', fontSize: 12 }}>
+                              {c.vehicles.length > 0
+                                ? <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    {c.vehicles.map(v => {
+                                      const sc = STATUS_COLOR(v.status);
+                                      return (
+                                        <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          <span style={{ color: 'var(--muted)' }}>{v.label}</span>
+                                          <span style={{ background: `${sc}18`, color: sc, borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>{v.status || '—'}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 : <span style={{ color: 'var(--muted)' }}>—</span>}
                             </td>
                             <td style={{ padding: '11px 10px' }}>
@@ -1495,28 +1496,40 @@ export function ReportsView() {
               return (
                 <Panel title={`${selectedCustomer.name} — All Jobs`}
                   hint={`${selectedCustJobs.length} job${selectedCustJobs.length !== 1 ? 's' : ''} on record · click a customer above to change`}>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {selectedCustomer.vehicleLabels.map((v, i) => {
-                        const vid = selectedCustomer.vehicleIds[i];
-                        const clickable = !!vid;
+                  {/* Vehicle cards — each one shows label, status, and opens edit on click */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Registered Vehicles ({selectedCustomer.vehicles.length}) — click to edit
+                      </span>
+                      <button onClick={() => setSelectedCustomer(null)}
+                        style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
+                        ✕ Close
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                      {selectedCustomer.vehicles.map(v => {
+                        const sc = STATUS_COLOR(v.status);
                         return (
-                          <button key={i}
-                            onClick={() => clickable && openVehicleEdit(vid)}
-                            title={clickable ? 'Click to edit vehicle' : undefined}
-                            style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: 'var(--muted)', fontWeight: 600, cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
-                            onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)'; } }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; }}>
-                            🚗 {v}
-                            {clickable && <span style={{ fontSize: 10, opacity: 0.6 }}>✎</span>}
+                          <button key={v.id} onClick={() => openVehicleEdit(v.id)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 12px', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'border-color 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                            onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--line)')}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                              <span style={{ fontSize: 18, flexShrink: 0 }}>🚗</span>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.label}</div>
+                                <span style={{ background: `${sc}18`, color: sc, borderRadius: 4, padding: '2px 7px', fontSize: 10, fontWeight: 700 }}>{v.status || 'Unknown'}</span>
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 14, color: 'var(--accent)', flexShrink: 0 }}>✎</span>
                           </button>
                         );
                       })}
+                      {selectedCustomer.vehicles.length === 0 && (
+                        <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>No registered vehicles in the system.</p>
+                      )}
                     </div>
-                    <button onClick={() => setSelectedCustomer(null)}
-                      style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
-                      ✕ Close
-                    </button>
                   </div>
                   {selectedCustJobsLoading ? (
                     <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>Loading jobs…</div>
