@@ -495,7 +495,8 @@ export function InvoicesView() {
                 {/* Column headers */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
                   {['Note / Ref #', 'Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
-                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
+                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px',
+                      ...(idx === 6 ? { borderLeft: '2px solid var(--line)', paddingLeft: 8 } : {}) }}>{h}</div>
                   ))}
                 </div>
                 {form.lines.map((line, i) => {
@@ -521,7 +522,7 @@ export function InvoicesView() {
                       <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                       <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                       <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
-                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
+                        style={{ border: '1px solid var(--line)', borderLeft: '2px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)', marginLeft: 4 }}>
                         <option value="">— same —</option>
                         {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                       </select>
