@@ -17,6 +17,7 @@ const FREE_MODULES = new Set([
   'settings',           // must be able to manage their account / upgrade
   'subscriptions',      // upgrade path
   'system-health',      // internal tooling — never plan-locked
+  'disaster-recovery',  // internal tooling — never plan-locked
   'testing-dashboard',  // internal tooling — never plan-locked
 ]);
 

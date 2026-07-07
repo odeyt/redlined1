@@ -25,6 +25,7 @@ const paths: Record<string, string> = {
   send:     '<path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path>',
   activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
   flask:    '<path d="M9 3h6v10l4 8H5l4-8z"></path><path d="M9 3V2h6v1"></path><path d="M6 16h12"></path>',
+  lifeline: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>',
 };
 
 export const iconColors: Record<string, string> = {
@@ -53,6 +54,7 @@ export const iconColors: Record<string, string> = {
   settings: '#94a3b8',
   'repair-intelligence': '#4caf50',
   'system-health':      '#22d3ee',
+  'disaster-recovery':  '#f43f5e',
   'testing-dashboard':  '#a78bfa',
 };
 

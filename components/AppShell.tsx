@@ -37,6 +37,7 @@ import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
 import { RepairIntelligenceView } from '@/features/repair-intelligence/RepairIntelligenceView';
 import { TriageView } from '@/features/triage/TriageView';
 import { SystemHealthView } from '@/features/system-health/SystemHealthView';
+import { DisasterRecoveryView } from '@/features/disaster-recovery/DisasterRecoveryView';
 import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashboardView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
@@ -73,6 +74,7 @@ const views: Record<string, React.ComponentType> = {
   triage: TriageView,
   settings: SettingsView,
   'system-health':     SystemHealthView,
+  'disaster-recovery': DisasterRecoveryView,
   'testing-dashboard': TestingDashboardView,
 };
 
