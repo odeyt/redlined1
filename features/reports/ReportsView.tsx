@@ -517,13 +517,22 @@ export function ReportsView() {
       const ARCHIVED_STATUSES = new Set(['Complete', 'Closed', 'Invoiced', 'Archived']);
 
       const rows: CustomerDetailRow[] = custList.map(c => {
-        const nameLow = (c.name || '').toLowerCase();
+        const nameLow = (c.name || '').toLowerCase().trim();
 
         // All vehicles from vehicles table for this customer
         const tableVehs = vehList.filter(v => v.customer_id === c.id);
 
-        // All job cards for this customer (unfiltered for full vehicle list)
-        const allMyJobs = jobList.filter(j => (j.customer || '').toLowerCase() === nameLow);
+        // Vehicle labels set — used as secondary match key for job cards
+        const vehLabelSet = new Set(
+          tableVehs.map(v => (v.label as string || '').toLowerCase().trim()).filter(Boolean)
+        );
+
+        // All job cards: match by customer name OR by vehicle label (belt + suspenders)
+        const allMyJobs = jobList.filter(j => {
+          const jCust = (j.customer || '').toLowerCase().trim();
+          const jVeh  = (j.vehicle  || '').toLowerCase().trim();
+          return jCust === nameLow || (vehLabelSet.size > 0 && vehLabelSet.has(jVeh));
+        });
 
         // Jobs filtered by month (for stats/status)
         const myJobs = month === 0
