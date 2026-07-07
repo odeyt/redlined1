@@ -1354,11 +1354,11 @@ tr:last-child td {
     margin-bottom: 10px !important;
   }
 
-  /* Scale entire print block to ensure it fits one page */
+  /* Scale entire print block to fit one page — zoom shrinks layout footprint unlike transform */
   .print-content {
-    transform: scale(0.88) !important;
-    transform-origin: top left !important;
-    width: 113.6% !important;
+    zoom: 0.78 !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
   }
 }
 
