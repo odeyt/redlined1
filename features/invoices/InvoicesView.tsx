@@ -73,7 +73,6 @@ export function InvoicesView() {
   const [custVehicles, setCustVehicles] = useState<{ id: string; label: string }[]>([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
@@ -141,6 +140,97 @@ export function InvoicesView() {
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  function printInvoice(inv: InvoiceFull, t: ReturnType<typeof calculateTotals>, payments: Payment[]) {
+    const fmt2 = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
+    const lines = inv.lines.map((line, i) => {
+      const lc = line.currency || inv.currency;
+      return `<tr style="background:${i % 2 === 0 ? '#fffde7' : '#fff'};border-bottom:1px solid #eee">
+        <td style="padding:8px 10px;font-size:12px;color:#888">${line.note || ''}</td>
+        <td style="padding:8px 10px">
+          <div style="font-size:13px">${line.description}</div>
+          ${line.laoDescription ? `<div style="font-size:11px;color:#888">${line.laoDescription}</div>` : ''}
+        </td>
+        <td style="padding:8px 10px;text-align:right;font-size:13px">${line.qty}</td>
+        <td style="padding:8px 10px;text-align:right;font-size:13px">${formatMoney(line.rate, lc)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:600;font-size:13px;color:${lc !== inv.currency ? '#d97706' : '#111'}">${formatMoney(line.qty * line.rate, lc)}</td>
+      </tr>`;
+    }).join('');
+    const received = payments.reduce((s, p) => s + p.amount, 0);
+    const balance = t.total - received;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>${inv.invoiceNumber}</title>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:system-ui,sans-serif;color:#111;background:#fff;padding:28px 36px}
+        table{width:100%;border-collapse:collapse}
+        th{background:#f0f0f0;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#555;font-weight:700;text-align:left}
+        th:last-child,th:nth-child(3),th:nth-child(4){text-align:right}
+        @media print{body{padding:14px 18px}@page{size:A4 portrait;margin:8mm 12mm}}
+      </style>
+    </head><body>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #cc0000">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          ${shopSettings?.logoUrl ? `<img src="${shopSettings.logoUrl}" style="height:48px;max-width:110px;object-fit:contain;border-radius:4px">` : ''}
+          <div>
+            <div style="font-size:22px;font-weight:900;color:#cc0000">${shopSettings?.companyName || 'Redlined1'}</div>
+            ${shopSettings?.tagline ? `<div style="font-size:11px;color:#666;margin-top:2px">${shopSettings.tagline}</div>` : ''}
+            ${shopSettings?.address ? `<div style="font-size:11px;color:#555;margin-top:4px;white-space:pre-line">${shopSettings.address}</div>` : ''}
+            ${shopSettings?.phone ? `<div style="font-size:11px;color:#555">📞 ${shopSettings.phone}</div>` : ''}
+            ${shopSettings?.email ? `<div style="font-size:11px;color:#555">✉️ ${shopSettings.email}</div>` : ''}
+            ${shopSettings?.website ? `<div style="font-size:11px;color:#555">🌐 ${shopSettings.website}</div>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.1em;font-weight:700">Invoice</div>
+          <div style="font-size:26px;font-weight:800;color:#111;margin-top:2px">${inv.invoiceNumber}</div>
+          <div style="margin-top:6px"><span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${(STATUS_COLORS[inv.status]||'#888')}22;color:${STATUS_COLORS[inv.status]||'#888'}">${inv.status.toUpperCase()}</span></div>
+          <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.7">
+            Date: ${fmt2(inv.createdAt)}<br>
+            ${inv.dueDate ? `Due: ${fmt2(inv.dueDate)}<br>` : ''}
+            ${inv.paidDate ? `<span style="color:#4caf50;font-weight:600">Paid: ${fmt2(inv.paidDate)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+        <div style="background:#f8f8f8;border-radius:8px;padding:12px 16px">
+          <div style="font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Bill To</div>
+          <div style="font-weight:700;font-size:14px">${inv.customerName}</div>
+          ${inv.vehicle ? `<div style="font-size:12px;color:#666;margin-top:3px">${inv.vehicle}</div>` : ''}
+        </div>
+        ${inv.jobCardId ? `<div style="background:#f8f8f8;border-radius:8px;padding:12px 16px">
+          <div style="font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Reference</div>
+          <div style="font-size:13px">Job Card: <strong>${inv.jobCardId}</strong></div>
+        </div>` : ''}
+      </div>
+      <table>
+        <thead><tr><th>Note / Ref</th><th>Description</th><th style="text-align:right;width:60px">Qty</th><th style="text-align:right;width:90px">Rate</th><th style="text-align:right;width:100px">Amount</th></tr></thead>
+        <tbody>${inv.lines.length === 0 ? '<tr><td colspan="5" style="padding:16px;text-align:center;color:#999;font-style:italic">No line items</td></tr>' : lines}</tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <div style="width:260px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Subtotal</span><span>${formatMoney(t.subtotal, inv.currency)}</span></div>
+          ${t.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, inv.currency)}</span></div>` : ''}
+          ${t.shopSupplies > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Shop Supplies</span><span>${formatMoney(t.shopSupplies, inv.currency)}</span></div>` : ''}
+          <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${inv.currency})</span><span style="color:#cc0000">${formatMoney(t.total, inv.currency)}</span></div>
+          ${received > 0 ? `
+          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid #eee"><span style="color:#4caf50;font-weight:600">Amount Received</span><span style="color:#4caf50;font-weight:600">-${formatMoney(received, inv.currency)}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:700;font-size:15px"><span style="color:${balance<=0?'#4caf50':'#cc0000'}">Balance Due</span><span style="color:${balance<=0?'#4caf50':'#cc0000'}">${balance<=0?'PAID IN FULL':formatMoney(balance,inv.currency)}</span></div>
+          ` : ''}
+        </div>
+      </div>
+      ${inv.notes ? `<div style="margin-top:18px;padding-top:14px;border-top:1px solid #eee"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Notes</div><p style="font-size:13px;color:#555;line-height:1.6">${inv.notes}</p></div>` : ''}
+      <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#aaa">
+        Thank you for your business — ${shopSettings?.companyName || 'Redlined1'}<br>
+        ${[shopSettings?.phone, shopSettings?.email].filter(Boolean).join(' · ')}
+      </div>
+    </body></html>`;
+    const w = window.open('', '_blank', 'width=800,height=900');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.onload = () => { w.focus(); w.print(); };
+  }
 
   async function openNewForm() {
     const num = await nextInvoiceNumber();
@@ -665,7 +755,7 @@ export function InvoicesView() {
                 {['Draft', 'Sent', 'Paid', 'Void'].map(s => <option key={s}>{s}</option>)}
               </select>
               <button className="btn btn-primary" onClick={() => openEditForm(selected)}>✏️ Edit</button>
-              <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
+              <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>👁 Preview / Print</button>
               {selected.status !== 'Paid' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.12)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleMarkPaid(selected)}>✓ Mark Paid</button>
               )}
@@ -676,7 +766,7 @@ export function InvoicesView() {
                     dispatch({ type: 'SET_MODULE', module: 'payments' });
                   }}>💳 Record Payment →</button>
               )}
-              <button className="btn" onClick={() => setShowPreview(true)}>🖨 Print / Preview</button>
+              <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>🖨 Print / PDF</button>
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 
@@ -820,180 +910,6 @@ export function InvoicesView() {
         )}
       </div>
 
-      {/* ── Preview Modal ── */}
-      {showPreview && selected && totals && (
-        <div className="print-overlay" onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-          <div className="print-content" style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
-            {/* Close / Print — hidden on print */}
-            <div className="no-print">
-              <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
-              <button onClick={() => window.print()} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
-            </div>
-
-            {/* Shop Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                {shopSettings?.logoUrl && (
-                  <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 60, maxWidth: 140, objectFit: 'contain', borderRadius: 6 }} />
-                )}
-                <div>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: '#cc0000', letterSpacing: '-0.5px' }}>{shopSettings?.companyName || 'Redlined1'}</div>
-                  {shopSettings?.tagline && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{shopSettings.tagline}</div>}
-                  {shopSettings?.address && <div style={{ fontSize: 12, color: '#555', marginTop: 6, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{shopSettings.address}</div>}
-                  <div style={{ fontSize: 12, color: '#555', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {shopSettings?.phone && <span>📞 {shopSettings.phone}</span>}
-                    {shopSettings?.email && <span>✉️ {shopSettings.email}</span>}
-                    {shopSettings?.website && <span>🌐 {shopSettings.website}</span>}
-                  </div>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700 }}>
-                  Invoice
-                </div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginTop: 4 }}>{selected.invoiceNumber}</div>
-                <div style={{ marginTop: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>
-                    {selected.status.toUpperCase()}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 8, lineHeight: 1.7 }}>
-                  Date: {fmt(selected.createdAt)}<br />
-                  {selected.dueDate && <>Due: {fmt(selected.dueDate)}<br /></>}
-                  {selected.paidDate && <span style={{ color: '#4caf50', fontWeight: 600 }}>Paid: {fmt(selected.paidDate)}</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* Bill To */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28 }}>
-              <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                  Bill To
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.customerName}</div>
-                {selected.vehicle && <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>{selected.vehicle}</div>}
-              </div>
-              {selected.jobCardId && (
-                <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '14px 18px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                    Reference
-                  </div>
-                  <div style={{ fontSize: 13 }}>Job Card: <strong>{selected.jobCardId}</strong></div>
-                </div>
-              )}
-            </div>
-
-            {/* Line Items */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0, color: '#111' }}>
-              <thead>
-                <tr style={{ background: '#f0f0f0' }}>
-                  <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 100 }}>
-                    Note / Ref
-                  </th>
-                  <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700 }}>
-                    Description
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 60 }}>
-                    Qty
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 90 }}>
-                    Rate
-                  </th>
-                  <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', fontWeight: 700, width: 100 }}>
-                    Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {selected.lines.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '20px 12px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>No line items</td></tr>
-                )}
-                {selected.lines.map((line, i) => {
-                  const lc = line.currency || selected.currency;
-                  return (
-                  <tr key={i} style={{ borderBottom: '1px solid #eee', background: i % 2 === 0 ? '#fffde7' : '#fff' }}>
-                    <td style={{ padding: '10px 12px', fontSize: 12, color: '#888' }}>{line.note || ''}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <div style={{ fontSize: 14 }}>{line.description}</div>
-                      {line.laoDescription && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{line.laoDescription}</div>}
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{line.qty}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13 }}>{formatMoney(line.rate, lc)}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: 14, color: lc !== selected.currency ? '#d97706' : undefined }}>{formatMoney(line.qty * line.rate, lc)}</td>
-                  </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Totals */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <div style={{ width: 280 }}>
-                {[
-                  ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
-                  totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
-                  totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                    <span>{label}</span>
-                    <span>{val}</span>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, color: '#111', borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                  <span>Total ({selected.currency})</span>
-                  <span style={{ color: '#cc0000' }}>{formatMoney(totals.total, selected.currency)}</span>
-                </div>
-                {invoicePayments.length > 0 && (() => {
-                  const received = invoicePayments.reduce((s, p) => s + p.amount, 0);
-                  const balance = totals.total - received;
-                  return (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#444', borderBottom: '1px solid #eee' }}>
-                        <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received</span>
-                        <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(received, selected.currency)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 16 }}>
-                        <span style={{ color: balance <= 0 ? '#4caf50' : '#cc0000' }}>Balance Due</span>
-                        <span style={{ color: balance <= 0 ? '#4caf50' : '#cc0000' }}>{balance <= 0 ? 'PAID IN FULL' : formatMoney(balance, selected.currency)}</span>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Notes */}
-            {selected.notes && (
-              <div style={{ marginTop: 28, paddingTop: 18, borderTop: '1px solid #eee' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                  Notes
-                </div>
-                <p style={{ fontSize: 13, color: '#555', margin: 0, lineHeight: 1.6 }}>{selected.notes}</p>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #eee', textAlign: 'center', fontSize: 11, color: '#aaa' }}>
-              <div>Thank you for your business — {shopSettings?.companyName || 'Redlined1'}</div>
-              {(shopSettings?.phone || shopSettings?.email) && (
-                <div style={{ marginTop: 4 }}>
-                  {shopSettings?.phone && shopSettings.phone}
-                  {shopSettings?.phone && shopSettings?.email && ' · '}
-                  {shopSettings?.email && shopSettings.email}
-                </div>
-              )}
-            </div>
-
-            {/* Free plan watermark */}
-            {needsWatermark(planStatus) && (
-              <div style={{ marginTop: 18, padding: '10px 16px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: 8, textAlign: 'center', fontSize: 12, color: '#856404', fontWeight: 600 }}>
-                Generated with <span style={{ color: '#cc0000' }}>Redlined1</span> · Free Plan — <a href="/signup" style={{ color: '#cc0000' }}>Upgrade to remove this</a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
     </>
   );
