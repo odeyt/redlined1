@@ -477,12 +477,12 @@ export function ReportsView() {
   }, [reportShopId]); // eslint-disable-line
 
   useEffect(() => {
-    if (activeTab === 'customers') loadCustomerDetails(reportShopId);
-  }, [activeTab, reportShopId]); // eslint-disable-line
+    if (activeTab === 'customers') loadCustomerDetails(reportShopId, filterMonth, filterYear);
+  }, [activeTab, reportShopId, filterMonth, filterYear]); // eslint-disable-line
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
-  async function loadCustomerDetails(sid: string) {
+  async function loadCustomerDetails(sid: string, month: number, year: number) {
     setCustDetailLoading(true);
     try {
       const [
@@ -492,8 +492,9 @@ export function ReportsView() {
         { data: invs },
       ] = await Promise.all([
         supabase.from('customers').select('id, name').eq('shop_id', sid).order('name'),
-        supabase.from('vehicles').select('id, customer_id, label, status').eq('shop_id', sid),
-        supabase.from('job_cards').select('id, customer, status, check_in_date, closed_date').eq('shop_id', sid),
+        supabase.from('vehicles').select('id, customer_id, label, status, date_received').eq('shop_id', sid),
+        // fetch vehicle field so we can surface job-card vehicles not in vehicles table
+        supabase.from('job_cards').select('id, customer, vehicle, status, check_in_date, closed_date').eq('shop_id', sid),
         supabase.from('invoices').select('customer, status, subtotal, tax, discount, shop_supplies').eq('shop_id', sid).eq('status', 'Paid'),
       ]);
 
@@ -502,35 +503,75 @@ export function ReportsView() {
       const jobList = jobs ?? [];
       const invList = invs ?? [];
 
-      const OPEN_STATUSES = new Set(['In Progress', 'Pending Parts', 'Pending Approval', 'Active', 'Returned Job']);
-      const PENDING_STATUSES = new Set(['Pending', 'Pending Approval', 'Pending Parts']);
+      // Month filter boundaries (0 = all months)
+      const mStart = month > 0 ? new Date(year, month - 1, 1).getTime() : 0;
+      const mEnd   = month > 0 ? new Date(year, month, 1).getTime()     : Infinity;
+
+      const inRange = (dateStr: string | null) => {
+        if (!dateStr) return month === 0; // no date: only show under "all months"
+        const t = new Date(dateStr).getTime();
+        return t >= mStart && t < mEnd;
+      };
+
+      const OPEN_STATUSES     = new Set(['In Progress', 'Pending Parts', 'Pending Approval', 'Active', 'Returned Job']);
       const ARCHIVED_STATUSES = new Set(['Complete', 'Closed', 'Invoiced', 'Archived']);
 
       const rows: CustomerDetailRow[] = custList.map(c => {
-        const myVehs = vehList.filter(v => v.customer_id === c.id);
-        const myJobs = jobList.filter(j => (j.customer || '').toLowerCase() === (c.name || '').toLowerCase());
-        const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === (c.name || '').toLowerCase());
+        const nameLow = (c.name || '').toLowerCase();
 
-        const allStatuses = [...new Set([
-          ...myVehs.map(v => v.status as string),
-          ...myJobs.map(j => j.status as string),
-        ])].filter(Boolean);
+        // All vehicles from vehicles table for this customer
+        const tableVehs = vehList.filter(v => v.customer_id === c.id);
 
-        const openJobs = myJobs.filter(j => OPEN_STATUSES.has(j.status)).length;
+        // All job cards for this customer (unfiltered for full vehicle list)
+        const allMyJobs = jobList.filter(j => (j.customer || '').toLowerCase() === nameLow);
+
+        // Jobs filtered by month (for stats/status)
+        const myJobs = month === 0
+          ? allMyJobs
+          : allMyJobs.filter(j => inRange(j.check_in_date) || inRange(j.closed_date));
+
+        // Vehicles from vehicles table (filter by date_received if month selected)
+        const filteredTableVehs = month === 0
+          ? tableVehs
+          : tableVehs.filter(v => inRange((v as Record<string, unknown>).date_received as string | null));
+
+        // Merge: vehicles from table + vehicles mentioned in ANY job card for this customer
+        // Use all job card vehicles (not just month-filtered) so owner sees full fleet
+        const jobVehicleLabels = [...new Set(allMyJobs.map(j => (j.vehicle as string) || '').filter(Boolean))];
+        const tableVehLabels   = [...new Set(tableVehs.map(v => (v.label as string) || '').filter(Boolean))];
+
+        // Month-filtered job vehicle labels
+        const filteredJobVehLabels = month === 0
+          ? jobVehicleLabels
+          : [...new Set(myJobs.map(j => (j.vehicle as string) || '').filter(Boolean))];
+
+        // Merged unique vehicle labels: prefer filtered, but include all from vehicles table
+        const mergedLabels = [...new Set([
+          ...filteredTableVehs.map(v => (v.label as string) || ''),
+          ...filteredJobVehLabels,
+          // Always include vehicles table entries even if outside month (they belong to the customer)
+          ...tableVehLabels,
+        ])].filter(Boolean).sort();
+
+        const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === nameLow);
+
+        const allStatuses = [...new Set(myJobs.map(j => j.status as string))].filter(Boolean);
+        const openJobs      = myJobs.filter(j => OPEN_STATUSES.has(j.status)).length;
         const completedJobs = myJobs.filter(j => ARCHIVED_STATUSES.has(j.status)).length;
 
-        const dates = [
-          ...myJobs.map(j => j.closed_date || j.check_in_date),
-        ].filter(Boolean) as string[];
-        const lastActivity = dates.length > 0 ? dates.sort().reverse()[0] : null;
+        const dates = allMyJobs.map(j => j.closed_date || j.check_in_date).filter(Boolean) as string[];
+        const lastActivity = dates.length > 0 ? [...dates].sort().reverse()[0] : null;
 
-        const totalSpend = myInvs.reduce((s, i) => s + (Number(i.subtotal ?? 0) - Number(i.discount ?? 0) + Number(i.tax ?? 0) + Number(i.shop_supplies ?? 0)), 0);
+        const totalSpend = myInvs.reduce(
+          (s, i) => s + (Number(i.subtotal ?? 0) - Number(i.discount ?? 0) + Number(i.tax ?? 0) + Number(i.shop_supplies ?? 0)),
+          0,
+        );
 
         return {
-          id: c.id,
-          name: c.name,
-          vehicleCount: myVehs.length,
-          vehicleLabels: myVehs.map(v => v.label).filter(Boolean),
+          id:           c.id,
+          name:         c.name,
+          vehicleCount: mergedLabels.length,
+          vehicleLabels: mergedLabels,
           openJobs,
           completedJobs,
           allStatuses,
@@ -1227,6 +1268,13 @@ export function ReportsView() {
                 </div>
               ))}
             </div>
+
+            {/* Period context */}
+            {filterMonth > 0 && (
+              <div style={{ marginBottom: 10, padding: '7px 14px', background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
+                Showing job activity for {MONTH_NAMES_FULL[filterMonth - 1]} {filterYear} · Vehicle list always shows full fleet
+              </div>
+            )}
 
             {/* Search + filter bar */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
