@@ -6,6 +6,7 @@ import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { getShopId } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
+import { updateVehicleServiceRecord } from '@/services/vehicleService';
 
 // ── Customer detail row (searchable customer report) ──────────
 interface CustomerDetailRow {
@@ -13,12 +14,29 @@ interface CustomerDetailRow {
   name: string;
   vehicleCount: number;
   vehicleLabels: string[];
+  vehicleIds: string[];   // parallel array — vehicleIds[i] is the DB id for vehicleLabels[i]
   openJobs: number;
   completedJobs: number;
   allStatuses: string[];
   lastActivity: string | null;
   totalSpend: number;
   invoiceCount: number;
+}
+
+interface VehicleEditForm {
+  id: string;
+  label: string;
+  make: string;
+  model: string;
+  year: string;
+  plate: string;
+  vin: string;
+  mileage: string;
+  engine: string;
+  fuelType: string;
+  transmission: string;
+  status: string;
+  recommendation: string;
 }
 
 // ── Technician + Job Completion types ──────────────────────────
@@ -472,6 +490,11 @@ export function ReportsView() {
   const [selectedCustJobs, setSelectedCustJobs] = useState<{id:string; customer:string; vehicle:string; status:string; check_in_date:string|null; closed_date:string|null; technicians:string[]}[]>([]);
   const [selectedCustJobsLoading, setSelectedCustJobsLoading] = useState(false);
 
+  // Vehicle edit modal (from customer detail panel)
+  const [vehicleEditForm, setVehicleEditForm] = useState<VehicleEditForm | null>(null);
+  const [vehicleEditSaving, setVehicleEditSaving] = useState(false);
+  const [vehicleEditErr, setVehicleEditErr] = useState('');
+
   useEffect(() => {
     load(reportShopId);
     fetchShopSettings().then(s => {
@@ -567,6 +590,14 @@ export function ReportsView() {
           ...tableVehLabels,
         ])].filter(Boolean).sort();
 
+        // Build a label→id map so chips link back to their DB record
+        const labelToId: Record<string, string> = {};
+        for (const v of tableVehs) {
+          const lbl = (v.label as string) || '';
+          if (lbl) labelToId[lbl] = v.id as string;
+        }
+        const mergedIds = mergedLabels.map(lbl => labelToId[lbl] ?? '');
+
         const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === nameLow);
 
         const allStatuses = [...new Set(myJobs.map(j => j.status as string))].filter(Boolean);
@@ -587,6 +618,7 @@ export function ReportsView() {
           name:         c.name,
           vehicleCount: mergedLabels.length,
           vehicleLabels: mergedLabels,
+          vehicleIds:   mergedIds,
           openJobs,
           completedJobs,
           allStatuses,
@@ -615,6 +647,66 @@ export function ReportsView() {
       setSelectedCustJobs(data ?? []);
     } catch { setSelectedCustJobs([]); } finally {
       setSelectedCustJobsLoading(false);
+    }
+  }
+
+  async function openVehicleEdit(vehicleId: string) {
+    if (!vehicleId) return;
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('id, label, make, model, year, plate, vin, mileage, engine, fuel_type, transmission, status, recommendation')
+      .eq('id', vehicleId)
+      .single();
+    if (error || !data) return;
+    setVehicleEditErr('');
+    setVehicleEditForm({
+      id:           data.id,
+      label:        data.label ?? '',
+      make:         data.make ?? '',
+      model:        data.model ?? '',
+      year:         data.year ?? '',
+      plate:        data.plate ?? '',
+      vin:          data.vin ?? '',
+      mileage:      data.mileage ?? '',
+      engine:       data.engine ?? '',
+      fuelType:     data.fuel_type ?? '',
+      transmission: data.transmission ?? '',
+      status:       data.status ?? '',
+      recommendation: data.recommendation ?? '',
+    });
+  }
+
+  async function saveVehicleEdit() {
+    if (!vehicleEditForm) return;
+    setVehicleEditSaving(true);
+    setVehicleEditErr('');
+    try {
+      await updateVehicleServiceRecord(vehicleEditForm.id, {
+        make:         vehicleEditForm.make,
+        model:        vehicleEditForm.model,
+        year:         vehicleEditForm.year,
+        plate:        vehicleEditForm.plate,
+        vin:          vehicleEditForm.vin,
+        mileage:      vehicleEditForm.mileage,
+        status:       vehicleEditForm.status,
+        recommendation: vehicleEditForm.recommendation,
+      });
+      // Also update label + engine + fuelType + transmission via vehicles table directly
+      await supabase.from('vehicles').update({
+        label:        vehicleEditForm.label,
+        engine:       vehicleEditForm.engine,
+        fuel_type:    vehicleEditForm.fuelType,
+        transmission: vehicleEditForm.transmission,
+      }).eq('id', vehicleEditForm.id);
+
+      notify('Vehicle updated.');
+      setVehicleEditForm(null);
+      // Refresh customer details so chips update
+      loadCustomerDetails(reportShopId, filterMonth, filterYear);
+    } catch (e: unknown) {
+      setVehicleEditErr(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setVehicleEditSaving(false);
     }
   }
 
@@ -1405,9 +1497,21 @@ export function ReportsView() {
                   hint={`${selectedCustJobs.length} job${selectedCustJobs.length !== 1 ? 's' : ''} on record · click a customer above to change`}>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {selectedCustomer.vehicleLabels.map((v, i) => (
-                        <span key={i} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>🚗 {v}</span>
-                      ))}
+                      {selectedCustomer.vehicleLabels.map((v, i) => {
+                        const vid = selectedCustomer.vehicleIds[i];
+                        const clickable = !!vid;
+                        return (
+                          <button key={i}
+                            onClick={() => clickable && openVehicleEdit(vid)}
+                            title={clickable ? 'Click to edit vehicle' : undefined}
+                            style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '4px 10px', fontSize: 12, color: 'var(--muted)', fontWeight: 600, cursor: clickable ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s' }}
+                            onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)'; } }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--line)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; }}>
+                            🚗 {v}
+                            {clickable && <span style={{ fontSize: 10, opacity: 0.6 }}>✎</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                     <button onClick={() => setSelectedCustomer(null)}
                       style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}>
@@ -1770,6 +1874,114 @@ export function ReportsView() {
           </Panel>
         </>
       )}
+
+      {/* ── Vehicle Edit Modal (from customer detail chips) ── */}
+      {vehicleEditForm && (() => {
+        const f = vehicleEditForm;
+        const set = (k: keyof VehicleEditForm, v: string) => setVehicleEditForm(p => p ? { ...p, [k]: v } : p);
+        const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
+        const STATUSES = ['No open jobs', 'Active', 'Pending', 'Pending Approval', 'Pending Parts', 'In Progress', 'Completed', 'Returned Job', 'Archived'];
+        const FUEL_TYPES = ['Gasoline', 'Diesel', 'Hybrid', 'PHEV', 'Electric', 'E85', 'CNG', 'Unknown'];
+        const TRANSMISSIONS = ['Automatic', 'Manual', 'CVT', 'DCT', 'Unknown'];
+        return (
+          <>
+            <div onClick={() => setVehicleEditForm(null)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 4000 }} />
+            <div onClick={e => e.stopPropagation()}
+              style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 4001, background: 'var(--surface)', borderRadius: 14, width: 640, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 32px 80px rgba(0,0,0,0.45)' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>Edit Vehicle</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{f.label || `${f.year} ${f.make} ${f.model}`.trim()}</div>
+                </div>
+                <button onClick={() => setVehicleEditForm(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--muted)', lineHeight: 1 }}>✕</button>
+              </div>
+              {/* Body */}
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Label */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Vehicle Label</label>
+                  <input value={f.label} onChange={e => set('label', e.target.value)} style={inp} placeholder="e.g. BMW X6 2011 #6389" />
+                </div>
+                {/* Make / Model / Year */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px', gap: 12 }}>
+                  {([['make', 'Make'], ['model', 'Model'], ['year', 'Year']] as [keyof VehicleEditForm, string][]).map(([k, label]) => (
+                    <div key={k}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>{label}</label>
+                      <input value={f[k] as string} onChange={e => set(k, e.target.value)} style={inp} />
+                    </div>
+                  ))}
+                </div>
+                {/* Plate / VIN */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Plate #</label>
+                    <input value={f.plate} onChange={e => set('plate', e.target.value)} style={inp} placeholder="e.g. 6389" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>VIN (shop-private)</label>
+                    <input value={f.vin} onChange={e => set('vin', e.target.value)} style={inp} placeholder="17-character VIN" />
+                  </div>
+                </div>
+                {/* Mileage / Engine */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Mileage</label>
+                    <input value={f.mileage} onChange={e => set('mileage', e.target.value)} style={inp} placeholder="e.g. 87500" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Engine</label>
+                    <input value={f.engine} onChange={e => set('engine', e.target.value)} style={inp} placeholder="e.g. 4.4L V8" />
+                  </div>
+                </div>
+                {/* Fuel / Transmission / Status */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Fuel Type</label>
+                    <select value={f.fuelType} onChange={e => set('fuelType', e.target.value)} style={inp}>
+                      <option value="">— select —</option>
+                      {FUEL_TYPES.map(ft => <option key={ft} value={ft}>{ft}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Transmission</label>
+                    <select value={f.transmission} onChange={e => set('transmission', e.target.value)} style={inp}>
+                      <option value="">— select —</option>
+                      {TRANSMISSIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Status</label>
+                    <select value={f.status} onChange={e => set('status', e.target.value)} style={inp}>
+                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {/* Recommended Service / Notes */}
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Recommended Service / Notes</label>
+                  <textarea value={f.recommendation} onChange={e => set('recommendation', e.target.value)}
+                    rows={3} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }}
+                    placeholder="e.g. Oil change due at next visit, check brakes" />
+                </div>
+                {vehicleEditErr && <div style={{ color: '#f44336', fontSize: 13, fontWeight: 600 }}>{vehicleEditErr}</div>}
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+                  <button onClick={() => setVehicleEditForm(null)}
+                    style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                    Cancel
+                  </button>
+                  <button onClick={saveVehicleEdit} disabled={vehicleEditSaving}
+                    style={{ padding: '9px 24px', borderRadius: 8, border: 'none', background: vehicleEditSaving ? 'var(--line)' : '#cc0000', color: '#fff', fontSize: 13, cursor: vehicleEditSaving ? 'default' : 'pointer', fontWeight: 700 }}>
+                    {vehicleEditSaving ? 'Saving…' : '💾 Save Vehicle'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {showPrintModal && (
         <WorkshopPrintModal
