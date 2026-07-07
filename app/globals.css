@@ -1290,6 +1290,12 @@ tr:last-child td {
 }
 
 @media print {
+  /* Clamp document height so hidden elements don't generate extra pages */
+  html, body {
+    overflow: hidden !important;
+    height: auto !important;
+  }
+
   /* Hide everything on the page */
   body * {
     visibility: hidden !important;
@@ -1308,13 +1314,13 @@ tr:last-child td {
     display: none !important;
   }
 
-  /* Position print content to fill the page */
+  /* Overlay: fixed + overflow:hidden prevents it from leaking to page 2 */
   .print-overlay {
     position: fixed !important;
     inset: 0 !important;
-    background: none !important;
+    background: white !important;
     display: block !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     z-index: 9999 !important;
     padding: 0 !important;
   }
@@ -1325,11 +1331,14 @@ tr:last-child td {
     left: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     padding: 12px 20px !important;
     background: #fff !important;
     color: #000 !important;
+    zoom: 0.78 !important;
   }
 
   /* Compact the invoice header */
@@ -1339,7 +1348,7 @@ tr:last-child td {
     font-size: 18px !important;
   }
 
-  /* Compact table rows to fit more per page */
+  /* Compact table rows */
   .print-content table td,
   .print-content table th {
     padding: 5px 8px !important;
@@ -1352,13 +1361,6 @@ tr:last-child td {
   .print-content [style*="marginBottom: 28"],
   .print-content [style*="marginBottom: 24"] {
     margin-bottom: 10px !important;
-  }
-
-  /* Scale entire print block to fit one page — zoom shrinks layout footprint unlike transform */
-  .print-content {
-    zoom: 0.78 !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
   }
 }
 
