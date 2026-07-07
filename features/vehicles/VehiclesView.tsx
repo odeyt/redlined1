@@ -1048,7 +1048,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                     <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
                       {t}
                       <button onClick={() => { const next = f.assignedTech.split(';').map(s => s.trim()).filter(s => s && s !== t); set('assignedTech', next.join('; ')); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.color, fontSize: 12, padding: 0, lineHeight: 1, fontWeight: 800 }}>Ã—</button>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: c.color, fontSize: 12, padding: 0, lineHeight: 1, fontWeight: 800 }}>×</button>
                     </span>
                   );
                 })}
@@ -1061,9 +1061,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {row('Parts Exchanged', <textarea style={{ ...inp, minHeight: 55, resize: 'vertical' }} value={f.partsExchanged} onChange={e => set('partsExchanged', e.target.value)} />)}
           {row('Flat Rate (LAK)', <input type="number" style={inp} value={f.flatRateLak ?? ''} onChange={e => set('flatRateLak', e.target.value ? Number(e.target.value) : null)} />)}
           {row('Tech Pay Notes', <input style={inp} value={f.techPayEntries} onChange={e => set('techPayEntries', e.target.value)} />)}
-          {/* Hide when status-reason callout above is already editing recommendation */}
-          {!['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) &&
-            row('Recommended Service / Notes', <input style={inp} value={f.recommendation} onChange={e => set('recommendation', e.target.value)} placeholder="e.g. Oil change due at 50k" />)
+          {/* Recommended Service / Notes — hide for pending statuses; show read-only for Returned Job if note exists */}
+          {f.status === 'Returned Job' && f.recommendation ? (
+            <div style={{ marginBottom: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Recommended Service / Notes</span>
+              <pre style={{ margin: 0, padding: '8px 12px', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, fontFamily: 'inherit', fontSize: 12, color: '#78350f', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{f.recommendation}</pre>
+            </div>
+          ) : !['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) &&
+            row('Recommended Service / Notes', <textarea style={{ ...inp, minHeight: 70, resize: 'vertical' }} value={f.recommendation} onChange={e => set('recommendation', e.target.value)} placeholder="e.g. Oil change due at 50k" />)
           }
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
