@@ -199,7 +199,30 @@ export function Sidebar() {
   });
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`}>
+    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`} style={{ position: 'relative' }}>
+      {/* Collapse toggle — upper-right corner */}
+      <button
+        onClick={toggleCollapse}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        style={{
+          position: 'absolute', top: 14, right: 10, zIndex: 20,
+          width: 28, height: 28,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: 7, cursor: 'pointer', padding: 0,
+          transition: 'background 0.15s, border-color 0.15s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.14)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.28)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.14)'; }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+          <path d="M9 2L4 7L9 12" stroke="#aaa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M13 2L8 7L13 12" stroke="#aaa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+
       <div className="brand">
         {logoUrl
           ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3, flexShrink: 0 }} unoptimized />
@@ -373,23 +396,7 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Collapse toggle */}
-      <button
-        onClick={toggleCollapse}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        style={{
-          padding: '9px 12px', background: 'transparent',
-          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#666',
-          cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center',
-          gap: 8, width: '100%', marginBottom: 4,
-          justifyContent: collapsed ? 'center' : 'flex-start',
-        }}
-      >
-        <span style={{ fontSize: 15, transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>◀</span>
-        {!collapsed && <span>Collapse sidebar</span>}
-      </button>
-
-      <a
+<a
         href="/help"
         target="_blank"
         title="Help & Manual"
