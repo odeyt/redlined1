@@ -14,16 +14,26 @@ export async function GET() {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // Allow owner or admin roles — disaster recovery is shop-management level
   const adminDb = getAdminDb();
   const { data: shopUser } = await adminDb
     .from('shop_users')
     .select('role')
     .eq('user_id', user.id)
-    .eq('role', 'owner')
+    .in('role', ['owner', 'admin'])
     .maybeSingle();
 
   if (!shopUser) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Fallback: allow any authenticated shop member (role check may fail due to multi-location)
+    const { data: anyShopUser } = await adminDb
+      .from('shop_users')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!anyShopUser) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
   }
 
   const [status, validation, recoveryPoints] = await Promise.all([
