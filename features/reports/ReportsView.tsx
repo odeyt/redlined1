@@ -687,14 +687,14 @@ export function ReportsView() {
         year:         vehicleEditForm.year,
         plate:        vehicleEditForm.plate,
         vin:          vehicleEditForm.vin,
-        mileage:      vehicleEditForm.mileage,
         status:       vehicleEditForm.status,
         recommendation: vehicleEditForm.recommendation,
       });
-      // Also update label + engine + fuelType + transmission via vehicles table directly
+      // Update remaining fields not covered by updateVehicleServiceRecord
       await supabase.from('vehicles').update({
         label:        vehicleEditForm.label,
         engine:       vehicleEditForm.engine,
+        mileage:      vehicleEditForm.mileage,
         fuel_type:    vehicleEditForm.fuelType,
         transmission: vehicleEditForm.transmission,
       }).eq('id', vehicleEditForm.id);
