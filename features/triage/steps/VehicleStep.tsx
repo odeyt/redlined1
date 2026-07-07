@@ -45,14 +45,17 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
     const shopId = await getShopId();
     const { data } = await supabase
       .from('vehicles')
-      .select('id, make, model, year, engine, mileage, fuel_type, transmission')
+      .select('id, label, make, model, year, engine, mileage, fuel_type, transmission, plate')
       .eq('shop_id', shopId)
       .eq('customer_id', customerId)
       .order('label')
       .limit(500);
     setVehicleOptions((data ?? []).map(v => ({
       id:           v.id,
-      label:        `${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim(),
+      label:        [
+        `${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim(),
+        v.plate ? `#${v.plate}` : '',
+      ].filter(Boolean).join(' '),
       make:         v.make ?? '',
       model:        v.model ?? '',
       year:         String(v.year ?? ''),
