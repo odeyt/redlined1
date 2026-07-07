@@ -1519,7 +1519,7 @@ export function VehiclesView() {
                     <td>
                       <div className="row-actions">
                         {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷 Photos</button>}
-                        {role === 'owner' && shops.length > 1 && (
+                        {(role === 'owner' || role === 'manager') && shops.length > 1 && (
                           <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
                         )}
                         <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
@@ -1594,7 +1594,7 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
                       {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}
-                      {role === 'owner' && shops.length > 1 && (
+                      {(role === 'owner' || role === 'manager') && shops.length > 1 && (
                         <button className="mini-btn" style={{ color: '#2563eb', borderColor: '#93c5fd' }} onClick={() => setTransferTarget(v)}>⇄ Transfer</button>
                       )}
                       <button className="mini-btn" style={{ color: '#ef4444' }} onClick={() => handleDeleteVehicle(v)}>Delete</button>
