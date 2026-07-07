@@ -20,6 +20,7 @@ import {
   AnswerMap,
   CategoryId,
   TriageSession,
+  COMPLAINT_CATEGORIES,
 } from '@/lib/triage/QuestionTypes';
 import { QuestionEngine } from '@/lib/triage/QuestionEngine';
 import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/services/triageService';
@@ -100,7 +101,8 @@ export function TriageView() {
 
   const [step,       setStep]       = useState<Step>('vehicle');
   const [vehicle,    setVehicle]    = useState<TriageVehicle>(defaultVehicle());
-  const [categoryId, setCategoryId] = useState<CategoryId | null>(null);
+  const [categoryIds, setCategoryIds] = useState<CategoryId[]>([]);
+  const categoryId = categoryIds[0] ?? null; // engine/questions use primary category
   const [answers,    setAnswers]    = useState<AnswerMap>({});
   const [techNotes,  setTechNotes]  = useState<TechnicianNotes>(defaultTechNotes());
   const [session,    setSession]    = useState<TriageSession | null>(null);
@@ -132,8 +134,14 @@ export function TriageView() {
 
     engine.setCategory(categoryId);
     const compiled = engine.compileSession(shopId, vehicle, categoryId, answers, techNotes);
-    setSession(compiled);
 
+    // Prepend all selected category labels to the complaint summary
+    if (categoryIds.length > 1) {
+      const labels = categoryIds.map(id => COMPLAINT_CATEGORIES.find(c => c.id === id)?.label ?? id).join(', ');
+      compiled.complaintSummary = `[${labels}] ${compiled.complaintSummary}`;
+    }
+
+    setSession(compiled);
     fetchKnowledgeInsights(vehicle, categoryId).then(setInsights);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -209,7 +217,7 @@ export function TriageView() {
   function resetForm() {
     setStep('vehicle');
     setVehicle(defaultVehicle());
-    setCategoryId(null);
+    setCategoryIds([]);
     setAnswers({});
     setTechNotes(defaultTechNotes());
     setSession(null);
@@ -343,8 +351,8 @@ export function TriageView() {
 
         {step === 'category' && (
           <CategoryStep
-            selected={categoryId}
-            onSelect={setCategoryId}
+            selected={categoryIds}
+            onSelect={setCategoryIds}
             onNext={() => go('questions')}
             onBack={() => go('vehicle')}
           />
