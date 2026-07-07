@@ -127,6 +127,30 @@ textarea {
   overflow-x: visible;
 }
 
+/* Tooltip labels on hover when sidebar is collapsed */
+.sidebar-collapsed [title] {
+  position: relative;
+}
+
+.sidebar-collapsed [title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1a1a2e;
+  color: #eee;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  pointer-events: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
