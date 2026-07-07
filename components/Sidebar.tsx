@@ -328,6 +328,7 @@ export function Sidebar() {
               onClick={() => locked ? null : dispatch({ type: 'SET_MODULE', module: id })}
               onMouseEnter={e => showTooltip(e, tipLabel)}
               onMouseLeave={hideTooltip}
+            >
               <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
               {!collapsed && <span className="label">{label}</span>}
               {!collapsed && (locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null)}
