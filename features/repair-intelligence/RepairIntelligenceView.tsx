@@ -248,7 +248,7 @@ function SimilarRepairsPanel({ matches }: { matches: SimilarRepairMatch[] }) {
           <div key={m.repairCaseId ?? i} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <span style={{ fontWeight: 600 }}>
-                {[m.year, m.make, m.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
+                {[m.make, m.model, m.year].filter(Boolean).join(' ') || 'Unknown Vehicle'}
               </span>
               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 12, background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--accent)44' }}>
                 {m.similarityScore}% match
@@ -358,7 +358,7 @@ function CaseDetail({
             <CompletenessBadge pct={pct} />
           </div>
           <h3 style={{ margin: 0, fontSize: 16 }}>
-            {rc.year} {rc.make} {rc.model}
+            {rc.make} {rc.model} {rc.year}
           </h3>
           {rc.vin && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>VIN: {rc.vin}</div>}
         </div>
@@ -718,7 +718,7 @@ export function RepairIntelligenceView() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>
-                          {[rc.year, rc.make, rc.model].filter(Boolean).join(' ') || 'Unknown Vehicle'}
+                          {[rc.make, rc.model, rc.year].filter(Boolean).join(' ') || 'Unknown Vehicle'}
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <CompletenessBadge pct={pct} />
