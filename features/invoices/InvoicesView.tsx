@@ -655,7 +655,7 @@ export function InvoicesView() {
         </Panel>
 
         {/* ── Right: Invoice Detail ── */}
-        {selected && !showForm && totals && (
+        {selected && totals && (
           <div>
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -815,7 +815,7 @@ export function InvoicesView() {
           </div>
         )}
 
-        {!selected && !showForm && !loading && (
+        {!selected && !loading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--muted)', fontSize: 14 }}>
             Select an invoice to view details
           </div>
