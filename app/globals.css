@@ -85,6 +85,11 @@ textarea {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 268px 1fr;
+  transition: grid-template-columns 0.2s ease;
+}
+
+.shell:has(.sidebar-collapsed) {
+  grid-template-columns: 64px 1fr;
 }
 
 .sidebar {
@@ -97,6 +102,29 @@ textarea {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: width 0.2s ease, padding 0.2s ease;
+}
+
+.sidebar-collapsed {
+  padding: 22px 8px;
+  overflow: visible;
+}
+
+.sidebar-collapsed .brand {
+  justify-content: center;
+  padding-bottom: 16px;
+}
+
+.sidebar-collapsed .nav button {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 10px 6px;
+  min-height: 44px;
+}
+
+.sidebar-collapsed .nav {
+  overflow-y: auto;
+  overflow-x: visible;
 }
 
 .brand {

@@ -26,6 +26,18 @@ export function Sidebar() {
   const { shops, currentShop, switchShop, role, loading: roleLoading } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const shopMenuRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
+
+  function toggleCollapse() {
+    setCollapsed(c => {
+      const next = !c;
+      localStorage.setItem('sidebar-collapsed', String(next));
+      return next;
+    });
+  }
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
   const [companyName, setCompanyName] = useState('D1 Imports');
   const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
@@ -187,20 +199,22 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`}>
       <div className="brand">
         {logoUrl
-          ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3 }} unoptimized />
-          : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
+          ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3, flexShrink: 0 }} unoptimized />
+          : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal', flexShrink: 0 }} />
         }
-        <div>
-          <strong>{companyName}</strong>
-          <span>{tagline}</span>
-        </div>
+        {!collapsed && (
+          <div>
+            <strong>{companyName}</strong>
+            <span>{tagline}</span>
+          </div>
+        )}
       </div>
 
-      {/* Shop switcher — only shown when user has access to multiple shops */}
-      {shops.length > 1 && (
+      {/* Shop switcher — only shown when user has access to multiple shops and sidebar is expanded */}
+      {shops.length > 1 && !collapsed && (
         <div ref={shopMenuRef} style={{ position: 'relative', margin: '4px 10px 0' }}>
           <button
             onClick={() => setShopMenuOpen(o => !o)}
@@ -249,13 +263,13 @@ export function Sidebar() {
           )}
         </div>
       )}
-      {/* Trial / free plan banner */}
-      {planStatus === 'trial' && daysLeft !== null && daysLeft <= 3 && (
+      {/* Trial / free plan banner — hidden when collapsed */}
+      {!collapsed && planStatus === 'trial' && daysLeft !== null && daysLeft <= 3 && (
         <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.4)', borderRadius: 8, fontSize: 11, color: '#ffc107', textAlign: 'center' }}>
           ⏳ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in trial
         </div>
       )}
-      {planStatus === 'free' && (
+      {!collapsed && planStatus === 'free' && (
         <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 8, fontSize: 11, color: '#ff6b6b', textAlign: 'center' }}>
           Free Plan · <a href="/signup" style={{ color: '#ff6b6b', fontWeight: 700 }}>Upgrade</a>
         </div>
@@ -279,8 +293,8 @@ export function Sidebar() {
               onClick={() => locked ? null : dispatch({ type: 'SET_MODULE', module: id })}
             >
               <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
-              <span className="label">{label}</span>
-              {locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null}
+              {!collapsed && <span className="label">{label}</span>}
+              {!collapsed && (locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null)}
             </button>
           );
         })}
@@ -290,19 +304,21 @@ export function Sidebar() {
       <div ref={notifRef} style={{ position: 'relative', margin: '4px 10px 6px' }}>
         <button
           onClick={() => { setNotifOpen(o => !o); if (!notifOpen) markAllRead(); }}
+          title="Notifications"
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
             padding: '9px 12px', background: unreadCount > 0 ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.05)',
             border: `1px solid ${unreadCount > 0 ? 'rgba(220,38,38,0.35)' : 'rgba(255,255,255,0.1)'}`,
             borderRadius: 8, color: unreadCount > 0 ? '#fca5a5' : '#888', cursor: 'pointer', fontSize: 13,
+            position: 'relative',
           }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 15 }}>🔔</span>
-            <span style={{ fontWeight: unreadCount > 0 ? 700 : 400 }}>Notifications</span>
+            {!collapsed && <span style={{ fontWeight: unreadCount > 0 ? 700 : 400 }}>Notifications</span>}
           </span>
           {unreadCount > 0 && (
-            <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 800 }}>{unreadCount}</span>
+            <span style={{ background: '#dc2626', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 800, position: collapsed ? 'absolute' : 'static', top: collapsed ? 4 : undefined, right: collapsed ? 4 : undefined }}>{unreadCount}</span>
           )}
         </button>
 
@@ -357,27 +373,47 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Collapse toggle */}
+      <button
+        onClick={toggleCollapse}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        style={{
+          padding: '9px 12px', background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#666',
+          cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center',
+          gap: 8, width: '100%', marginBottom: 4,
+          justifyContent: collapsed ? 'center' : 'flex-start',
+        }}
+      >
+        <span style={{ fontSize: 15, transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>◀</span>
+        {!collapsed && <span>Collapse sidebar</span>}
+      </button>
+
       <a
         href="/help"
         target="_blank"
+        title="Help & Manual"
         style={{
-          marginTop: 'auto', padding: '10px 16px', background: 'transparent',
+          padding: '10px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, color: '#666',
           fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
           textDecoration: 'none', marginBottom: 8,
+          justifyContent: collapsed ? 'center' : 'flex-start',
         }}
       >
-        <span>❓</span> Help & Manual
+        <span>❓</span>{!collapsed && ' Help & Manual'}
       </a>
       <button
         onClick={handleSignOut}
+        title="Sign Out"
         style={{
           padding: '12px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#aaa',
           cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          justifyContent: collapsed ? 'center' : 'flex-start',
         }}
       >
-        <span>⏻</span> Sign Out
+        <span>⏻</span>{!collapsed && ' Sign Out'}
       </button>
     </aside>
   );
