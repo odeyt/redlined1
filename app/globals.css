@@ -1290,48 +1290,50 @@ tr:last-child td {
 }
 
 @media print {
-  /* Clamp document height so hidden elements don't generate extra pages */
+  /* Hard-cap body to one page — prevents hidden elements from generating page 2 */
   html, body {
+    height: 100vh !important;
+    max-height: 100vh !important;
     overflow: hidden !important;
-    height: auto !important;
   }
 
-  /* Hide everything on the page */
+  /* Hide all app content */
   body * {
     visibility: hidden !important;
   }
 
-  /* Show only the print modal content */
-  .print-content,
-  .print-content * {
-    visibility: visible !important;
-  }
-
-  /* Hide UI controls inside the modal */
-  .no-print,
-  .no-print * {
-    visibility: hidden !important;
-    display: none !important;
-  }
-
-  /* Overlay: fixed + overflow:hidden prevents it from leaking to page 2 */
+  /* Overlay: use absolute NOT fixed — fixed elements repeat on every printed page */
   .print-overlay {
-    position: fixed !important;
-    inset: 0 !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
     background: white !important;
     display: block !important;
     overflow: hidden !important;
     z-index: 9999 !important;
     padding: 0 !important;
+    visibility: visible !important;
+  }
+
+  /* Show invoice content */
+  .print-content,
+  .print-content * {
+    visibility: visible !important;
+  }
+
+  /* Hide print UI buttons */
+  .no-print,
+  .no-print * {
+    display: none !important;
+    visibility: hidden !important;
   }
 
   .print-content {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
+    position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 100vh !important;
     overflow: hidden !important;
     box-shadow: none !important;
     border-radius: 0 !important;
