@@ -1123,6 +1123,9 @@ export function VehiclesView() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [search, setSearch] = useState('');
+  const [customerFilter, setCustomerFilter] = useState(''); // customer ID to filter by
+  const [custFilterSearch, setCustFilterSearch] = useState('');
+  const [showCustFilterDrop, setShowCustFilterDrop] = useState(false);
   const [kanbanDragId, setKanbanDragId] = useState<string | null>(null);
   const [kanbanDragOver, setKanbanDragOver] = useState<string | null>(null);
 
@@ -1296,12 +1299,15 @@ export function VehiclesView() {
 
   // Filtered + searched list
   const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
+  const custNameMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
   const filtered = vehicles.filter(v => {
     // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
     const matchStatus = statusFilter === 'All' || v.status === statusFilter;
+    if (customerFilter && v.customerId !== customerFilter) return false;
     const q = search.toLowerCase();
-    const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, v.assignedTech, v.issues].some(f => f?.toLowerCase().includes(q));
+    const custName = custNameMap[v.customerId] ?? '';
+    const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, v.assignedTech, v.issues, custName].some(f => f?.toLowerCase().includes(q));
     return matchStatus && matchSearch;
   });
 
@@ -1490,12 +1496,59 @@ export function VehiclesView() {
       {/* ── Search + Status filters (list & service views) ── */}
       {(viewMode === 'list' || viewMode === 'service') && (
         <div style={{ marginBottom: 14 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search vehicles, VIN, plate, tech, issues…"
-            style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box', marginBottom: 10 }}
-          />
+          {/* Search + Customer filter row */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search customer, vehicle, VIN, plate, tech…"
+              style={{ flex: 1, padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }}
+            />
+            {/* Customer filter dropdown */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              {customerFilter ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 8, fontSize: 13, fontWeight: 700, color: 'var(--accent)', cursor: 'default', whiteSpace: 'nowrap' }}>
+                  👤 {custNameMap[customerFilter]}
+                  <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 2 }}>({filtered.length} vehicle{filtered.length !== 1 ? 's' : ''})</span>
+                  <button onClick={() => { setCustomerFilter(''); setCustFilterSearch(''); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 800, fontSize: 15, padding: '0 0 0 4px', lineHeight: 1 }}>×</button>
+                </div>
+              ) : (
+                <div>
+                  <input
+                    value={custFilterSearch}
+                    onChange={e => { setCustFilterSearch(e.target.value); setShowCustFilterDrop(true); }}
+                    onFocus={() => setShowCustFilterDrop(true)}
+                    onBlur={() => setTimeout(() => setShowCustFilterDrop(false), 150)}
+                    placeholder="Filter by customer…"
+                    style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, width: 200, boxSizing: 'border-box' }}
+                  />
+                  {showCustFilterDrop && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: 280, overflowY: 'auto', marginTop: 2 }}>
+                      {customers
+                        .filter(c => !custFilterSearch || c.name.toLowerCase().includes(custFilterSearch.toLowerCase()))
+                        .map(c => {
+                          const vCount = vehicles.filter(v => v.customerId === c.id).length;
+                          return (
+                            <div key={c.id}
+                              onMouseDown={() => { setCustomerFilter(c.id); setCustFilterSearch(''); setShowCustFilterDrop(false); }}
+                              style={{ padding: '9px 13px', cursor: 'pointer', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                              <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-soft)', borderRadius: 5, padding: '2px 7px', fontWeight: 600 }}>{vCount} vehicle{vCount !== 1 ? 's' : ''}</span>
+                            </div>
+                          );
+                        })}
+                      {customers.filter(c => !custFilterSearch || c.name.toLowerCase().includes(custFilterSearch.toLowerCase())).length === 0 && (
+                        <div style={{ padding: '12px 14px', color: 'var(--muted)', fontSize: 13 }}>No customers found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
         </div>
       )}
