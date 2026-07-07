@@ -419,10 +419,60 @@ export function InvoicesView() {
             <FilterPills statuses={['All', 'Draft', 'Sent', 'Paid', 'Void']} active={filterStatus} onChange={setFilterStatus} />
           </div>
 
-          {/* New Invoice Form */}
-          {showForm && (
-            <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
-              <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.invoiceNumber}` : 'New Invoice'}</h3>
+          {loading && <p style={{ color: 'var(--muted)' }}>Loading invoices…</p>}
+          {!loading && filtered.length === 0 && (
+            <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>
+              {invoices.length === 0 ? 'No invoices yet. Create your first one.' : 'No invoices match your filter.'}
+            </p>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {invPage.pageItems.map((inv, idx) => {
+              const t = calculateTotals(inv);
+              const isSelected = selected?.id === inv.id;
+              const isLatest = inv.id === invoices[0]?.id;
+              return (
+                <div
+                  key={inv.id}
+                  onClick={() => { setSelected(inv); setShowForm(false); }}
+                  style={{
+                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
+                    background: isSelected ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <strong style={{ fontSize: 14 }}>{inv.invoiceNumber}</strong>
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[inv.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{inv.status}</span>
+                      {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
+                      <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{inv.customerName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inv.vehicle}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(t.total, inv.currency || 'USD')}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmt(inv.createdAt)}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <Pagination
+            page={invPage.page} totalPages={invPage.totalPages} totalItems={invPage.totalItems}
+            startIndex={invPage.startIndex} endIndex={invPage.endIndex}
+            hasPrev={invPage.hasPrev} hasNext={invPage.hasNext}
+            onPrev={invPage.prevPage} onNext={invPage.nextPage}
+            onFirst={invPage.goToFirst} onLast={invPage.goToLast} onPage={invPage.setPage}
+          />
+        </Panel>
+
+        {/* ── Right: Edit/New Form OR Invoice Detail ── */}
+        {showForm ? (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 24 }}>
+            <form onSubmit={handleSave}>
+              <h3 style={{ margin: '0 0 16px', fontSize: 16 }}>{editingId ? `✏️ Edit ${form.invoiceNumber}` : 'New Invoice'}</h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
@@ -492,7 +542,6 @@ export function InvoicesView() {
                   <label style={{ fontWeight: 600, fontSize: 13 }}>LINE ITEMS</label>
                   <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
                 </div>
-                {/* Header row — matches estimates layout exactly, with Note/Ref# prepended */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 4, padding: '0 0 6px', borderBottom: '1px solid var(--line)' }}>
                   {['NOTE / REF #', 'DESCRIPTION (EN)', 'ລາຍລະອຽດ (ລາວ)', 'QTY', 'COST', 'MARKUP %', 'CURRENCY', ratesFetching ? 'LINE TOTAL ⟳' : 'LINE TOTAL', ''].map((h, idx) => (
                     <div key={idx} style={{ fontSize: 10, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', letterSpacing: '0.05em', padding: '0 4px' }}>{h}</div>
@@ -603,59 +652,8 @@ export function InvoicesView() {
                 </button>
               </div>
             </form>
-          )}
-
-          {loading && <p style={{ color: 'var(--muted)' }}>Loading invoices…</p>}
-          {!loading && filtered.length === 0 && (
-            <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>
-              {invoices.length === 0 ? 'No invoices yet. Create your first one.' : 'No invoices match your filter.'}
-            </p>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {invPage.pageItems.map((inv, idx) => {
-              const t = calculateTotals(inv);
-              const isSelected = selected?.id === inv.id;
-              const isLatest = inv.id === invoices[0]?.id;
-              return (
-                <div
-                  key={inv.id}
-                  onClick={() => { setSelected(inv); setShowForm(false); }}
-                  style={{
-                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--line)'}`,
-                    background: isSelected ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <strong style={{ fontSize: 14 }}>{inv.invoiceNumber}</strong>
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[inv.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{inv.status}</span>
-                      {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
-                      <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{inv.customerName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inv.vehicle}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(t.total, inv.currency || 'USD')}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmt(inv.createdAt)}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
-          <Pagination
-            page={invPage.page} totalPages={invPage.totalPages} totalItems={invPage.totalItems}
-            startIndex={invPage.startIndex} endIndex={invPage.endIndex}
-            hasPrev={invPage.hasPrev} hasNext={invPage.hasNext}
-            onPrev={invPage.prevPage} onNext={invPage.nextPage}
-            onFirst={invPage.goToFirst} onLast={invPage.goToLast} onPage={invPage.setPage}
-          />
-        </Panel>
-
-        {/* ── Right: Invoice Detail ── */}
-        {selected && totals && (
+        ) : selected && totals && (
           <div>
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -815,7 +813,7 @@ export function InvoicesView() {
           </div>
         )}
 
-        {!selected && !loading && (
+        {!selected && !showForm && !loading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--muted)', fontSize: 14 }}>
             Select an invoice to view details
           </div>
