@@ -7,6 +7,20 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { getShopId } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
 
+// ── Customer detail row (searchable customer report) ──────────
+interface CustomerDetailRow {
+  id: string;
+  name: string;
+  vehicleCount: number;
+  vehicleLabels: string[];
+  openJobs: number;
+  completedJobs: number;
+  allStatuses: string[];
+  lastActivity: string | null;
+  totalSpend: number;
+  invoiceCount: number;
+}
+
 // ── Technician + Job Completion types ──────────────────────────
 interface TechRow {
   name: string;
@@ -447,6 +461,12 @@ export function ReportsView() {
   // Print modal
   const [showPrintModal, setShowPrintModal] = useState(false);
 
+  // Customer detail search/filter
+  const [custSearch, setCustSearch] = useState('');
+  const [custStatusFilter, setCustStatusFilter] = useState<'all' | 'open' | 'pending' | 'active' | 'archived'>('all');
+  const [customerDetailRows, setCustomerDetailRows] = useState<CustomerDetailRow[]>([]);
+  const [custDetailLoading, setCustDetailLoading] = useState(false);
+
   useEffect(() => {
     load(reportShopId);
     fetchShopSettings().then(s => {
@@ -456,7 +476,75 @@ export function ReportsView() {
     }).catch(() => {});
   }, [reportShopId]); // eslint-disable-line
 
+  useEffect(() => {
+    if (activeTab === 'customers') loadCustomerDetails(reportShopId);
+  }, [activeTab, reportShopId]); // eslint-disable-line
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  async function loadCustomerDetails(sid: string) {
+    setCustDetailLoading(true);
+    try {
+      const [
+        { data: custs },
+        { data: vehs },
+        { data: jobs },
+        { data: invs },
+      ] = await Promise.all([
+        supabase.from('customers').select('id, name').eq('shop_id', sid).order('name'),
+        supabase.from('vehicles').select('id, customer_id, label, status').eq('shop_id', sid),
+        supabase.from('job_cards').select('id, customer, status, check_in_date, closed_date').eq('shop_id', sid),
+        supabase.from('invoices').select('customer, status, subtotal, tax, discount, shop_supplies').eq('shop_id', sid).eq('status', 'Paid'),
+      ]);
+
+      const custList = custs ?? [];
+      const vehList = vehs ?? [];
+      const jobList = jobs ?? [];
+      const invList = invs ?? [];
+
+      const OPEN_STATUSES = new Set(['In Progress', 'Pending Parts', 'Pending Approval', 'Active', 'Returned Job']);
+      const PENDING_STATUSES = new Set(['Pending', 'Pending Approval', 'Pending Parts']);
+      const ARCHIVED_STATUSES = new Set(['Complete', 'Closed', 'Invoiced', 'Archived']);
+
+      const rows: CustomerDetailRow[] = custList.map(c => {
+        const myVehs = vehList.filter(v => v.customer_id === c.id);
+        const myJobs = jobList.filter(j => (j.customer || '').toLowerCase() === (c.name || '').toLowerCase());
+        const myInvs = invList.filter(i => (i.customer || '').toLowerCase() === (c.name || '').toLowerCase());
+
+        const allStatuses = [...new Set([
+          ...myVehs.map(v => v.status as string),
+          ...myJobs.map(j => j.status as string),
+        ])].filter(Boolean);
+
+        const openJobs = myJobs.filter(j => OPEN_STATUSES.has(j.status)).length;
+        const completedJobs = myJobs.filter(j => ARCHIVED_STATUSES.has(j.status)).length;
+
+        const dates = [
+          ...myJobs.map(j => j.closed_date || j.check_in_date),
+        ].filter(Boolean) as string[];
+        const lastActivity = dates.length > 0 ? dates.sort().reverse()[0] : null;
+
+        const totalSpend = myInvs.reduce((s, i) => s + (Number(i.subtotal ?? 0) - Number(i.discount ?? 0) + Number(i.tax ?? 0) + Number(i.shop_supplies ?? 0)), 0);
+
+        return {
+          id: c.id,
+          name: c.name,
+          vehicleCount: myVehs.length,
+          vehicleLabels: myVehs.map(v => v.label).filter(Boolean),
+          openJobs,
+          completedJobs,
+          allStatuses,
+          lastActivity,
+          totalSpend,
+          invoiceCount: myInvs.length,
+        };
+      });
+
+      setCustomerDetailRows(rows);
+    } catch { /* non-critical */ } finally {
+      setCustDetailLoading(false);
+    }
+  }
 
   async function load(sid: string) {
     setLoading(true);
@@ -1084,71 +1172,164 @@ export function ReportsView() {
       )}
 
       {/* ── CUSTOMERS ── */}
-      {activeTab === 'customers' && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <button className="btn btn-primary" onClick={exportCustomerReport}>⬇ Export CSV</button>
-          </div>
+      {activeTab === 'customers' && (() => {
+        const OPEN_S = new Set(['In Progress', 'Pending Parts', 'Pending Approval', 'Active', 'Returned Job']);
+        const PENDING_S = new Set(['Pending', 'Pending Approval', 'Pending Parts']);
+        const ARCHIVED_S = new Set(['Complete', 'Closed', 'Invoiced', 'Archived']);
 
-          <div className="grid cols-4" style={{ marginBottom: 16 }}>
-            {[
-              { label: 'Total Customers', value: String(d.totalCustomers), color: 'var(--text)' },
-              { label: 'Total Vehicles', value: String(d.totalVehicles), color: 'var(--text)' },
-              { label: 'Estimates', value: String(d.totalEstimates), color: 'var(--text)' },
-              { label: 'Convert Rate', value: fmtPct(d.estimateConvertRate), color: d.estimateConvertRate > 50 ? '#4caf50' : 'var(--text)' },
-            ].map(c => (
-              <div key={c.label} className="card" style={{ padding: 18 }}>
-                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
-              </div>
-            ))}
-          </div>
+        const filtered = customerDetailRows.filter(c => {
+          if (custSearch.trim()) {
+            const q = custSearch.toLowerCase();
+            if (!c.name.toLowerCase().includes(q) && !c.vehicleLabels.some(v => v.toLowerCase().includes(q))) return false;
+          }
+          if (custStatusFilter === 'open') return c.openJobs > 0;
+          if (custStatusFilter === 'pending') return c.allStatuses.some(s => PENDING_S.has(s));
+          if (custStatusFilter === 'active') return c.allStatuses.some(s => OPEN_S.has(s));
+          if (custStatusFilter === 'archived') return c.openJobs === 0 && c.completedJobs > 0;
+          return true;
+        });
 
-          <Panel title="Top Customers by Revenue" hint="Based on paid invoices only">
-            {d.topCustomers.length === 0 ? (
-              <p style={{ color: 'var(--muted)', fontSize: 13 }}>No paid invoices yet.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {d.topCustomers.map((c, i) => (
-                  <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: i === 0 ? 'var(--accent)' : 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: i === 0 ? '#fff' : 'var(--muted)', flexShrink: 0 }}>
-                      {i + 1}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
-                        <div style={{ display: 'flex', gap: 12, fontSize: 13 }}>
-                          <span style={{ color: 'var(--muted)' }}>{c.invoiceCount} invoice{c.invoiceCount !== 1 ? 's' : ''}</span>
-                          <span style={{ fontWeight: 700, color: '#4caf50' }}>{fmtMoney(c.totalSpend)}</span>
-                        </div>
-                      </div>
-                      <div style={{ height: 8, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${(c.totalSpend / maxCust) * 100}%`, background: i === 0 ? 'var(--accent)' : '#4caf50', borderRadius: 4, opacity: Math.max(0.4, 1 - i * 0.1) }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
+        const exportCustFull = () => {
+          const rows = [
+            ['Customer', 'Vehicles', 'Open Jobs', 'Completed Jobs', 'Statuses', 'Last Activity', 'Total Spend', 'Paid Invoices'],
+            ...filtered.map(c => [
+              c.name,
+              c.vehicleLabels.join('; ') || '—',
+              String(c.openJobs),
+              String(c.completedJobs),
+              c.allStatuses.join(', ') || '—',
+              c.lastActivity ? new Date(c.lastActivity).toLocaleDateString() : '—',
+              fmtMoney(c.totalSpend),
+              String(c.invoiceCount),
+            ]),
+          ];
+          const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+          const a = document.createElement('a');
+          a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+          a.download = `${shopName.replace(/\s+/g, '-')}-Customers-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+        };
 
-          <Panel title="Estimate Pipeline" hint="Approval and conversion funnel">
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        return (
+          <>
+            {/* Stats */}
+            <div className="grid cols-4" style={{ marginBottom: 16 }}>
               {[
-                { label: 'Total Estimates', value: d.totalEstimates, color: '#888' },
-                { label: 'Approved', value: d.approvedEstimates, color: '#4caf50' },
-                { label: 'Declined', value: d.declinedEstimates, color: '#f44336' },
-                { label: 'Converted', value: d.convertedEstimates, color: '#2196f3' },
-              ].map(e => (
-                <div key={e.label} style={{ flex: 1, minWidth: 100, textAlign: 'center', padding: 16, background: 'var(--surface-soft)', borderRadius: 10, border: '1px solid var(--line)' }}>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: e.color }}>{e.value}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>{e.label}</div>
+                { label: 'Total Customers', value: String(d.totalCustomers), color: 'var(--text)', sub: `${d.totalVehicles} vehicles` },
+                { label: 'With Open Jobs', value: String(customerDetailRows.filter(c => c.openJobs > 0).length), color: '#f59e0b', sub: 'Active work' },
+                { label: 'Estimates', value: String(d.totalEstimates), color: 'var(--text)', sub: `${d.convertedEstimates} converted` },
+                { label: 'Convert Rate', value: fmtPct(d.estimateConvertRate), color: d.estimateConvertRate > 50 ? '#4caf50' : 'var(--text)', sub: 'Estimate → job' },
+              ].map(c => (
+                <div key={c.label} className="card" style={{ padding: 18 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{c.sub}</div>
                 </div>
               ))}
             </div>
-          </Panel>
-        </>
-      )}
+
+            {/* Search + filter bar */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                value={custSearch}
+                onChange={e => setCustSearch(e.target.value)}
+                placeholder="Search customer or vehicle…"
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: 260 }}
+              />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {([['all', 'All'], ['open', 'Open Jobs'], ['pending', 'Pending'], ['active', 'Active'], ['archived', 'Archived']] as [typeof custStatusFilter, string][]).map(([v, label]) => (
+                  <button key={v} onClick={() => setCustStatusFilter(v)}
+                    style={{ padding: '6px 14px', borderRadius: 20, border: `1px solid ${custStatusFilter === v ? 'var(--accent)' : 'var(--line)'}`, background: custStatusFilter === v ? 'rgba(204,0,0,0.1)' : 'var(--surface-soft)', color: custStatusFilter === v ? 'var(--accent)' : 'var(--muted)', fontSize: 12, fontWeight: custStatusFilter === v ? 700 : 400, cursor: 'pointer' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 4 }}>
+                {filtered.length} of {customerDetailRows.length} customers
+              </span>
+              <button className="btn btn-primary" onClick={exportCustFull} style={{ marginLeft: 'auto' }}>⬇ Export CSV</button>
+            </div>
+
+            {/* Customer table */}
+            <Panel title={`${filtered.length} Customer${filtered.length !== 1 ? 's' : ''}`} hint="All statuses including archived jobs">
+              {custDetailLoading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading customers…</div>
+              ) : filtered.length === 0 ? (
+                <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                  {customerDetailRows.length === 0 ? 'No customers yet.' : 'No customers match the current filter.'}
+                </p>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid var(--line)' }}>
+                        {['Customer', 'Vehicles', 'Status', 'Open Jobs', 'Completed', 'Last Activity', 'Total Spend'].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(c => {
+                        const hasOpen = c.openJobs > 0;
+                        const hasPending = c.allStatuses.some(s => PENDING_S.has(s));
+                        const isArchived = !hasOpen && c.completedJobs > 0;
+                        const statusColor = hasOpen ? '#f59e0b' : hasPending ? '#7e22ce' : isArchived ? '#64748b' : '#22c55e';
+                        const statusLabel = hasOpen ? `${c.openJobs} open` : hasPending ? 'Pending' : isArchived ? 'Archived' : 'No jobs';
+                        return (
+                          <tr key={c.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '11px 10px', fontWeight: 700 }}>{c.name}</td>
+                            <td style={{ padding: '11px 10px', color: 'var(--muted)', fontSize: 12 }}>
+                              {c.vehicleLabels.length > 0
+                                ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{c.vehicleLabels.map((v, i) => <span key={i}>{v}</span>)}</div>
+                                : <span style={{ color: 'var(--muted)' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '11px 10px' }}>
+                              <span style={{ background: `${statusColor}18`, color: statusColor, borderRadius: 5, padding: '3px 9px', fontSize: 11, fontWeight: 700 }}>{statusLabel}</span>
+                            </td>
+                            <td style={{ padding: '11px 10px', fontWeight: 700, color: c.openJobs > 0 ? '#f59e0b' : 'var(--muted)' }}>{c.openJobs || '—'}</td>
+                            <td style={{ padding: '11px 10px', color: 'var(--muted)' }}>{c.completedJobs || '—'}</td>
+                            <td style={{ padding: '11px 10px', color: 'var(--muted)', fontSize: 12 }}>
+                              {c.lastActivity ? new Date(c.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                            </td>
+                            <td style={{ padding: '11px 10px', fontWeight: 700, color: c.totalSpend > 0 ? '#4caf50' : 'var(--muted)' }}>
+                              {c.totalSpend > 0 ? fmtMoney(c.totalSpend) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
+
+            {/* Top by revenue panel */}
+            {d.topCustomers.length > 0 && (
+              <Panel title="Top Customers by Revenue" hint="Based on paid invoices only">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {d.topCustomers.map((c, i) => (
+                    <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: i === 0 ? 'var(--accent)' : 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: i === 0 ? '#fff' : 'var(--muted)', flexShrink: 0 }}>{i + 1}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+                          <div style={{ display: 'flex', gap: 12, fontSize: 13 }}>
+                            <span style={{ color: 'var(--muted)' }}>{c.invoiceCount} invoice{c.invoiceCount !== 1 ? 's' : ''}</span>
+                            <span style={{ fontWeight: 700, color: '#4caf50' }}>{fmtMoney(c.totalSpend)}</span>
+                          </div>
+                        </div>
+                        <div style={{ height: 8, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(c.totalSpend / maxCust) * 100}%`, background: i === 0 ? 'var(--accent)' : '#4caf50', borderRadius: 4, opacity: Math.max(0.4, 1 - i * 0.1) }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── TECHNICIANS ── */}
       {activeTab === 'technicians' && (
