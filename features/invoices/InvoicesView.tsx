@@ -489,13 +489,13 @@ export function InvoicesView() {
               {/* Line Items */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
+                  <label style={{ fontWeight: 600, fontSize: 13 }}>LINE ITEMS</label>
                   <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
                 </div>
-                {/* Column headers — separator column between Markup and Currency */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 2fr 0.5fr 0.9fr 0.75fr 10px 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Note / Ref #', 'Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', '', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
-                    <div key={idx} style={{ fontSize: 11, fontWeight: 700, color: idx === 8 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
+                {/* Header row — matches estimates layout exactly, with Note/Ref# prepended */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 4, padding: '0 0 6px', borderBottom: '1px solid var(--line)' }}>
+                  {['NOTE / REF #', 'DESCRIPTION (EN)', 'ລາຍລະອຽດ (ລາວ)', 'QTY', 'COST', 'MARKUP %', 'CURRENCY', ratesFetching ? 'LINE TOTAL ⟳' : 'LINE TOTAL', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 10, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', letterSpacing: '0.05em', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
                 {form.lines.map((line, i) => {
@@ -504,32 +504,40 @@ export function InvoicesView() {
                   const lineCur = line.currency || form.currency;
                   const lineTotal = rate * qty;
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.5fr 2fr 2fr 0.5fr 0.9fr 0.75fr 10px 0.8fr 1fr auto', gap: 4, marginBottom: 6, alignItems: 'center' }}>
-                      <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                      <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 6 }}>
+                      <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
                       <div style={{ display: 'flex', gap: 3 }}>
-                        <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..." style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                        <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..."
+                          style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', minWidth: 0 }} />
                         <button type="button" title="Auto-translate to Lao"
                           onClick={async () => {
                             if (!line.description) return;
                             const lao = await translateToLao(line.description);
                             setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
                           }}
-                          style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, color: 'var(--muted)' }}>🌐</button>
+                          style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>🌐</button>
                       </div>
-                      <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                      <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                      <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                      {/* Visible divider between Markup and Currency */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                        <div style={{ width: 1, height: 28, background: 'var(--line)' }} />
-                      </div>
+                      <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
                       <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
-                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}>
                         <option value="">— same —</option>
-                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                        {[...CURRENCIES].sort((a, b) => {
+                          const order = ['USD', 'THB', 'LAK'];
+                          const ai = order.indexOf(a.code); const bi = order.indexOf(b.code);
+                          if (ai !== -1 && bi !== -1) return ai - bi;
+                          if (ai !== -1) return -1; if (bi !== -1) return 1;
+                          return 0;
+                        }).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                       </select>
-                      <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                      <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
                         {lineTotal !== 0 ? formatMoney(lineTotal, lineCur) : '—'}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -539,7 +547,8 @@ export function InvoicesView() {
                         <button type="button" title="Move down" disabled={i === form.lines.length - 1}
                           onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i], ls[i+1]] = [ls[i+1], ls[i]]; return { ...f, lines: ls }; })}
                           style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === form.lines.length - 1 ? 'var(--line)' : 'var(--muted)', cursor: i === form.lines.length - 1 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▼</button>
-                        <button type="button" onClick={() => removeLine(i)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, padding: '1px 3px', lineHeight: 1 }}>✕</button>
+                        <button type="button" title="Remove line" onClick={() => removeLine(i)}
+                          style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, padding: '1px 3px', lineHeight: 1 }}>✕</button>
                       </div>
                     </div>
                   );
