@@ -445,9 +445,21 @@ export function InvoicesView() {
 
   const totals = selected ? calculateTotals(selected) : null;
 
-  // Summary stats
-  const totalRevenue = invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + calculateTotals(i).total, 0);
-  const outstanding = invoices.filter(i => i.status === 'Sent').reduce((s, i) => s + calculateTotals(i).total, 0);
+  // Summary stats — grouped by currency so the display matches what was actually paid
+  const revenueByCurrency = invoices
+    .filter(i => i.status === 'Paid')
+    .reduce<Record<string, number>>((acc, i) => {
+      const cur = i.currency || 'USD';
+      acc[cur] = (acc[cur] ?? 0) + calculateTotals(i).total;
+      return acc;
+    }, {});
+  const outstandingByCurrency = invoices
+    .filter(i => i.status === 'Sent')
+    .reduce<Record<string, number>>((acc, i) => {
+      const cur = i.currency || 'USD';
+      acc[cur] = (acc[cur] ?? 0) + calculateTotals(i).total;
+      return acc;
+    }, {});
   const draftCount = invoices.filter(i => i.status === 'Draft').length;
 
   return (
@@ -462,11 +474,21 @@ export function InvoicesView() {
         </div>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Revenue (Paid)</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>{formatMoney(totalRevenue, 'USD')}</div>
+          {Object.keys(revenueByCurrency).length === 0
+            ? <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>$0</div>
+            : Object.entries(revenueByCurrency).map(([cur, amt]) => (
+                <div key={cur} style={{ fontSize: 22, fontWeight: 700, color: '#4caf50', lineHeight: 1.3 }}>{formatMoney(amt, cur)}</div>
+              ))
+          }
         </div>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Outstanding</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#2196f3' }}>{formatMoney(outstanding, 'USD')}</div>
+          {Object.keys(outstandingByCurrency).length === 0
+            ? <div style={{ fontSize: 22, fontWeight: 700, color: '#2196f3' }}>$0</div>
+            : Object.entries(outstandingByCurrency).map(([cur, amt]) => (
+                <div key={cur} style={{ fontSize: 22, fontWeight: 700, color: '#2196f3', lineHeight: 1.3 }}>{formatMoney(amt, cur)}</div>
+              ))
+          }
         </div>
         <div className="card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Drafts</div>
