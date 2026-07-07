@@ -5,7 +5,6 @@ import { getAdminDb } from '@/lib/supabaseServer';
 import { getBackupStatus, validateBackup, listRecoveryPoints } from '@/services/backupService';
 
 export async function GET() {
-  // Auth via cookie session (getAdminDb has no session context)
   const cookieStore = await cookies();
   const userClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,13 +15,14 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const adminDb = getAdminDb();
-  const { data: profile } = await adminDb
-    .from('profiles')
+  const { data: shopUser } = await adminDb
+    .from('shop_users')
     .select('role')
-    .eq('id', user.id)
-    .single();
+    .eq('user_id', user.id)
+    .eq('role', 'owner')
+    .maybeSingle();
 
-  if (profile?.role !== 'owner') {
+  if (!shopUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
