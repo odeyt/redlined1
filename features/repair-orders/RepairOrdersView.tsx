@@ -621,8 +621,10 @@ export function RepairOrdersView() {
           discount: 0, shopSupplies: 0, taxRate: shopSettings?.defaultTaxRate ?? 0,
           notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(), dueDate: '', paidDate: null, currency: ro.currency,
         });
-        await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber });
-        const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber };
+        // Only advance to Complete if still in a workable state; preserve Closed/Void
+        const newStatus = (ro.status === 'Closed' || ro.status === 'Void') ? ro.status : 'In Progress';
+        await updateRepairOrder(ro.id, { invoiceNumber: invNumber });
+        const updated = { ...ro, status: newStatus, invoiceNumber: invNumber };
         setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
         setSelected(updated);
         setPullModal(null);
@@ -903,11 +905,21 @@ export function RepairOrdersView() {
                 </button>
               )}
 
-              {/* OWNER ONLY: Create Invoice from Complete ROs */}
-              {role === 'owner' && selected.status === 'Complete' && !selected.invoiceNumber && (
+              {/* Create Invoice — available to owner/manager on any active RO */}
+              {!isTech && selected.status !== 'Closed' && selected.status !== 'Void' && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => openPullModal(selected, 'invoice')}>
                   ⚡ Create Invoice
+                </button>
+              )}
+              {/* View linked invoice */}
+              {selected.invoiceNumber && (
+                <button className="btn" style={{ background: 'rgba(76,175,80,0.08)', color: '#16a34a', border: '1px solid #16a34a44', fontWeight: 700 }}
+                  onClick={() => {
+                    dispatch({ type: 'SET_MODULE', module: 'invoices' });
+                    setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: selected.invoiceNumber } })), 80);
+                  }}>
+                  🧾 View {selected.invoiceNumber}
                 </button>
               )}
 
