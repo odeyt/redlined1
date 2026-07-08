@@ -37,6 +37,8 @@ export interface InvoiceTotals {
   shopSupplies: number;
   tax: number;
   total: number;
+  /** Subtotals keyed by currency — each line's rate is in its own currency */
+  byCurrency: Record<string, number>;
 }
 
 function mapRow(r: Record<string, unknown>): InvoiceFull {
@@ -61,12 +63,20 @@ function mapRow(r: Record<string, unknown>): InvoiceFull {
 }
 
 export function calculateTotals(inv: InvoiceFull): InvoiceTotals {
-  const subtotal = inv.lines.reduce((s, l) => s + l.qty * l.rate, 0);
+  // Group line totals by their own currency
+  const byCurrency: Record<string, number> = {};
+  for (const l of inv.lines) {
+    const lc = l.currency || inv.currency;
+    byCurrency[lc] = (byCurrency[lc] ?? 0) + l.qty * l.rate;
+  }
+  // Subtotal / total are in the invoice's base currency only;
+  // cross-currency lines are shown inline and in byCurrency breakdown.
+  const subtotal = byCurrency[inv.currency] ?? 0;
   const afterDiscount = Math.max(subtotal - inv.discount, 0);
   const taxable = afterDiscount + inv.shopSupplies;
   const tax = taxable * inv.taxRate;
   const total = taxable + tax;
-  return { subtotal, discount: inv.discount, shopSupplies: inv.shopSupplies, tax, total };
+  return { subtotal, discount: inv.discount, shopSupplies: inv.shopSupplies, tax, total, byCurrency };
 }
 
 export async function fetchInvoices(): Promise<InvoiceFull[]> {

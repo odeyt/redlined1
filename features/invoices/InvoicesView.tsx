@@ -216,10 +216,19 @@ export function InvoicesView() {
       </table>
       <div style="display:flex;justify-content:flex-end;margin-top:16px">
         <div style="width:260px">
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Subtotal</span><span>${formatMoney(t.subtotal, inv.currency)}</span></div>
+          ${Object.entries(t.byCurrency).filter(([cur]) => cur !== inv.currency).map(([cur, amt]) =>
+            `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#d97706"><span>Subtotal (${cur})</span><span style="font-weight:600">${formatMoney(amt, cur)}</span></div>`
+          ).join('')}
+          ${t.subtotal > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Subtotal (${inv.currency})</span><span>${formatMoney(t.subtotal, inv.currency)}</span></div>` : ''}
           ${t.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, inv.currency)}</span></div>` : ''}
           ${t.shopSupplies > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Shop Supplies</span><span>${formatMoney(t.shopSupplies, inv.currency)}</span></div>` : ''}
-          <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${inv.currency})</span><span style="color:#cc0000">${formatMoney(t.total, inv.currency)}</span></div>
+          ${(() => {
+            const foreignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
+            const allForeign = t.subtotal === 0 && foreignCurs.length === 1;
+            const displayCur = allForeign ? foreignCurs[0] : inv.currency;
+            const displayAmt = allForeign ? (t.byCurrency[foreignCurs[0]] - t.discount) : t.total;
+            return `<div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>`;
+          })()}
           ${received > 0 ? `
           <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid #eee"><span style="color:#4caf50;font-weight:600">Amount Received</span><span style="color:#4caf50;font-weight:600">-${formatMoney(received, inv.currency)}</span></div>
           <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:700;font-size:15px"><span style="color:${balance<=0?'#4caf50':'#cc0000'}">Balance Due</span><span style="color:${balance<=0?'#4caf50':'#cc0000'}">${balance<=0?'PAID IN FULL':formatMoney(balance,inv.currency)}</span></div>
@@ -955,20 +964,44 @@ export function InvoicesView() {
               {/* Totals */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
                 <div style={{ width: 280 }}>
-                  {[
-                    ['Subtotal', formatMoney(totals.subtotal, selected.currency)],
-                    totals.discount > 0 ? ['Discount', `-${formatMoney(totals.discount, selected.currency)}`] : null,
-                    totals.shopSupplies > 0 ? ['Shop Supplies', formatMoney(totals.shopSupplies, selected.currency)] : null,
-                  ].filter((r): r is [string, string] => r !== null).map(([label, val]) => (
-                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted)' }}>{label}</span>
-                      <span>{val}</span>
+                  {/* Per-currency subtotals for any foreign-currency lines */}
+                  {Object.entries(totals.byCurrency).filter(([cur]) => cur !== selected.currency).map(([cur, amt]) => (
+                    <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                      <span style={{ color: '#d97706' }}>Subtotal ({cur})</span>
+                      <span style={{ color: '#d97706', fontWeight: 600 }}>{formatMoney(amt, cur)}</span>
                     </div>
                   ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
-                    <span>Total ({selected.currency})</span>
-                    <span style={{ color: 'var(--accent)' }}>{formatMoney(totals.total, selected.currency)}</span>
-                  </div>
+                  {totals.subtotal > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted)' }}>Subtotal ({selected.currency})</span>
+                      <span>{formatMoney(totals.subtotal, selected.currency)}</span>
+                    </div>
+                  )}
+                  {totals.discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted)' }}>Discount</span>
+                      <span>-{formatMoney(totals.discount, selected.currency)}</span>
+                    </div>
+                  )}
+                  {totals.shopSupplies > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted)' }}>Shop Supplies</span>
+                      <span>{formatMoney(totals.shopSupplies, selected.currency)}</span>
+                    </div>
+                  )}
+                  {/* Show total per currency when all lines share one non-base currency */}
+                  {(() => {
+                    const foreignCurs = Object.keys(totals.byCurrency).filter(c => c !== selected.currency);
+                    const allForeign = totals.subtotal === 0 && foreignCurs.length === 1;
+                    const displayCur = allForeign ? foreignCurs[0] : selected.currency;
+                    const displayAmt = allForeign ? (totals.byCurrency[foreignCurs[0]] - totals.discount) : totals.total;
+                    return (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17, borderTop: '2px solid var(--accent)', marginTop: 4 }}>
+                        <span>Total ({displayCur})</span>
+                        <span style={{ color: 'var(--accent)' }}>{formatMoney(displayAmt, displayCur)}</span>
+                      </div>
+                    );
+                  })()}
                   {invoicePayments.length > 0 && (() => {
                     const received = invoicePayments.reduce((s, p) => s + p.amount, 0);
                     const balance = totals.total - received;
