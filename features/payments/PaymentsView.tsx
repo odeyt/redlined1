@@ -111,7 +111,7 @@ export function PaymentsView() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [amountStr, setAmountStr] = useState('');
   const [saving, setSaving] = useState(false);
-  const [invoices, setInvoices] = useState<{ number: string; customerName: string; total: number; currency: string }[]>([]);
+  const [invoices, setInvoices] = useState<{ number: string; customerName: string; vehicle: string; total: number; currency: string }[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
   const [enabledMethods, setEnabledMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
@@ -133,6 +133,7 @@ export function PaymentsView() {
     fetchInvoices().then(invs => setInvoices(invs.map(i => ({
       number: i.invoiceNumber,
       customerName: i.customerName,
+      vehicle: i.vehicle,
       total: i.lines.reduce((s, l) => s + l.qty * l.rate, 0),
       currency: i.currency,
     })))).catch(() => {});
@@ -485,6 +486,7 @@ export function PaymentsView() {
               <thead>
                 <tr>
                   <th>Customer</th>
+                  <th>Vehicle</th>
                   <th>Invoice</th>
                   <th>Method</th>
                   <th>Amount</th>
@@ -496,12 +498,16 @@ export function PaymentsView() {
               <tbody>
                 {filtered.map(p => {
                   const methodInfo = PAYMENT_METHODS.find(m => m.value === p.method);
+                  const linkedVehicle = invoices.find(i => i.number === p.invoiceNumber)?.vehicle || '';
                   return (
                     <tr key={p.id}>
                       <td>
                         <strong>{p.customerName}</strong>
                         {p.referenceNumber && <div className="meta">Ref: {p.referenceNumber}</div>}
                         {p.methodDetail && <div className="meta">{p.methodDetail}</div>}
+                      </td>
+                      <td style={{ fontSize: 12, color: linkedVehicle ? 'var(--text)' : 'var(--muted)' }}>
+                        {linkedVehicle || <span style={{ color: 'var(--muted)' }}>—</span>}
                       </td>
                       <td>{p.invoiceNumber ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{p.invoiceNumber}</span> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}</td>
                       <td style={{ fontSize: 13 }}>{methodInfo?.label || p.method}</td>
