@@ -206,7 +206,10 @@ export function JobCardsView() {
   const [fPriority, setFPriority] = useState('Normal');
   const [serviceTypeOptions, setServiceTypeOptions] = useState<string[]>([
     'Oil Change','Brakes','Tires','Alignment','Engine','Transmission',
-    'Electrical','AC/Heat','Diagnostics','Inspection','Detailing','Custom',
+    'Electrical','AC/Heat','Diagnostics','Inspection','Detailing',
+    'Gas/Petrol','Suspension','Exhaust','Battery/Charging','Cooling System',
+    'Fuel System','Steering','Body/Dent','Windshield/Glass','Wash/Detail',
+    'Preventive Maintenance','Pre-Purchase Inspection','Fleet PM','Custom',
   ]);
   const [fRoute, setFRoute] = useState('Mobile Route 1');
   const [fServiceLoc, setFServiceLoc] = useState('');
@@ -526,9 +529,21 @@ export function JobCardsView() {
     'Inspection':    { bg: '#ccfbf1', color: '#0f766e', border: '#5eead4' },
     'Detailing':     { bg: '#fdf4ff', color: '#a21caf', border: '#e879f9' },
     'Custom':        { bg: '#f3f4f6', color: '#374151', border: '#9ca3af' },
-    'Fleet PM':      { bg: '#fffbeb', color: '#b45309', border: '#fcd34d' },
-    'Parts install': { bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
-    'Diagnostic only': { bg: '#e0e7ff', color: '#4338ca', border: '#a5b4fc' },
+    'Fleet PM':              { bg: '#fffbeb', color: '#b45309', border: '#fcd34d' },
+    'Parts install':         { bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+    'Diagnostic only':       { bg: '#e0e7ff', color: '#4338ca', border: '#a5b4fc' },
+    'Gas/Petrol':            { bg: '#fefce8', color: '#854d0e', border: '#fde68a' },
+    'Suspension':            { bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+    'Exhaust':               { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
+    'Battery/Charging':      { bg: '#fffbeb', color: '#92400e', border: '#fcd34d' },
+    'Cooling System':        { bg: '#eff6ff', color: '#1e40af', border: '#93c5fd' },
+    'Fuel System':           { bg: '#fff7ed', color: '#c2410c', border: '#fdba74' },
+    'Steering':              { bg: '#f5f3ff', color: '#6d28d9', border: '#c4b5fd' },
+    'Body/Dent':             { bg: '#fdf4ff', color: '#86198f', border: '#e879f9' },
+    'Windshield/Glass':      { bg: '#ecfeff', color: '#0e7490', border: '#67e8f9' },
+    'Wash/Detail':           { bg: '#f0f9ff', color: '#0369a1', border: '#7dd3fc' },
+    'Preventive Maintenance':{ bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+    'Pre-Purchase Inspection':{ bg: '#ccfbf1', color: '#0f766e', border: '#5eead4' },
   };
 
   const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
