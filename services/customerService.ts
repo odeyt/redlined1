@@ -92,6 +92,15 @@ export async function deleteCustomer(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function updateCustomerEmail(customerId: string, email: string): Promise<void> {
+  const { error } = await supabase
+    .from('customers')
+    .update({ email })
+    .eq('id', customerId)
+    .eq('shop_id', getShopId());
+  if (error) throw error;
+}
+
 export async function updateFollowUp(customerId: string, followUp: string): Promise<void> {
   const { error } = await supabase
     .from('customers')

@@ -6,9 +6,10 @@ import { Pagination } from '@/components/Pagination';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
-import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCustomer } from '@/services/customerService';
+import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCustomer, updateCustomerEmail } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
+import { getShopId } from '@/lib/shopStore';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
@@ -35,6 +36,14 @@ export function CustomersView() {
   const [ros, setRos]                     = useState<RepairOrder[]>([]);
   const [maintSchedules, setMaintSchedules] = useState<MaintenanceSchedule[]>([]);
   const [reminderSending, setReminderSending] = useState<string | null>(null);
+  const [emailPrompt, setEmailPrompt] = useState<{
+    customerId: string;
+    customerName: string;
+    pendingEmail: string;
+    saving: boolean;
+    action: 'followup' | 'reminder';
+    reminderExtra?: { serviceType: string; vehicle: string; dueText: string; nextDueDate: string };
+  } | null>(null);
   const [search, setSearch] = useState('');
   const [pendingCustomerId, setPendingCustomerId] = useState<string | null>(null);
 
@@ -147,14 +156,69 @@ export function CustomersView() {
     } catch { notify('Delete failed. Check your connection.'); }
   }
 
-  async function handleFollowUp(customerId: string, customerName: string) {
+  async function sendFollowUpEmail(customerId: string, customerName: string, email: string) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? '';
+    const res = await fetch('/api/send-followup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ type: 'followup', customerId, email, customerName, shopId: getShopId() }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
     const msg = 'Follow-up sent just now';
+    setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, followUp: msg } : c));
+    if (selected?.id === customerId) setSelected(s => s ? { ...s, followUp: msg } : s);
+    notify(`Follow-up emailed to ${customerName}.`);
+  }
+
+  function handleFollowUp(customerId: string, customerName: string) {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer?.email) {
+      sendFollowUpEmail(customerId, customerName, customer.email).catch(() => notify('Failed to send follow-up.'));
+    } else {
+      setEmailPrompt({ customerId, customerName, pendingEmail: '', saving: false, action: 'followup' });
+    }
+  }
+
+  async function handleEmailPromptSend() {
+    if (!emailPrompt || !emailPrompt.pendingEmail) return;
+    setEmailPrompt(p => p ? { ...p, saving: true } : null);
     try {
-      await updateFollowUp(customerId, msg);
-      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, followUp: msg } : c));
-      if (selected?.id === customerId) setSelected(s => s ? { ...s, followUp: msg } : s);
-      notify(`Follow-up sent to ${customerName}.`);
-    } catch { notify('Failed to send follow-up.'); }
+      // Save email to customer record
+      await updateCustomerEmail(emailPrompt.customerId, emailPrompt.pendingEmail);
+      setCustomers(prev => prev.map(c => c.id === emailPrompt.customerId ? { ...c, email: emailPrompt.pendingEmail } : c));
+      if (selected?.id === emailPrompt.customerId) setSelected(s => s ? { ...s, email: emailPrompt.pendingEmail } : s);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+
+      if (emailPrompt.action === 'followup') {
+        await sendFollowUpEmail(emailPrompt.customerId, emailPrompt.customerName, emailPrompt.pendingEmail);
+      } else {
+        // reminder
+        const extra = emailPrompt.reminderExtra;
+        const res = await fetch('/api/send-followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: 'reminder',
+            customerId: emailPrompt.customerId,
+            email: emailPrompt.pendingEmail,
+            customerName: emailPrompt.customerName,
+            shopId: getShopId(),
+            extra,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error);
+        notify(`Reminder emailed to ${emailPrompt.customerName}.`);
+      }
+      setEmailPrompt(null);
+    } catch (e: unknown) {
+      notify('Failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      setEmailPrompt(p => p ? { ...p, saving: false } : null);
+    }
   }
 
   const filtered = customers.filter(c => {
@@ -436,13 +500,31 @@ export function CustomersView() {
                           <button
                             className="mini-btn"
                             style={{ flex: 1, background: `${urgencyColor}15`, color: urgencyColor, border: `1px solid ${urgencyColor}44`, fontSize: 11 }}
-                            disabled={reminderSending === ms.id || (!ms.customerEmail && !ms.customerPhone)}
-                            title={!ms.customerEmail && !ms.customerPhone ? 'No contact info on schedule' : `Send reminder to ${ms.customerEmail || ms.customerPhone}`}
+                            disabled={reminderSending === ms.id}
                             onClick={async () => {
+                              const custEmail = selected?.email ?? '';
+                              const extra = { serviceType: ms.serviceType, vehicle: ms.vehicle, dueText, nextDueDate: ms.nextDueDate ?? '' };
+                              if (!custEmail) {
+                                setEmailPrompt({ customerId: selected!.id, customerName: selected!.name, pendingEmail: '', saving: false, action: 'reminder', reminderExtra: extra });
+                                return;
+                              }
                               setReminderSending(ms.id);
-                              await new Promise(r => setTimeout(r, 900));
-                              setReminderSending(null);
-                              notify(`Reminder sent to ${ms.customerName} — ${ms.serviceType} ${dueText.toLowerCase()}.`);
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const token = session?.access_token ?? '';
+                                const res = await fetch('/api/send-followup', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ type: 'reminder', customerId: selected!.id, email: custEmail, customerName: selected!.name, shopId: getShopId(), extra }),
+                                });
+                                const json = await res.json();
+                                if (!res.ok) throw new Error(json.error);
+                                notify(`Reminder emailed to ${selected!.name} — ${ms.serviceType} ${dueText.toLowerCase()}.`);
+                              } catch (e: unknown) {
+                                notify('Failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+                              } finally {
+                                setReminderSending(null);
+                              }
                             }}
                           >
                             {reminderSending === ms.id ? 'Sending…' : '📣 Send Reminder'}
@@ -491,6 +573,38 @@ export function CustomersView() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Missing email prompt */}
+      {emailPrompt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>No Email Address on File</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              <strong>{emailPrompt.customerName}</strong> has no email address saved. Enter one below to send the {emailPrompt.action === 'followup' ? 'follow-up' : 'maintenance reminder'} — it will also be saved to their profile.
+            </div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>EMAIL ADDRESS</label>
+            <input
+              type="email"
+              autoFocus
+              value={emailPrompt.pendingEmail}
+              onChange={e => setEmailPrompt(p => p ? { ...p, pendingEmail: e.target.value } : null)}
+              onKeyDown={e => e.key === 'Enter' && emailPrompt.pendingEmail && handleEmailPromptSend()}
+              placeholder="customer@example.com"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEmailPrompt(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button
+                disabled={!emailPrompt.pendingEmail || emailPrompt.saving}
+                onClick={handleEmailPromptSend}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#cc0000', color: '#fff', cursor: emailPrompt.pendingEmail ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: !emailPrompt.pendingEmail || emailPrompt.saving ? 0.6 : 1 }}
+              >
+                {emailPrompt.saving ? 'Saving & Sending…' : '✉️ Save & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
