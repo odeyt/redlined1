@@ -14,6 +14,8 @@ import { createPayment, fetchPayments, type Payment } from '@/services/paymentSe
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
+import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
+import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
@@ -78,6 +80,14 @@ export function InvoicesView() {
   const printRef = useRef<HTMLDivElement>(null);
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
   const [ratesFetching, setRatesFetching] = useState(false);
+  const [cleanupModal, setCleanupModal] = useState<{
+    invoice: InvoiceFull;
+    orders: import('@/services/partsOrderService').PartsOrder[];
+    quotations: import('@/services/partsEstimateService').PartsEstimate[];
+    selectedOrders: Set<string>;
+    selectedQuotations: Set<string>;
+    deleting: boolean;
+  } | null>(null);
 
   useEffect(() => {
     load();
@@ -370,6 +380,49 @@ export function InvoicesView() {
     } finally { setSaving(false); }
   }
 
+  async function triggerPaidCleanup(inv: InvoiceFull) {
+    try {
+      const [allOrders, allQuotations] = await Promise.all([
+        fetchPartsOrders(),
+        fetchPartsEstimates(),
+      ]);
+      const cn = inv.customerName?.toLowerCase() ?? '';
+      const vh = inv.vehicle?.toLowerCase() ?? '';
+      const matchOrders = allOrders.filter(o =>
+        o.customerName?.toLowerCase() === cn && (!vh || o.vehicle?.toLowerCase() === vh)
+      );
+      const matchQuotations = allQuotations.filter(q =>
+        q.customerName?.toLowerCase() === cn && (!vh || q.vehicle?.toLowerCase() === vh)
+      );
+      if (matchOrders.length === 0 && matchQuotations.length === 0) return;
+      setCleanupModal({
+        invoice: inv,
+        orders: matchOrders,
+        quotations: matchQuotations,
+        selectedOrders: new Set(matchOrders.map(o => o.id)),
+        selectedQuotations: new Set(matchQuotations.map(q => q.id)),
+        deleting: false,
+      });
+    } catch { /* silent — cleanup is optional */ }
+  }
+
+  async function handleCleanupConfirm() {
+    if (!cleanupModal) return;
+    setCleanupModal(m => m ? { ...m, deleting: true } : null);
+    try {
+      await Promise.all([
+        ...Array.from(cleanupModal.selectedOrders).map(id => deletePartsOrder(id)),
+        ...Array.from(cleanupModal.selectedQuotations).map(id => deletePartsEstimate(id)),
+      ]);
+      const total = cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size;
+      notify(`Cleaned up ${total} parts record${total !== 1 ? 's' : ''} linked to ${cleanupModal.invoice.invoiceNumber}.`);
+    } catch (e: unknown) {
+      setError('Cleanup failed: ' + (e instanceof Error ? e.message : ''));
+    } finally {
+      setCleanupModal(null);
+    }
+  }
+
   async function handleMarkPaid(inv: InvoiceFull) {
     try {
       const paidDate = new Date().toISOString();
@@ -393,6 +446,7 @@ export function InvoicesView() {
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       setSelected(updated);
       notify(`${inv.invoiceNumber} marked paid. ${formatMoney(total, inv.currency || 'USD')} payment recorded.`);
+      triggerPaidCleanup(inv);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -415,6 +469,7 @@ export function InvoicesView() {
           referenceNumber: '',
           paymentDate: paidDate!,
         });
+        triggerPaidCleanup(inv);
       }
       const updated = { ...inv, status, ...(paidDate ? { paidDate } : {}) };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
@@ -932,6 +987,82 @@ export function InvoicesView() {
         )}
       </div>
 
+      {/* Parts Cleanup Modal */}
+      {cleanupModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 12, padding: 28, width: 480, maxWidth: '95vw', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Clean Up Parts Records?</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              {cleanupModal.invoice.invoiceNumber} is now <strong>Paid</strong>. The following linked parts records can be removed to keep the database clean. Uncheck any you want to keep.
+            </div>
+
+            {cleanupModal.orders.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 8 }}>
+                  Parts Orders ({cleanupModal.orders.length})
+                </div>
+                {cleanupModal.orders.map(o => (
+                  <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={cleanupModal.selectedOrders.has(o.id)} onChange={e => {
+                      setCleanupModal(m => {
+                        if (!m) return null;
+                        const s = new Set(m.selectedOrders);
+                        e.target.checked ? s.add(o.id) : s.delete(o.id);
+                        return { ...m, selectedOrders: s };
+                      });
+                    }} />
+                    <span style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{o.partName || 'Part'}</span>
+                      {o.partNumber && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {o.partNumber}</span>}
+                      {o.vehicle && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {o.vehicle}</span>}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6 }}>{o.status}</span>
+                  </label>
+                ))}
+              </>
+            )}
+
+            {cleanupModal.quotations.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginTop: 16, marginBottom: 8 }}>
+                  Parts Quotations ({cleanupModal.quotations.length})
+                </div>
+                {cleanupModal.quotations.map(q => (
+                  <label key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={cleanupModal.selectedQuotations.has(q.id)} onChange={e => {
+                      setCleanupModal(m => {
+                        if (!m) return null;
+                        const s = new Set(m.selectedQuotations);
+                        e.target.checked ? s.add(q.id) : s.delete(q.id);
+                        return { ...m, selectedQuotations: s };
+                      });
+                    }} />
+                    <span style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{q.partName || 'Part'}</span>
+                      {q.partNumber && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {q.partNumber}</span>}
+                      {q.vehicle && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {q.vehicle}</span>}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6 }}>{q.status}</span>
+                  </label>
+                ))}
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
+              <button onClick={() => setCleanupModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>
+                Skip
+              </button>
+              <button
+                disabled={cleanupModal.deleting || (cleanupModal.selectedOrders.size === 0 && cleanupModal.selectedQuotations.size === 0)}
+                onClick={handleCleanupConfirm}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: cleanupModal.deleting ? 0.6 : 1 }}
+              >
+                {cleanupModal.deleting ? 'Deleting…' : `Delete ${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size} Record${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </>
   );
