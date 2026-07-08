@@ -47,19 +47,30 @@ export function buildEvent(
 
 /**
  * Publish an event. Fire-and-forget — never throws, never blocks.
+ * Also records to intelligence_events DB table if intelligence_bus is reachable.
  * Returns true if successfully handed off to provider, false otherwise.
  */
 export async function publish(event: IntelligenceEvent): Promise<boolean> {
   _queue.push(event);
   try {
+    // 1. Hand off to provider (mock no-ops; future providers send to AI)
     if (_providerPublish) {
       await _providerPublish(event);
     }
     _lastEventAt = event.timestamp;
     _queue.splice(_queue.indexOf(event), 1);
+
+    // 2. Record to DB — fail silently if bus unavailable
+    // Dynamic import so this module stays browser-safe (bus uses Node-only getAdminDb)
+    if (typeof window === 'undefined') {
+      try {
+        const { recordEvent } = await import('../bus/IntelligenceBus');
+        void recordEvent(event);
+      } catch { /* bus unavailable — production unaffected */ }
+    }
+
     return true;
   } catch {
-    // Intentionally swallowed — intelligence must never affect production
     _queue.splice(_queue.indexOf(event), 1);
     return false;
   }

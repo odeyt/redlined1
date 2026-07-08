@@ -41,6 +41,9 @@ export type KnownFlagKey =
   | 'plugin_system'
   // Intelligence Foundation — all default OFF
   | 'intelligence_foundation'
+  | 'intelligence_bus'
+  | 'recommendation_engine'
   | 'command_center'
   | 'daily_summary'
-  | 'morning_briefing';
+  | 'morning_briefing'
+  | 'daily_recommendations';
