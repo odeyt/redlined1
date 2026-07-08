@@ -137,7 +137,7 @@ export function DashboardView() {
         supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
         supabase.from('job_cards').select('status').eq('shop_id', getShopId()),
         supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
-        supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency, paid_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
         supabase.from('estimates').select('status').eq('shop_id', getShopId()),
         supabase.from('payments').select('amount, payment_date, currency').eq('shop_id', getShopId()).order('payment_date', { ascending: false }),
         supabase.from('parts').select('id, quantity, reorder_point').eq('shop_id', getShopId()),
@@ -186,15 +186,18 @@ export function DashboardView() {
       const totalRevenue = Object.values(revenueByCurrency).reduce((s, v) => s + v, 0);
       const outstanding = Object.values(outstandingByCurrency).reduce((s, v) => s + v, 0);
 
-      // Payments today
+      // Payments today (used for payment count only)
       const pays = payData ?? [];
       const todayPays = pays.filter(p => p.payment_date && p.payment_date >= todayISO);
-      const revenueToday = todayPays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+
+      // Today's revenue = invoices marked Paid today, grouped by effective currency
+      const paidTodayInvs = paidInvs.filter(i => i.paid_date && i.paid_date >= todayISO);
       const revenueTodayByCurrency: Record<string, number> = {};
-      for (const p of todayPays) {
-        const cur = (p.currency as string) || 'USD';
-        revenueTodayByCurrency[cur] = (revenueTodayByCurrency[cur] ?? 0) + Number(p.amount ?? 0);
+      for (const inv of paidTodayInvs) {
+        const { amount, currency } = calcInvEffective(inv);
+        revenueTodayByCurrency[currency] = (revenueTodayByCurrency[currency] ?? 0) + amount;
       }
+      const revenueToday = Object.values(revenueTodayByCurrency).reduce((s, v) => s + v, 0);
 
       // Parts low stock
       const parts = partsData ?? [];
@@ -224,7 +227,7 @@ export function DashboardView() {
         outstandingByCurrency,
         totalEstimates: ests.length,
         approvedEstimates: ests.filter(e => e.status === 'Approved').length,
-        paymentsToday: todayPays.length,
+        paymentsToday: paidTodayInvs.length,
         revenueToday,
         revenueTodayByCurrency,
         totalParts: parts.length,
@@ -331,7 +334,7 @@ export function DashboardView() {
                 {formatMoney(amt, cur)}
               </div>
             ))}
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} payment{s.paymentsToday !== 1 ? 's' : ''} recorded</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} invoice{s.paymentsToday !== 1 ? 's' : ''} paid today</div>
           </div>
           <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
