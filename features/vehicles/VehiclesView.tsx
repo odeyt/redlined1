@@ -16,6 +16,10 @@ import { fetchTechnicians, type Technician } from '@/services/technicianService'
 import { getTechColor as _getTechColor } from '@/lib/techColors';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchRepairOrders, type RepairOrder } from '@/services/repairOrderService';
+import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
+import { fetchEstimates, type EstimateFull } from '@/services/estimateService';
+import { fetchInvoices, type InvoiceFull } from '@/services/invoiceService';
+import { fetchPartsEstimates, type PartsEstimate } from '@/services/partsEstimateService';
 import { FilterPills } from '@/components/FilterPills';
 
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -364,7 +368,7 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated, onGoToModule }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -379,6 +383,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   onSwitchVehicle: (v: VehicleRecord) => void;
   onGoToCustomer: (customerId: string) => void;
   onCustomerCreated: (c: Customer) => void;
+  onGoToModule: (module: string, extra?: Record<string, unknown>) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
@@ -388,6 +393,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [showAddForCust, setShowAddForCust] = useState(false);
   const [pulledFrom, setPulledFrom] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
+  const [lifecycle, setLifecycle] = useState<{
+    jobCards: JobCardFull[];
+    repairOrders: RepairOrder[];
+    partsQuotations: PartsEstimate[];
+    estimates: EstimateFull[];
+    invoices: InvoiceFull[];
+    loading: boolean;
+  }>({ jobCards: [], repairOrders: [], partsQuotations: [], estimates: [], invoices: [], loading: true });
   const custInputRef = useRef<HTMLInputElement>(null);
   const [showInlineNewCust, setShowInlineNewCust] = useState(false);
   const [inlineNewCust, setInlineNewCust] = useState({ name: '', phone: '', email: '' });
@@ -450,6 +463,28 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
   // Auto-pull on open (only fills empty fields, handled inside pullFromRO via || prev.x)
   useEffect(() => { pullFromRO(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lifecycle: fetch all linked records for this vehicle
+  useEffect(() => {
+    const vLabel = vehicle.label?.toLowerCase() ?? '';
+    const match = (s: string) => s?.toLowerCase() === vLabel;
+    Promise.all([
+      fetchJobCards(),
+      fetchRepairOrders(),
+      fetchPartsEstimates(),
+      fetchEstimates(),
+      fetchInvoices(),
+    ]).then(([jcs, ros, pqs, ests, invs]) => {
+      setLifecycle({
+        jobCards:       jcs.filter(j => match(j.vehicle)),
+        repairOrders:   ros.filter(r => match(r.vehicle)),
+        partsQuotations: pqs.filter(q => match(q.vehicle)),
+        estimates:      ests.filter(e => match(e.vehicle)),
+        invoices:       invs.filter(i => match(i.vehicle)),
+        loading: false,
+      });
+    }).catch(() => setLifecycle(l => ({ ...l, loading: false })));
+  }, [vehicle.id, vehicle.label]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function decodeVin(vin: string) {
     if (vin.length !== 17) return;
@@ -767,6 +802,104 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         {/* Form body */}
         <div style={{ flex: 1, padding: '20px 28px', overflowY: 'auto' }}>
           {err && <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff0f0', border: '1px solid #fca5a5', borderRadius: 7, color: '#dc2626', fontSize: 12 }}>{err}</div>}
+
+          {/* ── Vehicle Lifecycle Panel ── */}
+          {(() => {
+            const { jobCards, repairOrders, partsQuotations, estimates, invoices, loading } = lifecycle;
+            const steps: {
+              key: string; label: string; icon: string; module: string;
+              records: { id: string; number: string; status: string }[];
+              onCreate?: () => void; createLabel?: string;
+            }[] = [
+              {
+                key: 'jobcard', label: 'Job Card', icon: '📋', module: 'job-cards',
+                records: jobCards.map(j => ({ id: j.id, number: j.id, status: j.status })),
+                onCreate: onJobCard, createLabel: 'New Job Card',
+              },
+              {
+                key: 'ro', label: 'Repair Order', icon: '🔧', module: 'repair-orders',
+                records: repairOrders.map(r => ({ id: r.id, number: r.roNumber, status: r.status })),
+              },
+              {
+                key: 'partsquote', label: 'Parts Quotation', icon: '📦', module: 'parts-estimates',
+                records: partsQuotations.map(q => ({ id: q.id, number: q.partName || q.id, status: q.status })),
+              },
+              {
+                key: 'estimate', label: 'Estimate', icon: '📄', module: 'estimates',
+                records: estimates.map(e => ({ id: e.id, number: e.estimateNumber, status: e.status })),
+              },
+              {
+                key: 'invoice', label: 'Invoice', icon: '🧾', module: 'invoices',
+                records: invoices.map(i => ({ id: i.id, number: i.invoiceNumber, status: i.status })),
+                onCreate: onCreateInvoice, createLabel: 'Create Invoice',
+              },
+            ];
+
+            const statusColor2 = (s: string) => {
+              if (['Paid', 'Approved', 'Complete', 'Completed', 'Closed'].includes(s)) return { bg: '#dcfce7', color: '#166534', dot: '#22c55e' };
+              if (['Draft', 'Open', 'Active'].includes(s)) return { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' };
+              if (['Void', 'Cancelled', 'Rejected'].includes(s)) return { bg: '#fee2e2', color: '#991b1b', dot: '#ef4444' };
+              return { bg: 'var(--surface-soft)', color: 'var(--muted)', dot: '#94a3b8' };
+            };
+
+            return (
+              <div style={{ marginBottom: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Vehicle Lifecycle</span>
+                  {loading && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Loading…</span>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                  {steps.map((step, idx) => {
+                    const hasRecords = step.records.length > 0;
+                    const latest = step.records[step.records.length - 1];
+                    const sc = latest ? statusColor2(latest.status) : null;
+                    const isLast = idx === steps.length - 1;
+                    return (
+                      <div key={step.key} style={{ padding: '12px 10px', borderRight: isLast ? 'none' : '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', textAlign: 'center', position: 'relative' }}>
+                        {/* Connector line */}
+                        {!isLast && (
+                          <div style={{ position: 'absolute', right: -1, top: '50%', transform: 'translateY(-50%)', width: 1, height: '60%', background: 'var(--line)' }} />
+                        )}
+                        {/* Icon + check */}
+                        <div style={{ position: 'relative', display: 'inline-flex' }}>
+                          <span style={{ fontSize: 22 }}>{step.icon}</span>
+                          {hasRecords && (
+                            <span style={{ position: 'absolute', bottom: -2, right: -4, width: 12, height: 12, borderRadius: '50%', background: '#22c55e', border: '2px solid var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff', fontWeight: 900 }}>✓</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: hasRecords ? 'var(--text)' : 'var(--muted)' }}>{step.label}</div>
+                        {hasRecords ? (
+                          <>
+                            {step.records.map(r => (
+                              <button key={r.id}
+                                onClick={() => { onClose(); onGoToModule(step.module); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 20, border: `1px solid ${sc!.dot}33`, background: sc!.bg, cursor: 'pointer', fontSize: 10, fontWeight: 700, color: sc!.color, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                title={`${r.number} · ${r.status}`}
+                              >
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc!.dot, flexShrink: 0 }} />
+                                {r.number.length > 10 ? r.number.slice(0, 10) + '…' : r.number}
+                              </button>
+                            ))}
+                            <button onClick={() => { onClose(); onGoToModule(step.module); }}
+                              style={{ fontSize: 10, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+                              View →
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={step.onCreate ? step.onCreate : () => { onClose(); onGoToModule(step.module); }}
+                            style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', background: 'rgba(220,38,38,0.07)', border: '1px dashed #dc262633', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
+                          >
+                            {step.onCreate ? `+ ${step.createLabel}` : `Go to ${step.label}`}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           <div>{/* ── LEFT: Basic Info ── */}
@@ -1538,6 +1671,10 @@ export function VehiclesView() {
           }}
           onCustomerCreated={(newCust) => {
             setCustomers(prev => [...prev, newCust].sort((a, b) => a.name.localeCompare(b.name)));
+          }}
+          onGoToModule={(module) => {
+            setDrawerVehicle(null);
+            dispatch({ type: 'SET_MODULE', module });
           }}
         />
       )}
