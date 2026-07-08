@@ -23,6 +23,38 @@ import { draftEstimateFromInspection } from '@/services/aiService';
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50', Attention: '#ff9800', Fail: '#f44336', 'N/A': '#888',
 };
+
+// Category color palette — each section gets a distinct accent
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; color: string; icon: string }> = {
+  'Brakes':                 { bg: '#fee2e2', border: '#fca5a5', color: '#b91c1c', icon: '🛑' },
+  'Tires':                  { bg: '#f1f5f9', border: '#94a3b8', color: '#334155', icon: '⭕' },
+  'Fluids':                 { bg: '#dbeafe', border: '#93c5fd', color: '#1d4ed8', icon: '💧' },
+  'Lights':                 { bg: '#fef9c3', border: '#fde047', color: '#92400e', icon: '💡' },
+  'Under Hood':             { bg: '#f3e8ff', border: '#c084fc', color: '#7e22ce', icon: '🔧' },
+  'Suspension':             { bg: '#ffedd5', border: '#fdba74', color: '#c2410c', icon: '🔩' },
+  'Intake — Exterior':      { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '🚗' },
+  'Intake — Interior':      { bg: '#ecfdf5', border: '#6ee7b7', color: '#065f46', icon: '🪑' },
+  'Intake — Functional':    { bg: '#e0f2fe', border: '#7dd3fc', color: '#0369a1', icon: '⚙️' },
+  'Outtake — QA Checklist': { bg: '#f0fdf4', border: '#4ade80', color: '#15803d', icon: '✅' },
+};
+
+function getCategoryStyle(cat: string) {
+  // Exact match first, then prefix match for dynamic categories like "Fuel — Triage Checks"
+  if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
+  const prefix = Object.keys(CATEGORY_COLORS).find(k => cat.toLowerCase().startsWith(k.toLowerCase()));
+  if (prefix) return CATEGORY_COLORS[prefix];
+  // Dynamic triage categories (e.g. "Fuel — Triage Checks", "Engine — Triage Checks")
+  if (cat.toLowerCase().includes('fuel'))        return { bg: '#fef3c7', border: '#fcd34d', color: '#92400e', icon: '⛽' };
+  if (cat.toLowerCase().includes('engine'))      return { bg: '#f3e8ff', border: '#c084fc', color: '#7e22ce', icon: '🔧' };
+  if (cat.toLowerCase().includes('electrical'))  return { bg: '#fef9c3', border: '#fde047', color: '#92400e', icon: '⚡' };
+  if (cat.toLowerCase().includes('transmission'))return { bg: '#ede9fe', border: '#a78bfa', color: '#5b21b6', icon: '⚙️' };
+  if (cat.toLowerCase().includes('ac') || cat.toLowerCase().includes('heat')) return { bg: '#e0f2fe', border: '#7dd3fc', color: '#0369a1', icon: '❄️' };
+  if (cat.toLowerCase().includes('exhaust'))     return { bg: '#f5f5f4', border: '#a8a29e', color: '#44403c', icon: '💨' };
+  if (cat.toLowerCase().includes('steering'))    return { bg: '#fff7ed', border: '#fdba74', color: '#c2410c', icon: '🎯' };
+  if (cat.toLowerCase().includes('cooling'))     return { bg: '#cffafe', border: '#67e8f9', color: '#0e7490', icon: '🌡️' };
+  // Default fallback
+  return { bg: '#f8fafc', border: '#cbd5e1', color: '#475569', icon: '📋' };
+}
 const ITEM_STATUSES: InspectionItem['status'][] = ['N/A', 'Pass', 'Attention', 'Fail'];
 
 function freshItem(template: Omit<InspectionItem, 'id'>): InspectionItem {
@@ -761,9 +793,14 @@ export function InspectionsView() {
                 </div>
 
                 {/* Checklist */}
-                {categories.map(cat => (
+                {categories.map(cat => {
+                  const cs = getCategoryStyle(cat);
+                  return (
                   <div key={cat} style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid var(--line)' }}>{cat}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: cs.bg, border: `1.5px solid ${cs.border}`, borderRadius: 8, padding: '6px 12px', marginBottom: 8 }}>
+                      <span style={{ fontSize: 15 }}>{cs.icon}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: cs.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{cat}</span>
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {form.items.filter(it => it.category === cat).map(item => (
                         <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--surface-soft)', borderRadius: 8, padding: '8px 10px' }}>
@@ -803,7 +840,8 @@ export function InspectionsView() {
                       ))}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 <div className="login-field" style={{ marginTop: 8 }}>
                   <label>Overall Notes</label>
@@ -1012,11 +1050,13 @@ export function InspectionsView() {
                   const catItems = selected.items.filter(i => i.category === cat);
                   const visibleItems = activeItemFilter ? catItems.filter(i => i.status === activeItemFilter) : catItems;
                   if (activeItemFilter && visibleItems.length === 0) return null;
+                  const cs = getCategoryStyle(cat);
                   return (
                   <div key={cat} style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>
-                      {cat}
-                      {activeItemFilter && <span style={{ marginLeft: 6, fontWeight: 400, opacity: 0.7 }}>({visibleItems.length}/{catItems.length})</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: cs.bg, border: `1.5px solid ${cs.border}`, borderRadius: 8, padding: '5px 10px', marginBottom: 6 }}>
+                      <span style={{ fontSize: 14 }}>{cs.icon}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: cs.color, textTransform: 'uppercase', letterSpacing: '0.08em', flex: 1 }}>{cat}</span>
+                      {activeItemFilter && <span style={{ fontSize: 10, fontWeight: 400, color: cs.color, opacity: 0.8 }}>({visibleItems.length}/{catItems.length})</span>}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {catItems.map(item => {
@@ -1102,14 +1142,20 @@ export function InspectionsView() {
             </div>
 
             {/* Checklist by category */}
-            {[...new Set(selected.items.map(i => i.category))].map(cat => (
+            {[...new Set(selected.items.map(i => i.category))].map(cat => {
+              const cs = getCategoryStyle(cat);
+              return (
               <div key={cat} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#555', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid #eee' }}>{cat}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, background: cs.bg, border: `1.5px solid ${cs.border}`, borderRadius: 8, padding: '6px 12px', marginBottom: 8 }}>
+                  <span style={{ fontSize: 15 }}>{cs.icon}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: cs.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{cat}</span>
+                </div>
                 {selected.items.filter(i => i.category === cat).map(item => (
                   <ReportItemRow key={item.id} item={item} onPhotoClick={setLightboxUrl} />
                 ))}
               </div>
-            ))}
+              );
+            })}
 
             {selected.notes && <div style={{ marginTop: 16, padding: '12px 14px', background: '#f8f8f8', borderRadius: 8 }}><strong style={{ fontSize: 12 }}>Notes: </strong><span style={{ fontSize: 12, color: '#555' }}>{selected.notes}</span></div>}
 
