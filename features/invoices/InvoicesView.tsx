@@ -7,7 +7,7 @@ import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchInvoices, createInvoice, updateInvoice, markInvoicePaid,
-  deleteInvoice, nextInvoiceNumber, calculateTotals, formatMoney, CURRENCIES,
+  deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
 import { createPayment, fetchPayments, type Payment } from '@/services/paymentService';
@@ -422,7 +422,7 @@ export function InvoicesView() {
   async function handleMarkPaid(inv: InvoiceFull) {
     try {
       const paidDate = new Date().toISOString();
-      const total = calculateTotals(inv).total;
+      const { amount: total, currency: payCurrency } = getEffectiveTotal(inv);
       await markInvoicePaid(inv.id);
       // Auto-create payment record so Reports stays in sync
       await createPayment({
@@ -434,14 +434,14 @@ export function InvoicesView() {
         methodDetail: '',
         status: 'Recorded',
         notes: `Auto-recorded when ${inv.invoiceNumber} marked paid`,
-        currency: inv.currency || 'USD',
+        currency: payCurrency,
         referenceNumber: '',
         paymentDate: paidDate,
       });
       const updated = { ...inv, status: 'Paid', paidDate };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       setSelected(updated);
-      notify(`${inv.invoiceNumber} marked paid. ${formatMoney(total, inv.currency || 'USD')} payment recorded.`);
+      notify(`${inv.invoiceNumber} marked paid. ${formatMoney(total, payCurrency)} payment recorded.`);
       triggerPaidCleanup(inv);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
@@ -451,7 +451,7 @@ export function InvoicesView() {
       const paidDate = status === 'Paid' ? new Date().toISOString() : undefined;
       await updateInvoice(inv.id, { status, ...(paidDate ? { paidDate } : {}) });
       if (status === 'Paid' && inv.status !== 'Paid') {
-        const total = calculateTotals(inv).total;
+        const { amount: total, currency: payCurrency } = getEffectiveTotal(inv);
         await createPayment({
           invoiceNumber: inv.invoiceNumber,
           customerName: inv.customerName,
@@ -461,7 +461,7 @@ export function InvoicesView() {
           methodDetail: '',
           status: 'Recorded',
           notes: `Auto-recorded when ${inv.invoiceNumber} set to Paid`,
-          currency: inv.currency || 'USD',
+          currency: payCurrency,
           referenceNumber: '',
           paymentDate: paidDate!,
         });
@@ -529,19 +529,19 @@ export function InvoicesView() {
 
   const totals = selected ? calculateTotals(selected) : null;
 
-  // Summary stats — grouped by currency so the display matches what was actually paid
+  // Summary stats — grouped by effective currency (handles all-foreign-currency invoices)
   const revenueByCurrency = invoices
     .filter(i => i.status === 'Paid')
     .reduce<Record<string, number>>((acc, i) => {
-      const cur = i.currency || 'USD';
-      acc[cur] = (acc[cur] ?? 0) + calculateTotals(i).total;
+      const { amount, currency } = getEffectiveTotal(i);
+      acc[currency] = (acc[currency] ?? 0) + amount;
       return acc;
     }, {});
   const outstandingByCurrency = invoices
     .filter(i => i.status === 'Sent')
     .reduce<Record<string, number>>((acc, i) => {
-      const cur = i.currency || 'USD';
-      acc[cur] = (acc[cur] ?? 0) + calculateTotals(i).total;
+      const { amount, currency } = getEffectiveTotal(i);
+      acc[currency] = (acc[currency] ?? 0) + amount;
       return acc;
     }, {});
   const draftCount = invoices.filter(i => i.status === 'Draft').length;
@@ -602,7 +602,7 @@ export function InvoicesView() {
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{invoices[0].vehicle} · {fmt(invoices[0].createdAt)}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700 }}>{formatMoney(calculateTotals(invoices[0]).total, invoices[0].currency || 'USD')}</div>
+                <div style={{ fontWeight: 700 }}>{(() => { const e = getEffectiveTotal(invoices[0]); return formatMoney(e.amount, e.currency); })()}</div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[invoices[0].status] || '#888' }}>{invoices[0].status}</span>
               </div>
             </div>
@@ -625,6 +625,7 @@ export function InvoicesView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {invPage.pageItems.map((inv, idx) => {
               const t = calculateTotals(inv);
+              const eff = getEffectiveTotal(inv);
               const isSelected = selected?.id === inv.id;
               const isLatest = inv.id === invoices[0]?.id;
               return (
@@ -647,7 +648,7 @@ export function InvoicesView() {
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inv.vehicle}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(t.total, inv.currency || 'USD')}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(eff.amount, eff.currency)}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmt(inv.createdAt)}</div>
                     </div>
                   </div>

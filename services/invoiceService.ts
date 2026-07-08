@@ -79,6 +79,24 @@ export function calculateTotals(inv: InvoiceFull): InvoiceTotals {
   return { subtotal, discount: inv.discount, shopSupplies: inv.shopSupplies, tax, total, byCurrency };
 }
 
+/**
+ * Returns the effective total amount and its display currency.
+ * When all lines are in a single foreign currency (and no base-currency lines exist),
+ * returns that currency's net amount. Otherwise returns the base-currency total.
+ * Use this everywhere a single "how much is this invoice worth" number is needed.
+ */
+export function getEffectiveTotal(inv: InvoiceFull): { amount: number; currency: string } {
+  const t = calculateTotals(inv);
+  const foreignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
+  if (t.subtotal === 0 && foreignCurs.length === 1) {
+    const fc = foreignCurs[0];
+    const gross = t.byCurrency[fc];
+    const net = Math.max(gross - inv.discount, 0) + inv.shopSupplies;
+    return { amount: net, currency: fc };
+  }
+  return { amount: t.total, currency: inv.currency };
+}
+
 export async function fetchInvoices(): Promise<InvoiceFull[]> {
   const { data, error } = await supabase
     .from('invoices')
