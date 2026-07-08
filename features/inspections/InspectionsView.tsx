@@ -516,25 +516,76 @@ export function InspectionsView() {
           {loading && <p style={{ color: 'var(--muted)' }}>Loading…</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {filtered.map(ins => {
-              const fails = failCount(ins.items);
-              const attns = attnCount(ins.items);
+              const fails  = failCount(ins.items);
+              const attns  = attnCount(ins.items);
+              const passes = passCount(ins.items);
+              const nas    = ins.items.filter(i => i.status === 'N/A').length;
+              const total  = ins.items.length;
+              // Health colour: red if any fail, orange if any attention, green if all scored pass
+              const healthColor = fails > 0 ? '#f44336' : attns > 0 ? '#ff9800' : passes > 0 ? '#4caf50' : 'var(--line)';
+              const statusColor = ins.status === 'Completed' || ins.status === 'Customer Approved' ? '#4caf50'
+                : ins.status === 'Partially Approved' ? '#ff9800'
+                : ins.status === 'Customer Declined' ? '#f44336' : '#2196f3';
+              const isActive = selected?.id === ins.id;
               return (
                 <div key={ins.id} onClick={() => { setSelected(ins); setShowForm(false); }}
-                  style={{ padding: '11px 14px', borderRadius: 10, cursor: 'pointer', border: `1px solid ${selected?.id === ins.id ? 'var(--accent)' : 'var(--line)'}`, background: selected?.id === ins.id ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div>
-                      <strong style={{ fontSize: 13 }}>{ins.inspectionNumber}</strong>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ins.customerName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{ins.vehicle}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 11 }}>
-                      <div style={{ fontWeight: 700, color: ins.status === 'Completed' || ins.status === 'Customer Approved' ? '#4caf50' : ins.status === 'Partially Approved' ? '#ff9800' : ins.status === 'Customer Declined' ? '#f44336' : '#2196f3' }}>{ins.status}</div>
-                      <div style={{ marginTop: 4, display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                        {fails > 0 && <span style={{ background: '#f4433622', color: '#f44336', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{fails}✗</span>}
-                        {attns > 0 && <span style={{ background: '#ff980022', color: '#ff9800', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{attns}!</span>}
-                        {passCount(ins.items) > 0 && <span style={{ background: '#4caf5022', color: '#4caf50', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>{passCount(ins.items)}✓</span>}
+                  style={{
+                    borderRadius: 10, cursor: 'pointer', overflow: 'hidden',
+                    border: `1px solid ${isActive ? 'var(--accent)' : 'var(--line)'}`,
+                    background: isActive ? 'rgba(204,0,0,0.05)' : 'var(--surface-soft)',
+                    boxShadow: isActive ? '0 2px 8px rgba(204,0,0,0.10)' : 'none',
+                    transition: 'box-shadow 0.15s',
+                  }}>
+                  {/* Colored health strip */}
+                  <div style={{ height: 3, background: healthColor, opacity: 0.8 }} />
+
+                  <div style={{ padding: '10px 13px 8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{ins.inspectionNumber}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{ins.customerName}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{ins.vehicle}</div>
                       </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: statusColor, background: statusColor + '18', border: `1px solid ${statusColor}44`, borderRadius: 6, padding: '2px 7px', whiteSpace: 'nowrap', marginLeft: 6 }}>
+                        {ins.status}
+                      </span>
                     </div>
+
+                    {/* Dashboard score pills */}
+                    {total > 0 && (
+                      <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {fails > 0 && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: '#f44336', background: '#f4433618', border: '1px solid #f4433630', borderRadius: 6, padding: '2px 7px' }}>
+                            <span>✕</span> {fails} Fail
+                          </span>
+                        )}
+                        {attns > 0 && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: '#e65100', background: '#ff980018', border: '1px solid #ff980030', borderRadius: 6, padding: '2px 7px' }}>
+                            <span>!</span> {attns} Attn
+                          </span>
+                        )}
+                        {passes > 0 && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#2e7d32', background: '#4caf5015', border: '1px solid #4caf5030', borderRadius: 6, padding: '2px 7px' }}>
+                            <span>✓</span> {passes} Pass
+                          </span>
+                        )}
+                        {nas > 0 && (
+                          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--line)', borderRadius: 6, padding: '2px 7px' }}>
+                            {nas} N/A
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Mini health progress bar */}
+                    {total > 0 && (passes + fails + attns) > 0 && (
+                      <div style={{ marginTop: 7, height: 4, borderRadius: 4, overflow: 'hidden', background: 'var(--line)', display: 'flex' }}>
+                        {fails  > 0 && <div style={{ flex: fails,  background: '#f44336' }} />}
+                        {attns  > 0 && <div style={{ flex: attns,  background: '#ff9800' }} />}
+                        {passes > 0 && <div style={{ flex: passes, background: '#4caf50' }} />}
+                        {nas    > 0 && <div style={{ flex: nas,    background: 'var(--line)' }} />}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
