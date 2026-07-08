@@ -862,8 +862,8 @@ export function InvoicesView() {
                         style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
                       <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
                         style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}>
-                        <option value="">— same —</option>
-                        {[...CURRENCIES].sort((a, b) => {
+                        <option value="">{form.currency}</option>
+                        {[...CURRENCIES].filter(c => c.code !== form.currency).sort((a, b) => {
                           const order = ['USD', 'THB', 'LAK'];
                           const ai = order.indexOf(a.code); const bi = order.indexOf(b.code);
                           if (ai !== -1 && bi !== -1) return ai - bi;
@@ -871,9 +871,18 @@ export function InvoicesView() {
                           return 0;
                         }).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                       </select>
-                      <div style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface-soft)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                        {lineTotal !== 0 ? formatMoney(lineTotal, lineCur) : '—'}
-                      </div>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={lineTotal !== 0 ? String(Math.round(lineTotal)) : ''}
+                        placeholder="0"
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const total = parseFloat(e.target.value.replace(/[^0-9.-]/g, '')) || 0;
+                          const q = parseFloat(line.qty) || 1;
+                          setLine(i, 'rate', String(total / q));
+                        }}
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
+                      />
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <button type="button" title="Move up" disabled={i === 0}
                           onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i-1], ls[i]] = [ls[i], ls[i-1]]; return { ...f, lines: ls }; })}
