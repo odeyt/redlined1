@@ -125,6 +125,11 @@ export async function createJobCard(fields: {
     .select()
     .single();
   if (error) throw error;
+  // Non-blocking intelligence hook — fire-and-forget, never throws
+  try {
+    const { publishEvent } = await import('@/intelligence/IntelligenceService');
+    publishEvent('JobCardCreated', getShopId(), '', 'job_card', id);
+  } catch { /* intelligence must never affect production */ }
   return toJob(data);
 }
 
@@ -187,6 +192,11 @@ export async function closeJob(job: JobCardFull): Promise<void> {
   if (insertError) throw insertError;
   const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id).eq('shop_id', getShopId());
   if (deleteError) throw deleteError;
+  // Non-blocking intelligence hook — fire-and-forget, never throws
+  try {
+    const { publishEvent } = await import('@/intelligence/IntelligenceService');
+    publishEvent('RepairOrderCompleted', getShopId(), '', 'job_card', job.id);
+  } catch { /* intelligence must never affect production */ }
 }
 
 export async function deleteJobCard(id: string): Promise<void> {

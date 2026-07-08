@@ -160,6 +160,11 @@ export async function markInvoicePaid(id: string): Promise<void> {
     .eq('number', id)
     .eq('shop_id', getShopId());
   if (error) throw error;
+  // Non-blocking intelligence hook — fire-and-forget, never throws
+  try {
+    const { publishEvent } = await import('@/intelligence/IntelligenceService');
+    publishEvent('InvoicePaid', getShopId(), '', 'invoice', id);
+  } catch { /* intelligence must never affect production */ }
 }
 
 export async function deleteInvoice(id: string): Promise<void> {

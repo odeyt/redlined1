@@ -133,6 +133,11 @@ export async function approveEstimate(id: string): Promise<void> {
     .eq('id', id)
     .eq('shop_id', getShopId());
   if (error) throw error;
+  // Non-blocking intelligence hook — fire-and-forget, never throws
+  try {
+    const { publishEvent } = await import('@/intelligence/IntelligenceService');
+    publishEvent('EstimateApproved', getShopId(), '', 'estimate', id);
+  } catch { /* intelligence must never affect production */ }
 }
 
 export async function deleteEstimate(id: string): Promise<void> {

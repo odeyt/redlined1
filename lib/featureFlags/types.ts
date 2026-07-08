@@ -38,4 +38,9 @@ export type KnownFlagKey =
   | 'voice_notes'
   | 'owner_dashboard_v2'
   | 'mobile_beta'
-  | 'plugin_system';
+  | 'plugin_system'
+  // Intelligence Foundation — all default OFF
+  | 'intelligence_foundation'
+  | 'command_center'
+  | 'daily_summary'
+  | 'morning_briefing';
