@@ -59,6 +59,12 @@ interface RevenueDay {
   byCurrency: Record<string, number>;
 }
 
+interface MonthRevenue {
+  key: string;
+  label: string;
+  byCurrency: Record<string, number>;
+}
+
 const STATUS_COLOR: Record<string, string> = {
   'Draft': '#888',
   'Sent': '#2196f3',
@@ -109,6 +115,7 @@ export function DashboardView() {
   const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
   const [recentROs, setRecentROs] = useState<RecentRO[]>([]);
   const [revenue7, setRevenue7] = useState<RevenueDay[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthRevenue[]>([]);
   const [companyName, setCompanyName] = useState('Redlined1');
   const [loading, setLoading] = useState(true);
 
@@ -120,9 +127,12 @@ export function DashboardView() {
   async function load() {
     setLoading(true);
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
+      // Use local date string (YYYY-MM-DD) for all date comparisons to avoid UTC offset issues
+      const localDateStr = (d: string | null | undefined): string => {
+        if (!d) return '';
+        return new Date(d).toLocaleDateString('en-CA'); // 'YYYY-MM-DD' in local time
+      };
+      const todayStr = new Date().toLocaleDateString('en-CA');
 
       const [
         { count: custCount },
@@ -189,10 +199,10 @@ export function DashboardView() {
 
       // Payments today (used for payment count only)
       const pays = payData ?? [];
-      const todayPays = pays.filter(p => p.payment_date && p.payment_date >= todayISO);
+      const todayPays = pays.filter(p => localDateStr(p.payment_date) === todayStr);
 
       // Today's revenue = invoices marked Paid today, grouped by effective currency
-      const paidTodayInvs = paidInvs.filter(i => i.paid_date && i.paid_date >= todayISO);
+      const paidTodayInvs = paidInvs.filter(i => localDateStr(i.paid_date) === todayStr);
       const revenueTodayByCurrency: Record<string, number> = {};
       for (const inv of paidTodayInvs) {
         const { amount, currency } = calcInvEffective(inv);
@@ -259,18 +269,13 @@ export function DashboardView() {
         }))
       );
 
-      // Revenue last 7 days from paid invoices grouped by currency
+      // Revenue last 7 days from paid invoices grouped by currency (local date comparison)
       const days: RevenueDay[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const next = new Date(d);
-        next.setDate(next.getDate() + 1);
-        const dayInvs = paidInvs.filter(inv => {
-          const pd = inv.paid_date as string;
-          return pd && pd >= d.toISOString() && pd < next.toISOString();
-        });
+        const dayStr = d.toLocaleDateString('en-CA'); // YYYY-MM-DD local
+        const dayInvs = paidInvs.filter(inv => localDateStr(inv.paid_date as string) === dayStr);
         const byCurrency: Record<string, number> = {};
         for (const inv of dayInvs) {
           const { amount, currency } = calcInvEffective(inv);
@@ -280,6 +285,25 @@ export function DashboardView() {
         days.push({ date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), amount, byCurrency });
       }
       setRevenue7(days);
+
+      // Monthly revenue — last 12 months, grouped by currency
+      const monthMap: Record<string, Record<string, number>> = {};
+      for (const inv of paidInvs) {
+        const pd = inv.paid_date as string;
+        if (!pd) continue;
+        const dt = new Date(pd);
+        const key = dt.toLocaleDateString('en-CA').slice(0, 7); // 'YYYY-MM'
+        if (!monthMap[key]) monthMap[key] = {};
+        const { amount, currency } = calcInvEffective(inv);
+        monthMap[key][currency] = (monthMap[key][currency] ?? 0) + amount;
+      }
+      // Sort months descending, keep last 12
+      const sortedMonths = Object.keys(monthMap).sort().reverse().slice(0, 12);
+      setMonthlyRevenue(sortedMonths.map(key => {
+        const [yr, mo] = key.split('-');
+        const label = new Date(Number(yr), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return { key, label, byCurrency: monthMap[key] };
+      }));
     } catch (e) {
       console.error('Dashboard load error', e);
     } finally {
@@ -482,6 +506,35 @@ export function DashboardView() {
           </div>
         </Panel>
       </div>}
+
+      {!isTech && monthlyRevenue.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+        <Panel title="Revenue by Month" hint="Paid invoices grouped by month and currency — most recent first">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                  <th style={{ textAlign: 'left', padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Month</th>
+                  <th style={{ textAlign: 'right', padding: '6px 10px', color: 'var(--muted)', fontWeight: 600, fontSize: 11 }}>Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyRevenue.map(m => (
+                  <tr key={m.key} style={{ borderBottom: '1px solid var(--line)' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>{m.label}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                      {Object.entries(m.byCurrency).map(([cur, amt]) => (
+                        <div key={cur} style={{ fontWeight: 700, color: '#4caf50' }}>{formatMoney(amt, cur)}</div>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+        </div>
+      )}
 
       {!isTech && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Recent Invoices */}
