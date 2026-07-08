@@ -537,8 +537,9 @@ export function InvoicesView() {
       acc[currency] = (acc[currency] ?? 0) + amount;
       return acc;
     }, {});
+  // Outstanding = all unpaid, non-void invoices (Draft + Sent)
   const outstandingByCurrency = invoices
-    .filter(i => i.status === 'Sent')
+    .filter(i => i.status !== 'Paid' && i.status !== 'Void')
     .reduce<Record<string, number>>((acc, i) => {
       const { amount, currency } = getEffectiveTotal(i);
       acc[currency] = (acc[currency] ?? 0) + amount;
