@@ -52,6 +52,7 @@ const EMPTY_FORM = {
   status: 'Draft',
   lines: [{ ...EMPTY_LINE }] as FormLine[],
   discount: 0,
+  discountPct: 0,
   shopSupplies: 0,
   taxRate: 0,
   notes: '',
@@ -59,6 +60,23 @@ const EMPTY_FORM = {
   paidDate: null as string | null,
   currency: 'USD',
 };
+
+/** Compute effective line total and its currency from form lines (mirrors getEffectiveTotal logic). */
+function calcFormEffectiveTotal(lines: typeof EMPTY_FORM['lines'], baseCurrency: string): { amount: number; currency: string } {
+  const byCur: Record<string, number> = {};
+  for (const l of lines) {
+    const lc = l.currency || baseCurrency;
+    const qty = Number(l.qty) || 0;
+    const rate = Number(l.rate) || 0;
+    byCur[lc] = (byCur[lc] ?? 0) + qty * rate;
+  }
+  const baseSubtotal = byCur[baseCurrency] ?? 0;
+  const foreignCurs = Object.keys(byCur).filter(c => c !== baseCurrency);
+  if (baseSubtotal === 0 && foreignCurs.length === 1) {
+    return { amount: byCur[foreignCurs[0]], currency: foreignCurs[0] };
+  }
+  return { amount: baseSubtotal, currency: baseCurrency };
+}
 
 export function InvoicesView() {
   const dispatch = useAppDispatch();
@@ -238,7 +256,12 @@ export function InvoicesView() {
             `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#d97706"><span>Subtotal (${cur})</span><span style="font-weight:600">${formatMoney(amt, cur)}</span></div>`
           ).join('')}
           ${t.subtotal > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Subtotal (${inv.currency})</span><span>${formatMoney(t.subtotal, inv.currency)}</span></div>` : ''}
-          ${t.discount > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, inv.currency)}</span></div>` : ''}
+          ${t.discount > 0 ? (() => {
+            const printForeignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
+            const printAllForeign = t.subtotal === 0 && printForeignCurs.length === 1;
+            const discCurPrint = printAllForeign ? printForeignCurs[0] : inv.currency;
+            return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, discCurPrint)}</span></div>`;
+          })() : ''}
           ${t.shopSupplies > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Shop Supplies</span><span>${formatMoney(t.shopSupplies, inv.currency)}</span></div>` : ''}
           ${(() => {
             const foreignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
@@ -290,6 +313,11 @@ export function InvoicesView() {
         ? inv.lines.map(l => ({ note: l.note || '', description: l.description || '', laoDescription: l.laoDescription || '', qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' }))
         : [{ ...EMPTY_LINE }],
       discount: inv.discount,
+      discountPct: (() => {
+        const editLines = inv.lines.map(l => ({ note: '', description: '', laoDescription: '', cost: '', markup: '', currency: l.currency || '', qty: String(l.qty), rate: String(l.rate) }));
+        const { amount: eff } = calcFormEffectiveTotal(editLines, inv.currency);
+        return eff > 0 ? Math.round((inv.discount / eff) * 100) : 0;
+      })(),
       shopSupplies: inv.shopSupplies,
       taxRate: inv.taxRate,
       notes: inv.notes,
@@ -366,6 +394,9 @@ export function InvoicesView() {
       };
     });
     try {
+      // Compute flat discount amount from percentage × effective line total
+      const { amount: effLineTotal } = calcFormEffectiveTotal(form.lines, form.currency);
+      const computedDiscount = Math.round(effLineTotal * ((form.discountPct ?? 0) / 100));
       if (editingId) {
         // Update existing invoice
         await updateInvoice(editingId, {
@@ -375,7 +406,7 @@ export function InvoicesView() {
           jobCardId: form.jobCardId,
           status: form.status,
           lines: parsedLines,
-          discount: form.discount,
+          discount: computedDiscount,
           shopSupplies: form.shopSupplies,
           taxRate: form.taxRate,
           notes: form.notes,
@@ -385,6 +416,7 @@ export function InvoicesView() {
         const updated: InvoiceFull = {
           ...selected!,
           ...form,
+          discount: computedDiscount,
           lines: parsedLines,
           id: editingId,
           createdAt: selected?.createdAt ?? '',
@@ -396,7 +428,7 @@ export function InvoicesView() {
         notify(`Invoice ${form.invoiceNumber} updated.`);
       } else {
         // Create new invoice
-        const saved = await createInvoice({ ...form, lines: parsedLines });
+        const saved = await createInvoice({ ...form, discount: computedDiscount, lines: parsedLines });
         setInvoices(prev => [saved, ...prev]);
         setSelected(saved);
         setShowForm(false);
@@ -879,8 +911,19 @@ export function InvoicesView() {
               {/* Adjustments */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
-                  <label>Discount ({form.currency || 'USD'})</label>
-                  <input type="number" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: Number(e.target.value) }))} min="0" step="0.01" />
+                  <label>Discount (%)</label>
+                  <input
+                    type="number"
+                    value={form.discountPct ?? 0}
+                    onChange={e => setForm(f => ({ ...f, discountPct: Math.min(100, Math.max(0, Math.round(Number(e.target.value) || 0))) }))}
+                    min="0" max="100" step="1"
+                    placeholder="0"
+                  />
+                  {(form.discountPct ?? 0) > 0 && (() => {
+                    const { amount: eff, currency: ec } = calcFormEffectiveTotal(form.lines, form.currency);
+                    const discAmt = Math.round(eff * ((form.discountPct ?? 0) / 100));
+                    return <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, ec)}</div>;
+                  })()}
                 </div>
                 <div className="login-field">
                   <label>Shop Supplies ({form.currency || 'USD'})</label>
@@ -1029,12 +1072,17 @@ export function InvoicesView() {
                       <span>{formatMoney(totals.subtotal, selected.currency)}</span>
                     </div>
                   )}
-                  {totals.discount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted)' }}>Discount</span>
-                      <span>-{formatMoney(totals.discount, selected.currency)}</span>
-                    </div>
-                  )}
+                  {totals.discount > 0 && (() => {
+                    const foreignCurs = Object.keys(totals.byCurrency).filter(c => c !== selected.currency);
+                    const allForeign = totals.subtotal === 0 && foreignCurs.length === 1;
+                    const discCur = allForeign ? foreignCurs[0] : selected.currency;
+                    return (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                        <span style={{ color: 'var(--muted)' }}>Discount</span>
+                        <span>-{formatMoney(totals.discount, discCur)}</span>
+                      </div>
+                    );
+                  })()}
                   {totals.shopSupplies > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
                       <span style={{ color: 'var(--muted)' }}>Shop Supplies</span>
