@@ -10,7 +10,7 @@ import {
   deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
-import { createPayment, fetchPayments, type Payment } from '@/services/paymentService';
+import { createPayment, deletePayment, fetchPayments, type Payment } from '@/services/paymentService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
@@ -487,6 +487,15 @@ export function InvoicesView() {
     openPayModal(inv);
   }
 
+  async function handleVoidPayment(paymentId: string) {
+    if (!confirm('Remove this payment record?')) return;
+    try {
+      await deletePayment(paymentId);
+      setInvoicePayments(prev => prev.filter(p => p.id !== paymentId));
+      notify('Payment record removed.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove payment.'); }
+  }
+
   async function handleStatusChange(inv: InvoiceFull, status: string) {
     try {
       const paidDate = status === 'Paid' ? new Date().toISOString() : undefined;
@@ -870,11 +879,11 @@ export function InvoicesView() {
               {/* Adjustments */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
-                  <label>Discount ($)</label>
+                  <label>Discount ({form.currency || 'USD'})</label>
                   <input type="number" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: Number(e.target.value) }))} min="0" step="0.01" />
                 </div>
                 <div className="login-field">
-                  <label>Shop Supplies ($)</label>
+                  <label>Shop Supplies ({form.currency || 'USD'})</label>
                   <input type="number" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: Number(e.target.value) }))} min="0" step="0.01" />
                 </div>
               </div>
@@ -1053,19 +1062,19 @@ export function InvoicesView() {
                     const effectiveTotal = allForeign
                       ? (totals.byCurrency[foreignCurs[0]] - totals.discount)
                       : totals.total;
-                    // Group payments by their own currency (payments may differ from invoice base currency)
-                    const payByCur: Record<string, number> = {};
-                    for (const p of invoicePayments) {
-                      payByCur[p.currency] = (payByCur[p.currency] ?? 0) + p.amount;
-                    }
-                    const receivedInEffective = payByCur[effectiveCur] ?? 0;
+                    const receivedInEffective = invoicePayments.filter(p => p.currency === effectiveCur).reduce((s, p) => s + p.amount, 0);
                     const balance = effectiveTotal - receivedInEffective;
                     return (
                       <>
-                        {Object.entries(payByCur).map(([cur, amt]) => (
-                          <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>
-                            <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received{cur !== effectiveCur ? ` (${cur})` : ''}</span>
-                            <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(amt, cur)}</span>
+                        {invoicePayments.map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ color: '#4caf50', fontWeight: 600 }}>
+                                {p.method}{p.currency !== effectiveCur ? ` (${p.currency})` : ''}
+                              </span>
+                              <button onClick={() => handleVoidPayment(p.id)} title="Remove payment" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, fontWeight: 800, padding: '0 2px', lineHeight: 1 }}>×</button>
+                            </div>
+                            <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(p.amount, p.currency)}</span>
                           </div>
                         ))}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', fontWeight: 700, fontSize: 15 }}>
