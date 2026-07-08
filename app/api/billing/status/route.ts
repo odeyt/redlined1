@@ -31,9 +31,10 @@ export async function GET() {
       .from('shop_users')
       .select('shop_id, role')
       .eq('user_id', user.id)
+      .in('role', ['owner', 'admin', 'manager'])
       .maybeSingle();
 
-    if (!shopUser) return NextResponse.json({ error: 'No shop found' }, { status: 404 });
+    if (!shopUser) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const status = await getBillingStatus(shopUser.shop_id);
     return NextResponse.json(status);

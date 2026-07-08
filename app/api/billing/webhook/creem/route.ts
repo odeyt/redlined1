@@ -17,6 +17,10 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-creem-signature') ??
                       req.headers.get('x-webhook-signature') ?? '';
 
+    if (!process.env.CREEM_WEBHOOK_SECRET) {
+      console.warn('[webhook/creem] CREEM_WEBHOOK_SECRET is not set — signature verification skipped. Set this before going live.');
+    }
+
     const result = await processWebhook(rawBody, signature, 'creem');
 
     if (!result.success) {
