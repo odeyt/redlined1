@@ -7,6 +7,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import { getShopId } from '@/lib/shopStore';
+import { formatMoney, CURRENCIES } from '@/services/invoiceService';
 
 interface DashStats {
   totalCustomers: number;
@@ -19,7 +20,9 @@ interface DashStats {
   paidInvoices: number;
   unpaidInvoices: number;
   totalRevenue: number;
+  revenueByCurrency: Record<string, number>;
   outstanding: number;
+  outstandingByCurrency: Record<string, number>;
   totalEstimates: number;
   approvedEstimates: number;
   paymentsToday: number;
@@ -146,32 +149,41 @@ export function DashboardView() {
       const draftInvs = invoices.filter(i => i.status === 'Draft');
       const unpaidInvs = invoices.filter(i => i.status !== 'Paid' && i.status !== 'Void');
 
-      function calcInvTotal(inv: Record<string, unknown>): number {
+      // Returns { amount, currency } — mirrors getEffectiveTotal in invoiceService
+      function calcInvEffective(inv: Record<string, unknown>): { amount: number; currency: string } {
         const lines = Array.isArray(inv.lines) ? inv.lines as { qty: number; rate: number; currency?: string }[] : [];
         const currency = (inv.currency as string) || 'USD';
         const discount = Number(inv.discount ?? 0);
         const shopSupplies = Number(inv.shop_supplies ?? 0);
         const taxRate = Number(inv.tax_rate ?? 0);
-        // Group by currency
-        const byCurrency: Record<string, number> = {};
+        const byCur: Record<string, number> = {};
         for (const l of lines) {
           const lc = l.currency || currency;
-          byCurrency[lc] = (byCurrency[lc] ?? 0) + (l.qty || 0) * (l.rate || 0);
+          byCur[lc] = (byCur[lc] ?? 0) + (l.qty || 0) * (l.rate || 0);
         }
-        const baseSub = byCurrency[currency] ?? 0;
-        const foreignCurs = Object.keys(byCurrency).filter(c => c !== currency);
-        // All-foreign-currency invoice: use foreign total
+        const baseSub = byCur[currency] ?? 0;
+        const foreignCurs = Object.keys(byCur).filter(c => c !== currency);
         if (baseSub === 0 && foreignCurs.length === 1) {
-          const gross = byCurrency[foreignCurs[0]];
-          return Math.max(gross - discount, 0) + shopSupplies;
+          const fc = foreignCurs[0];
+          return { amount: Math.max(byCur[fc] - discount, 0) + shopSupplies, currency: fc };
         }
-        const afterDiscount = Math.max(baseSub - discount, 0);
-        const taxable = afterDiscount + shopSupplies;
-        return taxable + taxable * taxRate;
+        const taxable = Math.max(baseSub - discount, 0) + shopSupplies;
+        return { amount: taxable + taxable * taxRate, currency };
       }
 
-      const totalRevenue = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
-      const outstanding = unpaidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
+      // Group totals by currency for revenue and outstanding
+      const revenueByCurrency: Record<string, number> = {};
+      for (const inv of paidInvs) {
+        const { amount, currency } = calcInvEffective(inv);
+        revenueByCurrency[currency] = (revenueByCurrency[currency] ?? 0) + amount;
+      }
+      const outstandingByCurrency: Record<string, number> = {};
+      for (const inv of unpaidInvs) {
+        const { amount, currency } = calcInvEffective(inv);
+        outstandingByCurrency[currency] = (outstandingByCurrency[currency] ?? 0) + amount;
+      }
+      const totalRevenue = Object.values(revenueByCurrency).reduce((s, v) => s + v, 0);
+      const outstanding = Object.values(outstandingByCurrency).reduce((s, v) => s + v, 0);
 
       // Payments today
       const pays = payData ?? [];
@@ -201,7 +213,9 @@ export function DashboardView() {
         paidInvoices: paidInvs.length,
         unpaidInvoices: unpaidInvs.length,
         totalRevenue,
+        revenueByCurrency,
         outstanding,
+        outstandingByCurrency,
         totalEstimates: ests.length,
         approvedEstimates: ests.filter(e => e.status === 'Approved').length,
         paymentsToday: todayPays.length,
@@ -212,13 +226,10 @@ export function DashboardView() {
 
       // Recent invoices
       setRecentInvoices(
-        invoices.slice(0, 6).map(i => ({
-          number: i.number,
-          customer: i.customer,
-          total: calcInvTotal(i),
-          status: i.status,
-          currency: i.currency ?? 'USD',
-        }))
+        invoices.slice(0, 6).map(i => {
+          const eff = calcInvEffective(i);
+          return { number: i.number, customer: i.customer, total: eff.amount, status: i.status, currency: eff.currency };
+        })
       );
 
       // Recent ROs
@@ -278,16 +289,28 @@ export function DashboardView() {
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Total Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 4 }}>{fmtMoney(s.totalRevenue)}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoices</div>
+            {Object.entries(s.revenueByCurrency).length === 0 ? (
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 4 }}>—</div>
+            ) : Object.entries(s.revenueByCurrency).map(([cur, amt]) => (
+              <div key={cur} style={{ fontSize: Object.keys(s.revenueByCurrency).length > 1 ? 18 : 26, fontWeight: 800, color: '#4caf50', marginTop: 4, lineHeight: 1.2 }}>
+                {formatMoney(amt, cur)}
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoice{s.paidInvoices !== 1 ? 's' : ''}</div>
           </div>
           <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Outstanding</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: s.outstanding > 0 ? '#f59e0b' : 'var(--text)', marginTop: 4 }}>{fmtMoney(s.outstanding)}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.unpaidInvoices} unpaid invoices</div>
+            {Object.entries(s.outstandingByCurrency).length === 0 ? (
+              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>—</div>
+            ) : Object.entries(s.outstandingByCurrency).map(([cur, amt]) => (
+              <div key={cur} style={{ fontSize: Object.keys(s.outstandingByCurrency).length > 1 ? 18 : 26, fontWeight: 800, color: '#f59e0b', marginTop: 4, lineHeight: 1.2 }}>
+                {formatMoney(amt, cur)}
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.unpaidInvoices} unpaid invoice{s.unpaidInvoices !== 1 ? 's' : ''}</div>
           </div>
           <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -452,7 +475,7 @@ export function DashboardView() {
                   <tr key={inv.number} className="dash-row" style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => nav('invoices')}>
                     <td style={{ padding: '8px', fontWeight: 700 }}>{inv.number}</td>
                     <td style={{ padding: '8px', color: 'var(--muted)' }}>{inv.customer}</td>
-                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{fmtMoney(inv.total)}</td>
+                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(inv.total, inv.currency)}</td>
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: (STATUS_COLOR[inv.status] || '#888') + '22', color: STATUS_COLOR[inv.status] || '#888' }}>{inv.status}</span>
                     </td>
