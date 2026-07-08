@@ -36,10 +36,21 @@ export function CustomersView() {
   const [maintSchedules, setMaintSchedules] = useState<MaintenanceSchedule[]>([]);
   const [reminderSending, setReminderSending] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [pendingCustomerId, setPendingCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCustomers()
-      .then(setCustomers)
+      .then(list => {
+        setCustomers(list);
+        // If a deep-link arrived before data loaded, open now
+        setPendingCustomerId(pending => {
+          if (pending) {
+            const found = list.find(c => c.id === pending);
+            if (found) setTimeout(() => openDetail(found), 0);
+          }
+          return null;
+        });
+      })
       .catch((err) => setError('Load error: ' + (err?.message || JSON.stringify(err))))
       .finally(() => setLoading(false));
   }, []);
@@ -50,7 +61,12 @@ export function CustomersView() {
       if (!customerId) return;
       setCustomers(current => {
         const found = current.find(c => c.id === customerId);
-        if (found) openDetail(found);
+        if (found) {
+          openDetail(found);
+        } else {
+          // Data not yet loaded — store the pending ID
+          setPendingCustomerId(customerId);
+        }
         return current;
       });
     }
