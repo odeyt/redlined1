@@ -15,6 +15,7 @@ import {
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehiclesAll } from '@/services/vehicleService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
+import { fetchInvoices } from '@/services/invoiceService';
 import { FilterPills } from '@/components/FilterPills';
 import {
   fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder,
@@ -139,6 +140,12 @@ export function PartsEstimatesView() {
   const [saving, setSaving]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Delete confirmation modal state
+  const [deleteTarget, setDeleteTarget]   = useState<PartsEstimate | null>(null);
+  const [deleteBlocked, setDeleteBlocked] = useState(false);   // true = linked invoice not paid
+  const [deleteChecking, setDeleteChecking] = useState(false);
+  const [deleteLinkedInfo, setDeleteLinkedInfo] = useState<{ estNum: string; invoiceNum?: string; invoiceStatus?: string } | null>(null);
 
   const [showVendorModal, setShowVendorModal] = useState(false);
   const [vendorForm, setVendorForm]           = useState(EMPTY_VENDOR);
@@ -351,13 +358,43 @@ export function PartsEstimatesView() {
     } finally { setSaving(false); }
   }
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Remove quotation for "${name}"?`)) return;
+  async function openDeleteModal(e: PartsEstimate) {
+    setDeleteTarget(e);
+    setDeleteBlocked(false);
+    setDeleteLinkedInfo(null);
+
+    const estNum = extractLinkedEstimate(e.notes);
+    if (e.status === 'Converted' && estNum) {
+      setDeleteChecking(true);
+      try {
+        const invoices = await fetchInvoices();
+        // Find invoice linked to this customer/vehicle that is not Paid
+        const linked = invoices.find(inv =>
+          inv.customerName === e.customerName &&
+          (inv.vehicle === e.vehicle || !e.vehicle)
+        );
+        const isPaid = linked?.status === 'Paid';
+        setDeleteLinkedInfo({ estNum, invoiceNum: linked?.invoiceNumber, invoiceStatus: linked?.status });
+        setDeleteBlocked(!!linked && !isPaid);
+      } catch {
+        // Can't verify — allow with warning
+        setDeleteLinkedInfo({ estNum });
+      } finally {
+        setDeleteChecking(false);
+      }
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const { id, partName } = deleteTarget;
+    setDeleteTarget(null);
+    setDeleteLinkedInfo(null);
     try {
       await deletePartsEstimate(id);
       setEstimates(prev => prev.filter(e => e.id !== id));
       setSelected(null);
-      notify(`"${name}" quotation removed.`);
+      notify(`"${partName || 'Quotation'}" removed.`);
     } catch { notify('Delete failed.'); }
   }
 
@@ -618,6 +655,82 @@ export function PartsEstimatesView() {
         </div>
       )}
 
+      {/* ── Delete confirmation modal ── */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => { setDeleteTarget(null); setDeleteLinkedInfo(null); }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: 28, maxWidth: 480, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6, color: '#ef4444' }}>
+              {deleteBlocked ? '🔒 Cannot Delete — Invoice Active' : '⚠ Confirm Deletion'}
+            </div>
+
+            {deleteChecking ? (
+              <div style={{ fontSize: 13, color: 'var(--muted)', margin: '16px 0' }}>Checking invoice status…</div>
+            ) : deleteTarget.status === 'Converted' ? (
+              deleteBlocked ? (
+                <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text)', marginBottom: 16 }}>
+                  <p style={{ margin: '0 0 10px' }}>
+                    This quotation is linked to estimate <strong>{deleteLinkedInfo?.estNum}</strong> and
+                    has an active invoice <strong>{deleteLinkedInfo?.invoiceNum || ''}</strong> with
+                    status <strong style={{ color: '#f97316' }}>{deleteLinkedInfo?.invoiceStatus || 'unknown'}</strong>.
+                  </p>
+                  <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, fontSize: 12 }}>
+                    🔒 Deletion is blocked until the invoice is marked <strong>Paid</strong>. This protects your parts cost records while the job is still open.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text)', marginBottom: 16 }}>
+                  {deleteLinkedInfo?.invoiceStatus === 'Paid' ? (
+                    <p style={{ margin: '0 0 10px' }}>
+                      ✅ Invoice <strong>{deleteLinkedInfo?.invoiceNum}</strong> is <strong style={{ color: '#22c55e' }}>Paid</strong>.
+                      You may now remove this parts quotation.
+                    </p>
+                  ) : (
+                    <p style={{ margin: '0 0 10px' }}>
+                      This quotation was converted to estimate <strong>{deleteLinkedInfo?.estNum}</strong>.
+                      No active invoice was found for this customer/vehicle.
+                    </p>
+                  )}
+                  <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
+                    ⚠ Deleting this will permanently remove the original parts cost record for <strong>{deleteTarget.partName || 'these parts'}</strong>.
+                    This cannot be undone.
+                  </div>
+                </div>
+              )
+            ) : (
+              <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text)', marginBottom: 16 }}>
+                <p style={{ margin: '0 0 8px' }}>
+                  Remove the parts quotation for <strong>{deleteTarget.partName || 'these parts'}</strong>
+                  {deleteTarget.customerName ? <> ({deleteTarget.customerName})</> : ''}?
+                </p>
+                <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
+                  ⚠ This cannot be undone.
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button onClick={() => { setDeleteTarget(null); setDeleteLinkedInfo(null); }}
+                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              {!deleteBlocked && !deleteChecking && (
+                <button onClick={confirmDelete}
+                  style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Yes, Delete
+                </button>
+              )}
+              {deleteBlocked && (
+                <button onClick={() => { setSelected(null); setDeleteTarget(null); dispatch({ type: 'SET_MODULE', module: 'invoices' }); }}
+                  style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Go to Invoices →
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {error === '__NEEDS_MIGRATION__' && (
         <div style={{ marginBottom: 20, padding: '20px 24px', background: 'rgba(245,158,11,0.08)', border: '2px solid #f59e0b', borderRadius: 12, fontSize: 13 }}>
           <div style={{ fontWeight: 800, fontSize: 15, color: '#b45309', marginBottom: 8 }}>⚙ One-time database setup required</div>
@@ -791,7 +904,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                                 </button>
                               ) : null;
                             })()}
-                            <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => handleDelete(e.id, e.partName)}>Remove</button>
+                            <button className="mini-btn" style={{ color: 'var(--red,#cc0000)' }} onClick={() => openDeleteModal(e)}>Remove</button>
                           </div>
                         </td>
                       </tr>
@@ -910,6 +1023,24 @@ CREATE POLICY "Shop members can manage their parts estimates"
             </div>
 
             <div style={{ padding: '20px 24px', flex: 1 }}>
+              {/* Converted/Ordered status banner */}
+              {selected.status === 'Converted' && (() => {
+                const estNum = extractLinkedEstimate(selected.notes);
+                return (
+                  <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(156,39,176,0.07)', border: '1px solid rgba(156,39,176,0.3)', borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: '#9c27b0', letterSpacing: '0.04em', marginBottom: 4 }}>
+                      📦 PARTS ORDERED — QUOTATION PRESERVED FOR REFERENCE
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+                      This quotation was converted to a customer estimate{estNum ? <> (<strong>{estNum}</strong>)</> : ''}.
+                      The original parts cost is kept here so you can track what was ordered and reconcile against the final invoice.
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 11, color: '#7c3aed', fontStyle: 'italic' }}>
+                      ℹ Deletion is only allowed once the linked invoice has been marked <strong>Paid</strong>.
+                    </div>
+                  </div>
+                );
+              })()}
               <SectionLabel label={`Parts (${(selected.lineItems?.length ?? 1)} item${(selected.lineItems?.length ?? 1) !== 1 ? 's' : ''})`} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {(selected.lineItems && selected.lineItems.length > 0 ? selected.lineItems : [{
@@ -1061,14 +1192,26 @@ CREATE POLICY "Shop members can manage their parts estimates"
               )}
               {selected.status === 'Converted' && (() => {
                 const estNum = extractLinkedEstimate(selected.notes);
-                return estNum ? (
-                  <button onClick={() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}
-                    style={{ flex: 1, padding: '8px 16px', borderRadius: 8, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                    📋 View {estNum} in Estimates →
-                  </button>
-                ) : <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)', padding: '8px 0' }}>Converted to estimate</span>;
+                return (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Ordered banner */}
+                    <div style={{ padding: '10px 14px', background: 'rgba(156,39,176,0.07)', border: '1px solid rgba(156,39,176,0.25)', borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#9c27b0', marginBottom: 2 }}>✓ Converted to Customer Estimate</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        This quotation has been ordered and converted. Parts cost is preserved here for reference.
+                        {estNum && <> Linked to <strong>{estNum}</strong>.</>}
+                      </div>
+                    </div>
+                    {estNum && (
+                      <button onClick={() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}
+                        style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                        📋 View {estNum} in Estimates →
+                      </button>
+                    )}
+                  </div>
+                );
               })()}
-              <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
+              <button className="btn" style={{ color: '#ef4444' }} onClick={() => openDeleteModal(selected)}>Remove</button>
               <button className="btn" onClick={() => setSelected(null)}>Close</button>
             </div>
           </div>
