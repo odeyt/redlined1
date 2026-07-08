@@ -15,6 +15,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { getTechColor as _getTechColor } from '@/lib/techColors';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
+import { fetchRepairOrders, type RepairOrder } from '@/services/repairOrderService';
 import { FilterPills } from '@/components/FilterPills';
 
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
@@ -385,6 +386,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [toast, setToast] = useState('');
   const [custSearch, setCustSearch] = useState('');
   const [showAddForCust, setShowAddForCust] = useState(false);
+  const [pulledFrom, setPulledFrom] = useState<string | null>(null);
+  const [pulling, setPulling] = useState(false);
   const custInputRef = useRef<HTMLInputElement>(null);
   const [showInlineNewCust, setShowInlineNewCust] = useState(false);
   const [inlineNewCust, setInlineNewCust] = useState({ name: '', phone: '', email: '' });
@@ -403,6 +406,50 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
   function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  async function pullFromRO(silent = false) {
+    setPulling(true);
+    try {
+      const allROs = await fetchRepairOrders();
+      const vLabel = vehicle.label?.toLowerCase() ?? '';
+      const vCustId = vehicle.customerId ?? '';
+      // Find ROs matching this vehicle by label or customer+vehicle string, prefer active ones
+      const matched = allROs
+        .filter(ro =>
+          (ro.vehicle?.toLowerCase() === vLabel) ||
+          (ro.customerId === vCustId && ro.vehicle?.toLowerCase() === vLabel)
+        )
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const ro: RepairOrder | undefined = matched[0];
+      if (!ro) {
+        if (!silent) notify('No linked Repair Order found for this vehicle.');
+        return;
+      }
+      // Build parts string from inline RO parts
+      const partsList = ro.parts?.length
+        ? ro.parts.map(p => `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''} ×${p.qty}`).join('\n')
+        : '';
+
+      setF(prev => ({
+        ...prev,
+        issues:          ro.concern      || prev.issues,
+        damageIntake:    ro.notes        || prev.damageIntake,
+        partsNeeded:     partsList       || prev.partsNeeded,
+        partsExchanged:  ro.correction   || prev.partsExchanged,
+        flatRateLak:     ro.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak,
+        assignedTech:    ro.technician   || prev.assignedTech,
+        recommendation:  (ro.cause ? `Cause: ${ro.cause}` : '') +
+                         (ro.cause && ro.correction ? '\n' : '') +
+                         (ro.correction ? `Correction: ${ro.correction}` : '') || prev.recommendation,
+      }));
+      setPulledFrom(ro.roNumber);
+      if (!silent) notify(`Pulled from ${ro.roNumber}`);
+    } catch { if (!silent) notify('Could not fetch Repair Orders.'); }
+    finally { setPulling(false); }
+  }
+
+  // Auto-pull on open (only fills empty fields, handled inside pullFromRO via || prev.x)
+  useEffect(() => { pullFromRO(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function decodeVin(vin: string) {
     if (vin.length !== 17) return;
@@ -982,7 +1029,23 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           </div>{/* end left column */}
           <div>{/* ── RIGHT: Service Record ── */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Service Record</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Service Record</div>
+            <button
+              type="button"
+              onClick={() => pullFromRO(false)}
+              disabled={pulling}
+              title="Pull latest data from linked Repair Order"
+              style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: 'rgba(37,99,235,0.07)', border: '1px solid rgba(37,99,235,0.25)', borderRadius: 7, padding: '3px 10px', cursor: pulling ? 'not-allowed' : 'pointer', opacity: pulling ? 0.6 : 1 }}
+            >
+              {pulling ? '⏳ Pulling…' : '🔄 Pull from RO'}
+            </button>
+          </div>
+          {pulledFrom && (
+            <div style={{ marginBottom: 10, padding: '6px 10px', background: 'rgba(37,99,235,0.06)', border: '1px solid rgba(37,99,235,0.2)', borderRadius: 7, fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
+              ✓ Fields populated from {pulledFrom} — review and save to confirm.
+            </div>
+          )}
 
           {/* Assigned Tech multi-select dropdown */}
           <div style={{ marginBottom: 12 }}>
