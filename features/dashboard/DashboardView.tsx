@@ -148,7 +148,7 @@ export function DashboardView() {
       const paidInvs = invoices.filter(i => i.status === 'Paid');
       const sentInvs = invoices.filter(i => i.status === 'Sent');
       const draftInvs = invoices.filter(i => i.status === 'Draft');
-      const unpaidInvs = invoices.filter(i => i.status !== 'Paid' && i.status !== 'Void');
+      const unpaidInvs = invoices.filter(i => i.status === 'Sent');
 
       // Returns { amount, currency } — mirrors getEffectiveTotal in invoiceService
       function calcInvEffective(inv: Record<string, unknown>): { amount: number; currency: string } {
