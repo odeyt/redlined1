@@ -895,6 +895,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           <div className="row-actions">
                             {e.status !== 'Converted' && <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>}
                             {e.status !== 'Converted' && <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>}
+                            {e.status !== 'Converted' && (
+                              <button className="mini-btn" style={{ color: '#0284c7' }} onClick={() => handleConvertToEstimate(e)}>→ Estimate</button>
+                            )}
                             {(() => {
                               const estNum = extractLinkedEstimate(e.notes);
                               return estNum ? (

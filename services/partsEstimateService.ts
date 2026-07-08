@@ -142,13 +142,46 @@ export async function createPartsEstimate(o: Omit<PartsEstimate, 'id' | 'created
 }
 
 export async function updatePartsEstimate(id: string, o: Partial<Omit<PartsEstimate, 'id' | 'createdAt'>>): Promise<PartsEstimate> {
+  // If all required fields are present, do a full update via buildPayload.
+  // If only a subset (e.g. status + notes), build a partial column map to avoid
+  // writing undefined values that violate NOT NULL constraints.
+  const isFullUpdate = o.lineItems !== undefined || o.quantity !== undefined;
+  const payload = isFullUpdate
+    ? buildPayload(o as Omit<PartsEstimate, 'id' | 'createdAt'>)
+    : buildPartialPayload(o);
+
   const { data, error } = await supabase
     .from('parts_estimates')
-    .update(buildPayload(o as Omit<PartsEstimate, 'id' | 'createdAt'>))
+    .update(payload)
     .eq('id', id).eq('shop_id', getShopId())
     .select().single();
   if (error) throw error;
   return mapEstimate(data);
+}
+
+function buildPartialPayload(o: Partial<Omit<PartsEstimate, 'id' | 'createdAt'>>): Record<string, unknown> {
+  const p: Record<string, unknown> = {};
+  if (o.status        !== undefined) p.status             = o.status;
+  if (o.notes         !== undefined) p.notes              = o.notes;
+  if (o.partName      !== undefined) p.part_name          = o.partName;
+  if (o.partNumber    !== undefined) p.part_number        = o.partNumber;
+  if (o.condition     !== undefined) p.condition          = o.condition;
+  if (o.quantity      !== undefined) p.quantity           = o.quantity;
+  if (o.unitCost      !== undefined) p.unit_cost          = o.unitCost;
+  if (o.totalCost     !== undefined) p.total_cost         = o.totalCost;
+  if (o.coreCharge    !== undefined) p.core_charge        = o.coreCharge;
+  if (o.vendorName    !== undefined) p.vendor_name        = o.vendorName;
+  if (o.vendorPhone   !== undefined) p.vendor_phone       = o.vendorPhone;
+  if (o.vendorEmail   !== undefined) p.vendor_email       = o.vendorEmail;
+  if (o.quoteDate     !== undefined) p.quote_date         = o.quoteDate || null;
+  if (o.validUntil    !== undefined) p.valid_until        = o.validUntil || null;
+  if (o.jobCardNumber !== undefined) p.job_card_number    = o.jobCardNumber;
+  if (o.repairOrderNumber !== undefined) p.repair_order_number = o.repairOrderNumber;
+  if (o.vehicle       !== undefined) p.vehicle            = o.vehicle;
+  if (o.customerName  !== undefined) p.customer_name      = o.customerName;
+  if (o.currency      !== undefined) p.currency           = o.currency;
+  if (o.lineItems     !== undefined) p.line_items         = o.lineItems;
+  return p;
 }
 
 export async function deletePartsEstimate(id: string): Promise<void> {
