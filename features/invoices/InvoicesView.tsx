@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
 import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
-import { fetchRepairOrders, updateRepairOrder } from '@/services/repairOrderService';
+import { fetchRepairOrders, updateRepairOrder, deleteRepairOrder } from '@/services/repairOrderService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
@@ -429,13 +429,12 @@ export function InvoicesView() {
       await Promise.all([
         ...Array.from(cleanupModal.selectedOrders).map(id => deletePartsOrder(id)),
         ...Array.from(cleanupModal.selectedQuotations).map(id => deletePartsEstimate(id)),
-        // Close (not delete) linked ROs so the history is preserved
-        ...Array.from(cleanupModal.selectedROs).map(id => updateRepairOrder(id, { status: 'Closed' })),
+        ...Array.from(cleanupModal.selectedROs).map(id => deleteRepairOrder(id)),
       ]);
       const partsCount = cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size;
       const roCount = cleanupModal.selectedROs.size;
       const parts = partsCount > 0 ? `${partsCount} parts record${partsCount !== 1 ? 's' : ''}` : '';
-      const ros = roCount > 0 ? `${roCount} repair order${roCount !== 1 ? 's' : ''} closed` : '';
+      const ros = roCount > 0 ? `${roCount} repair order${roCount !== 1 ? 's' : ''} deleted` : '';
       notify(`Synced: ${[parts, ros].filter(Boolean).join(', ')} — linked to ${cleanupModal.invoice.invoiceNumber}.`);
     } catch (e: unknown) {
       setError('Sync failed: ' + (e instanceof Error ? e.message : ''));
@@ -1140,9 +1139,9 @@ export function InvoicesView() {
             {cleanupModal.linkedROs.length > 0 && (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#16a34a', marginTop: 16, marginBottom: 4 }}>
-                  Repair Orders — Close on Payment ({cleanupModal.linkedROs.length})
+                  Repair Orders — Delete on Payment ({cleanupModal.linkedROs.length})
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Checked ROs will be marked <strong>Closed</strong> (not deleted). History is preserved.</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Checked ROs will be <strong>permanently deleted</strong> to keep the database clean.</div>
                 {cleanupModal.linkedROs.map(ro => (
                   <label key={ro.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={cleanupModal.selectedROs.has(ro.id)} onChange={e => {
@@ -1173,7 +1172,7 @@ export function InvoicesView() {
                 onClick={handleCleanupConfirm}
                 style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: cleanupModal.deleting ? 0.6 : 1 }}
               >
-                {cleanupModal.deleting ? 'Syncing…' : `Sync & Close (${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size} item${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size !== 1 ? 's' : ''})`}
+                {cleanupModal.deleting ? 'Deleting…' : `Delete & Clean (${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size} item${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size !== 1 ? 's' : ''})`}
               </button>
             </div>
           </div>
