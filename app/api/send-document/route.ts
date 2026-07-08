@@ -196,7 +196,8 @@ export async function POST(req: NextRequest) {
         status: data.status,
       };
     } else {
-      const { data, error } = await db.from('invoices').select('*').eq('id', documentId).eq('shop_id', shopId).single();
+      // inv.id maps to the 'number' column (invoice number string, e.g. "INV-0008")
+      const { data, error } = await db.from('invoices').select('*').eq('number', documentId).eq('shop_id', shopId).single();
       if (error || !data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       const lines: LineRow[] = (data.lines ?? []).map((l: Record<string, unknown>) => ({
         description: (l.description as string) || '',
