@@ -55,6 +55,7 @@ const EMPTY_FORM = {
   discountPct: 0,
   shopSupplies: 0,
   taxRate: 0,
+  taxPct: 0,
   notes: '',
   dueDate: '',
   paidDate: null as string | null,
@@ -263,6 +264,7 @@ export function InvoicesView() {
             return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, discCurPrint)}</span></div>`;
           })() : ''}
           ${t.shopSupplies > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Shop Supplies</span><span>${formatMoney(t.shopSupplies, inv.currency)}</span></div>` : ''}
+          ${t.tax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Tax / VAT (${Math.round(inv.taxRate * 100)}%)</span><span>+${formatMoney(t.tax, inv.currency)}</span></div>` : ''}
           ${(() => {
             const foreignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
             const allForeign = t.subtotal === 0 && foreignCurs.length === 1;
@@ -320,6 +322,7 @@ export function InvoicesView() {
       })(),
       shopSupplies: inv.shopSupplies,
       taxRate: inv.taxRate,
+      taxPct: Math.round((inv.taxRate ?? 0) * 100),
       notes: inv.notes,
       dueDate: inv.dueDate || '',
       paidDate: inv.paidDate,
@@ -394,9 +397,10 @@ export function InvoicesView() {
       };
     });
     try {
-      // Compute flat discount amount from percentage × effective line total
+      // Compute flat discount and tax rate from percentage inputs
       const { amount: effLineTotal } = calcFormEffectiveTotal(form.lines, form.currency);
       const computedDiscount = Math.round(effLineTotal * ((form.discountPct ?? 0) / 100));
+      const computedTaxRate = (form.taxPct ?? 0) / 100;
       if (editingId) {
         // Update existing invoice
         await updateInvoice(editingId, {
@@ -408,7 +412,7 @@ export function InvoicesView() {
           lines: parsedLines,
           discount: computedDiscount,
           shopSupplies: form.shopSupplies,
-          taxRate: form.taxRate,
+          taxRate: computedTaxRate,
           notes: form.notes,
           dueDate: form.dueDate,
           currency: form.currency,
@@ -417,6 +421,7 @@ export function InvoicesView() {
           ...selected!,
           ...form,
           discount: computedDiscount,
+          taxRate: computedTaxRate,
           lines: parsedLines,
           id: editingId,
           createdAt: selected?.createdAt ?? '',
@@ -428,7 +433,7 @@ export function InvoicesView() {
         notify(`Invoice ${form.invoiceNumber} updated.`);
       } else {
         // Create new invoice
-        const saved = await createInvoice({ ...form, discount: computedDiscount, lines: parsedLines });
+        const saved = await createInvoice({ ...form, discount: computedDiscount, taxRate: computedTaxRate, lines: parsedLines });
         setInvoices(prev => [saved, ...prev]);
         setSelected(saved);
         setShowForm(false);
@@ -909,7 +914,7 @@ export function InvoicesView() {
               })()}
 
               {/* Adjustments */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
                   <label>Discount (%)</label>
                   <input
@@ -928,6 +933,23 @@ export function InvoicesView() {
                 <div className="login-field">
                   <label>Shop Supplies ({form.currency || 'USD'})</label>
                   <input type="number" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: Number(e.target.value) }))} min="0" step="0.01" />
+                </div>
+                <div className="login-field">
+                  <label>Tax / VAT (%)</label>
+                  <input
+                    type="number"
+                    value={form.taxPct ?? 0}
+                    onChange={e => setForm(f => ({ ...f, taxPct: Math.min(100, Math.max(0, Math.round(Number(e.target.value) || 0))) }))}
+                    min="0" max="100" step="1"
+                    placeholder="0"
+                  />
+                  {(form.taxPct ?? 0) > 0 && (() => {
+                    const { amount: eff, currency: ec } = calcFormEffectiveTotal(form.lines, form.currency);
+                    const discAmt = Math.round(eff * ((form.discountPct ?? 0) / 100));
+                    const taxable = Math.max(eff - discAmt, 0) + (form.shopSupplies || 0);
+                    const taxAmt = Math.round(taxable * ((form.taxPct ?? 0) / 100));
+                    return <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 3 }}>= +{formatMoney(taxAmt, ec)}</div>;
+                  })()}
                 </div>
               </div>
 
@@ -1087,6 +1109,12 @@ export function InvoicesView() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
                       <span style={{ color: 'var(--muted)' }}>Shop Supplies</span>
                       <span>{formatMoney(totals.shopSupplies, selected.currency)}</span>
+                    </div>
+                  )}
+                  {totals.tax > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted)' }}>Tax / VAT ({Math.round(selected.taxRate * 100)}%)</span>
+                      <span>+{formatMoney(totals.tax, selected.currency)}</span>
                     </div>
                   )}
                   {/* Show total per currency when all lines share one non-base currency */}
