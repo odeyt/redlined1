@@ -17,6 +17,7 @@ interface DashStats {
   draftInvoices: number;
   sentInvoices: number;
   paidInvoices: number;
+  unpaidInvoices: number;
   totalRevenue: number;
   outstanding: number;
   totalEstimates: number;
@@ -132,20 +133,45 @@ export function DashboardView() {
         supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
         supabase.from('job_cards').select('status').eq('shop_id', getShopId()),
         supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
-        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
         supabase.from('estimates').select('status').eq('shop_id', getShopId()),
         supabase.from('payments').select('amount, payment_date, currency').eq('shop_id', getShopId()).order('payment_date', { ascending: false }),
         supabase.from('parts').select('id, quantity, reorder_point').eq('shop_id', getShopId()),
       ]);
 
-      // Invoice stats
+      // Invoice stats — compute effective total from lines (same logic as getEffectiveTotal)
       const invoices = invData ?? [];
       const paidInvs = invoices.filter(i => i.status === 'Paid');
       const sentInvs = invoices.filter(i => i.status === 'Sent');
       const draftInvs = invoices.filter(i => i.status === 'Draft');
-      const calcTotal = (i: Record<string, number>) => ((i.subtotal || 0) - (i.discount || 0) + (i.tax || 0) + (i.shop_supplies || 0));
-      const totalRevenue = paidInvs.reduce((s, i) => s + calcTotal(i), 0);
-      const outstanding = sentInvs.reduce((s, i) => s + calcTotal(i), 0);
+      const unpaidInvs = invoices.filter(i => i.status !== 'Paid' && i.status !== 'Void');
+
+      function calcInvTotal(inv: Record<string, unknown>): number {
+        const lines = Array.isArray(inv.lines) ? inv.lines as { qty: number; rate: number; currency?: string }[] : [];
+        const currency = (inv.currency as string) || 'USD';
+        const discount = Number(inv.discount ?? 0);
+        const shopSupplies = Number(inv.shop_supplies ?? 0);
+        const taxRate = Number(inv.tax_rate ?? 0);
+        // Group by currency
+        const byCurrency: Record<string, number> = {};
+        for (const l of lines) {
+          const lc = l.currency || currency;
+          byCurrency[lc] = (byCurrency[lc] ?? 0) + (l.qty || 0) * (l.rate || 0);
+        }
+        const baseSub = byCurrency[currency] ?? 0;
+        const foreignCurs = Object.keys(byCurrency).filter(c => c !== currency);
+        // All-foreign-currency invoice: use foreign total
+        if (baseSub === 0 && foreignCurs.length === 1) {
+          const gross = byCurrency[foreignCurs[0]];
+          return Math.max(gross - discount, 0) + shopSupplies;
+        }
+        const afterDiscount = Math.max(baseSub - discount, 0);
+        const taxable = afterDiscount + shopSupplies;
+        return taxable + taxable * taxRate;
+      }
+
+      const totalRevenue = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
+      const outstanding = unpaidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
 
       // Payments today
       const pays = payData ?? [];
@@ -173,6 +199,7 @@ export function DashboardView() {
         draftInvoices: draftInvs.length,
         sentInvoices: sentInvs.length,
         paidInvoices: paidInvs.length,
+        unpaidInvoices: unpaidInvs.length,
         totalRevenue,
         outstanding,
         totalEstimates: ests.length,
@@ -188,7 +215,7 @@ export function DashboardView() {
         invoices.slice(0, 6).map(i => ({
           number: i.number,
           customer: i.customer,
-          total: calcTotal(i),
+          total: calcInvTotal(i),
           status: i.status,
           currency: i.currency ?? 'USD',
         }))
@@ -260,7 +287,7 @@ export function DashboardView() {
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 800, color: s.outstanding > 0 ? '#f59e0b' : 'var(--text)', marginTop: 4 }}>{fmtMoney(s.outstanding)}</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.sentInvoices} sent invoices</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.unpaidInvoices} unpaid invoices</div>
           </div>
           <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
