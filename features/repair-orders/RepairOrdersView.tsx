@@ -10,7 +10,7 @@ import { TechPills } from '@/components/TechPill';
 import {
   fetchRepairOrders, createRepairOrder, updateRepairOrder,
   deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
-  RO_STATUSES, type RepairOrder, type RoPart,
+  RO_STATUSES, type RepairOrder, type RoPart, type WorkLine,
 } from '@/services/repairOrderService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
@@ -298,6 +298,10 @@ function statusLabel(s: string) { return `${STATUS_ICONS[s] ?? ''} ${s}`.trim();
 type FormPart = { description: string; partNumber: string; qty: string; unitCost: string };
 const EMPTY_PART: FormPart = { description: '', partNumber: '', qty: '1', unitCost: '0' };
 
+type FormWorkLine = { description: string; type: string; qty: string; rate: string };
+const EMPTY_WORK_LINE: FormWorkLine = { description: '', type: 'Labor', qty: '1', rate: '0' };
+const WORK_LINE_TYPES = ['Labor', 'Parts', 'Service', 'Diagnostic', 'Other'] as const;
+
 const EMPTY_FORM = {
   roNumber: '',
   jobCardId: '',
@@ -322,6 +326,7 @@ const EMPTY_FORM = {
   laborSource: null as string | null,
   laborLookupAt: null as string | null,
   formParts: [{ ...EMPTY_PART }] as FormPart[],
+  formWorkLines: [{ ...EMPTY_WORK_LINE }] as FormWorkLine[],
 };
 
 export function RepairOrdersView() {
@@ -436,6 +441,9 @@ export function RepairOrdersView() {
     const fp: FormPart[] = ro.parts.length > 0
       ? ro.parts.map(p => ({ description: p.description, partNumber: p.partNumber, qty: String(p.qty), unitCost: String(p.unitCost) }))
       : [{ ...EMPTY_PART }];
+    const fwl: FormWorkLine[] = ro.workLines && ro.workLines.length > 0
+      ? ro.workLines.map(w => ({ description: w.description, type: w.type, qty: String(w.qty), rate: String(w.rate) }))
+      : [{ ...EMPTY_WORK_LINE }];
     setForm({
       roNumber: ro.roNumber,
       jobCardId: ro.jobCardId,
@@ -460,6 +468,7 @@ export function RepairOrdersView() {
       laborSource: ro.laborSource ?? null,
       laborLookupAt: ro.laborLookupAt ?? null,
       formParts: fp,
+      formWorkLines: fwl,
     });
     setEditingId(ro.id);
     setShowForm(true);
@@ -474,8 +483,11 @@ export function RepairOrdersView() {
       const roParts: RoPart[] = form.formParts
         .filter(p => p.description.trim())
         .map(p => ({ description: p.description.trim(), partNumber: p.partNumber.trim(), qty: Number(p.qty) || 1, unitCost: Number(p.unitCost) || 0 }));
+      const roWorkLines: WorkLine[] = form.formWorkLines
+        .filter(w => w.description.trim())
+        .map(w => ({ description: w.description.trim(), type: w.type as WorkLine['type'], qty: Number(w.qty) || 1, rate: Number(w.rate) || 0 }));
       const computedPartsTotal = calcPartsTotal(roParts);
-      const saveData = { ...form, parts: roParts, partsTotal: computedPartsTotal };
+      const saveData = { ...form, parts: roParts, workLines: roWorkLines, partsTotal: computedPartsTotal };
       if (editingId) {
         await updateRepairOrder(editingId, saveData);
         const updated: RepairOrder = { ...selected!, ...saveData, id: editingId, createdAt: selected?.createdAt ?? '' };
@@ -1342,6 +1354,61 @@ export function RepairOrdersView() {
                 <div className="login-field">
                   <label>🟢 Correction (Work Performed)</label>
                   <textarea value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} rows={4} placeholder="Work performed to correct…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+
+              {/* Work Completed — structured line items for logged labor/service */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Work Completed</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                      {['Description', 'Type', 'Qty / Hrs', 'Rate', 'Total', ''].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '4px 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {form.formWorkLines.map((w, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: '4px 6px' }}>
+                          <input value={w.description} onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], description: e.target.value }; return { ...f, formWorkLines: wl }; })} placeholder="Work performed…" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 120 }}>
+                          <select value={w.type} onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], type: e.target.value }; return { ...f, formWorkLines: wl }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
+                            {WORK_LINE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 80 }}>
+                          <input type="number" value={w.qty} min="0.25" step="0.25"
+                            onFocus={e => e.target.select()}
+                            onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], qty: e.target.value }; return { ...f, formWorkLines: wl }; })}
+                            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 130 }}>
+                          <input type="text" inputMode="decimal" value={w.rate}
+                            onFocus={e => e.target.select()}
+                            onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], rate: v }; return { ...f, formWorkLines: wl }; }); }}
+                            placeholder="0"
+                            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 110, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {formatMoney((Number(w.qty) || 0) * (Number(w.rate) || 0), form.currency)}
+                        </td>
+                        <td style={{ padding: '4px 6px', width: 36 }}>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, formWorkLines: f.formWorkLines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, formWorkLines: [...f.formWorkLines, { ...EMPTY_WORK_LINE }] }))} style={{ background: 'none', border: '1px dashed var(--line)', borderRadius: 7, padding: '5px 14px', cursor: 'pointer', color: 'var(--accent)', fontSize: 13, fontWeight: 600 }}>+ Add Line</button>
+                  {form.formWorkLines.some(w => w.description.trim()) && (
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      Work subtotal: <strong>{formatMoney(form.formWorkLines.reduce((s, w) => s + (Number(w.qty) || 0) * (Number(w.rate) || 0), 0), form.currency)}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
 

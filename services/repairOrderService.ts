@@ -8,6 +8,13 @@ export interface RoPart {
   unitCost: number;
 }
 
+export interface WorkLine {
+  description: string;
+  type: 'Labor' | 'Parts' | 'Service' | 'Diagnostic' | 'Other';
+  qty: number;
+  rate: number;
+}
+
 export interface RepairOrder {
   id: string;
   roNumber: string;
@@ -30,6 +37,7 @@ export interface RepairOrder {
   closedDate: string | null;
   createdAt: string;
   parts: RoPart[];
+  workLines: WorkLine[];
   // Owner-only fields — never shown to technicians, advisors, or managers
   suggestedHours: number | null;
   flatRateCost: number | null;
@@ -60,6 +68,7 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
     closedDate: (r.closed_date as string) || null,
     createdAt: (r.created_at as string) || '',
     parts: Array.isArray(r.parts) ? (r.parts as RoPart[]) : [],
+    workLines: Array.isArray(r.work_lines) ? (r.work_lines as WorkLine[]) : [],
     suggestedHours: r.suggested_hours != null ? Number(r.suggested_hours) : null,
     flatRateCost: r.flat_rate_cost != null ? Number(r.flat_rate_cost) : null,
     laborSource: (r.labor_source as string) || null,
@@ -110,6 +119,7 @@ export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'
       opened_date: ro.openedDate || new Date().toISOString(),
       closed_date: ro.closedDate || null,
       parts: ro.parts ?? [],
+      work_lines: ro.workLines ?? [],
     })
     .select()
     .single();
@@ -141,6 +151,7 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.laborSource !== undefined) payload.labor_source = updates.laborSource;
   if (updates.laborLookupAt !== undefined) payload.labor_lookup_at = updates.laborLookupAt;
   if (updates.parts !== undefined) payload.parts = updates.parts;
+  if (updates.workLines !== undefined) payload.work_lines = updates.workLines;
   const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).eq('shop_id', getShopId());
   if (error) throw error;
 }
