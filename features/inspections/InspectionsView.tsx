@@ -29,18 +29,36 @@ function freshItem(template: Omit<InspectionItem, 'id'>): InspectionItem {
   return { ...template, id: Math.random().toString(36).slice(2) };
 }
 
-function InspectionStatBadge({ label, color, items }: { label: string; color: string; items: InspectionItem[] }) {
+function InspectionStatBadge({ label, color, items, active, onClick }: {
+  label: string; color: string; items: InspectionItem[];
+  active?: boolean; onClick?: () => void;
+}) {
   const [hover, setHover] = useState(false);
+  const clickable = items.length > 0;
   return (
     <div
-      style={{ textAlign: 'center', flex: 1, background: color + '11', border: `1px solid ${color}44`, borderRadius: 10, padding: '10px 8px', position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
+      onClick={clickable ? onClick : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      style={{
+        textAlign: 'center', flex: 1, position: 'relative',
+        background: active ? color + '22' : color + '11',
+        border: `${active ? 2 : 1}px solid ${active ? color : color + '44'}`,
+        borderRadius: 10, padding: '10px 8px',
+        cursor: clickable ? 'pointer' : 'default',
+        transform: active ? 'translateY(-1px)' : 'none',
+        boxShadow: active ? `0 4px 14px ${color}33` : 'none',
+        transition: 'all 0.15s',
+      }}
     >
       <div style={{ fontSize: 22, fontWeight: 800, color }}>{items.length}</div>
       <div style={{ fontSize: 11, color, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
-      {items.length > 0 && <div style={{ fontSize: 9, color, opacity: 0.7, marginTop: 2 }}>hover for details</div>}
-      {hover && items.length > 0 && (
+      {clickable && (
+        <div style={{ fontSize: 9, color, opacity: 0.7, marginTop: 2 }}>
+          {active ? '↑ click to clear' : 'click to jump'}
+        </div>
+      )}
+      {hover && clickable && !active && (
         <div style={{
           position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
           zIndex: 300, marginTop: 6, minWidth: 220, maxWidth: 300,
@@ -188,6 +206,8 @@ export function InspectionsView() {
   const [aiDraftMock, setAiDraftMock] = useState(false);
   const [aiDraftError, setAiDraftError] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState('');
+  const [activeItemFilter, setActiveItemFilter] = useState<string | null>(null);
+  const checklistRef = useRef<HTMLDivElement>(null);
 
   const EMPTY_FORM = {
     inspectionNumber: '',
@@ -528,7 +548,7 @@ export function InspectionsView() {
                 : ins.status === 'Customer Declined' ? '#f44336' : '#2196f3';
               const isActive = selected?.id === ins.id;
               return (
-                <div key={ins.id} onClick={() => { setSelected(ins); setShowForm(false); }}
+                <div key={ins.id} onClick={() => { setSelected(ins); setShowForm(false); setActiveItemFilter(null); }}
                   style={{
                     borderRadius: 10, cursor: 'pointer', overflow: 'hidden',
                     border: `1px solid ${isActive ? 'var(--accent)' : 'var(--line)'}`,
@@ -923,15 +943,22 @@ export function InspectionsView() {
                   </div>
                 </div>
 
-                {/* Summary badges with hover dropdown */}
-                <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                {/* Summary badges — click to filter checklist */}
+                <div style={{ display: 'flex', gap: 10, marginBottom: activeItemFilter ? 8 : 20 }}>
                   {[
                     { label: 'Fail',      color: '#f44336', items: selected.items.filter(i => i.status === 'Fail') },
                     { label: 'Attention', color: '#ff9800', items: selected.items.filter(i => i.status === 'Attention') },
                     { label: 'Pass',      color: '#4caf50', items: selected.items.filter(i => i.status === 'Pass') },
                     { label: 'N/A',       color: '#888',    items: selected.items.filter(i => i.status === 'N/A') },
                   ].map(({ label, color, items: its }) => (
-                    <InspectionStatBadge key={label} label={label} color={color} items={its} />
+                    <InspectionStatBadge key={label} label={label} color={color} items={its}
+                      active={activeItemFilter === label}
+                      onClick={() => {
+                        const next = activeItemFilter === label ? null : label;
+                        setActiveItemFilter(next);
+                        if (next) setTimeout(() => checklistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                      }}
+                    />
                   ))}
                 </div>
 
@@ -966,13 +993,43 @@ export function InspectionsView() {
                   );
                 })()}
 
+                {/* Active filter banner */}
+                {activeItemFilter && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '7px 12px', background: 'var(--surface-soft)', borderRadius: 8, border: '1px solid var(--line)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      Showing <strong style={{ color: 'var(--text)' }}>{activeItemFilter}</strong> items only
+                    </span>
+                    <button type="button" onClick={() => setActiveItemFilter(null)}
+                      style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                      ✕ Clear filter
+                    </button>
+                  </div>
+                )}
+
                 {/* Items by category */}
-                {[...new Set(selected.items.map(i => i.category))].map(cat => (
+                <div ref={checklistRef}>
+                {[...new Set(selected.items.map(i => i.category))].map(cat => {
+                  const catItems = selected.items.filter(i => i.category === cat);
+                  const visibleItems = activeItemFilter ? catItems.filter(i => i.status === activeItemFilter) : catItems;
+                  if (activeItemFilter && visibleItems.length === 0) return null;
+                  return (
                   <div key={cat} style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>{cat}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                      {cat}
+                      {activeItemFilter && <span style={{ marginLeft: 6, fontWeight: 400, opacity: 0.7 }}>({visibleItems.length}/{catItems.length})</span>}
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {selected.items.filter(i => i.category === cat).map(item => (
-                        <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: 'var(--surface-soft)' }}>
+                      {catItems.map(item => {
+                        const dimmed = activeItemFilter && item.status !== activeItemFilter;
+                        const highlighted = activeItemFilter && item.status === activeItemFilter;
+                        return (
+                        <div key={item.id} style={{
+                          display: 'flex', gap: 10, alignItems: 'center', padding: '6px 10px', borderRadius: 8,
+                          background: highlighted ? STATUS_COLOR[item.status] + '12' : 'var(--surface-soft)',
+                          border: highlighted ? `1px solid ${STATUS_COLOR[item.status]}44` : '1px solid transparent',
+                          opacity: dimmed ? 0.3 : 1,
+                          transition: 'opacity 0.2s, background 0.2s',
+                        }}>
                           <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_COLOR[item.status], flexShrink: 0 }} />
                           <span style={{ flex: 1, fontSize: 13 }}>{item.name}</span>
                           <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[item.status] }}>{item.status}</span>
@@ -983,10 +1040,13 @@ export function InspectionsView() {
                               style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in', flexShrink: 0 }} />
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
+                </div>
 
                 {selected.notes && (
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--line)', marginTop: 8 }}>
