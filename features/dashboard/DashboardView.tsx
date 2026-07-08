@@ -50,11 +50,13 @@ interface RecentRO {
   partsTotal: number;
   technician: string;
   openedDate: string;
+  currency: string;
 }
 
 interface RevenueDay {
   date: string;
   amount: number;
+  byCurrency: Record<string, number>;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -70,7 +72,6 @@ const STATUS_COLOR: Record<string, string> = {
   'Pending Approval': '#f59e0b',
 };
 
-function fmtMoney(n: number) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 const cardClick: React.CSSProperties = {
   cursor: 'pointer',
@@ -136,7 +137,7 @@ export function DashboardView() {
         supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
         supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
         supabase.from('job_cards').select('status').eq('shop_id', getShopId()),
-        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
+        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
         supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency, paid_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
         supabase.from('estimates').select('status').eq('shop_id', getShopId()),
         supabase.from('payments').select('amount, payment_date, currency').eq('shop_id', getShopId()).order('payment_date', { ascending: false }),
@@ -254,10 +255,11 @@ export function DashboardView() {
           partsTotal: Number(r.parts_total ?? 0),
           technician: r.technician ?? '',
           openedDate: r.opened_date ?? '',
+          currency: (r.currency as string) || 'USD',
         }))
       );
 
-      // Revenue last 7 days from payments
+      // Revenue last 7 days from paid invoices grouped by currency
       const days: RevenueDay[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -265,10 +267,17 @@ export function DashboardView() {
         d.setHours(0, 0, 0, 0);
         const next = new Date(d);
         next.setDate(next.getDate() + 1);
-        const dayTotal = pays
-          .filter(p => p.payment_date && p.payment_date >= d.toISOString() && p.payment_date < next.toISOString())
-          .reduce((s, p) => s + Number(p.amount ?? 0), 0);
-        days.push({ date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), amount: dayTotal });
+        const dayInvs = paidInvs.filter(inv => {
+          const pd = inv.paid_date as string;
+          return pd && pd >= d.toISOString() && pd < next.toISOString();
+        });
+        const byCurrency: Record<string, number> = {};
+        for (const inv of dayInvs) {
+          const { amount, currency } = calcInvEffective(inv);
+          byCurrency[currency] = (byCurrency[currency] ?? 0) + amount;
+        }
+        const amount = Object.values(byCurrency).reduce((s, v) => s + v, 0);
+        days.push({ date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), amount, byCurrency });
       }
       setRevenue7(days);
     } catch (e) {
@@ -407,10 +416,13 @@ export function DashboardView() {
                   key={i}
                   onClick={() => day.amount > 0 && nav('payments')}
                   style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: day.amount > 0 ? 'pointer' : 'default' }}
-                  title={day.amount > 0 ? `${day.date} — $${day.amount.toLocaleString()} · Click to view payments` : undefined}
+                  title={day.amount > 0 ? `${day.date} — ${Object.entries(day.byCurrency).map(([c, a]) => formatMoney(a, c)).join(' + ')} · Click to view payments` : undefined}
                 >
-                  <div style={{ fontSize: 11, fontWeight: 700, color: day.amount > 0 ? 'var(--text)' : 'var(--muted)' }}>
-                    {day.amount > 0 ? '$' + (day.amount >= 1000 ? (day.amount / 1000).toFixed(1) + 'k' : day.amount.toFixed(0)) : ''}
+                  <div style={{ fontSize: 10, fontWeight: 700, color: day.amount > 0 ? 'var(--text)' : 'var(--muted)', textAlign: 'center', lineHeight: 1.3 }}>
+                    {day.amount > 0 ? Object.entries(day.byCurrency).map(([cur, amt]) => {
+                      const sym = CURRENCIES.find(c => c.code === cur)?.symbol ?? cur;
+                      return sym + (amt >= 1000 ? (amt / 1000).toFixed(1) + 'k' : Math.round(amt).toLocaleString());
+                    }).join('\n') : ''}
                   </div>
                   <div
                     className={day.amount > 0 ? 'dash-bar' : ''}
@@ -524,7 +536,7 @@ export function DashboardView() {
                       <div style={{ color: 'var(--text)' }}>{ro.customerName}</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{ro.vehicle}</div>
                     </td>
-                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{fmtMoney(ro.laborHours * ro.laborRate + ro.partsTotal)}</td>
+                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(ro.laborHours * ro.laborRate + ro.partsTotal, ro.currency)}</td>
                     <td style={{ padding: '8px', textAlign: 'center' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: (STATUS_COLOR[ro.status] || '#888') + '22', color: STATUS_COLOR[ro.status] || '#888' }}>{ro.status}</span>
                     </td>
