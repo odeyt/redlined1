@@ -441,7 +441,7 @@ export function PartsEstimatesView() {
       ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
       : '';
 
-    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate (50% markup applied)?${mixedWarning}\n\nThe Parts Quotation will be kept with status "Converted" so you can still view the original costs.`)) return;
+    if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate?${mixedWarning}\n\nThe Parts Quotation will be kept with status "Converted" so you can still view the original costs.`)) return;
 
     // Close edit modal immediately after confirm so navigation feels clean
     setShowForm(false);
@@ -476,9 +476,9 @@ export function PartsEstimatesView() {
         const isForeign = itemCur !== mainCur;
         const fx_to_main = isForeign ? await fxRate(itemCur, mainCur) : 1;
         const cost = +((item.unitCost ?? 0) * fx_to_main).toFixed(2);
-        const markup = 50;
+        const markup = 0;
         const fx_to_billing = isForeign ? await fxRate(mainCur, itemCur) : 1;
-        const rate = +(cost * fx_to_billing * (1 + markup / 100)).toFixed(2);
+        const rate = +(cost * fx_to_billing).toFixed(2);
         const description = item.partName || '';
         const laoDescription = await translateToLao(description);
         return {
