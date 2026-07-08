@@ -173,8 +173,16 @@ export function InvoicesView() {
         <td style="padding:8px 10px;text-align:right;font-weight:600;font-size:13px;color:${lc !== inv.currency ? '#d97706' : '#111'}">${formatMoney(line.qty * line.rate, lc)}</td>
       </tr>`;
     }).join('');
-    const received = payments.reduce((s, p) => s + p.amount, 0);
-    const balance = t.total - received;
+    const foreignCursPrint = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
+    const allForeignPrint = t.subtotal === 0 && foreignCursPrint.length === 1;
+    const effectiveCurPrint = allForeignPrint ? foreignCursPrint[0] : inv.currency;
+    const effectiveTotalPrint = allForeignPrint
+      ? (t.byCurrency[foreignCursPrint[0]] - t.discount)
+      : t.total;
+    const payByCurPrint: Record<string, number> = {};
+    for (const p of payments) { payByCurPrint[p.currency] = (payByCurPrint[p.currency] ?? 0) + p.amount; }
+    const receivedInEffectivePrint = payByCurPrint[effectiveCurPrint] ?? 0;
+    const balance = effectiveTotalPrint - receivedInEffectivePrint;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <title>${inv.invoiceNumber}</title>
       <style>
@@ -239,9 +247,11 @@ export function InvoicesView() {
             const displayAmt = allForeign ? (t.byCurrency[foreignCurs[0]] - t.discount) : t.total;
             return `<div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>`;
           })()}
-          ${received > 0 ? `
-          <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid #eee"><span style="color:#4caf50;font-weight:600">Amount Received</span><span style="color:#4caf50;font-weight:600">-${formatMoney(received, inv.currency)}</span></div>
-          <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:700;font-size:15px"><span style="color:${balance<=0?'#4caf50':'#cc0000'}">Balance Due</span><span style="color:${balance<=0?'#4caf50':'#cc0000'}">${balance<=0?'PAID IN FULL':formatMoney(balance,inv.currency)}</span></div>
+          ${Object.keys(payByCurPrint).length > 0 ? `
+          ${Object.entries(payByCurPrint).map(([cur, amt]) =>
+            `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid #eee"><span style="color:#4caf50;font-weight:600">Amount Received${cur !== effectiveCurPrint ? ` (${cur})` : ''}</span><span style="color:#4caf50;font-weight:600">-${formatMoney(amt, cur)}</span></div>`
+          ).join('')}
+          <div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-weight:700;font-size:15px"><span style="color:${balance<=0?'#4caf50':'#cc0000'}">Balance Due</span><span style="color:${balance<=0?'#4caf50':'#cc0000'}">${balance<=0?'PAID IN FULL':formatMoney(balance,effectiveCurPrint)}</span></div>
           ` : ''}
         </div>
       </div>
@@ -1036,17 +1046,31 @@ export function InvoicesView() {
                     );
                   })()}
                   {invoicePayments.length > 0 && (() => {
-                    const received = invoicePayments.reduce((s, p) => s + p.amount, 0);
-                    const balance = totals.total - received;
+                    // Mirror the effective-total logic from the Total row above
+                    const foreignCurs = Object.keys(totals.byCurrency).filter(c => c !== selected.currency);
+                    const allForeign = totals.subtotal === 0 && foreignCurs.length === 1;
+                    const effectiveCur = allForeign ? foreignCurs[0] : selected.currency;
+                    const effectiveTotal = allForeign
+                      ? (totals.byCurrency[foreignCurs[0]] - totals.discount)
+                      : totals.total;
+                    // Group payments by their own currency (payments may differ from invoice base currency)
+                    const payByCur: Record<string, number> = {};
+                    for (const p of invoicePayments) {
+                      payByCur[p.currency] = (payByCur[p.currency] ?? 0) + p.amount;
+                    }
+                    const receivedInEffective = payByCur[effectiveCur] ?? 0;
+                    const balance = effectiveTotal - receivedInEffective;
                     return (
                       <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>
-                          <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received</span>
-                          <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(received, selected.currency)}</span>
-                        </div>
+                        {Object.entries(payByCur).map(([cur, amt]) => (
+                          <div key={cur} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, borderBottom: '1px solid var(--line)' }}>
+                            <span style={{ color: '#4caf50', fontWeight: 600 }}>Amount Received{cur !== effectiveCur ? ` (${cur})` : ''}</span>
+                            <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(amt, cur)}</span>
+                          </div>
+                        ))}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', fontWeight: 700, fontSize: 15 }}>
                           <span style={{ color: balance <= 0 ? '#4caf50' : 'var(--accent)' }}>Balance Due</span>
-                          <span style={{ color: balance <= 0 ? '#4caf50' : 'var(--accent)' }}>{balance <= 0 ? 'PAID IN FULL' : formatMoney(balance, selected.currency)}</span>
+                          <span style={{ color: balance <= 0 ? '#4caf50' : 'var(--accent)' }}>{balance <= 0 ? 'PAID IN FULL' : formatMoney(balance, effectiveCur)}</span>
                         </div>
                       </>
                     );
