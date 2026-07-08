@@ -17,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
 import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
-import { fetchRepairOrders, updateRepairOrder, deleteRepairOrder } from '@/services/repairOrderService';
+import { fetchRepairOrders, deleteRepairOrder } from '@/services/repairOrderService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
@@ -84,16 +84,6 @@ export function InvoicesView() {
   const [ratesFetching, setRatesFetching] = useState(false);
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [emailModal, setEmailModal] = useState<{ invoice: InvoiceFull; email: string; sending: boolean } | null>(null);
-  const [cleanupModal, setCleanupModal] = useState<{
-    invoice: InvoiceFull;
-    orders: import('@/services/partsOrderService').PartsOrder[];
-    quotations: import('@/services/partsEstimateService').PartsEstimate[];
-    linkedROs: import('@/services/repairOrderService').RepairOrder[];
-    selectedOrders: Set<string>;
-    selectedQuotations: Set<string>;
-    selectedROs: Set<string>;
-    deleting: boolean;
-  } | null>(null);
 
   useEffect(() => {
     load();
@@ -403,44 +393,21 @@ export function InvoicesView() {
       const matchQuotations = allQuotations.filter(q =>
         q.customerName?.toLowerCase() === cn && (!vh || q.vehicle?.toLowerCase() === vh)
       );
-      // ROs linked by invoice number OR matching customer+vehicle that are not yet Closed
       const linkedROs = allROs.filter(ro =>
         (ro.invoiceNumber === inv.invoiceNumber) ||
-        (ro.customerName?.toLowerCase() === cn && (!vh || ro.vehicle?.toLowerCase() === vh) && ro.status !== 'Closed' && ro.status !== 'Void')
+        (ro.customerName?.toLowerCase() === cn && (!vh || ro.vehicle?.toLowerCase() === vh) && ro.status !== 'Void')
       );
-      if (matchOrders.length === 0 && matchQuotations.length === 0 && linkedROs.length === 0) return;
-      setCleanupModal({
-        invoice: inv,
-        orders: matchOrders,
-        quotations: matchQuotations,
-        linkedROs,
-        selectedOrders: new Set(matchOrders.map(o => o.id)),
-        selectedQuotations: new Set(matchQuotations.map(q => q.id)),
-        selectedROs: new Set(linkedROs.map(r => r.id)),
-        deleting: false,
-      });
-    } catch { /* silent — cleanup is optional */ }
-  }
-
-  async function handleCleanupConfirm() {
-    if (!cleanupModal) return;
-    setCleanupModal(m => m ? { ...m, deleting: true } : null);
-    try {
       await Promise.all([
-        ...Array.from(cleanupModal.selectedOrders).map(id => deletePartsOrder(id)),
-        ...Array.from(cleanupModal.selectedQuotations).map(id => deletePartsEstimate(id)),
-        ...Array.from(cleanupModal.selectedROs).map(id => deleteRepairOrder(id)),
+        ...matchOrders.map(o => deletePartsOrder(o.id)),
+        ...matchQuotations.map(q => deletePartsEstimate(q.id)),
+        ...linkedROs.map(ro => deleteRepairOrder(ro.id)),
       ]);
-      const partsCount = cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size;
-      const roCount = cleanupModal.selectedROs.size;
+      const partsCount = matchOrders.length + matchQuotations.length;
+      const roCount = linkedROs.length;
       const parts = partsCount > 0 ? `${partsCount} parts record${partsCount !== 1 ? 's' : ''}` : '';
-      const ros = roCount > 0 ? `${roCount} repair order${roCount !== 1 ? 's' : ''} deleted` : '';
-      notify(`Synced: ${[parts, ros].filter(Boolean).join(', ')} — linked to ${cleanupModal.invoice.invoiceNumber}.`);
-    } catch (e: unknown) {
-      setError('Sync failed: ' + (e instanceof Error ? e.message : ''));
-    } finally {
-      setCleanupModal(null);
-    }
+      const ros = roCount > 0 ? `${roCount} repair order${roCount !== 1 ? 's' : ''}` : '';
+      if (parts || ros) notify(`Auto-cleaned: ${[parts, ros].filter(Boolean).join(', ')} removed — ${inv.invoiceNumber} paid.`);
+    } catch { /* silent — cleanup is best-effort */ }
   }
 
   async function handleMarkPaid(inv: InvoiceFull) {
@@ -1075,109 +1042,6 @@ export function InvoicesView() {
         </div>
       )}
 
-      {/* Parts Cleanup Modal */}
-      {cleanupModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--card)', borderRadius: 12, padding: 28, width: 480, maxWidth: '95vw', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Sync Records — Invoice Paid</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-              {cleanupModal.invoice.invoiceNumber} is now <strong>Paid</strong>. The following linked parts records can be removed to keep the database clean. Uncheck any you want to keep.
-            </div>
-
-            {cleanupModal.orders.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 8 }}>
-                  Parts Orders ({cleanupModal.orders.length})
-                </div>
-                {cleanupModal.orders.map(o => (
-                  <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={cleanupModal.selectedOrders.has(o.id)} onChange={e => {
-                      setCleanupModal(m => {
-                        if (!m) return null;
-                        const s = new Set(m.selectedOrders);
-                        e.target.checked ? s.add(o.id) : s.delete(o.id);
-                        return { ...m, selectedOrders: s };
-                      });
-                    }} />
-                    <span style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{o.partName || 'Part'}</span>
-                      {o.partNumber && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {o.partNumber}</span>}
-                      {o.vehicle && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {o.vehicle}</span>}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6 }}>{o.status}</span>
-                  </label>
-                ))}
-              </>
-            )}
-
-            {cleanupModal.quotations.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginTop: 16, marginBottom: 8 }}>
-                  Parts Quotations ({cleanupModal.quotations.length})
-                </div>
-                {cleanupModal.quotations.map(q => (
-                  <label key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={cleanupModal.selectedQuotations.has(q.id)} onChange={e => {
-                      setCleanupModal(m => {
-                        if (!m) return null;
-                        const s = new Set(m.selectedQuotations);
-                        e.target.checked ? s.add(q.id) : s.delete(q.id);
-                        return { ...m, selectedQuotations: s };
-                      });
-                    }} />
-                    <span style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13 }}>{q.partName || 'Part'}</span>
-                      {q.partNumber && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {q.partNumber}</span>}
-                      {q.vehicle && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {q.vehicle}</span>}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6 }}>{q.status}</span>
-                  </label>
-                ))}
-              </>
-            )}
-
-            {cleanupModal.linkedROs.length > 0 && (
-              <>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#16a34a', marginTop: 16, marginBottom: 4 }}>
-                  Repair Orders — Delete on Payment ({cleanupModal.linkedROs.length})
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Checked ROs will be <strong>permanently deleted</strong> to keep the database clean.</div>
-                {cleanupModal.linkedROs.map(ro => (
-                  <label key={ro.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--line)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={cleanupModal.selectedROs.has(ro.id)} onChange={e => {
-                      setCleanupModal(m => {
-                        if (!m) return null;
-                        const s = new Set(m.selectedROs);
-                        e.target.checked ? s.add(ro.id) : s.delete(ro.id);
-                        return { ...m, selectedROs: s };
-                      });
-                    }} />
-                    <span style={{ flex: 1 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>{ro.roNumber}</span>
-                      {ro.vehicle && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {ro.vehicle}</span>}
-                      {ro.concern && <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {ro.concern}</span>}
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--bg)', padding: '2px 8px', borderRadius: 6 }}>{ro.status}</span>
-                  </label>
-                ))}
-              </>
-            )}
-
-            <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
-              <button onClick={() => setCleanupModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>
-                Skip
-              </button>
-              <button
-                disabled={cleanupModal.deleting || (cleanupModal.selectedOrders.size === 0 && cleanupModal.selectedQuotations.size === 0 && cleanupModal.selectedROs.size === 0)}
-                onClick={handleCleanupConfirm}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600, opacity: cleanupModal.deleting ? 0.6 : 1 }}
-              >
-                {cleanupModal.deleting ? 'Deleting…' : `Delete & Clean (${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size} item${cleanupModal.selectedOrders.size + cleanupModal.selectedQuotations.size + cleanupModal.selectedROs.size !== 1 ? 's' : ''})`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </>
   );
