@@ -335,7 +335,7 @@ export function JobCardsView() {
   const [fWorkType, setFWorkType] = useState('Mobile service');
   const [fPriority, setFPriority] = useState('Normal');
   const [serviceTypeOptions, setServiceTypeOptions] = useState<string[]>([
-    'Oil Change','Brakes','Tires','Alignment','Engine','Transmission',
+    'Oil Change','Fuel','Brakes','Tires','Alignment','Engine','Transmission',
     'Electrical','AC/Heat','Diagnostics','Inspection','Detailing',
     'Gas/Petrol','Suspension','Exhaust','Battery/Charging','Cooling System',
     'Fuel System','Steering','Body/Dent','Windshield/Glass','Wash/Detail',
