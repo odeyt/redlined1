@@ -196,7 +196,11 @@ export function InvoicesView() {
     const allForeignPrint = t.subtotal === 0 && foreignCursPrint.length === 1;
     const effectiveCurPrint = allForeignPrint ? foreignCursPrint[0] : inv.currency;
     const effectiveTotalPrint = allForeignPrint
-      ? (t.byCurrency[foreignCursPrint[0]] - t.discount)
+      ? (() => {
+          const afterDiscP = Math.max(t.byCurrency[foreignCursPrint[0]] - t.discount, 0);
+          const taxableP = afterDiscP + t.shopSupplies;
+          return taxableP + Math.round(taxableP * inv.taxRate);
+        })()
       : t.total;
     const payByCurPrint: Record<string, number> = {};
     for (const p of payments) { payByCurPrint[p.currency] = (payByCurPrint[p.currency] ?? 0) + p.amount; }
@@ -264,13 +268,20 @@ export function InvoicesView() {
             return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Discount</span><span>-${formatMoney(t.discount, discCurPrint)}</span></div>`;
           })() : ''}
           ${t.shopSupplies > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Shop Supplies</span><span>${formatMoney(t.shopSupplies, inv.currency)}</span></div>` : ''}
-          ${t.tax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Tax / VAT (${Math.round(inv.taxRate * 100)}%)</span><span>+${formatMoney(t.tax, inv.currency)}</span></div>` : ''}
           ${(() => {
             const foreignCurs = Object.keys(t.byCurrency).filter(c => c !== inv.currency);
             const allForeign = t.subtotal === 0 && foreignCurs.length === 1;
             const displayCur = allForeign ? foreignCurs[0] : inv.currency;
-            const displayAmt = allForeign ? (t.byCurrency[foreignCurs[0]] - t.discount) : t.total;
-            return `<div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>`;
+            const foreignGross = allForeign ? t.byCurrency[foreignCurs[0]] : 0;
+            const afterDisc = allForeign ? Math.max(foreignGross - t.discount, 0) : 0;
+            const taxable = allForeign ? afterDisc + t.shopSupplies : 0;
+            const printTax = allForeign ? Math.round(taxable * inv.taxRate) : t.tax;
+            const displayAmt = allForeign ? taxable + printTax : t.total;
+            const taxPct = Math.round(inv.taxRate * 100);
+            return `
+              ${printTax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Tax / VAT (${taxPct}%)</span><span>+${formatMoney(printTax, displayCur)}</span></div>` : ''}
+              <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>
+            `;
           })()}
           ${Object.keys(payByCurPrint).length > 0 ? `
           ${Object.entries(payByCurPrint).map(([cur, amt]) =>
@@ -931,7 +942,7 @@ export function InvoicesView() {
                 const taxable = Math.max(adjEff - discAmt, 0) + (Number(form.shopSupplies) || 0);
                 const taxAmt  = Math.round(taxable * (taxPct / 100));
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                     <div className="login-field">
                       <label>Discount (%)</label>
                       <input
@@ -946,20 +957,6 @@ export function InvoicesView() {
                         onFocus={e => e.target.select()}
                       />
                       {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
-                    </div>
-                    <div className="login-field">
-                      <label>Shop Supplies ({form.currency || 'USD'})</label>
-                      <input
-                        type="text" inputMode="decimal"
-                        value={form.shopSupplies === 0 ? '' : String(form.shopSupplies)}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          setForm(f => ({ ...f, shopSupplies: raw === '' ? 0 : parseFloat(raw) || 0 }));
-                        }}
-                        placeholder="0"
-                        onFocus={e => e.target.select()}
-                      />
-                      {(Number(form.shopSupplies) || 0) > 0 && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>+{formatMoney(Number(form.shopSupplies), form.currency || 'USD')}</div>}
                     </div>
                     <div className="login-field">
                       <label>Tax / VAT (%)</label>
@@ -1149,21 +1146,38 @@ export function InvoicesView() {
                     const foreignCurs = Object.keys(totals.byCurrency).filter(c => c !== selected.currency);
                     const allForeign = totals.subtotal === 0 && foreignCurs.length === 1;
                     const displayCur = allForeign ? foreignCurs[0] : selected.currency;
-                    const displayAmt = allForeign ? (totals.byCurrency[foreignCurs[0]] - totals.discount) : totals.total;
+                    const foreignGross = allForeign ? totals.byCurrency[foreignCurs[0]] : 0;
+                    const afterDisc = allForeign ? Math.max(foreignGross - totals.discount, 0) : 0;
+                    const taxable = allForeign ? afterDisc + totals.shopSupplies : 0;
+                    const displayTax = allForeign ? Math.round(taxable * selected.taxRate) : totals.tax;
+                    const displayAmt = allForeign ? taxable + displayTax : totals.total;
+                    const taxPct = Math.round(selected.taxRate * 100);
                     return (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17, borderTop: '2px solid var(--accent)', marginTop: 4 }}>
-                        <span>Total ({displayCur})</span>
-                        <span style={{ color: 'var(--accent)' }}>{formatMoney(displayAmt, displayCur)}</span>
-                      </div>
+                      <>
+                        {(allForeign ? displayTax : totals.tax) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                            <span style={{ color: 'var(--muted)' }}>Tax / VAT ({taxPct}%)</span>
+                            <span>+{formatMoney(allForeign ? displayTax : totals.tax, displayCur)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17, borderTop: '2px solid var(--accent)', marginTop: 4 }}>
+                          <span>Total ({displayCur})</span>
+                          <span style={{ color: 'var(--accent)' }}>{formatMoney(displayAmt, displayCur)}</span>
+                        </div>
+                      </>
                     );
                   })()}
                   {invoicePayments.length > 0 && (() => {
-                    // Mirror the effective-total logic from the Total row above
+                    // Mirror the effective-total logic (same as Total row above, including tax)
                     const foreignCurs = Object.keys(totals.byCurrency).filter(c => c !== selected.currency);
                     const allForeign = totals.subtotal === 0 && foreignCurs.length === 1;
                     const effectiveCur = allForeign ? foreignCurs[0] : selected.currency;
                     const effectiveTotal = allForeign
-                      ? (totals.byCurrency[foreignCurs[0]] - totals.discount)
+                      ? (() => {
+                          const afterDisc = Math.max(totals.byCurrency[foreignCurs[0]] - totals.discount, 0);
+                          const taxable = afterDisc + totals.shopSupplies;
+                          return taxable + Math.round(taxable * selected.taxRate);
+                        })()
                       : totals.total;
                     const receivedInEffective = invoicePayments.filter(p => p.currency === effectiveCur).reduce((s, p) => s + p.amount, 0);
                     const balance = effectiveTotal - receivedInEffective;

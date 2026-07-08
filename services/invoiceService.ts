@@ -91,8 +91,10 @@ export function getEffectiveTotal(inv: InvoiceFull): { amount: number; currency:
   if (t.subtotal === 0 && foreignCurs.length === 1) {
     const fc = foreignCurs[0];
     const gross = t.byCurrency[fc];
-    const net = Math.max(gross - inv.discount, 0) + inv.shopSupplies;
-    return { amount: net, currency: fc };
+    const afterDiscount = Math.max(gross - inv.discount, 0);
+    const taxable = afterDiscount + inv.shopSupplies;
+    const tax = Math.round(taxable * inv.taxRate);
+    return { amount: taxable + tax, currency: fc };
   }
   return { amount: t.total, currency: inv.currency };
 }
