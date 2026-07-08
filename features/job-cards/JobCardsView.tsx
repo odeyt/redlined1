@@ -73,6 +73,136 @@ const STAGES = [
   { id: 'ready',         label: 'Ready for Pickup',  icon: '🎉' },
 ];
 
+// ── Customer search typeahead ─────────────────────────────────────────────────
+interface CustomerSearchProps {
+  customers:     { id: string; name: string }[];
+  fullCustomers: { id: string; name: string; phone?: string | null }[];
+  value:         string;
+  onSelect:      (name: string) => void;
+  onClear:       () => void;
+  phone:         string;
+}
+
+function CustomerSearch({ customers, fullCustomers, value, onSelect, onClear, phone }: CustomerSearchProps) {
+  const [query, setQuery]               = useState('');
+  const [open, setOpen]                 = useState(false);
+  const wrapRef                         = useRef<HTMLDivElement>(null);
+  const inputRef                        = useRef<HTMLInputElement>(null);
+
+  // Sync display when parent resets or prefills
+  useEffect(() => { if (!value) setQuery(''); else setQuery(value); }, [value]);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
+
+  const filtered = query.trim().length === 0
+    ? customers.slice(0, 8)
+    : customers.filter(c => {
+        const fc = fullCustomers.find(f => f.id === c.id);
+        return (
+          c.name.toLowerCase().includes(query.toLowerCase()) ||
+          (fc?.phone ?? '').includes(query)
+        );
+      }).slice(0, 12);
+
+  const isSelected = !!value;
+
+  function handlePick(name: string) {
+    setQuery(name);
+    setOpen(false);
+    onSelect(name);
+  }
+
+  function handleClear() {
+    setQuery('');
+    setOpen(false);
+    onClear();
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  return (
+    <div className="field" ref={wrapRef} style={{ position: 'relative' }}>
+      <label>Customer</label>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <span style={{ position: 'absolute', left: 10, color: 'var(--muted)', fontSize: 13, pointerEvents: 'none' }}>🔍</span>
+        <input
+          ref={inputRef}
+          value={query}
+          placeholder="Search by name or phone…"
+          autoComplete="off"
+          style={{ paddingLeft: 30, paddingRight: isSelected ? 28 : 10 }}
+          onChange={e => {
+            setQuery(e.target.value);
+            setOpen(true);
+            if (isSelected) onClear();
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') setOpen(false);
+            if (e.key === 'Enter' && filtered.length === 1) handlePick(filtered[0].name);
+          }}
+        />
+        {isSelected && (
+          <button type="button" onClick={handleClear} title="Clear"
+            style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 15, lineHeight: 1, padding: '0 2px' }}>
+            ✕
+          </button>
+        )}
+      </div>
+
+      {isSelected && (
+        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 11, background: 'rgba(0,180,0,0.1)', color: '#15803d', border: '1px solid rgba(0,180,0,0.25)', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
+            ✓ {value}
+          </span>
+          <button type="button" onClick={handleClear}
+            style={{ fontSize: 11, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+            change
+          </button>
+        </div>
+      )}
+
+      {phone && !open && (
+        <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {phone}</div>
+      )}
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', marginTop: 4,
+          maxHeight: 260, overflowY: 'auto',
+        }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 13 }}>
+              No customers found{query.trim() ? ` for "${query}"` : ''}
+            </div>
+          )}
+          {filtered.map(c => {
+            const fc = fullCustomers.find(f => f.id === c.id);
+            return (
+              <button key={c.id} type="button"
+                onMouseDown={() => handlePick(c.name)}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--line)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              >
+                <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{c.name}</div>
+                {fc?.phone && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>📞 {fc.phone}</div>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function JobCardsView() {
   const { openNewJobCard, prefill } = useAppState();
   const dispatch = useAppDispatch();
@@ -586,18 +716,14 @@ export function JobCardsView() {
         </div>
         {/* ── form fields ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-          <div className="field">
-            <label>Customer</label>
-            {customers.length > 0 ? (
-              <select value={fCustomer} onChange={e => handleCustomerChange(e.target.value)}>
-                <option value="">— select customer —</option>
-                {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            ) : (
-              <input value={fCustomer} onChange={e => handleCustomerChange(e.target.value)} placeholder="Customer name" />
-            )}
-            {selectedCustomerPhone && <div style={{ marginTop: 3, fontSize: 11, color: 'var(--muted)' }}>📞 {selectedCustomerPhone}</div>}
-          </div>
+          <CustomerSearch
+            customers={customers}
+            fullCustomers={fullCustomers}
+            value={fCustomer}
+            onSelect={handleCustomerChange}
+            onClear={() => handleCustomerChange('')}
+            phone={selectedCustomerPhone}
+          />
           <div className="field">
             <label>Vehicle / VIN</label>
             {customerVehicles.length > 1 ? (
