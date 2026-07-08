@@ -27,6 +27,7 @@ interface DashStats {
   approvedEstimates: number;
   paymentsToday: number;
   revenueToday: number;
+  revenueTodayByCurrency: Record<string, number>;
   totalParts: number;
   lowStockParts: number;
 }
@@ -189,6 +190,11 @@ export function DashboardView() {
       const pays = payData ?? [];
       const todayPays = pays.filter(p => p.payment_date && p.payment_date >= todayISO);
       const revenueToday = todayPays.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+      const revenueTodayByCurrency: Record<string, number> = {};
+      for (const p of todayPays) {
+        const cur = (p.currency as string) || 'USD';
+        revenueTodayByCurrency[cur] = (revenueTodayByCurrency[cur] ?? 0) + Number(p.amount ?? 0);
+      }
 
       // Parts low stock
       const parts = partsData ?? [];
@@ -220,6 +226,7 @@ export function DashboardView() {
         approvedEstimates: ests.filter(e => e.status === 'Approved').length,
         paymentsToday: todayPays.length,
         revenueToday,
+        revenueTodayByCurrency,
         totalParts: parts.length,
         lowStockParts: lowStock,
       });
@@ -317,7 +324,13 @@ export function DashboardView() {
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Today's Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{fmtMoney(s.revenueToday)}</div>
+            {Object.entries(s.revenueTodayByCurrency).length === 0 ? (
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>—</div>
+            ) : Object.entries(s.revenueTodayByCurrency).map(([cur, amt]) => (
+              <div key={cur} style={{ fontSize: Object.keys(s.revenueTodayByCurrency).length > 1 ? 18 : 26, fontWeight: 800, color: '#2196f3', marginTop: 4, lineHeight: 1.2 }}>
+                {formatMoney(amt, cur)}
+              </div>
+            ))}
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} payment{s.paymentsToday !== 1 ? 's' : ''} recorded</div>
           </div>
           <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
