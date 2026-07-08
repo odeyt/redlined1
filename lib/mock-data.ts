@@ -185,6 +185,7 @@ export const navItems: [string, string, string, string][] = [
   ['reports',       'chart',      'Reports',       ''],
   ['labor-guide',   'chart',      'Labor Guide',   ''],
   ['access',        'userkey',    'Login & Roles', '4'],
+  ['billing',       'payment',    'Billing & Subscription', ''],
   ['subscriptions', 'shield',     'Plans & Gates', 'Pro Trial'],
   ['settings',      'settings',   'Settings',      ''],
   ['system-health',       'activity',  'System Health',     ''],

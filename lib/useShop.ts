@@ -18,6 +18,7 @@ export interface Shop {
 export const MANAGER_BLOCKED: string[] = [
   'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'disaster-recovery', 'testing-dashboard',
+  'billing',
 ];
 
 // Technician: shop-floor only.
@@ -29,6 +30,7 @@ export const TECHNICIAN_BLOCKED: string[] = [
   'estimates', 'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'disaster-recovery', 'testing-dashboard',
   'communication', 'vin', 'dtc', 'ai', 'diagnostics', 'job-archive',
+  'billing',
 ];
 
 // Service Advisor: customer-facing + operational.
@@ -38,6 +40,7 @@ export const TECHNICIAN_BLOCKED: string[] = [
 export const ADVISOR_BLOCKED: string[] = [
   'invoices', 'payments', 'reports', 'campaigns',
   'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'disaster-recovery', 'testing-dashboard',
+  'billing',
 ];
 
 // Every non-dashboard module — used to block unverified/loading roles
@@ -45,7 +48,7 @@ const ALL_NON_DASHBOARD = [
   'customers','vehicles','appointments','scheduling','job-cards','inspections',
   'estimates','repair-orders','technicians','parts','invoices','payments',
   'communication','vin','dtc','diagnostics','ai','reports','labor-guide',
-  'access','subscriptions','settings',
+  'access','subscriptions','settings','billing',
 ];
 
 export function getBlockedModules(role: string): string[] {

@@ -41,6 +41,7 @@ import { DisasterRecoveryView } from '@/features/disaster-recovery/DisasterRecov
 import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashboardView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
+import { BillingDashboard } from '@/features/billing/BillingDashboard';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -76,6 +77,7 @@ const views: Record<string, React.ComponentType> = {
   'system-health':     SystemHealthView,
   'disaster-recovery': DisasterRecoveryView,
   'testing-dashboard': TestingDashboardView,
+  billing: BillingDashboard,
 };
 
 function Shell() {
