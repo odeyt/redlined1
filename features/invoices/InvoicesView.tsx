@@ -12,6 +12,7 @@ import {
 } from '@/services/invoiceService';
 import { createPayment, fetchPayments, type Payment } from '@/services/paymentService';
 import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomers } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
@@ -80,6 +81,8 @@ export function InvoicesView() {
   const printRef = useRef<HTMLDivElement>(null);
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
   const [ratesFetching, setRatesFetching] = useState(false);
+  const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [emailModal, setEmailModal] = useState<{ invoice: InvoiceFull; email: string; sending: boolean } | null>(null);
   const [cleanupModal, setCleanupModal] = useState<{
     invoice: InvoiceFull;
     orders: import('@/services/partsOrderService').PartsOrder[];
@@ -93,6 +96,7 @@ export function InvoicesView() {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
+    fetchCustomers().then(list => setFullCustomers(list.map(c => ({ id: c.id, name: c.name, email: c.email })))).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -234,6 +238,7 @@ export function InvoicesView() {
         Thank you for your business — ${shopSettings?.companyName || 'Redlined1'}<br>
         ${[shopSettings?.phone, shopSettings?.email].filter(Boolean).join(' · ')}
       </div>
+      ${needsWatermark(planStatus) ? `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:9999"><div style="transform:rotate(-45deg);font-size:72px;font-weight:900;color:rgba(204,0,0,0.07);font-family:system-ui,sans-serif;white-space:nowrap;letter-spacing:-2px">REDLINED1</div></div>` : ''}
     </body></html>`;
     const w = window.open('', '_blank', 'width=800,height=900');
     if (!w) return;
@@ -476,6 +481,39 @@ export function InvoicesView() {
       if (selected?.id === inv.id) setSelected(updated);
       notify(status === 'Paid' ? `${inv.invoiceNumber} marked paid. Payment recorded.` : `Status updated to ${status}.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
+  function openEmailModal(inv: InvoiceFull) {
+    const match = fullCustomers.find(c => c.name.toLowerCase() === inv.customerName?.toLowerCase());
+    setEmailModal({ invoice: inv, email: match?.email ?? '', sending: false });
+  }
+
+  async function handleSendEmail() {
+    if (!emailModal) return;
+    setEmailModal(m => m ? { ...m, sending: true } : null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      const shopId = getShopId();
+      const res = await fetch('/api/send-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: 'invoice',
+          documentId: emailModal.invoice.id,
+          shopId,
+          email: emailModal.email,
+          isWatermarked: needsWatermark(planStatus),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      notify(`Invoice emailed to ${json.sentTo}`);
+      setEmailModal(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to send email');
+      setEmailModal(m => m ? { ...m, sending: false } : null);
+    }
   }
 
   async function handleDelete(inv: InvoiceFull) {
@@ -844,6 +882,7 @@ export function InvoicesView() {
                   }}>💳 Record Payment →</button>
               )}
               <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>🖨 Print / PDF</button>
+              <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }} onClick={() => openEmailModal(selected)}>✉️ Email Customer</button>
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 
@@ -986,6 +1025,40 @@ export function InvoicesView() {
           </div>
         )}
       </div>
+
+      {/* Email Modal */}
+      {emailModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Email Invoice to Customer</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              A PDF of <strong>{emailModal.invoice.invoiceNumber}</strong> will be attached.
+              {needsWatermark(planStatus) && <span style={{ display: 'block', marginTop: 6, color: '#d97706', fontSize: 12 }}>⚠️ Trial mode — PDF will include "Redlined1" watermark. Upgrade to remove it.</span>}
+            </div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>CUSTOMER EMAIL</label>
+            <input
+              type="email"
+              value={emailModal.email}
+              onChange={e => setEmailModal(m => m ? { ...m, email: e.target.value } : null)}
+              placeholder="Enter customer email address"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
+            />
+            {!emailModal.email && (
+              <div style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>No email on file for this customer — please enter one above.</div>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+              <button onClick={() => setEmailModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button
+                disabled={!emailModal.email || emailModal.sending}
+                onClick={handleSendEmail}
+                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2196f3', color: '#fff', cursor: emailModal.email ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: !emailModal.email || emailModal.sending ? 0.6 : 1 }}
+              >
+                {emailModal.sending ? 'Sending…' : '✉️ Send PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Parts Cleanup Modal */}
       {cleanupModal && (
