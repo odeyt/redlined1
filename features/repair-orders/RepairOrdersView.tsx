@@ -14,6 +14,8 @@ import {
 } from '@/services/repairOrderService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
+import { fetchPartsOrders } from '@/services/partsOrderService';
+import { fetchPartsEstimates } from '@/services/partsEstimateService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { addNotification } from '@/lib/useNotifications';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
@@ -349,6 +351,21 @@ export function RepairOrdersView() {
   const [currencyQuery, setCurrencyQuery] = useState('');
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
+  // Parts pull modal — shown before creating invoice or estimate
+  type PullLine = {
+    id: string; source: 'ro' | 'order' | 'quotation';
+    description: string; partNumber: string; qty: number; unitCost: number; currency: string;
+    isDuplicate: boolean;
+  };
+  const [pullModal, setPullModal] = useState<{
+    ro: RepairOrder;
+    target: 'invoice' | 'estimate';
+    lines: PullLine[];
+    selected: Set<string>;
+    loading: boolean;
+    creating: boolean;
+  } | null>(null);
+
   useEffect(() => {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
@@ -529,6 +546,104 @@ export function RepairOrdersView() {
       setSelected(updated);
       notify(`↩ ${ro.roNumber} returned to technician.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
+  async function openPullModal(ro: RepairOrder, target: 'invoice' | 'estimate') {
+    setPullModal({ ro, target, lines: [], selected: new Set(), loading: true, creating: false });
+    try {
+      const cn = ro.customerName?.toLowerCase() ?? '';
+      const vh = ro.vehicle?.toLowerCase() ?? '';
+      const [allOrders, allQuotes] = await Promise.all([fetchPartsOrders(), fetchPartsEstimates()]);
+
+      const matchOrders = allOrders.filter(o =>
+        o.customerName?.toLowerCase() === cn && (!vh || o.vehicle?.toLowerCase() === vh)
+      );
+      const matchQuotes = allQuotes.filter(q =>
+        q.customerName?.toLowerCase() === cn && (!vh || q.vehicle?.toLowerCase() === vh)
+      );
+
+      type PullLine = { id: string; source: 'ro' | 'order' | 'quotation'; description: string; partNumber: string; qty: number; unitCost: number; currency: string; isDuplicate: boolean };
+      const lines: PullLine[] = [];
+
+      // RO inline parts
+      ro.parts.forEach((p, i) => {
+        lines.push({ id: `ro-${i}`, source: 'ro', description: p.description, partNumber: p.partNumber || '', qty: p.qty, unitCost: p.unitCost, currency: ro.currency, isDuplicate: false });
+      });
+
+      // Parts Orders
+      matchOrders.forEach(o => {
+        const items = o.lineItems?.length > 0 ? o.lineItems : [{ partName: o.partName, partNumber: o.partNumber, quantity: o.quantity, unitCost: o.unitCost }];
+        items.forEach((item, i) => {
+          lines.push({ id: `order-${o.id}-${i}`, source: 'order', description: item.partName || o.partName, partNumber: (item as { partNumber?: string }).partNumber || o.partNumber || '', qty: (item as { quantity?: number }).quantity ?? o.quantity, unitCost: (item as { unitCost?: number }).unitCost ?? o.unitCost, currency: o.currency || ro.currency, isDuplicate: false });
+        });
+      });
+
+      // Parts Quotations
+      matchQuotes.forEach(q => {
+        const items = q.lineItems?.length > 0 ? q.lineItems : [{ partName: q.partName, partNumber: q.partNumber, quantity: q.quantity, unitCost: q.unitCost }];
+        items.forEach((item, i) => {
+          lines.push({ id: `quote-${q.id}-${i}`, source: 'quotation', description: item.partName || q.partName, partNumber: (item as { partNumber?: string }).partNumber || q.partNumber || '', qty: (item as { quantity?: number }).quantity ?? q.quantity, unitCost: (item as { unitCost?: number }).unitCost ?? q.unitCost, currency: q.currency || ro.currency, isDuplicate: false });
+        });
+      });
+
+      // Detect duplicates: same description (case-insensitive) or same non-empty partNumber
+      const seen = new Map<string, number>();
+      lines.forEach((l, idx) => {
+        const key = l.partNumber ? `pn:${l.partNumber.toLowerCase()}` : `desc:${l.description.toLowerCase()}`;
+        const prev = seen.get(key);
+        if (prev !== undefined) { lines[prev].isDuplicate = true; lines[idx].isDuplicate = true; }
+        else seen.set(key, idx);
+      });
+
+      // Pre-select all non-duplicate; duplicates start unchecked so operator decides
+      const selected = new Set(lines.filter(l => !l.isDuplicate).map(l => l.id));
+      setPullModal({ ro, target, lines, selected, loading: false, creating: false });
+    } catch {
+      setPullModal(null);
+      notify('Failed to fetch parts data.');
+    }
+  }
+
+  async function handlePullCreate() {
+    if (!pullModal) return;
+    setPullModal(m => m ? { ...m, creating: true } : null);
+    const { ro, target, lines, selected } = pullModal;
+    const chosenParts = lines.filter(l => selected.has(l.id));
+    const laborLine = { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern || 'Repair'}`, qty: ro.laborHours || 1, rate: ro.laborRate || 0 };
+    const partLines = chosenParts.map(p => ({ note: p.partNumber, description: p.description, qty: p.qty, rate: p.unitCost, currency: p.currency !== ro.currency ? p.currency : '' }));
+    const allLines = [laborLine, ...partLines].filter(l => l.description);
+    try {
+      if (target === 'invoice') {
+        const invNumber = await nextInvoiceNumber();
+        await createInvoice({
+          invoiceNumber: invNumber, customerName: ro.customerName, customerId: ro.customerId,
+          vehicle: ro.vehicle, jobCardId: ro.jobCardId, status: 'Draft', lines: allLines,
+          discount: 0, shopSupplies: 0, taxRate: shopSettings?.defaultTaxRate ?? 0,
+          notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(), dueDate: '', paidDate: null, currency: ro.currency,
+        });
+        await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber });
+        const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber };
+        setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
+        setSelected(updated);
+        setPullModal(null);
+        notify(`${ro.roNumber} → ${invNumber} created with ${chosenParts.length} part(s). Opening Invoices…`);
+        setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
+      } else {
+        const estNumber = await nextEstimateNumber();
+        await createEstimate({
+          estimateNumber: estNumber, customerName: ro.customerName, customerId: ro.customerId,
+          vehicle: ro.vehicle, jobCardId: ro.jobCardId, status: 'Draft', lines: allLines,
+          taxRate: 0, discount: 0, shopSupplies: 0,
+          notes: `Created from ${ro.roNumber}.`, validUntil: '', approvedDate: null, currency: ro.currency,
+        });
+        setPullModal(null);
+        notify(`Estimate ${estNumber} created with ${chosenParts.length} part(s). Opening Estimates…`);
+        setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'estimates' }), 800);
+      }
+    } catch (e: unknown) {
+      setError('Create failed: ' + (e instanceof Error ? e.message : ''));
+      setPullModal(m => m ? { ...m, creating: false } : null);
+    }
   }
 
   async function handleConvertToInvoice(ro: RepairOrder) {
@@ -780,34 +895,10 @@ export function RepairOrdersView() {
                 </button>
               )}
 
-              {/* Create Estimate from RO — pre-fills parts + labor */}
+              {/* Create Estimate from RO — pulls all parts from orders/quotations */}
               {!isTech && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.08)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
-                  onClick={async () => {
-                    try {
-                      const estNumber = await nextEstimateNumber();
-                      const laborLine = { note: selected.roNumber, description: `Labor — ${selected.correction || selected.concern || 'Repair'}`, qty: selected.laborHours, rate: selected.laborRate };
-                      const partLines = selected.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }));
-                      await createEstimate({
-                        estimateNumber: estNumber,
-                        customerName: selected.customerName,
-                        customerId: selected.customerId,
-                        vehicle: selected.vehicle,
-                        jobCardId: selected.jobCardId,
-                        status: 'Draft',
-                        lines: [laborLine, ...partLines],
-                        taxRate: 0,
-                        discount: 0,
-                        shopSupplies: 0,
-                        notes: `Created from ${selected.roNumber}.`,
-                        validUntil: '',
-                        approvedDate: null,
-                        currency: selected.currency,
-                      });
-                      notify(`Estimate ${estNumber} created from ${selected.roNumber}. Opening Estimates…`);
-                      setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'estimates' }), 800);
-                    } catch (e: unknown) { setError('Create estimate failed: ' + (e instanceof Error ? e.message : '')); }
-                  }}>
+                  onClick={() => openPullModal(selected, 'estimate')}>
                   📋 Create Estimate
                 </button>
               )}
@@ -815,7 +906,7 @@ export function RepairOrdersView() {
               {/* OWNER ONLY: Create Invoice from Complete ROs */}
               {role === 'owner' && selected.status === 'Complete' && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
-                  onClick={() => handleConvertToInvoice(selected)}>
+                  onClick={() => openPullModal(selected, 'invoice')}>
                   ⚡ Create Invoice
                 </button>
               )}
@@ -1374,6 +1465,128 @@ export function RepairOrdersView() {
             setWizardRO(null);
           }}
         />
+      )}
+
+      {/* ── Parts Pull Modal ── */}
+      {pullModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 14, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 60px rgba(0,0,0,0.4)' }}>
+
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--line)' }}>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>
+                {pullModal.target === 'invoice' ? '⚡ Create Invoice' : '📋 Create Estimate'} — Select Parts
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                {pullModal.ro.roNumber} · {pullModal.ro.vehicle} · {pullModal.ro.customerName}
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+              {pullModal.loading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>Loading parts…</div>
+              ) : (
+                <>
+                  {/* Duplicate warning */}
+                  {pullModal.lines.some(l => l.isDuplicate) && (
+                    <div style={{ background: '#fff8e1', border: '1px solid #fdd835', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#7c6800', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: 16 }}>⚠️</span>
+                      <span><strong>Duplicate parts detected</strong> — highlighted rows appear in more than one source. Duplicates are unchecked by default. Review carefully before including them.</span>
+                    </div>
+                  )}
+
+                  {/* Labor line (always included, not selectable) */}
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 8 }}>Labor (always included)</div>
+                  <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+                    <div style={{ fontWeight: 600 }}>Labor — {pullModal.ro.correction || pullModal.ro.concern || 'Repair'}</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
+                      {pullModal.ro.laborHours || 0} hr(s) × {formatMoney(pullModal.ro.laborRate || 0, pullModal.ro.currency)}
+                      <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--fg)' }}>= {formatMoney((pullModal.ro.laborHours || 0) * (pullModal.ro.laborRate || 0), pullModal.ro.currency)}</span>
+                    </div>
+                  </div>
+
+                  {pullModal.lines.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--muted)', fontSize: 13 }}>
+                      No parts found for this customer/vehicle across RO, Parts Orders, or Quotations.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)' }}>Parts ({pullModal.lines.length})</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => setPullModal(m => m ? { ...m, selected: new Set(m.lines.map(l => l.id)) } : null)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Select all</button>
+                          <button onClick={() => setPullModal(m => m ? { ...m, selected: new Set() } : null)} style={{ fontSize: 11, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Clear all</button>
+                        </div>
+                      </div>
+
+                      {/* Group by source */}
+                      {(['ro', 'order', 'quotation'] as const).map(src => {
+                        const srcLines = pullModal.lines.filter(l => l.source === src);
+                        if (srcLines.length === 0) return null;
+                        const srcLabel = src === 'ro' ? 'RO Inline Parts' : src === 'order' ? 'Parts Orders' : 'Parts Quotations';
+                        const srcColor = src === 'ro' ? '#6366f1' : src === 'order' ? '#0284c7' : '#059669';
+                        return (
+                          <div key={src} style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: srcColor, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, padding: '4px 0', borderBottom: `2px solid ${srcColor}33` }}>{srcLabel}</div>
+                            {srcLines.map(line => {
+                              const isChecked = pullModal.selected.has(line.id);
+                              return (
+                                <label key={line.id} style={{
+                                  display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', marginBottom: 4,
+                                  borderRadius: 8, cursor: 'pointer',
+                                  background: line.isDuplicate ? 'rgba(251,191,36,0.08)' : isChecked ? 'var(--surface-soft)' : 'transparent',
+                                  border: line.isDuplicate ? '1px solid rgba(251,191,36,0.5)' : '1px solid var(--line)',
+                                  opacity: isChecked ? 1 : 0.6,
+                                }}>
+                                  <input type="checkbox" checked={isChecked} style={{ marginTop: 2, flexShrink: 0 }}
+                                    onChange={e => setPullModal(m => {
+                                      if (!m) return null;
+                                      const s = new Set(m.selected);
+                                      e.target.checked ? s.add(line.id) : s.delete(line.id);
+                                      return { ...m, selected: s };
+                                    })} />
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                      <span style={{ fontWeight: 600, fontSize: 13 }}>{line.description || '—'}</span>
+                                      {line.partNumber && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--bg)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>{line.partNumber}</span>}
+                                      {line.isDuplicate && <span style={{ fontSize: 10, fontWeight: 700, background: '#fdd835', color: '#7c6800', padding: '1px 6px', borderRadius: 4 }}>DUPLICATE</span>}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                                      Qty {line.qty} × {formatMoney(line.unitCost, line.currency)}
+                                      <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--fg)' }}>{formatMoney(line.qty * line.unitCost, line.currency)}</span>
+                                    </div>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-soft)', borderRadius: '0 0 14px 14px' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {pullModal.selected.size} part line{pullModal.selected.size !== 1 ? 's' : ''} selected
+                {pullModal.lines.some(l => l.isDuplicate) && <span style={{ color: '#d97706', marginLeft: 8 }}>· {pullModal.lines.filter(l => l.isDuplicate).length} duplicate(s) flagged</span>}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setPullModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+                <button
+                  disabled={pullModal.loading || pullModal.creating}
+                  onClick={handlePullCreate}
+                  style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: pullModal.loading || pullModal.creating ? 0.6 : 1 }}>
+                  {pullModal.creating ? 'Creating…' : pullModal.target === 'invoice' ? '⚡ Create Invoice' : '📋 Create Estimate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
