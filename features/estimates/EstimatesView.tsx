@@ -121,7 +121,7 @@ export function EstimatesView() {
   const [printLang, setPrintLang] = useState<'en' | 'lo' | 'both'>('both');
   const { status: planStatus } = usePlan();
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean } | null>(null);
+  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean; channel: 'email' | 'sms' | 'whatsapp' | 'line' | 'telegram'; msgTo: string } | null>(null);
 
   useEffect(() => {
     load();
@@ -371,7 +371,7 @@ export function EstimatesView() {
       c.name.toLowerCase() === est.customerName?.toLowerCase()
     );
     const existingEmail = match?.email ?? '';
-    setEmailModal({ estimate: est, email: existingEmail, originalEmail: existingEmail, customerId: match?.id ?? est.customerId ?? '', saveEmail: false, sending: false });
+    setEmailModal({ estimate: est, email: existingEmail, originalEmail: existingEmail, customerId: match?.id ?? est.customerId ?? '', saveEmail: false, sending: false, channel: 'email', msgTo: '' });
   }
 
   async function handleSendEmail() {
@@ -416,6 +416,42 @@ export function EstimatesView() {
       setEmailModal(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to send email');
+      setEmailModal(m => m ? { ...m, sending: false } : null);
+    }
+  }
+
+  async function handleSendMessage() {
+    if (!emailModal || emailModal.channel === 'email') return;
+    setEmailModal(m => m ? { ...m, sending: true } : null);
+    try {
+      const shopId = getShopId();
+      const est = emailModal.estimate;
+      const t = calculateEstimateTotals(est);
+      const res = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: emailModal.channel,
+          to: emailModal.msgTo,
+          shopId,
+          doc: {
+            type: 'estimate',
+            number: est.estimateNumber,
+            customerName: est.customerName,
+            vehicle: est.vehicle,
+            total: `${est.currency || 'USD'} ${t.total.toFixed(2)}`,
+            status: est.status,
+            shopName: shopSettings?.companyName ?? 'D1 Imports',
+            shopPhone: shopSettings?.phone,
+          },
+        }),
+      });
+      const json = await res.json() as { success?: boolean; error?: string; sentTo?: string };
+      if (!res.ok) throw new Error(json.error);
+      notify(`Estimate sent via ${emailModal.channel.toUpperCase()} to ${json.sentTo}`);
+      setEmailModal(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to send message');
       setEmailModal(m => m ? { ...m, sending: false } : null);
     }
   }
@@ -1166,66 +1202,94 @@ export function EstimatesView() {
         </div>
       )}
 
-      {/* Email Modal */}
-      {emailModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: 440, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 22 }}>✉️</span>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>Email Estimate to Customer</div>
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-              A PDF copy of <strong>{emailModal.estimate.estimateNumber}</strong> will be attached.
-              {needsWatermark(planStatus) && <span style={{ display: 'block', marginTop: 6, color: '#d97706', fontSize: 12 }}>⚠️ Trial mode — PDF will include watermark. Upgrade to remove.</span>}
-            </div>
-
-            {/* Email input */}
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Customer Email</label>
-            <input
-              type="email"
-              value={emailModal.email}
-              onChange={e => setEmailModal(m => m ? { ...m, email: e.target.value } : null)}
-              placeholder="customer@email.com"
-              autoFocus
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${emailModal.email ? 'var(--line)' : '#ef4444'}`, background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
-            />
-
-            {/* No email warning + save option */}
-            {!emailModal.originalEmail && emailModal.email && emailModal.customerId && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 13 }}>
-                <input
-                  type="checkbox"
-                  checked={emailModal.saveEmail}
-                  onChange={e => setEmailModal(m => m ? { ...m, saveEmail: e.target.checked } : null)}
-                  style={{ width: 15, height: 15, cursor: 'pointer' }}
-                />
-                <span style={{ color: 'var(--text)' }}>Save this email to the customer record</span>
-              </label>
-            )}
-            {!emailModal.email && (
-              <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-                ⚠️ No email on file — enter one above to send.
+      {/* Send Modal — Email / SMS / WhatsApp / LINE / Telegram */}
+      {emailModal && (() => {
+        const msg = shopSettings?.messaging;
+        const channels: Array<{ id: 'email'|'sms'|'whatsapp'|'line'|'telegram'; icon: string; label: string; enabled: boolean }> = (
+          [
+            { id: 'email'    as const, icon: '✉️',  label: 'Email',     enabled: true },
+            { id: 'sms'      as const, icon: '📱',  label: 'SMS',       enabled: !!(msg?.smsEnabled) },
+            { id: 'whatsapp' as const, icon: '💬',  label: 'WhatsApp',  enabled: !!(msg?.whatsappEnabled) },
+            { id: 'line'     as const, icon: '🟢',  label: 'LINE',      enabled: !!(msg?.lineEnabled) },
+            { id: 'telegram' as const, icon: '✈️',  label: 'Telegram',  enabled: !!(msg?.telegramEnabled) },
+          ] as const
+        ).filter(c => c.enabled) as Array<{ id: 'email'|'sms'|'whatsapp'|'line'|'telegram'; icon: string; label: string; enabled: boolean }>;
+        const ch = emailModal.channel;
+        const isEmail = ch === 'email';
+        const contactLabel: Record<string, string> = { sms: 'Phone Number (+1…)', whatsapp: 'Phone Number (+1…)', line: 'LINE Notify Token', telegram: 'Telegram Chat ID' };
+        const contactPH:    Record<string, string> = { sms: '+15551234567', whatsapp: '+15551234567', line: 'line-notify-token', telegram: '123456789' };
+        const sendLabel: Record<string, string> = { email: '✉️ Send PDF', sms: '📱 Send SMS', whatsapp: '💬 Send WhatsApp', line: '🟢 Send LINE', telegram: '✈️ Send Telegram' };
+        const canSend = isEmail ? !!emailModal.email : !!emailModal.msgTo;
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: 460, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <span style={{ fontSize: 22 }}>📤</span>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800 }}>Send Estimate to Customer</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{emailModal.estimate.estimateNumber} · {emailModal.estimate.customerName}</div>
+                </div>
               </div>
-            )}
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setEmailModal(null)}
-                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button
-                disabled={!emailModal.email || emailModal.sending}
-                onClick={handleSendEmail}
-                style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: emailModal.email && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: emailModal.email && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, boxShadow: emailModal.email ? '0 3px 12px rgba(33,150,243,0.35)' : 'none', transition: 'all 0.15s' }}>
-                {emailModal.sending ? '⟳ Sending…' : '✉️ Send PDF'}
-              </button>
+              {/* Channel tabs */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+                {channels.map(c => (
+                  <button key={c.id} onClick={() => setEmailModal(m => m ? { ...m, channel: c.id } : null)}
+                    style={{ padding: '6px 14px', borderRadius: 20, border: `1.5px solid ${ch === c.id ? 'var(--accent)' : 'var(--line)'}`, background: ch === c.id ? 'rgba(204,0,0,0.08)' : 'transparent', color: ch === c.id ? 'var(--accent)' : 'var(--text)', fontWeight: ch === c.id ? 700 : 500, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s' }}>
+                    {c.icon} {c.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Email channel */}
+              {isEmail && <>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+                  A PDF copy will be emailed with the estimate attached.
+                  {needsWatermark(planStatus) && <span style={{ display: 'block', marginTop: 4, color: '#d97706' }}>⚠️ Trial mode — PDF will include watermark.</span>}
+                </div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Customer Email</label>
+                <input type="email" value={emailModal.email} onChange={e => setEmailModal(m => m ? { ...m, email: e.target.value } : null)}
+                  placeholder="customer@email.com" autoFocus
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${emailModal.email ? 'var(--line)' : '#ef4444'}`, background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }} />
+                {!emailModal.originalEmail && emailModal.email && emailModal.customerId && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 13 }}>
+                    <input type="checkbox" checked={emailModal.saveEmail} onChange={e => setEmailModal(m => m ? { ...m, saveEmail: e.target.checked } : null)} style={{ width: 15, height: 15 }} />
+                    <span>Save this email to the customer record</span>
+                  </label>
+                )}
+                {!emailModal.email && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>⚠️ Enter an email address to send.</div>}
+              </>}
+
+              {/* Messaging channels */}
+              {!isEmail && <>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+                  A text summary of the estimate details will be sent. Configure channel credentials in <strong>Settings → Messaging</strong>.
+                </div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{contactLabel[ch] ?? 'Contact'}</label>
+                <input type="text" value={emailModal.msgTo} onChange={e => setEmailModal(m => m ? { ...m, msgTo: e.target.value } : null)}
+                  placeholder={contactPH[ch] ?? ''}
+                  autoFocus
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${emailModal.msgTo ? 'var(--line)' : '#ef4444'}`, background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }} />
+                {!emailModal.msgTo && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>⚠️ Enter the customer&apos;s {contactLabel[ch]?.toLowerCase() ?? 'contact'} to send.</div>}
+              </>}
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+                <button onClick={() => setEmailModal(null)}
+                  style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button disabled={!canSend || emailModal.sending}
+                  onClick={isEmail ? handleSendEmail : handleSendMessage}
+                  style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                  {emailModal.sending ? '⟳ Sending…' : (sendLabel[ch] ?? 'Send')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 }

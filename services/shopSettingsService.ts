@@ -19,6 +19,25 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
 };
 
+export interface MessagingSettings {
+  twilioSid: string;
+  twilioToken: string;
+  twilioFrom: string;
+  smsEnabled: boolean;
+  whatsappEnabled: boolean;
+  lineEnabled: boolean;
+  lineToken: string;
+  telegramEnabled: boolean;
+  telegramBotToken: string;
+}
+
+export const DEFAULT_MESSAGING: MessagingSettings = {
+  twilioSid: '', twilioToken: '', twilioFrom: '',
+  smsEnabled: false, whatsappEnabled: false,
+  lineEnabled: false, lineToken: '',
+  telegramEnabled: false, telegramBotToken: '',
+};
+
 export interface ShopSettings {
   companyName: string;
   tagline: string;
@@ -51,6 +70,7 @@ export interface ShopSettings {
   enableJobCardApprovalCode: boolean;
   enableJobCardSubType: boolean;
   serviceSubTypes: Record<string, string[]>;
+  messaging: MessagingSettings;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -99,6 +119,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableJobCardServiceLocation: data.enable_job_card_service_location ?? true,
     enableJobCardApprovalCode: data.enable_job_card_approval_code ?? true,
     enableJobCardSubType: data.enable_job_card_sub_type ?? true,
+    messaging: { ...DEFAULT_MESSAGING, ...(data.messaging_settings as Partial<MessagingSettings> | null ?? {}) },
     serviceSubTypes: (data.service_sub_types as Record<string, string[]> | null) ?? {
       'Oil Change': ['5W-30', '0W-20', '5W-40', '10W-30', '10W-40', 'Synthetic', 'Semi-Synthetic', 'Conventional'],
       'Brakes': ['Front Passenger (FP)', 'Driver Side (D)', 'Passenger Rear (PR)', 'Driver Rear (DR)', 'All Four', 'Front Axle', 'Rear Axle'],
@@ -148,6 +169,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableJobCardApprovalCode !== undefined) update.enable_job_card_approval_code = settings.enableJobCardApprovalCode;
   if (settings.enableJobCardSubType !== undefined) update.enable_job_card_sub_type = settings.enableJobCardSubType;
   if (settings.serviceSubTypes !== undefined) update.service_sub_types = settings.serviceSubTypes;
+  if (settings.messaging !== undefined) update.messaging_settings = settings.messaging;
   const { error } = await supabase
     .from('shop_settings')
     .update(update)

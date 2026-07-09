@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
-import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, DEFAULT_MESSAGING, MessagingSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
 import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
@@ -69,6 +69,9 @@ export function SettingsView() {
   const [enableJobCardApprovalCode, setEnableJobCardApprovalCode] = useState(true);
   const [newBayName, setNewBayName] = useState('');
 
+  const [messaging, setMessaging] = useState<MessagingSettings>(DEFAULT_MESSAGING);
+  const [savingMsg, setSavingMsg] = useState(false);
+
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
   const [savingRolePerms, setSavingRolePerms] = useState(false);
@@ -123,6 +126,7 @@ export function SettingsView() {
       setEnableJobCardBranchRoute(s.enableJobCardBranchRoute ?? true);
       setEnableJobCardServiceLocation(s.enableJobCardServiceLocation ?? true);
       setEnableJobCardApprovalCode(s.enableJobCardApprovalCode ?? true);
+      setMessaging({ ...DEFAULT_MESSAGING, ...s.messaging });
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
@@ -840,6 +844,108 @@ export function SettingsView() {
             Reset to Default
           </button>
           {savedTemplate && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Template saved</span>}
+        </div>
+      </Panel>
+
+      {/* ── Messaging Channels ── */}
+      <Panel title="Messaging Channels" hint="Send estimates and invoices via SMS, WhatsApp, LINE, or Telegram — configure credentials and enable channels below">
+        {/* Twilio (SMS + WhatsApp) */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 18 }}>📱</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>SMS &amp; WhatsApp <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Twilio</span></div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Requires a Twilio account. Get credentials at twilio.com</div>
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 14 }}>
+              {(['smsEnabled', 'whatsappEnabled'] as const).map(key => {
+                const label = key === 'smsEnabled' ? 'SMS' : 'WhatsApp';
+                return (
+                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    <input type="checkbox" checked={messaging[key]} onChange={e => setMessaging(m => ({ ...m, [key]: e.target.checked }))} />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          {(messaging.smsEnabled || messaging.whatsappEnabled) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {([
+                { key: 'twilioSid',   label: 'Account SID',  placeholder: 'ACxxxxxxxxxxxxxxxx' },
+                { key: 'twilioToken', label: 'Auth Token',    placeholder: '••••••••••••••••' },
+                { key: 'twilioFrom',  label: 'From Number',   placeholder: '+15551234567' },
+              ] as const).map(f => (
+                <div key={f.key} className="login-field">
+                  <label>{f.label}</label>
+                  <input
+                    type={f.key === 'twilioToken' ? 'password' : 'text'}
+                    value={messaging[f.key]}
+                    onChange={e => setMessaging(m => ({ ...m, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* LINE */}
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 18 }}>🟢</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>LINE <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via LINE Notify</span></div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Each customer provides their own LINE Notify token. Get one at notify-bot.line.me</div>
+            </div>
+            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              <input type="checkbox" checked={messaging.lineEnabled} onChange={e => setMessaging(m => ({ ...m, lineEnabled: e.target.checked }))} />
+              Enable LINE
+            </label>
+          </div>
+          {messaging.lineEnabled && (
+            <div className="login-field" style={{ maxWidth: 420 }}>
+              <label>Default Shop LINE Notify Token <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(optional fallback)</span></label>
+              <input type="password" value={messaging.lineToken} onChange={e => setMessaging(m => ({ ...m, lineToken: e.target.value }))} placeholder="LINE Notify token" />
+            </div>
+          )}
+        </div>
+
+        {/* Telegram */}
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ fontSize: 18 }}>✈️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>Telegram <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Bot API</span></div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Create a bot with @BotFather. Customer chat IDs are obtained when they message your bot.</div>
+            </div>
+            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              <input type="checkbox" checked={messaging.telegramEnabled} onChange={e => setMessaging(m => ({ ...m, telegramEnabled: e.target.checked }))} />
+              Enable Telegram
+            </label>
+          </div>
+          {messaging.telegramEnabled && (
+            <div className="login-field" style={{ maxWidth: 420 }}>
+              <label>Bot Token</label>
+              <input type="password" value={messaging.telegramBotToken} onChange={e => setMessaging(m => ({ ...m, telegramBotToken: e.target.value }))} placeholder="1234567890:ABCDefGhIjKlmNoPQrStUvWxYz" />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
+          {savingMsg && <span style={{ color: 'var(--muted)', fontSize: 13 }}>Saving…</span>}
+          <button
+            className="btn btn-primary"
+            disabled={savingMsg}
+            onClick={async () => {
+              setSavingMsg(true);
+              try { await saveShopSettings({ messaging }); notify('Messaging settings saved'); }
+              catch (e: unknown) { setError(e instanceof Error ? e.message : 'Save failed'); }
+              finally { setSavingMsg(false); }
+            }}
+          >
+            Save Messaging Settings
+          </button>
         </div>
       </Panel>
 
