@@ -87,6 +87,25 @@ interface ExecScoreBreakdown {
   trend: 'up' | 'down' | 'stable';
 }
 
+// SI-9 — Business Memory (local shape, matches API response)
+interface MemoryItem {
+  id: string;
+  memoryType: string;
+  entityType: string;
+  title: string;
+  summary: string | null;
+  importance: 'critical' | 'high' | 'medium' | 'low';
+  confidence: number;
+  lastSeenAt: string;
+}
+interface MemorySummaryShape {
+  totalItems: number;
+  criticalCount: number;
+  highCount: number;
+  topItems: MemoryItem[];
+  extractedAt: string;
+}
+
 // SI-7 — Morning Brief (local shape, matches API response)
 interface MorningBriefSummary {
   id: string;
@@ -690,6 +709,8 @@ export function CommandCenterView() {
   const [morningBrief, setMorningBrief] = useState<MorningBriefSummary | null>(null);
   const [briefModalOpen, setBriefModalOpen] = useState(false);
   const [generatingBrief, setGeneratingBrief] = useState(false);
+  // SI-9
+  const [businessMemory, setBusinessMemory] = useState<MemorySummaryShape | null>(null);
 
   if (role && role !== 'owner' && role !== 'manager') {
     return <DisabledState reason="Command Center is only available to shop owners and managers." />;
@@ -765,6 +786,17 @@ export function CommandCenterView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
+  const loadBusinessMemory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/intelligence/memory', { headers: shopHeaders });
+      if (!res.ok) return;
+      const body = await res.json() as { disabled?: boolean; data?: MemorySummaryShape | null };
+      if (body.disabled || !body.data) return;
+      setBusinessMemory(body.data);
+    } catch { /* fail silently — SI-9 is additive */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
   useEffect(() => {
     if (!shopId) return;
     loadRecommendations();
@@ -772,7 +804,8 @@ export function CommandCenterView() {
     loadMetrics();
     loadActionQueue();
     loadMorningBrief();
-  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief]);
+    loadBusinessMemory();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief, loadBusinessMemory]);
 
   async function handleGenerateBrief() {
     setGeneratingBrief(true);
@@ -1175,6 +1208,47 @@ export function CommandCenterView() {
           {execScore && (
             <div style={{ marginBottom: 24 }}>
               <ExecScoreBadge score={execScore} />
+            </div>
+          )}
+
+          {/* ── Section SI-9: Business Memory ────────────────── */}
+          {businessMemory && (businessMemory.criticalCount > 0 || businessMemory.highCount > 0) && (
+            <div style={{ marginBottom: 24 }}>
+              <SectionHeading icon="🧠" label="Business Memory" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {businessMemory.topItems.map(item => {
+                  const impColor =
+                    item.importance === 'critical' ? '#dc2626' :
+                    item.importance === 'high'     ? '#ea580c' :
+                    item.importance === 'medium'   ? '#d97706' : 'var(--muted)';
+                  return (
+                    <div key={item.id} style={{
+                      background: `${impColor}06`,
+                      border: `1px solid ${impColor}25`,
+                      borderLeft: `3px solid ${impColor}`,
+                      borderRadius: D.radiusSm,
+                      padding: '10px 14px',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10,
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: item.summary ? 2 : 0 }}>{item.title}</div>
+                        {item.summary && <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>{item.summary}</div>}
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, color: impColor,
+                        background: `${impColor}14`, borderRadius: 20,
+                        padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0,
+                        textTransform: 'capitalize',
+                      }}>{item.importance}</span>
+                    </div>
+                  );
+                })}
+                {businessMemory.totalItems > businessMemory.topItems.length && (
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', paddingTop: 2 }}>
+                    +{businessMemory.totalItems - businessMemory.topItems.length} more memory items stored
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
