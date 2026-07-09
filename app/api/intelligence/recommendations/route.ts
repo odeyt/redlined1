@@ -29,9 +29,16 @@ async function isFlagEnabled(flagKey: string): Promise<boolean> {
   try {
     const { getAdminDb } = await import('@/lib/supabaseServer');
     const db = getAdminDb();
-    const { data } = await db.from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
+    const { data, error } = await db.from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
+    if (error) {
+      console.error('[isFlagEnabled] DB error for', flagKey, error.message);
+      return true; // fail-open: DB confirmed flags exist, don't block UI on query error
+    }
     return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch { return false; }
+  } catch (e) {
+    console.error('[isFlagEnabled] exception for', flagKey, e);
+    return true; // fail-open
+  }
 }
 
 // GET — open recommendations for the shop (owner/manager only)
