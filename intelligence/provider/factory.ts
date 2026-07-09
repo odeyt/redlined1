@@ -10,10 +10,19 @@ function createProvider(): IntelligenceProvider {
   const key = (process.env.INTELLIGENCE_PROVIDER ?? 'mock').toLowerCase().trim();
 
   switch (key) {
+    case 'sapelee': {
+      // Sapelee requires API URL + key. If missing, fall back to mock safely.
+      const configured = !!(process.env.SAPELEE_API_URL && process.env.SAPELEE_API_KEY);
+      if (!configured) {
+        console.warn('[Intelligence] INTELLIGENCE_PROVIDER=sapelee but SAPELEE_API_URL/SAPELEE_API_KEY missing — falling back to mock.');
+        return new MockIntelligenceProvider();
+      }
+      // Dynamic import keeps sapelee deps tree-shaken when unused
+      const { SapeleeIntelligenceProvider } = require('./sapelee/SapeleeIntelligenceProvider') as typeof import('./sapelee/SapeleeIntelligenceProvider');
+      return new SapeleeIntelligenceProvider();
+    }
     case 'mock':
     default:
-      // All non-mock providers (sapelee, openai, claude, gemini) are future work.
-      // Unknown values silently fall back to mock — never crash.
       if (key !== 'mock') {
         console.warn(`[Intelligence] Unknown provider "${key}" — falling back to mock.`);
       }

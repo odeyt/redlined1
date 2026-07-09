@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getHealth } from '@/intelligence/IntelligenceService';
 import { getBusHealth } from '@/intelligence/bus/IntelligenceBus';
+import { getHealth as getSapeleeHealth } from '@/intelligence/provider/sapelee/SapeleeClient';
 
 async function getFlagStates(): Promise<Record<string, boolean>> {
   const KEYS = ['intelligence_foundation', 'intelligence_bus', 'recommendation_engine', 'command_center', 'daily_summary', 'morning_briefing', 'daily_recommendations'];
@@ -30,12 +31,13 @@ async function getTableReachable(table: string): Promise<boolean> {
 
 export async function GET() {
   try {
-    const [providerHealth, busHealth, eventsReachable, recsReachable, flags] = await Promise.all([
+    const [providerHealth, busHealth, eventsReachable, recsReachable, flags, sapeleeHealth] = await Promise.all([
       getHealth(),
       getBusHealth('').catch(() => ({ reachable: false, pendingEvents: 0, processedToday: 0, failedEvents: 0, lastEventAt: null })),
       getTableReachable('intelligence_events'),
       getTableReachable('recommendations'),
       getFlagStates(),
+      getSapeleeHealth().catch(() => ({ status: 'offline' as const, configured: false, checkedAt: new Date().toISOString() })),
     ]);
 
     // Open recommendations count
@@ -62,6 +64,11 @@ export async function GET() {
       },
       openRecommendations,
       featureFlags:         flags,
+      sapelee: {
+        configured:  sapeleeHealth.configured,
+        status:      sapeleeHealth.status,
+        checkedAt:   sapeleeHealth.checkedAt,
+      },
       checkedAt:            new Date().toISOString(),
     };
 
@@ -74,6 +81,7 @@ export async function GET() {
       tables:      { intelligence_events: false, recommendations: false },
       openRecommendations: 0,
       featureFlags: {},
+      sapelee: { configured: false, status: 'offline', checkedAt: new Date().toISOString() },
       checkedAt:   new Date().toISOString(),
     }, { status: 503 });
   }

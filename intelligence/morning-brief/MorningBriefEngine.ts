@@ -194,6 +194,7 @@ export async function generateMorningBrief(
         .maybeSingle();
       savedId = (inserted as Record<string, string> | null)?.id ?? 'unsaved';
       const brief = buildBriefObject(content, savedId, inserted as Record<string, string> | null);
+      void trySapeleeEnhancement(savedId, brief);
       return { brief, isNew: true, durationMs: Date.now() - start, warnings };
     } else {
       await db
@@ -203,6 +204,7 @@ export async function generateMorningBrief(
       savedId = (existing as Record<string, string>).id;
       const full = await getBriefById(savedId);
       if (!full) throw new Error('Brief save failed');
+      void trySapeleeEnhancement(savedId, full);
       return { brief: full, isNew: false, durationMs: Date.now() - start, warnings };
     }
   } catch (e) {
@@ -210,6 +212,56 @@ export async function generateMorningBrief(
     // Return a safe empty brief rather than throwing
     const safe = buildSafeFallbackBrief(shopId, briefDate);
     return { brief: safe, isNew: false, durationMs: Date.now() - start, warnings };
+  }
+}
+
+// ── SI-8: Sapelee Enhancement (fire-and-forget) ───────────────
+/**
+ * After saving the local brief, optionally enhance it with Sapelee.
+ * Checks the sapelee_morning_brief_enhancement feature flag.
+ * Stores the result in metadata.sapelee_enhancement — NEVER replaces the local brief.
+ * Returns immediately if Sapelee is unavailable or the flag is OFF.
+ */
+async function trySapeleeEnhancement(briefId: string, brief: MorningBrief): Promise<void> {
+  try {
+    // Check feature flag
+    const db = await getDb();
+    const { data: flagRow } = await db
+      .from('feature_flags')
+      .select('enabled')
+      .eq('flag_key', 'sapelee_morning_brief_enhancement')
+      .maybeSingle();
+    if (!(flagRow as Record<string, unknown> | null)?.enabled) return;
+
+    // Build PII-safe payload
+    const { buildMorningBriefPayload } = await import(
+      '@/intelligence/provider/sapelee/SapeleePayloadBuilder'
+    );
+    const { enhanceMorningBriefWithSapelee } = await import(
+      '@/intelligence/provider/sapelee/SapeleeIntelligenceProvider'
+    );
+
+    const payload = buildMorningBriefPayload(brief);
+    const enhancement = await enhanceMorningBriefWithSapelee(payload);
+    if (!enhancement) return; // Sapelee unavailable — keep local brief as-is
+
+    // Merge into existing metadata, never replace other fields
+    const { data: current } = await db
+      .from('morning_briefs')
+      .select('metadata')
+      .eq('id', briefId)
+      .maybeSingle();
+    const existingMeta = ((current as Record<string, unknown> | null)?.metadata ?? {}) as Record<string, unknown>;
+
+    await db
+      .from('morning_briefs')
+      .update({
+        metadata:   { ...existingMeta, sapelee_enhancement: enhancement },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', briefId);
+  } catch {
+    // Never propagate — intelligence enhancement is non-critical
   }
 }
 

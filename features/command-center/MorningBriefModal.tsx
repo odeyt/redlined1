@@ -62,6 +62,18 @@ interface MorningBriefData {
     lowCount: number;
     reorderUrgency: string;
   };
+  metadata?: {
+    sapelee_enhancement?: {
+      executiveSummary: string;
+      strategicAdvice: string;
+      revenueFocus: string;
+      riskFocus: string;
+      ownerCoaching: string;
+      confidence: number;
+      generatedAt: string;
+    };
+    [key: string]: unknown;
+  };
 }
 
 const D = {
@@ -345,6 +357,48 @@ export function MorningBriefModal({
               </div>
             </div>
           )}
+
+          {/* Sapelee Executive Insight (SI-8) */}
+          {brief.metadata?.sapelee_enhancement ? (
+            <div>
+              <SectionHead icon="🔮" label="Sapelee Executive Insight" />
+              <div style={{
+                background: 'linear-gradient(135deg,#0a0a18,#0f0f2a)',
+                border: '1.5px solid #4338ca60', borderRadius: D.radiusSm, padding: '16px 18px',
+                display: 'flex', flexDirection: 'column', gap: 12,
+              }}>
+                {brief.metadata.sapelee_enhancement.executiveSummary && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Executive Summary</div>
+                    <div style={{ fontSize: 13, color: '#e0e7ff', lineHeight: 1.6 }}>{brief.metadata.sapelee_enhancement.executiveSummary}</div>
+                  </div>
+                )}
+                {brief.metadata.sapelee_enhancement.strategicAdvice && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Strategic Advice</div>
+                    <div style={{ fontSize: 13, color: '#e0e7ff', lineHeight: 1.6 }}>{brief.metadata.sapelee_enhancement.strategicAdvice}</div>
+                  </div>
+                )}
+                {brief.metadata.sapelee_enhancement.ownerCoaching && (
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>Owner Coaching</div>
+                    <div style={{ fontSize: 13, color: '#e0e7ff', lineHeight: 1.6 }}>{brief.metadata.sapelee_enhancement.ownerCoaching}</div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4, borderTop: '1px solid rgba(99,102,241,0.2)' }}>
+                  <span style={{ fontSize: 10, color: 'rgba(165,180,252,0.5)' }}>Confidence: {Math.round((brief.metadata.sapelee_enhancement.confidence ?? 0) * 100)}%</span>
+                  <span style={{ fontSize: 10, color: 'rgba(165,180,252,0.4)' }}>Powered by Sapelee</span>
+                </div>
+              </div>
+            </div>
+          ) : process.env.NEXT_PUBLIC_SAPELEE_ENABLED === 'true' ? (
+            <div style={{
+              fontSize: 11, color: 'var(--muted)', textAlign: 'center',
+              padding: '10px 0', borderTop: '1px solid var(--line)',
+            }}>
+              🔌 Sapelee not connected — local intelligence only
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
