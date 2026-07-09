@@ -5,6 +5,7 @@ import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { getShopId } from '@/lib/shopStore';
+import { MorningBriefModal } from './MorningBriefModal';
 
 // ── Types ────────────────────────────────────────────────────
 interface ShopMetrics {
@@ -84,6 +85,30 @@ interface ExecScoreBreakdown {
   cashFlow: number;
   knowledgeGrowth: number;
   trend: 'up' | 'down' | 'stable';
+}
+
+// SI-7 — Morning Brief (local shape, matches API response)
+interface MorningBriefSummary {
+  id: string;
+  briefDate: string;
+  status: string;
+  shopHealthScore: number;
+  executiveScore: number;
+  title: string;
+  summary: string;
+  recommendedFocus: string;
+  generatedAt: string;
+  todayPriorities: Array<{
+    rank: number; title: string; decisionScore: number;
+    estimatedRevenue: number | null; estimatedTimeMinutes: number;
+    whyItMatters: string; module: string | null;
+  }>;
+  revenueOpportunities: Array<{ key: string; label: string; count: number; total: number | null; module: string; urgency: string }>;
+  cashCollection: { unpaidCount: number; unpaidTotal: number; overdueCount: number; overdueTotal: number; collectionUrgency: string };
+  operationalRisks: Array<{ key: string; label: string; count: number; detail: string | null; module: string; severity: string }>;
+  technicianSummary: { activeCount: number; idleCount: number; totalAssigned: number; bottlenecks: string[] };
+  inventorySummary: { lowCount: number; reorderUrgency: string };
+  yesterdaySummary: { revenueYesterday: number; paymentsYesterday: number; jobsCompleted: number; repairCasesCreated: number; invoicesCreated: number };
 }
 
 // ── Constants ─────────────────────────────────────────────────
@@ -661,6 +686,10 @@ export function CommandCenterView() {
   // SI-6
   const [actionQueue, setActionQueue] = useState<RankedAction[] | null>(null);
   const [execScore, setExecScore] = useState<ExecScoreBreakdown | null>(null);
+  // SI-7
+  const [morningBrief, setMorningBrief] = useState<MorningBriefSummary | null>(null);
+  const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [generatingBrief, setGeneratingBrief] = useState(false);
 
   if (role && role !== 'owner' && role !== 'manager') {
     return <DisabledState reason="Command Center is only available to shop owners and managers." />;
@@ -725,13 +754,49 @@ export function CommandCenterView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
+  const loadMorningBrief = useCallback(async () => {
+    try {
+      const res = await fetch('/api/intelligence/morning-brief', { headers: shopHeaders });
+      if (!res.ok) return;
+      const body = await res.json() as { disabled?: boolean; brief?: MorningBriefSummary | null };
+      if (body.disabled || !body.brief) return;
+      setMorningBrief(body.brief);
+    } catch { /* fail silently — SI-7 is additive */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
   useEffect(() => {
     if (!shopId) return;
     loadRecommendations();
     loadSignals();
     loadMetrics();
     loadActionQueue();
-  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue]);
+    loadMorningBrief();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief]);
+
+  async function handleGenerateBrief() {
+    setGeneratingBrief(true);
+    try {
+      const res = await fetch('/api/intelligence/morning-brief', { method: 'POST', headers: shopHeaders });
+      if (res.ok) {
+        const body = await res.json() as { brief?: MorningBriefSummary };
+        if (body.brief) setMorningBrief(body.brief);
+      }
+    } catch { /* fail silently */ }
+    finally { setGeneratingBrief(false); }
+  }
+
+  async function handleDismissBrief(id: string) {
+    try {
+      await fetch('/api/intelligence/morning-brief', {
+        method: 'PATCH',
+        headers: { ...shopHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'dismiss' }),
+      });
+      setMorningBrief(b => b ? { ...b, status: 'dismissed' } : null);
+      setBriefModalOpen(false);
+    } catch { /* fail silently */ }
+  }
 
   async function handleGenerate() {
     setGenerating(true);
@@ -801,6 +866,7 @@ export function CommandCenterView() {
   const isLoading = recs.loading && signals.loading;
 
   return (
+    <>
     <Panel title="D1 Command Center">
       {/* ── Premium Header ─────────────────────────────────── */}
       <div style={{
@@ -900,6 +966,118 @@ export function CommandCenterView() {
                 onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
             </div>
           </div>
+
+          {/* ── Section SI-7: Morning Brief ──────────────────── */}
+          {(morningBrief || true) && (() => {
+            const brief = morningBrief && morningBrief.status !== 'dismissed';
+            const urgencyColor = (brief && morningBrief!.cashCollection.collectionUrgency === 'critical') ? D.red
+              : (brief && morningBrief!.shopHealthScore < 55) ? D.gold : D.green;
+            return (
+              <div style={{ marginBottom: 24 }}>
+                <SectionHeading icon="☀️" label="Morning Brief" />
+                {!brief ? (
+                  <div style={{
+                    background: 'var(--surface)', border: '1.5px dashed var(--line)',
+                    borderRadius: D.radiusSm, padding: '16px 20px',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 3 }}>No morning brief generated yet.</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>Generate a brief to see today's executive summary.</div>
+                    </div>
+                    <button
+                      onClick={handleGenerateBrief}
+                      disabled={generatingBrief}
+                      style={{
+                        padding: '9px 18px', borderRadius: 8, border: 'none', cursor: generatingBrief ? 'not-allowed' : 'pointer',
+                        background: generatingBrief ? 'rgba(0,0,0,0.05)' : `linear-gradient(135deg,${D.gold},#b45309)`,
+                        color: generatingBrief ? 'var(--muted)' : '#fff', fontWeight: 700, fontSize: 12,
+                        opacity: generatingBrief ? 0.6 : 1, whiteSpace: 'nowrap',
+                      }}>
+                      {generatingBrief ? '⟳ Generating…' : '☀️ Generate Brief'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: `linear-gradient(135deg,${urgencyColor}06,${urgencyColor}03)`,
+                    border: `1.5px solid ${urgencyColor}30`,
+                    borderLeft: `4px solid ${urgencyColor}`,
+                    borderRadius: D.radiusSm, padding: '16px 18px',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                  }}>
+                    {/* Title + scores */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{morningBrief!.title}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)' }}>
+                          {morningBrief!.briefDate} · {new Date(morningBrief!.generatedAt).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <span style={{ fontSize: 11, background: `${urgencyColor}14`, color: urgencyColor, borderRadius: 7, padding: '3px 10px', fontWeight: 700 }}>
+                          Health {morningBrief!.shopHealthScore}
+                        </span>
+                        <span style={{ fontSize: 11, background: 'rgba(0,0,0,0.05)', color: 'var(--muted)', borderRadius: 7, padding: '3px 10px', fontWeight: 600 }}>
+                          Exec {morningBrief!.executiveScore}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Recommended focus */}
+                    <div style={{
+                      fontSize: 12, color: 'var(--text)', lineHeight: 1.6,
+                      background: `${D.gold}10`, borderRadius: 6, padding: '8px 10px',
+                      borderLeft: `3px solid ${D.gold}`,
+                    }}>
+                      <strong style={{ color: D.gold }}>⭐ Focus:</strong> {morningBrief!.recommendedFocus}
+                    </div>
+                    {/* Top 3 priorities inline */}
+                    {morningBrief!.todayPriorities.slice(0, 3).map(p => (
+                      <div key={p.rank} style={{
+                        display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text)',
+                      }}>
+                        <span style={{
+                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                          background: p.decisionScore >= 700 ? D.red : p.decisionScore >= 450 ? D.gold : D.blue,
+                          color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>{p.rank}</span>
+                        <span style={{ flex: 1 }}>{p.title}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>⏱ {p.estimatedTimeMinutes}m</span>
+                      </div>
+                    ))}
+                    {/* Action buttons */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                      <button
+                        onClick={handleGenerateBrief}
+                        disabled={generatingBrief}
+                        style={{
+                          fontSize: 11, padding: '6px 14px', borderRadius: 6, border: `1.5px solid ${D.gold}60`,
+                          background: `${D.gold}10`, color: D.gold, fontWeight: 700, cursor: 'pointer',
+                          opacity: generatingBrief ? 0.6 : 1,
+                        }}>
+                        {generatingBrief ? '⟳ Refreshing…' : '↺ Refresh Brief'}
+                      </button>
+                      <button
+                        onClick={() => setBriefModalOpen(true)}
+                        style={{
+                          fontSize: 11, padding: '6px 14px', borderRadius: 6, border: '1.5px solid var(--line)',
+                          background: 'var(--surface)', color: 'var(--text)', fontWeight: 600, cursor: 'pointer',
+                        }}>
+                        📋 View Full Brief
+                      </button>
+                      <button
+                        onClick={() => handleDismissBrief(morningBrief!.id)}
+                        style={{
+                          fontSize: 11, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--line)',
+                          background: 'transparent', color: 'var(--muted)', cursor: 'pointer',
+                        }}>
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Section SI-6: Today's Action Queue ───────────── */}
           {actionQueue && actionQueue.length > 0 && (
@@ -1027,5 +1205,15 @@ export function CommandCenterView() {
         </>
       )}
     </Panel>
+
+    {/* SI-7: Morning Brief Modal */}
+    {briefModalOpen && morningBrief && morningBrief.status !== 'dismissed' && (
+      <MorningBriefModal
+        brief={morningBrief as Parameters<typeof MorningBriefModal>[0]['brief']}
+        onClose={() => setBriefModalOpen(false)}
+        onDismiss={handleDismissBrief}
+      />
+    )}
+    </>
   );
 }
