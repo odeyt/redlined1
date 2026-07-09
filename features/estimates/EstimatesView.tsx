@@ -255,6 +255,18 @@ export function EstimatesView() {
       // The line Currency = customer billing currency.
       // Rate = cost × fx(main → billing) × (1 + markup%).
       const billingCur = field === 'currency' ? (value || form.currency) : (line.currency || form.currency);
+
+      // Same-currency path: compute synchronously in one setForm to avoid intermediate stale rate
+      if (!form.currency || !billingCur || form.currency === billingCur) {
+        const rate = +(cost * (1 + pct / 100)).toFixed(2);
+        setForm(f => ({
+          ...f,
+          lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: String(rate) }),
+        }));
+        return;
+      }
+
+      // Cross-currency: need async FX fetch
       const fx   = await getRate(form.currency, billingCur);
       const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
       setForm(f => ({
@@ -657,24 +669,7 @@ export function EstimatesView() {
                 </div>
                 <div className="login-field">
                   <label>Currency</label>
-                  <select value={form.currency} onChange={async ev => {
-                    const newCur = ev.target.value;
-                    const oldCur = form.currency;
-                    setForm(f => ({ ...f, currency: newCur }));
-                    if (oldCur && newCur && oldCur !== newCur) {
-                      // Recalculate all line rates: cost stays in new main currency
-                      const updatedLines = await Promise.all(form.lines.map(async line => {
-                        const cost = parseFloat(line.cost) || 0;
-                        if (cost === 0) return line;
-                        const markup = parseFloat(line.markup);
-                        const pct = isNaN(markup) ? 50 : markup;
-                        const billingCur = line.currency || newCur;
-                        const fx = await getRate(newCur, billingCur);
-                        return { ...line, rate: String(+(cost * fx * (1 + pct / 100)).toFixed(2)) };
-                      }));
-                      setForm(f => ({ ...f, currency: newCur, lines: updatedLines }));
-                    }
-                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.symbol})</option>)}
                   </select>
                 </div>
