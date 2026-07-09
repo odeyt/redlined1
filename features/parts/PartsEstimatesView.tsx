@@ -463,10 +463,11 @@ export function PartsEstimatesView() {
       ? e.lineItems
       : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost, vendorName: e.vendorName, currency: e.currency || 'USD' }];
 
-    // Detect mixed currencies
+    // Derive main currency from actual item currencies (not e.currency which defaults to USD)
     const currencies = [...new Set(items.map(i => i.currency || e.currency || 'USD'))];
-    const mainCur = e.currency || 'USD';
-    const hasMixed = currencies.length > 1 || (currencies.length === 1 && currencies[0] !== mainCur);
+    // If all items share the same currency, use that; otherwise fall back to e.currency
+    const mainCur = currencies.length === 1 ? currencies[0] : (e.currency || 'USD');
+    const hasMixed = currencies.length > 1;
     const mixedWarning = hasMixed
       ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
       : '';
