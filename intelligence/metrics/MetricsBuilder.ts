@@ -342,7 +342,7 @@ export async function calculateTechnicianMetrics(
     const db = await getDb(jwt);
     const { data, error } = await db
       .from('shop_users')
-      .select('id')
+      .select('user_id')
       .eq('shop_id', ctx.shopId)
       .eq('role', 'technician');
     if (error) throw error;
