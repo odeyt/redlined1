@@ -155,6 +155,8 @@ export function PartsEstimatesView() {
 
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterVendor, setFilterVendor] = useState('All');
+  // Track IDs currently being converted to prevent double-submission
+  const convertingIds = useRef<Set<string>>(new Set());
   const [search, setSearch]             = useState('');
 
   const [selected, setSelected]   = useState<PartsEstimate | null>(null);
@@ -429,6 +431,14 @@ export function PartsEstimatesView() {
   }
 
   async function handleConvertToEstimate(e: PartsEstimate) {
+    // Guard: already converted (status check)
+    if (e.status === 'Converted') {
+      notify('This quotation has already been converted to an estimate.');
+      return;
+    }
+    // Guard: in-flight duplicate prevention
+    if (convertingIds.current.has(e.id)) return;
+
     const items = e.lineItems?.length
       ? e.lineItems
       : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost, vendorName: e.vendorName, currency: e.currency || 'USD' }];
@@ -442,6 +452,9 @@ export function PartsEstimatesView() {
       : '';
 
     if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate?${mixedWarning}\n\nThe Parts Quotation will be kept with status "Converted" so you can still view the original costs.`)) return;
+
+    // Lock this record for the duration of the conversion
+    convertingIds.current.add(e.id);
 
     // Close edit modal immediately after confirm so navigation feels clean
     setShowForm(false);
@@ -519,6 +532,8 @@ export function PartsEstimatesView() {
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
+    } finally {
+      convertingIds.current.delete(e.id);
     }
   }
 
@@ -895,9 +910,18 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           <div className="row-actions">
                             {e.status !== 'Converted' && <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>}
                             {e.status !== 'Converted' && <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>}
-                            {e.status !== 'Converted' && (
-                              <button className="mini-btn" style={{ color: '#0284c7' }} onClick={() => handleConvertToEstimate(e)}>→ Estimate</button>
-                            )}
+                            {e.status !== 'Converted' && (() => {
+                              const busy = convertingIds.current.has(e.id);
+                              return (
+                                <button
+                                  className="mini-btn"
+                                  style={{ color: busy ? '#9ca3af' : '#0284c7', cursor: busy ? 'not-allowed' : 'pointer' }}
+                                  disabled={busy}
+                                  onClick={() => handleConvertToEstimate(e)}>
+                                  {busy ? '⟳ Converting…' : '→ Estimate'}
+                                </button>
+                              );
+                            })()}
                             {(() => {
                               const estNum = extractLinkedEstimate(e.notes);
                               return estNum ? (
@@ -1187,10 +1211,17 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     ⇄ To Order
                   </button>
-                  <button onClick={() => handleConvertToEstimate(selected)}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    → Estimate
-                  </button>
+                  {(() => {
+                    const busy = convertingIds.current.has(selected.id);
+                    return (
+                      <button
+                        onClick={() => handleConvertToEstimate(selected)}
+                        disabled={busy}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                        {busy ? '⟳ Converting…' : '→ Estimate'}
+                      </button>
+                    );
+                  })()}
                 </>
               )}
               {selected.status === 'Converted' && (() => {
@@ -1339,8 +1370,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </button>
                         <button type="button"
                           onClick={() => handleConvertToEstimate(est)}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #0ea5e9', background: 'rgba(14,165,233,0.08)', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          → Estimate
+                          disabled={convertingIds.current.has(est.id) || est.status === 'Converted'}
+                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #0ea5e9', background: convertingIds.current.has(est.id) ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: convertingIds.current.has(est.id) ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: convertingIds.current.has(est.id) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                          {convertingIds.current.has(est.id) ? '⟳ Converting…' : '→ Estimate'}
                         </button>
                       </>
                     ) : null;

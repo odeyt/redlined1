@@ -116,6 +116,7 @@ export function EstimatesView() {
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   // Exchange rates keyed by base currency, e.g. ratesCache['THB']['USD'] = 0.028
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
+  const convertingToInvoice = useRef<Set<string>>(new Set());
   const [ratesFetching, setRatesFetching] = useState(false);
   const [printLang, setPrintLang] = useState<'en' | 'lo' | 'both'>('both');
   const { status: planStatus } = usePlan();
@@ -323,7 +324,16 @@ export function EstimatesView() {
   }
 
   async function handleConvertToInvoice(est: EstimateFull) {
+    // Guard: already converted
+    if (est.status === 'Converted') {
+      setError(`${est.estimateNumber} has already been converted to an invoice.`);
+      return;
+    }
+    // Guard: in-flight duplicate prevention
+    if (convertingToInvoice.current.has(est.id)) return;
     if (!confirm(`Convert ${est.estimateNumber} to an invoice?`)) return;
+
+    convertingToInvoice.current.add(est.id);
     try {
       const invNumber = await nextInvoiceNumber();
       await createInvoice({
@@ -348,7 +358,11 @@ export function EstimatesView() {
       setSelected(updated);
       notify(`${est.estimateNumber} → ${invNumber} created. Opening Invoices…`);
       setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
-    } catch (e: unknown) { setError('Convert failed: ' + (e instanceof Error ? e.message : '')); }
+    } catch (e: unknown) {
+      setError('Convert failed: ' + (e instanceof Error ? e.message : ''));
+    } finally {
+      convertingToInvoice.current.delete(est.id);
+    }
   }
 
   function openEmailModal(est: EstimateFull) {
@@ -822,9 +836,18 @@ export function EstimatesView() {
               {selected.status !== 'Declined' && selected.status !== 'Converted' && (
                 <button className="btn" style={{ background: 'rgba(244,67,54,0.08)', color: '#f44336', border: '1px solid #f4433633' }} onClick={() => handleDecline(selected)}>✕ Decline</button>
               )}
-              {(selected.status === 'Approved') && (
-                <button className="btn" style={{ background: 'rgba(156,39,176,0.1)', color: '#9c27b0', border: '1px solid #9c27b033', fontWeight: 600 }} onClick={() => handleConvertToInvoice(selected)}>⚡ Convert to Invoice</button>
-              )}
+              {(selected.status === 'Approved') && (() => {
+                const busy = convertingToInvoice.current.has(selected.id);
+                return (
+                  <button
+                    className="btn"
+                    disabled={busy}
+                    onClick={() => handleConvertToInvoice(selected)}
+                    style={{ background: busy ? 'rgba(156,163,175,0.1)' : 'rgba(156,39,176,0.1)', color: busy ? '#9ca3af' : '#9c27b0', border: `1px solid ${busy ? '#d1d5db' : '#9c27b033'}`, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
+                    {busy ? '⟳ Converting…' : '⚡ Convert to Invoice'}
+                  </button>
+                );
+              })()}
               <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }} onClick={() => openEmailModal(selected)}>✉️ Email Customer</button>
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
