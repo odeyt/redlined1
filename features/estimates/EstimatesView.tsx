@@ -397,8 +397,20 @@ export function EstimatesView() {
       });
       const json = await res.json() as { sentTo?: string; emailSaved?: boolean; error?: string };
       if (!res.ok) throw new Error(json.error);
-      notify(`Estimate emailed to ${json.sentTo}${json.emailSaved ? ' · email saved to customer record' : ''}`);
-      if (json.emailSaved && emailModal.customerId) {
+      const wantSave = emailModal.saveEmail && isNewEmail && !!emailModal.customerId;
+      let emailSaved = json.emailSaved ?? false;
+      // Client-side fallback: if API save failed (service role key issue), try direct update
+      if (wantSave && !emailSaved && emailModal.customerId) {
+        try {
+          const { error: saveErr } = await supabase
+            .from('customers')
+            .update({ email: emailModal.email })
+            .eq('id', emailModal.customerId);
+          if (!saveErr) emailSaved = true;
+        } catch { /* ignore */ }
+      }
+      notify(`Estimate emailed to ${json.sentTo}${emailSaved ? ' · email saved to customer record' : ''}`);
+      if (emailSaved && emailModal.customerId) {
         setFullCustomers(prev => prev.map(c => c.id === emailModal.customerId ? { ...c, email: emailModal.email } : c));
       }
       setEmailModal(null);

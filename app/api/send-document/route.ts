@@ -234,15 +234,38 @@ export async function POST(req: NextRequest) {
     // Optionally save email back to customer record.
     // Use admin client (bypasses RLS) and filter by id only — shop_id on the
     // customers row may differ between parent shop and location sub-shops.
+    let actualEmailSaved = false;
     if (saveEmail && customerId) {
       try {
         const adminDb = getAdminDb();
-        const { error: saveErr } = await adminDb
+        const { data: updateData, error: saveErr } = await adminDb
           .from('customers')
           .update({ email })
-          .eq('id', customerId);
-        if (saveErr) console.error('[send-document] save email:', saveErr.message);
-        else console.log('[send-document] email saved to customer', customerId);
+          .eq('id', customerId)
+          .select('id');
+        if (saveErr) {
+          console.error('[send-document] save email error:', saveErr.message);
+        } else if (!updateData || updateData.length === 0) {
+          console.warn('[send-document] save email: no customer matched id', customerId, '— trying name fallback');
+          // Fallback: try matching by customer name from the document
+          const name = docData.customerName;
+          if (name) {
+            const { data: fallback, error: fbErr } = await adminDb
+              .from('customers')
+              .update({ email })
+              .ilike('name', name)
+              .select('id');
+            if (!fbErr && fallback && fallback.length > 0) {
+              actualEmailSaved = true;
+              console.log('[send-document] email saved via name fallback for', name);
+            } else {
+              console.warn('[send-document] name fallback also found no match:', fbErr?.message);
+            }
+          }
+        } else {
+          actualEmailSaved = true;
+          console.log('[send-document] email saved to customer', customerId);
+        }
       } catch (saveEx) {
         console.error('[send-document] save email exception:', saveEx);
       }
@@ -329,7 +352,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (emailErr) return NextResponse.json({ error: (emailErr as { message?: string }).message ?? 'Email send failed' }, { status: 500 });
-    return NextResponse.json({ success: true, sentTo: email, emailSaved: !!(saveEmail && customerId) });
+    return NextResponse.json({ success: true, sentTo: email, emailSaved: actualEmailSaved });
   } catch (e: unknown) {
     console.error('[send-document]', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
