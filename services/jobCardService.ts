@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface StageHistoryEntry {
   stage: string; label: string; icon: string;
@@ -66,7 +66,7 @@ export async function fetchJobCards(): Promise<JobCardFull[]> {
   const { data, error } = await supabase
     .from('job_cards')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('check_in_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(toJob);
@@ -76,7 +76,7 @@ export async function fetchClosedJobs(): Promise<JobCardFull[]> {
   const { data, error } = await supabase
     .from('closed_jobs')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('closed_date', { ascending: false });
   // If the shop_id column doesn't exist yet (pre-migration), return empty rather than crashing
   if (error) {
@@ -162,7 +162,7 @@ export async function updateJobCard(id: string, fields: Partial<{
   if (fields.location !== undefined) update.location = fields.location;
   if (fields.laborHours !== undefined) update.labor_hours = fields.laborHours;
   if (fields.partsTotal !== undefined) update.parts_total = fields.partsTotal;
-  const { error } = await supabase.from('job_cards').update(update).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('job_cards').update(update).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -190,7 +190,7 @@ export async function closeJob(job: JobCardFull): Promise<void> {
     created_at: job.checkInDate,
   });
   if (insertError) throw insertError;
-  const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id).eq('shop_id', getShopId());
+  const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id).in('shop_id', getShopIds());
   if (deleteError) throw deleteError;
   // Non-blocking intelligence hook — fire-and-forget, never throws
   try {
@@ -200,6 +200,6 @@ export async function closeJob(job: JobCardFull): Promise<void> {
 }
 
 export async function deleteJobCard(id: string): Promise<void> {
-  const { error } = await supabase.from('job_cards').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('job_cards').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }

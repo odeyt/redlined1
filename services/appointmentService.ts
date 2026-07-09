@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { AppointmentRow } from '@/lib/types';
 
 export type AppointmentRecord = {
@@ -35,12 +35,13 @@ let shopIdColumnExists:     boolean | null = null;
 
 export async function fetchAppointments(): Promise<AppointmentRecord[]> {
   const shopId = getShopId();
+  const shopIds = getShopIds();
 
   // If we have a valid shop ID and know the column exists, filter by it
   let query = supabase.from('appointments').select('*').order('date', { ascending: true }).order('time', { ascending: true });
 
   if (shopId && shopIdColumnExists !== false) {
-    query = query.eq('shop_id', shopId) as typeof query;
+    query = query.in('shop_id', shopIds) as typeof query;
   }
 
   const { data, error } = await query;

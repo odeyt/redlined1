@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface MaintenanceSchedule {
   id: string;
@@ -54,7 +54,7 @@ export async function fetchMaintenanceSchedules(): Promise<MaintenanceSchedule[]
   const { data, error } = await supabase
     .from('maintenance_schedules')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('next_due_date', { ascending: true, nullsFirst: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -104,12 +104,12 @@ export async function updateMaintenanceSchedule(id: string, updates: Partial<Mai
   if (updates.nextDueMiles !== undefined) payload.next_due_miles = updates.nextDueMiles;
   if (updates.notes !== undefined) payload.notes = updates.notes;
   if (updates.status !== undefined) payload.status = updates.status;
-  const { error } = await supabase.from('maintenance_schedules').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('maintenance_schedules').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteMaintenanceSchedule(id: string): Promise<void> {
-  const { error } = await supabase.from('maintenance_schedules').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('maintenance_schedules').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 

@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface InspectionItem {
   id: string;
@@ -141,7 +141,7 @@ export async function fetchInspections(): Promise<Inspection[]> {
   const { data, error } = await supabase
     .from('inspections')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -188,12 +188,12 @@ export async function updateInspection(id: string, updates: Partial<Inspection>)
   if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
   if (updates.customerId !== undefined) payload.customer_id = updates.customerId || null;
   if (updates.jobCardId !== undefined) payload.job_card_id = updates.jobCardId || null;
-  const { error } = await supabase.from('inspections').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('inspections').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteInspection(id: string): Promise<void> {
-  const { error } = await supabase.from('inspections').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('inspections').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 

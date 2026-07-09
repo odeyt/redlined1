@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface Technician {
   id: string;
@@ -67,7 +67,7 @@ export async function fetchTechnicians(activeOnly = false): Promise<Technician[]
   let q = supabase
     .from('technicians')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('name');
   if (activeOnly) q = q.neq('status', 'Inactive');
   const { data, error } = await q;
@@ -111,12 +111,12 @@ export async function updateTechnician(id: string, updates: Partial<Technician>)
   if (updates.hireDate      !== undefined) payload.hire_date      = updates.hireDate || null;
   if (updates.status        !== undefined) payload.status         = updates.status;
   if (updates.notes         !== undefined) payload.notes          = updates.notes;
-  const { error } = await supabase.from('technicians').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('technicians').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteTechnician(id: string): Promise<void> {
-  const { error } = await supabase.from('technicians').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('technicians').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -168,7 +168,7 @@ export async function fetchTechOpenROs(techName: string) {
   const { data, error } = await supabase
     .from('repair_orders')
     .select('ro_number, customer_name, vehicle, status, labor_hours, labor_rate, parts_total, opened_date')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .eq('technician', techName)
     .not('status', 'in', '("Closed","Void")')
     .order('opened_date', { ascending: false });

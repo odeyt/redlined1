@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface EstimateLine {
   note: string;
@@ -76,7 +76,7 @@ export async function fetchEstimates(): Promise<EstimateFull[]> {
   const { data, error } = await supabase
     .from('estimates')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -122,7 +122,7 @@ export async function updateEstimate(id: string, updates: Partial<EstimateFull>)
   if (updates.validUntil !== undefined) payload.valid_until = updates.validUntil || null;
   if (updates.approvedDate !== undefined) payload.approved_date = updates.approvedDate || null;
   if (updates.currency !== undefined) payload.currency = updates.currency;
-  const { error } = await supabase.from('estimates').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('estimates').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -131,7 +131,7 @@ export async function approveEstimate(id: string): Promise<void> {
     .from('estimates')
     .update({ status: 'Approved', approved_date: new Date().toISOString() })
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
   // Non-blocking intelligence hook — fire-and-forget, never throws
   try {
@@ -141,7 +141,7 @@ export async function approveEstimate(id: string): Promise<void> {
 }
 
 export async function deleteEstimate(id: string): Promise<void> {
-  const { error } = await supabase.from('estimates').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('estimates').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -149,7 +149,7 @@ export async function nextEstimateNumber(): Promise<string> {
   const { count } = await supabase
     .from('estimates')
     .select('*', { count: 'exact', head: true })
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   const n = (count ?? 0) + 1;
   return `EST-${String(n).padStart(4, '0')}`;
 }

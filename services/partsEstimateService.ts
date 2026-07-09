@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface PartsEstimate {
   id: string;
@@ -132,7 +132,7 @@ export async function fetchPartsEstimates(): Promise<PartsEstimate[]> {
   const { data, error } = await supabase
     .from('parts_estimates')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapEstimate);
@@ -159,7 +159,7 @@ export async function updatePartsEstimate(id: string, o: Partial<Omit<PartsEstim
   const { data, error } = await supabase
     .from('parts_estimates')
     .update(payload)
-    .eq('id', id).eq('shop_id', getShopId())
+    .eq('id', id).in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
   return mapEstimate(data);
@@ -195,6 +195,6 @@ export async function deletePartsEstimate(id: string): Promise<void> {
     .from('parts_estimates')
     .delete()
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }

@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface Payment {
   id: string;
@@ -39,7 +39,7 @@ export async function fetchPayments(): Promise<Payment[]> {
   const { data, error } = await supabase
     .from('payments')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('payment_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -80,12 +80,12 @@ export async function updatePayment(id: string, updates: Partial<Payment>): Prom
   if (updates.currency !== undefined) payload.currency = updates.currency;
   if (updates.referenceNumber !== undefined) payload.reference_number = updates.referenceNumber;
   if (updates.paymentDate !== undefined) payload.payment_date = updates.paymentDate;
-  const { error } = await supabase.from('payments').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('payments').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deletePayment(id: string): Promise<void> {
-  const { error } = await supabase.from('payments').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('payments').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 

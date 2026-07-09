@@ -1,12 +1,12 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { Customer } from '@/lib/types';
 
 export async function fetchCustomers(): Promise<Customer[]> {
   const { data, error } = await supabase
     .from('customers')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('name');
   if (error) throw error;
   return (data ?? []).map(row => ({
@@ -66,7 +66,7 @@ export async function updateCustomer(id: string, customer: Omit<Customer, 'id' |
       follow_up: customer.followUp,
     })
     .eq('id', id)
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .select()
     .single();
   if (error) throw error;
@@ -88,7 +88,7 @@ export async function deleteCustomer(id: string): Promise<void> {
     .from('customers')
     .delete()
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -97,7 +97,7 @@ export async function updateCustomerEmail(customerId: string, email: string): Pr
     .from('customers')
     .update({ email })
     .eq('id', customerId)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -106,6 +106,6 @@ export async function updateFollowUp(customerId: string, followUp: string): Prom
     .from('customers')
     .update({ follow_up: followUp })
     .eq('id', customerId)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }

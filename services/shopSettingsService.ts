@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export type RoleKey = 'manager' | 'advisor' | 'technician';
 export type RolePermissions = Record<RoleKey, string[]>;
@@ -83,7 +83,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data, error } = await supabase
     .from('shop_settings')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .single();
   if (error) throw error;
   return {
@@ -173,7 +173,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   const { error } = await supabase
     .from('shop_settings')
     .update(update)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 

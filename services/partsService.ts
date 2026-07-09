@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface Part {
   partNumber: string;
@@ -75,7 +75,7 @@ export async function fetchParts(): Promise<Part[]> {
   const { data, error } = await supabase
     .from('parts')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('description');
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -86,7 +86,7 @@ export async function fetchPartByBarcode(barcode: string): Promise<Part | null> 
     .from('parts')
     .select('*')
     .eq('barcode', barcode)
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .maybeSingle();
   if (error) throw error;
   return data ? mapRow(data) : null;
@@ -116,12 +116,12 @@ export async function updatePart(partNumber: string, updates: Partial<Part>): Pr
     .from('parts')
     .update(toRow(updates))
     .eq('part_number', partNumber)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deletePart(partNumber: string): Promise<void> {
-  const { error } = await supabase.from('parts').delete().eq('part_number', partNumber).eq('shop_id', getShopId());
+  const { error } = await supabase.from('parts').delete().eq('part_number', partNumber).in('shop_id', getShopIds());
   if (error) throw error;
 }
 

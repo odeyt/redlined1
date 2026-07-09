@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface PartsVendor {
   id: string;
@@ -166,7 +166,7 @@ export async function fetchVendors(): Promise<PartsVendor[]> {
   const { data, error } = await supabase
     .from('parts_vendors')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('name');
   if (error) throw error;
   return (data ?? []).map(mapVendor);
@@ -195,7 +195,7 @@ export async function updateVendor(id: string, v: Omit<PartsVendor, 'id'>): Prom
     .from('parts_vendors')
     .update({ name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes })
     .eq('id', id)
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
   return mapVendor(data);
@@ -206,7 +206,7 @@ export async function deleteVendor(id: string): Promise<void> {
     .from('parts_vendors')
     .delete()
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -237,13 +237,13 @@ export async function updatePartsOrder(id: string, o: Partial<Omit<PartsOrder, '
   const { data, error } = await supabase
     .from('parts_orders')
     .update(buildOrderPayload(o as Omit<PartsOrder, 'id' | 'createdAt'>))
-    .eq('id', id).eq('shop_id', getShopId())
+    .eq('id', id).in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
   return mapOrder(data);
 }
 
 export async function deletePartsOrder(id: string): Promise<void> {
-  const { error } = await supabase.from('parts_orders').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('parts_orders').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }

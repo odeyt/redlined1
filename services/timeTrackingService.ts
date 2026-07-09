@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface TimeEntry {
   id: string;
@@ -29,7 +29,7 @@ export async function fetchTimeEntries(): Promise<TimeEntry[]> {
   const { data, error } = await supabase
     .from('time_entries')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('clock_in', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -64,7 +64,7 @@ export async function clockOut(id: string): Promise<TimeEntry> {
     .from('time_entries')
     .update({ clock_out: new Date().toISOString() })
     .eq('id', id)
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .select()
     .single();
   if (error) throw error;
@@ -76,7 +76,7 @@ export async function deleteTimeEntry(id: string): Promise<void> {
     .from('time_entries')
     .delete()
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 

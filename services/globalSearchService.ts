@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export type SearchResultType = 'vehicle' | 'customer' | 'job_card' | 'repair_order' | 'invoice';
 
@@ -25,7 +25,7 @@ function dedupe(rows: Record<string, unknown>[]): Record<string, unknown>[] {
 export async function globalSearch(query: string): Promise<SearchResult[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const shopId = getShopId();
+  const shopId = getShopId(); const shopIds = getShopIds();
   const results: SearchResult[] = [];
 
   const baseVehicleCols = 'id, label, vin, plate, make, model, year, status, assigned_tech';
@@ -33,12 +33,12 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
   // ── Vehicles: run separate ilike queries per field, merge & dedupe ──────
   // This avoids the .or() + ilike combo which can fail silently under RLS
   const vehicleSearches = await Promise.allSettled([
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('plate', `%${q}%`).limit(8),
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('vin', `%${q}%`).limit(6),
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('label', `%${q}%`).limit(6),
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('make', `%${q}%`).limit(4),
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('model', `%${q}%`).limit(4),
-    supabase.from('vehicles').select(baseVehicleCols).eq('shop_id', shopId).ilike('assigned_tech', `%${q}%`).limit(4),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('plate', `%${q}%`).limit(8),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('vin', `%${q}%`).limit(6),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('label', `%${q}%`).limit(6),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('make', `%${q}%`).limit(4),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('model', `%${q}%`).limit(4),
+    supabase.from('vehicles').select(baseVehicleCols).in('shop_id', shopIds).ilike('assigned_tech', `%${q}%`).limit(4),
   ]);
 
   const allVehicleRows: Record<string, unknown>[] = [];
@@ -76,7 +76,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
 
   // ── Customers ────────────────────────────────────────────────────────
   await Promise.allSettled([
-    supabase.from('customers').select('id, name, phone, email').eq('shop_id', shopId)
+    supabase.from('customers').select('id, name, phone, email').in('shop_id', shopIds)
       .or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`).limit(4)
       .then(({ data }) => {
         (data ?? []).forEach((c: Record<string, unknown>) => results.push({
@@ -90,7 +90,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
 
     // ── Job Cards ─────────────────────────────────────────────────────
     supabase.from('job_cards').select('id, customer, vehicle, service_type, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', shopIds)
       .or(`id.ilike.%${q}%,customer.ilike.%${q}%,vehicle.ilike.%${q}%`)
       .limit(4)
       .then(({ data }) => {
@@ -106,7 +106,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
 
     // ── Repair Orders ─────────────────────────────────────────────────
     supabase.from('repair_orders').select('id, ro_number, customer_name, vehicle, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', shopIds)
       .or(`ro_number.ilike.%${q}%,customer_name.ilike.%${q}%,vehicle.ilike.%${q}%`)
       .limit(4)
       .then(({ data }) => {
@@ -122,7 +122,7 @@ export async function globalSearch(query: string): Promise<SearchResult[]> {
 
     // ── Invoices ──────────────────────────────────────────────────────
     supabase.from('invoices').select('number, customer, vehicle, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', shopIds)
       .or(`number.ilike.%${q}%,customer.ilike.%${q}%,vehicle.ilike.%${q}%`)
       .limit(3)
       .then(({ data }) => {

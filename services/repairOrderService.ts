@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface RoPart {
   description: string;
@@ -89,7 +89,7 @@ export async function fetchRepairOrders(): Promise<RepairOrder[]> {
   const { data, error } = await supabase
     .from('repair_orders')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -152,7 +152,7 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.laborLookupAt !== undefined) payload.labor_lookup_at = updates.laborLookupAt;
   if (updates.parts !== undefined) payload.parts = updates.parts;
   if (updates.workLines !== undefined) payload.work_lines = updates.workLines;
-  const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -161,12 +161,12 @@ export async function closeRepairOrder(id: string): Promise<void> {
     .from('repair_orders')
     .update({ status: 'Closed', closed_date: new Date().toISOString() })
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteRepairOrder(id: string): Promise<void> {
-  const { error } = await supabase.from('repair_orders').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('repair_orders').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -174,7 +174,7 @@ export async function nextRONumber(): Promise<string> {
   const { count } = await supabase
     .from('repair_orders')
     .select('*', { count: 'exact', head: true })
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   const n = (count ?? 0) + 1;
   return `RO-${String(n).padStart(5, '0')}`;
 }

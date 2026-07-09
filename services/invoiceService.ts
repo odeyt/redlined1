@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface InvoiceLine {
   note: string;
@@ -103,7 +103,7 @@ export async function fetchInvoices(): Promise<InvoiceFull[]> {
   const { data, error } = await supabase
     .from('invoices')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
@@ -149,7 +149,7 @@ export async function updateInvoice(id: string, updates: Partial<InvoiceFull>): 
   if (updates.dueDate !== undefined) payload.due_date = updates.dueDate || null;
   if (updates.paidDate !== undefined) payload.paid_date = updates.paidDate || null;
   if (updates.currency !== undefined) payload.currency = updates.currency;
-  const { error } = await supabase.from('invoices').update(payload).eq('number', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('invoices').update(payload).eq('number', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -158,7 +158,7 @@ export async function markInvoicePaid(id: string): Promise<void> {
     .from('invoices')
     .update({ status: 'Paid', paid_date: new Date().toISOString() })
     .eq('number', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
   // Non-blocking intelligence hook — fire-and-forget, never throws
   try {
@@ -168,7 +168,7 @@ export async function markInvoicePaid(id: string): Promise<void> {
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
-  const { error } = await supabase.from('invoices').delete().eq('number', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('invoices').delete().eq('number', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 

@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { Vehicle } from '@/lib/types';
 
 type VehicleRow = {
@@ -83,7 +83,7 @@ export async function fetchVehicles(): Promise<VehicleRecord[]> {
   const { data, error } = await supabase
     .from('vehicles')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('label');
   if (error) throw error;
   return (data ?? []).map(toVehicle);
@@ -136,7 +136,7 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
       recommendation: vehicle.recommendation,
     })
     .eq('id', id)
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .select()
     .single();
   if (error) throw error;
@@ -185,7 +185,7 @@ export async function updateVehicleServiceRecord(
   if (fields.flatRateLak   !== undefined) payload.flat_rate_lak   = fields.flatRateLak;
   if (fields.imageIds      !== undefined) payload.image_ids       = fields.imageIds;
   if (fields.techPayEntries!== undefined) payload.tech_pay_entries= fields.techPayEntries;
-  const { error } = await supabase.from('vehicles').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('vehicles').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -194,7 +194,7 @@ export async function transferVehicle(id: string, targetShopId: string): Promise
     .from('vehicles')
     .update({ shop_id: targetShopId })
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -203,7 +203,7 @@ export async function deleteVehicle(id: string): Promise<void> {
     .from('vehicles')
     .delete()
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -211,7 +211,7 @@ export async function fetchCustomerNames(): Promise<{ id: string; name: string }
   const { data, error } = await supabase
     .from('customers')
     .select('id, name')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('name');
   if (error) throw error;
   return data ?? [];

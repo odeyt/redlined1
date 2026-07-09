@@ -23,9 +23,34 @@ export function Sidebar() {
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const { status: planStatus, daysLeft } = usePlan();
-  const { shops, currentShop, switchShop, role, loading: roleLoading } = useShop();
+  const { shops, currentShop, switchShop, role, loading: roleLoading, mirrorShopIds } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const shopMenuRef = useRef<HTMLDivElement>(null);
+  const [mirrorToggles, setMirrorToggles] = useState<Record<string, boolean>>({});
+
+  // Sync mirror state from useShop into local toggle map
+  useEffect(() => {
+    const map: Record<string, boolean> = {};
+    mirrorShopIds.forEach(id => { map[id] = true; });
+    setMirrorToggles(map);
+  }, [mirrorShopIds]);
+
+  async function toggleMirror(targetShopId: string) {
+    if (!currentShop) return;
+    const isOn = mirrorToggles[targetShopId];
+    const next = { ...mirrorToggles, [targetShopId]: !isOn };
+    setMirrorToggles(next);
+    if (isOn) {
+      await supabase.from('shop_mirrors').delete()
+        .eq('shop_id', currentShop.id).eq('mirror_shop_id', targetShopId);
+    } else {
+      await supabase.from('shop_mirrors').upsert(
+        { shop_id: currentShop.id, mirror_shop_id: targetShopId },
+        { onConflict: 'shop_id,mirror_shop_id' }
+      );
+    }
+    window.location.reload();
+  }
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('sidebar-collapsed') === 'true';
@@ -277,22 +302,39 @@ export function Sidebar() {
               <div style={{ padding: '6px 11px 4px', fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>
                 Switch Location
               </div>
-              {shops.map(shop => (
-                <button
-                  key={shop.id}
-                  onClick={() => { setShopMenuOpen(false); switchShop(shop.id); }}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '9px 11px', background: shop.id === currentShop?.id ? 'rgba(192,57,43,0.15)' : 'transparent',
-                    border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)',
-                    color: shop.id === currentShop?.id ? '#e74c3c' : '#ccc',
-                    fontSize: 12, cursor: 'pointer', textAlign: 'left',
-                  }}
-                >
-                  <span style={{ fontSize: 13 }}>{shop.id === currentShop?.id ? '✓' : '○'}</span>
-                  <span style={{ fontWeight: shop.id === currentShop?.id ? 600 : 400 }}>{shop.name}</span>
-                </button>
-              ))}
+              {shops.map(shop => {
+                const isActive = shop.id === currentShop?.id;
+                const isMirrored = !isActive && mirrorToggles[shop.id];
+                return (
+                  <div key={shop.id} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <button
+                      onClick={() => { setShopMenuOpen(false); switchShop(shop.id); }}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '9px 11px', background: isActive ? 'rgba(192,57,43,0.15)' : isMirrored ? 'rgba(34,197,94,0.08)' : 'transparent',
+                        border: 'none', color: isActive ? '#e74c3c' : isMirrored ? '#22c55e' : '#ccc',
+                        fontSize: 12, cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>{isActive ? '✓' : isMirrored ? '⇄' : '○'}</span>
+                      <span style={{ fontWeight: isActive ? 600 : 400 }}>{shop.name}</span>
+                      {isMirrored && <span style={{ fontSize: 10, color: '#22c55e', marginLeft: 'auto' }}>Mirrored</span>}
+                    </button>
+                    {!isActive && (
+                      <button
+                        onClick={() => toggleMirror(shop.id)}
+                        title={mirrorToggles[shop.id] ? 'Remove mirror' : 'Mirror this shop\'s data'}
+                        style={{
+                          padding: '9px 10px', background: 'transparent', border: 'none',
+                          color: mirrorToggles[shop.id] ? '#22c55e' : '#555', cursor: 'pointer', fontSize: 14,
+                        }}
+                      >
+                        ⇄
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

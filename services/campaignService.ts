@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+﻿import { supabase } from '@/lib/supabase';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface Campaign {
   id: string;
@@ -95,7 +95,7 @@ export async function fetchCampaigns(): Promise<Campaign[]> {
   const { data, error } = await supabase
     .from('campaigns')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapCampaign);
@@ -131,12 +131,12 @@ export async function updateCampaign(id: string, updates: Partial<Campaign>): Pr
   if (updates.channel !== undefined) payload.channel = updates.channel;
   if (updates.status !== undefined) payload.status = updates.status;
   if (updates.sentCount !== undefined) payload.sent_count = updates.sentCount;
-  const { error } = await supabase.from('campaigns').update(payload).eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('campaigns').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  const { error } = await supabase.from('campaigns').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('campaigns').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }
 
@@ -144,7 +144,7 @@ export async function fetchFollowups(): Promise<EstimateFollowup[]> {
   const { data, error } = await supabase
     .from('estimate_followups')
     .select('*')
-    .eq('shop_id', getShopId())
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapFollowup);
@@ -174,11 +174,11 @@ export async function markFollowupSent(id: string): Promise<void> {
     .from('estimate_followups')
     .update({ status: 'Sent', sent_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('shop_id', getShopId());
+    .in('shop_id', getShopIds());
   if (error) throw error;
 }
 
 export async function deleteFollowup(id: string): Promise<void> {
-  const { error } = await supabase.from('estimate_followups').delete().eq('id', id).eq('shop_id', getShopId());
+  const { error } = await supabase.from('estimate_followups').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }

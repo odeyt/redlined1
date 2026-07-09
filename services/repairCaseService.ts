@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 import { logger } from '@/lib/logger';
 import { mapRepairCaseById } from '@/services/knowledgeGraphService';
 
@@ -261,7 +261,7 @@ export async function listRepairCases(): Promise<RepairCase[]> {
   const { data, error } = await supabase
     .from('repair_cases')
     .select('*')
-    .eq('shop_id', shopId)
+    .in('shop_id', getShopIds())
     .order('created_at', { ascending: false });
   if (error) { logger.error('listRepairCases failed', error, { module: 'repairCaseService' }); throw new Error(error.message); }
   const cases = (data ?? []).map(mapCase);

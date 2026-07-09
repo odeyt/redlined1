@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { getShopId, setShopId } from './shopStore';
+import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds } from './shopStore';
 
 export interface Shop {
   id: string;
@@ -66,6 +66,7 @@ export function useShop() {
   const [shops, setShops] = useState<Shop[]>([]);
   const [role, setRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [mirrorShopIds, setLocalMirrorIds] = useState<string[]>(getMirrorShopIds());
 
   useEffect(() => {
     async function load() {
@@ -98,6 +99,15 @@ export function useShop() {
         }
         setLocalShopId(current);
 
+        // Load mirror shop links for the active shop
+        const { data: mirrorRows } = await supabase
+          .from('shop_mirrors')
+          .select('mirror_shop_id')
+          .eq('shop_id', current);
+        const mirrors = (mirrorRows ?? []).map((r: Record<string, unknown>) => r.mirror_shop_id as string).filter(Boolean);
+        setMirrorShopIds(mirrors);
+        setLocalMirrorIds(mirrors);
+
         const activeRow = (suRows ?? []).find(
           (r: Record<string, unknown>) => r.shop_id === current
         );
@@ -122,6 +132,7 @@ export function useShop() {
     role,
     loading,
     switchShop,
+    mirrorShopIds,
     currentShop: shops.find(s => s.id === shopId) ?? null,
   };
 }
