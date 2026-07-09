@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useShop } from '@/lib/useShop';
 import { Panel } from '@/components/Panel';
 import { getShopId } from '@/lib/shopStore';
@@ -217,31 +217,18 @@ export function CommandCenterView() {
     try {
       const res = await fetch('/api/intelligence/metrics', { headers: shopHeaders });
       if (!res.ok) return;
-      const body = await res.json() as { metrics?: ShopMetrics; disabled?: boolean };
+      const body = await res.json() as { metrics?: ShopMetrics; disabled?: boolean; warnings?: string[] };
       if (body.metrics) setMetrics(body.metrics);
     } catch { /* metrics unavailable — signals fallback still works */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
-  const autoRefreshed = useRef(false);
-
   useEffect(() => {
     if (!shopId) return;
-    Promise.all([loadRecommendations(), loadSignals(), loadMetrics()]).then(() => {
-      // Auto-trigger a fresh calculation on first load if no metrics row exists yet
-      if (!autoRefreshed.current) {
-        autoRefreshed.current = true;
-        void (async () => {
-          try {
-            await fetch('/api/intelligence/metrics', { method: 'POST', headers: { 'x-shop-id': shopId } });
-            await fetch('/api/intelligence/recommendations', { method: 'POST', headers: { 'x-shop-id': shopId } });
-            await Promise.all([loadRecommendations(), loadSignals(), loadMetrics()]);
-          } catch { /* fail silently */ }
-        })();
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shopId]);
+    loadRecommendations();
+    loadSignals();
+    loadMetrics();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics]);
 
   async function handleGenerate() {
     setGenerating(true);

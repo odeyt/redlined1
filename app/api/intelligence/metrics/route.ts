@@ -11,7 +11,8 @@ async function getAuthCtx(req: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const shopId = req.headers.get('x-shop-id') ?? cookieStore.get('shopId')?.value ?? '';
+  // shopId from header (client sends x-shop-id), fallback to cookie
+  const shopId = req.headers.get('x-shop-id') ?? cookieStore.get('shopId')?.value ?? cookieStore.get('activeShopId')?.value ?? '';
   const { data: suRow } = await supabase
     .from('shop_users').select('role')
     .eq('user_id', user.id).eq('shop_id', shopId).maybeSingle();
@@ -19,18 +20,7 @@ async function getAuthCtx(req: NextRequest) {
   return { userId: user.id, shopId, role };
 }
 
-async function isFlagEnabled(flagKey: string): Promise<boolean> {
-  try {
-    const { getAdminDb } = await import('@/lib/supabaseServer');
-    const db = getAdminDb();
-    const { data, error } = await db
-      .from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
-    if (error) return true;
-    return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch { return true; }
-}
-
-// GET — latest metrics for this shop
+// GET — calculate live metrics for this shop (always fresh, no caching required)
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthCtx(req);
@@ -38,27 +28,32 @@ export async function GET(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
-    const enabled = await isFlagEnabled('live_intelligence_pipeline');
-    if (!enabled) return NextResponse.json({ disabled: true, metrics: null }, { status: 200 });
+    const { calculateShopMetrics, saveShopMetrics, getLatestShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
 
-    const { getLatestShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
-    const metrics = await getLatestShopMetrics(ctx.shopId);
-    return NextResponse.json({ metrics });
-  } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    // Try saved row first (fast path)
+    const saved = await getLatestShopMetrics(ctx.shopId);
+    const today = new Date().toISOString().split('T')[0];
+    if (saved && saved.metricDate === today) {
+      return NextResponse.json({ metrics: saved, source: 'cache' });
+    }
+
+    // No saved row for today — calculate live
+    const result = await calculateShopMetrics(ctx.shopId);
+    void saveShopMetrics(result.metrics); // fire-and-forget save
+    return NextResponse.json({ metrics: result.metrics, warnings: result.warnings, source: 'live' });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Internal error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-// POST — recalculate metrics now and return result (owner/manager only)
+// POST — force recalculate metrics now
 export async function POST(req: NextRequest) {
   try {
     const ctx = await getAuthCtx(req);
     if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (!['owner', 'manager'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
-
-    const enabled = await isFlagEnabled('live_intelligence_pipeline');
-    if (!enabled) return NextResponse.json({ disabled: true, metrics: null }, { status: 200 });
 
     const { calculateShopMetrics, saveShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
     const result = await calculateShopMetrics(ctx.shopId);
@@ -68,8 +63,10 @@ export async function POST(req: NextRequest) {
       metrics: result.metrics,
       warnings: result.warnings,
       durationMs: result.durationMs,
+      source: 'recalculated',
     });
-  } catch {
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Internal error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
