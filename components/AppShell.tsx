@@ -42,9 +42,11 @@ import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashbo
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
+import { CommandCenterView } from '@/features/command-center/CommandCenterView';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
+  'command-center': CommandCenterView,
   access: AccessView,
   subscriptions: SubscriptionsView,
   ai: AiView,

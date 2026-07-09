@@ -30,6 +30,7 @@ const paths: Record<string, string> = {
 
 export const iconColors: Record<string, string> = {
   dashboard: '#39a0ed',
+  'command-center': '#c0392b',
   access: '#22c55e',
   subscriptions: '#a855f7',
   ai: '#9b5de5',

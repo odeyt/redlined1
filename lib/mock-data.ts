@@ -141,7 +141,8 @@ export const aiInsights: AiInsight[] = [
 
 export const navItems: [string, string, string, string][] = [
   // ── Overview
-  ['dashboard',     'dashboard',  'Dashboard',     '12'],
+  ['dashboard',        'dashboard',  'Dashboard',        '12'],
+  ['command-center',   'activity',   'Command Center',   ''],
 
   // ── Intake
   ['triage',        'clipboard',  'Vehicle Intake', ''],
