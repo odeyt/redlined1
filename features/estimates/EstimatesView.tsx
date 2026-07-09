@@ -120,7 +120,7 @@ export function EstimatesView() {
   const [printLang, setPrintLang] = useState<'en' | 'lo' | 'both'>('both');
   const { status: planStatus } = usePlan();
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; sending: boolean } | null>(null);
+  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean } | null>(null);
 
   useEffect(() => {
     load();
@@ -352,8 +352,12 @@ export function EstimatesView() {
   }
 
   function openEmailModal(est: EstimateFull) {
-    const match = fullCustomers.find(c => c.name.toLowerCase() === est.customerName?.toLowerCase());
-    setEmailModal({ estimate: est, email: match?.email ?? '', sending: false });
+    const match = fullCustomers.find(c =>
+      (est.customerId && c.id === est.customerId) ||
+      c.name.toLowerCase() === est.customerName?.toLowerCase()
+    );
+    const existingEmail = match?.email ?? '';
+    setEmailModal({ estimate: est, email: existingEmail, originalEmail: existingEmail, customerId: match?.id ?? est.customerId ?? '', saveEmail: false, sending: false });
   }
 
   async function handleSendEmail() {
@@ -363,6 +367,7 @@ export function EstimatesView() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
       const shopId = getShopId();
+      const isNewEmail = emailModal.email !== emailModal.originalEmail;
       const res = await fetch('/api/send-document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -372,11 +377,16 @@ export function EstimatesView() {
           shopId,
           email: emailModal.email,
           isWatermarked: needsWatermark(planStatus),
+          saveEmail: emailModal.saveEmail && isNewEmail && !!emailModal.customerId,
+          customerId: emailModal.customerId,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      notify(`Estimate emailed to ${json.sentTo}`);
+      notify(`Estimate emailed to ${json.sentTo}${emailModal.saveEmail && isNewEmail ? ' · email saved to customer' : ''}`);
+      if (emailModal.saveEmail && isNewEmail && emailModal.customerId) {
+        setFullCustomers(prev => prev.map(c => c.id === emailModal.customerId ? { ...c, email: emailModal.email } : c));
+      }
       setEmailModal(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to send email');
@@ -1124,31 +1134,58 @@ export function EstimatesView() {
       {/* Email Modal */}
       {emailModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--card)', borderRadius: 12, padding: 28, width: 420, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
-            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Email Estimate to Customer</div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
-              A PDF of <strong>{emailModal.estimate.estimateNumber}</strong> will be attached.
-              {needsWatermark(planStatus) && <span style={{ display: 'block', marginTop: 6, color: '#d97706', fontSize: 12 }}>⚠️ Trial mode — PDF will include &ldquo;Redlined1&rdquo; watermark. Upgrade to remove it.</span>}
+          <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: 440, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 22 }}>✉️</span>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>Email Estimate to Customer</div>
             </div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>CUSTOMER EMAIL</label>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+              A PDF copy of <strong>{emailModal.estimate.estimateNumber}</strong> will be attached.
+              {needsWatermark(planStatus) && <span style={{ display: 'block', marginTop: 6, color: '#d97706', fontSize: 12 }}>⚠️ Trial mode — PDF will include watermark. Upgrade to remove.</span>}
+            </div>
+
+            {/* Email input */}
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>Customer Email</label>
             <input
               type="email"
               value={emailModal.email}
               onChange={e => setEmailModal(m => m ? { ...m, email: e.target.value } : null)}
-              placeholder="Enter customer email address"
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
+              placeholder="customer@email.com"
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${emailModal.email ? 'var(--line)' : '#ef4444'}`, background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
             />
-            {!emailModal.email && (
-              <div style={{ fontSize: 12, color: '#ef4444', marginTop: 6 }}>No email on file for this customer — please enter one above.</div>
+
+            {/* No email warning + save option */}
+            {!emailModal.originalEmail && emailModal.email && emailModal.customerId && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer', fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={emailModal.saveEmail}
+                  onChange={e => setEmailModal(m => m ? { ...m, saveEmail: e.target.checked } : null)}
+                  style={{ width: 15, height: 15, cursor: 'pointer' }}
+                />
+                <span style={{ color: 'var(--text)' }}>Save this email to the customer record</span>
+              </label>
             )}
-            <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-              <button onClick={() => setEmailModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+            {!emailModal.email && (
+              <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                ⚠️ No email on file — enter one above to send.
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setEmailModal(null)}
+                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                Cancel
+              </button>
               <button
                 disabled={!emailModal.email || emailModal.sending}
                 onClick={handleSendEmail}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#2196f3', color: '#fff', cursor: emailModal.email ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: !emailModal.email || emailModal.sending ? 0.6 : 1 }}
-              >
-                {emailModal.sending ? 'Sending…' : '✉️ Send PDF'}
+                style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: emailModal.email && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: emailModal.email && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, boxShadow: emailModal.email ? '0 3px 12px rgba(33,150,243,0.35)' : 'none', transition: 'all 0.15s' }}>
+                {emailModal.sending ? '⟳ Sending…' : '✉️ Send PDF'}
               </button>
             </div>
           </div>

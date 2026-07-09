@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import PDFDocument from 'pdfkit';
+import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import { getServerDb } from '@/lib/supabaseServer';
 
 function money(amount: number, currency: string) {
@@ -11,7 +11,7 @@ function money(amount: number, currency: string) {
   }
 }
 
-function buildPdf(doc: {
+async function buildPdf(doc: {
   type: 'estimate' | 'invoice';
   number: string;
   customerName: string;
@@ -30,123 +30,134 @@ function buildPdf(doc: {
   shopEmail?: string;
   validUntil?: string;
   isWatermarked: boolean;
-}): Buffer {
-  return new Promise<Buffer>((resolve) => {
-    const pdf = new PDFDocument({ margin: 40, size: 'A4' });
-    const chunks: Buffer[] = [];
-    pdf.on('data', (c: Buffer) => chunks.push(c));
-    pdf.on('end', () => resolve(Buffer.concat(chunks)));
+}): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const pageWidth = 595;  // A4
+  const pageHeight = 842;
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-    const RED = '#CC0000';
-    const GRAY = '#666666';
-    const LIGHT = '#f5f5f5';
+  const fontReg  = await pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedStandardFont(StandardFonts.HelveticaBold);
 
-    // ── Header ──
-    pdf.rect(0, 0, pdf.page.width, 72).fill(RED);
-    pdf.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text(doc.shopName, 40, 20);
-    if (doc.shopAddress) pdf.fillColor('rgba(255,255,255,0.8)').fontSize(9).font('Helvetica').text(doc.shopAddress, 40, 44);
-    if (doc.shopPhone || doc.shopEmail) {
-      pdf.text([doc.shopPhone, doc.shopEmail].filter(Boolean).join(' · '), 40, 56);
-    }
+  const RED   = rgb(0.80, 0.00, 0.00);
+  const WHITE = rgb(1, 1, 1);
+  const DARK  = rgb(0.07, 0.07, 0.07);
+  const GRAY  = rgb(0.40, 0.40, 0.40);
+  const LIGHT = rgb(0.96, 0.96, 0.96);
+  const LINE  = rgb(0.90, 0.90, 0.90);
 
-    // Doc type + number top right
-    const typeLabel = doc.type === 'estimate' ? 'ESTIMATE' : 'INVOICE';
-    pdf.fillColor('#fff').fontSize(10).font('Helvetica-Bold').text(typeLabel, 0, 20, { align: 'right', width: pdf.page.width - 40 });
-    pdf.fontSize(18).text(doc.number, 0, 34, { align: 'right', width: pdf.page.width - 40 });
+  // ── Header bar ──
+  page.drawRectangle({ x: 0, y: pageHeight - 72, width: pageWidth, height: 72, color: RED });
+  page.drawText(doc.shopName.slice(0, 40), { x: 40, y: pageHeight - 28, font: fontBold, size: 16, color: WHITE });
+  const subLine = [doc.shopAddress, doc.shopPhone, doc.shopEmail].filter(Boolean).join(' · ');
+  if (subLine) page.drawText(subLine.slice(0, 80), { x: 40, y: pageHeight - 48, font: fontReg, size: 8, color: rgb(1, 0.85, 0.85) });
 
-    let y = 90;
+  const typeLabel = doc.type === 'estimate' ? 'ESTIMATE' : 'INVOICE';
+  const numW = fontBold.widthOfTextAtSize(doc.number, 16);
+  const typW = fontBold.widthOfTextAtSize(typeLabel, 9);
+  page.drawText(typeLabel, { x: pageWidth - 40 - typW, y: pageHeight - 26, font: fontBold, size: 9, color: rgb(1, 0.85, 0.85) });
+  page.drawText(doc.number, { x: pageWidth - 40 - numW, y: pageHeight - 44, font: fontBold, size: 16, color: WHITE });
 
-    // ── Bill to / doc info ──
-    pdf.fillColor('#111').fontSize(9).font('Helvetica-Bold').text('BILL TO', 40, y);
-    pdf.font('Helvetica').fillColor('#333').fontSize(11).text(doc.customerName, 40, y + 12);
-    if (doc.vehicle) pdf.fillColor(GRAY).fontSize(9).text(doc.vehicle, 40, y + 26);
+  // ── Bill to / doc info ──
+  let y = pageHeight - 92;
+  page.drawText('BILL TO', { x: 40, y, font: fontBold, size: 8, color: GRAY });
+  y -= 14;
+  page.drawText(doc.customerName.slice(0, 50), { x: 40, y, font: fontBold, size: 11, color: DARK });
+  if (doc.vehicle) { y -= 12; page.drawText(doc.vehicle.slice(0, 50), { x: 40, y, font: fontReg, size: 9, color: GRAY }); }
 
-    pdf.fillColor(GRAY).fontSize(9).font('Helvetica-Bold').text('DATE', 350, y);
-    pdf.font('Helvetica').fillColor('#333').fontSize(10).text(doc.date, 350, y + 12);
-    if (doc.validUntil) {
-      pdf.fillColor(GRAY).fontSize(9).font('Helvetica-Bold').text('VALID UNTIL', 350, y + 28);
-      pdf.font('Helvetica').fillColor('#333').fontSize(10).text(doc.validUntil, 350, y + 40);
-    }
+  const infoY = pageHeight - 92;
+  page.drawText('DATE', { x: 360, y: infoY, font: fontBold, size: 8, color: GRAY });
+  page.drawText(doc.date, { x: 360, y: infoY - 14, font: fontReg, size: 10, color: DARK });
+  if (doc.validUntil) {
+    page.drawText('VALID UNTIL', { x: 360, y: infoY - 32, font: fontBold, size: 8, color: GRAY });
+    page.drawText(doc.validUntil, { x: 360, y: infoY - 44, font: fontReg, size: 10, color: DARK });
+  }
 
-    y += 60;
-    pdf.moveTo(40, y).lineTo(pdf.page.width - 40, y).strokeColor('#eee').stroke();
-    y += 12;
+  y -= 22;
+  page.drawLine({ start: { x: 40, y }, end: { x: pageWidth - 40, y }, thickness: 0.5, color: LINE });
+  y -= 14;
 
-    // ── Table header ──
-    pdf.rect(40, y, pdf.page.width - 80, 20).fill(LIGHT);
-    pdf.fillColor(GRAY).fontSize(8).font('Helvetica-Bold');
-    pdf.text('DESCRIPTION', 44, y + 6);
-    pdf.text('QTY', 360, y + 6, { width: 40, align: 'right' });
-    pdf.text('RATE', 406, y + 6, { width: 70, align: 'right' });
-    pdf.text('AMOUNT', 480, y + 6, { width: pdf.page.width - 520, align: 'right' });
-    y += 20;
+  // ── Table header ──
+  page.drawRectangle({ x: 40, y: y - 4, width: pageWidth - 80, height: 20, color: LIGHT });
+  page.drawText('DESCRIPTION', { x: 44, y: y + 3, font: fontBold, size: 8, color: GRAY });
+  page.drawText('QTY',    { x: 356, y: y + 3, font: fontBold, size: 8, color: GRAY });
+  page.drawText('RATE',   { x: 406, y: y + 3, font: fontBold, size: 8, color: GRAY });
+  page.drawText('AMOUNT', { x: 480, y: y + 3, font: fontBold, size: 8, color: GRAY });
+  y -= 20;
 
-    // ── Line items ──
-    doc.lines.forEach((line, i) => {
-      const bg = i % 2 === 0 ? '#fff' : '#fafafa';
-      const rowH = 22;
-      pdf.rect(40, y, pdf.page.width - 80, rowH).fill(bg);
-      pdf.fillColor('#111').fontSize(10).font('Helvetica').text(line.description || '—', 44, y + 6, { width: 310 });
-      pdf.text(String(line.qty), 360, y + 6, { width: 40, align: 'right' });
-      pdf.text(money(line.rate, line.currency || doc.currency), 406, y + 6, { width: 70, align: 'right' });
-      pdf.text(money(line.qty * line.rate, line.currency || doc.currency), 480, y + 6, { width: pdf.page.width - 520, align: 'right' });
-      y += rowH;
+  // ── Line items ──
+  for (let i = 0; i < doc.lines.length; i++) {
+    const line = doc.lines[i];
+    const rowH = 20;
+    const bg = i % 2 === 0 ? WHITE : rgb(0.98, 0.98, 0.98);
+    page.drawRectangle({ x: 40, y: y - 4, width: pageWidth - 80, height: rowH, color: bg });
+    const desc = (line.description || '—').slice(0, 55);
+    page.drawText(desc, { x: 44, y: y + 3, font: fontReg, size: 9.5, color: DARK });
+    page.drawText(String(line.qty), { x: 360, y: y + 3, font: fontReg, size: 9.5, color: DARK });
+    page.drawText(money(line.rate, line.currency || doc.currency), { x: 406, y: y + 3, font: fontReg, size: 9.5, color: DARK });
+    page.drawText(money(line.qty * line.rate, line.currency || doc.currency), { x: 480, y: y + 3, font: fontReg, size: 9.5, color: DARK });
+    y -= rowH;
+    if (y < 120) break; // safety: don't overflow page
+  }
+
+  y -= 8;
+  page.drawLine({ start: { x: 40, y }, end: { x: pageWidth - 40, y }, thickness: 0.5, color: LINE });
+  y -= 14;
+
+  // ── Totals ──
+  function addTotalRow(label: string, val: string, bold = false) {
+    const font = bold ? fontBold : fontReg;
+    page.drawText(label, { x: 360, y, font, size: bold ? 11 : 9, color: bold ? DARK : GRAY });
+    const vW = font.widthOfTextAtSize(val, bold ? 11 : 9);
+    page.drawText(val, { x: pageWidth - 40 - vW, y, font, size: bold ? 11 : 9, color: bold ? DARK : GRAY });
+    y -= bold ? 18 : 14;
+  }
+  addTotalRow('Subtotal', money(doc.subtotal, doc.currency));
+  if (doc.discount > 0) addTotalRow('Discount', `-${money(doc.discount, doc.currency)}`);
+  if (doc.tax > 0)      addTotalRow('Tax', money(doc.tax, doc.currency));
+  page.drawLine({ start: { x: 360, y: y + 6 }, end: { x: pageWidth - 40, y: y + 6 }, thickness: 0.5, color: LINE });
+  y -= 4;
+  addTotalRow('TOTAL', money(doc.total, doc.currency), true);
+
+  // ── Notes ──
+  if (doc.notes) {
+    y -= 10;
+    page.drawText('NOTES', { x: 40, y, font: fontBold, size: 8, color: GRAY });
+    y -= 13;
+    page.drawText(doc.notes.slice(0, 120), { x: 40, y, font: fontReg, size: 9, color: DARK, maxWidth: pageWidth - 80 });
+  }
+
+  // ── Watermark ──
+  if (doc.isWatermarked) {
+    page.drawText('REDLINED1', {
+      x: 140, y: 320,
+      font: fontBold, size: 72,
+      color: rgb(0.80, 0.00, 0.00),
+      opacity: 0.06,
+      rotate: degrees(-45),
     });
+  }
 
-    y += 10;
-    pdf.moveTo(40, y).lineTo(pdf.page.width - 40, y).strokeColor('#eee').stroke();
-    y += 10;
+  // ── Footer ──
+  page.drawLine({ start: { x: 40, y: 36 }, end: { x: pageWidth - 40, y: 36 }, thickness: 0.5, color: LINE });
+  const footer = `${doc.shopName} · ${doc.number} · Powered by Redlined1`;
+  const ftW = fontReg.widthOfTextAtSize(footer, 7.5);
+  page.drawText(footer, { x: (pageWidth - ftW) / 2, y: 22, font: fontReg, size: 7.5, color: GRAY });
 
-    // ── Totals ──
-    const totalsX = 350;
-    const totalsW = pdf.page.width - totalsX - 40;
-    const addRow = (label: string, val: string, bold = false) => {
-      pdf.fillColor(GRAY).fontSize(9).font(bold ? 'Helvetica-Bold' : 'Helvetica').text(label, totalsX, y);
-      pdf.fillColor(bold ? '#111' : '#333').text(val, totalsX, y, { width: totalsW, align: 'right' });
-      y += 16;
-    };
-    addRow('Subtotal', money(doc.subtotal, doc.currency));
-    if (doc.discount > 0) addRow('Discount', `-${money(doc.discount, doc.currency)}`);
-    if (doc.tax > 0) addRow('Tax', money(doc.tax, doc.currency));
-    pdf.moveTo(totalsX, y).lineTo(pdf.page.width - 40, y).strokeColor('#ddd').stroke();
-    y += 6;
-    addRow('TOTAL', money(doc.total, doc.currency), true);
-
-    // ── Notes ──
-    if (doc.notes) {
-      y += 16;
-      pdf.fillColor(GRAY).fontSize(8).font('Helvetica-Bold').text('NOTES', 40, y);
-      y += 12;
-      pdf.fillColor('#444').fontSize(9).font('Helvetica').text(doc.notes, 40, y, { width: pdf.page.width - 80 });
-    }
-
-    // ── Watermark ──
-    if (doc.isWatermarked) {
-      pdf.save();
-      pdf.translate(pdf.page.width / 2, pdf.page.height / 2);
-      pdf.rotate(-45);
-      pdf.fillColor('#cc0000').opacity(0.08).fontSize(80).font('Helvetica-Bold')
-        .text('REDLINED1', -160, -40, { lineBreak: false });
-      pdf.restore();
-    }
-
-    // ── Footer ──
-    pdf.fillColor('#aaa').fontSize(8).font('Helvetica')
-      .text(`Powered by Redlined1 · ${doc.number}`, 40, pdf.page.height - 30, { align: 'center', width: pdf.page.width - 80 });
-
-    pdf.end();
-  }) as unknown as Buffer;
+  return pdfDoc.save();
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, documentId, shopId, email, isWatermarked } = body as {
+    const { type, documentId, shopId, email, isWatermarked, saveEmail, customerId } = body as {
       type: 'estimate' | 'invoice';
       documentId: string;
       shopId: string;
       email: string;
       isWatermarked: boolean;
+      saveEmail?: boolean;
+      customerId?: string;
     };
 
     if (!type || !documentId || !shopId || !email) {
@@ -156,15 +167,15 @@ export async function POST(req: NextRequest) {
     const jwt = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
     const db = await getServerDb(jwt || undefined);
 
-    // Fetch shop
+    // Fetch shop settings
     const { data: shop } = await db.from('shops').select('name').eq('id', shopId).single();
     const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', shopId).single();
-    const shopName: string = shop?.name ?? 'D1 Imports';
-    const shopAddress: string = settings?.address ?? '';
-    const shopPhone: string = settings?.phone ?? '';
-    const shopEmail: string = settings?.email ?? '';
+    const shopName: string = (shop as { name?: string } | null)?.name ?? 'D1 Imports';
+    const shopAddress: string = (settings as Record<string, unknown> | null)?.address as string ?? '';
+    const shopPhone: string   = (settings as Record<string, unknown> | null)?.phone as string ?? '';
+    const shopEmail: string   = (settings as Record<string, unknown> | null)?.email as string ?? '';
 
-    type LineRow = { description: string; qty: number; rate: number; currency: string; note?: string; laoDescription?: string };
+    type LineRow = { description: string; qty: number; rate: number; currency: string; note?: string };
 
     let docData: {
       number: string; customerName: string; vehicle: string; date: string;
@@ -175,53 +186,60 @@ export async function POST(req: NextRequest) {
     if (type === 'estimate') {
       const { data, error } = await db.from('estimates').select('*').eq('id', documentId).eq('shop_id', shopId).single();
       if (error || !data) return NextResponse.json({ error: 'Estimate not found' }, { status: 404 });
-      const lines: LineRow[] = (data.lines ?? []).map((l: Record<string, unknown>) => ({
+      const d = data as Record<string, unknown>;
+      const lines: LineRow[] = ((d.lines ?? []) as Record<string, unknown>[]).map(l => ({
         description: (l.description as string) || '',
-        qty: Number(l.qty ?? 1),
-        rate: Number(l.rate ?? 0),
-        currency: (l.currency as string) || data.currency || 'USD',
+        qty: Number(l.qty ?? 1), rate: Number(l.rate ?? 0),
+        currency: (l.currency as string) || (d.currency as string) || 'USD',
         note: (l.note as string) || '',
       }));
       const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-      const discount = Number(data.discount ?? 0);
-      const shopSupplies = Number(data.shop_supplies ?? 0);
-      const taxRate = Number(data.tax_rate ?? 0);
+      const discount = Number(d.discount ?? 0);
+      const shopSupplies = Number(d.shop_supplies ?? 0);
+      const taxRate = Number(d.tax_rate ?? 0);
       const tax = (subtotal - discount + shopSupplies) * taxRate / 100;
       docData = {
-        number: data.estimate_number, customerName: data.customer_name,
-        vehicle: data.vehicle, date: new Date(data.created_at).toLocaleDateString(),
+        number: d.estimate_number as string, customerName: d.customer_name as string,
+        vehicle: d.vehicle as string, date: new Date(d.created_at as string).toLocaleDateString(),
         lines, subtotal, discount, tax, total: subtotal - discount + shopSupplies + tax,
-        currency: data.currency || 'USD', notes: data.notes || '',
-        validUntil: data.valid_until ? new Date(data.valid_until).toLocaleDateString() : '',
-        status: data.status,
+        currency: (d.currency as string) || 'USD', notes: (d.notes as string) || '',
+        validUntil: d.valid_until ? new Date(d.valid_until as string).toLocaleDateString() : '',
+        status: d.status as string,
       };
     } else {
-      // inv.id maps to the 'number' column (invoice number string, e.g. "INV-0008")
+      // invoices PK is the number string (e.g. "INV-0008")
       const { data, error } = await db.from('invoices').select('*').eq('number', documentId).eq('shop_id', shopId).single();
       if (error || !data) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-      const lines: LineRow[] = (data.lines ?? []).map((l: Record<string, unknown>) => ({
+      const d = data as Record<string, unknown>;
+      const lines: LineRow[] = ((d.lines ?? []) as Record<string, unknown>[]).map(l => ({
         description: (l.description as string) || '',
-        qty: Number(l.qty ?? 1),
-        rate: Number(l.rate ?? 0),
-        currency: (l.currency as string) || data.currency || 'USD',
+        qty: Number(l.qty ?? 1), rate: Number(l.rate ?? 0),
+        currency: (l.currency as string) || (d.currency as string) || 'USD',
         note: (l.note as string) || '',
       }));
       const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-      const discount = Number(data.discount ?? 0);
-      const shopSupplies = Number(data.shop_supplies ?? 0);
-      const taxRate = Number(data.tax_rate ?? 0);
+      const discount = Number(d.discount ?? 0);
+      const shopSupplies = Number(d.shop_supplies ?? 0);
+      const taxRate = Number(d.tax_rate ?? 0);
       const tax = (subtotal - discount + shopSupplies) * taxRate / 100;
       docData = {
-        number: data.number, customerName: data.customer,
-        vehicle: data.vehicle, date: new Date(data.created_at).toLocaleDateString(),
+        number: d.number as string, customerName: d.customer as string,
+        vehicle: d.vehicle as string, date: new Date(d.created_at as string).toLocaleDateString(),
         lines, subtotal, discount, tax, total: subtotal - discount + shopSupplies + tax,
-        currency: data.currency || 'USD', notes: data.notes || '',
-        status: data.status,
+        currency: (d.currency as string) || 'USD', notes: (d.notes as string) || '',
+        status: d.status as string,
       };
     }
 
-    // Generate PDF
-    const pdfBuffer = await buildPdf({
+    // Optionally save email back to customer record
+    if (saveEmail && customerId) {
+      try {
+        await db.from('customers').update({ email }).eq('id', customerId).eq('shop_id', shopId);
+      } catch { /* non-fatal */ }
+    }
+
+    // Generate PDF with pdf-lib (pure JS — works in Vercel serverless)
+    const pdfBytes = await buildPdf({
       type, ...docData, shopName, shopAddress, shopPhone, shopEmail, isWatermarked,
     });
 
@@ -244,20 +262,22 @@ export async function POST(req: NextRequest) {
     <div style="font-size:12px;color:rgba(255,255,255,0.75);margin-top:2px">${typeLabel} · ${docData.number}</div>
   </div>
   <div style="padding:28px 32px">
-    <div style="background:#fafafa;border:1px solid #eee;border-radius:10px;padding:18px 22px;margin-bottom:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${typeLabel}</div>
-        <div style="font-size:20px;font-weight:900;color:#111">${docData.number}</div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Prepared For</div>
-        <div style="font-size:14px;font-weight:700;color:#333">${docData.customerName}</div>
-        ${docData.vehicle ? `<div style="font-size:11px;color:#888">${docData.vehicle}</div>` : ''}
-      </div>
-      <div>
-        <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Date</div>
-        <div style="font-size:13px;font-weight:600;color:#333">${docData.date}</div>
-        ${docData.validUntil ? `<div style="font-size:11px;color:#888">Valid until ${docData.validUntil}</div>` : ''}
+    <div style="background:#fafafa;border:1px solid #eee;border-radius:10px;padding:18px 22px;margin-bottom:24px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">${typeLabel}</div>
+          <div style="font-size:20px;font-weight:900;color:#111">${docData.number}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Prepared For</div>
+          <div style="font-size:14px;font-weight:700;color:#333">${docData.customerName}</div>
+          ${docData.vehicle ? `<div style="font-size:11px;color:#888">${docData.vehicle}</div>` : ''}
+        </div>
+        <div>
+          <div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px">Date</div>
+          <div style="font-size:13px;font-weight:600;color:#333">${docData.date}</div>
+          ${docData.validUntil ? `<div style="font-size:11px;color:#888">Valid until ${docData.validUntil}</div>` : ''}
+        </div>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
@@ -294,13 +314,14 @@ export async function POST(req: NextRequest) {
       html,
       attachments: [{
         filename: `${docData.number}.pdf`,
-        content: pdfBuffer.toString('base64'),
+        content: Buffer.from(pdfBytes).toString('base64'),
       }],
     });
 
     if (emailErr) return NextResponse.json({ error: (emailErr as { message?: string }).message ?? 'Email send failed' }, { status: 500 });
     return NextResponse.json({ success: true, sentTo: email });
   } catch (e: unknown) {
+    console.error('[send-document]', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
   }
 }
