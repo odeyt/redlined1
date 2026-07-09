@@ -48,14 +48,16 @@ interface FetchState<T> {
   error: string | null;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────
 const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-const PRIORITY_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-  critical: { bg: '#fef2f2', border: '#fca5a5', color: '#b91c1c', label: 'Critical' },
-  high:     { bg: '#fff7ed', border: '#fdba74', color: '#c2410c', label: 'High' },
-  medium:   { bg: '#fefce8', border: '#fde047', color: '#92400e', label: 'Medium' },
-  low:      { bg: '#f0fdf4', border: '#86efac', color: '#166534', label: 'Low' },
+
+const PRIORITY_CFG = {
+  critical: { bg: 'linear-gradient(135deg,#fef2f2,#fee2e2)', border: '#fca5a5', accent: '#dc2626', badge: '#dc2626', label: 'Critical' },
+  high:     { bg: 'linear-gradient(135deg,#fff7ed,#ffedd5)', border: '#fdba74', accent: '#ea580c', badge: '#ea580c', label: 'High' },
+  medium:   { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', border: '#fde047', accent: '#ca8a04', badge: '#ca8a04', label: 'Medium' },
+  low:      { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '#86efac', accent: '#16a34a', badge: '#16a34a', label: 'Low' },
 };
+
 const CATEGORY_ICON: Record<string, string> = {
   unpaid_invoices:     '💰',
   estimates:           '📋',
@@ -70,25 +72,34 @@ const CATEGORY_ICON: Record<string, string> = {
   system:              '🖥️',
 };
 
+// ── Design tokens ─────────────────────────────────────────────
+const D = {
+  red:     '#c0392b',
+  redGlow: 'rgba(192,57,43,0.18)',
+  gold:    '#d97706',
+  green:   '#059669',
+  blue:    '#2563eb',
+  cardShadow: '0 2px 12px rgba(0,0,0,0.08)',
+  cardShadowHover: '0 4px 24px rgba(0,0,0,0.14)',
+  radius: 14,
+  radiusSm: 9,
+};
+
+// ── Helpers ───────────────────────────────────────────────────
 function shopHealthScore(recs: Recommendation[], signals: SignalMap): number {
   let score = 100;
-  const criticalCount = recs.filter(r => r.priority === 'critical').length;
-  const highCount     = recs.filter(r => r.priority === 'high').length;
-  const stuck   = Number(signals.stuck_job_count   ?? 0);
-  const overdue = Number(signals.overdue_invoice_count ?? 0);
-  const lowInv  = Number(signals.low_inventory_count ?? 0);
-  score -= criticalCount * 15;
-  score -= highCount     * 8;
-  score -= stuck         * 5;
-  score -= overdue       * 3;
-  score -= Math.min(lowInv * 2, 10);
+  score -= recs.filter(r => r.priority === 'critical').length * 15;
+  score -= recs.filter(r => r.priority === 'high').length * 8;
+  score -= Number(signals.stuck_job_count ?? 0) * 5;
+  score -= Number(signals.overdue_invoice_count ?? 0) * 3;
+  score -= Math.min(Number(signals.low_inventory_count ?? 0) * 2, 10);
   return Math.max(0, Math.min(100, score));
 }
 
-function healthColor(score: number) {
-  if (score >= 80) return '#22c55e';
-  if (score >= 55) return '#f59e0b';
-  return '#ef4444';
+function healthConfig(score: number) {
+  if (score >= 80) return { color: '#059669', label: 'Healthy',       ring: '#059669' };
+  if (score >= 55) return { color: '#d97706', label: 'Needs Attention', ring: '#d97706' };
+  return             { color: '#dc2626', label: 'At Risk',          ring: '#dc2626' };
 }
 
 function fmtNum(v: number | string | null | undefined): string {
@@ -101,64 +112,167 @@ function fmtMoney(v: number | string | null | undefined): string {
   return `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-// ── Disabled / Locked state ────────────────────────────────────
-function DisabledState({ reason }: { reason: string }) {
+// ── Health Ring SVG ───────────────────────────────────────────
+function HealthRing({ score }: { score: number }) {
+  const cfg = healthConfig(score);
+  const r = 42;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 12, color: 'var(--muted)', textAlign: 'center', padding: 40 }}>
-      <span style={{ fontSize: 40 }}>🛡️</span>
-      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Command Center</div>
-      <div style={{ fontSize: 13, maxWidth: 380 }}>{reason}</div>
+    <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
+      <svg width={110} height={110} viewBox="0 0 110 110">
+        <circle cx={55} cy={55} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth={9} />
+        <circle
+          cx={55} cy={55} r={r} fill="none"
+          stroke={cfg.ring} strokeWidth={9}
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          transform="rotate(-90 55 55)"
+          style={{ transition: 'stroke-dasharray 0.8s ease' }}
+        />
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 26, fontWeight: 900, color: cfg.color, lineHeight: 1 }}>{score}</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: cfg.color, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 1 }}>{cfg.label}</div>
+      </div>
     </div>
   );
 }
 
-// ── Stat Tile ─────────────────────────────────────────────────
-function Tile({ icon, label, value, sub, color }: { icon: string; label: string; value: string | number; sub?: string; color?: string }) {
+// ── Summary Pill ──────────────────────────────────────────────
+function SummaryPill({
+  icon, label, value, accent, dimmed,
+}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{
+      background: dimmed ? 'var(--surface)' : `linear-gradient(135deg,${accent}12,${accent}06)`,
+      border: `1.5px solid ${dimmed ? 'var(--line)' : accent + '40'}`,
+      borderRadius: D.radius,
+      padding: '14px 18px',
+      display: 'flex', flexDirection: 'column', gap: 6,
+      boxShadow: dimmed ? 'none' : `0 0 0 0 ${accent}`,
+    }}>
       <div style={{ fontSize: 20 }}>{icon}</div>
-      <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: color ?? 'var(--text)' }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{sub}</div>}
+      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? 'var(--text)' : accent }}>{value}</div>
+    </div>
+  );
+}
+
+// ── Signal Tile ───────────────────────────────────────────────
+function SignalTile({ icon, label, value, accent }: { icon: string; label: string; value: string | number; accent?: string }) {
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      border: '1px solid var(--line)',
+      borderTop: `3px solid ${accent ?? 'var(--line)'}`,
+      borderRadius: D.radiusSm,
+      padding: '12px 14px',
+      boxShadow: D.cardShadow,
+      display: 'flex', flexDirection: 'column', gap: 5,
+    }}>
+      <div style={{ fontSize: 18 }}>{icon}</div>
+      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: accent ?? 'var(--text)' }}>{value}</div>
+    </div>
+  );
+}
+
+// ── Row Item (for opportunity / risk panels) ──────────────────
+function RowItem({
+  label, value, accent, tag,
+}: { label: string; value: string | number; accent?: string; tag?: string }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '9px 0', borderBottom: '1px solid var(--line)', fontSize: 13,
+    }}>
+      <span style={{ color: 'var(--text)', fontWeight: 500 }}>{label}</span>
+      <span style={{
+        fontWeight: 700,
+        color: accent ?? 'var(--text)',
+        background: accent ? `${accent}14` : 'transparent',
+        padding: accent ? '2px 10px' : undefined,
+        borderRadius: accent ? 20 : undefined,
+        fontSize: 12,
+      }}>
+        {value}{tag ? ` ${tag}` : ''}
+      </span>
     </div>
   );
 }
 
 // ── Recommendation Card ───────────────────────────────────────
 function RecCard({ rec, onDone, onDismiss }: { rec: Recommendation; onDone: (id: string) => void; onDismiss: (id: string) => void }) {
-  const ps = PRIORITY_STYLE[rec.priority] ?? PRIORITY_STYLE.medium;
+  const cfg = PRIORITY_CFG[rec.priority] ?? PRIORITY_CFG.medium;
   const icon = CATEGORY_ICON[rec.category] ?? '📌';
   return (
-    <div style={{ background: ps.bg, border: `1.5px solid ${ps.border}`, borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{
+      background: cfg.bg,
+      border: `1.5px solid ${cfg.border}`,
+      borderLeft: `4px solid ${cfg.accent}`,
+      borderRadius: D.radiusSm,
+      padding: '14px 16px',
+      boxShadow: D.cardShadow,
+      display: 'flex', flexDirection: 'column', gap: 7,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
         <span style={{ fontSize: 18 }}>{icon}</span>
         <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{rec.title}</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color: ps.color, background: 'rgba(0,0,0,0.06)', borderRadius: 20, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{ps.label}</span>
+        <span style={{
+          fontSize: 10, fontWeight: 800, color: '#fff',
+          background: cfg.badge, borderRadius: 20,
+          padding: '3px 10px', textTransform: 'uppercase', letterSpacing: '0.06em',
+        }}>{cfg.label}</span>
       </div>
       {rec.description && <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{rec.description}</div>}
-      {rec.reason && <div style={{ fontSize: 11, color: ps.color, fontStyle: 'italic' }}>{rec.reason}</div>}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+      {rec.reason && <div style={{ fontSize: 11, color: cfg.accent, fontStyle: 'italic' }}>{rec.reason}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
         {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#22c55e', background: 'rgba(34,197,94,0.1)', borderRadius: 6, padding: '2px 8px' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
             💵 {fmtMoney(rec.estimatedRevenue)} opportunity
           </span>
         )}
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-          {Math.round(rec.confidence * 100)}% confidence
-        </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{Math.round(rec.confidence * 100)}% confidence</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
           <button
             onClick={() => onDone(rec.id)}
-            style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.1)', color: '#15803d', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
             ✓ Done
           </button>
           <button
             onClick={() => onDismiss(rec.id)}
-            style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
+            style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
             Dismiss
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Disabled state ────────────────────────────────────────────
+function DisabledState({ reason }: { reason: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 14, color: 'var(--muted)', textAlign: 'center', padding: 40 }}>
+      <span style={{ fontSize: 44 }}>🛡️</span>
+      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Command Center</div>
+      <div style={{ fontSize: 13, maxWidth: 380 }}>{reason}</div>
+    </div>
+  );
+}
+
+// ── Section heading ───────────────────────────────────────────
+function SectionHeading({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+      color: 'var(--muted)', marginBottom: 12,
+    }}>
+      <span>{icon}</span>
+      <span>{label}</span>
+      <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />
     </div>
   );
 }
@@ -175,7 +289,6 @@ export function CommandCenterView() {
   const [tablesMissing, setTablesMissing] = useState(false);
   const [flagDisabled, setFlagDisabled] = useState(false);
 
-  // Block technicians
   if (role && role !== 'owner' && role !== 'manager') {
     return <DisabledState reason="Command Center is only available to shop owners and managers." />;
   }
@@ -186,10 +299,7 @@ export function CommandCenterView() {
     setRecs(s => ({ ...s, loading: true, error: null }));
     try {
       const res = await fetch('/api/intelligence/recommendations', { headers: shopHeaders });
-      if (res.status === 401 || res.status === 403) {
-        setRecs({ data: [], loading: false, error: null });
-        return;
-      }
+      if (res.status === 401 || res.status === 403) { setRecs({ data: [], loading: false, error: null }); return; }
       const body = await res.json() as { disabled?: boolean; recommendations?: Recommendation[]; error?: string };
       if (body.disabled) { setFlagDisabled(true); setRecs({ data: [], loading: false, error: null }); return; }
       if (body.error?.toLowerCase().includes('does not exist')) { setTablesMissing(true); setRecs({ data: [], loading: false, error: null }); return; }
@@ -217,9 +327,9 @@ export function CommandCenterView() {
     try {
       const res = await fetch('/api/intelligence/metrics', { headers: shopHeaders });
       if (!res.ok) return;
-      const body = await res.json() as { metrics?: ShopMetrics; disabled?: boolean; warnings?: string[] };
+      const body = await res.json() as { metrics?: ShopMetrics; disabled?: boolean };
       if (body.metrics) setMetrics(body.metrics);
-    } catch { /* metrics unavailable — signals fallback still works */ }
+    } catch { /* metrics unavailable */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
@@ -233,11 +343,8 @@ export function CommandCenterView() {
   async function handleGenerate() {
     setGenerating(true);
     try {
-      // 1. Recalculate live metrics first
       await fetch('/api/intelligence/metrics', { method: 'POST', headers: shopHeaders });
-      // 2. Generate fresh recommendations (will use updated metrics)
       await fetch('/api/intelligence/recommendations', { method: 'POST', headers: shopHeaders });
-      // 3. Reload all data
       await Promise.all([loadRecommendations(), loadSignals(), loadMetrics()]);
     } catch { /* fail silently */ }
     finally { setGenerating(false); }
@@ -254,11 +361,10 @@ export function CommandCenterView() {
     } catch { /* fail silently */ }
   }
 
-  // ── Computed — prefer live metrics (SI-4), fall back to raw signals ──
+  // ── Computed values ───────────────────────────────────────────
   const recList = (recs.data ?? []).sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
   const sig = signals.data ?? {};
 
-  // When metrics are available use them; otherwise fall back to signal map
   const revenueToday   = metrics?.revenueToday   ?? Number(sig.revenue_today   ?? 0);
   const paymentsToday  = metrics?.paymentsToday  ?? Number(sig.payments_today  ?? 0);
   const openJobs       = metrics?.openJobCount   ?? Number(sig.open_job_count  ?? 0);
@@ -271,77 +377,131 @@ export function CommandCenterView() {
   const notInvoiced    = metrics?.completedNotInvoicedCount ?? Number(sig.completed_not_invoiced_count ?? 0);
   const revenueOpportunity = metrics?.revenueOpportunityTotal ?? 0;
 
-  // Health score: prefer metrics value (already computed server-side), else compute locally
-  const liveScore = metrics?.shopHealthScore ?? shopHealthScore(recList, sig);
-  const score = liveScore;
-  const hColor = healthColor(score);
-
+  const score  = metrics?.shopHealthScore ?? shopHealthScore(recList, sig);
+  const hCfg   = healthConfig(score);
   const criticalCount = recList.filter(r => r.priority === 'critical').length;
   const highCount     = recList.filter(r => r.priority === 'high').length;
   const top5 = recList.slice(0, 5);
 
-  // ── Render guard states ───────────────────────────────────────
+  // ── Guard states ──────────────────────────────────────────────
   if (tablesMissing) {
-    return (
-      <Panel title="D1 Command Center">
-        <DisabledState reason="Intelligence Bus tables are not active yet. Run the SI-2 migration in Supabase to enable Command Center." />
-      </Panel>
-    );
+    return <Panel title="D1 Command Center"><DisabledState reason="Intelligence Bus tables are not active yet. Run the SI-2 migration in Supabase to enable Command Center." /></Panel>;
   }
   if (flagDisabled) {
-    return (
-      <Panel title="D1 Command Center">
-        <DisabledState reason="Command Center is not enabled. Enable the 'recommendation_engine' feature flag to activate intelligence recommendations." />
-      </Panel>
-    );
+    return <Panel title="D1 Command Center"><DisabledState reason="Command Center is not enabled. Enable the 'recommendation_engine' feature flag to activate intelligence recommendations." /></Panel>;
   }
 
   const isLoading = recs.loading && signals.loading;
 
   return (
     <Panel title="D1 Command Center">
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>D1 Command Center</h2>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Intelligence dashboard · Owner &amp; Manager view</div>
+      {/* ── Premium Header ─────────────────────────────────── */}
+      <div style={{
+        background: `linear-gradient(135deg, #0f0f14 0%, #1a0a0a 60%, #2a0e0e 100%)`,
+        borderRadius: 16,
+        padding: '22px 26px',
+        marginBottom: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
+        boxShadow: `0 4px 32px rgba(192,57,43,0.25), inset 0 1px 0 rgba(255,255,255,0.06)`,
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* subtle grid pattern overlay */}
+        <div style={{
+          position: 'absolute', inset: 0, opacity: 0.04,
+          backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px)',
+          backgroundSize: '24px 24px',
+          pointerEvents: 'none',
+        }} />
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <span style={{ fontSize: 22 }}>⚡</span>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+              D1 Command Center
+            </h2>
+          </div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
+            Intelligence Dashboard · Owner &amp; Manager View
+          </div>
         </div>
         <button
           onClick={handleGenerate}
           disabled={generating}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 8, background: '#c0392b', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: generating ? 'not-allowed' : 'pointer', opacity: generating ? 0.7 : 1 }}>
-          {generating ? '⟳ Refreshing…' : '⚡ Refresh Intelligence'}
+          style={{
+            position: 'relative',
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '11px 22px',
+            borderRadius: 10,
+            background: generating
+              ? 'rgba(255,255,255,0.08)'
+              : 'linear-gradient(135deg,#e74c3c,#c0392b)',
+            color: '#fff', border: 'none',
+            fontWeight: 800, fontSize: 13, cursor: generating ? 'not-allowed' : 'pointer',
+            opacity: generating ? 0.7 : 1,
+            boxShadow: generating ? 'none' : '0 4px 16px rgba(192,57,43,0.5)',
+            letterSpacing: '0.02em',
+            transition: 'all 0.2s',
+          }}>
+          <span style={{ fontSize: 15 }}>{generating ? '⟳' : '⚡'}</span>
+          {generating ? 'Refreshing…' : 'Refresh Intelligence'}
         </button>
       </div>
 
       {isLoading ? (
-        <div style={{ color: 'var(--muted)', fontSize: 13, padding: '40px 0', textAlign: 'center' }}>Loading intelligence data…</div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          minHeight: 240, gap: 14, color: 'var(--muted)',
+        }}>
+          <div style={{ fontSize: 32, animation: 'spin 1s linear infinite' }}>⟳</div>
+          <div style={{ fontSize: 13 }}>Loading intelligence data…</div>
+          <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+        </div>
       ) : (
         <>
-          {/* ── Section 1: Health Score ──────────────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 20, alignItems: 'center', background: 'var(--surface)', border: `2px solid ${hColor}`, borderRadius: 14, padding: '16px 22px', marginBottom: 20 }}>
-            <div style={{ textAlign: 'center', minWidth: 90 }}>
-              <div style={{ fontSize: 44, fontWeight: 900, color: hColor, lineHeight: 1 }}>{score}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: hColor, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>
-                {score >= 80 ? 'Healthy' : score >= 55 ? 'Needs Attention' : 'At Risk'}
+          {/* ── Section 1: Health Score + Summary Pills ──────── */}
+          <div style={{
+            display: 'flex', gap: 20, alignItems: 'stretch', marginBottom: 24, flexWrap: 'wrap',
+          }}>
+            {/* Health ring card */}
+            <div style={{
+              background: `linear-gradient(135deg,${hCfg.color}10,${hCfg.color}05)`,
+              border: `2px solid ${hCfg.color}40`,
+              borderRadius: D.radius,
+              padding: '20px 24px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              gap: 8, minWidth: 140,
+              boxShadow: `0 0 24px ${hCfg.color}20`,
+            }}>
+              <HealthRing score={score} />
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Shop Health
               </div>
-              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>Shop Health Score</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
-              <Tile icon="🚨" label="Critical" value={criticalCount} color={criticalCount > 0 ? '#b91c1c' : 'var(--text)'} />
-              <Tile icon="⚠️" label="High Priority" value={highCount} color={highCount > 0 ? '#c2410c' : 'var(--text)'} />
-              <Tile icon="📋" label="Open Recs" value={recList.length} />
-              <Tile icon="🔴" label="Overdue Invoices" value={overdueCount} color={overdueCount > 0 ? '#b91c1c' : 'var(--text)'} />
+
+            {/* Summary pills */}
+            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
+              <SummaryPill icon="🚨" label="Critical" value={criticalCount}
+                accent="#dc2626" dimmed={criticalCount === 0} />
+              <SummaryPill icon="⚠️" label="High Priority" value={highCount}
+                accent="#ea580c" dimmed={highCount === 0} />
+              <SummaryPill icon="📋" label="Open Recs" value={recList.length}
+                accent="#2563eb" dimmed={recList.length === 0} />
+              <SummaryPill icon="🔴" label="Overdue Invoices" value={overdueCount}
+                accent="#dc2626" dimmed={overdueCount === 0} />
             </div>
           </div>
 
           {/* ── Section 2: Top Priorities ────────────────────── */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>
-              🎯 Top Priorities
-            </div>
+            <SectionHeading icon="🎯" label="Top Priorities" />
             {top5.length === 0 ? (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+              <div style={{
+                background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
+                border: '1.5px solid #86efac',
+                borderRadius: D.radiusSm,
+                padding: '20px 24px',
+                textAlign: 'center',
+                color: '#15803d', fontSize: 13, fontWeight: 600,
+              }}>
                 ✅ Your shop is clear. No urgent recommendations right now.
               </div>
             ) : (
@@ -360,77 +520,77 @@ export function CommandCenterView() {
 
           {/* ── Sections 3 + 4: Revenue Opportunities + Risks ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-            {/* Revenue Opportunities */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 10 }}>💵 Revenue Opportunities</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { label: 'Unpaid invoices',          value: unpaidCount,  unit: 'invoices', color: unpaidCount  > 0 ? '#c2410c' : 'var(--muted)' },
-                  { label: 'Stale estimates',          value: staleEst,     unit: 'estimates',color: staleEst     > 0 ? '#c2410c' : 'var(--muted)' },
-                  { label: 'Completed, not invoiced',  value: notInvoiced,  unit: 'jobs',     color: notInvoiced  > 0 ? '#b91c1c' : 'var(--muted)' },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
-                    <span style={{ color: 'var(--text)' }}>{item.label}</span>
-                    <span style={{ fontWeight: 700, color: item.color }}>{fmtNum(item.value)} {item.unit}</span>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
-                  <span style={{ color: 'var(--text)' }}>Revenue today</span>
-                  <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmtMoney(revenueToday)}</span>
+            {/* Revenue */}
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--line)',
+              borderTop: `3px solid ${D.green}`,
+              borderRadius: D.radius,
+              padding: '18px 20px',
+              boxShadow: D.cardShadow,
+            }}>
+              <SectionHeading icon="💵" label="Revenue Opportunities" />
+              <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} />
+              <RowItem label="Stale estimates"         value={staleEst}     tag="estimates" accent={staleEst     > 0 ? '#ea580c' : undefined} />
+              <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} />
+              <RowItem label="Revenue today"           value={fmtMoney(revenueToday)} accent={revenueToday > 0 ? D.green : undefined} />
+              {revenueOpportunity > 0 && (
+                <div style={{ marginTop: 10, padding: '10px 14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Total Opportunity</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: '#15803d' }}>{fmtMoney(revenueOpportunity)}</span>
                 </div>
-                {revenueOpportunity > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0' }}>
-                    <span style={{ color: 'var(--text)', fontWeight: 600 }}>Total opportunity</span>
-                    <span style={{ fontWeight: 800, color: '#16a34a' }}>{fmtMoney(revenueOpportunity)}</span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* Operations Risks */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 10 }}>⚠️ Operations Risks</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[
-                  { label: 'Stuck repair orders',    value: stuckJobs,   color: stuckJobs  > 0 ? '#b91c1c' : 'var(--muted)' },
-                  { label: 'Low inventory items',    value: lowInv,      color: lowInv     > 0 ? '#c2410c' : 'var(--muted)' },
-                  { label: 'Overdue invoices',       value: overdueCount,color: overdueCount > 0 ? '#c2410c' : 'var(--muted)' },
-                  { label: 'Open job cards',         value: openJobs,    color: 'var(--text)' },
-                  { label: 'Repair cases today',     value: repairCases, color: repairCases > 0 ? '#22c55e' : 'var(--muted)' },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
-                    <span style={{ color: 'var(--text)' }}>{item.label}</span>
-                    <span style={{ fontWeight: 700, color: item.color }}>{fmtNum(item.value)}</span>
-                  </div>
-                ))}
-              </div>
+            {/* Risks */}
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--line)',
+              borderTop: `3px solid ${D.red}`,
+              borderRadius: D.radius,
+              padding: '18px 20px',
+              boxShadow: D.cardShadow,
+            }}>
+              <SectionHeading icon="⚠️" label="Operations Risks" />
+              <RowItem label="Stuck repair orders"  value={stuckJobs}    accent={stuckJobs   > 0 ? '#dc2626' : undefined} />
+              <RowItem label="Low inventory items"  value={lowInv}       accent={lowInv      > 0 ? '#ea580c' : undefined} />
+              <RowItem label="Overdue invoices"     value={overdueCount} accent={overdueCount > 0 ? '#ea580c' : undefined} />
+              <RowItem label="Open job cards"       value={openJobs} />
+              <RowItem label="Repair cases today"   value={repairCases}  accent={repairCases > 0 ? D.green : undefined} />
             </div>
           </div>
 
-          {/* ── Data source badge ────────────────────────────── */}
+          {/* ── Data freshness ───────────────────────────────── */}
           {metrics?.calculatedAt && (
-            <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginBottom: 8, marginTop: -16 }}>
-              Live data · updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
+            <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginBottom: 16, marginTop: -16 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '3px 10px' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                Live data · updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
+              </span>
             </div>
           )}
 
-          {/* ── Section 5: Signals Panel ─────────────────────── */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>
-              📡 Live Signals
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-              <Tile icon="💵" label="Revenue Today"     value={fmtMoney(revenueToday)}  color="#22c55e" />
-              <Tile icon="💳" label="Payments Today"    value={fmtNum(paymentsToday)} />
-              <Tile icon="🔧" label="Open Jobs"         value={fmtNum(openJobs)} color={openJobs > 5 ? '#f59e0b' : 'var(--text)'} />
-              <Tile icon="📋" label="Stale Estimates"   value={fmtNum(staleEst)}  color={staleEst > 0 ? '#c2410c' : 'var(--text)'} />
-              <Tile icon="📦" label="Low Inventory"     value={fmtNum(lowInv)}    color={lowInv   > 0 ? '#c2410c' : 'var(--text)'} />
-              <Tile icon="🗂️" label="Repair Cases Today" value={fmtNum(repairCases)} color={repairCases > 0 ? '#22c55e' : 'var(--text)'} />
+          {/* ── Section 5: Live Signals ───────────────────────── */}
+          <div style={{ marginBottom: 8 }}>
+            <SectionHeading icon="📡" label="Live Signals" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
+              <SignalTile icon="💵" label="Revenue Today"      value={fmtMoney(revenueToday)}
+                accent={revenueToday > 0 ? D.green : 'var(--muted)'} />
+              <SignalTile icon="💳" label="Payments Today"     value={fmtNum(paymentsToday)}
+                accent={paymentsToday > 0 ? D.blue : undefined} />
+              <SignalTile icon="🔧" label="Open Jobs"          value={fmtNum(openJobs)}
+                accent={openJobs > 5 ? D.gold : undefined} />
+              <SignalTile icon="📋" label="Stale Estimates"    value={fmtNum(staleEst)}
+                accent={staleEst > 0 ? '#ea580c' : undefined} />
+              <SignalTile icon="📦" label="Low Inventory"      value={fmtNum(lowInv)}
+                accent={lowInv > 0 ? '#ea580c' : undefined} />
+              <SignalTile icon="🗂️" label="Repair Cases Today" value={fmtNum(repairCases)}
+                accent={repairCases > 0 ? D.green : undefined} />
             </div>
           </div>
 
           {recs.error && (
-            <div style={{ padding: '10px 14px', background: '#fee2e2', borderRadius: 8, fontSize: 12, color: '#b91c1c', marginTop: 12 }}>
+            <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, color: '#b91c1c', marginTop: 12 }}>
               ⚠️ {recs.error}
             </div>
           )}
