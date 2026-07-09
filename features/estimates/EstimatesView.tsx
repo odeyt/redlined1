@@ -246,10 +246,19 @@ export function EstimatesView() {
     }));
 
     if (field === 'cost' || field === 'markup' || field === 'currency') {
-      const cost   = parseFloat(field === 'cost'   ? value : line.cost) || 0;
-      const markup = parseFloat(field === 'markup' ? value : line.markup);
-      const pct    = isNaN(markup) ? 50 : markup;
-      if (cost === 0) return;
+      const costRaw = field === 'cost' ? value : line.cost;
+      const cost    = parseFloat(costRaw) || 0;
+      const markup  = parseFloat(field === 'markup' ? value : line.markup);
+      const pct     = isNaN(markup) ? 50 : markup;
+
+      // When cost is zero/empty, zero out the rate immediately and stop
+      if (cost === 0) {
+        setForm(f => ({
+          ...f,
+          lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: '0' }),
+        }));
+        return;
+      }
 
       // Cost is always in the estimate's MAIN currency (form.currency).
       // The line Currency = customer billing currency.
