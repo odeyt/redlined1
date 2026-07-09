@@ -26,7 +26,51 @@ const EMPTY: Omit<Part, 'photos'> = {
   compatibility: '', barcode: '', notes: '',
 };
 
-/* ── CSV helpers ── */
+/* ── CSV / Excel column alias helpers ── */
+const COL_ALIASES: Record<string, string> = {
+  // part number
+  part_number: 'part_number', partno: 'part_number', part_no: 'part_number',
+  part: 'part_number', sku: 'part_number', item_number: 'part_number', item_no: 'part_number',
+  itemnumber: 'part_number', stockno: 'part_number', stock_no: 'part_number',
+  partnumber: 'part_number', product_code: 'part_number', productcode: 'part_number',
+  // brand
+  brand: 'brand', make: 'brand', manufacturer: 'brand', mfr: 'brand',
+  // description
+  description: 'description', desc: 'description', name: 'description', part_name: 'description',
+  item_description: 'description', product_name: 'description',
+  // category
+  category: 'category', type: 'category', part_type: 'category',
+  // cost / retail
+  cost: 'cost', unit_cost: 'cost', purchase_price: 'cost', buy_price: 'cost',
+  retail: 'retail', retail_price: 'retail', sale_price: 'retail', selling_price: 'retail', price: 'retail',
+  // quantity
+  quantity: 'quantity', qty: 'quantity', stock: 'quantity', on_hand: 'quantity',
+  stock_quantity: 'quantity', current_stock: 'quantity', in_stock: 'quantity',
+  // location
+  location: 'location', bin: 'location', bin_location: 'location', shelf: 'location',
+  // barcode
+  barcode: 'barcode', upc: 'barcode', ean: 'barcode', isbn: 'barcode',
+  // supplier
+  supplier: 'supplier', vendor: 'supplier', vendor_name: 'supplier',
+  supplier_phone: 'supplier_phone', vendor_phone: 'supplier_phone',
+  supplier_email: 'supplier_email', vendor_email: 'supplier_email',
+  // thresholds
+  low_stock_threshold: 'low_stock_threshold', min_stock: 'low_stock_threshold', reorder_point: 'low_stock_threshold',
+  reorder_qty: 'reorder_qty', reorder_quantity: 'reorder_qty', order_qty: 'reorder_qty',
+  // misc
+  compatibility: 'compatibility', compatible: 'compatibility', fits: 'compatibility',
+  notes: 'notes', note: 'notes', comments: 'notes',
+};
+
+function normalizeColName(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[\s\-\/\.#*]+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
+function resolveColName(raw: string): string {
+  const norm = normalizeColName(raw);
+  return COL_ALIASES[norm] ?? norm;
+}
+
 const CSV_COLS = [
   'part_number','brand','description','category','cost','retail','quantity',
   'location','barcode','supplier','supplier_phone','supplier_email',
@@ -36,7 +80,7 @@ const CSV_COLS = [
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = splitCSVLine(lines[0]).map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+  const headers = splitCSVLine(lines[0]).map(h => resolveColName(h));
   return lines.slice(1).map(line => {
     const vals = splitCSVLine(line);
     const row: Record<string, string> = {};
@@ -361,13 +405,21 @@ export function PartsView() {
           const ws = wb.Sheets[wb.SheetNames[0]];
           // Use header:1 to get raw array-of-arrays — avoids __EMPTY columns from merged/empty headers
           const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
-          // Skip leading blank rows to find the header row
-          const headerRowIdx = grid.findIndex(row => (row as unknown[]).some(c => String(c ?? '').trim() !== ''));
-          if (headerRowIdx === -1) { setCsvError('No data found in the file.'); return; }
-          const headers = (grid[headerRowIdx] as unknown[]).map(h =>
-            String(h ?? '').trim().toLowerCase().replace(/[\s\-\/]+/g, '_').replace(/[^a-z0-9_]/g, '')
-          );
-          raw = (grid.slice(headerRowIdx + 1) as unknown[][])
+          // Scan first 20 rows to find the header row: the first row that contains
+          // at least one recognized column name alias (not a title/subtitle row)
+          const nonBlankRows = grid
+            .slice(0, 20)
+            .map((row, idx) => ({ idx, row: row as unknown[] }))
+            .filter(({ row }) => row.some(c => String(c ?? '').trim() !== ''));
+          const headerRowEntry = nonBlankRows.find(({ row }) => {
+            const resolved = row.map(c => resolveColName(String(c ?? '')));
+            return resolved.includes('part_number') || resolved.includes('description') ||
+                   resolved.includes('sku') || resolved.includes('brand') ||
+                   resolved.includes('quantity') || resolved.includes('cost');
+          }) ?? nonBlankRows[0]; // fallback to first non-blank row
+          if (!headerRowEntry) { setCsvError('No data found in the file.'); return; }
+          const headers = headerRowEntry.row.map(h => resolveColName(String(h ?? '')));
+          raw = (grid.slice(headerRowEntry.idx + 1) as unknown[][])
             .filter(row => row.some(c => String(c ?? '').trim() !== ''))
             .map(row =>
               Object.fromEntries(headers.map((h, i) => [h, String(row[i] ?? '').trim()]))
