@@ -46,4 +46,8 @@ export type KnownFlagKey =
   | 'command_center'
   | 'daily_summary'
   | 'morning_briefing'
-  | 'daily_recommendations';
+  | 'daily_recommendations'
+  // SI-4: Live Intelligence Pipeline
+  | 'live_intelligence_pipeline'
+  | 'shop_metrics'
+  | 'command_center_live_data';

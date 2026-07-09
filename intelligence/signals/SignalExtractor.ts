@@ -1,6 +1,33 @@
 // SignalExtractor — converts shop DB state into named numeric/text signals.
 // No AI. All values are deterministic DB queries. Fails silently.
 import type { SignalMap } from './types';
+import type { ShopIntelligenceMetrics } from '../metrics/types';
+
+/**
+ * Build a SignalMap directly from pre-computed ShopIntelligenceMetrics.
+ * Preferred path when SI-4 live pipeline is active — avoids re-querying the DB.
+ */
+export function extractSignalsFromMetrics(metrics: ShopIntelligenceMetrics): SignalMap {
+  return {
+    revenue_today:               metrics.revenueToday,
+    revenue_yesterday:           metrics.revenueYesterday,
+    payments_today:              metrics.paymentsToday,
+    unpaid_invoice_count:        metrics.unpaidInvoiceCount,
+    unpaid_invoice_total:        metrics.unpaidInvoiceTotal,
+    overdue_invoice_count:       metrics.overdueInvoiceCount,
+    open_estimate_count:         metrics.openEstimateCount,
+    stale_estimate_count:        metrics.staleEstimateCount,
+    stale_estimate_total:        metrics.staleEstimateTotal,
+    declined_estimate_count:     metrics.declinedEstimateCount,
+    open_job_count:              metrics.openJobCount,
+    stuck_job_count:             metrics.stuckJobCount,
+    completed_not_invoiced_count: metrics.completedNotInvoicedCount,
+    low_inventory_count:         metrics.lowInventoryCount,
+    repair_cases_created_today:  metrics.repairCasesToday,
+    shop_health_score:           metrics.shopHealthScore,
+    revenue_opportunity_total:   metrics.revenueOpportunityTotal,
+  };
+}
 
 async function getDb() {
   const { getAdminDb } = await import('@/lib/supabaseServer');

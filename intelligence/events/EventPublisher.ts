@@ -67,6 +67,19 @@ export async function publish(event: IntelligenceEvent): Promise<boolean> {
         const { recordEvent } = await import('../bus/IntelligenceBus');
         void recordEvent(event);
       } catch { /* bus unavailable — production unaffected */ }
+
+      // 3. Trigger metric refresh on high-value events (fire-and-forget, SI-4)
+      const METRIC_TRIGGER_EVENTS = new Set([
+        'InvoicePaid', 'EstimateApproved', 'EstimateDeclined',
+        'JobCardCreated', 'RepairOrderCompleted', 'RepairCaseCreated', 'PaymentRecorded',
+      ]);
+      if (METRIC_TRIGGER_EVENTS.has(event.eventType) && event.shopId) {
+        try {
+          const { calculateShopMetrics, saveShopMetrics } = await import('../metrics/MetricsBuilder');
+          const result = await calculateShopMetrics(event.shopId);
+          void saveShopMetrics(result.metrics);
+        } catch { /* metric refresh failure must never affect production */ }
+      }
     }
 
     return true;

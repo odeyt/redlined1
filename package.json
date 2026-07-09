@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run build",
     "backfill:repair-graph": "tsx scripts/backfill-repair-cases-to-graph.ts",
+    "intelligence:recalculate": "tsx scripts/recalculate-shop-intelligence.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:smoke": "playwright test --grep @smoke --project=smoke-chromium",
     "test:visual": "playwright test --project=visual",

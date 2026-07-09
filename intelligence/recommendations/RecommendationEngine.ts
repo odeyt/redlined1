@@ -2,7 +2,7 @@
 // Runs registered rules against extracted signals, saves results to DB.
 import type { Recommendation, RecommendationContext, RecommendationRuleResult } from './types';
 import { ALL_RULES } from '../rules/RuleRegistry';
-import { extractSignals } from '../signals/SignalExtractor';
+import { extractSignals, extractSignalsFromMetrics } from '../signals/SignalExtractor';
 
 async function getDb() {
   const { getAdminDb } = await import('@/lib/supabaseServer');
@@ -11,16 +11,26 @@ async function getDb() {
 
 /**
  * Generate recommendations for a shop.
- * Extracts signals → runs rules → saves to DB. Never throws.
+ * Prefers shop_intelligence_metrics as signal source when available (SI-4).
+ * Falls back to direct DB signal extraction. Never throws.
  */
 export async function generateRecommendations(shopId: string): Promise<Recommendation[]> {
   try {
-    const signals = await extractSignals(shopId);
+    // Prefer pre-computed metrics from SI-4 pipeline if available
+    let signals;
+    try {
+      const { getLatestShopMetrics } = await import('../metrics/MetricsBuilder');
+      const metrics = await getLatestShopMetrics(shopId);
+      signals = metrics ? extractSignalsFromMetrics(metrics) : await extractSignals(shopId);
+    } catch {
+      signals = await extractSignals(shopId);
+    }
+
     const ctx: RecommendationContext = {
       shopId,
       now: new Date(),
       signals,
-      rawData: {},
+      rawData: { source: 'shop_intelligence_metrics' },
     };
 
     const results: RecommendationRuleResult[] = [];

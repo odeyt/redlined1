@@ -6,6 +6,27 @@ import { Panel } from '@/components/Panel';
 import { getShopId } from '@/lib/shopStore';
 
 // ── Types ────────────────────────────────────────────────────
+interface ShopMetrics {
+  revenueToday: number;
+  revenueYesterday: number;
+  paymentsToday: number;
+  unpaidInvoiceCount: number;
+  unpaidInvoiceTotal: number;
+  overdueInvoiceCount: number;
+  openEstimateCount: number;
+  staleEstimateCount: number;
+  staleEstimateTotal: number;
+  openJobCount: number;
+  stuckJobCount: number;
+  completedNotInvoicedCount: number;
+  lowInventoryCount: number;
+  repairCasesToday: number;
+  shopHealthScore: number;
+  revenueOpportunityTotal: number;
+  riskCount: number;
+  calculatedAt?: string;
+}
+
 interface Recommendation {
   id: string;
   recommendationKey: string;
@@ -149,6 +170,7 @@ export function CommandCenterView() {
 
   const [recs, setRecs] = useState<FetchState<Recommendation[]>>({ data: null, loading: true, error: null });
   const [signals, setSignals] = useState<FetchState<SignalMap>>({ data: null, loading: true, error: null });
+  const [metrics, setMetrics] = useState<ShopMetrics | null>(null);
   const [generating, setGenerating] = useState(false);
   const [tablesMissing, setTablesMissing] = useState(false);
   const [flagDisabled, setFlagDisabled] = useState(false);
@@ -191,17 +213,32 @@ export function CommandCenterView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
+  const loadMetrics = useCallback(async () => {
+    try {
+      const res = await fetch('/api/intelligence/metrics', { headers: shopHeaders });
+      if (!res.ok) return;
+      const body = await res.json() as { metrics?: ShopMetrics; disabled?: boolean };
+      if (body.metrics) setMetrics(body.metrics);
+    } catch { /* metrics unavailable — signals fallback still works */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
   useEffect(() => {
     if (!shopId) return;
     loadRecommendations();
     loadSignals();
-  }, [shopId, loadRecommendations, loadSignals]);
+    loadMetrics();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics]);
 
   async function handleGenerate() {
     setGenerating(true);
     try {
+      // 1. Recalculate live metrics first
+      await fetch('/api/intelligence/metrics', { method: 'POST', headers: shopHeaders });
+      // 2. Generate fresh recommendations (will use updated metrics)
       await fetch('/api/intelligence/recommendations', { method: 'POST', headers: shopHeaders });
-      await Promise.all([loadRecommendations(), loadSignals()]);
+      // 3. Reload all data
+      await Promise.all([loadRecommendations(), loadSignals(), loadMetrics()]);
     } catch { /* fail silently */ }
     finally { setGenerating(false); }
   }
@@ -217,21 +254,27 @@ export function CommandCenterView() {
     } catch { /* fail silently */ }
   }
 
-  // ── Computed ─────────────────────────────────────────────────
+  // ── Computed — prefer live metrics (SI-4), fall back to raw signals ──
   const recList = (recs.data ?? []).sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
   const sig = signals.data ?? {};
-  const score = shopHealthScore(recList, sig);
+
+  // When metrics are available use them; otherwise fall back to signal map
+  const revenueToday   = metrics?.revenueToday   ?? Number(sig.revenue_today   ?? 0);
+  const paymentsToday  = metrics?.paymentsToday  ?? Number(sig.payments_today  ?? 0);
+  const openJobs       = metrics?.openJobCount   ?? Number(sig.open_job_count  ?? 0);
+  const staleEst       = metrics?.staleEstimateCount ?? Number(sig.stale_estimate_count ?? 0);
+  const lowInv         = metrics?.lowInventoryCount  ?? Number(sig.low_inventory_count  ?? 0);
+  const repairCases    = metrics?.repairCasesToday   ?? Number(sig.repair_cases_created_today ?? 0);
+  const unpaidCount    = metrics?.unpaidInvoiceCount ?? Number(sig.unpaid_invoice_count ?? 0);
+  const overdueCount   = metrics?.overdueInvoiceCount ?? Number(sig.overdue_invoice_count ?? 0);
+  const stuckJobs      = metrics?.stuckJobCount ?? Number(sig.stuck_job_count ?? 0);
+  const notInvoiced    = metrics?.completedNotInvoicedCount ?? Number(sig.completed_not_invoiced_count ?? 0);
+  const revenueOpportunity = metrics?.revenueOpportunityTotal ?? 0;
+
+  // Health score: prefer metrics value (already computed server-side), else compute locally
+  const liveScore = metrics?.shopHealthScore ?? shopHealthScore(recList, sig);
+  const score = liveScore;
   const hColor = healthColor(score);
-  const revenueToday   = Number(sig.revenue_today   ?? 0);
-  const paymentsToday  = Number(sig.payments_today  ?? 0);
-  const openJobs       = Number(sig.open_job_count  ?? 0);
-  const staleEst       = Number(sig.stale_estimate_count ?? 0);
-  const lowInv         = Number(sig.low_inventory_count  ?? 0);
-  const repairCases    = Number(sig.repair_cases_created_today ?? 0);
-  const unpaidCount    = Number(sig.unpaid_invoice_count ?? 0);
-  const overdueCount   = Number(sig.overdue_invoice_count ?? 0);
-  const stuckJobs      = Number(sig.stuck_job_count ?? 0);
-  const notInvoiced    = Number(sig.completed_not_invoiced_count ?? 0);
 
   const criticalCount = recList.filter(r => r.priority === 'critical').length;
   const highCount     = recList.filter(r => r.priority === 'high').length;
@@ -331,10 +374,16 @@ export function CommandCenterView() {
                     <span style={{ fontWeight: 700, color: item.color }}>{fmtNum(item.value)} {item.unit}</span>
                   </div>
                 ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
                   <span style={{ color: 'var(--text)' }}>Revenue today</span>
                   <span style={{ fontWeight: 700, color: '#22c55e' }}>{fmtMoney(revenueToday)}</span>
                 </div>
+                {revenueOpportunity > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0' }}>
+                    <span style={{ color: 'var(--text)', fontWeight: 600 }}>Total opportunity</span>
+                    <span style={{ fontWeight: 800, color: '#16a34a' }}>{fmtMoney(revenueOpportunity)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -357,6 +406,13 @@ export function CommandCenterView() {
               </div>
             </div>
           </div>
+
+          {/* ── Data source badge ────────────────────────────── */}
+          {metrics?.calculatedAt && (
+            <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginBottom: 8, marginTop: -16 }}>
+              Live data · updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
+            </div>
+          )}
 
           {/* ── Section 5: Signals Panel ─────────────────────── */}
           <div style={{ marginBottom: 16 }}>
