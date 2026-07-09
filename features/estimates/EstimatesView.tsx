@@ -824,7 +824,7 @@ export function EstimatesView() {
         </Panel>
 
         {/* ── Right: Estimate Detail ── */}
-        {selected && !showForm && totals && (
+        {selected && totals && (
           <div>
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
