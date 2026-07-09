@@ -38,7 +38,14 @@ export async function GET(req: NextRequest) {
     }
 
     // No saved row for today — calculate live
+    console.log('[metrics] shopId:', ctx.shopId, 'calculating live');
     const result = await calculateShopMetrics(ctx.shopId);
+    if (result.warnings.length > 0) {
+      console.warn('[metrics] warnings:', result.warnings);
+    }
+    if (result.errors.length > 0) {
+      console.error('[metrics] errors:', result.errors);
+    }
     void saveShopMetrics(result.metrics); // fire-and-forget save
     return NextResponse.json({ metrics: result.metrics, warnings: result.warnings, source: 'live' });
   } catch (e) {

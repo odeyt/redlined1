@@ -92,32 +92,34 @@ export async function calculateRevenueMetrics(
   try {
     const db = await getDb();
     const todayDateStr = ctx.todayStart.split('T')[0]; // 'YYYY-MM-DD'
-    const { data } = await db
+    const { data, error } = await db
       .from('payments')
       .select('amount, status')
       .eq('shop_id', ctx.shopId)
       .gte('payment_date', todayDateStr)
       .in('status', ['Recorded', 'Verified']);
+    if (error) throw error;
     const rows = (data ?? []) as { amount?: number }[];
     result.revenueToday = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     result.paymentsToday = rows.length;
-  } catch { warnings.push('revenue_today: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] revenue_today:', m); warnings.push('revenue_today: ' + m); }
 
   try {
     const db = await getDb();
     const yStart = ctx.yesterdayStart.split('T')[0];
     const yEnd   = ctx.yesterdayEnd.split('T')[0];
-    const { data } = await db
+    const { data, error } = await db
       .from('payments')
       .select('amount')
       .eq('shop_id', ctx.shopId)
       .gte('payment_date', yStart)
       .lte('payment_date', yEnd)
       .in('status', ['Recorded', 'Verified']);
+    if (error) throw error;
     result.revenueYesterday = (data ?? []).reduce(
       (s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0,
     );
-  } catch { warnings.push('revenue_yesterday: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] revenue_yesterday:', m); warnings.push('revenue_yesterday: ' + m); }
 
   return result;
 }
@@ -172,7 +174,7 @@ export async function calculateInvoiceMetrics(
     result.unpaidInvoiceTotal = unpaidTotal;
     result.overdueInvoiceCount = overdueCount;
     result.overdueInvoiceTotal = overdueTotal;
-  } catch { warnings.push('invoices: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] invoices:', m); warnings.push('invoices: ' + m); }
   return result;
 }
 
@@ -221,7 +223,7 @@ export async function calculateEstimateMetrics(
       const taxable = Math.max(subtotal - (r.discount ?? 0), 0) + (r.shop_supplies ?? 0);
       return sum + taxable + taxable * (r.tax_rate ?? 0);
     }, 0);
-  } catch { warnings.push('estimates: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] estimates:', m); warnings.push('estimates: ' + m); }
   return result;
 }
 
@@ -238,42 +240,47 @@ export async function calculateJobMetrics(
   try {
     const db = await getDb();
     const stuckThreshold = daysAgo(ctx.stuckThresholdDays);
-    const { data } = await db
+    // Select only id and status — check_in_date may not exist on all schemas
+    const { data, error } = await db
       .from('job_cards')
-      .select('id, status, check_in_date')
+      .select('id, status, created_at')
       .eq('shop_id', ctx.shopId);
-    const rows = (data ?? []) as { status?: string; check_in_date?: string }[];
+    if (error) throw error;
+    const rows = (data ?? []) as { status?: string; created_at?: string }[];
 
     // Active = not in any finished state
     const active = rows.filter(r => !CLOSED_JOB_STATUSES.includes(r.status ?? ''));
     result.openJobCount = active.length;
+    // Stuck = active and created > stuckThresholdDays ago
     result.stuckJobCount = active.filter(r =>
-      r.check_in_date && r.check_in_date < stuckThreshold,
+      r.created_at && r.created_at < stuckThreshold,
     ).length;
-  } catch { warnings.push('job_cards: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] job_cards:', m); warnings.push('job_cards: ' + m); }
 
   // closed_jobs: jobs with no invoice attached
   try {
     const db = await getDb();
-    const { count } = await db
+    const { count, error } = await db
       .from('closed_jobs')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
       .is('invoice', null);
+    if (error) throw error;
     result.completedNotInvoicedCount = count ?? 0;
-  } catch { warnings.push('closed_jobs: not available or query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] closed_jobs:', m); warnings.push('closed_jobs: ' + m); }
 
   // Completed today (closed_jobs with closed_date today)
   try {
     const db = await getDb();
     const todayStr = ctx.todayStart.split('T')[0];
-    const { count } = await db
+    const { count, error } = await db
       .from('closed_jobs')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
       .gte('closed_date', todayStr);
+    if (error) throw error;
     result.completedJobsToday = count ?? 0;
-  } catch { warnings.push('closed_jobs today: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] closed_jobs_today:', m); warnings.push('closed_jobs_today: ' + m); }
 
   return result;
 }
@@ -292,7 +299,7 @@ export async function calculateRepairOrderMetrics(
       .eq('shop_id', ctx.shopId)
       .in('status', ['In Progress', 'Open', 'Pending', 'Active']);
     result.repairOrdersInProgress = count ?? 0;
-  } catch { warnings.push('repair_orders: not available or query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] repair_orders:', m); warnings.push('repair_orders: ' + m); }
   return result;
 }
 
@@ -311,7 +318,7 @@ export async function calculateRepairIntelligenceMetrics(
       .eq('shop_id', ctx.shopId)
       .gte('created_at', ctx.todayStart);
     result.repairCasesToday = count ?? 0;
-  } catch { warnings.push('repair_cases: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] repair_cases:', m); warnings.push('repair_cases: ' + m); }
   return result;
 }
 
@@ -333,7 +340,7 @@ export async function calculateInventoryMetrics(
     result.lowInventoryCount = rows.filter(r =>
       (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
     ).length;
-  } catch { warnings.push('parts: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] parts:', m); warnings.push('parts: ' + m); }
   return result;
 }
 
@@ -353,7 +360,7 @@ export async function calculateTechnicianMetrics(
     const total = (data ?? []).length;
     result.technicianActiveCount = total;
     result.technicianIdleCount = 0;
-  } catch { warnings.push('technicians: query failed'); }
+  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] technicians:', m); warnings.push('technicians: ' + m); }
   return result;
 }
 
