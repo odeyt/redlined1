@@ -8,7 +8,9 @@ import {
   completeRecommendation,
 } from '@/intelligence/recommendations/RecommendationEngine';
 
-const DISABLED_RESPONSE = NextResponse.json({ disabled: true, recommendations: [], message: 'Recommendation engine is not enabled.' }, { status: 200 });
+function disabledResponse() {
+  return NextResponse.json({ disabled: true, recommendations: [], message: 'Recommendation engine is not enabled.' });
+}
 
 async function getAuthCtx(req: NextRequest) {
   const cookieStore = await cookies();
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
     const enabled = await isFlagEnabled('recommendation_engine');
-    if (!enabled) return DISABLED_RESPONSE;
+    if (!enabled) return disabledResponse();
 
     const recommendations = await getOpenRecommendations(ctx.shopId);
     return NextResponse.json({ recommendations });
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
     const enabled = await isFlagEnabled('recommendation_engine');
-    if (!enabled) return DISABLED_RESPONSE;
+    if (!enabled) return disabledResponse();
 
     const recommendations = await generateRecommendations(ctx.shopId);
     return NextResponse.json({ recommendations, generated: recommendations.length });

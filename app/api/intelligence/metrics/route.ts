@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     const { calculateShopMetrics, saveShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
     const result = await calculateShopMetrics(ctx.shopId, ctx.jwt);
-    await saveShopMetrics(result.metrics);
+    void saveShopMetrics(result.metrics); // fire-and-forget — don't block the response
 
     return NextResponse.json({
       metrics: result.metrics,
