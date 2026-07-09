@@ -117,19 +117,15 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   } catch { signals.completed_not_invoiced_count = null; }
 
   // ── Inventory ────────────────────────────────────────────────
+  // Table is 'parts', threshold column is 'low_stock_threshold'
   try {
-    const { count } = await db.from('parts_inventory').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).filter('quantity', 'lte', db.rpc('parts_inventory_min_qty') as unknown as number);
-    signals.low_inventory_count = count ?? 0;
-  } catch {
-    // Fallback: count items with quantity 0 or 1
-    try {
-      const db2 = await getDb();
-      const { count } = await db2.from('parts_inventory').select('id', { count: 'exact', head: true })
-        .eq('shop_id', shopId).lte('quantity', 1);
-      signals.low_inventory_count = count ?? 0;
-    } catch { signals.low_inventory_count = null; }
-  }
+    const { data } = await db.from('parts').select('quantity, low_stock_threshold')
+      .eq('shop_id', shopId);
+    const rows = (data ?? []) as { quantity?: number; low_stock_threshold?: number }[];
+    signals.low_inventory_count = rows.filter(r =>
+      (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
+    ).length;
+  } catch { signals.low_inventory_count = null; }
 
   // ── Repair cases ─────────────────────────────────────────────
   try {
@@ -139,26 +135,30 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   } catch { signals.repair_cases_created_today = null; }
 
   // ── Revenue ──────────────────────────────────────────────────
+  // payments table uses payment_date (date of payment), not created_at
   try {
+    const todayDateStr = new Date().toISOString().split('T')[0];
     const { data } = await db.from('payments').select('amount')
-      .eq('shop_id', shopId).gte('created_at', todayStart());
+      .eq('shop_id', shopId)
+      .gte('payment_date', todayDateStr)
+      .in('status', ['Recorded', 'Verified']);
     const total = (data ?? []).reduce((s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0);
     signals.revenue_today = total;
-  } catch { signals.revenue_today = null; }
+    signals.payments_today = (data ?? []).length;
+  } catch { signals.revenue_today = null; signals.payments_today = null; }
 
   try {
     const [yStart, yEnd] = yesterdayRange();
+    const yStartDate = yStart.split('T')[0];
+    const yEndDate   = yEnd.split('T')[0];
     const { data } = await db.from('payments').select('amount')
-      .eq('shop_id', shopId).gte('created_at', yStart).lte('created_at', yEnd);
+      .eq('shop_id', shopId)
+      .gte('payment_date', yStartDate)
+      .lte('payment_date', yEndDate)
+      .in('status', ['Recorded', 'Verified']);
     const total = (data ?? []).reduce((s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0);
     signals.revenue_yesterday = total;
   } catch { signals.revenue_yesterday = null; }
-
-  try {
-    const { count } = await db.from('payments').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).gte('created_at', todayStart());
-    signals.payments_today = count ?? 0;
-  } catch { signals.payments_today = null; }
 
   return signals;
 }
