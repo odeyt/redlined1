@@ -9,15 +9,17 @@ async function getAuthCtx(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) return null;
+  const jwt = session?.access_token;
   // shopId from header (client sends x-shop-id), fallback to cookie
   const shopId = req.headers.get('x-shop-id') ?? cookieStore.get('shopId')?.value ?? cookieStore.get('activeShopId')?.value ?? '';
   const { data: suRow } = await supabase
     .from('shop_users').select('role')
     .eq('user_id', user.id).eq('shop_id', shopId).maybeSingle();
   const role = (suRow as { role?: string } | null)?.role ?? '';
-  return { userId: user.id, shopId, role };
+  return { userId: user.id, shopId, role, jwt };
 }
 
 // GET — calculate live metrics for this shop (always fresh, no caching required)
@@ -37,9 +39,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ metrics: saved, source: 'cache' });
     }
 
-    // No saved row for today — calculate live
-    console.log('[metrics] shopId:', ctx.shopId, 'calculating live');
-    const result = await calculateShopMetrics(ctx.shopId);
+    // No saved row for today — calculate live with user's JWT so RLS works
+    console.warn('[metrics] shopId:', ctx.shopId, 'calculating live');
+    const result = await calculateShopMetrics(ctx.shopId, ctx.jwt);
     if (result.warnings.length > 0) {
       console.warn('[metrics] warnings:', result.warnings);
     }
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
     const { calculateShopMetrics, saveShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
-    const result = await calculateShopMetrics(ctx.shopId);
+    const result = await calculateShopMetrics(ctx.shopId, ctx.jwt);
     await saveShopMetrics(result.metrics);
 
     return NextResponse.json({

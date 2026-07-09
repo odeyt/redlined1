@@ -7,9 +7,11 @@ import type {
   MetricCalculationResult,
 } from './types';
 
-async function getDb() {
-  const { getAdminDb } = await import('@/lib/supabaseServer');
-  return getAdminDb();
+// Use getServerDb which prefers service-role key; falls back to JWT-authed anon client.
+// This ensures queries work via RLS even when service role key is unavailable.
+async function getDb(jwt?: string) {
+  const { getServerDb } = await import('@/lib/supabaseServer');
+  return getServerDb(jwt);
 }
 
 function errMsg(e: unknown): string {
@@ -95,11 +97,12 @@ function emptyMetrics(shopId: string): ShopIntelligenceMetrics {
 export async function calculateRevenueMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'revenueToday' | 'revenueYesterday' | 'paymentsToday'>> {
   const result = { revenueToday: 0, revenueYesterday: 0, paymentsToday: 0 };
 
   try {
-    const db = await getDb();
+    const db = await getDb(jwt);
     const todayDateStr = ctx.todayStart.split('T')[0]; // 'YYYY-MM-DD'
     const { data, error } = await db
       .from('payments')
@@ -114,7 +117,7 @@ export async function calculateRevenueMetrics(
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] revenue_today:', m); warnings.push('revenue_today: ' + m); }
 
   try {
-    const db = await getDb();
+    const db = await getDb(jwt);
     const yStart = ctx.yesterdayStart.split('T')[0];
     const yEnd   = ctx.yesterdayEnd.split('T')[0];
     const { data, error } = await db
@@ -135,21 +138,23 @@ export async function calculateRevenueMetrics(
 
 // ── Invoices ──────────────────────────────────────────────────
 // invoices table: PK = number (string), status ('Draft','Sent','Paid','Void'), due_date
-// No total column — total is computed from lines jsonb; we count only, no dollar total
+// No total column — total is computed from lines jsonb
 
 export async function calculateInvoiceMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'unpaidInvoiceCount' | 'unpaidInvoiceTotal' | 'overdueInvoiceCount' | 'overdueInvoiceTotal'>> {
   const result = { unpaidInvoiceCount: 0, unpaidInvoiceTotal: 0, overdueInvoiceCount: 0, overdueInvoiceTotal: 0 };
   try {
-    const db = await getDb();
+    const db = await getDb(jwt);
     const nowStr = ctx.now.toISOString().split('T')[0];
-    const { data } = await db
+    const { data, error } = await db
       .from('invoices')
       .select('number, due_date, lines, discount, shop_supplies, tax_rate, currency')
       .eq('shop_id', ctx.shopId)
       .in('status', ['Draft', 'Sent']);
+    if (error) throw error;
     const rows = (data ?? []) as {
       number: string;
       due_date?: string;
@@ -161,10 +166,7 @@ export async function calculateInvoiceMetrics(
     }[];
     result.unpaidInvoiceCount = rows.length;
 
-    // Compute totals from lines (mirrors invoiceService.calculateTotals)
-    let unpaidTotal = 0;
-    let overdueCount = 0;
-    let overdueTotal = 0;
+    let unpaidTotal = 0; let overdueCount = 0; let overdueTotal = 0;
     for (const r of rows) {
       const lines = r.lines ?? [];
       const baseCur = r.currency || 'USD';
@@ -175,10 +177,7 @@ export async function calculateInvoiceMetrics(
       const taxable = afterDiscount + (r.shop_supplies ?? 0);
       const total = taxable + taxable * (r.tax_rate ?? 0);
       unpaidTotal += total;
-      if (r.due_date && r.due_date < nowStr) {
-        overdueCount++;
-        overdueTotal += total;
-      }
+      if (r.due_date && r.due_date < nowStr) { overdueCount++; overdueTotal += total; }
     }
     result.unpaidInvoiceTotal = unpaidTotal;
     result.overdueInvoiceCount = overdueCount;
@@ -189,45 +188,40 @@ export async function calculateInvoiceMetrics(
 
 // ── Estimates ─────────────────────────────────────────────────
 // estimates table: status ('Draft','Sent','Pending','Approved','Declined'), created_at
-// total computed from lines
 
 export async function calculateEstimateMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'openEstimateCount' | 'staleEstimateCount' | 'staleEstimateTotal' | 'declinedEstimateCount' | 'approvedNotScheduledCount'>> {
   const result = {
     openEstimateCount: 0, staleEstimateCount: 0, staleEstimateTotal: 0,
     declinedEstimateCount: 0, approvedNotScheduledCount: 0,
   };
   try {
-    const db = await getDb();
+    const db = await getDb(jwt);
     const staleThreshold = daysAgo(ctx.staleThresholdDays);
-    const { data } = await db
+    const { data, error } = await db
       .from('estimates')
       .select('id, status, created_at, lines, discount, shop_supplies, tax_rate, currency')
       .eq('shop_id', ctx.shopId);
+    if (error) throw error;
     const rows = (data ?? []) as {
-      status: string;
-      created_at: string;
+      status: string; created_at: string;
       lines?: { qty: number; rate: number; currency?: string }[];
-      discount?: number;
-      shop_supplies?: number;
-      tax_rate?: number;
-      currency?: string;
+      discount?: number; shop_supplies?: number; tax_rate?: number; currency?: string;
     }[];
 
     const openRows = rows.filter(r => ['Draft', 'Sent', 'Pending'].includes(r.status));
     result.openEstimateCount = openRows.length;
     result.declinedEstimateCount = rows.filter(r => r.status === 'Declined').length;
     result.approvedNotScheduledCount = rows.filter(r => r.status === 'Approved').length;
-
     const staleRows = openRows.filter(r => r.created_at < staleThreshold);
     result.staleEstimateCount = staleRows.length;
     result.staleEstimateTotal = staleRows.reduce((sum, r) => {
       const lines = r.lines ?? [];
       const baseCur = r.currency || 'USD';
-      const subtotal = lines
-        .filter(l => !l.currency || l.currency === baseCur)
+      const subtotal = lines.filter(l => !l.currency || l.currency === baseCur)
         .reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
       const taxable = Math.max(subtotal - (r.discount ?? 0), 0) + (r.shop_supplies ?? 0);
       return sum + taxable + taxable * (r.tax_rate ?? 0);
@@ -237,64 +231,39 @@ export async function calculateEstimateMetrics(
 }
 
 // ── Job Cards ─────────────────────────────────────────────────
-// job_cards table: check_in_date, closed_date, status
-// closed_jobs table: invoice (null = not invoiced), closed_date
+// job_cards table: check_in_date, status. Active = not Closed/Completed/Invoiced.
 
 export async function calculateJobMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'openJobCount' | 'stuckJobCount' | 'completedNotInvoicedCount' | 'completedJobsToday'>> {
   const result = { openJobCount: 0, stuckJobCount: 0, completedNotInvoicedCount: 0, completedJobsToday: 0 };
 
   try {
-    const db = await getDb();
+    const db = await getDb(jwt);
     const stuckThreshold = daysAgo(ctx.stuckThresholdDays);
-    // Select only id and status — check_in_date may not exist on all schemas
     const { data, error } = await db
       .from('job_cards')
-      .select('id, status, created_at')
+      .select('id, status, check_in_date, invoice')
       .eq('shop_id', ctx.shopId);
     if (error) throw error;
-    const rows = (data ?? []) as { status?: string; created_at?: string }[];
+    const rows = (data ?? []) as { status?: string; check_in_date?: string; invoice?: string | null }[];
 
-    // Active = not in any finished state
     const active = rows.filter(r => !CLOSED_JOB_STATUSES.includes(r.status ?? ''));
     result.openJobCount = active.length;
-    // Stuck = active and created > stuckThresholdDays ago
     result.stuckJobCount = active.filter(r =>
-      r.created_at && r.created_at < stuckThreshold,
+      r.check_in_date && r.check_in_date < stuckThreshold,
+    ).length;
+    // Closed but no invoice attached
+    const closed = rows.filter(r => CLOSED_JOB_STATUSES.includes(r.status ?? ''));
+    result.completedNotInvoicedCount = closed.filter(r => !r.invoice).length;
+    // Completed today — closed since today's start
+    const todayStr = ctx.todayStart.split('T')[0];
+    result.completedJobsToday = closed.filter(r =>
+      r.check_in_date && r.check_in_date >= todayStr
     ).length;
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] job_cards:', m); warnings.push('job_cards: ' + m); }
-
-  // Closed jobs with no invoice — query job_cards directly by status
-  try {
-    const db = await getDb();
-    const { data, error } = await db
-      .from('job_cards')
-      .select('id, status')
-      .eq('shop_id', ctx.shopId)
-      .in('status', CLOSED_JOB_STATUSES);
-    if (error) throw error;
-    const rows = (data ?? []) as { status?: string }[];
-    // 'Closed' or 'Completed' without 'Invoiced' = not yet invoiced
-    result.completedNotInvoicedCount = rows.filter(r =>
-      r.status === 'Closed' || r.status === 'Completed'
-    ).length;
-  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] completed_not_invoiced:', m); warnings.push('completed_not_invoiced: ' + m); }
-
-  // Completed today — jobs closed since today's start
-  try {
-    const db = await getDb();
-    const todayStr = ctx.todayStart.split('T')[0];
-    const { count, error } = await db
-      .from('job_cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('shop_id', ctx.shopId)
-      .in('status', CLOSED_JOB_STATUSES)
-      .gte('updated_at', todayStr);
-    if (error) throw error;
-    result.completedJobsToday = count ?? 0;
-  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] completed_jobs_today:', m); warnings.push('completed_jobs_today: ' + m); }
 
   return result;
 }
@@ -303,34 +272,37 @@ export async function calculateJobMetrics(
 export async function calculateRepairOrderMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'repairOrdersInProgress'>> {
   const result = { repairOrdersInProgress: 0 };
   try {
-    const db = await getDb();
-    const { count } = await db
+    const db = await getDb(jwt);
+    const { count, error } = await db
       .from('repair_orders')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
       .in('status', ['In Progress', 'Open', 'Pending', 'Active']);
+    if (error) throw error;
     result.repairOrdersInProgress = count ?? 0;
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] repair_orders:', m); warnings.push('repair_orders: ' + m); }
   return result;
 }
 
 // ── Repair Intelligence ───────────────────────────────────────
-// repair_cases table: created_at
 export async function calculateRepairIntelligenceMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'repairCasesToday'>> {
   const result = { repairCasesToday: 0 };
   try {
-    const db = await getDb();
-    const { count } = await db
+    const db = await getDb(jwt);
+    const { count, error } = await db
       .from('repair_cases')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
       .gte('created_at', ctx.todayStart);
+    if (error) throw error;
     result.repairCasesToday = count ?? 0;
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] repair_cases:', m); warnings.push('repair_cases: ' + m); }
   return result;
@@ -341,15 +313,16 @@ export async function calculateRepairIntelligenceMetrics(
 export async function calculateInventoryMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'lowInventoryCount'>> {
   const result = { lowInventoryCount: 0 };
   try {
-    const db = await getDb();
-    // Fetch parts with quantity and threshold — compare in JS to avoid RPC dependency
-    const { data } = await db
+    const db = await getDb(jwt);
+    const { data, error } = await db
       .from('parts')
       .select('quantity, low_stock_threshold')
       .eq('shop_id', ctx.shopId);
+    if (error) throw error;
     const rows = (data ?? []) as { quantity?: number; low_stock_threshold?: number }[];
     result.lowInventoryCount = rows.filter(r =>
       (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
@@ -362,18 +335,18 @@ export async function calculateInventoryMetrics(
 export async function calculateTechnicianMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
+  jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'technicianActiveCount' | 'technicianIdleCount'>> {
   const result = { technicianActiveCount: 0, technicianIdleCount: 0 };
   try {
-    const db = await getDb();
-    const { data } = await db
+    const db = await getDb(jwt);
+    const { data, error } = await db
       .from('shop_users')
       .select('id')
       .eq('shop_id', ctx.shopId)
       .eq('role', 'technician');
-    const total = (data ?? []).length;
-    result.technicianActiveCount = total;
-    result.technicianIdleCount = 0;
+    if (error) throw error;
+    result.technicianActiveCount = (data ?? []).length;
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] technicians:', m); warnings.push('technicians: ' + m); }
   return result;
 }
@@ -398,24 +371,26 @@ function calculateRevenueOpportunity(metrics: Partial<ShopIntelligenceMetrics>):
 
 // ── Main: calculateShopMetrics ────────────────────────────────
 
-export async function calculateShopMetrics(shopId: string): Promise<MetricCalculationResult> {
+export async function calculateShopMetrics(shopId: string, jwt?: string): Promise<MetricCalculationResult> {
   const start = Date.now();
   const warnings: string[] = [];
   const errors: string[] = [];
   const ctx = buildContext(shopId);
   const base = emptyMetrics(shopId);
 
+  console.warn('[MetricsBuilder] calculating for shopId:', shopId, 'hasJwt:', !!jwt);
+
   try {
     const [revenue, invoices, estimates, jobs, repairOrders, repairIntelligence, inventory, technicians] =
       await Promise.all([
-        calculateRevenueMetrics(ctx, warnings),
-        calculateInvoiceMetrics(ctx, warnings),
-        calculateEstimateMetrics(ctx, warnings),
-        calculateJobMetrics(ctx, warnings),
-        calculateRepairOrderMetrics(ctx, warnings),
-        calculateRepairIntelligenceMetrics(ctx, warnings),
-        calculateInventoryMetrics(ctx, warnings),
-        calculateTechnicianMetrics(ctx, warnings),
+        calculateRevenueMetrics(ctx, warnings, jwt),
+        calculateInvoiceMetrics(ctx, warnings, jwt),
+        calculateEstimateMetrics(ctx, warnings, jwt),
+        calculateJobMetrics(ctx, warnings, jwt),
+        calculateRepairOrderMetrics(ctx, warnings, jwt),
+        calculateRepairIntelligenceMetrics(ctx, warnings, jwt),
+        calculateInventoryMetrics(ctx, warnings, jwt),
+        calculateTechnicianMetrics(ctx, warnings, jwt),
       ]);
 
     const merged: ShopIntelligenceMetrics = {
@@ -449,10 +424,16 @@ export async function calculateShopMetrics(shopId: string): Promise<MetricCalcul
 }
 
 // ── Persist / Load ────────────────────────────────────────────
+// These use the admin client directly — shop_intelligence_metrics is internal.
+
+async function getAdminClient() {
+  const { getAdminDb } = await import('@/lib/supabaseServer');
+  return getAdminDb();
+}
 
 export async function saveShopMetrics(metrics: ShopIntelligenceMetrics): Promise<void> {
   try {
-    const db = await getDb();
+    const db = await getAdminClient();
     await db.from('shop_intelligence_metrics').upsert({
       shop_id:                      metrics.shopId,
       metric_date:                  metrics.metricDate,
@@ -490,7 +471,7 @@ export async function saveShopMetrics(metrics: ShopIntelligenceMetrics): Promise
 
 export async function getLatestShopMetrics(shopId: string): Promise<ShopIntelligenceMetrics | null> {
   try {
-    const db = await getDb();
+    const db = await getAdminClient();
     const { data } = await db
       .from('shop_intelligence_metrics')
       .select('*')
