@@ -751,7 +751,7 @@ export function EstimatesView() {
                   })}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
-                  {['Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', 'Currency', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
+                  {['Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', '', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
                     <div key={idx} style={{ fontSize: 11, fontWeight: 600, color: idx === 6 && ratesFetching ? '#d97706' : 'var(--muted)', padding: '0 4px' }}>{h}</div>
                   ))}
                 </div>
@@ -1025,12 +1025,27 @@ export function EstimatesView() {
                           </div>
                         );
                       })}
-                      {entries.length === 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
-                          <span>Total ({selected.currency})</span>
-                          <span style={{ color: 'var(--accent)' }}>{formatMoney(0, selected.currency)}</span>
-                        </div>
-                      )}
+                      {entries.length === 0 && (() => {
+                        const cur = selected.currency;
+                        const disc = totals?.discount ?? 0;
+                        const ss = totals?.shopSupplies ?? 0;
+                        const tax = totals?.tax ?? 0;
+                        const grand = totals?.total ?? 0;
+                        return (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
+                              <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(0, cur)}</span>
+                            </div>
+                            {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
+                            {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
+                            {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
+                              <span>Total ({cur})</span>
+                              <span style={{ color: 'var(--accent)' }}>{formatMoney(grand, cur)}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -1195,12 +1210,29 @@ export function EstimatesView() {
                         </div>
                       );
                     })}
-                    {entries.length === 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
-                        <span>{t('Total', 'ລວມທັງໝົດ')} ({selected.currency})</span>
-                        <span style={{ color: '#cc0000' }}>{formatMoney(0, selected.currency)}</span>
-                      </div>
-                    )}
+                    {entries.length === 0 && (() => {
+                      const cur = selected.currency;
+                      const disc = totals?.discount ?? 0;
+                      const ss = totals?.shopSupplies ?? 0;
+                      const tax = totals?.tax ?? 0;
+                      const grand = totals?.total ?? 0;
+                      return (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                            <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(0, cur)}</span>
+                          </div>
+                          {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
+                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Shop Supplies', 'ອຸປະກອນຮ້ານ')}</span><span>{formatMoney(ss, cur)}</span></div>}
+                          {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                            <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
+                          </div>}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
+                            <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
+                            <span style={{ color: '#cc0000' }}>{formatMoney(grand, cur)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
