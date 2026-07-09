@@ -1443,7 +1443,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             {PART_CONDITIONS.map(c => <option key={c}>{c}</option>)}
                           </select>
                         </td>
-                        <td style={tdStyle}><input type="number" min={1} value={item.quantity} onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)} style={{ ...cellInput, textAlign: 'center' }} /></td>
+                        <td style={tdStyle}><input type="number" min={1} value={item.quantity || 1} onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)} style={{ ...cellInput, textAlign: 'center' }} /></td>
                         <td style={tdStyle}>
                           <select value={item.currency || form.currency} onChange={e => updateLineItem(idx, 'currency', e.target.value)} style={{ ...cellInput, paddingRight: 4, minWidth: 80, fontSize: 12 }}>
                             {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}

@@ -49,7 +49,13 @@ function mapEstimate(r: Record<string, unknown>): PartsEstimate {
   try {
     const raw = r.line_items as EstimateLineItem[] | string | null;
     const parsed: EstimateLineItem[] = typeof raw === 'string' ? JSON.parse(raw) : (raw ?? []);
-    if (Array.isArray(parsed) && parsed.length > 0) lineItems = parsed;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      lineItems = parsed.map(item => ({
+        ...item,
+        quantity: Number(item.quantity) || 1,
+        unitCost: Number(item.unitCost) || 0,
+      }));
+    }
   } catch { /* ignore */ }
 
   if (lineItems.length === 0) {
