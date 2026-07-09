@@ -183,3 +183,9 @@ VALUES
   ('recommendation_engine',     'Recommendation Engine',     'Runs deterministic recommendation rules for shop owners', false, 'global'),
   ('daily_recommendations',     'Daily Recommendations',     'Generates fresh recommendations once per day', false, 'global')
 ON CONFLICT (flag_key) DO NOTHING;
+
+
+-- ── Grants (required for service_role to bypass RLS) ─────────
+GRANT ALL ON TABLE recommendations TO service_role, authenticated, anon;
+GRANT ALL ON TABLE intelligence_signals TO service_role, authenticated, anon;
+GRANT ALL ON TABLE feature_flags TO service_role, authenticated, anon;

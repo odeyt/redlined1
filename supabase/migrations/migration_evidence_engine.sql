@@ -105,3 +105,8 @@ CREATE POLICY "rec_outcomes_shop_owner_manager" ON public.recommendation_outcome
 
 CREATE POLICY "rec_outcomes_service_role" ON public.recommendation_outcomes
   FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ── Grants ────────────────────────────────────────────────────
+GRANT ALL ON TABLE shop_intelligence_metrics TO service_role, authenticated, anon;
+GRANT ALL ON TABLE recommendation_evidence TO service_role, authenticated, anon;
+GRANT ALL ON TABLE recommendation_outcomes TO service_role, authenticated, anon;

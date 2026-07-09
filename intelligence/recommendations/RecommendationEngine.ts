@@ -21,19 +21,10 @@ export async function generateRecommendations(shopId: string): Promise<Recommend
     try {
       const { getLatestShopMetrics } = await import('../metrics/MetricsBuilder');
       const metrics = await getLatestShopMetrics(shopId);
-      console.warn('[RecommendationEngine] metrics source:', metrics ? `cached ${metrics.metricDate}` : 'null→fallback');
       signals = metrics ? extractSignalsFromMetrics(metrics) : await extractSignals(shopId);
-    } catch (e) {
-      console.error('[RecommendationEngine] metrics load error:', e instanceof Error ? e.message : e);
+    } catch {
       signals = await extractSignals(shopId);
     }
-
-    console.warn('[RecommendationEngine] signals sample:', JSON.stringify({
-      unpaid: signals.unpaid_invoice_count,
-      stale: signals.stale_estimate_count,
-      stuck: signals.stuck_job_count,
-      low_inv: signals.low_inventory_count,
-    }));
 
     const ctx: RecommendationContext = {
       shopId,
@@ -50,7 +41,6 @@ export async function generateRecommendations(shopId: string): Promise<Recommend
       } catch { /* individual rule failure must not stop others */ }
     }
 
-    console.warn('[RecommendationEngine] rules fired:', results.length, results.map(r => r.recommendationKey));
     await saveRecommendations(shopId, results);
     return getOpenRecommendations(shopId);
   } catch {
@@ -85,12 +75,11 @@ export async function saveRecommendations(shopId: string, results: Recommendatio
       updated_at:          new Date().toISOString(),
     }));
 
-    const { error } = await db.from('recommendations').upsert(rows, {
+    await db.from('recommendations').upsert(rows, {
       onConflict: 'shop_id,recommendation_key',
       ignoreDuplicates: false,
     });
-    if (error) console.error('[RecommendationEngine] upsert error:', error.message, error.details ?? '');
-  } catch (e) { console.error('[RecommendationEngine] upsert exception:', e instanceof Error ? e.message : e); }
+  } catch { /* fail silently */ }
 }
 
 /**
