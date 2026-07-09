@@ -113,13 +113,33 @@ const EMPTY_ESTIMATE: FormState = {
   currency: 'USD',
 };
 
+function calcTotalByCurrency(items: EstimateLineItem[], coreCharge: number, mainCurrency = 'USD'): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const i of items) {
+    const c = i.currency || mainCurrency;
+    map[c] = (map[c] || 0) + i.unitCost * i.quantity;
+  }
+  map[mainCurrency] = (map[mainCurrency] || 0) + coreCharge;
+  return map;
+}
+
 function calcTotal(items: EstimateLineItem[], coreCharge: number, mainCurrency = 'USD') {
-  // Only sum items whose currency matches the estimate currency; mixed-currency
-  // items cannot be added without an exchange rate so they're excluded from the total.
-  const parts = items
-    .filter(i => (i.currency || mainCurrency) === mainCurrency)
-    .reduce((s, i) => s + i.unitCost * i.quantity, 0);
-  return { totalCost: parts + coreCharge };
+  const map = calcTotalByCurrency(items, coreCharge, mainCurrency);
+  // Use dominant currency (highest value) as main total if mainCurrency has no items
+  const mainTotal = map[mainCurrency] ?? 0;
+  if (mainTotal > coreCharge || Object.keys(map).length === 1) {
+    return { totalCost: mainTotal };
+  }
+  // All items are in foreign currencies — pick the one with highest value as totalCost
+  const dominant = Object.entries(map).sort(([, a], [, b]) => b - a)[0];
+  return { totalCost: dominant ? dominant[1] : coreCharge };
+}
+
+function fmtMultiCurrency(lineItems: EstimateLineItem[], coreCharge: number, mainCurrency: string): string {
+  const map = calcTotalByCurrency(lineItems, coreCharge, mainCurrency);
+  const entries = Object.entries(map).filter(([, v]) => v > 0).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return fmt(0, mainCurrency);
+  return entries.map(([c, v]) => fmt(v, c)).join(' + ');
 }
 
 export function PartsEstimatesView() {
@@ -604,8 +624,10 @@ export function PartsEstimatesView() {
   const uniqueVendorNames   = [...new Set(estimates.map(e => e.vendorName).filter(Boolean))];
 
   const totalByCurrency = estimates.reduce<Record<string, number>>((acc, e) => {
-    const cur = e.currency || 'USD';
-    acc[cur] = (acc[cur] || 0) + e.totalCost;
+    const map = calcTotalByCurrency(e.lineItems || [], e.coreCharge || 0, e.currency || 'USD');
+    for (const [cur, val] of Object.entries(map)) {
+      acc[cur] = (acc[cur] || 0) + val;
+    }
     return acc;
   }, {});
 
@@ -896,7 +918,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           <div style={{ fontSize: 13 }}>{e.vendorName || '—'}</div>
                           {e.vendorPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{e.vendorPhone}</div>}
                         </td>
-                        <td style={{ fontWeight: 700 }}>{fmt(e.totalCost, ec)}</td>
+                        <td style={{ fontWeight: 700, fontSize: 12 }}>{fmtMultiCurrency(e.lineItems || [], e.coreCharge || 0, e.currency || 'USD')}</td>
                         <td onClick={ev => ev.stopPropagation()}>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLOR[e.status] || '#888') + '22', color: STATUS_COLOR[e.status] || '#888', whiteSpace: 'nowrap' }}>
                             {e.status}
@@ -1098,9 +1120,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
               <SectionLabel label="Quote Summary" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                <InfoBox label="Parts Total" value={moneyE(selected.totalCost - selected.coreCharge, selected)} />
+                <InfoBox label="Parts Total" value={fmtMultiCurrency(selected.lineItems || [], 0, selected.currency || 'USD')} />
                 <InfoBox label="Core Charge" value={moneyE(selected.coreCharge, selected)} />
-                <InfoBox label="Total Quoted" value={moneyE(selected.totalCost, selected)} color="var(--accent)" />
+                <InfoBox label="Total Quoted" value={fmtMultiCurrency(selected.lineItems || [], selected.coreCharge || 0, selected.currency || 'USD')} color="var(--accent)" />
                 <InfoBox label="Currency"    value={selected.currency || 'USD'} />
               </div>
 
@@ -1504,19 +1526,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   return entries.map(([c, v]) => fmt(v, c)).join(' + ');
                 })()} />
                 <CalcBox label="Core Charge" value={money(form.coreCharge)} />
-                <CalcBox label="Total Quoted" value={(() => {
-                  // Main-currency items + core charge
-                  const mainTotal = money(form.totalCost);
-                  // Foreign-currency subtotals (excluded from numeric total)
-                  const foreign: string[] = [];
-                  const fMap: Record<string, number> = {};
-                  for (const item of form.lineItems) {
-                    const c = item.currency || form.currency;
-                    if (c !== form.currency) fMap[c] = (fMap[c] || 0) + item.unitCost * item.quantity;
-                  }
-                  for (const [c, v] of Object.entries(fMap)) foreign.push(fmt(v, c));
-                  return foreign.length ? `${mainTotal} + ${foreign.join(' + ')}` : mainTotal;
-                })()} color="var(--accent)" />
+                <CalcBox label="Total Quoted" value={fmtMultiCurrency(form.lineItems, form.coreCharge, form.currency || 'USD')} color="var(--accent)" />
               </div>
 
               {/* Status & Dates */}
