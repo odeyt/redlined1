@@ -1,4 +1,5 @@
-// SI-4: MetricsBuilder — computes all shop intelligence metrics from live DB data.
+// SI-4: MetricsBuilder — computes shop intelligence metrics from live DB data.
+// Queries use the EXACT table/column names from the production schema.
 // No AI. No external calls. Fails gracefully. Never throws to caller.
 import type {
   ShopIntelligenceMetrics,
@@ -40,6 +41,11 @@ function daysAgo(n: number): string {
   return d.toISOString();
 }
 
+// Statuses that mean a job is still open/active (not finished)
+const ACTIVE_JOB_STATUSES = ['Booked', 'Approved', 'In Progress', 'Waiting', 'Ready', 'Pending'];
+// Statuses that mean a job is done
+const CLOSED_JOB_STATUSES = ['Closed', 'Completed', 'Invoiced'];
+
 function emptyMetrics(shopId: string): ShopIntelligenceMetrics {
   return {
     shopId,
@@ -74,35 +80,41 @@ function emptyMetrics(shopId: string): ShopIntelligenceMetrics {
   };
 }
 
-// ── Revenue ───────────────────────────────────────────────────
+// ── Revenue & Payments ────────────────────────────────────────
+// payments table: payment_date (date of payment), amount, status ('Recorded','Verified','Refunded','Void')
 
 export async function calculateRevenueMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
 ): Promise<Pick<ShopIntelligenceMetrics, 'revenueToday' | 'revenueYesterday' | 'paymentsToday'>> {
   const result = { revenueToday: 0, revenueYesterday: 0, paymentsToday: 0 };
+
   try {
     const db = await getDb();
-    const { data: todayPayments } = await db
+    const todayDateStr = ctx.todayStart.split('T')[0]; // 'YYYY-MM-DD'
+    const { data } = await db
       .from('payments')
-      .select('amount')
+      .select('amount, status')
       .eq('shop_id', ctx.shopId)
-      .gte('created_at', ctx.todayStart);
-    result.revenueToday = (todayPayments ?? []).reduce(
-      (s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0,
-    );
-    result.paymentsToday = (todayPayments ?? []).length;
+      .gte('payment_date', todayDateStr)
+      .in('status', ['Recorded', 'Verified']);
+    const rows = (data ?? []) as { amount?: number }[];
+    result.revenueToday = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    result.paymentsToday = rows.length;
   } catch { warnings.push('revenue_today: query failed'); }
 
   try {
     const db = await getDb();
-    const { data: yPayments } = await db
+    const yStart = ctx.yesterdayStart.split('T')[0];
+    const yEnd   = ctx.yesterdayEnd.split('T')[0];
+    const { data } = await db
       .from('payments')
       .select('amount')
       .eq('shop_id', ctx.shopId)
-      .gte('created_at', ctx.yesterdayStart)
-      .lte('created_at', ctx.yesterdayEnd);
-    result.revenueYesterday = (yPayments ?? []).reduce(
+      .gte('payment_date', yStart)
+      .lte('payment_date', yEnd)
+      .in('status', ['Recorded', 'Verified']);
+    result.revenueYesterday = (data ?? []).reduce(
       (s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0,
     );
   } catch { warnings.push('revenue_yesterday: query failed'); }
@@ -111,6 +123,8 @@ export async function calculateRevenueMetrics(
 }
 
 // ── Invoices ──────────────────────────────────────────────────
+// invoices table: PK = number (string), status ('Draft','Sent','Paid','Void'), due_date
+// No total column — total is computed from lines jsonb; we count only, no dollar total
 
 export async function calculateInvoiceMetrics(
   ctx: MetricCalculationContext,
@@ -119,23 +133,52 @@ export async function calculateInvoiceMetrics(
   const result = { unpaidInvoiceCount: 0, unpaidInvoiceTotal: 0, overdueInvoiceCount: 0, overdueInvoiceTotal: 0 };
   try {
     const db = await getDb();
+    const nowStr = ctx.now.toISOString().split('T')[0];
     const { data } = await db
       .from('invoices')
-      .select('id, total, due_date')
+      .select('number, due_date, lines, discount, shop_supplies, tax_rate, currency')
       .eq('shop_id', ctx.shopId)
       .in('status', ['Draft', 'Sent']);
-    const rows = (data ?? []) as { id: string; total?: number; due_date?: string }[];
+    const rows = (data ?? []) as {
+      number: string;
+      due_date?: string;
+      lines?: { qty: number; rate: number; currency?: string }[];
+      discount?: number;
+      shop_supplies?: number;
+      tax_rate?: number;
+      currency?: string;
+    }[];
     result.unpaidInvoiceCount = rows.length;
-    result.unpaidInvoiceTotal = rows.reduce((s, r) => s + (Number(r.total) || 0), 0);
-    const now = ctx.now.toISOString();
-    const overdue = rows.filter(r => r.due_date && r.due_date < now);
-    result.overdueInvoiceCount = overdue.length;
-    result.overdueInvoiceTotal = overdue.reduce((s, r) => s + (Number(r.total) || 0), 0);
+
+    // Compute totals from lines (mirrors invoiceService.calculateTotals)
+    let unpaidTotal = 0;
+    let overdueCount = 0;
+    let overdueTotal = 0;
+    for (const r of rows) {
+      const lines = r.lines ?? [];
+      const baseCur = r.currency || 'USD';
+      const subtotal = lines
+        .filter(l => !l.currency || l.currency === baseCur)
+        .reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
+      const afterDiscount = Math.max(subtotal - (r.discount ?? 0), 0);
+      const taxable = afterDiscount + (r.shop_supplies ?? 0);
+      const total = taxable + taxable * (r.tax_rate ?? 0);
+      unpaidTotal += total;
+      if (r.due_date && r.due_date < nowStr) {
+        overdueCount++;
+        overdueTotal += total;
+      }
+    }
+    result.unpaidInvoiceTotal = unpaidTotal;
+    result.overdueInvoiceCount = overdueCount;
+    result.overdueInvoiceTotal = overdueTotal;
   } catch { warnings.push('invoices: query failed'); }
   return result;
 }
 
 // ── Estimates ─────────────────────────────────────────────────
+// estimates table: status ('Draft','Sent','Pending','Approved','Declined'), created_at
+// total computed from lines
 
 export async function calculateEstimateMetrics(
   ctx: MetricCalculationContext,
@@ -150,46 +193,66 @@ export async function calculateEstimateMetrics(
     const staleThreshold = daysAgo(ctx.staleThresholdDays);
     const { data } = await db
       .from('estimates')
-      .select('id, total, status, created_at')
-      .eq('shop_id', ctx.shopId)
-      .in('status', ['Draft', 'Sent', 'Pending', 'Approved', 'Declined']);
-    const rows = (data ?? []) as { id: string; total?: number; status: string; created_at: string }[];
-    const open = rows.filter(r => ['Draft', 'Sent', 'Pending'].includes(r.status));
-    result.openEstimateCount = open.length;
-    const stale = open.filter(r => r.created_at < staleThreshold);
-    result.staleEstimateCount = stale.length;
-    result.staleEstimateTotal = stale.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      .select('id, status, created_at, lines, discount, shop_supplies, tax_rate, currency')
+      .eq('shop_id', ctx.shopId);
+    const rows = (data ?? []) as {
+      status: string;
+      created_at: string;
+      lines?: { qty: number; rate: number; currency?: string }[];
+      discount?: number;
+      shop_supplies?: number;
+      tax_rate?: number;
+      currency?: string;
+    }[];
+
+    const openRows = rows.filter(r => ['Draft', 'Sent', 'Pending'].includes(r.status));
+    result.openEstimateCount = openRows.length;
     result.declinedEstimateCount = rows.filter(r => r.status === 'Declined').length;
     result.approvedNotScheduledCount = rows.filter(r => r.status === 'Approved').length;
+
+    const staleRows = openRows.filter(r => r.created_at < staleThreshold);
+    result.staleEstimateCount = staleRows.length;
+    result.staleEstimateTotal = staleRows.reduce((sum, r) => {
+      const lines = r.lines ?? [];
+      const baseCur = r.currency || 'USD';
+      const subtotal = lines
+        .filter(l => !l.currency || l.currency === baseCur)
+        .reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
+      const taxable = Math.max(subtotal - (r.discount ?? 0), 0) + (r.shop_supplies ?? 0);
+      return sum + taxable + taxable * (r.tax_rate ?? 0);
+    }, 0);
   } catch { warnings.push('estimates: query failed'); }
   return result;
 }
 
 // ── Job Cards ─────────────────────────────────────────────────
+// job_cards table: check_in_date, closed_date, status
+// closed_jobs table: invoice (null = not invoiced), closed_date
 
 export async function calculateJobMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
 ): Promise<Pick<ShopIntelligenceMetrics, 'openJobCount' | 'stuckJobCount' | 'completedNotInvoicedCount' | 'completedJobsToday'>> {
   const result = { openJobCount: 0, stuckJobCount: 0, completedNotInvoicedCount: 0, completedJobsToday: 0 };
+
   try {
     const db = await getDb();
     const stuckThreshold = daysAgo(ctx.stuckThresholdDays);
     const { data } = await db
       .from('job_cards')
-      .select('id, status, check_in_date, created_at')
+      .select('id, status, check_in_date')
       .eq('shop_id', ctx.shopId);
-    const rows = (data ?? []) as { id: string; status?: string; check_in_date?: string; created_at: string }[];
-    const active = rows.filter(r => !['Closed', 'Invoiced', 'Cancelled'].includes(r.status ?? ''));
+    const rows = (data ?? []) as { status?: string; check_in_date?: string }[];
+
+    // Active = not in any finished state
+    const active = rows.filter(r => !CLOSED_JOB_STATUSES.includes(r.status ?? ''));
     result.openJobCount = active.length;
     result.stuckJobCount = active.filter(r =>
-      (r.check_in_date ?? r.created_at) < stuckThreshold,
-    ).length;
-    result.completedJobsToday = rows.filter(r =>
-      r.status === 'Closed' && r.created_at >= ctx.todayStart,
+      r.check_in_date && r.check_in_date < stuckThreshold,
     ).length;
   } catch { warnings.push('job_cards: query failed'); }
 
+  // closed_jobs: jobs with no invoice attached
   try {
     const db = await getDb();
     const { count } = await db
@@ -198,15 +261,24 @@ export async function calculateJobMetrics(
       .eq('shop_id', ctx.shopId)
       .is('invoice', null);
     result.completedNotInvoicedCount = count ?? 0;
-  } catch {
-    // closed_jobs table may not exist — not a blocking error
-    warnings.push('closed_jobs: table unavailable or query failed');
-  }
+  } catch { warnings.push('closed_jobs: not available or query failed'); }
+
+  // Completed today (closed_jobs with closed_date today)
+  try {
+    const db = await getDb();
+    const todayStr = ctx.todayStart.split('T')[0];
+    const { count } = await db
+      .from('closed_jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('shop_id', ctx.shopId)
+      .gte('closed_date', todayStr);
+    result.completedJobsToday = count ?? 0;
+  } catch { warnings.push('closed_jobs today: query failed'); }
+
   return result;
 }
 
 // ── Repair Orders ─────────────────────────────────────────────
-
 export async function calculateRepairOrderMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
@@ -218,14 +290,14 @@ export async function calculateRepairOrderMetrics(
       .from('repair_orders')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
-      .in('status', ['In Progress', 'Open', 'Pending']);
+      .in('status', ['In Progress', 'Open', 'Pending', 'Active']);
     result.repairOrdersInProgress = count ?? 0;
-  } catch { warnings.push('repair_orders: query failed'); }
+  } catch { warnings.push('repair_orders: not available or query failed'); }
   return result;
 }
 
 // ── Repair Intelligence ───────────────────────────────────────
-
+// repair_cases table: created_at
 export async function calculateRepairIntelligenceMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
@@ -244,7 +316,7 @@ export async function calculateRepairIntelligenceMetrics(
 }
 
 // ── Inventory ─────────────────────────────────────────────────
-
+// parts table (NOT parts_inventory): quantity, low_stock_threshold
 export async function calculateInventoryMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
@@ -252,18 +324,20 @@ export async function calculateInventoryMetrics(
   const result = { lowInventoryCount: 0 };
   try {
     const db = await getDb();
-    const { count } = await db
-      .from('parts_inventory')
-      .select('id', { count: 'exact', head: true })
-      .eq('shop_id', ctx.shopId)
-      .lte('quantity', 1);
-    result.lowInventoryCount = count ?? 0;
-  } catch { warnings.push('parts_inventory: query failed'); }
+    // Fetch parts with quantity and threshold — compare in JS to avoid RPC dependency
+    const { data } = await db
+      .from('parts')
+      .select('quantity, low_stock_threshold')
+      .eq('shop_id', ctx.shopId);
+    const rows = (data ?? []) as { quantity?: number; low_stock_threshold?: number }[];
+    result.lowInventoryCount = rows.filter(r =>
+      (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
+    ).length;
+  } catch { warnings.push('parts: query failed'); }
   return result;
 }
 
 // ── Technicians ───────────────────────────────────────────────
-
 export async function calculateTechnicianMetrics(
   ctx: MetricCalculationContext,
   warnings: string[],
@@ -273,20 +347,12 @@ export async function calculateTechnicianMetrics(
     const db = await getDb();
     const { data } = await db
       .from('shop_users')
-      .select('id, role')
+      .select('id')
       .eq('shop_id', ctx.shopId)
       .eq('role', 'technician');
     const total = (data ?? []).length;
-    // Active = technician with an open job card assigned today (best-effort proxy)
-    const { count: activeCount } = await db
-      .from('job_cards')
-      .select('id', { count: 'exact', head: true })
-      .eq('shop_id', ctx.shopId)
-      .not('status', 'in', '("Closed","Invoiced","Cancelled")')
-      .gte('created_at', ctx.todayStart);
-    const active = Math.min(activeCount ?? 0, total);
-    result.technicianActiveCount = active;
-    result.technicianIdleCount = Math.max(0, total - active);
+    result.technicianActiveCount = total;
+    result.technicianIdleCount = 0;
   } catch { warnings.push('technicians: query failed'); }
   return result;
 }
@@ -295,7 +361,6 @@ export async function calculateTechnicianMetrics(
 
 export function calculateShopHealthScore(metrics: Partial<ShopIntelligenceMetrics>): number {
   let score = 100;
-
   if ((metrics.overdueInvoiceCount ?? 0) > 0)        score -= 10;
   if ((metrics.staleEstimateCount ?? 0) > 0)         score -= 10;
   if ((metrics.stuckJobCount ?? 0) > 0)              score -= 15;
@@ -303,19 +368,11 @@ export function calculateShopHealthScore(metrics: Partial<ShopIntelligenceMetric
   if ((metrics.lowInventoryCount ?? 0) > 0)          score -= 10;
   if ((metrics.revenueToday ?? 0) === 0 && (metrics.openJobCount ?? 0) > 0) score -= 10;
   if ((metrics.repairCasesToday ?? 0) === 0 && (metrics.completedJobsToday ?? 0) > 0) score -= 5;
-
   return Math.max(0, Math.min(100, score));
 }
 
-// ── Revenue Opportunity ───────────────────────────────────────
-
 function calculateRevenueOpportunity(metrics: Partial<ShopIntelligenceMetrics>): number {
-  return (
-    (metrics.unpaidInvoiceTotal ?? 0) +
-    (metrics.staleEstimateTotal ?? 0)
-    // completed_not_invoiced and approved_not_scheduled don't have dollar amounts without
-    // joining to job/estimate totals — included as count signals only
-  );
+  return (metrics.unpaidInvoiceTotal ?? 0) + (metrics.staleEstimateTotal ?? 0);
 }
 
 // ── Main: calculateShopMetrics ────────────────────────────────
@@ -352,7 +409,7 @@ export async function calculateShopMetrics(shopId: string): Promise<MetricCalcul
       ...technicians,
     };
 
-    merged.shopHealthScore = calculateShopHealthScore(merged);
+    merged.shopHealthScore        = calculateShopHealthScore(merged);
     merged.revenueOpportunityTotal = calculateRevenueOpportunity(merged);
     merged.riskCount =
       (merged.overdueInvoiceCount > 0 ? 1 : 0) +
@@ -376,38 +433,38 @@ export async function saveShopMetrics(metrics: ShopIntelligenceMetrics): Promise
   try {
     const db = await getDb();
     await db.from('shop_intelligence_metrics').upsert({
-      shop_id:                     metrics.shopId,
-      metric_date:                 metrics.metricDate,
-      revenue_today:               metrics.revenueToday,
-      revenue_yesterday:           metrics.revenueYesterday,
-      payments_today:              metrics.paymentsToday,
-      unpaid_invoice_count:        metrics.unpaidInvoiceCount,
-      unpaid_invoice_total:        metrics.unpaidInvoiceTotal,
-      overdue_invoice_count:       metrics.overdueInvoiceCount,
-      overdue_invoice_total:       metrics.overdueInvoiceTotal,
-      open_estimate_count:         metrics.openEstimateCount,
-      stale_estimate_count:        metrics.staleEstimateCount,
-      stale_estimate_total:        metrics.staleEstimateTotal,
-      declined_estimate_count:     metrics.declinedEstimateCount,
+      shop_id:                      metrics.shopId,
+      metric_date:                  metrics.metricDate,
+      revenue_today:                metrics.revenueToday,
+      revenue_yesterday:            metrics.revenueYesterday,
+      payments_today:               metrics.paymentsToday,
+      unpaid_invoice_count:         metrics.unpaidInvoiceCount,
+      unpaid_invoice_total:         metrics.unpaidInvoiceTotal,
+      overdue_invoice_count:        metrics.overdueInvoiceCount,
+      overdue_invoice_total:        metrics.overdueInvoiceTotal,
+      open_estimate_count:          metrics.openEstimateCount,
+      stale_estimate_count:         metrics.staleEstimateCount,
+      stale_estimate_total:         metrics.staleEstimateTotal,
+      declined_estimate_count:      metrics.declinedEstimateCount,
       approved_not_scheduled_count: metrics.approvedNotScheduledCount,
       completed_not_invoiced_count: metrics.completedNotInvoicedCount,
-      open_job_count:              metrics.openJobCount,
-      stuck_job_count:             metrics.stuckJobCount,
-      repair_orders_in_progress:   metrics.repairOrdersInProgress,
-      completed_jobs_today:        metrics.completedJobsToday,
-      repair_cases_today:          metrics.repairCasesToday,
-      low_inventory_count:         metrics.lowInventoryCount,
-      technician_active_count:     metrics.technicianActiveCount,
-      technician_idle_count:       metrics.technicianIdleCount,
-      shop_health_score:           metrics.shopHealthScore,
-      revenue_opportunity_total:   metrics.revenueOpportunityTotal,
-      risk_count:                  metrics.riskCount,
-      recommendation_count:        metrics.recommendationCount,
-      metadata:                    metrics.metadata,
-      calculated_at:               metrics.calculatedAt,
-      updated_at:                  new Date().toISOString(),
+      open_job_count:               metrics.openJobCount,
+      stuck_job_count:              metrics.stuckJobCount,
+      repair_orders_in_progress:    metrics.repairOrdersInProgress,
+      completed_jobs_today:         metrics.completedJobsToday,
+      repair_cases_today:           metrics.repairCasesToday,
+      low_inventory_count:          metrics.lowInventoryCount,
+      technician_active_count:      metrics.technicianActiveCount,
+      technician_idle_count:        metrics.technicianIdleCount,
+      shop_health_score:            metrics.shopHealthScore,
+      revenue_opportunity_total:    metrics.revenueOpportunityTotal,
+      risk_count:                   metrics.riskCount,
+      recommendation_count:         metrics.recommendationCount,
+      metadata:                     metrics.metadata,
+      calculated_at:                metrics.calculatedAt,
+      updated_at:                   new Date().toISOString(),
     }, { onConflict: 'shop_id,metric_date', ignoreDuplicates: false });
-  } catch { /* fail silently — never block caller */ }
+  } catch { /* fail silently */ }
 }
 
 export async function getLatestShopMetrics(shopId: string): Promise<ShopIntelligenceMetrics | null> {
