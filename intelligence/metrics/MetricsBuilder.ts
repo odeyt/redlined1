@@ -12,6 +12,15 @@ async function getDb() {
   return getAdminDb();
 }
 
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'object' && e !== null) {
+    const obj = e as Record<string, unknown>;
+    return String(obj.message ?? obj.details ?? JSON.stringify(e));
+  }
+  return String(e);
+}
+
 function buildContext(shopId: string): MetricCalculationContext {
   const now = new Date();
   const todayStart = new Date(now);
@@ -102,7 +111,7 @@ export async function calculateRevenueMetrics(
     const rows = (data ?? []) as { amount?: number }[];
     result.revenueToday = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
     result.paymentsToday = rows.length;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] revenue_today:', m); warnings.push('revenue_today: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] revenue_today:', m); warnings.push('revenue_today: ' + m); }
 
   try {
     const db = await getDb();
@@ -119,7 +128,7 @@ export async function calculateRevenueMetrics(
     result.revenueYesterday = (data ?? []).reduce(
       (s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0,
     );
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] revenue_yesterday:', m); warnings.push('revenue_yesterday: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] revenue_yesterday:', m); warnings.push('revenue_yesterday: ' + m); }
 
   return result;
 }
@@ -174,7 +183,7 @@ export async function calculateInvoiceMetrics(
     result.unpaidInvoiceTotal = unpaidTotal;
     result.overdueInvoiceCount = overdueCount;
     result.overdueInvoiceTotal = overdueTotal;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] invoices:', m); warnings.push('invoices: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] invoices:', m); warnings.push('invoices: ' + m); }
   return result;
 }
 
@@ -223,7 +232,7 @@ export async function calculateEstimateMetrics(
       const taxable = Math.max(subtotal - (r.discount ?? 0), 0) + (r.shop_supplies ?? 0);
       return sum + taxable + taxable * (r.tax_rate ?? 0);
     }, 0);
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] estimates:', m); warnings.push('estimates: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] estimates:', m); warnings.push('estimates: ' + m); }
   return result;
 }
 
@@ -255,32 +264,37 @@ export async function calculateJobMetrics(
     result.stuckJobCount = active.filter(r =>
       r.created_at && r.created_at < stuckThreshold,
     ).length;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] job_cards:', m); warnings.push('job_cards: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] job_cards:', m); warnings.push('job_cards: ' + m); }
 
-  // closed_jobs: jobs with no invoice attached
+  // Closed jobs with no invoice — query job_cards directly by status
   try {
     const db = await getDb();
-    const { count, error } = await db
-      .from('closed_jobs')
-      .select('id', { count: 'exact', head: true })
+    const { data, error } = await db
+      .from('job_cards')
+      .select('id, status')
       .eq('shop_id', ctx.shopId)
-      .is('invoice', null);
+      .in('status', CLOSED_JOB_STATUSES);
     if (error) throw error;
-    result.completedNotInvoicedCount = count ?? 0;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] closed_jobs:', m); warnings.push('closed_jobs: ' + m); }
+    const rows = (data ?? []) as { status?: string }[];
+    // 'Closed' or 'Completed' without 'Invoiced' = not yet invoiced
+    result.completedNotInvoicedCount = rows.filter(r =>
+      r.status === 'Closed' || r.status === 'Completed'
+    ).length;
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] completed_not_invoiced:', m); warnings.push('completed_not_invoiced: ' + m); }
 
-  // Completed today (closed_jobs with closed_date today)
+  // Completed today — jobs closed since today's start
   try {
     const db = await getDb();
     const todayStr = ctx.todayStart.split('T')[0];
     const { count, error } = await db
-      .from('closed_jobs')
+      .from('job_cards')
       .select('id', { count: 'exact', head: true })
       .eq('shop_id', ctx.shopId)
-      .gte('closed_date', todayStr);
+      .in('status', CLOSED_JOB_STATUSES)
+      .gte('updated_at', todayStr);
     if (error) throw error;
     result.completedJobsToday = count ?? 0;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] closed_jobs_today:', m); warnings.push('closed_jobs_today: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] completed_jobs_today:', m); warnings.push('completed_jobs_today: ' + m); }
 
   return result;
 }
@@ -299,7 +313,7 @@ export async function calculateRepairOrderMetrics(
       .eq('shop_id', ctx.shopId)
       .in('status', ['In Progress', 'Open', 'Pending', 'Active']);
     result.repairOrdersInProgress = count ?? 0;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] repair_orders:', m); warnings.push('repair_orders: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] repair_orders:', m); warnings.push('repair_orders: ' + m); }
   return result;
 }
 
@@ -318,7 +332,7 @@ export async function calculateRepairIntelligenceMetrics(
       .eq('shop_id', ctx.shopId)
       .gte('created_at', ctx.todayStart);
     result.repairCasesToday = count ?? 0;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] repair_cases:', m); warnings.push('repair_cases: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] repair_cases:', m); warnings.push('repair_cases: ' + m); }
   return result;
 }
 
@@ -340,7 +354,7 @@ export async function calculateInventoryMetrics(
     result.lowInventoryCount = rows.filter(r =>
       (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
     ).length;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] parts:', m); warnings.push('parts: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] parts:', m); warnings.push('parts: ' + m); }
   return result;
 }
 
@@ -360,7 +374,7 @@ export async function calculateTechnicianMetrics(
     const total = (data ?? []).length;
     result.technicianActiveCount = total;
     result.technicianIdleCount = 0;
-  } catch (e) { const m = e instanceof Error ? e.message : String(e); console.error('[MetricsBuilder] technicians:', m); warnings.push('technicians: ' + m); }
+  } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] technicians:', m); warnings.push('technicians: ' + m); }
   return result;
 }
 
