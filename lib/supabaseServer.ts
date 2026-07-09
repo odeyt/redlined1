@@ -20,5 +20,10 @@ export async function getServerDb(jwt?: string): Promise<SupabaseClient> {
 /** Always returns a service-role client (falls back to anon if key missing).
  *  For public/unauthenticated routes — requires a matching anon RLS policy. */
 export function getAdminDb(): SupabaseClient {
-  return createClient(SUPA_URL, SUPA_SVC ?? SUPA_ANON);
+  // Read key at call time in case module loaded before env was injected
+  const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? SUPA_SVC;
+  if (!svcKey) {
+    console.error('[supabaseServer] SUPABASE_SERVICE_ROLE_KEY not set — using anon key, RLS will block queries');
+  }
+  return createClient(SUPA_URL, svcKey ?? SUPA_ANON);
 }

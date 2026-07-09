@@ -7,11 +7,11 @@ import type {
   MetricCalculationResult,
 } from './types';
 
-// Use getServerDb which prefers service-role key; falls back to JWT-authed anon client.
-// This ensures queries work via RLS even when service role key is unavailable.
-async function getDb(jwt?: string) {
-  const { getServerDb } = await import('@/lib/supabaseServer');
-  return getServerDb(jwt);
+// Use getAdminDb (service role key) — bypasses RLS so shop_id filter is the only guard.
+// If SUPABASE_SERVICE_ROLE_KEY is missing, falls back to anon (logged as error).
+async function getDb(_jwt?: string) {
+  const { getAdminDb } = await import('@/lib/supabaseServer');
+  return getAdminDb();
 }
 
 function errMsg(e: unknown): string {
