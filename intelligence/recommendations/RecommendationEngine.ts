@@ -21,10 +21,19 @@ export async function generateRecommendations(shopId: string): Promise<Recommend
     try {
       const { getLatestShopMetrics } = await import('../metrics/MetricsBuilder');
       const metrics = await getLatestShopMetrics(shopId);
+      console.warn('[RecommendationEngine] metrics source:', metrics ? `cached ${metrics.metricDate}` : 'null→fallback');
       signals = metrics ? extractSignalsFromMetrics(metrics) : await extractSignals(shopId);
-    } catch {
+    } catch (e) {
+      console.error('[RecommendationEngine] metrics load error:', e instanceof Error ? e.message : e);
       signals = await extractSignals(shopId);
     }
+
+    console.warn('[RecommendationEngine] signals sample:', JSON.stringify({
+      unpaid: signals.unpaid_invoice_count,
+      stale: signals.stale_estimate_count,
+      stuck: signals.stuck_job_count,
+      low_inv: signals.low_inventory_count,
+    }));
 
     const ctx: RecommendationContext = {
       shopId,
@@ -41,6 +50,7 @@ export async function generateRecommendations(shopId: string): Promise<Recommend
       } catch { /* individual rule failure must not stop others */ }
     }
 
+    console.warn('[RecommendationEngine] rules fired:', results.length, results.map(r => r.recommendationKey));
     await saveRecommendations(shopId, results);
     return getOpenRecommendations(shopId);
   } catch {
