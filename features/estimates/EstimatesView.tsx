@@ -837,10 +837,6 @@ export function EstimatesView() {
                   <input type="text" inputMode="decimal" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
                 </div>
                 <div className="login-field">
-                  <label>Shop Supplies ($)</label>
-                  <input type="text" inputMode="decimal" value={form.shopSupplies} onChange={e => setForm(f => ({ ...f, shopSupplies: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
-                </div>
-                <div className="login-field">
                   <label>Tax Rate (%)</label>
                   <input type="text" inputMode="decimal" value={(form.taxRate * 100).toFixed(1)} onChange={e => setForm(f => ({ ...f, taxRate: (parseFloat(e.target.value) || 0) / 100 }))} placeholder="8.0" />
                 </div>
@@ -1016,7 +1012,6 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(sub, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
                             {(tax > 0 || isMain) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
@@ -1037,7 +1032,6 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(0, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Shop Supplies</span><span>{formatMoney(ss, cur)}</span></div>}
                             {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
@@ -1199,7 +1193,6 @@ export function EstimatesView() {
                             <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(sub, cur)}</span>
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
-                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Shop Supplies', 'ອຸປະກອນຮ້ານ')}</span><span>{formatMoney(ss, cur)}</span></div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
                             <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>
@@ -1222,7 +1215,6 @@ export function EstimatesView() {
                             <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(0, cur)}</span>
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
-                          {ss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Shop Supplies', 'ອຸປະກອນຮ້ານ')}</span><span>{formatMoney(ss, cur)}</span></div>}
                           {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
                             <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>}
