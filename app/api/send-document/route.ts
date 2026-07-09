@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
-import { getServerDb } from '@/lib/supabaseServer';
+import { getServerDb, getAdminDb } from '@/lib/supabaseServer';
 
 function money(amount: number, currency: string) {
   try {
@@ -231,11 +231,21 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Optionally save email back to customer record
+    // Optionally save email back to customer record.
+    // Use admin client (bypasses RLS) and filter by id only — shop_id on the
+    // customers row may differ between parent shop and location sub-shops.
     if (saveEmail && customerId) {
       try {
-        await db.from('customers').update({ email }).eq('id', customerId).eq('shop_id', shopId);
-      } catch { /* non-fatal */ }
+        const adminDb = getAdminDb();
+        const { error: saveErr } = await adminDb
+          .from('customers')
+          .update({ email })
+          .eq('id', customerId);
+        if (saveErr) console.error('[send-document] save email:', saveErr.message);
+        else console.log('[send-document] email saved to customer', customerId);
+      } catch (saveEx) {
+        console.error('[send-document] save email exception:', saveEx);
+      }
     }
 
     // Generate PDF with pdf-lib (pure JS — works in Vercel serverless)
@@ -319,7 +329,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (emailErr) return NextResponse.json({ error: (emailErr as { message?: string }).message ?? 'Email send failed' }, { status: 500 });
-    return NextResponse.json({ success: true, sentTo: email });
+    return NextResponse.json({ success: true, sentTo: email, emailSaved: !!(saveEmail && customerId) });
   } catch (e: unknown) {
     console.error('[send-document]', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });

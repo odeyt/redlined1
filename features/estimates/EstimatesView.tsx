@@ -395,10 +395,10 @@ export function EstimatesView() {
           customerId: emailModal.customerId,
         }),
       });
-      const json = await res.json();
+      const json = await res.json() as { sentTo?: string; emailSaved?: boolean; error?: string };
       if (!res.ok) throw new Error(json.error);
-      notify(`Estimate emailed to ${json.sentTo}${emailModal.saveEmail && isNewEmail ? ' · email saved to customer' : ''}`);
-      if (emailModal.saveEmail && isNewEmail && emailModal.customerId) {
+      notify(`Estimate emailed to ${json.sentTo}${json.emailSaved ? ' · email saved to customer record' : ''}`);
+      if (json.emailSaved && emailModal.customerId) {
         setFullCustomers(prev => prev.map(c => c.id === emailModal.customerId ? { ...c, email: emailModal.email } : c));
       }
       setEmailModal(null);
