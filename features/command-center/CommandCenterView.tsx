@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useShop } from '@/lib/useShop';
+import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { getShopId } from '@/lib/shopStore';
 
@@ -141,53 +142,86 @@ function HealthRing({ score }: { score: number }) {
 
 // ── Summary Pill ──────────────────────────────────────────────
 function SummaryPill({
-  icon, label, value, accent, dimmed,
-}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean }) {
+  icon, label, value, accent, dimmed, onClick,
+}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean; onClick?: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const clickable = !!onClick;
   return (
-    <div style={{
-      background: dimmed ? 'var(--surface)' : `linear-gradient(135deg,${accent}12,${accent}06)`,
-      border: `1.5px solid ${dimmed ? 'var(--line)' : accent + '40'}`,
-      borderRadius: D.radius,
-      padding: '14px 18px',
-      display: 'flex', flexDirection: 'column', gap: 6,
-      boxShadow: dimmed ? 'none' : `0 0 0 0 ${accent}`,
-    }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: dimmed ? 'var(--surface)' : `linear-gradient(135deg,${accent}12,${accent}06)`,
+        border: `1.5px solid ${dimmed ? 'var(--line)' : accent + (hovered ? '70' : '40')}`,
+        borderRadius: D.radius,
+        padding: '14px 18px',
+        display: 'flex', flexDirection: 'column', gap: 6,
+        cursor: clickable ? 'pointer' : 'default',
+        transform: hovered && clickable ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered && clickable ? `0 6px 20px ${accent}25` : 'none',
+        transition: 'all 0.18s ease',
+      }}>
       <div style={{ fontSize: 20 }}>{icon}</div>
       <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? 'var(--text)' : accent }}>{value}</div>
+      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.9 : 0.4, fontWeight: 600, transition: 'opacity 0.15s' }}>View →</div>}
     </div>
   );
 }
 
 // ── Signal Tile ───────────────────────────────────────────────
-function SignalTile({ icon, label, value, accent }: { icon: string; label: string; value: string | number; accent?: string }) {
+function SignalTile({ icon, label, value, accent, onClick }: { icon: string; label: string; value: string | number; accent?: string; onClick?: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--line)',
-      borderTop: `3px solid ${accent ?? 'var(--line)'}`,
-      borderRadius: D.radiusSm,
-      padding: '12px 14px',
-      boxShadow: D.cardShadow,
-      display: 'flex', flexDirection: 'column', gap: 5,
-    }}>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered && onClick ? `${accent ?? '#64748b'}08` : 'var(--surface)',
+        border: '1px solid var(--line)',
+        borderTop: `3px solid ${hovered && onClick ? (accent ?? '#64748b') : (accent ?? 'var(--line)')}`,
+        borderRadius: D.radiusSm,
+        padding: '12px 14px',
+        boxShadow: hovered && onClick ? D.cardShadowHover : D.cardShadow,
+        display: 'flex', flexDirection: 'column', gap: 5,
+        cursor: onClick ? 'pointer' : 'default',
+        transform: hovered && onClick ? 'translateY(-2px)' : 'none',
+        transition: 'all 0.18s ease',
+      }}>
       <div style={{ fontSize: 18 }}>{icon}</div>
       <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 800, color: accent ?? 'var(--text)' }}>{value}</div>
+      {onClick && <div style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0.3, fontWeight: 600, transition: 'opacity 0.15s' }}>Open →</div>}
     </div>
   );
 }
 
 // ── Row Item (for opportunity / risk panels) ──────────────────
 function RowItem({
-  label, value, accent, tag,
-}: { label: string; value: string | number; accent?: string; tag?: string }) {
+  label, value, accent, tag, onClick,
+}: { label: string; value: string | number; accent?: string; tag?: string; onClick?: () => void }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '9px 0', borderBottom: '1px solid var(--line)', fontSize: 13,
-    }}>
-      <span style={{ color: 'var(--text)', fontWeight: 500 }}>{label}</span>
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '9px 8px', borderBottom: '1px solid var(--line)', fontSize: 13,
+        cursor: onClick ? 'pointer' : 'default',
+        borderRadius: hovered && onClick ? 6 : 0,
+        background: hovered && onClick ? (accent ? `${accent}08` : 'rgba(0,0,0,0.03)') : 'transparent',
+        marginInline: hovered && onClick ? -4 : 0,
+        paddingInline: hovered && onClick ? 12 : 8,
+        transition: 'all 0.14s ease',
+      }}>
+      <span style={{ color: 'var(--text)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+        {label}
+        {onClick && <span style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
+      </span>
       <span style={{
         fontWeight: 700,
         color: accent ?? 'var(--text)',
@@ -195,6 +229,8 @@ function RowItem({
         padding: accent ? '2px 10px' : undefined,
         borderRadius: accent ? 20 : undefined,
         fontSize: 12,
+        transform: hovered && onClick ? 'scale(1.05)' : 'scale(1)',
+        transition: 'transform 0.14s',
       }}>
         {value}{tag ? ` ${tag}` : ''}
       </span>
@@ -280,7 +316,12 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
 // ── Main Component ────────────────────────────────────────────
 export function CommandCenterView() {
   const { role } = useShop();
+  const dispatch = useAppDispatch();
   const shopId = getShopId();
+
+  function nav(module: string) {
+    dispatch({ type: 'SET_MODULE', module });
+  }
 
   const [recs, setRecs] = useState<FetchState<Recommendation[]>>({ data: null, loading: true, error: null });
   const [signals, setSignals] = useState<FetchState<SignalMap>>({ data: null, loading: true, error: null });
@@ -480,13 +521,17 @@ export function CommandCenterView() {
             {/* Summary pills */}
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
               <SummaryPill icon="🚨" label="Critical" value={criticalCount}
-                accent="#dc2626" dimmed={criticalCount === 0} />
+                accent="#dc2626" dimmed={criticalCount === 0}
+                onClick={criticalCount > 0 ? () => nav('repair-orders') : undefined} />
               <SummaryPill icon="⚠️" label="High Priority" value={highCount}
-                accent="#ea580c" dimmed={highCount === 0} />
+                accent="#ea580c" dimmed={highCount === 0}
+                onClick={highCount > 0 ? () => nav('job-cards') : undefined} />
               <SummaryPill icon="📋" label="Open Recs" value={recList.length}
-                accent="#2563eb" dimmed={recList.length === 0} />
+                accent="#2563eb" dimmed={recList.length === 0}
+                onClick={recList.length > 0 ? () => nav('estimates') : undefined} />
               <SummaryPill icon="🔴" label="Overdue Invoices" value={overdueCount}
-                accent="#dc2626" dimmed={overdueCount === 0} />
+                accent="#dc2626" dimmed={overdueCount === 0}
+                onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
             </div>
           </div>
 
@@ -530,10 +575,10 @@ export function CommandCenterView() {
               boxShadow: D.cardShadow,
             }}>
               <SectionHeading icon="💵" label="Revenue Opportunities" />
-              <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} />
-              <RowItem label="Stale estimates"         value={staleEst}     tag="estimates" accent={staleEst     > 0 ? '#ea580c' : undefined} />
-              <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} />
-              <RowItem label="Revenue today"           value={fmtMoney(revenueToday)} accent={revenueToday > 0 ? D.green : undefined} />
+              <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
+              <RowItem label="Stale estimates"         value={staleEst}     tag="estimates" accent={staleEst     > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
+              <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} onClick={() => nav('job-cards')} />
+              <RowItem label="Revenue today"           value={fmtMoney(revenueToday)} accent={revenueToday > 0 ? D.green : undefined} onClick={() => nav('payments')} />
               {revenueOpportunity > 0 && (
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Total Opportunity</span>
@@ -552,11 +597,11 @@ export function CommandCenterView() {
               boxShadow: D.cardShadow,
             }}>
               <SectionHeading icon="⚠️" label="Operations Risks" />
-              <RowItem label="Stuck repair orders"  value={stuckJobs}    accent={stuckJobs   > 0 ? '#dc2626' : undefined} />
-              <RowItem label="Low inventory items"  value={lowInv}       accent={lowInv      > 0 ? '#ea580c' : undefined} />
-              <RowItem label="Overdue invoices"     value={overdueCount} accent={overdueCount > 0 ? '#ea580c' : undefined} />
-              <RowItem label="Open job cards"       value={openJobs} />
-              <RowItem label="Repair cases today"   value={repairCases}  accent={repairCases > 0 ? D.green : undefined} />
+              <RowItem label="Stuck repair orders"  value={stuckJobs}    accent={stuckJobs   > 0 ? '#dc2626' : undefined} onClick={() => nav('repair-orders')} />
+              <RowItem label="Low inventory items"  value={lowInv}       accent={lowInv      > 0 ? '#ea580c' : undefined} onClick={() => nav('parts')} />
+              <RowItem label="Overdue invoices"     value={overdueCount} accent={overdueCount > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
+              <RowItem label="Open job cards"       value={openJobs} onClick={() => nav('job-cards')} />
+              <RowItem label="Repair cases today"   value={repairCases}  accent={repairCases > 0 ? D.green : undefined} onClick={() => nav('repair-intelligence')} />
             </div>
           </div>
 
@@ -575,17 +620,17 @@ export function CommandCenterView() {
             <SectionHeading icon="📡" label="Live Signals" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
               <SignalTile icon="💵" label="Revenue Today"      value={fmtMoney(revenueToday)}
-                accent={revenueToday > 0 ? D.green : 'var(--muted)'} />
+                accent={revenueToday > 0 ? D.green : 'var(--muted)'} onClick={() => nav('payments')} />
               <SignalTile icon="💳" label="Payments Today"     value={fmtNum(paymentsToday)}
-                accent={paymentsToday > 0 ? D.blue : undefined} />
+                accent={paymentsToday > 0 ? D.blue : undefined} onClick={() => nav('payments')} />
               <SignalTile icon="🔧" label="Open Jobs"          value={fmtNum(openJobs)}
-                accent={openJobs > 5 ? D.gold : undefined} />
+                accent={openJobs > 5 ? D.gold : undefined} onClick={() => nav('job-cards')} />
               <SignalTile icon="📋" label="Stale Estimates"    value={fmtNum(staleEst)}
-                accent={staleEst > 0 ? '#ea580c' : undefined} />
+                accent={staleEst > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
               <SignalTile icon="📦" label="Low Inventory"      value={fmtNum(lowInv)}
-                accent={lowInv > 0 ? '#ea580c' : undefined} />
+                accent={lowInv > 0 ? '#ea580c' : undefined} onClick={() => nav('parts')} />
               <SignalTile icon="🗂️" label="Repair Cases Today" value={fmtNum(repairCases)}
-                accent={repairCases > 0 ? D.green : undefined} />
+                accent={repairCases > 0 ? D.green : undefined} onClick={() => nav('repair-intelligence')} />
             </div>
           </div>
 
