@@ -25,6 +25,7 @@ import {
 import { QuestionEngine } from '@/lib/triage/QuestionEngine';
 import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/services/triageService';
 import { createInspection, createInspectionFromTriage, nextInspectionNumber } from '@/services/inspectionService';
+import { saveVehicle } from '@/services/vehicleService';
 import { getShopId } from '@/lib/shopStore';
 
 import { VehicleStep }    from './steps/VehicleStep';
@@ -172,27 +173,41 @@ export function TriageView() {
     setSaving(true);
 
     // Save as complete
-    const intakeSeconds = Math.round((Date.now() - startedAt) / 1000);
-    const saved = await saveTriageSession({
-      ...session,
-      status: 'complete',
-    });
-    setSaving(false);
+    await saveTriageSession({ ...session, status: 'complete' });
 
-    if (saved) {
-      setSession(saved);
-      showToast('Triage saved — opening Job Cards…');
-      // Pre-fill the job card create form via the global store dispatch
-      dispatch({
-        type: 'OPEN_NEW_JOB_CARD',
-        prefill: {
-          customerName: session.vehicle.customerName ?? '',
-          customerId:   session.vehicle.customerId,
-          vehicle:      `${session.vehicle.year} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
-          notes:        session.complaintSummary,
-        },
-      });
+    // Register vehicle in Vehicle Management if it has make/model
+    if (session.vehicle.make && session.vehicle.model) {
+      try {
+        await saveVehicle({
+          customerId:   session.vehicle.customerId ?? '',
+          vin:          '',
+          label:        `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
+          make:         session.vehicle.make,
+          model:        session.vehicle.model,
+          year:         session.vehicle.year ?? '',
+          fuelType:     session.vehicle.fuelType ?? '',
+          trim:         '',
+          engine:       session.vehicle.engine ?? '',
+          transmission: session.vehicle.transmission ?? '',
+          mileage:      session.vehicle.mileage ?? '',
+          plate:        '',
+          status:       'Active',
+          recommendation: '',
+        });
+      } catch { /* non-fatal — vehicle may already exist */ }
     }
+
+    setSaving(false);
+    showToast('Triage saved — opening Job Cards…');
+    dispatch({
+      type: 'OPEN_NEW_JOB_CARD',
+      prefill: {
+        customerName: session.vehicle.customerName ?? '',
+        customerId:   session.vehicle.customerId,
+        vehicle:      `${session.vehicle.year} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
+        notes:        session.complaintSummary,
+      },
+    });
   }, [session, startedAt, dispatch]);
 
   const handleSendToInspection = useCallback(async () => {
@@ -203,6 +218,25 @@ export function TriageView() {
       const draft = createInspectionFromTriage(session, inspNumber);
       await createInspection(draft);
       await saveTriageSession({ ...session, status: 'complete' });
+
+      // Register vehicle in Vehicle Management
+      if (session.vehicle.make && session.vehicle.model) {
+        try {
+          await saveVehicle({
+            customerId:   session.vehicle.customerId ?? '',
+            vin:          '',
+            label:        `${session.vehicle.make} ${session.vehicle.model}${session.vehicle.year ? ' ' + session.vehicle.year : ''}`.trim(),
+            trim:         '',
+            engine:       session.vehicle.engine ?? '',
+            transmission: session.vehicle.transmission ?? '',
+            mileage:      session.vehicle.mileage ?? '',
+            plate:        '',
+            status:       'Active',
+            recommendation: '',
+          });
+        } catch { /* non-fatal */ }
+      }
+
       showToast('Inspection created — opening Digital Inspections…');
       dispatch({ type: 'SET_MODULE', module: 'inspections' });
     } catch (e) {

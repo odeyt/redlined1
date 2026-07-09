@@ -98,12 +98,17 @@ export async function fetchVehiclesAll(): Promise<VehicleRecord[]> {
   return (data ?? []).map(toVehicle);
 }
 
-export async function saveVehicle(vehicle: Omit<Vehicle, 'customerId'> & { customerId: string }): Promise<VehicleRecord> {
+export async function saveVehicle(
+  vehicle: Omit<Vehicle, 'customerId'> & {
+    customerId: string;
+    make?: string; model?: string; year?: string; fuelType?: string;
+  }
+): Promise<VehicleRecord> {
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
       shop_id:      getShopId(),
-      customer_id:  vehicle.customerId,
+      customer_id:  vehicle.customerId || null,
       vin:          vehicle.vin,
       label:        vehicle.label,
       trim:         vehicle.trim,
@@ -111,8 +116,12 @@ export async function saveVehicle(vehicle: Omit<Vehicle, 'customerId'> & { custo
       transmission: vehicle.transmission,
       mileage:      vehicle.mileage,
       plate:        vehicle.plate,
-      status:       vehicle.status || 'No open jobs',
+      status:       vehicle.status || 'Active',
       recommendation: vehicle.recommendation,
+      make:         vehicle.make ?? null,
+      model:        vehicle.model ?? null,
+      year:         vehicle.year ?? null,
+      fuel_type:    vehicle.fuelType ?? null,
     })
     .select()
     .single();
