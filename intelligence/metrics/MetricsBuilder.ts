@@ -469,6 +469,44 @@ export async function saveShopMetrics(metrics: ShopIntelligenceMetrics): Promise
   } catch { /* fail silently */ }
 }
 
+// Exported mapper for use in decision-engine routes
+export function mapMetricsRow(r: Record<string, unknown>): ShopIntelligenceMetrics {
+  return {
+    id:                        r.id as string,
+    shopId:                    r.shop_id as string,
+    metricDate:                r.metric_date as string,
+    revenueToday:              Number(r.revenue_today ?? 0),
+    revenueYesterday:          Number(r.revenue_yesterday ?? 0),
+    paymentsToday:             Number(r.payments_today ?? 0),
+    unpaidInvoiceCount:        Number(r.unpaid_invoice_count ?? 0),
+    unpaidInvoiceTotal:        Number(r.unpaid_invoice_total ?? 0),
+    overdueInvoiceCount:       Number(r.overdue_invoice_count ?? 0),
+    overdueInvoiceTotal:       Number(r.overdue_invoice_total ?? 0),
+    openEstimateCount:         Number(r.open_estimate_count ?? 0),
+    staleEstimateCount:        Number(r.stale_estimate_count ?? 0),
+    staleEstimateTotal:        Number(r.stale_estimate_total ?? 0),
+    declinedEstimateCount:     Number(r.declined_estimate_count ?? 0),
+    approvedNotScheduledCount: Number(r.approved_not_scheduled_count ?? 0),
+    completedNotInvoicedCount: Number(r.completed_not_invoiced_count ?? 0),
+    openJobCount:              Number(r.open_job_count ?? 0),
+    stuckJobCount:             Number(r.stuck_job_count ?? 0),
+    repairOrdersInProgress:    Number(r.repair_orders_in_progress ?? 0),
+    completedJobsToday:        Number(r.completed_jobs_today ?? 0),
+    repairCasesToday:          Number(r.repair_cases_today ?? 0),
+    lowInventoryCount:         Number(r.low_inventory_count ?? 0),
+    technicianActiveCount:     Number(r.technician_active_count ?? 0),
+    technicianIdleCount:       Number(r.technician_idle_count ?? 0),
+    shopHealthScore:           Number(r.shop_health_score ?? 100),
+    revenueOpportunityTotal:   Number(r.revenue_opportunity_total ?? 0),
+    riskCount:                 Number(r.risk_count ?? 0),
+    recommendationCount:       Number(r.recommendation_count ?? 0),
+    metadata:                  (r.metadata as Record<string, unknown>) ?? {},
+    calculatedAt:              r.calculated_at as string,
+    createdAt:                 r.created_at as string,
+    updatedAt:                 r.updated_at as string,
+  };
+}
+
 export async function getLatestShopMetrics(shopId: string): Promise<ShopIntelligenceMetrics | null> {
   try {
     const db = await getAdminClient();
@@ -480,41 +518,7 @@ export async function getLatestShopMetrics(shopId: string): Promise<ShopIntellig
       .limit(1)
       .maybeSingle();
     if (!data) return null;
-    const r = data as Record<string, unknown>;
-    return {
-      id:                        r.id as string,
-      shopId:                    r.shop_id as string,
-      metricDate:                r.metric_date as string,
-      revenueToday:              Number(r.revenue_today ?? 0),
-      revenueYesterday:          Number(r.revenue_yesterday ?? 0),
-      paymentsToday:             Number(r.payments_today ?? 0),
-      unpaidInvoiceCount:        Number(r.unpaid_invoice_count ?? 0),
-      unpaidInvoiceTotal:        Number(r.unpaid_invoice_total ?? 0),
-      overdueInvoiceCount:       Number(r.overdue_invoice_count ?? 0),
-      overdueInvoiceTotal:       Number(r.overdue_invoice_total ?? 0),
-      openEstimateCount:         Number(r.open_estimate_count ?? 0),
-      staleEstimateCount:        Number(r.stale_estimate_count ?? 0),
-      staleEstimateTotal:        Number(r.stale_estimate_total ?? 0),
-      declinedEstimateCount:     Number(r.declined_estimate_count ?? 0),
-      approvedNotScheduledCount: Number(r.approved_not_scheduled_count ?? 0),
-      completedNotInvoicedCount: Number(r.completed_not_invoiced_count ?? 0),
-      openJobCount:              Number(r.open_job_count ?? 0),
-      stuckJobCount:             Number(r.stuck_job_count ?? 0),
-      repairOrdersInProgress:    Number(r.repair_orders_in_progress ?? 0),
-      completedJobsToday:        Number(r.completed_jobs_today ?? 0),
-      repairCasesToday:          Number(r.repair_cases_today ?? 0),
-      lowInventoryCount:         Number(r.low_inventory_count ?? 0),
-      technicianActiveCount:     Number(r.technician_active_count ?? 0),
-      technicianIdleCount:       Number(r.technician_idle_count ?? 0),
-      shopHealthScore:           Number(r.shop_health_score ?? 100),
-      revenueOpportunityTotal:   Number(r.revenue_opportunity_total ?? 0),
-      riskCount:                 Number(r.risk_count ?? 0),
-      recommendationCount:       Number(r.recommendation_count ?? 0),
-      metadata:                  (r.metadata as Record<string, unknown>) ?? {},
-      calculatedAt:              r.calculated_at as string,
-      createdAt:                 r.created_at as string,
-      updatedAt:                 r.updated_at as string,
-    };
+    return mapMetricsRow(data as Record<string, unknown>);
   } catch {
     return null;
   }

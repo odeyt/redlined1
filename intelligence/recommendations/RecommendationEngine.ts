@@ -147,6 +147,10 @@ export async function expireOldRecommendations(shopId: string): Promise<void> {
   } catch { /* fail silently */ }
 }
 
+export function mapRowToRecommendation(r: Record<string, unknown>): Recommendation {
+  return mapRow(r);
+}
+
 function mapRow(r: Record<string, unknown>): Recommendation {
   return {
     id:                  r.id as string,

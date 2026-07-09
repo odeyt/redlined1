@@ -49,6 +49,43 @@ interface FetchState<T> {
   error: string | null;
 }
 
+// SI-6 — Decision Engine types (local, matches API response shape)
+interface QuickAction {
+  type: string;
+  label: string;
+  module?: string;
+}
+interface DecisionSubScores {
+  revenueScore: number;
+  riskScore: number;
+  urgencyScore: number;
+  timeEfficiencyScore: number;
+  cashFlowScore: number;
+}
+interface RankedAction {
+  rank: number;
+  recommendation: Recommendation;
+  score: {
+    decisionScore: number;
+    estimatedTimeMinutes: number;
+    rationale: string;
+    confidenceMultiplier: number;
+    subScores: DecisionSubScores;
+  };
+  quickActions: QuickAction[];
+  whyItMatters: string;
+  expectedImpact: string;
+}
+interface ExecScoreBreakdown {
+  overall: number;
+  revenueHealth: number;
+  efficiency: number;
+  riskControl: number;
+  cashFlow: number;
+  knowledgeGrowth: number;
+  trend: 'up' | 'down' | 'stable';
+}
+
 // ── Constants ─────────────────────────────────────────────────
 const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
@@ -435,6 +472,150 @@ function RecCard({
   );
 }
 
+// ── Action Queue Card (SI-6) ──────────────────────────────────
+function ActionQueueCard({
+  item, onNavigate,
+}: { item: RankedAction; onNavigate: (module: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const score = item.score.decisionScore;
+  const scoreColor = score >= 700 ? '#dc2626' : score >= 450 ? '#d97706' : '#2563eb';
+  const timeLabel = item.score.estimatedTimeMinutes <= 5 ? `${item.score.estimatedTimeMinutes}m`
+    : item.score.estimatedTimeMinutes <= 60 ? `${item.score.estimatedTimeMinutes}m`
+    : `${Math.round(item.score.estimatedTimeMinutes / 60)}h`;
+  const confidencePct = Math.round(item.score.confidenceMultiplier * 100);
+  const rec = item.recommendation;
+  const icon = CATEGORY_ICON[rec.category] ?? '📌';
+
+  const navActions = item.quickActions.filter(a => a.module);
+
+  return (
+    <div style={{
+      background: 'var(--surface)',
+      border: '1.5px solid var(--line)',
+      borderLeft: `4px solid ${scoreColor}`,
+      borderRadius: D.radiusSm,
+      boxShadow: D.cardShadow,
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Rank + title row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 900, color: '#fff',
+            background: scoreColor, borderRadius: '50%',
+            width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>{item.rank}</span>
+          <span style={{ fontSize: 16 }}>{icon}</span>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{rec.title}</span>
+          {/* Score badge */}
+          <span style={{
+            fontSize: 12, fontWeight: 900, color: scoreColor,
+            background: `${scoreColor}14`, borderRadius: 8,
+            padding: '3px 10px', letterSpacing: '0.02em',
+          }}>{score}</span>
+        </div>
+
+        {/* Meta row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
+            ⏱ {timeLabel}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
+            {confidencePct}% confidence
+          </span>
+          {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
+              💵 {fmtMoney(rec.estimatedRevenue)}
+            </span>
+          )}
+          {/* Quick nav buttons */}
+          {navActions.map((a, i) => (
+            <button key={i} onClick={() => a.module && onNavigate(a.module)} style={{
+              fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 6,
+              border: `1.5px solid ${scoreColor}60`, background: `${scoreColor}10`,
+              color: scoreColor, cursor: 'pointer',
+            }}>{a.label} →</button>
+          ))}
+          <button onClick={() => setExpanded(e => !e)} style={{
+            fontSize: 11, color: 'var(--muted)', background: 'transparent', border: 'none',
+            cursor: 'pointer', fontWeight: 600, padding: '2px 6px', marginLeft: 'auto',
+          }}>{expanded ? '▲ Less' : '▼ Why'}</button>
+        </div>
+      </div>
+
+      {/* Expandable why + rationale */}
+      {expanded && (
+        <div style={{
+          borderTop: '1px solid var(--line)', background: 'rgba(0,0,0,0.02)',
+          padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          {item.whyItMatters && (
+            <div style={{
+              fontSize: 12, color: 'var(--text)', lineHeight: 1.6,
+              background: `${scoreColor}08`, borderRadius: 6, padding: '8px 11px',
+              borderLeft: `3px solid ${scoreColor}`,
+            }}>
+              <strong>Why it matters:</strong> {item.whyItMatters}
+            </div>
+          )}
+          {item.score.rationale && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+              💡 {item.score.rationale}
+            </div>
+          )}
+          {item.expectedImpact && (
+            <div style={{ fontSize: 11, color: '#059669', fontStyle: 'italic' }}>{item.expectedImpact}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Executive Score Badge (SI-6) ──────────────────────────────
+function ExecScoreBadge({ score }: { score: ExecScoreBreakdown }) {
+  const color = score.overall >= 75 ? '#059669' : score.overall >= 50 ? '#d97706' : '#dc2626';
+  const label = score.overall >= 75 ? 'Strong' : score.overall >= 50 ? 'Fair' : 'Needs Work';
+  const trendIcon = score.trend === 'up' ? '↑' : score.trend === 'down' ? '↓' : '→';
+  const components = [
+    { label: 'Revenue', value: score.revenueHealth },
+    { label: 'Efficiency', value: score.efficiency },
+    { label: 'Risk Control', value: score.riskControl },
+    { label: 'Cash Flow', value: score.cashFlow },
+    { label: 'Knowledge', value: score.knowledgeGrowth },
+  ];
+  return (
+    <div style={{
+      background: `linear-gradient(135deg,${color}08,${color}04)`,
+      border: `1.5px solid ${color}30`,
+      borderRadius: D.radius, padding: '18px 20px',
+      boxShadow: D.cardShadow,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color, lineHeight: 1 }}>{score.overall}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>
+            Executive Score <span style={{ color, fontWeight: 900 }}>{trendIcon}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Composite shop performance (0–100)</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
+        {components.map(c => (
+          <div key={c.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: c.value >= 15 ? color : 'var(--muted)' }}>{c.value}</div>
+            <div style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Disabled state ────────────────────────────────────────────
 function DisabledState({ reason }: { reason: string }) {
   return (
@@ -477,6 +658,9 @@ export function CommandCenterView() {
   const [generating, setGenerating] = useState(false);
   const [tablesMissing, setTablesMissing] = useState(false);
   const [flagDisabled, setFlagDisabled] = useState(false);
+  // SI-6
+  const [actionQueue, setActionQueue] = useState<RankedAction[] | null>(null);
+  const [execScore, setExecScore] = useState<ExecScoreBreakdown | null>(null);
 
   if (role && role !== 'owner' && role !== 'manager') {
     return <DisabledState reason="Command Center is only available to shop owners and managers." />;
@@ -522,12 +706,32 @@ export function CommandCenterView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
+  const loadActionQueue = useCallback(async () => {
+    try {
+      const res = await fetch('/api/intelligence/action-queue', { headers: shopHeaders });
+      if (!res.ok) return;
+      const body = await res.json() as { disabled?: boolean; actionQueue?: RankedAction[]; executiveScore?: number };
+      if (body.disabled) return;
+      if (body.actionQueue) setActionQueue(body.actionQueue);
+      if (typeof body.executiveScore === 'number') {
+        // Executive score endpoint for full breakdown
+        const esRes = await fetch('/api/intelligence/executive-score', { headers: shopHeaders });
+        if (esRes.ok) {
+          const esBody = await esRes.json() as { disabled?: boolean; score?: ExecScoreBreakdown };
+          if (!esBody.disabled && esBody.score) setExecScore(esBody.score);
+        }
+      }
+    } catch { /* fail silently — SI-6 is additive */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
   useEffect(() => {
     if (!shopId) return;
     loadRecommendations();
     loadSignals();
     loadMetrics();
-  }, [shopId, loadRecommendations, loadSignals, loadMetrics]);
+    loadActionQueue();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue]);
 
   async function handleGenerate() {
     setGenerating(true);
@@ -535,6 +739,12 @@ export function CommandCenterView() {
       await fetch('/api/intelligence/metrics', { method: 'POST', headers: shopHeaders });
       await fetch('/api/intelligence/recommendations', { method: 'POST', headers: shopHeaders });
       await Promise.all([loadRecommendations(), loadSignals(), loadMetrics()]);
+      // Regenerate action queue after fresh recommendations
+      void fetch('/api/intelligence/action-queue', { method: 'POST', headers: shopHeaders })
+        .then(r => r.ok ? r.json() : null)
+        .then((b: { disabled?: boolean; actionQueue?: RankedAction[] } | null) => {
+          if (b && !b.disabled && b.actionQueue) setActionQueue(b.actionQueue);
+        }).catch(() => {});
     } catch { /* fail silently */ }
     finally { setGenerating(false); }
   }
@@ -691,6 +901,18 @@ export function CommandCenterView() {
             </div>
           </div>
 
+          {/* ── Section SI-6: Today's Action Queue ───────────── */}
+          {actionQueue && actionQueue.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <SectionHeading icon="🎯" label="Today's Action Queue" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {actionQueue.map(item => (
+                  <ActionQueueCard key={item.recommendation.id} item={item} onNavigate={nav} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ── Section 2: Top Priorities ────────────────────── */}
           <div style={{ marginBottom: 24 }}>
             <SectionHeading icon="🎯" label="Top Priorities" />
@@ -768,6 +990,13 @@ export function CommandCenterView() {
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
                 Live data · updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
               </span>
+            </div>
+          )}
+
+          {/* ── Section SI-6: Executive Score ────────────────── */}
+          {execScore && (
+            <div style={{ marginBottom: 24 }}>
+              <ExecScoreBadge score={execScore} />
             </div>
           )}
 
