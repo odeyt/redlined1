@@ -50,4 +50,8 @@ export type KnownFlagKey =
   // SI-4: Live Intelligence Pipeline
   | 'live_intelligence_pipeline'
   | 'shop_metrics'
-  | 'command_center_live_data';
+  | 'command_center_live_data'
+  // SI-5: Evidence Engine
+  | 'evidence_engine'
+  | 'actionable_recommendations'
+  | 'recommendation_outcomes';

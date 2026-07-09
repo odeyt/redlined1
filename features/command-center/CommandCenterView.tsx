@@ -238,51 +238,199 @@ function RowItem({
   );
 }
 
+// ── Evidence types (subset for UI) ───────────────────────────
+interface EvidenceItem {
+  evidenceTitle: string;
+  evidenceValue?: string | null;
+  evidenceNumeric?: number | null;
+  evidenceType: string;
+  confidence: number;
+  sourceEntityType?: string | null;
+}
+
+interface EvidenceBundle {
+  recommendationKey: string;
+  items: EvidenceItem[];
+  confidence: number;
+  explanation?: {
+    whyItMatters?: string;
+    suggestedActions?: string[];
+    expectedImpact?: string;
+    evidenceSummary?: string[];
+  };
+}
+
 // ── Recommendation Card ───────────────────────────────────────
-function RecCard({ rec, onDone, onDismiss }: { rec: Recommendation; onDone: (id: string) => void; onDismiss: (id: string) => void }) {
+function RecCard({
+  rec, shopId, onDone, onDismiss,
+}: {
+  rec: Recommendation;
+  shopId: string;
+  onDone: (id: string) => void;
+  onDismiss: (id: string) => void;
+}) {
   const cfg = PRIORITY_CFG[rec.priority] ?? PRIORITY_CFG.medium;
   const icon = CATEGORY_ICON[rec.category] ?? '📌';
+  const [expanded, setExpanded] = useState(false);
+  const [evidence, setEvidence] = useState<EvidenceBundle | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+  async function loadEvidence() {
+    if (evidence || evidenceLoading) return;
+    setEvidenceLoading(true);
+    try {
+      const res = await fetch(`/api/intelligence/recommendations/${rec.id}/evidence`, {
+        headers: { 'x-shop-id': shopId },
+      });
+      if (res.ok) {
+        const body = await res.json() as { evidence?: EvidenceBundle };
+        if (body.evidence) setEvidence(body.evidence);
+      }
+    } catch { /* fail silently */ }
+    finally { setEvidenceLoading(false); }
+  }
+
+  function toggleExpand() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) loadEvidence();
+  }
+
+  const confidencePct = rec.confidence <= 1 ? Math.round(rec.confidence * 100) : Math.round(rec.confidence);
+
   return (
     <div style={{
       background: cfg.bg,
       border: `1.5px solid ${cfg.border}`,
       borderLeft: `4px solid ${cfg.accent}`,
       borderRadius: D.radiusSm,
-      padding: '14px 16px',
       boxShadow: D.cardShadow,
-      display: 'flex', flexDirection: 'column', gap: 7,
+      overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-        <span style={{ fontSize: 18 }}>{icon}</span>
-        <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{rec.title}</span>
-        <span style={{
-          fontSize: 10, fontWeight: 800, color: '#fff',
-          background: cfg.badge, borderRadius: 20,
-          padding: '3px 10px', textTransform: 'uppercase', letterSpacing: '0.06em',
-        }}>{cfg.label}</span>
-      </div>
-      {rec.description && <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{rec.description}</div>}
-      {rec.reason && <div style={{ fontSize: 11, color: cfg.accent, fontStyle: 'italic' }}>{rec.reason}</div>}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
-        {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-            💵 {fmtMoney(rec.estimatedRevenue)} opportunity
+      {/* Header row */}
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ fontSize: 18 }}>{icon}</span>
+          <span style={{ flex: 1, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{rec.title}</span>
+          <span style={{
+            fontSize: 10, fontWeight: 800, color: '#fff',
+            background: cfg.badge, borderRadius: 20,
+            padding: '3px 10px', textTransform: 'uppercase', letterSpacing: '0.06em',
+          }}>{cfg.label}</span>
+        </div>
+        {rec.description && <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{rec.description}</div>}
+        {rec.reason && <div style={{ fontSize: 11, color: cfg.accent, fontStyle: 'italic' }}>{rec.reason}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+          {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
+              💵 {fmtMoney(rec.estimatedRevenue)} opportunity
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 7px' }}>
+            {confidencePct}% confidence
           </span>
-        )}
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{Math.round(rec.confidence * 100)}% confidence</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
           <button
-            onClick={() => onDone(rec.id)}
-            style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
-            ✓ Done
+            onClick={toggleExpand}
+            style={{
+              fontSize: 11, color: cfg.accent, background: 'transparent', border: 'none',
+              cursor: 'pointer', fontWeight: 600, padding: '2px 6px', borderRadius: 5,
+            }}>
+            {expanded ? '▲ Less' : '▼ Evidence & Actions'}
           </button>
-          <button
-            onClick={() => onDismiss(rec.id)}
-            style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
-            Dismiss
-          </button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
+            <button
+              onClick={() => onDone(rec.id)}
+              style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
+              ✓ Done
+            </button>
+            <button
+              onClick={() => onDismiss(rec.id)}
+              style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
+              Dismiss
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Expandable evidence panel */}
+      {expanded && (
+        <div style={{
+          borderTop: `1px solid ${cfg.border}`,
+          background: 'rgba(255,255,255,0.6)',
+          padding: '14px 16px',
+          display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+          {evidenceLoading && (
+            <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '8px 0' }}>
+              Loading evidence…
+            </div>
+          )}
+
+          {/* Evidence items */}
+          {evidence && evidence.items.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
+                📊 Evidence
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {evidence.items.map((ev, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: 'var(--surface)', border: '1px solid var(--line)',
+                    borderRadius: 6, padding: '7px 11px', fontSize: 12,
+                  }}>
+                    <span style={{ color: 'var(--text)', fontWeight: 500 }}>{ev.evidenceTitle}</span>
+                    <span style={{ fontWeight: 700, color: cfg.accent, background: `${cfg.accent}14`, padding: '2px 9px', borderRadius: 20, fontSize: 11 }}>
+                      {ev.evidenceValue ?? (ev.evidenceNumeric != null ? ev.evidenceNumeric : '—')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Why it matters */}
+          {evidence?.explanation?.whyItMatters && (
+            <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6, background: `${cfg.accent}08`, borderRadius: 6, padding: '8px 11px', borderLeft: `3px solid ${cfg.accent}` }}>
+              <strong>Why it matters:</strong> {evidence.explanation.whyItMatters}
+            </div>
+          )}
+
+          {/* Expected impact */}
+          {evidence?.explanation?.expectedImpact && (
+            <div style={{ fontSize: 11, color: '#059669', lineHeight: 1.5 }}>
+              💡 {evidence.explanation.expectedImpact}
+            </div>
+          )}
+
+          {/* Suggested actions */}
+          {evidence?.explanation?.suggestedActions && evidence.explanation.suggestedActions.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 7 }}>
+                ▶ Next Actions
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {evidence.explanation.suggestedActions.map((action, i) => (
+                  <div key={i} style={{
+                    fontSize: 12, color: 'var(--text)', background: 'var(--surface)',
+                    border: '1px solid var(--line)', borderRadius: 6, padding: '6px 11px',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                  }}>
+                    <span style={{ color: cfg.accent, fontWeight: 700, fontSize: 14 }}>→</span>
+                    {action}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!evidenceLoading && !evidence && (
+            <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '4px 0' }}>
+              Enable the evidence_engine feature flag for detailed evidence.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -393,6 +541,14 @@ export function CommandCenterView() {
 
   async function handleAction(id: string, action: 'complete' | 'dismiss') {
     try {
+      // Record outcome (SI-5)
+      const outcomeStatus = action === 'complete' ? 'completed' : 'dismissed';
+      fetch(`/api/intelligence/recommendations/${id}/outcome`, {
+        method: 'POST',
+        headers: { ...shopHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcomeStatus }),
+      }).catch(() => {});
+      // Update status (SI-2)
       await fetch('/api/intelligence/recommendations', {
         method: 'PATCH',
         headers: { ...shopHeaders, 'Content-Type': 'application/json' },
@@ -552,7 +708,7 @@ export function CommandCenterView() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {top5.map(r => (
-                  <RecCard key={r.id} rec={r} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} />
+                  <RecCard key={r.id} rec={r} shopId={shopId} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} />
                 ))}
                 {recList.length > 5 && (
                   <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', paddingTop: 4 }}>
