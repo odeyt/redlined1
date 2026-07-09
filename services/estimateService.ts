@@ -51,7 +51,7 @@ function mapRow(r: Record<string, unknown>): EstimateFull {
     lines: (r.lines as EstimateLine[]) || [],
     discount: Number(r.discount ?? 0),
     shopSupplies: Number(r.shop_supplies ?? 0),
-    taxRate: Number(r.tax_rate ?? 0.08),
+    taxRate: Number(r.tax_rate ?? 0),
     notes: (r.notes as string) || '',
     validUntil: (r.valid_until as string) || '',
     approvedDate: (r.approved_date as string) || null,
@@ -66,10 +66,10 @@ export function calculateEstimateTotals(est: EstimateFull): EstimateTotals {
     .filter(l => !l.currency || l.currency === mainCur)
     .reduce((s, l) => s + l.qty * l.rate, 0);
   const afterDiscount = Math.max(subtotal - est.discount, 0);
-  const taxable = afterDiscount + est.shopSupplies;
-  const tax = taxable * est.taxRate;
-  const total = taxable + tax;
-  return { subtotal, discount: est.discount, shopSupplies: est.shopSupplies, tax, total };
+  // shopSupplies removed from UI — exclude from calculation regardless of DB value
+  const tax = afterDiscount * est.taxRate;
+  const total = afterDiscount + tax;
+  return { subtotal, discount: est.discount, shopSupplies: 0, tax, total };
 }
 
 export async function fetchEstimates(): Promise<EstimateFull[]> {

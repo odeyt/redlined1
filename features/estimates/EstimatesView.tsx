@@ -220,9 +220,9 @@ export function EstimatesView() {
       jobCardId: est.jobCardId,
       status: est.status,
       lines: est.lines.length > 0 ? est.lines.map(l => ({ description: l.description, laoDescription: l.laoDescription || '', qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' })) : [{ ...EMPTY_LINE }],
-      discount: est.discount,
-      shopSupplies: est.shopSupplies,
-      taxRate: est.taxRate,
+      discount: est.discount ?? 0,
+      shopSupplies: 0,
+      taxRate: est.taxRate ?? 0,
       notes: est.notes,
       validUntil: est.validUntil || '',
       approvedDate: est.approvedDate,
@@ -1000,7 +1000,6 @@ export function EstimatesView() {
                       {entries.map(([cur, sub]) => {
                         const isMain = cur === selected.currency;
                         const disc = isMain ? totals.discount : 0;
-                        const ss = isMain ? totals.shopSupplies : 0;
                         const tax = isMain ? totals.tax : 0;
                         const grandTotal = isMain ? totals.total : sub;
                         return (
@@ -1012,7 +1011,7 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(sub, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {(tax > 0 || isMain) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            {isMain && selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grandTotal, cur)}</span>
@@ -1023,7 +1022,6 @@ export function EstimatesView() {
                       {entries.length === 0 && (() => {
                         const cur = selected.currency;
                         const disc = totals?.discount ?? 0;
-                        const ss = totals?.shopSupplies ?? 0;
                         const tax = totals?.tax ?? 0;
                         const grand = totals?.total ?? 0;
                         return (
@@ -1032,7 +1030,7 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(0, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            {selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grand, cur)}</span>
@@ -1181,7 +1179,6 @@ export function EstimatesView() {
                     {entries.map(([cur, sub]) => {
                       const isMain = cur === selected.currency;
                       const disc = isMain ? totals.discount : 0;
-                      const ss = isMain ? totals.shopSupplies : 0;
                       const tax = isMain ? totals.tax : 0;
                       const grandTotal = isMain ? totals.total : sub;
                       return (
@@ -1193,9 +1190,9 @@ export function EstimatesView() {
                             <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(sub, cur)}</span>
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                          {isMain && selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
                             <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
-                          </div>
+                          </div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
                             <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
                             <span style={{ color: '#cc0000' }}>{formatMoney(grandTotal, cur)}</span>
@@ -1206,7 +1203,6 @@ export function EstimatesView() {
                     {entries.length === 0 && (() => {
                       const cur = selected.currency;
                       const disc = totals?.discount ?? 0;
-                      const ss = totals?.shopSupplies ?? 0;
                       const tax = totals?.tax ?? 0;
                       const grand = totals?.total ?? 0;
                       return (
@@ -1215,7 +1211,7 @@ export function EstimatesView() {
                             <span>{t('Subtotal', 'ລວມຍ່ອຍ')}</span><span>{formatMoney(0, cur)}</span>
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
-                          {(tax > 0 || selected.taxRate > 0) && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
+                          {selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
                             <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
