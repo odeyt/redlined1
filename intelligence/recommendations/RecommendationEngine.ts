@@ -75,11 +75,12 @@ export async function saveRecommendations(shopId: string, results: Recommendatio
       updated_at:          new Date().toISOString(),
     }));
 
-    await db.from('recommendations').upsert(rows, {
+    const { error } = await db.from('recommendations').upsert(rows, {
       onConflict: 'shop_id,recommendation_key',
       ignoreDuplicates: false,
     });
-  } catch { /* fail silently */ }
+    if (error) console.error('[RecommendationEngine] upsert error:', error.message, error.details ?? '');
+  } catch (e) { console.error('[RecommendationEngine] upsert exception:', e instanceof Error ? e.message : e); }
 }
 
 /**
