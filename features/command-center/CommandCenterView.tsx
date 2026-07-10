@@ -6,6 +6,8 @@ import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { getShopId } from '@/lib/shopStore';
 import { MorningBriefModal } from './MorningBriefModal';
+import { Suspense } from 'react';
+import { LearningDashboardSection } from '@/features/intelligence-learning/LearningDashboardSection';
 
 // ── Types ────────────────────────────────────────────────────
 interface ShopMetrics {
@@ -1306,6 +1308,11 @@ export function CommandCenterView() {
               ⚠️ {recs.error}
             </div>
           )}
+
+          {/* SI-11: Intelligence Learning Dashboard (additive, flag-gated, isolated) */}
+          <Suspense fallback={null}>
+            <LearningDashboardSection shopId={shopId} role={role} />
+          </Suspense>
         </>
       )}
     </Panel>
