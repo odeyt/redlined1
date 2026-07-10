@@ -15,6 +15,7 @@
     "intelligence:vehicles": "tsx scripts/rebuild-vehicle-intelligence.ts",
     "intelligence:learning": "tsx scripts/recalculate-intelligence-learning.ts",
     "intelligence:service-advisor": "tsx scripts/analyze-service-advisor-opportunities.ts",
+    "intelligence:customers": "tsx scripts/rebuild-customer-lifetime-intelligence.ts",
     "test:e2e": "playwright test --project=chromium",
     "test:smoke": "playwright test --grep @smoke --project=smoke-chromium",
     "test:visual": "playwright test --project=visual",
