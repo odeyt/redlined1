@@ -213,12 +213,8 @@ export function Sidebar() {
     if (!role) return getBlockedModules(''); // loading / unknown
     const allowed = rolePermissions[role as RoleKey];
     if (allowed && allowed.length > 0) {
-      // Items added after the allowlist was saved should fall back to the hardcoded
-      // role defaults instead of being blocked purely because they're not in the list.
-      const hardcodedBlocked = getBlockedModules(role);
-      return navItems.map(([id]) => id).filter(id =>
-        !allowed.includes(id) && hardcodedBlocked.includes(id)
-      );
+      // Saved allowlist is authoritative — block everything not explicitly permitted.
+      return navItems.map(([id]) => id).filter(id => !allowed.includes(id));
     }
     return getBlockedModules(role);
   })();
