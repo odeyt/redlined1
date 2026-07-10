@@ -1,6 +1,14 @@
 ﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { VehicleIntelligenceErrorBoundary } from '@/features/vehicle-intelligence/VehicleIntelligenceErrorBoundary';
+
+// Loaded only when both flags are ON — keeps bundle impact zero when disabled
+const VehicleIntelligencePanel = dynamic(
+  () => import('@/features/vehicle-intelligence/VehicleIntelligencePanel').then(m => ({ default: m.VehicleIntelligencePanel })),
+  { ssr: false, loading: () => null },
+);
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
@@ -393,6 +401,22 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [showAddForCust, setShowAddForCust] = useState(false);
   const [pulledFrom, setPulledFrom] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
+  const [showVehicleIntelligence, setShowVehicleIntelligence] = useState(false);
+
+  // SI-10: Probe vehicle intelligence API — disabled:true means flags are OFF
+  useEffect(() => {
+    void (async () => {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('/api/intelligence/vehicle/' + vehicle.id, { signal: controller.signal }).catch(() => null);
+        clearTimeout(timer);
+        if (!res?.ok) return;
+        const json = await res.json() as { disabled?: boolean } | null;
+        if (!json?.disabled) setShowVehicleIntelligence(true);
+      } catch { /* never throw */ }
+    })();
+  }, [vehicle.id]);
   const [lifecycle, setLifecycle] = useState<{
     jobCards: JobCardFull[];
     repairOrders: RepairOrder[];
@@ -1274,6 +1298,15 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           </div>{/* end right column */}
           </div>{/* end two-column grid */}
         </div>
+
+        {/* SI-10: Vehicle Intelligence Panel — additive, guarded, isolated */}
+        {showVehicleIntelligence && vehicle.id && (
+          <div style={{ padding: '0 20px 16px' }}>
+            <VehicleIntelligenceErrorBoundary>
+              <VehicleIntelligencePanel vehicleId={vehicle.id} />
+            </VehicleIntelligenceErrorBoundary>
+          </div>
+        )}
 
         {/* Save footer */}
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', flexShrink: 0, display: 'flex', gap: 8 }}>

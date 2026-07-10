@@ -137,3 +137,48 @@ Every recommendation must answer:
 
 - `CLAUDE.md` — root operating instructions for Claude Code (this file)
 - `docs/development/CLAUDE_CODE_CONTEXT.md` — human-readable archive of the same context
+
+---
+
+# Vision Rules
+
+Before implementing any feature ask:
+
+- Will this make RedlineD1 smarter?
+- Will it reduce repetitive work?
+- Will it improve owner decisions?
+- Will it create reusable knowledge?
+- Will it strengthen the Knowledge Graph?
+- Will it improve Business Memory?
+- Will it create measurable ROI?
+- Will it widen the competitive moat?
+
+If not, reconsider.
+
+---
+
+## Architecture Priorities
+
+In order of importance:
+
+1. Reliability — production must never break
+2. Explainability — every AI output must cite its source
+3. Evidence — recommendations need data backing, not guesses
+4. Business value — tie every feature to a measurable shop outcome
+5. Customer success — revenue, retention, productivity, quality
+6. Automation — remove repetitive work progressively
+7. Knowledge accumulation — every action should make the system smarter
+8. Long-term competitive advantage — build the moat, not just the feature
+
+---
+
+## Architectural Reference Documents
+
+| Document | Purpose |
+|----------|---------|
+| `docs/vision/REDLINED1_VISION.md` | Product vision and founder manifesto |
+| `docs/vision/TEN_STRATEGIC_PILLARS.md` | The ten pillars every feature maps to |
+| `docs/vision/NORTH_STAR.md` | The single-sentence mission |
+| `docs/intellectual-property/REDLINED1_MASTER_ROADMAP.md` | All epics — completed and planned |
+| `docs/intellectual-property/AUTOMOTIVE_KNOWLEDGE_GRAPH.md` | The graph architecture and competitive moat |
+| `docs/intellectual-property/AI_PHILOSOPHY.md` | How AI is built and constrained in RedlineD1 |

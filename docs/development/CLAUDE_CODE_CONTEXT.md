@@ -178,3 +178,57 @@ Each recommendation card must provide:
 5. **Next step** — a direct button or link to execute the action
 
 > **Do not implement SI-5 until explicitly instructed by the owner.**
+
+---
+
+# Long-Term Mission
+
+RedlineD1 is becoming the world's Automotive Business Operating System.
+
+It is not a shop management tool. It is the intelligence layer that makes every automotive business smarter, faster, and more profitable.
+
+Every feature should contribute toward one or more of these capabilities:
+
+| Capability | Status |
+|-----------|--------|
+| **Automation** | Eliminate repetitive tasks progressively |
+| **Business Intelligence** | Command Center, Morning Brief, Executive Score |
+| **Knowledge Graph** | Compounding relationship network across all entities |
+| **Business Memory** | Shop-level learned patterns (SI-9) |
+| **Executive Intelligence** | Action queue, decision scoring, owner briefing |
+| **Vehicle Intelligence** | Per-vehicle health scores and risk signals (SI-10) |
+| **Customer Intelligence** | Lifetime value, retention risk, visit patterns (SI-11, planned) |
+| **Technician Intelligence** | Performance profiles, strengths, comeback rates (SI-12, planned) |
+| **Parts Intelligence** | Failure patterns, reorder prediction, supplier scoring (SI-13, planned) |
+| **Continuous Learning** | Every completed repair improves the system |
+
+## Completed Intelligence Epics
+
+| Epic | Description |
+|------|-------------|
+| SI-1 | Intelligence Foundation — bus, flags, provider abstraction |
+| SI-2 | Recommendation Engine |
+| SI-3 | Executive Decision Engine |
+| SI-4 | Evidence Engine |
+| SI-5 | Command Center |
+| SI-6 | Action Intelligence |
+| SI-7 | Morning Brief Engine |
+| SI-8 | Sapelee Provider Connector |
+| SI-9 | Business Memory Engine |
+| SI-10 | Vehicle Intelligence Engine |
+
+## Permanent Hard Constraints
+
+These never change regardless of sprint scope:
+
+- No AI embeddings or direct LLM calls in production
+- All external AI behind provider abstraction (`IntelligenceProvider`)
+- All intelligence features fire-and-forget — never block workflows
+- All new feature flags default OFF
+- No migration may drop, rename, or truncate existing production tables
+- Billing disabled by default (`NEXT_PUBLIC_BILLING_ENABLED=false`)
+- VIN is shop-private — never exposed in cross-shop data or graph edges
+- PII (customer name, phone, email, address, invoice amounts) never in intelligence payloads
+- `share_to_network` defaults to `false`
+- No automatic SMS, email, or notifications
+- No automatic modification of customer, vehicle, or financial data
