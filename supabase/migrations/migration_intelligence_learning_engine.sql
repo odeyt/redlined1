@@ -232,4 +232,4 @@ VALUES
   ('learning_score_adjustments',      'Learning Score Adjustments',      'SI-11: Apply learned adjustments to recommendation scores',    false, 'global'),
   ('intelligence_learning_dashboard', 'Intelligence Learning Dashboard',  'SI-11: Show learning metrics in Command Center',               false, 'global'),
   ('value_attribution',               'Value Attribution',               'SI-11: Enable revenue/time attribution tracking',             false, 'global')
-ON CONFLICT (flag_key) DO NOTHING;
+ON CONFLICT DO NOTHING;
