@@ -1009,41 +1009,71 @@ export function InvoicesView() {
                 const discPct = Number(form.discountPct) || 0;
                 const taxPct  = Number(form.taxPct) || 0;
                 const discAmt = Math.round(adjEff * (discPct / 100));
-                const taxable = Math.max(adjEff - discAmt, 0) + (Number(form.shopSupplies) || 0);
+                const shopSup = Number(form.shopSupplies) || 0;
+                const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
                 const taxAmt  = Math.round(taxable * (taxPct / 100));
+                const liveTotal = taxable + taxAmt;
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                    <div className="login-field">
-                      <label>Discount (%)</label>
-                      <input
-                        type="text" inputMode="decimal"
-                        value={form.discountPct === 0 || form.discountPct === undefined ? '' : String(form.discountPct)}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          const n = Math.min(100, parseFloat(raw) || 0);
-                          setForm(f => ({ ...f, discountPct: raw === '' ? 0 : n }));
-                        }}
-                        placeholder="0"
-                        onFocus={e => e.target.select()}
-                      />
-                      {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div className="login-field">
+                        <label>Discount (%)</label>
+                        <input
+                          type="text" inputMode="decimal"
+                          value={form.discountPct === 0 || form.discountPct === undefined ? '' : String(form.discountPct)}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            const n = Math.min(100, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, discountPct: raw === '' ? 0 : n }));
+                          }}
+                          placeholder="0"
+                          onFocus={e => e.target.select()}
+                        />
+                        {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
+                      </div>
+                      <div className="login-field">
+                        <label>Tax / VAT (%)</label>
+                        <input
+                          type="text" inputMode="decimal"
+                          value={form.taxPct === 0 || form.taxPct === undefined ? '' : String(form.taxPct)}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            const n = Math.min(100, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, taxPct: raw === '' ? 0 : n }));
+                          }}
+                          placeholder="0"
+                          onFocus={e => e.target.select()}
+                        />
+                        {taxPct > 0 && <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 3 }}>= +{formatMoney(taxAmt, adjCur)}</div>}
+                      </div>
                     </div>
-                    <div className="login-field">
-                      <label>Tax / VAT (%)</label>
-                      <input
-                        type="text" inputMode="decimal"
-                        value={form.taxPct === 0 || form.taxPct === undefined ? '' : String(form.taxPct)}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          const n = Math.min(100, parseFloat(raw) || 0);
-                          setForm(f => ({ ...f, taxPct: raw === '' ? 0 : n }));
-                        }}
-                        placeholder="0"
-                        onFocus={e => e.target.select()}
-                      />
-                      {taxPct > 0 && <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 3 }}>= +{formatMoney(taxAmt, adjCur)}</div>}
-                    </div>
-                  </div>
+                    {/* Live running total — updates instantly as form changes */}
+                    {adjEff > 0 && (
+                      <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontSize: 13 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', marginBottom: 4 }}>
+                          <span>Subtotal</span><span>{formatMoney(adjEff, adjCur)}</span>
+                        </div>
+                        {discAmt > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4caf50', marginBottom: 4 }}>
+                            <span>Discount ({discPct}%)</span><span>-{formatMoney(discAmt, adjCur)}</span>
+                          </div>
+                        )}
+                        {shopSup > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', marginBottom: 4 }}>
+                            <span>Shop Supplies</span><span>+{formatMoney(shopSup, adjCur)}</span>
+                          </div>
+                        )}
+                        {taxAmt > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b', marginBottom: 4 }}>
+                            <span>Tax / VAT ({taxPct}%)</span><span>+{formatMoney(taxAmt, adjCur)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 15, borderTop: '2px solid var(--line)', paddingTop: 8, marginTop: 4, color: 'var(--accent)' }}>
+                          <span>TOTAL</span><span>{formatMoney(liveTotal, adjCur)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 );
               })()}
 

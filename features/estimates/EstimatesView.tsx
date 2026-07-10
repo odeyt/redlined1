@@ -852,6 +852,38 @@ export function EstimatesView() {
                 </div>
               </div>
 
+              {/* Live running total — updates instantly as form changes */}
+              {(() => {
+                const lineSubtotal = form.lines
+                  .filter(l => !l.currency || l.currency === form.currency)
+                  .reduce((s, l) => s + (parseFloat(l.rate) || 0) * (parseFloat(l.qty) || 0), 0);
+                if (lineSubtotal === 0) return null;
+                const disc = form.discount || 0;
+                const afterDisc = Math.max(lineSubtotal - disc, 0);
+                const taxAmt = afterDisc * (form.taxRate || 0);
+                const total = afterDisc + taxAmt;
+                return (
+                  <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', marginBottom: 4 }}>
+                      <span>Subtotal</span><span>{formatMoney(lineSubtotal, form.currency)}</span>
+                    </div>
+                    {disc > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4caf50', marginBottom: 4 }}>
+                        <span>Discount</span><span>-{formatMoney(disc, form.currency)}</span>
+                      </div>
+                    )}
+                    {taxAmt > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b', marginBottom: 4 }}>
+                        <span>Tax ({(form.taxRate * 100).toFixed(1)}%)</span><span>+{formatMoney(taxAmt, form.currency)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 15, borderTop: '2px solid var(--line)', paddingTop: 8, marginTop: 4, color: 'var(--accent)' }}>
+                      <span>TOTAL</span><span>{formatMoney(total, form.currency)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="login-field" style={{ marginBottom: 12 }}>
                 <label>Notes</label>
                 <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Work description, warranty, conditions…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
