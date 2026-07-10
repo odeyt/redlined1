@@ -80,7 +80,9 @@ export function Sidebar() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
-  const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
+  // Start empty so the hardcoded getBlockedModules() fallback is used while settings load.
+  // setRolePermissions is called once fetchShopSettings() resolves with real data.
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
 
   // Close shop menu / notification panel when clicking outside
   useEffect(() => {

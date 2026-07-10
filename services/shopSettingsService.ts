@@ -6,13 +6,16 @@ export type RolePermissions = Record<RoleKey, string[]>;
 
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
-    'dashboard', 'customers', 'vehicles', 'appointments', 'job-cards',
-    'scheduling', 'inspections', 'repair-orders', 'technicians', 'parts',
+    'dashboard', 'triage', 'customers', 'vehicles', 'appointments', 'job-cards',
+    'scheduling', 'inspections', 'repair-orders', 'technicians',
+    'parts', 'parts-estimates', 'parts-orders', 'parts-received',
     'communication', 'vin', 'dtc', 'diagnostics', 'ai',
   ],
   advisor: [
-    'dashboard', 'customers', 'vehicles', 'appointments', 'scheduling',
-    'job-cards', 'inspections', 'communication', 'vin', 'dtc', 'diagnostics', 'ai',
+    'dashboard', 'triage', 'customers', 'vehicles', 'appointments', 'scheduling',
+    'job-cards', 'inspections', 'estimates',
+    'parts', 'parts-estimates', 'parts-orders',
+    'communication', 'vin', 'dtc', 'diagnostics', 'ai',
   ],
   technician: [
     'dashboard', 'job-cards', 'inspections', 'repair-orders', 'parts',
