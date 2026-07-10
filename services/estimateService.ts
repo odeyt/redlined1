@@ -153,3 +153,26 @@ export async function nextEstimateNumber(): Promise<string> {
   const n = (count ?? 0) + 1;
   return `EST-${String(n).padStart(4, '0')}`;
 }
+
+export async function cloneEstimate(est: EstimateFull): Promise<EstimateFull> {
+  const newNumber = await nextEstimateNumber();
+  const clonedNotes = est.notes
+    ? `[Cloned from ${est.estimateNumber}]\n${est.notes}`
+    : `[Cloned from ${est.estimateNumber}]`;
+  return createEstimate({
+    estimateNumber: newNumber,
+    customerName: est.customerName,
+    customerId: est.customerId,
+    vehicle: est.vehicle,
+    jobCardId: est.jobCardId,
+    status: 'Draft',
+    lines: est.lines,
+    discount: est.discount,
+    shopSupplies: est.shopSupplies,
+    taxRate: est.taxRate,
+    notes: clonedNotes,
+    validUntil: '',
+    approvedDate: null,
+    currency: est.currency,
+  });
+}

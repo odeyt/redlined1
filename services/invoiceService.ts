@@ -183,6 +183,29 @@ export async function nextInvoiceNumber(): Promise<string> {
   return `INV-${String(max + 1).padStart(4, '0')}`;
 }
 
+export async function cloneInvoice(inv: InvoiceFull): Promise<InvoiceFull> {
+  const newNumber = await nextInvoiceNumber();
+  const clonedNotes = inv.notes
+    ? `[Cloned from ${inv.invoiceNumber}]\n${inv.notes}`
+    : `[Cloned from ${inv.invoiceNumber}]`;
+  return createInvoice({
+    invoiceNumber: newNumber,
+    customerName: inv.customerName,
+    customerId: inv.customerId,
+    vehicle: inv.vehicle,
+    jobCardId: inv.jobCardId,
+    status: 'Draft',
+    lines: inv.lines,
+    discount: inv.discount,
+    shopSupplies: inv.shopSupplies,
+    taxRate: inv.taxRate,
+    notes: clonedNotes,
+    dueDate: '',
+    paidDate: null,
+    currency: inv.currency,
+  });
+}
+
 export const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },

@@ -7,7 +7,7 @@ import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
   fetchInvoices, createInvoice, updateInvoice, markInvoicePaid,
-  deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES,
+  deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES, cloneInvoice,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
 import { createPayment, deletePayment, fetchPayments, type Payment } from '@/services/paymentService';
@@ -675,6 +675,15 @@ export function InvoicesView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
+  async function handleCloneInvoice(inv: InvoiceFull) {
+    try {
+      const cloned = await cloneInvoice(inv);
+      setInvoices(prev => [cloned, ...prev]);
+      setSelected(cloned);
+      notify(`Cloned → ${cloned.invoiceNumber} (Draft)`);
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : 'Clone failed')); }
+  }
+
 
   const filtered = invoices.filter(inv => {
     const matchStatus = filterStatus === 'All' || inv.status === filterStatus;
@@ -707,6 +716,7 @@ export function InvoicesView() {
 
   return (
     <>
+      <style>{`@keyframes clonePulse{0%,100%{box-shadow:0 2px 8px rgba(255,107,0,0.45)}50%{box-shadow:0 4px 20px rgba(255,107,0,0.75),0 0 0 4px rgba(255,107,0,0.15)}}`}</style>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
       {/* Stats */}
@@ -1062,6 +1072,17 @@ export function InvoicesView() {
                 {['Draft', 'Sent', 'Paid', 'Void'].map(s => <option key={s}>{s}</option>)}
               </select>
               <button className="btn btn-primary" onClick={() => openEditForm(selected)}>✏️ Edit</button>
+              <button
+                onClick={() => handleCloneInvoice(selected)}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
+                  background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
+                  color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
+                  animation: 'clonePulse 2s ease-in-out infinite',
+                }}>
+                ⚡ Clone
+              </button>
               <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>👁 Preview / Print</button>
               {selected.status !== 'Paid' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.12)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleMarkPaid(selected)}>✓ Mark Paid</button>

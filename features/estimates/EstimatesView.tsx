@@ -6,7 +6,7 @@ import { FilterPills } from '@/components/FilterPills';
 import { Panel } from '@/components/Panel';
 import {
   fetchEstimates, createEstimate, updateEstimate, approveEstimate,
-  deleteEstimate, nextEstimateNumber, calculateEstimateTotals,
+  deleteEstimate, nextEstimateNumber, calculateEstimateTotals, cloneEstimate,
   type EstimateFull, type EstimateLine,
 } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
@@ -487,6 +487,15 @@ export function EstimatesView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
+  async function handleCloneEstimate(est: EstimateFull) {
+    try {
+      const cloned = await cloneEstimate(est);
+      setEstimates(prev => [cloned, ...prev]);
+      setSelected(cloned);
+      notify(`Cloned → ${cloned.estimateNumber} (Draft)`);
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : 'Clone failed')); }
+  }
+
   const filtered = estimates.filter(est => {
     const matchStatus = filterStatus === 'All' || est.status === filterStatus;
     const matchSearch = !search || [est.estimateNumber, est.customerName, est.vehicle]
@@ -501,6 +510,7 @@ export function EstimatesView() {
 
   return (
     <>
+      <style>{`@keyframes clonePulse{0%,100%{box-shadow:0 2px 8px rgba(255,107,0,0.45)}50%{box-shadow:0 4px 20px rgba(255,107,0,0.75),0 0 0 4px rgba(255,107,0,0.15)}}`}</style>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
       {/* Stats */}
@@ -894,6 +904,17 @@ export function EstimatesView() {
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <button className="btn btn-primary" onClick={() => openEditForm(selected)}>✏️ Edit</button>
+              <button
+                onClick={() => handleCloneEstimate(selected)}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
+                  background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
+                  color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
+                  animation: 'clonePulse 2s ease-in-out infinite',
+                }}>
+                ⚡ Clone
+              </button>
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
               {selected.status !== 'Approved' && selected.status !== 'Converted' && selected.status !== 'Declined' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.12)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleApprove(selected)}>✓ Approve</button>
