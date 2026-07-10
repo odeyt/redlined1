@@ -1,5 +1,6 @@
 // SI-13: Customer Segmentation Engine Tests
 
+import { test, expect } from '@playwright/test';
 import { classifyCustomerSegments, getPrimarySegment } from '../../intelligence/customer/CustomerSegmentationEngine';
 import type { CustomerLifetimeContext } from '../../intelligence/customer/types';
 

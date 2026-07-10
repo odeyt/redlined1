@@ -1,5 +1,6 @@
 // SI-13: Customer Timeline Engine Tests
 
+import { test, expect } from '@playwright/test';
 import { buildCustomerTimeline } from '../../intelligence/customer/CustomerTimelineEngine';
 import type { CustomerLifetimeContext } from '../../intelligence/customer/types';
 

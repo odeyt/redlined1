@@ -1,5 +1,6 @@
 // SI-13: Customer Opportunity Engine Tests
 
+import { test, expect } from '@playwright/test';
 import { findCustomerOpportunities } from '../../intelligence/customer/CustomerOpportunityEngine';
 import type { CustomerLifetimeContext } from '../../intelligence/customer/types';
 

@@ -1,5 +1,6 @@
 // SI-13: Customer Retention Risk Detailed Tests
 
+import { test, expect } from '@playwright/test';
 import { assessRetentionRisk } from '../../intelligence/customer/CustomerRetentionRiskEngine';
 import type { CustomerLifetimeContext } from '../../intelligence/customer/types';
 

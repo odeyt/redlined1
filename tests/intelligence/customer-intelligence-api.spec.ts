@@ -1,6 +1,8 @@
 // SI-13: Customer Intelligence API Contract Tests
 // Tests validation logic directly — no network calls.
 
+import { test, expect } from '@playwright/test';
+
 function isValidCustomerId(id: string): boolean {
   return /^[0-9a-f-]{36}$/i.test(id);
 }

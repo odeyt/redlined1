@@ -1,5 +1,6 @@
 // SI-13: Customer Lifetime Engine Tests
 
+import { test, expect } from '@playwright/test';
 import { assessRetentionRisk } from '../../intelligence/customer/CustomerRetentionRiskEngine';
 import { scoreCustomerRelationship } from '../../intelligence/customer/CustomerRelationshipScoring';
 import type { CustomerLifetimeContext } from '../../intelligence/customer/types';
