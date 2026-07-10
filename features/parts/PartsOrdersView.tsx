@@ -615,6 +615,9 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   /* filters */
   const ON_ORDER_STATUSES = ['Quote', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered'];
   const visible = orders.filter(o => {
+    // Received orders belong exclusively in Parts Received — hide them here unless
+    // this view IS the received view (initialFilterGroup === 'received').
+    if (initialFilterGroup !== 'received' && o.status === 'Received') return false;
     if (filterGroup === 'on-order' && !ON_ORDER_STATUSES.includes(o.status)) return false;
     if (filterGroup === 'received' && o.status !== 'Received') return false;
     if (filterGroup === 'balance' && o.balanceDue <= 0) return false;
