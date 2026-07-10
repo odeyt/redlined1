@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SI-12 Service Advisor — Staff UAT</title>
+<style>
+  @media print {
+    body { font-size: 11pt; }
+    .no-print { display: none; }
+    table { page-break-inside: avoid; }
+    h2 { page-break-before: always; }
+    h2:first-of-type { page-break-before: avoid; }
+  }
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; max-width: 210mm; margin: 0 auto; padding: 20px; color: #222; }
+  h1 { font-size: 18pt; border-bottom: 2px solid #333; padding-bottom: 6px; }
+  h2 { font-size: 13pt; background: #f0f0f0; padding: 6px 10px; border-left: 4px solid #333; margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; }
+  th { background: #333; color: #fff; padding: 6px 8px; text-align: left; }
+  td { border: 1px solid #ccc; padding: 5px 8px; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; font-size: 10pt; }
+  .meta-field { display: flex; gap: 6px; align-items: baseline; }
+  .meta-label { font-weight: bold; white-space: nowrap; }
+  .meta-line { flex: 1; border-bottom: 1px solid #999; min-width: 80px; }
+  .warning-box { background: #fff8e1; border: 1px solid #f59e0b; padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-size: 10pt; }
+  .check { font-size: 10pt; }
+  .result-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 12px 0; font-size: 10pt; }
+  .result-row { display: contents; }
+  .result-row div { border: 1px solid #ccc; padding: 4px 6px; }
+  .result-row div:first-child { font-weight: bold; }
+  .summary-table th { background: #555; }
+  .signature-section { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .sig-field { border-bottom: 1px solid #333; padding-bottom: 4px; margin-top: 20px; font-size: 10pt; }
+  .sig-label { font-size: 9pt; color: #555; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>SI-12 Intelligent Service Advisor — Staff UAT</h1>
+
+<div class="meta">
+  <div class="meta-field"><span class="meta-label">Tester:</span><span class="meta-line"></span></div>
+  <div class="meta-field"><span class="meta-label">Date:</span><span class="meta-line"></span></div>
+  <div class="meta-field"><span class="meta-label">Location:</span><span class="meta-line"></span></div>
+  <div class="meta-field"><span class="meta-label">Supervisor:</span><span class="meta-line"></span></div>
+</div>
+
+<div class="warning-box">
+  <strong>Before starting:</strong> Confirm <code>intelligent_service_advisor</code> and <code>service_advisor_estimate_panel</code> flags are ON in Supabase.
+  Do NOT approve or send any estimate created only for testing.
+</div>
+
+<h2>Scenario 1 — Clean Valid Estimate</h2>
+<p><em>Setup: Open a complete estimate with correct pricing and no inspection gaps.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Estimate page loads normally</td><td>Page renders before advisor panel</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Service Advisor panel appears below estimate</td><td>Panel loads without error</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Quality score ≥ 80 for clean estimate</td><td>Score shown, no critical issues</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>No false suggestions on valid estimate</td><td>No incorrect warnings</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 2 — Missing Labor Description</h2>
+<p><em>Setup: Draft estimate with one or more blank line descriptions.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>"Missing line description" warning</td><td>Detected</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Severity is Warning or Critical</td><td>Not Info</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Suggestion language is review-based</td><td>"Review whether…" not "You must…"</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Estimate total unchanged</td><td>Original total intact</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+<p><strong>Inappropriate upsell check:</strong> ☐ None found &nbsp;&nbsp; ☐ Concern: ______________________</p>
+
+<h2>Scenario 3 — Zero-Price Item</h2>
+<p><em>Setup: Add a line item with zero unit price to a draft estimate.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>"Zero-price line item" warning</td><td>Detected</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Advisor asks to confirm if intentional</td><td>Not prescriptive</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Estimate total not changed by advisor</td><td>Zero line remains as-is</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 4 — Mixed-Currency Estimate</h2>
+<p><em>Setup: Estimate with both USD and THB lines.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Mixed-currency warning appears</td><td>Detected</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Warning is informational, not blocking</td><td>Can still proceed</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Currency totals unchanged</td><td>Same as without advisor</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 5 — Declined Work</h2>
+<p><em>Setup: Estimate for a customer with prior declined work on record.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Declined work suggestion appears</td><td>Listed in Related Services</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Original decline date and service shown</td><td>With evidence</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Disclaimer shown</td><td>"Requires technician verification"</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Cannot auto-add to estimate</td><td>Accept/Dismiss only</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>No fabricated services suggested</td><td>Only real declined work shown</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+<p><strong>Explanation usefulness:</strong> ☐ Very useful &nbsp; ☐ Useful &nbsp; ☐ Not useful</p>
+
+<h2>Scenario 6 — Approved But Unscheduled Estimate</h2>
+<p><em>Setup: Check Follow-Up section for an approved estimate without a scheduled appointment.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Estimate appears in follow-up</td><td>High priority</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>"Already approved" positive factor shown</td><td>Score ≥ 70</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>"Schedule approved work" action available</td><td>Action listed</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Estimate approval status unchanged</td><td>Not altered by advisor</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 7 — Estimate with Inspection Findings</h2>
+<p><em>Setup: Estimate linked to a digital inspection with at least one unquoted finding.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Unquoted inspection finding flagged</td><td>"Inspection finding not on estimate"</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Safety finding is Critical severity</td><td>Critical if safety finding</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Finding name is specific</td><td>Not generic</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Estimate lines unchanged</td><td>No auto-add</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 8 — Vehicle with Repeat Concern</h2>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>VIN not visible in any advisor UI</td><td>VIN never shown</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Only relevant history shown</td><td>Not all customer data</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 9 — Customer with Unpaid Balance</h2>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Raw payment detail NOT visible in advisor panel</td><td>No invoice amounts shown</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Suggestion language does not reference "collect payment"</td><td>Not a collections tool</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Scenario 10 — Panel Failure Isolation</h2>
+<p><em>Setup: Disable advisor flag mid-session or block API in dev tools.</em></p>
+<table>
+  <tr><th>Check</th><th>Expected</th><th>Actual</th><th>Pass/Fail</th></tr>
+  <tr><td>Estimate page remains fully functional</td><td>Can still edit, save, send estimate</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Panel shows graceful error, not page crash</td><td>"Service Advisor unavailable" message</td><td></td><td>☐ P  ☐ F</td></tr>
+  <tr><td>Approval workflow still accessible</td><td>Approve button works</td><td></td><td>☐ P  ☐ F</td></tr>
+</table>
+
+<h2>Summary</h2>
+<table class="summary-table">
+  <tr><th>Scenario</th><th>Pass</th><th>Fail</th><th>Skip</th></tr>
+  <tr><td>1. Clean estimate</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>2. Missing description</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>3. Zero-price item</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>4. Mixed currency</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>5. Declined work</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>6. Approved unscheduled</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>7. Inspection findings</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>8. Repeat concern</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>9. Unpaid balance</td><td>☐</td><td>☐</td><td>☐</td></tr>
+  <tr><td>10. Panel failure isolation</td><td>☐</td><td>☐</td><td>☐</td></tr>
+</table>
+
+<p><strong>Overall result:</strong> &nbsp;&nbsp; ☐ PASS &nbsp;&nbsp; ☐ FAIL &nbsp;&nbsp; ☐ CONDITIONAL</p>
+<p><strong>Ready for Shop 1 rollout:</strong> &nbsp;&nbsp; ☐ Yes &nbsp;&nbsp; ☐ No &nbsp;&nbsp; ☐ Needs review</p>
+
+<div class="signature-section">
+  <div>
+    <div class="sig-field"></div>
+    <div class="sig-label">Tester Name</div>
+  </div>
+  <div>
+    <div class="sig-field"></div>
+    <div class="sig-label">Date</div>
+  </div>
+  <div>
+    <div class="sig-field"></div>
+    <div class="sig-label">Supervisor Sign-Off</div>
+  </div>
+</div>
+
+</body>
+</html>
