@@ -711,6 +711,8 @@ export function CommandCenterView() {
   const [generatingBrief, setGeneratingBrief] = useState(false);
   // SI-9
   const [businessMemory, setBusinessMemory] = useState<MemorySummaryShape | null>(null);
+  // SI-10
+  const [vehicleHighRiskCount, setVehicleHighRiskCount] = useState<number | null>(null);
 
   if (role && role !== 'owner' && role !== 'manager') {
     return <DisabledState reason="Command Center is only available to shop owners and managers." />;
@@ -797,6 +799,18 @@ export function CommandCenterView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
+  // SI-10: Load vehicle intelligence summary — count high-risk vehicles only
+  const loadVehicleIntelligence = useCallback(async () => {
+    try {
+      const flagRes = await fetch('/api/intelligence/vehicle/health-summary', { headers: shopHeaders }).catch(() => null);
+      if (!flagRes?.ok) return;
+      const body = await flagRes.json() as { disabled?: boolean; highRiskCount?: number } | null;
+      if (body?.disabled || body?.highRiskCount == null) return;
+      setVehicleHighRiskCount(body.highRiskCount);
+    } catch { /* fail silently — SI-10 is additive */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
   useEffect(() => {
     if (!shopId) return;
     loadRecommendations();
@@ -805,7 +819,8 @@ export function CommandCenterView() {
     loadActionQueue();
     loadMorningBrief();
     loadBusinessMemory();
-  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief, loadBusinessMemory]);
+    void loadVehicleIntelligence();
+  }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief, loadBusinessMemory, loadVehicleIntelligence]);
 
   async function handleGenerateBrief() {
     setGeneratingBrief(true);
@@ -1248,6 +1263,21 @@ export function CommandCenterView() {
                     +{businessMemory.totalItems - businessMemory.topItems.length} more memory items stored
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ── SI-10: Vehicle Intelligence Alerts ───────────── */}
+          {vehicleHighRiskCount != null && vehicleHighRiskCount > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <SectionHeading icon="🚗" label="Vehicle Intelligence" />
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
+                padding: '10px 14px', fontSize: 13, color: '#991b1b', display: 'flex',
+                alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontWeight: 700 }}>⚠️ {vehicleHighRiskCount} high-risk vehicle{vehicleHighRiskCount === 1 ? '' : 's'} flagged</span>
+                <span style={{ color: '#b91c1c', fontSize: 12 }}>— open Vehicles module to review</span>
               </div>
             </div>
           )}
