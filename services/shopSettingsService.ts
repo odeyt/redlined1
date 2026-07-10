@@ -83,10 +83,12 @@ export const DEFAULT_PAYMENT_METHODS = [
 ];
 
 export async function fetchShopSettings(): Promise<ShopSettings> {
+  // Use the single active shop — .in() with mirror IDs + .single() throws when both shops
+  // have settings rows (PGRST116 "multiple rows returned"). Settings are always per-shop.
   const { data, error } = await supabase
     .from('shop_settings')
     .select('*')
-    .in('shop_id', getShopIds())
+    .eq('shop_id', getShopId())
     .single();
   if (error) throw error;
   return {
