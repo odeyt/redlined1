@@ -1,4 +1,4 @@
--- SI-13: Customer Lifetime Intelligence — Database Migration
+-- SI-13 Customer Lifetime Intelligence
 -- Additive only. Idempotent. Full RLS. All flags default OFF.
 
 -- ── TABLE: customer_lifetime_profiles ────────────────────────────────────────
