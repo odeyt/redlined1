@@ -158,7 +158,6 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.businessType !== undefined) update.business_type = settings.businessType;
   if (settings.serviceTypes !== undefined) update.service_types = settings.serviceTypes;
   if (settings.enabledPaymentMethods !== undefined) update.enabled_payment_methods = settings.enabledPaymentMethods;
-  if (settings.rolePermissions !== undefined) update.role_permissions = settings.rolePermissions;
   if (settings.inspectionTemplate !== undefined) update.inspection_template = settings.inspectionTemplate;
   if (settings.enableTimeTracking !== undefined) update.enable_time_tracking = settings.enableTimeTracking;
   if (settings.enableJobArchive !== undefined) update.enable_job_archive = settings.enableJobArchive;
@@ -175,11 +174,35 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableJobCardSubType !== undefined) update.enable_job_card_sub_type = settings.enableJobCardSubType;
   if (settings.serviceSubTypes !== undefined) update.service_sub_types = settings.serviceSubTypes;
   if (settings.messaging !== undefined) update.messaging_settings = settings.messaging;
-  const { error } = await supabase
-    .from('shop_settings')
-    .update(update)
-    .in('shop_id', getShopIds());
-  if (error) throw error;
+
+  // Role permissions must be consistent across all shops the owner controls —
+  // save to every shop the current user has access to, not just mirror-active ones.
+  // Other settings save only to the active+mirror scope.
+  if (settings.rolePermissions !== undefined) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: suRows } = await supabase
+        .from('shop_users')
+        .select('shop_id')
+        .eq('user_id', user.id);
+      const allShopIds = (suRows ?? []).map((r: Record<string, unknown>) => r.shop_id as string).filter(Boolean);
+      if (allShopIds.length > 0) {
+        await supabase
+          .from('shop_settings')
+          .update({ role_permissions: settings.rolePermissions })
+          .in('shop_id', allShopIds);
+      }
+    }
+    // If other settings are also being saved, don't re-save role_permissions below
+  }
+
+  if (Object.keys(update).length > 0) {
+    const { error } = await supabase
+      .from('shop_settings')
+      .update(update)
+      .in('shop_id', getShopIds());
+    if (error) throw error;
+  }
 }
 
 export async function uploadLogo(file: File): Promise<string> {
