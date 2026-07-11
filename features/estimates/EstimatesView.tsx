@@ -751,7 +751,7 @@ export function EstimatesView() {
               {/* Line Items */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13 }}>Line Items</label>
+                  <label className="section-label" style={{ marginBottom: 0 }}>Line Items</label>
                   <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
                     const ls = [...f.lines];
                     const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';

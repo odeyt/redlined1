@@ -905,7 +905,7 @@ export function InvoicesView() {
               {/* Line Items */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label style={{ fontWeight: 600, fontSize: 13 }}>LINE ITEMS</label>
+                  <label className="section-label" style={{ marginBottom: 0 }}>LINE ITEMS</label>
                   <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 4, padding: '0 0 6px', borderBottom: '1px solid var(--line)' }}>
