@@ -87,10 +87,7 @@ function fmtMoney(v: number): string {
 
 function SectionHead({ icon, label }: { icon: string; label: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
-      fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--muted)',
-    }}>
+    <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
       <span>{icon}</span><span>{label}</span>
       <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />
     </div>

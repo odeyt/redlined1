@@ -553,7 +553,7 @@ export function InspectionsView() {
           {inspections.length > 0 && (
             <div onClick={() => { setSelected(inspections[0]); setShowForm(false); }}
               style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', marginBottom: 12, cursor: 'pointer' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>⚡ Most Recent</div>
+              <div className="section-label">⚡ Most Recent</div>
               <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{inspections[0].inspectionNumber} — {inspections[0].customerName}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inspections[0].vehicle}</div>
             </div>
@@ -1090,7 +1090,7 @@ export function InspectionsView() {
 
                 {selected.notes && (
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--line)', marginTop: 8 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>Notes</div>
+                    <div className="section-label" style={{ marginBottom: 6 }}>Notes</div>
                     <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
                   </div>
                 )}

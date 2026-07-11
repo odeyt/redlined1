@@ -492,7 +492,7 @@ export function CommunicationView() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>Preview ({intakeForm.channel})</div>
+                  <div className="section-label" style={{ marginBottom: 8 }}>Preview ({intakeForm.channel})</div>
                   <pre style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: 0 }}>{generatedMessage}</pre>
                 </div>
                 <textarea value={generatedMessage} onChange={e => setGeneratedMessage(e.target.value)} rows={8}

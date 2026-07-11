@@ -1396,3 +1396,20 @@ tr:last-child td {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTION LABEL — platform-wide "stand out" category/section heading.
+   Accent-colored, bold, uppercase, with a left accent bar so it reads
+   as a distinct marker at a glance rather than just recolored text.
+   ═══════════════════════════════════════════════════════════════ */
+.section-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+  line-height: 1.4;
+}

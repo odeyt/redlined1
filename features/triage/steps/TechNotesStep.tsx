@@ -47,7 +47,7 @@ export function TechNotesStep({ notes, onChange, onNext, onBack }: Props) {
 
       {/* Urgency */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+        <div className="section-label" style={{ marginBottom: 10 }}>
           Urgency
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -79,7 +79,7 @@ export function TechNotesStep({ notes, onChange, onNext, onBack }: Props) {
         padding: '16px 20px', border: '1px solid var(--line)',
         marginBottom: 24,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+        <div className="section-label" style={{ marginBottom: 4 }}>
           Operational Flags
         </div>
         <Toggle label="Tow-in vehicle"         value={notes.towIn}          onChange={v => onChange({ ...notes, towIn: v })} />

@@ -226,14 +226,14 @@ export function DtcView() {
 
               {/* Recommendation */}
               <div style={{ padding: '12px 16px', background: (SEVERITY_STYLE[result.severity]?.bg ?? '#88888811'), borderRadius: 10, marginBottom: 20, border: `1px solid ${(SEVERITY_STYLE[result.severity]?.color ?? '#888')}33` }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Recommended Action</div>
+                <div className="section-label" style={{ marginBottom: 4 }}>Recommended Action</div>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{result.recommendation}</div>
               </div>
 
               {/* Causes + Steps */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>🔎 Common Causes</div>
+                  <div className="section-label">🔎 Common Causes</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {result.causes.map((cause, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13 }}>
@@ -244,7 +244,7 @@ export function DtcView() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>🔧 Diagnostic Steps</div>
+                  <div className="section-label">🔧 Diagnostic Steps</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {result.steps.map((step, i) => (
                       <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13 }}>
@@ -258,7 +258,7 @@ export function DtcView() {
 
               {/* AI: Explain for Customer */}
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16, marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>🤖 AI — Explain for Customer</div>
+                <div className="section-label">🤖 AI — Explain for Customer</div>
                 <button
                   className="btn"
                   onClick={handleAiExplain}
@@ -291,7 +291,7 @@ export function DtcView() {
 
               {/* Save to CRM */}
               <div style={{ borderTop: '1px solid var(--line)', paddingTop: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>💾 Save to CRM</div>
+                <div className="section-label">💾 Save to CRM</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <select value={saveTarget} onChange={e => setSaveTarget(e.target.value as SaveTarget)}
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13 }}>

@@ -96,10 +96,7 @@ export function CustomerMemoryPanel({
 
   return (
     <div>
-      <div style={{
-        fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-        color: 'var(--muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6,
-      }}>
+      <div className="section-label" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span>🧠</span> Customer Memory
         <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />
       </div>
@@ -140,10 +137,7 @@ export function VehicleMemoryPanel({
 
   return (
     <div>
-      <div style={{
-        fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-        color: 'var(--muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6,
-      }}>
+      <div className="section-label" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span>🧠</span> Vehicle Memory
         <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />
       </div>
@@ -193,10 +187,7 @@ export function RepairCaseMemoryPanel({
 
   return (
     <div>
-      <div style={{
-        fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-        color: 'var(--muted)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6,
-      }}>
+      <div className="section-label" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span>🧠</span> Related Memory
         <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />
       </div>

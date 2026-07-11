@@ -387,7 +387,7 @@ export function CustomersView() {
 
               {/* Contact Info */}
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Contact Info</div>
+                <div className="section-label">Contact Info</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {[
                     { label: 'Phone', value: selected.phone },
@@ -412,7 +412,7 @@ export function CustomersView() {
 
               {/* Vehicles */}
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                <div className="section-label">
                   Vehicles {vehicles.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{vehicles.length}</span>}
                 </div>
                 {vehicles.length === 0 && !detailLoading
@@ -433,7 +433,7 @@ export function CustomersView() {
 
               {/* Repair Orders */}
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                <div className="section-label">
                   Repair Orders {ros.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{ros.length}</span>}
                 </div>
                 {ros.length === 0 && !detailLoading
@@ -453,7 +453,7 @@ export function CustomersView() {
 
               {/* Invoices */}
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                <div className="section-label">
                   Invoices {invoices.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{invoices.length}</span>}
                 </div>
                 {invoices.length === 0 && !detailLoading
@@ -475,7 +475,7 @@ export function CustomersView() {
 
               {/* Maintenance Schedules */}
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                <div className="section-label">
                   Maintenance Schedules
                   {maintSchedules.length > 0 && <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, marginLeft: 6 }}>{maintSchedules.length}</span>}
                 </div>

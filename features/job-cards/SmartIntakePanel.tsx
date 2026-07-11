@@ -246,7 +246,7 @@ export function SmartIntakePanel({ vehicle, vehicleKnown, onChange, initialNotes
 
           {/* Category selection */}
           <div>
-            <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+            <div className="section-label">
               Complaint Category
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -276,7 +276,7 @@ export function SmartIntakePanel({ vehicle, vehicleKnown, onChange, initialNotes
           {/* Priority questions */}
           {categoryId && priorityQuestions.length > 0 && (
             <div>
-              <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+              <div className="section-label">
                 Key Questions
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -298,7 +298,7 @@ export function SmartIntakePanel({ vehicle, vehicleKnown, onChange, initialNotes
           {/* Tech flags */}
           {categoryId && (
             <div>
-              <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+              <div className="section-label">
                 Urgency & Flags
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
@@ -345,7 +345,7 @@ export function SmartIntakePanel({ vehicle, vehicleKnown, onChange, initialNotes
           {/* Complaint summary */}
           {categoryId && complaintSummary && (
             <div>
-              <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+              <div className="section-label" style={{ marginBottom: 8 }}>
                 Complaint Summary <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 11 }}>— editable</span>
               </div>
               <textarea
@@ -392,7 +392,7 @@ export function SmartIntakePanel({ vehicle, vehicleKnown, onChange, initialNotes
               background: 'rgba(204,0,0,0.05)', border: '1px solid rgba(204,0,0,0.18)',
               borderRadius: 8, padding: '12px 16px',
             }}>
-              <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#cc0000', marginBottom: 8 }}>
+              <div className="section-label" style={{ marginBottom: 8 }}>
                 Known Patterns — This Vehicle
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

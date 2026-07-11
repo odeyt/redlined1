@@ -214,7 +214,7 @@ export function Header() {
                     if (!group?.length) return null;
                     return (
                       <div key={type}>
-                        <div style={{ padding: '8px 14px 4px', fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--line)' }}>
+                        <div className="section-label" style={{ padding: '8px 14px 4px', borderBottom: '1px solid var(--line)' }}>
                           {TYPE_ICON[type]} {TYPE_LABEL[type]}s
                         </div>
                         {group.map(result => {

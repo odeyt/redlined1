@@ -427,10 +427,7 @@ export function TriageView() {
       {/* Recent triage history */}
       {history.length > 0 && (
         <div>
-          <div style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-            textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12,
-          }}>
+          <div className="section-label" style={{ marginBottom: 12 }}>
             Recent Triage Sessions
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

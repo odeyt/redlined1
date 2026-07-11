@@ -1185,7 +1185,7 @@ export function JobCardsView() {
 
             {/* Stage progress */}
             <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>Current Progress</div>
+              <div className="section-label" style={{ marginBottom: 12 }}>Current Progress</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {STAGES.map((stage, idx) => {
                   const currentIdx = STAGES.findIndex(s => s.id === repairStage);
@@ -1218,7 +1218,7 @@ export function JobCardsView() {
               );
               return (
                 <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 12 }}>Advance Stage</div>
+                  <div className="section-label" style={{ marginBottom: 12 }}>Advance Stage</div>
 
                   {/* Notification options */}
                   <div style={{ marginBottom: 14 }}>

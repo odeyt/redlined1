@@ -109,7 +109,7 @@ export function SummaryStep({ session, saving, onSendToJobCard, onSendToInspecti
         background: 'var(--surface)', border: '1px solid var(--line)',
         borderRadius: 10, padding: '16px 20px', marginBottom: 20,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+        <div className="section-label" style={{ marginBottom: 8 }}>
           Customer Complaint Summary
         </div>
         <p style={{ fontSize: 14, lineHeight: 1.65, margin: 0, fontStyle: 'italic' }}>
@@ -132,7 +132,7 @@ export function SummaryStep({ session, saving, onSendToJobCard, onSendToInspecti
         background: 'var(--surface)', border: '1px solid var(--line)',
         borderRadius: 10, padding: '16px 20px', marginBottom: 20,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
+        <div className="section-label" style={{ marginBottom: 12 }}>
           Suggested Inspection Checks
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -151,7 +151,7 @@ export function SummaryStep({ session, saving, onSendToJobCard, onSendToInspecti
           background: 'rgba(204,0,0,0.06)', border: '1px solid rgba(204,0,0,0.2)',
           borderRadius: 10, padding: '16px 20px', marginBottom: 20,
         }}>
-          <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#cc0000', marginBottom: 10 }}>
+          <div className="section-label" style={{ marginBottom: 10 }}>
             Common Issues on Similar Vehicles
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -170,7 +170,7 @@ export function SummaryStep({ session, saving, onSendToJobCard, onSendToInspecti
         background: 'var(--surface)', border: '1px solid var(--line)',
         borderRadius: 10, padding: '16px 20px', marginBottom: 24,
       }}>
-        <div style={{ fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
+        <div className="section-label" style={{ marginBottom: 12 }}>
           Data Quality Score — {breakdown.total}% <span style={{ color: breakdown.total >= 85 ? '#22c55e' : breakdown.total >= 65 ? '#f59e0b' : '#ef4444' }}>({breakdown.label})</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

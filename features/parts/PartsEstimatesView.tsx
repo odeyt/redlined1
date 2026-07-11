@@ -1642,7 +1642,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>{label}</div>;
+  return <div className="section-label">{label}</div>;
 }
 function FormSection({ label }: { label: string }) {
   return <SectionLabel label={label} />;

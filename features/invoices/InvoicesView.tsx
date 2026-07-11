@@ -766,7 +766,7 @@ export function InvoicesView() {
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', marginBottom: 12, cursor: 'pointer' }}
             >
               <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>⚡ Most Recent</span>
+                <span className="section-label" style={{ display: 'inline-block' }}>⚡ Most Recent</span>
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{invoices[0].invoiceNumber} — {invoices[0].customerName}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{invoices[0].vehicle} · {fmt(invoices[0].createdAt)}</div>
               </div>
@@ -1164,7 +1164,7 @@ export function InvoicesView() {
               {/* Bill To */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                  <div className="section-label" style={{ marginBottom: 6 }}>
                     Bill To
                   </div>
                   <div style={{ fontWeight: 600 }}>{selected.customerName}</div>
@@ -1172,7 +1172,7 @@ export function InvoicesView() {
                 </div>
                 {selected.jobCardId && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                    <div className="section-label" style={{ marginBottom: 6 }}>
                       Reference
                     </div>
                     <div style={{ fontSize: 13 }}>Job Card: <strong>{selected.jobCardId}</strong></div>
@@ -1318,7 +1318,7 @@ export function InvoicesView() {
               {/* Notes */}
               {selected.notes && (
                 <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                  <div className="section-label" style={{ marginBottom: 6 }}>
                     Notes
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
@@ -1430,7 +1430,7 @@ export function InvoicesView() {
               </div>
 
               {/* Mode selector */}
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Payment Method</div>
+              <div className="section-label" style={{ marginBottom: 8 }}>Payment Method</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
                 {(['Cash', 'QR Code', 'Split'] as const).map(m => (
                   <button key={m} type="button"

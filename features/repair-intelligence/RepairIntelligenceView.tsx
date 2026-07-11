@@ -171,7 +171,7 @@ function GraphStatusWidget({ status, error }: { status: GraphStatus | null; erro
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Knowledge Graph</span>
+        <span className="section-label" style={{ display: 'inline-block' }}>Knowledge Graph</span>
         {health && (
           <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 12, background: `${healthColor}22`, color: healthColor, border: `1px solid ${healthColor}44` }}>
             {health}
@@ -218,7 +218,7 @@ function IntelligenceCard({
 
   return (
     <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px', marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 10 }}>Intelligence Card</div>
+      <div className="section-label">Intelligence Card</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 13 }}>
         {mainDtc && <KV k="Main DTC" v={mainDtc} />}
         {mainSymptom && <KV k="Key Symptom" v={mainSymptom} />}
@@ -502,7 +502,7 @@ function CaseDetail({
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h4 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>{children}</h4>;
+  return <h4 className="section-label" style={{ margin: '0 0 8px' }}>{children}</h4>;
 }
 function Grid2({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>{children}</div>;

@@ -71,7 +71,7 @@ export function BillingDashboard() {
       <div className="card" style={{ padding: 24, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Current Plan</div>
+            <div className="section-label" style={{ marginBottom: 4 }}>Current Plan</div>
             <div style={{ fontSize: 24, fontWeight: 800 }}>{plan?.name ?? 'Unknown'}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{plan?.description}</div>
           </div>
@@ -109,7 +109,7 @@ export function BillingDashboard() {
       {/* Plan limits */}
       {plan && (
         <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Plan Limits</div>
+          <div className="section-label" style={{ marginBottom: 14 }}>Plan Limits</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
             <LimitRow label="Users"            limit={plan.limits.maxUsers} />
             <LimitRow label="Locations"        limit={plan.limits.maxLocations} />
@@ -122,7 +122,7 @@ export function BillingDashboard() {
       {/* Usage */}
       {usage && (
         <div className="card" style={{ padding: 24, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <div className="section-label" style={{ marginBottom: 14 }}>
             This Month&apos;s Usage
             <span style={{ fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
               ({new Date(usage.period.start).toLocaleDateString()} – {new Date(usage.period.end).toLocaleDateString()})

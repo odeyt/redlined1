@@ -425,7 +425,7 @@ export function TechniciansView() {
                 {/* Certifications */}
                 {selected.certifications && (
                   <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.05em' }}>Certifications</div>
+                    <div className="section-label" style={{ marginBottom: 6 }}>Certifications</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {selected.certifications.split(',').map(c => c.trim()).filter(Boolean).map(c => (
                         <span key={c} style={{ fontSize: 11, padding: '2px 10px', background: 'rgba(34,197,94,.12)', color: 'var(--green)', borderRadius: 20, fontWeight: 700 }}>
@@ -446,7 +446,7 @@ export function TechniciansView() {
                   );
                   return (
                     <div>
-                      <div style={{ padding: '10px 20px 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Performance Summary</div>
+                      <div className="section-label" style={{ padding: '10px 20px 4px' }}>Performance Summary</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)' }}>
                         {([
                           ['Total ROs',     String(p.roCount)],
@@ -472,7 +472,7 @@ export function TechniciansView() {
                 {/* Open ROs */}
                 {techROs.length > 0 && (
                   <div>
-                    <div style={{ padding: '10px 20px 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    <div className="section-label" style={{ padding: '10px 20px 4px' }}>
                       Active Repair Orders ({techROs.length})
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -505,7 +505,7 @@ export function TechniciansView() {
                 {/* Notes */}
                 {selected.notes && (
                   <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }}>Notes</div>
+                    <div className="section-label" style={{ marginBottom: 4 }}>Notes</div>
                     <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{selected.notes}</div>
                   </div>
                 )}

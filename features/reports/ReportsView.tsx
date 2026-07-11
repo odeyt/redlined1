@@ -1499,7 +1499,7 @@ export function ReportsView() {
                   {/* Vehicle cards — each one shows label, status, and opens edit on click */}
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <span className="section-label" style={{ display: 'inline-block' }}>
                         Registered Vehicles ({selectedCustomer.vehicles.length}) — click to edit
                       </span>
                       <button onClick={() => setSelectedCustomer(null)}

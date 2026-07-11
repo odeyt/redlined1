@@ -214,7 +214,7 @@ export function TimeTrackingView() {
           {/* Active sessions */}
           {active.length > 0 && (
             <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+              <div className="section-label">
                 Active Sessions ({active.length})
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

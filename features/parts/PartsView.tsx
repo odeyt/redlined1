@@ -499,7 +499,7 @@ export function PartsView() {
 
               {/* Step 1 — download template */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 1 — Download the template</div>
+                <div className="section-label" style={{ marginBottom: 8 }}>Step 1 — Download the template</div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button className="btn" style={{ fontSize: 12 }} onClick={downloadCSVTemplate}>
                     ⬇ Download CSV Template
@@ -515,7 +515,7 @@ export function PartsView() {
 
               {/* Step 2 — upload file */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>Step 2 — Upload your file (.csv, .xlsx, .xls)</div>
+                <div className="section-label" style={{ marginBottom: 8 }}>Step 2 — Upload your file (.csv, .xlsx, .xls)</div>
                 <label
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: `2px dashed ${csvDragOver ? 'var(--red,#cc0000)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', background: csvDragOver ? 'rgba(204,0,0,0.05)' : 'var(--surface,#f9f9f9)', transition: 'border-color .15s, background .15s' }}
                   onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
@@ -559,7 +559,7 @@ export function PartsView() {
               {/* Step 3 — preview */}
               {csvRows.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 8 }}>
+                  <div className="section-label" style={{ marginBottom: 8 }}>
                     Step 3 — Review {csvRows.length} part{csvRows.length > 1 ? 's' : ''} to import
                   </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto', maxHeight: 280 }}>
@@ -821,7 +821,7 @@ export function PartsView() {
 
               {(selected.supplier || selected.supplierPhone || selected.supplierEmail) && (
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Supplier</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Supplier</div>
                   {selected.supplier && <div style={{ fontSize: 13, fontWeight: 600 }}>{selected.supplier}</div>}
                   {selected.supplierPhone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>📞 {selected.supplierPhone}</div>}
                   {selected.supplierEmail && <div style={{ fontSize: 12, color: 'var(--muted)' }}>📧 {selected.supplierEmail}</div>}
@@ -830,7 +830,7 @@ export function PartsView() {
 
               {selected.location && (
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>Bin Locations</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Bin Locations</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {selected.location.split(',').map(l => l.trim()).filter(Boolean).map((loc, i) => (
                       <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
@@ -843,14 +843,14 @@ export function PartsView() {
 
               {selected.notes && (
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>Notes</div>
+                  <div className="section-label" style={{ marginBottom: 2 }}>Notes</div>
                   <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{selected.notes}</div>
                 </div>
               )}
 
               {/* ── Photos (detail panel) ── */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+                <div className="section-label" style={{ marginBottom: 8 }}>
                   Photos ({selected.photos.length})
                 </div>
 

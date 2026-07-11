@@ -230,7 +230,7 @@ export function JobArchiveView() {
 
             {/* Q1 */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Was the original issue resolved?</div>
+              <div className="section-label" style={{ marginBottom: 8 }}>Was the original issue resolved?</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([['yes', 'Yes — fully'], ['partial', 'Partially'], ['no', 'No — still present']] as [ReturnResolved, string][]).map(([v, label]) => (
                   <button key={v} onClick={() => setReturnResolved(v)}
@@ -243,7 +243,7 @@ export function JobArchiveView() {
 
             {/* Q2 */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Is this the same issue?</div>
+              <div className="section-label" style={{ marginBottom: 8 }}>Is this the same issue?</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {([['same', 'Same issue'], ['related', 'Related — same system'], ['new', 'New unrelated issue']] as [ReturnSameIssue, string][]).map(([v, label]) => (
                   <button key={v} onClick={() => setReturnSameIssue(v)}
@@ -256,7 +256,7 @@ export function JobArchiveView() {
 
             {/* Q3 */}
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Return reason <span style={{ color: 'var(--danger)' }}>*</span></div>
+              <div className="section-label" style={{ marginBottom: 8 }}>Return reason <span style={{ color: 'var(--danger)' }}>*</span></div>
               <textarea
                 value={returnReason}
                 onChange={e => setReturnReason(e.target.value)}
@@ -268,7 +268,7 @@ export function JobArchiveView() {
 
             {/* Q4 */}
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>New symptoms <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></div>
+              <div className="section-label" style={{ marginBottom: 8 }}>New symptoms <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></div>
               <textarea
                 value={returnSymptoms}
                 onChange={e => setReturnSymptoms(e.target.value)}
@@ -410,7 +410,7 @@ export function JobArchiveView() {
 
                               {/* Vehicle & Job info */}
                               <div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Job Details</div>
+                                <div className="section-label">Job Details</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
                                   <div><span style={{ color: 'var(--muted)' }}>Customer: </span><strong>{j.customer}</strong></div>
                                   <div><span style={{ color: 'var(--muted)' }}>Vehicle: </span><strong>{j.vehicle}</strong></div>
@@ -422,7 +422,7 @@ export function JobArchiveView() {
 
                               {/* Timeline */}
                               <div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Timeline</div>
+                                <div className="section-label">Timeline</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
                                   <div><span style={{ color: 'var(--muted)' }}>Checked In: </span><strong>{fmtDate(j.checkIn)}</strong></div>
                                   <div><span style={{ color: 'var(--muted)' }}>Closed: </span><strong style={{ color: '#4caf50' }}>{fmtDate(j.closed)}</strong></div>
@@ -435,7 +435,7 @@ export function JobArchiveView() {
 
                               {/* Financials */}
                               <div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Financials & References</div>
+                                <div className="section-label">Financials & References</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
                                   <div><span style={{ color: 'var(--muted)' }}>Labor Hours: </span><strong style={{ color: '#2196f3' }}>{j.laborHours > 0 ? j.laborHours.toFixed(1) + ' h' : '—'}</strong></div>
                                   <div><span style={{ color: 'var(--muted)' }}>Parts Total: </span><strong style={{ color: '#ff9800' }}>${j.partsTotal.toFixed(2)}</strong></div>

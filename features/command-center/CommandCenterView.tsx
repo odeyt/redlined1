@@ -452,7 +452,7 @@ function RecCard({
           {/* Evidence items */}
           {evidence && evidence.items.length > 0 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>
+              <div className="section-label" style={{ marginBottom: 8 }}>
                 📊 Evidence
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -489,7 +489,7 @@ function RecCard({
           {/* Suggested actions */}
           {evidence?.explanation?.suggestedActions && evidence.explanation.suggestedActions.length > 0 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 7 }}>
+              <div className="section-label" style={{ marginBottom: 7 }}>
                 ▶ Next Actions
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -676,11 +676,7 @@ function DisabledState({ reason }: { reason: string }) {
 // ── Section heading ───────────────────────────────────────────
 function SectionHeading({ icon, label }: { icon: string; label: string }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
-      color: 'var(--muted)', marginBottom: 12,
-    }}>
+    <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
       <span>{icon}</span>
       <span>{label}</span>
       <div style={{ flex: 1, height: 1, background: 'var(--line)', marginLeft: 4 }} />

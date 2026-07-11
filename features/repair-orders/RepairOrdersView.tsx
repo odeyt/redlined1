@@ -226,7 +226,7 @@ function QAPanel({ ro, onApprove, onSendBack }: {
         </div>
 
         {/* Repair-specific checklist */}
-        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+        <div className="section-label" style={{ marginBottom: 8 }}>
           Step 1 — Repair Verification ({items.length} items)
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
@@ -234,7 +234,7 @@ function QAPanel({ ro, onApprove, onSendBack }: {
         </div>
 
         {/* Misc items */}
-        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+        <div className="section-label" style={{ marginBottom: 8 }}>
           Step 2 — Vehicle Walk-Around & Misc Items ({misc.length} items)
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
@@ -792,7 +792,7 @@ export function RepairOrdersView() {
             <div onClick={() => { setSelected(orders[0]); setShowForm(false); }}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', marginBottom: 12, cursor: 'pointer' }}>
               <div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>⚡ Most Recent</span>
+                <span className="section-label" style={{ display: 'inline-block' }}>⚡ Most Recent</span>
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{orders[0].roNumber} — {orders[0].customerName}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>{orders[0].vehicle} · <TechPills value={orders[0].technician} /></div>
               </div>
@@ -967,7 +967,7 @@ export function RepairOrdersView() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>Repair Order</div>
+                  <div className="section-label">Repair Order</div>
                   <div style={{ fontSize: 22, fontWeight: 800 }}>{selected.roNumber}</div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{statusLabel(selected.status)}</span>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
@@ -980,15 +980,15 @@ export function RepairOrdersView() {
               {/* Customer + Vehicle */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Customer</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Customer</div>
                   <div style={{ fontWeight: 600 }}>{selected.customerName}</div>
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Vehicle</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Vehicle</div>
                   <div style={{ fontWeight: 600 }}>{selected.vehicle || '—'}</div>
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Technician</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Technician</div>
                   <TechPills value={selected.technician} gap={4} />
                   {selected.jobCardId && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>JC: {selected.jobCardId}</div>}
                 </div>
@@ -1002,7 +1002,7 @@ export function RepairOrdersView() {
                   { color: '#4caf50', label: '🟢 Correction', text: selected.correction, bg: 'rgba(76,175,80,0.05)', border: 'rgba(76,175,80,0.2)' },
                 ].map(({ label, text, bg, border }) => (
                   <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6, color: 'var(--muted)' }}>{label}</div>
+                    <div className="section-label" style={{ marginBottom: 6 }}>{label}</div>
                     <div style={{ fontSize: 14, lineHeight: 1.6 }}>{text || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not recorded</span>}</div>
                   </div>
                 ))}
@@ -1019,7 +1019,7 @@ export function RepairOrdersView() {
               {/* Parts list — shown to everyone */}
               {selected.parts.length > 0 && (
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Parts to Install</div>
+                  <div className="section-label">Parts to Install</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--line)' }}>
@@ -1046,7 +1046,7 @@ export function RepairOrdersView() {
               {/* Labor + Parts — hidden for technicians */}
               {!isTech && (
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Charges</div>
+                  <div className="section-label" style={{ marginBottom: 12 }}>Charges</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                     <div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>Labor</div>
@@ -1068,7 +1068,7 @@ export function RepairOrdersView() {
 
               {selected.notes && (
                 <div style={{ paddingTop: 14, borderTop: '1px solid var(--line)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Internal Notes</div>
+                  <div className="section-label" style={{ marginBottom: 6 }}>Internal Notes</div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
                 </div>
               )}
@@ -1195,12 +1195,12 @@ export function RepairOrdersView() {
               {/* RO Summary */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Customer · Vehicle</div>
+                  <div className="section-label" style={{ marginBottom: 4 }}>Customer · Vehicle</div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.customerName}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>{qaTarget.vehicle || '—'}</div>
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Technician · Job Card</div>
+                  <div className="section-label" style={{ marginBottom: 4 }}>Technician · Job Card</div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.technician || '—'}</div>
                   {qaTarget.jobCardId && <div style={{ fontSize: 11, color: '#2196f3' }}>🔗 {qaTarget.jobCardId}</div>}
                 </div>
@@ -1359,7 +1359,7 @@ export function RepairOrdersView() {
 
               {/* Work Completed — structured line items for logged labor/service */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>Work Completed</div>
+                <div className="section-label" style={{ marginBottom: 8 }}>Work Completed</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--line)' }}>
@@ -1415,7 +1415,7 @@ export function RepairOrdersView() {
               {/* Parts to Install — currency picker sits here so it's clear it affects all amounts */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Parts to Install</div>
+                  <div className="section-label" style={{ marginBottom: 0 }}>Parts to Install</div>
                   {/* Currency picker inline */}
                   <div style={{ position: 'relative', width: 220 }}>
                     <input
@@ -1576,7 +1576,7 @@ export function RepairOrdersView() {
                   )}
 
                   {/* Labor line (always included, not selectable) */}
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)', marginBottom: 8 }}>Labor (always included)</div>
+                  <div className="section-label" style={{ marginBottom: 8 }}>Labor (always included)</div>
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
                     <div style={{ fontWeight: 600 }}>Labor — {pullModal.ro.correction || pullModal.ro.concern || 'Repair'}</div>
                     <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
@@ -1592,7 +1592,7 @@ export function RepairOrdersView() {
                   ) : (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--muted)' }}>Parts ({pullModal.lines.length})</div>
+                        <div className="section-label" style={{ marginBottom: 0 }}>Parts ({pullModal.lines.length})</div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => setPullModal(m => m ? { ...m, selected: new Set(m.lines.map(l => l.id)) } : null)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Select all</button>
                           <button onClick={() => setPullModal(m => m ? { ...m, selected: new Set() } : null)} style={{ fontSize: 11, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Clear all</button>

@@ -41,15 +41,10 @@ function LearningDashboardSectionInner({ role }: Props) {
   return (
     <div style={{ marginTop: 16 }}>
       {/* Section heading */}
-      <div style={{
+      <div className="section-label" style={{
         display:      'flex',
         alignItems:   'center',
         gap:          8,
-        fontSize:     12,
-        fontWeight:   600,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        color:        'var(--muted)',
         marginBottom: 12,
       }}>
         <span>🧠</span>

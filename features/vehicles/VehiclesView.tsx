@@ -279,7 +279,7 @@ function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
 
         {/* Q1 */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+          <div className="section-label" style={{ marginBottom: 10 }}>
             1. Was the original issue resolved when the vehicle left? *
           </div>
           {[
@@ -296,7 +296,7 @@ function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
 
         {/* Q2 */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+          <div className="section-label" style={{ marginBottom: 10 }}>
             2. Is this return related to the previous issue? *
           </div>
           {[
@@ -313,7 +313,7 @@ function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
 
         {/* Q3 — Return reason (required) */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <div className="section-label" style={{ marginBottom: 8 }}>
             3. Return reason — what is the customer reporting? *
           </div>
           <textarea
@@ -327,7 +327,7 @@ function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
 
         {/* Q4 — New symptoms (optional) */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <div className="section-label" style={{ marginBottom: 8 }}>
             4. Any new symptoms since the vehicle left? <span style={{ fontWeight: 500, textTransform: 'none' }}>(optional)</span>
           </div>
           <textarea
@@ -869,7 +869,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
             return (
               <div style={{ marginBottom: 20, background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden' }}>
                 <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Vehicle Lifecycle</span>
+                  <span className="section-label" style={{ display: 'inline-block' }}>Vehicle Lifecycle</span>
                   {loading && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Loading…</span>}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)' }}>
@@ -927,7 +927,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           <div>{/* ── LEFT: Basic Info ── */}
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Basic Info</div>
+          <div className="section-label">Basic Info</div>
 
           {/* Status-reason callout — shown for statuses that need an explanation */}
           {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) && (() => {
@@ -1187,7 +1187,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           </div>{/* end left column */}
           <div>{/* ── RIGHT: Service Record ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent,#cc0000)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Service Record</div>
+            <div className="section-label" style={{ marginBottom: 0 }}>Service Record</div>
             <button
               type="button"
               onClick={() => pullFromRO(false)}
@@ -1284,7 +1284,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
           {/* Recommended Service / Notes — hide for pending statuses; show read-only for Returned Job if note exists */}
           {f.status === 'Returned Job' && f.recommendation ? (
             <div style={{ marginBottom: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>Recommended Service / Notes</span>
+              <span className="section-label" style={{ display: 'block', marginBottom: 4 }}>Recommended Service / Notes</span>
               <pre style={{ margin: 0, padding: '8px 12px', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, fontFamily: 'inherit', fontSize: 12, color: '#78350f', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{f.recommendation}</pre>
             </div>
           ) : !['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(f.status) &&
