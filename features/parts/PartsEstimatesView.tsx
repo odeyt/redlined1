@@ -12,7 +12,7 @@ import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor, PartsVendor,
   createPartsOrder,
 } from '@/services/partsOrderService';
-import { fetchCustomers } from '@/services/customerService';
+import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import { fetchVehiclesAll } from '@/services/vehicleService';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { fetchInvoices } from '@/services/invoiceService';
@@ -1467,11 +1467,12 @@ CREATE POLICY "Shop members can manage their parts estimates"
               <FormSection label="Customer & Vehicle" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 {field('Customer', (
-                  <select value={form.customerName} onChange={e => setF({ customerName: e.target.value, vehicle: '' })} style={selStyle}>
-                    <option value="">— Select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    {form.customerName && !customers.find(c => c.name === form.customerName) && <option value={form.customerName}>{form.customerName}</option>}
-                  </select>
+                  <CustomerCombobox
+                    customers={customers}
+                    value={form.customerName}
+                    onSelect={name => setF({ customerName: name, vehicle: '' })}
+                    onCreate={c => setCustomers(prev => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)))}
+                  />
                 ))}
                 {field('Vehicle', (
                   <select value={form.vehicle} onChange={e => setF({ vehicle: e.target.value })} style={selStyle}>
@@ -1646,6 +1647,220 @@ function SectionLabel({ label }: { label: string }) {
 }
 function FormSection({ label }: { label: string }) {
   return <SectionLabel label={label} />;
+}
+
+const EMPTY_NEW_CUSTOMER = { name: '', phone: '', email: '', type: 'Retail' };
+
+function CustomerCombobox({
+  customers, value, onSelect, onCreate,
+}: {
+  customers: Customer[];
+  value: string;
+  onSelect: (name: string) => void;
+  onCreate: (customer: Customer) => void;
+}) {
+  const [query, setQuery]     = useState(value);
+  const [open, setOpen]       = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [newCustomer, setNewCustomer] = useState(EMPTY_NEW_CUSTOMER);
+  const [saving, setSaving]       = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
+
+  const filtered = query.trim().length === 0
+    ? customers.slice(0, 8)
+    : customers.filter(c =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        (c.phone ?? '').includes(query)
+      ).slice(0, 10);
+
+  const exactMatch = customers.some(c => c.name.toLowerCase() === query.trim().toLowerCase());
+
+  function openNewForm() {
+    setShowNew(true);
+    setOpen(false);
+    setNewCustomer({ ...EMPTY_NEW_CUSTOMER, name: query.trim() });
+    setSaveError(null);
+  }
+
+  async function handleSave() {
+    if (!newCustomer.name.trim()) { setSaveError('Name is required.'); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const created = await saveCustomer({
+        name:     newCustomer.name.trim(),
+        type:     newCustomer.type,
+        phone:    newCustomer.phone.trim(),
+        email:    newCustomer.email.trim(),
+        address:  '',
+        tags:     [],
+        followUp: '',
+        portalToken: null,
+      });
+      onCreate(created);
+      onSelect(created.name);
+      setQuery(created.name);
+      setShowNew(false);
+      setNewCustomer(EMPTY_NEW_CUSTOMER);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save customer.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          value={query}
+          placeholder="Search or select customer…"
+          autoComplete="off"
+          onFocus={() => setOpen(true)}
+          onChange={e => {
+            setQuery(e.target.value);
+            setOpen(true);
+            if (value) onSelect('');
+          }}
+          style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 32px 10px 12px', background: 'var(--surface-soft)', width: '100%', boxSizing: 'border-box' }}
+        />
+        {value && (
+          <button
+            type="button"
+            title="Clear customer"
+            onClick={() => { onSelect(''); setQuery(''); }}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {value && (
+        <div style={{ marginTop: 6 }}>
+          <span style={{ fontSize: 12, background: 'rgba(0,180,0,0.1)', color: '#16a34a', border: '1px solid rgba(0,180,0,0.25)', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
+            ✓ {value}
+          </span>
+        </div>
+      )}
+
+      {open && !value && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+          background: 'var(--surface)', border: '1px solid var(--line)',
+          borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', marginTop: 4,
+          maxHeight: 260, overflowY: 'auto',
+        }}>
+          {filtered.length === 0 && query.trim() === '' && (
+            <div style={{ padding: '9px 12px', color: 'var(--muted)', fontSize: 13 }}>No customers yet.</div>
+          )}
+          {filtered.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={() => { onSelect(c.name); setQuery(c.name); setOpen(false); }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--line)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{c.name}</div>
+              {c.phone && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{c.phone}</div>}
+            </button>
+          ))}
+          {query.trim().length > 0 && !exactMatch && (
+            <button
+              type="button"
+              onMouseDown={openNewForm}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 700, fontSize: 13 }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <span style={{ fontSize: 16 }}>+</span>
+              Add &ldquo;{query.trim()}&rdquo; as new customer
+            </button>
+          )}
+          {query.trim().length === 0 && (
+            <button
+              type="button"
+              onMouseDown={openNewForm}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 700, fontSize: 13, borderTop: filtered.length > 0 ? '1px solid var(--line)' : 'none' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              <span style={{ fontSize: 16 }}>+</span>
+              Add new customer
+            </button>
+          )}
+        </div>
+      )}
+
+      {showNew && (
+        <div style={{ marginTop: 8, padding: '14px 16px', background: 'rgba(0,0,0,0.03)', border: '1px solid var(--line)', borderRadius: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>👤 New Customer</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, marginBottom: 12 }}>
+            <div className="login-field" style={{ marginBottom: 0 }}>
+              <label>Name *</label>
+              <input
+                value={newCustomer.name}
+                autoFocus
+                placeholder="e.g. John Smith"
+                onChange={e => setNewCustomer(p => ({ ...p, name: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+              />
+            </div>
+            <div className="login-field" style={{ marginBottom: 0 }}>
+              <label>Phone</label>
+              <input value={newCustomer.phone} placeholder="555-0100" onChange={e => setNewCustomer(p => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div className="login-field" style={{ marginBottom: 0 }}>
+              <label>Email</label>
+              <input type="email" value={newCustomer.email} placeholder="john@example.com" onChange={e => setNewCustomer(p => ({ ...p, email: e.target.value }))} />
+            </div>
+            <div className="login-field" style={{ marginBottom: 0 }}>
+              <label>Type</label>
+              <select value={newCustomer.type} onChange={e => setNewCustomer(p => ({ ...p, type: e.target.value }))}>
+                <option>Retail</option><option>Fleet</option><option>Dealer</option><option>Enterprise Fleet</option><option>Wholesale</option>
+              </select>
+            </div>
+          </div>
+          {saveError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>⚠ {saveError}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !newCustomer.name.trim()}
+              style={{
+                padding: '7px 16px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                background: (saving || !newCustomer.name.trim()) ? 'var(--surface-soft)' : 'var(--accent)',
+                color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : '#fff',
+                cursor:     (saving || !newCustomer.name.trim()) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? 'Saving…' : '✓ Save & Select'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowNew(false); setNewCustomer(EMPTY_NEW_CUSTOMER); setSaveError(null); }}
+              style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 function InfoBox({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
