@@ -49,15 +49,17 @@ export function BillingPortalButton({
       <button
         onClick={openPortal}
         disabled={loading}
+        onMouseEnter={e => { if (isPrimary && !loading) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+        onMouseLeave={e => { if (isPrimary && !loading) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
         style={{
-          background: isPrimary ? '#cc0000' : 'transparent',
-          color: isPrimary ? '#fff' : 'var(--text)',
-          border: isPrimary ? 'none' : '1px solid var(--line)',
-          borderRadius: 8, padding: '9px 20px',
+          background: 'transparent',
+          color: isPrimary ? '#cc0000' : 'var(--text)',
+          border: isPrimary ? '2px solid #cc0000' : '1px solid var(--line)',
+          borderRadius: 999, padding: '9px 20px',
           fontWeight: 700, fontSize: 13,
           cursor: loading ? 'not-allowed' : 'pointer',
           opacity: loading ? 0.7 : 1,
-          transition: 'all 0.15s',
+          transition: 'background 0.15s, color 0.15s',
         }}
       >
         {loading ? 'Opening…' : label}

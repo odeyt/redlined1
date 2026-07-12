@@ -124,10 +124,12 @@ export function TechNotesStep({ notes, onChange, onNext, onBack }: Props) {
         </button>
         <button
           onClick={onNext}
+          onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
           style={{
-            background: '#cc0000', color: '#fff',
-            border: 'none', borderRadius: 8, padding: '10px 28px',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer',
+            background: 'transparent', color: '#cc0000',
+            border: '2px solid #cc0000', borderRadius: 999, padding: '10px 28px',
+            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'background .15s, color .15s',
           }}
         >
           Generate Summary →

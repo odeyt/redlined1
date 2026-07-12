@@ -186,16 +186,19 @@ function FeedbackPanelInner({ recommendationId, onClose }: Props) {
       <button
         onClick={handleSubmit}
         disabled={submitting}
+        onMouseEnter={e => { if (!submitting) { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#fff'; } }}
+        onMouseLeave={e => { if (!submitting) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#2563eb'; } }}
         style={{
           width:        '100%',
           padding:      '8px 0',
-          background:   submitting ? '#9ca3af' : '#2563eb',
-          color:        '#fff',
-          border:       'none',
-          borderRadius: 8,
+          background:   'transparent',
+          color:        submitting ? '#9ca3af' : '#2563eb',
+          border:       submitting ? '2px solid #9ca3af' : '2px solid #2563eb',
+          borderRadius: 999,
           fontWeight:   700,
           fontSize:     14,
           cursor:       submitting ? 'not-allowed' : 'pointer',
+          transition:   'background .15s, color .15s',
         }}
       >
         {submitting ? 'Submitting...' : 'Submit Feedback'}

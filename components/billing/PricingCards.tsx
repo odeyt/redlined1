@@ -160,13 +160,16 @@ export function PricingCards({ currentPlanId, onSelectPlan, loading }: PricingCa
                 <button
                   onClick={() => onSelectPlan?.(plan.id, interval)}
                   disabled={loading}
+                  onMouseEnter={e => { if (isHighlighted && !loading) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (isHighlighted && !loading) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
                   style={{
-                    background: isHighlighted ? '#cc0000' : 'var(--surface-soft)',
-                    color: isHighlighted ? '#fff' : 'var(--text)',
-                    border: `1px solid ${isHighlighted ? '#cc0000' : 'var(--line)'}`,
-                    borderRadius: 8, padding: '10px 0', fontWeight: 700,
+                    background: isHighlighted ? 'transparent' : 'var(--surface-soft)',
+                    color: isHighlighted ? '#cc0000' : 'var(--text)',
+                    border: `2px solid ${isHighlighted ? '#cc0000' : 'var(--line)'}`,
+                    borderRadius: 999, padding: '10px 0', fontWeight: 700,
                     fontSize: 13, cursor: loading ? 'not-allowed' : 'pointer',
                     width: '100%', opacity: loading ? 0.7 : 1,
+                    transition: 'background .15s, color .15s',
                   }}
                 >
                   {loading ? 'Redirecting…' : `Upgrade to ${plan.name}`}

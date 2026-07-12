@@ -229,7 +229,9 @@ export function TimeTrackingView() {
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4caf50', flexShrink: 0 }} />
                     <button
                       className="btn"
-                      style={{ fontSize: 12, padding: '5px 12px', background: '#4caf50', color: '#fff', border: 'none', flexShrink: 0 }}
+                      onMouseEnter={ev => { ev.currentTarget.style.background = '#4caf50'; ev.currentTarget.style.color = '#fff'; }}
+                      onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.color = '#4caf50'; }}
+                      style={{ fontSize: 12, padding: '5px 12px', background: 'transparent', color: '#4caf50', border: '2px solid #4caf50', flexShrink: 0, transition: 'background .15s, color .15s' }}
                       onClick={() => handleClockOut(e.id)}
                     >
                       Clock Out
@@ -301,7 +303,10 @@ export function TimeTrackingView() {
                       <td style={{ padding: '10px 10px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           {!e.clockOut && (
-                            <button className="btn" style={{ fontSize: 11, padding: '3px 10px', background: '#4caf50', color: '#fff', border: 'none' }} onClick={() => handleClockOut(e.id)}>Out</button>
+                            <button className="btn"
+                              onMouseEnter={ev => { ev.currentTarget.style.background = '#4caf50'; ev.currentTarget.style.color = '#fff'; }}
+                              onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.color = '#4caf50'; }}
+                              style={{ fontSize: 11, padding: '3px 10px', background: 'transparent', color: '#4caf50', border: '2px solid #4caf50', transition: 'background .15s, color .15s' }} onClick={() => handleClockOut(e.id)}>Out</button>
                           )}
                           <button className="btn" style={{ fontSize: 11, padding: '3px 10px', background: 'rgba(244,67,54,0.1)', color: 'var(--danger)', border: '1px solid var(--danger)' }} onClick={() => handleDelete(e.id)}>Delete</button>
                         </div>

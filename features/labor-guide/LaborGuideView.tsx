@@ -186,7 +186,9 @@ export function LaborGuideView() {
                             <button
                               onClick={() => handleSave(e.id)}
                               disabled={saving}
-                              style={{ padding: '5px 12px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                              onMouseEnter={ev => { if (!saving) { ev.currentTarget.style.background = '#cc0000'; ev.currentTarget.style.color = '#fff'; } }}
+                              onMouseLeave={ev => { if (!saving) { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.color = '#cc0000'; } }}
+                              style={{ padding: '5px 12px', background: 'transparent', color: '#cc0000', border: '2px solid #cc0000', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'background .15s, color .15s' }}
                             >
                               {saving ? '…' : 'Save'}
                             </button>

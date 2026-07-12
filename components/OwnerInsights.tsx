@@ -105,10 +105,12 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, parts = [], 
         {!result && !loading && (
           <button
             onClick={lookup}
+            onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
             style={{
-              padding: '6px 14px', background: '#cc0000', color: '#fff',
-              border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
-              cursor: 'pointer',
+              padding: '6px 14px', background: 'transparent', color: '#cc0000',
+              border: '2px solid #cc0000', borderRadius: 999, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', transition: 'background .15s, color .15s',
             }}
           >
             Fetch Industry Rate
@@ -187,11 +189,14 @@ export function OwnerInsights({ serviceType, vehicle, currentHours, parts = [], 
                 <button
                   onClick={handleApply}
                   disabled={applied}
+                  onMouseEnter={e => { if (!applied) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (!applied) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
                   style={{
                     padding: '8px 18px',
-                    background: applied ? '#4caf50' : '#cc0000',
-                    color: '#fff', border: 'none', borderRadius: 8,
+                    background: applied ? '#4caf50' : 'transparent',
+                    color: applied ? '#fff' : '#cc0000', border: applied ? 'none' : '2px solid #cc0000', borderRadius: 999,
                     fontSize: 13, fontWeight: 600, cursor: applied ? 'default' : 'pointer',
+                    transition: 'background .15s, color .15s',
                   }}
                 >
                   {applied ? '✓ Applied' : `Apply ${result.suggestedHours} hrs to this RO`}

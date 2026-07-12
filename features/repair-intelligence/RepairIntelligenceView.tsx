@@ -374,7 +374,9 @@ function CaseDetail({
           <span style={{ fontSize: 13 }}>Advance verification to: <strong>{VERIFICATION_LABELS[nextStatus]}</strong></span>
           <button
             onClick={() => onVerify(nextStatus)}
-            style={{ background: VERIFICATION_COLORS[nextStatus], color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+            onMouseEnter={e => { e.currentTarget.style.background = VERIFICATION_COLORS[nextStatus]; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = VERIFICATION_COLORS[nextStatus]; }}
+            style={{ background: 'transparent', color: VERIFICATION_COLORS[nextStatus], border: `2px solid ${VERIFICATION_COLORS[nextStatus]}`, borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontWeight: 600, fontSize: 13, transition: 'background .15s, color .15s' }}
           >
             Mark {VERIFICATION_LABELS[nextStatus]}
           </button>

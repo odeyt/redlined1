@@ -285,7 +285,9 @@ export function JobArchiveView() {
               <button
                 onClick={confirmReturnJob}
                 disabled={returnSubmitting || returnReason.trim().length < 3}
-                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: returnReason.trim().length < 3 ? 'var(--line)' : '#f59e0b', color: returnReason.trim().length < 3 ? 'var(--muted)' : '#fff', fontSize: 13, fontWeight: 700, cursor: returnReason.trim().length < 3 ? 'not-allowed' : 'pointer' }}>
+                onMouseEnter={e => { if (returnReason.trim().length >= 3) { e.currentTarget.style.background = '#f59e0b'; e.currentTarget.style.color = '#fff'; } }}
+                onMouseLeave={e => { if (returnReason.trim().length >= 3) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f59e0b'; } }}
+                style={{ padding: '9px 20px', borderRadius: 999, border: returnReason.trim().length < 3 ? '2px solid var(--line)' : '2px solid #f59e0b', background: 'transparent', color: returnReason.trim().length < 3 ? 'var(--muted)' : '#f59e0b', fontSize: 13, fontWeight: 700, cursor: returnReason.trim().length < 3 ? 'not-allowed' : 'pointer', transition: 'background .15s, color .15s' }}>
                 {returnSubmitting ? 'Returning…' : '↩ Confirm Return'}
               </button>
             </div>

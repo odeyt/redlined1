@@ -593,11 +593,17 @@ export function RepairCaseWizard({ ro, onClose, onCreated }: Props) {
               </button>
             )}
             {page < 6 ? (
-              <button onClick={() => setPage(p => p + 1)} style={{ background: 'var(--accent)', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: 'pointer', color: '#fff', fontWeight: 600, fontSize: 13 }}>
+              <button onClick={() => setPage(p => p + 1)}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; }}
+                style={{ background: 'transparent', border: '2px solid var(--accent)', borderRadius: 999, padding: '8px 20px', cursor: 'pointer', color: 'var(--accent)', fontWeight: 600, fontSize: 13, transition: 'background .15s, color .15s' }}>
                 Next
               </button>
             ) : (
-              <button onClick={handleCreate} disabled={saving} style={{ background: saving ? 'var(--muted)' : 'var(--accent)', border: 'none', borderRadius: 6, padding: '8px 20px', cursor: saving ? 'not-allowed' : 'pointer', color: '#fff', fontWeight: 600, fontSize: 13 }}>
+              <button onClick={handleCreate} disabled={saving}
+                onMouseEnter={e => { if (!saving) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+                onMouseLeave={e => { if (!saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                style={{ background: 'transparent', border: saving ? '2px solid var(--muted)' : '2px solid var(--accent)', borderRadius: 999, padding: '8px 20px', cursor: saving ? 'not-allowed' : 'pointer', color: saving ? 'var(--muted)' : 'var(--accent)', fontWeight: 600, fontSize: 13, transition: 'background .15s, color .15s' }}>
                 {saving ? 'Creating…' : 'Create Repair Case'}
               </button>
             )}

@@ -99,11 +99,14 @@ export function CategoryStep({ selected, onSelect, onNext, onBack }: Props) {
         <button
           onClick={onNext}
           disabled={!hasSelection}
+          onMouseEnter={e => { if (hasSelection) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+          onMouseLeave={e => { if (hasSelection) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
           style={{
-            background: hasSelection ? '#cc0000' : 'var(--surface-soft)',
-            color:      hasSelection ? '#fff' : 'var(--muted)',
-            border: 'none', borderRadius: 8, padding: '10px 28px',
+            background: 'transparent',
+            color:      hasSelection ? '#cc0000' : 'var(--muted)',
+            border: hasSelection ? '2px solid #cc0000' : '2px solid var(--line)', borderRadius: 999, padding: '10px 28px',
             fontWeight: 700, fontSize: 14, cursor: hasSelection ? 'pointer' : 'not-allowed',
+            transition: 'background .15s, color .15s',
           }}
         >
           Continue to Questions →

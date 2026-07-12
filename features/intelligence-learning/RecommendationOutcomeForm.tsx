@@ -107,16 +107,19 @@ function OutcomeFormInner({ recommendationId, onClose }: Props) {
         <button
           onClick={handleSubmit}
           disabled={submitting || (!revenue && !timeSaved)}
+          onMouseEnter={e => { if (!submitting && (revenue || timeSaved)) { e.currentTarget.style.background = '#059669'; e.currentTarget.style.color = '#fff'; } }}
+          onMouseLeave={e => { if (!submitting && (revenue || timeSaved)) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#059669'; } }}
           style={{
             flex:         1,
             padding:      '7px 0',
-            background:   (submitting || (!revenue && !timeSaved)) ? '#9ca3af' : '#059669',
-            color:        '#fff',
-            border:       'none',
-            borderRadius: 6,
+            background:   'transparent',
+            color:        (submitting || (!revenue && !timeSaved)) ? '#9ca3af' : '#059669',
+            border:       (submitting || (!revenue && !timeSaved)) ? '2px solid #9ca3af' : '2px solid #059669',
+            borderRadius: 999,
             fontWeight:   600,
             fontSize:     13,
             cursor:       (submitting || (!revenue && !timeSaved)) ? 'not-allowed' : 'pointer',
+            transition:   'background .15s, color .15s',
           }}
         >
           {submitting ? 'Saving...' : 'Save Outcome'}

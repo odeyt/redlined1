@@ -335,12 +335,15 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
               type="button"
               onClick={handleSaveNewCustomer}
               disabled={saving || !newCustomer.name.trim()}
+              onMouseEnter={e => { if (!saving && newCustomer.name.trim()) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+              onMouseLeave={e => { if (!saving && newCustomer.name.trim()) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
               style={{
                 padding: '8px 18px',
-                background: (saving || !newCustomer.name.trim()) ? 'var(--surface-soft)' : '#cc0000',
-                color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : '#fff',
-                border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                background: 'transparent',
+                color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : '#cc0000',
+                border: (saving || !newCustomer.name.trim()) ? '2px solid var(--line)' : '2px solid #cc0000', borderRadius: 999, fontWeight: 700, fontSize: 13,
                 cursor: (saving || !newCustomer.name.trim()) ? 'not-allowed' : 'pointer',
+                transition: 'background .15s, color .15s',
               }}
             >
               {saving ? 'Saving…' : '✓ Save & Select'}
@@ -396,11 +399,14 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
       <button
         onClick={onNext}
         disabled={!canProceed}
+        onMouseEnter={e => { if (canProceed) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+        onMouseLeave={e => { if (canProceed) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
         style={{
-          background: canProceed ? '#cc0000' : 'var(--surface-soft)',
-          color: canProceed ? '#fff' : 'var(--muted)',
-          border: 'none', borderRadius: 8, padding: '10px 28px',
+          background: 'transparent',
+          color: canProceed ? '#cc0000' : 'var(--muted)',
+          border: canProceed ? '2px solid #cc0000' : '2px solid var(--line)', borderRadius: 999, padding: '10px 28px',
           fontWeight: 700, fontSize: 14, cursor: canProceed ? 'pointer' : 'not-allowed',
+          transition: 'background .15s, color .15s',
         }}
       >
         Continue to Complaint Category →
