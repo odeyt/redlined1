@@ -81,7 +81,7 @@ export function MarketingHeader() {
         }}
       >
         <Link href="#top" aria-label="RedlineD1 home" style={{ display: 'flex', alignItems: 'center' }}>
-          <RedlineD1Logo variant="full" height={32} />
+          <RedlineD1Logo variant="full" height={32} animated={true} />
         </Link>
 
         <nav aria-label="Primary" style={{ display: 'none' }} className="rd1-desktop-nav">
