@@ -423,7 +423,9 @@ function RecCard({
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
             <button
               onClick={() => onDone(rec.id)}
-              style={{ padding: '5px 14px', borderRadius: 999, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
+              onMouseEnter={e => { e.currentTarget.style.background = '#059669'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#059669'; }}
+              style={{ padding: '5px 14px', borderRadius: 999, border: '1.5px solid #059669', background: 'transparent', color: '#059669', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em', transition: 'background 0.15s, color 0.15s' }}>
               ✓ Done
             </button>
             <button
@@ -945,6 +947,8 @@ export function CommandCenterView() {
         <button
           onClick={handleGenerate}
           disabled={generating}
+          onMouseEnter={e => { if (!generating) { e.currentTarget.style.background = 'linear-gradient(135deg,#e74c3c,#c0392b)'; e.currentTarget.style.color = '#fff'; } }}
+          onMouseLeave={e => { if (!generating) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c0392b'; } }}
           style={{
             position: 'relative',
             display: 'flex', alignItems: 'center', gap: 8,
@@ -952,11 +956,12 @@ export function CommandCenterView() {
             borderRadius: 999,
             background: generating
               ? 'rgba(255,255,255,0.08)'
-              : 'linear-gradient(135deg,#e74c3c,#c0392b)',
-            color: '#fff', border: 'none',
+              : 'transparent',
+            color: generating ? '#fff' : '#c0392b',
+            border: generating ? 'none' : '2px solid #c0392b',
             fontWeight: 800, fontSize: 13, cursor: generating ? 'not-allowed' : 'pointer',
             opacity: generating ? 0.7 : 1,
-            boxShadow: generating ? 'none' : '0 4px 16px rgba(192,57,43,0.5)',
+            boxShadow: generating ? 'none' : '0 4px 16px rgba(192,57,43,0.25)',
             letterSpacing: '0.02em',
             transition: 'all 0.2s',
           }}>
@@ -1034,12 +1039,16 @@ export function CommandCenterView() {
                     <button
                       onClick={handleGenerateBrief}
                       disabled={generatingBrief}
+                      onMouseEnter={e => { if (!generatingBrief) { e.currentTarget.style.background = `linear-gradient(135deg,${D.gold},#b45309)`; e.currentTarget.style.color = '#fff'; } }}
+                      onMouseLeave={e => { if (!generatingBrief) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = D.gold; } }}
                       style={{
-                        padding: '9px 18px', borderRadius: 999, border: 'none', cursor: generatingBrief ? 'not-allowed' : 'pointer',
-                        background: generatingBrief ? 'rgba(0,0,0,0.05)' : `linear-gradient(135deg,${D.gold},#b45309)`,
-                        color: generatingBrief ? 'var(--muted)' : '#fff', fontWeight: 700, fontSize: 12,
+                        padding: '9px 18px', borderRadius: 999, cursor: generatingBrief ? 'not-allowed' : 'pointer',
+                        border: generatingBrief ? 'none' : `2px solid ${D.gold}`,
+                        background: generatingBrief ? 'rgba(0,0,0,0.05)' : 'transparent',
+                        color: generatingBrief ? 'var(--muted)' : D.gold, fontWeight: 700, fontSize: 12,
                         opacity: generatingBrief ? 0.6 : 1, whiteSpace: 'nowrap',
                         boxShadow: generatingBrief ? 'none' : `0 3px 10px ${D.gold}40`,
+                        transition: 'background 0.15s, color 0.15s',
                       }}>
                       {generatingBrief ? '⟳ Generating…' : '☀️ Generate Brief'}
                     </button>
@@ -1096,10 +1105,12 @@ export function CommandCenterView() {
                       <button
                         onClick={handleGenerateBrief}
                         disabled={generatingBrief}
+                        onMouseEnter={e => { if (!generatingBrief) { e.currentTarget.style.background = D.gold; e.currentTarget.style.color = '#fff'; } }}
+                        onMouseLeave={e => { if (!generatingBrief) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = D.gold; } }}
                         style={{
                           fontSize: 11, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${D.gold}60`,
-                          background: `${D.gold}10`, color: D.gold, fontWeight: 700, cursor: 'pointer',
-                          opacity: generatingBrief ? 0.6 : 1,
+                          background: 'transparent', color: D.gold, fontWeight: 700, cursor: 'pointer',
+                          opacity: generatingBrief ? 0.6 : 1, transition: 'background 0.15s, color 0.15s',
                         }}>
                         {generatingBrief ? '⟳ Refreshing…' : '↺ Refresh Brief'}
                       </button>

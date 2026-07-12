@@ -1393,11 +1393,15 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       )}
                     </select>
                     <button type="button" onClick={openAddVendor}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
                       + Add
                     </button>
                     <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
                       ⚙ Manage
                     </button>
                   </div>

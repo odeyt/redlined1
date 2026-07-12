@@ -754,13 +754,17 @@ export function PartsEstimatesView() {
               </button>
               {!deleteBlocked && !deleteChecking && (
                 <button onClick={confirmDelete}
-                  style={{ padding: '9px 20px', borderRadius: 999, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  onMouseEnter={e => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ef4444'; }}
+                  style={{ padding: '9px 20px', borderRadius: 999, border: '2px solid #ef4444', background: 'transparent', color: '#ef4444', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}>
                   Yes, Delete
                 </button>
               )}
               {deleteBlocked && (
                 <button onClick={() => { setSelected(null); setDeleteTarget(null); dispatch({ type: 'SET_MODULE', module: 'invoices' }); }}
-                  style={{ padding: '9px 20px', borderRadius: 999, border: 'none', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f97316'; e.currentTarget.style.color = '#fff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f97316'; }}
+                  style={{ padding: '9px 20px', borderRadius: 999, border: '2px solid #f97316', background: 'transparent', color: '#f97316', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}>
                   Go to Invoices →
                 </button>
               )}
@@ -1231,7 +1235,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 <>
                   <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
                   <button onClick={() => handleConvertToOrder(selected)}
-                    style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    onMouseEnter={e => { e.currentTarget.style.background = '#8b5cf6'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7c3aed'; }}
+                    style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'transparent', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
                     ⇄ To Order
                   </button>
                   {(() => {
@@ -1240,7 +1246,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <button
                         onClick={() => handleConvertToEstimate(selected)}
                         disabled={busy}
-                        style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                        onMouseEnter={e => { if (!busy) { e.currentTarget.style.background = '#0ea5e9'; e.currentTarget.style.color = '#fff'; } }}
+                        onMouseLeave={e => { if (!busy) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0284c7'; } }}
+                        style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'transparent', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
                         {busy ? '⟳ Converting…' : '→ Estimate'}
                       </button>
                     );
@@ -1495,9 +1503,13 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       {form.vendorName && !vendors.find(v => v.name === form.vendorName) && <option value={form.vendorName}>{form.vendorName}</option>}
                     </select>
                     <button type="button" onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>+ Add</button>
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>+ Add</button>
                     <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>⚙ Manage</button>
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>⚙ Manage</button>
                   </div>
                 </div>
                 {field('Vendor Phone', inp('tel',   form.vendorPhone, v => setF({ vendorPhone: v }), '555-000-0000'))}
@@ -1840,11 +1852,15 @@ function CustomerCombobox({
               type="button"
               onClick={handleSave}
               disabled={saving || !newCustomer.name.trim()}
+              onMouseEnter={e => { if (!saving && newCustomer.name.trim()) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+              onMouseLeave={e => { if (!saving && newCustomer.name.trim()) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
               style={{
-                padding: '7px 16px', border: 'none', borderRadius: 999, fontWeight: 700, fontSize: 13,
-                background: (saving || !newCustomer.name.trim()) ? 'var(--surface-soft)' : 'var(--accent)',
-                color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : '#fff',
+                padding: '7px 16px', borderRadius: 999, fontWeight: 700, fontSize: 13,
+                border: (saving || !newCustomer.name.trim()) ? 'none' : '2px solid var(--accent)',
+                background: (saving || !newCustomer.name.trim()) ? 'var(--surface-soft)' : 'transparent',
+                color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : 'var(--accent)',
                 cursor:     (saving || !newCustomer.name.trim()) ? 'not-allowed' : 'pointer',
+                transition: 'background 0.15s, color 0.15s',
               }}
             >
               {saving ? 'Saving…' : '✓ Save & Select'}

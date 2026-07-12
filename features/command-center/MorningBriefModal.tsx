@@ -228,10 +228,13 @@ export function MorningBriefModal({
                             <span style={{ fontSize: 11, color: D.green, background: 'rgba(5,150,105,0.1)', borderRadius: 5, padding: '2px 7px', fontWeight: 700 }}>💵 {fmtMoney(p.estimatedRevenue)}</span>
                           )}
                           {p.module && (
-                            <button onClick={() => nav(p.module!)} style={{
+                            <button onClick={() => nav(p.module!)}
+                              onMouseEnter={e => { e.currentTarget.style.background = scoreColor; e.currentTarget.style.color = '#fff'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = scoreColor; }}
+                              style={{
                               fontSize: 11, padding: '2px 10px', borderRadius: 999, cursor: 'pointer',
-                              border: `1.5px solid ${scoreColor}60`, background: `${scoreColor}10`,
-                              color: scoreColor, fontWeight: 700,
+                              border: `1.5px solid ${scoreColor}60`, background: 'transparent',
+                              color: scoreColor, fontWeight: 700, transition: 'background 0.15s, color 0.15s',
                             }}>Open →</button>
                           )}
                         </div>

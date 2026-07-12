@@ -1104,12 +1104,15 @@ export function InvoicesView() {
               <button className="btn btn-primary" onClick={() => openEditForm(selected)}>✏️ Edit</button>
               <button
                 onClick={() => handleCloneInvoice(selected)}
+                onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b00, #ff9500)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ff6b00'; }}
                 style={{
-                  padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 999, border: '2px solid #ff6b00', cursor: 'pointer',
                   fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
-                  background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
-                  color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
+                  background: 'transparent',
+                  color: '#ff6b00', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
                   animation: 'clonePulse 2s ease-in-out infinite',
+                  transition: 'background 0.15s, color 0.15s',
                 }}>
                 ⚡ Clone
               </button>
@@ -1404,7 +1407,9 @@ export function InvoicesView() {
                   Cancel
                 </button>
                 <button disabled={!canSend || emailModal.sending} onClick={isEmail ? handleSendEmail : handleSendMessage}
-                  style={{ padding: '9px 22px', borderRadius: 999, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                  onMouseEnter={e => { if (canSend && !emailModal.sending) { e.currentTarget.style.background = 'linear-gradient(135deg,#1e88e5,#1565c0)'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (canSend && !emailModal.sending) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1565c0'; } }}
+                  style={{ padding: '9px 22px', borderRadius: 999, border: canSend && !emailModal.sending ? '2px solid #1565c0' : 'none', background: canSend && !emailModal.sending ? 'transparent' : '#9ca3af', color: canSend && !emailModal.sending ? '#1565c0' : '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
                   {emailModal.sending ? '⟳ Sending…' : (sendLabel[ch] ?? 'Send')}
                 </button>
               </div>
@@ -1487,7 +1492,9 @@ export function InvoicesView() {
               <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 16 }}>
                 <button type="button" onClick={() => { setPayModal(null); setError(''); }} style={{ flex: 1, padding: '10px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
                 <button type="button" onClick={handlePayConfirm} disabled={payModal.saving}
-                  style={{ flex: 2, padding: '10px', borderRadius: 999, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 800, fontSize: 14, cursor: payModal.saving ? 'not-allowed' : 'pointer', opacity: payModal.saving ? 0.7 : 1, boxShadow: payModal.saving ? 'none' : '0 3px 10px rgba(204,0,0,0.35)' }}>
+                  onMouseEnter={e => { if (!payModal.saving) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (!payModal.saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                  style={{ flex: 2, padding: '10px', borderRadius: 999, border: '2px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 800, fontSize: 14, cursor: payModal.saving ? 'not-allowed' : 'pointer', opacity: payModal.saving ? 0.7 : 1, boxShadow: payModal.saving ? 'none' : '0 3px 10px rgba(204,0,0,0.35)', transition: 'background 0.15s, color 0.15s' }}>
                   {payModal.saving ? 'Recording…' : `✓ Confirm ${payModal.mode} Payment`}
                 </button>
               </div>

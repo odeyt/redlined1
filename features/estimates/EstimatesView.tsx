@@ -938,12 +938,15 @@ export function EstimatesView() {
               <button className="btn btn-primary" onClick={() => openEditForm(selected)}>✏️ Edit</button>
               <button
                 onClick={() => handleCloneEstimate(selected)}
+                onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b00, #ff9500)'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ff6b00'; }}
                 style={{
-                  padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 999, border: '2px solid #ff6b00', cursor: 'pointer',
                   fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
-                  background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
-                  color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
+                  background: 'transparent',
+                  color: '#ff6b00', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
                   animation: 'clonePulse 2s ease-in-out infinite',
+                  transition: 'background 0.15s, color 0.15s',
                 }}>
                 ⚡ Clone
               </button>
@@ -1120,7 +1123,10 @@ export function EstimatesView() {
             {/* UI controls — hidden on print via globals.css .no-print */}
             <div className="no-print">
               <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
-              <button onClick={() => window.print()} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600, boxShadow: '0 3px 10px rgba(204,0,0,0.35)' }}>🖨 Print</button>
+              <button onClick={() => window.print()}
+                onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
+                style={{ position: 'absolute', top: 16, right: 100, background: 'transparent', border: '2px solid #cc0000', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#cc0000', fontWeight: 600, boxShadow: '0 3px 10px rgba(204,0,0,0.35)', transition: 'background 0.15s, color 0.15s' }}>🖨 Print</button>
               {/* Language toggle */}
               <div style={{ position: 'absolute', top: 56, right: 16, display: 'flex', gap: 4 }}>
                 {(['en', 'both', 'lo'] as const).map(lang => (
@@ -1376,7 +1382,9 @@ export function EstimatesView() {
                 </button>
                 <button disabled={!canSend || emailModal.sending}
                   onClick={isEmail ? handleSendEmail : handleSendMessage}
-                  style={{ padding: '9px 22px', borderRadius: 999, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                  onMouseEnter={e => { if (canSend && !emailModal.sending) { e.currentTarget.style.background = 'linear-gradient(135deg,#1e88e5,#1565c0)'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (canSend && !emailModal.sending) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#1565c0'; } }}
+                  style={{ padding: '9px 22px', borderRadius: 999, border: canSend && !emailModal.sending ? '2px solid #1565c0' : 'none', background: canSend && !emailModal.sending ? 'transparent' : '#9ca3af', color: canSend && !emailModal.sending ? '#1565c0' : '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
                   {emailModal.sending ? '⟳ Sending…' : (sendLabel[ch] ?? 'Send')}
                 </button>
               </div>
