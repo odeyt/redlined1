@@ -422,12 +422,12 @@ textarea {
 
 /* ── Dark hero card — for KPI/summary tiles, echoes reference dashboard cards ── */
 .card-hero {
-  --muted: rgba(255, 255, 255, 0.68);
+  --muted: rgba(255, 255, 255, 0.72);
   --text: #ffffff;
-  --line: rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, #2a1416 0%, #150b0c 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --line: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(135deg, #1b4965 0%, #0d2436 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
