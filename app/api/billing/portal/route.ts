@@ -1,8 +1,12 @@
 /**
  * POST /api/billing/portal
  *
- * Creates a billing portal session and returns the URL.
- * Requires the user to have an existing subscription (provider_customer_id).
+ * Creates a Creem billing portal session and returns the redirect URL.
+ *
+ * Guards:
+ *  - Authenticated user (session required)
+ *  - Owner role only
+ *  - Must have an existing subscription with a provider_customer_id
  *
  * Body: { returnUrl?: string }
  */
@@ -13,7 +17,7 @@ import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getCurrentSubscription } from '@/lib/billing/billing-service';
 
-async function getUser() {
+async function getAuthenticatedUser() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,11 +30,34 @@ async function getUser() {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await getUser();
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    const user = await getAuthenticatedUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ── Owner role check ──────────────────────────────────────────────────────
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminDb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    const { data: shopUser } = await adminDb
+      .from('shop_users')
+      .select('shop_id, role')
+      .eq('user_id', user.id)
+      .eq('role', 'owner')
+      .maybeSingle();
+
+    if (!shopUser) {
+      return NextResponse.json(
+        { error: 'Forbidden: only the shop owner can access billing settings.' },
+        { status: 403 },
+      );
+    }
+
+    // ── Subscription lookup ───────────────────────────────────────────────────
     const sub = await getCurrentSubscription(user.id);
     if (!sub?.provider_customer_id) {
       return NextResponse.json(
@@ -39,9 +66,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Create portal session ─────────────────────────────────────────────────
     const body = await req.json().catch(() => ({}) as Record<string, unknown>);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    const returnUrl = (body.returnUrl as string) ?? `${siteUrl}/app`;
+    const returnUrl = (body.returnUrl as string) ?? `${siteUrl}/settings/billing`;
 
     const provider = getPaymentProvider();
     const result = await provider.createCustomerPortalSession({
