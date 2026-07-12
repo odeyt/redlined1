@@ -327,7 +327,7 @@ export function DashboardView() {
       {/* ── KPI Row 1 — financial (owner/manager only) ── */}
       {!isTech && (
         <div className="grid cols-4" style={{ marginBottom: 16 }}>
-          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
+          <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Total Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -341,7 +341,7 @@ export function DashboardView() {
             ))}
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paidInvoices} paid invoice{s.paidInvoices !== 1 ? 's' : ''}</div>
           </div>
-          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
+          <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Outstanding</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -355,7 +355,7 @@ export function DashboardView() {
             ))}
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.unpaidInvoices} unpaid invoice{s.unpaidInvoices !== 1 ? 's' : ''}</div>
           </div>
-          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}>
+          <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('payments')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Today's Revenue</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -369,7 +369,7 @@ export function DashboardView() {
             ))}
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.paymentsToday} invoice{s.paymentsToday !== 1 ? 's' : ''} paid today</div>
           </div>
-          <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
+          <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('invoices')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Draft Invoices</div>
               <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -382,7 +382,7 @@ export function DashboardView() {
 
       {/* ── KPI Row 2 ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('customers')}>
+        <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('customers')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Customers</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -390,7 +390,7 @@ export function DashboardView() {
           <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{s.totalCustomers}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.totalVehicles} vehicles on file</div>
         </div>
-        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('job-cards')}>
+        <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('job-cards')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Active Job Cards</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -398,7 +398,7 @@ export function DashboardView() {
           <div style={{ fontSize: 26, fontWeight: 800, color: '#2196f3', marginTop: 4 }}>{s.openJobCards}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>In progress</div>
         </div>
-        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('repair-orders')}>
+        <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('repair-orders')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Open Repair Orders</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>
@@ -418,7 +418,7 @@ export function DashboardView() {
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>No pending</div>
           )}
         </div>
-        <div className="card dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('estimates')}>
+        <div className="card card-hero dash-kpi" style={{ padding: 18, ...cardClick }} onClick={() => nav('estimates')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>Estimates</div>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>→</span>

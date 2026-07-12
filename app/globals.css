@@ -420,6 +420,21 @@ textarea {
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
 }
 
+/* ── Dark hero card — for KPI/summary tiles, echoes reference dashboard cards ── */
+.card-hero {
+  --muted: rgba(255, 255, 255, 0.68);
+  --text: #ffffff;
+  --line: rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, #2a1416 0%, #150b0c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.card-hero:hover {
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
 .panel {
   padding: 18px;
 }
