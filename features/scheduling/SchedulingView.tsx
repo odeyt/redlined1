@@ -320,7 +320,7 @@ export function SchedulingView() {
           { label: 'Due This Month', value: dueSoonCount, color: dueSoonCount > 0 ? '#ff9800' : 'var(--text)' },
           { label: 'Up to Date', value: schedules.filter(s => getDueStatus(s) === 'ok').length, color: '#4caf50' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="card" style={{ padding: 16 }}>
+          <div key={label} className="card card-hero" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
             <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
           </div>

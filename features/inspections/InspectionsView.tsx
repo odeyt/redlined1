@@ -170,7 +170,7 @@ function InspectionSummaryCard({ label, color, numColor, items, onSelect }: {
 }) {
   const [hover, setHover] = useState(false);
   return (
-    <div className="card" style={{ padding: 16, position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
+    <div className="card card-hero" style={{ padding: 16, position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
       onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <div style={{ fontSize: 11, color, textTransform: 'uppercase', fontWeight: 700 }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 700, color: numColor }}>{items.length}</div>

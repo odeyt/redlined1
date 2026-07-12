@@ -515,19 +515,19 @@ export function EstimatesView() {
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Estimates</div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{estimates.length}</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Pending Approval</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#2196f3' }}>{pendingCount}</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Approved</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#4caf50' }}>{approvedCount}</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Converted</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#9c27b0' }}>{convertedCount}</div>
         </div>

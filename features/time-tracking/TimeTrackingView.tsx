@@ -21,7 +21,7 @@ const fmt = (iso: string) =>
 
 function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="card" style={{ padding: 16 }}>
+    <div className="card card-hero" style={{ padding: 16 }}>
       <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 700, color: color ?? 'var(--text)' }}>{value}</div>
     </div>

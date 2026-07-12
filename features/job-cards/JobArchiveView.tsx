@@ -339,7 +339,7 @@ export function JobArchiveView() {
           { label: 'Total Labor Hours', value: totalLaborHours.toFixed(1) + ' h', sub: 'Across filtered jobs', color: '#2196f3' },
           { label: 'Total Parts Value', value: '$' + totalPartsValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), sub: 'Across filtered jobs', color: '#ff9800' },
         ].map(c => (
-          <div key={c.label} className="card" style={{ padding: 18 }}>
+          <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{c.sub}</div>
