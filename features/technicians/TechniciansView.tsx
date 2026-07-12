@@ -217,7 +217,7 @@ export function TechniciansView() {
           { label: 'Labor Hours Logged',   value: fmtH(totalHours),       sub: 'across all techs' },
           { label: 'Total Revenue Generated', value: fmt(totalRevenue),   sub: 'labor + parts' },
         ].map(c => (
-          <div key={c.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+          <div key={c.label} className="card-hero" style={{ borderRadius: 10, padding: '14px 16px' }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{c.label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 2px' }}>{c.value}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.sub}</div>

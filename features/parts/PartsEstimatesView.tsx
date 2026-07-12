@@ -826,24 +826,27 @@ CREATE POLICY "Shop members can manage their parts estimates"
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         <div onClick={() => setFilterStatus(filterStatus === 'Pending Customer' ? 'All' : 'Pending Customer')}
-          style={{ background: filterStatus === 'Pending Customer' ? 'rgba(236,72,153,0.08)' : 'var(--card)', border: filterStatus === 'Pending Customer' ? '2px solid #ec4899' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterStatus === 'Pending Customer' ? { border: '2px solid #ec4899', boxShadow: '0 0 0 3px rgba(236,72,153,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Pending Customer</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#ec4899' }}>{totalPendingCustomer}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>awaiting customer response</div>
         </div>
         <div onClick={() => setFilterStatus('All')}
-          style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Active</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#3b82f6' }}>{totalPending}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>draft / quoted / pending</div>
         </div>
         <div onClick={() => setFilterStatus(filterStatus === 'Approved' ? 'All' : 'Approved')}
-          style={{ background: filterStatus === 'Approved' ? 'rgba(34,197,94,0.08)' : 'var(--card)', border: filterStatus === 'Approved' ? '2px solid #22c55e' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterStatus === 'Approved' ? { border: '2px solid #22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Approved</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#22c55e' }}>{totalApproved}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>customer confirmed</div>
         </div>
-        <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, padding: '16px 20px' }}>
+        <div className="card-hero" style={{ borderRadius: 12, padding: '16px 20px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Total Quoted</div>
           {Object.entries(totalByCurrency).filter(([, v]) => v > 0).length === 0 ? (
             <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>

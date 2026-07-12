@@ -662,7 +662,7 @@ export function PartsView() {
             { label: 'Margin',       value: margin,             sub: 'avg gross margin' },
           ] : []),
         ].map(c => (
-          <div key={c.label} style={{ background: 'var(--card)', border: `1px solid ${c.alert ? 'var(--amber,#f59e0b)' : 'var(--border)'}`, borderRadius: 10, padding: '14px 16px' }}>
+          <div key={c.label} className="card-hero" style={{ borderRadius: 10, padding: '14px 16px', ...(c.alert ? { border: '2px solid var(--amber,#f59e0b)', boxShadow: '0 0 0 3px rgba(245,158,11,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{c.label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 2px', color: c.alert ? 'var(--amber,#f59e0b)' : undefined }}>{c.value}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.sub}</div>

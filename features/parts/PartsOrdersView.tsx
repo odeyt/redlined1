@@ -730,21 +730,24 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
         {/* On Order */}
         <div onClick={() => setFilterGroup(filterGroup === 'on-order' ? null : 'on-order')}
-          style={{ background: filterGroup === 'on-order' ? 'rgba(59,130,246,0.08)' : 'var(--card)', border: filterGroup === 'on-order' ? '2px solid #3b82f6' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'on-order' ? { border: '2px solid #3b82f6', boxShadow: '0 0 0 3px rgba(59,130,246,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>On Order</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#3b82f6' }}>{totalOrdered}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>pending / ordered / waiting</div>
         </div>
         {/* Received */}
         <div onClick={() => setFilterGroup(filterGroup === 'received' ? null : 'received')}
-          style={{ background: filterGroup === 'received' ? 'rgba(34,197,94,0.08)' : 'var(--card)', border: filterGroup === 'received' ? '2px solid #22c55e' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'received' ? { border: '2px solid #22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Received</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: '#22c55e' }}>{totalReceived}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>this shop</div>
         </div>
         {/* Balance Due — multi-currency */}
         <div onClick={() => setFilterGroup(filterGroup === 'balance' ? null : 'balance')}
-          style={{ background: filterGroup === 'balance' ? 'rgba(239,68,68,0.08)' : 'var(--card)', border: filterGroup === 'balance' ? '2px solid #ef4444' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'balance' ? { border: '2px solid #ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Balance Due</div>
           {Object.entries(balanceByCurrency).filter(([, v]) => v > 0).length === 0 ? (
             <div style={{ fontSize: 22, fontWeight: 900, color: '#22c55e' }}>$0.00</div>
@@ -769,7 +772,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         </div>
         {/* Deposits Paid — multi-currency */}
         <div onClick={() => setFilterGroup(filterGroup === 'deposits' ? null : 'deposits')}
-          style={{ background: filterGroup === 'deposits' ? 'rgba(139,92,246,0.08)' : 'var(--card)', border: filterGroup === 'deposits' ? '2px solid #8b5cf6' : '1px solid var(--line)', borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s' }}>
+          className="card-hero"
+          style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'deposits' ? { border: '2px solid #8b5cf6', boxShadow: '0 0 0 3px rgba(139,92,246,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Deposits Paid</div>
           {Object.entries(depositsByCurrency).filter(([, v]) => v > 0).length === 0 ? (
             <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>
