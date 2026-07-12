@@ -7,7 +7,12 @@ const ACTION_QUEUE = [
   { priority: 'Medium', action: 'Schedule approved work', reason: 'Approved estimate not yet scheduled', evidence: '1 estimate', value: '$XXX (illustrative)', status: 'In progress' },
 ];
 
-const PRIORITY_COLOR: Record<string, string> = { High: colors.primary, Medium: colors.warning, Low: colors.textMuted };
+// Medium uses a darkened amber (#92400E), not the raw `warning` (#F59E0B) token -
+// the raw token fails WCAG AA as text on a light background (2.15:1) per
+// docs/design/aura/DESIGN_VERIFIED.md's contrast restriction. #92400E passes
+// and matches the same darkened-amber pattern used for "Evidence-Based" in
+// ComparisonSection.tsx.
+const PRIORITY_COLOR: Record<string, string> = { High: colors.primary, Medium: '#92400E', Low: colors.textMuted };
 
 /**
  * CommandCenterSection - "Owner Command Center". Sample/illustrative data
@@ -24,7 +29,7 @@ export function CommandCenterSection() {
             <h2 style={h2Style}>Know what deserves attention before the day gets away from you.</h2>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <span style={{ ...badge, background: colors.successBg, color: colors.success }}>Available Now (core)</span>
+            <span style={{ ...badge, background: colors.successBg, color: colors.successText }}>Available Now (core)</span>
             <span style={{ ...badge, background: '#FEF3E2', color: '#92400E' }}>Rolling Out (full scoring)</span>
           </div>
         </div>

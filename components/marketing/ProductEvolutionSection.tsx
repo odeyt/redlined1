@@ -57,7 +57,7 @@ export function ProductEvolutionSection() {
                 opacity: col.style === 'dashed' ? 0.85 : 1,
               }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 600, color: col.style === 'solid' ? colors.success : colors.textMuted, marginBottom: '14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: col.style === 'solid' ? colors.successText : colors.textMuted, marginBottom: '14px' }}>
                 {col.title}
               </div>
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>

@@ -21,9 +21,10 @@ export const colors = {
   textLight: '#A3A3A3', // DECORATIVE ONLY - fails WCAG AA as text per DESIGN_VERIFIED.md. Never used for copy in these components.
   borderLight: '#E5E5E5',
   borderDark: 'rgba(255,255,255,0.12)',
-  success: '#059669',
+  success: '#059669', // icon/large-accent use only - 3.77:1 on white, fails AA as small text per DESIGN_VERIFIED.md
+  successText: '#065F46', // darker emerald for small badge/text labels on light backgrounds - passes AA
   successBg: '#ECFDF5',
-  warning: '#F59E0B',
+  warning: '#F59E0B', // NEVER as text on a light background (2.15:1, fails). Dark-section text or icon/badge fill only.
   warningOnDark: '#FBBF24',
   focusRing: '#2563EB',
 } as const;

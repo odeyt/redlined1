@@ -16,7 +16,7 @@ export function MobileMechanicSection() {
     <section style={{ paddingBlock: 'clamp(56px, 8vw, 128px)' }}>
       <div style={container} className="rd1-two-col">
         <div>
-          <span style={{ ...badge, background: colors.successBg, color: colors.success, marginBottom: '16px' }}>Mobile-ready today</span>
+          <span style={{ ...badge, background: colors.successBg, color: colors.successText, marginBottom: '16px' }}>Mobile-ready today</span>
           <h2 style={h2Style}>Built for the shop floor, driveway, and road.</h2>
           <p style={{ color: colors.textMuted, marginTop: '12px' }}>
             RedlineD1 is a responsive, installable web app - add it to your home screen and run a full job from your

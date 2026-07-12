@@ -57,22 +57,38 @@ export function PricingSection() {
             style={{
               position: 'relative',
               width: '44px',
-              height: '24px',
+              height: '44px', // 44px minimum touch target; the visual track is centered inside via the thumb/track below
+              display: 'flex',
+              alignItems: 'center',
               borderRadius: '9999px',
-              background: annual ? colors.primary : colors.borderLight,
+              background: 'transparent',
               border: 'none',
               cursor: 'pointer',
               padding: 0,
             }}
           >
             <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                width: '44px',
+                height: '24px',
+                transform: 'translateY(-50%)',
+                borderRadius: '9999px',
+                background: annual ? colors.primary : colors.borderLight,
+              }}
+            />
+            <span
               className="rd1-switch-thumb"
               style={{
                 position: 'absolute',
-                top: '2px',
+                top: '50%',
                 left: '2px',
                 width: '20px',
                 height: '20px',
+                marginTop: '-10px',
                 borderRadius: '9999px',
                 background: colors.surfaceWhite,
                 transition: 'transform 0.15s ease',
@@ -81,7 +97,7 @@ export function PricingSection() {
             />
           </button>
           <span style={{ fontSize: '14px', color: annual ? colors.textMain : colors.textMuted, fontWeight: 500 }}>
-            Annual <span style={{ color: colors.success }}>Save with annual billing.</span>
+            Annual <span style={{ color: colors.successText }}>Save with annual billing.</span>
           </span>
         </div>
 

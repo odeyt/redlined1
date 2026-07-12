@@ -24,8 +24,8 @@ const ROWS: { category: string; traditional: Maturity; redline: Maturity }[] = [
 const MATURITY_COLOR: Record<Maturity, { bg: string; fg: string }> = {
   Standard: { bg: '#F5F5F5', fg: colors.textMuted },
   Limited: { bg: '#F5F5F5', fg: colors.textMuted },
-  Available: { bg: colors.successBg, fg: colors.success },
-  Advanced: { bg: colors.successBg, fg: colors.success },
+  Available: { bg: colors.successBg, fg: colors.successText },
+  Advanced: { bg: colors.successBg, fg: colors.successText },
   'Evidence-Based': { bg: '#FEF3E2', fg: '#92400E' },
   Planned: { bg: '#F5F5F5', fg: colors.textMuted },
 };
