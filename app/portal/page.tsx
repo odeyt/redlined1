@@ -133,12 +133,6 @@ const MOBILE_TECH = {
   personImg: '/carlos-m-mobile-mechanic.png',
 };
 
-const TESTIMONIALS = [
-  { name: 'James T.', shop: 'T-Bone Auto Works',   text: 'Redlined1 cut our invoice time in half. Our customers love getting professional reports straight to their phones.', img: 'https://randomuser.me/api/portraits/men/41.jpg' },
-  { name: 'Sandra M.', shop: 'Metro Quick Lube',   text: 'We went from paper job cards to fully digital in a week. No training needed — the whole team just picked it up.', img: 'https://randomuser.me/api/portraits/women/68.jpg' },
-  { name: 'Derek O.',  shop: 'D&O Performance',    text: "The inspection tool alone pays for itself. Customers approve more work when they can see the photos themselves.", img: 'https://randomuser.me/api/portraits/men/76.jpg' },
-];
-
 const PRO_FEATURES   = ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Maintenance Schedules', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'];
 const PLUS_FEATURES  = ['Everything in Pro', '3,000 AI Credits / mo', 'Image Attachments', 'Priority Support', 'Multi-user Access', 'Advanced Permissions', 'Dedicated Onboarding', 'SLA Response Times'];
 
@@ -399,7 +393,6 @@ export default function LandingPage() {
           </div>
 
           <a href="#pricing" style={{ color: '#999', textDecoration: 'none' }}>Pricing</a>
-          <a href="#testimonials" style={{ color: '#999', textDecoration: 'none' }}>Reviews</a>
 
           {/* Resources dropdown */}
           <div ref={resourcesRef} style={{ position: 'relative' }}>
@@ -937,43 +930,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ──────────────────────────────────────── */}
-      <section id="testimonials" style={{ padding: '110px 6%', background: '#07070a' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 60 }}>
-            <span style={{ color: '#cc0000', fontWeight: 700, fontSize: 12, letterSpacing: 3, textTransform: 'uppercase' }}>Reviews</span>
-            <h2 style={{ fontSize: 'clamp(24px,3vw,40px)', fontWeight: 900, marginTop: 14 }}>Trusted by Shop Owners Everywhere</h2>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 12 }}>
-              {'★★★★★'.split('').map((s, i) => <span key={i} style={{ color: '#f59e0b', fontSize: 20 }}>{s}</span>)}
-              <span style={{ color: '#666', fontSize: 13, marginLeft: 8, alignSelf: 'center' }}>4.8 out of 5 — 2,500+ reviews</span>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 20 }}>
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '28px 24px' }}>
-                <div style={{ display: 'flex', gap: 3, marginBottom: 16 }}>
-                  {'★★★★★'.split('').map((s, j) => <span key={j} style={{ color: '#f59e0b', fontSize: 14 }}>{s}</span>)}
-                </div>
-                <p style={{ color: '#ccc', fontSize: 14, lineHeight: 1.7, marginBottom: 22 }}>"{t.text}"</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: '50%', border: '2px solid #cc0000', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{t.name}</div>
-                    <div style={{ color: '#666', fontSize: 12 }}>{t.shop}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── CTA BANNER ────────────────────────────────────────── */}
       <section style={{ padding: '90px 6%', background: 'linear-gradient(135deg,#1a0000 0%,#cc0000 50%,#1a0000 100%)', textAlign: 'center' }}>
         <h2 style={{ fontSize: 'clamp(24px,4vw,44px)', fontWeight: 900, marginBottom: 16 }}>Ready to Redline Your Shop?</h2>
-        <p style={{ color: 'rgba(255,255,255,0.78)', fontSize: 16, marginBottom: 34 }}>Join thousands of shops running smarter with Redlined1. No credit card required.</p>
+        <p style={{ color: 'rgba(255,255,255,0.78)', fontSize: 16, marginBottom: 34 }}>Run your shop smarter with Redlined1. No credit card required.</p>
         <Link href="/signup" style={{ background: '#fff', color: '#cc0000', padding: '16px 40px', borderRadius: 10, textDecoration: 'none', fontWeight: 800, fontSize: 16, display: 'inline-block' }}>Start Your Free 7-Day Trial →</Link>
       </section>
 
