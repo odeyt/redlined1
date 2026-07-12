@@ -187,22 +187,22 @@ export function CommunicationView() {
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Pending Estimates</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: pendingEstimates.length > 0 ? '#f59e0b' : 'var(--text)' }}>{pendingEstimates.length}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>No response yet</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Queued Follow-ups</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: queuedFu > 0 ? '#2196f3' : 'var(--text)' }}>{queuedFu}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ready to send</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Active Campaigns</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: activeCampaigns > 0 ? '#4caf50' : 'var(--text)' }}>{activeCampaigns}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Running now</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700 }}>Sent Messages</div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{followups.filter(f => f.status === 'Sent').length}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>Logged</div>

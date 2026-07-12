@@ -1138,7 +1138,7 @@ export function ReportsView() {
               { label: 'Total Invoiced', value: fmtMoney(d.totalOutstanding + d.totalRevenuePaid), sub: `${d.invoiceCount} invoice${d.invoiceCount !== 1 ? 's' : ''} (excl. void)`, color: 'var(--text)' },
               { label: 'Avg per Transaction', value: fmtMoney(d.avgInvoiceValue), sub: d.paymentCount > 0 ? `across ${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''}` : 'No payments yet', color: 'var(--text)' },
             ].map(card => (
-              <div key={card.label} className="card" style={{ padding: 18 }}>
+              <div key={card.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>{card.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color, marginTop: 4 }}>{card.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{card.sub}</div>
@@ -1153,7 +1153,7 @@ export function ReportsView() {
               { label: 'Customers', value: String(d.totalCustomers), sub: `${d.totalVehicles} vehicles`, color: 'var(--text)' },
               { label: 'Estimate Conversion', value: fmtPct(d.estimateConvertRate), sub: `${d.convertedEstimates} of ${d.totalEstimates}`, color: d.estimateConvertRate > 50 ? '#4caf50' : 'var(--text)' },
             ].map(card => (
-              <div key={card.label} className="card" style={{ padding: 18 }}>
+              <div key={card.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 700 }}>{card.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: card.color, marginTop: 4 }}>{card.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{card.sub}</div>
@@ -1199,7 +1199,7 @@ export function ReportsView() {
               { label: 'Outstanding (Unpaid)', value: fmtMoney(d.totalOutstanding), color: '#f59e0b', sub: `${d.sentCount} sent invoice${d.sentCount !== 1 ? 's' : ''}` },
               { label: 'Voided Invoices', value: fmtMoney(d.totalVoid), color: '#f44336', sub: 'Excluded from revenue' },
             ].map(c => (
-              <div key={c.label} className="card" style={{ padding: 18 }}>
+              <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>
@@ -1249,7 +1249,7 @@ export function ReportsView() {
               { label: 'Total Labor Value', value: fmtMoney(d.totalLaborValue), sub: 'All non-void ROs', color: '#2196f3' },
               { label: 'Total Parts Value', value: fmtMoney(d.totalPartsValue), sub: 'All non-void ROs', color: '#ff9800' },
             ].map(c => (
-              <div key={c.label} className="card" style={{ padding: 18 }}>
+              <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>
@@ -1263,7 +1263,7 @@ export function ReportsView() {
               { label: 'Completed / Closed', value: String(d.completedROCount), color: '#4caf50' },
               { label: 'Avg Labor Hours / RO', value: d.avgLaborHours.toFixed(1) + ' hrs', color: 'var(--text)' },
             ].map(c => (
-              <div key={c.label} className="card" style={{ padding: 18 }}>
+              <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
               </div>
@@ -1291,15 +1291,15 @@ export function ReportsView() {
           </div>
 
           <div className="grid cols-3" style={{ marginBottom: 16 }}>
-            <div className="card" style={{ padding: 18 }}>
+            <div className="card card-hero" style={{ padding: 18 }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Total Collected</div>
               <div style={{ fontSize: 26, fontWeight: 800, color: '#4caf50', marginTop: 6 }}>{fmtMoney(d.totalPayments)}</div>
             </div>
-            <div className="card" style={{ padding: 18 }}>
+            <div className="card card-hero" style={{ padding: 18 }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Transactions</div>
               <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{d.paymentCount}</div>
             </div>
-            <div className="card" style={{ padding: 18 }}>
+            <div className="card card-hero" style={{ padding: 18 }}>
               <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Payment Methods</div>
               <div style={{ fontSize: 26, fontWeight: 800, marginTop: 6 }}>{d.methodBreakdown.length}</div>
             </div>
@@ -1379,7 +1379,7 @@ export function ReportsView() {
                 { label: 'Estimates', value: String(d.totalEstimates), color: 'var(--text)', sub: `${d.convertedEstimates} converted` },
                 { label: 'Convert Rate', value: fmtPct(d.estimateConvertRate), color: d.estimateConvertRate > 50 ? '#4caf50' : 'var(--text)', sub: 'Estimate → job' },
               ].map(c => (
-                <div key={c.label} className="card" style={{ padding: 18 }}>
+                <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                   <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{c.sub}</div>
@@ -1634,7 +1634,7 @@ export function ReportsView() {
               { label: 'Completed Jobs', value: String(techRows.reduce((s, t) => s + t.completedJobs, 0)), color: '#4caf50' },
               { label: 'Total Hours Logged', value: techRows.reduce((s, t) => s + t.totalHoursLogged, 0).toFixed(1) + ' h', color: '#2196f3' },
             ].map(c => (
-              <div key={c.label} className="card" style={{ padding: 18 }}>
+              <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
               </div>
@@ -1797,7 +1797,7 @@ export function ReportsView() {
                   { label: 'Complete + Invoiced', value: String(completed + invoiced), color: '#4caf50' },
                   { label: 'Avg Days to Close', value: avgDays > 0 ? avgDays.toFixed(1) + ' days' : '—', color: avgDays > 7 ? '#f44336' : avgDays > 3 ? '#f59e0b' : '#4caf50' },
                 ].map(c => (
-                  <div key={c.label} className="card" style={{ padding: 18 }}>
+                  <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{c.value}</div>
                     {c.label === 'Complete + Invoiced' && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{completionRate.toFixed(0)}% completion rate</div>}

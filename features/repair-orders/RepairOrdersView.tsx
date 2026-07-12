@@ -773,7 +773,7 @@ export function RepairOrdersView() {
           );
         })}
         {!isTech && (
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card card-hero" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Labor Value</div>
             <div style={{ fontSize: 20, fontWeight: 800, marginTop: 4 }}>${totalLabor.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>

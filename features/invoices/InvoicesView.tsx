@@ -721,11 +721,11 @@ export function InvoicesView() {
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Invoices</div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{invoices.length}</div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Revenue (Paid)</div>
           {Object.keys(revenueByCurrency).length === 0
             ? <div style={{ fontSize: 22, fontWeight: 700, color: '#4caf50' }}>$0</div>
@@ -734,7 +734,7 @@ export function InvoicesView() {
               ))
           }
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Outstanding</div>
           {Object.keys(outstandingByCurrency).length === 0
             ? <div style={{ fontSize: 22, fontWeight: 700, color: '#2196f3' }}>$0</div>
@@ -743,7 +743,7 @@ export function InvoicesView() {
               ))
           }
         </div>
-        <div className="card" style={{ padding: 16 }}>
+        <div className="card card-hero" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Drafts</div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{draftCount}</div>
         </div>

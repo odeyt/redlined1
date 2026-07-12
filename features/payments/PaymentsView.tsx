@@ -60,7 +60,7 @@ function StatCard({ label, value, valueColor, items, countOnly }: {
   const fmtDT  = (d: string) => d ? new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
   return (
     <div
-      className="card"
+      className="card card-hero"
       style={{ padding: 16, position: 'relative', cursor: items.length > 0 ? 'pointer' : 'default' }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
