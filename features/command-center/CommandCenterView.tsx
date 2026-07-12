@@ -163,10 +163,10 @@ const D = {
   gold:    '#d97706',
   green:   '#059669',
   blue:    '#2563eb',
-  cardShadow: '0 2px 12px rgba(0,0,0,0.08)',
-  cardShadowHover: '0 4px 24px rgba(0,0,0,0.14)',
-  radius: 14,
-  radiusSm: 9,
+  cardShadow: '0 3px 16px rgba(0,0,0,0.08)',
+  cardShadowHover: '0 6px 28px rgba(0,0,0,0.15)',
+  radius: 18,
+  radiusSm: 12,
 };
 
 // ── Helpers ───────────────────────────────────────────────────
