@@ -21,6 +21,23 @@
   outline-offset: 2px;
 }
 
+.rd1-landing .rd1-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: #B42318;
+  color: #FFFFFF;
+  padding: 12px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.rd1-landing .rd1-skip-link:focus {
+  left: 16px;
+  top: 16px;
+}
+
 .rd1-landing a,
 .rd1-landing button {
   font-family: inherit;

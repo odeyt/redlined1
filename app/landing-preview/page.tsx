@@ -34,21 +34,7 @@ import { colors } from '@/components/marketing/theme';
 export default function LandingPreviewPage() {
   return (
     <main style={{ background: colors.surfaceBg, fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <a
-        href="#main-content"
-        style={{
-          position: 'absolute',
-          left: '-9999px',
-          top: 0,
-          zIndex: 100,
-          background: colors.primary,
-          color: colors.surfaceWhite,
-          padding: '12px 20px',
-          borderRadius: '6px',
-        }}
-        onFocus={(e) => { e.currentTarget.style.left = '16px'; e.currentTarget.style.top = '16px'; }}
-        onBlur={(e) => { e.currentTarget.style.left = '-9999px'; }}
-      >
+      <a href="#main-content" className="rd1-skip-link">
         Skip to main content
       </a>
 
