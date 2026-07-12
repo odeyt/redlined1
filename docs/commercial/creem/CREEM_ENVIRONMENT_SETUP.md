@@ -41,28 +41,32 @@ CREEM_SUCCESS_URL=http://localhost:3000/billing/success
 CREEM_CANCEL_URL=http://localhost:3000/pricing
 ```
 
-### Product IDs (6 required — paid plans only)
+### Product IDs (8 required — 4 paid plans × 2 billing intervals)
 
 Create one product per row in the Creem test dashboard:
 
 | Env Var | Plan | Interval | Price |
 |---------|------|----------|-------|
-| `CREEM_STARTER_MONTHLY_PRODUCT_ID` | Starter | Monthly | $29/mo |
-| `CREEM_STARTER_ANNUAL_PRODUCT_ID` | Starter | Annual | $290/yr |
-| `CREEM_PROFESSIONAL_MONTHLY_PRODUCT_ID` | Professional | Monthly | $59/mo |
-| `CREEM_PROFESSIONAL_ANNUAL_PRODUCT_ID` | Professional | Annual | $590/yr |
-| `CREEM_SHOP_PRO_MONTHLY_PRODUCT_ID` | Shop Pro | Monthly | $99/mo |
-| `CREEM_SHOP_PRO_ANNUAL_PRODUCT_ID` | Shop Pro | Annual | $990/yr |
+| `CREEM_SOLO_MONTHLY_PRODUCT_ID` | Solo | Monthly | $24/mo |
+| `CREEM_SOLO_ANNUAL_PRODUCT_ID` | Solo | Annual | $240/yr |
+| `CREEM_STARTER_MONTHLY_PRODUCT_ID` | Starter | Monthly | $49/mo |
+| `CREEM_STARTER_ANNUAL_PRODUCT_ID` | Starter | Annual | $490/yr |
+| `CREEM_PROFESSIONAL_MONTHLY_PRODUCT_ID` | Professional | Monthly | $99/mo |
+| `CREEM_PROFESSIONAL_ANNUAL_PRODUCT_ID` | Professional | Annual | $990/yr |
+| `CREEM_BUSINESS_MONTHLY_PRODUCT_ID` | Business | Monthly | $179/mo |
+| `CREEM_BUSINESS_ANNUAL_PRODUCT_ID` | Business | Annual | $1790/yr |
 
 Enterprise uses custom pricing — no product ID required (contact-sales flow only).
 
 ```env
+CREEM_SOLO_MONTHLY_PRODUCT_ID=prod_test_...
+CREEM_SOLO_ANNUAL_PRODUCT_ID=prod_test_...
 CREEM_STARTER_MONTHLY_PRODUCT_ID=prod_test_...
 CREEM_STARTER_ANNUAL_PRODUCT_ID=prod_test_...
 CREEM_PROFESSIONAL_MONTHLY_PRODUCT_ID=prod_test_...
 CREEM_PROFESSIONAL_ANNUAL_PRODUCT_ID=prod_test_...
-CREEM_SHOP_PRO_MONTHLY_PRODUCT_ID=prod_test_...
-CREEM_SHOP_PRO_ANNUAL_PRODUCT_ID=prod_test_...
+CREEM_BUSINESS_MONTHLY_PRODUCT_ID=prod_test_...
+CREEM_BUSINESS_ANNUAL_PRODUCT_ID=prod_test_...
 ```
 
 ### Billing Feature Gate
@@ -135,4 +139,4 @@ Or check the server logs on first checkout — missing product IDs throw immedia
 - [ ] `CREEM_API_KEY` starts with `creem_test_` (not live key)
 - [ ] `NEXT_PUBLIC_BILLING_ENABLED=false`
 - [ ] ngrok is running and endpoint is registered in Creem test dashboard
-- [ ] All 6 product ID vars are set
+- [ ] All 8 product ID vars are set

@@ -77,7 +77,7 @@ docs/testing/commercial/CREEM_SANDBOX_UAT.md        — new (Phase 11)
 ## Pre-UAT Checklist (owner must complete)
 
 - [ ] Creem test-mode account created
-- [ ] 6 sandbox products created in Creem dashboard (3 plans × 2 intervals)
+- [ ] 8 sandbox products created in Creem dashboard (4 plans × 2 intervals)
 - [ ] All env vars set in `.env.local` per `CREEM_ENVIRONMENT_SETUP.md`
 - [ ] ngrok endpoint registered with all 9 webhook event types
 - [ ] `CREEM_WEBHOOK_SECRET` set and matching

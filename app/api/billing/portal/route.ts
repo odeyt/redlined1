@@ -16,6 +16,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getCurrentSubscription } from '@/lib/billing/billing-service';
+import { getAdminDb } from '@/lib/supabaseServer';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -37,11 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Owner role check ──────────────────────────────────────────────────────
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminDb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const adminDb = getAdminDb();
 
     const { data: shopUser } = await adminDb
       .from('shop_users')

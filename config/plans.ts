@@ -1,8 +1,11 @@
 /**
- * Redlined1 plan configuration.
- * This is the single source of truth for plan definitions and feature limits.
+ * Redlined1plan configuration.
+ * Canonical plan IDs match the public PricingSection catalog exactly.
  * Provider-specific product/price IDs come from environment variables only —
  * never hardcoded here.
+ *
+ * Prices match PricingSection.tsx (re-authored from
+ * feature/commercial-pricing-trial-entitlements planCatalog.ts).
  */
 
 import type { RedlinedPlanId, BillingInterval, PaymentProviderName } from '@/lib/payments/types';
@@ -32,15 +35,15 @@ export interface PlanConfig {
 }
 
 export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
-  starter: {
-    id: 'starter',
-    name: 'Starter',
-    description: 'Perfect for solo mechanics and small shops',
-    monthlyPrice: 29,
-    annualPrice: 290,
+  solo: {
+    id: 'solo',
+    name: 'Solo',
+    description: 'For independent and mobile mechanics',
+    monthlyPrice: 24,
+    annualPrice: 240,
     features: {
-      unlimitedInvoices: false,
-      maxTechnicians: 2,
+      unlimitedInvoices: true,
+      maxTechnicians: 1,
       aiAdvisor: false,
       smsCredits: 0,
       digitalInspections: true,
@@ -53,16 +56,37 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
     },
   },
 
+  starter: {
+    id: 'starter',
+    name: 'Starter',
+    description: 'For small shops building a team',
+    monthlyPrice: 49,
+    annualPrice: 490,
+    features: {
+      unlimitedInvoices: true,
+      maxTechnicians: 3,
+      aiAdvisor: false,
+      smsCredits: 0,
+      digitalInspections: true,
+      smartIntake: true,
+      multiLocation: false,
+      reports: false,
+      repairIntelligence: false,
+      triage: false,
+      prioritySupport: false,
+    },
+  },
+
   professional: {
     id: 'professional',
     name: 'Professional',
-    description: 'For growing shops with multiple technicians',
-    monthlyPrice: 59,
-    annualPrice: 590,
+    description: 'For growing shops that want intelligence and automation',
+    monthlyPrice: 99,
+    annualPrice: 990,
     highlighted: true,
     features: {
       unlimitedInvoices: true,
-      maxTechnicians: 8,
+      maxTechnicians: 10,
       aiAdvisor: true,
       smsCredits: 500,
       digitalInspections: true,
@@ -75,12 +99,12 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
     },
   },
 
-  shop_pro: {
-    id: 'shop_pro',
-    name: 'Shop Pro',
-    description: 'Full-featured for established multi-bay operations',
-    monthlyPrice: 99,
-    annualPrice: 990,
+  business: {
+    id: 'business',
+    name: 'Business',
+    description: 'For larger and multi-location operations',
+    monthlyPrice: 179,
+    annualPrice: 1790,
     features: {
       unlimitedInvoices: true,
       maxTechnicians: null,
@@ -99,7 +123,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    description: 'Custom pricing for multi-location operations and fleets',
+    description: 'For groups, chains, and custom deployments',
     monthlyPrice: null,
     annualPrice: null,
     features: {
@@ -118,7 +142,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
   },
 };
 
-export const PLAN_ORDER: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro', 'enterprise'];
+export const PLAN_ORDER: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
 
 /**
  * Resolves the provider-specific product or price ID for a given plan + interval.

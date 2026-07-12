@@ -16,7 +16,7 @@
 
 import type { RedlinedPlanId, BillingInterval } from './types';
 
-export const PAID_PLANS: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro'];
+export const PAID_PLANS: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business'];
 
 export const BILLING_INTERVALS: BillingInterval[] = ['monthly', 'annual'];
 
@@ -25,7 +25,7 @@ export function productIdEnvKey(planId: RedlinedPlanId, interval: BillingInterva
   return `CREEM_${planId.toUpperCase()}_${interval.toUpperCase()}_PRODUCT_ID`;
 }
 
-/** All required product ID env vars (3 paid plans × 2 intervals = 6). */
+/** All required product ID env vars (4 paid plans × 2 intervals = 8). */
 export const REQUIRED_PRODUCT_ID_VARS: string[] = PAID_PLANS.flatMap(plan =>
   BILLING_INTERVALS.map(interval => productIdEnvKey(plan, interval)),
 );

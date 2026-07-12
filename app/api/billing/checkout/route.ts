@@ -19,6 +19,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getCurrentSubscription } from '@/lib/billing/billing-service';
+import { getAdminDb } from '@/lib/supabaseServer';
 import type { RedlinedPlanId, BillingInterval } from '@/lib/payments/types';
 
 // D1 internal shops — never billed
@@ -27,7 +28,7 @@ const INTERNAL_SHOP_IDS = new Set([
   '90b72748-bf01-4456-999f-f4ba48091606',
 ]);
 
-const VALID_PLANS: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro'];
+const VALID_PLANS: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business'];
 const VALID_INTERVALS: BillingInterval[] = ['monthly', 'annual'];
 
 async function getAuthenticatedUser() {
@@ -58,11 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Owner role + shop lookup ───────────────────────────────────────────────
-    const { createClient } = await import('@supabase/supabase-js');
-    const adminDb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const adminDb = getAdminDb();
 
     const { data: shopUser } = await adminDb
       .from('shop_users')

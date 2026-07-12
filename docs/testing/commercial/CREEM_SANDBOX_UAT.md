@@ -10,7 +10,7 @@
 Before running any test:
 
 - [ ] `.env.local` is configured per `CREEM_ENVIRONMENT_SETUP.md`
-- [ ] All 6 `CREEM_*_PRODUCT_ID` vars are set
+- [ ] All 8 `CREEM_*_PRODUCT_ID` vars are set
 - [ ] `NEXT_PUBLIC_BILLING_ENABLED=false` (billing UI gated; API routes tested directly)
 - [ ] ngrok is running, endpoint registered in Creem test dashboard
 - [ ] `CREEM_WEBHOOK_SECRET` is set and matches Creem dashboard signing secret
@@ -22,14 +22,15 @@ Before running any test:
 
 | # | Plan | Interval | Card | Expected |
 |---|------|----------|------|----------|
-| T-01 | starter | monthly | 4242… | Checkout → active, webhook confirmed |
-| T-02 | starter | annual | 4242… | Checkout → active, webhook confirmed |
-| T-03 | professional | monthly | 4242… | Checkout → active, webhook confirmed |
-| T-04 | professional | annual | 4242… | Checkout → active, webhook confirmed |
-| T-05 | shop_pro | monthly | 4242… | Checkout → active, webhook confirmed |
-| T-06 | shop_pro | annual | 4242… | Checkout → active, webhook confirmed |
-| T-07 | enterprise | monthly | N/A | Contact Sales flow (no checkout) |
-| T-08 | enterprise | annual | N/A | Contact Sales flow (no checkout) |
+| T-01 | solo | monthly | 4242… | Checkout → active, webhook confirmed |
+| T-02 | solo | annual | 4242… | Checkout → active, webhook confirmed |
+| T-03 | starter | monthly | 4242… | Checkout → active, webhook confirmed |
+| T-04 | starter | annual | 4242… | Checkout → active, webhook confirmed |
+| T-05 | professional | monthly | 4242… | Checkout → active, webhook confirmed |
+| T-06 | professional | annual | 4242… | Checkout → active, webhook confirmed |
+| T-07 | business | monthly | 4242… | Checkout → active, webhook confirmed |
+| T-08 | business | annual | 4242… | Checkout → active, webhook confirmed |
+| T-09 | enterprise | — | N/A | Contact Sales flow (no checkout) |
 
 ---
 

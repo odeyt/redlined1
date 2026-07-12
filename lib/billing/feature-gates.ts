@@ -94,7 +94,7 @@ export async function getFeatureGates(userId: string): Promise<FeatureGateMap> {
 
 /** Returns true if planA is strictly higher tier than planB. */
 export function isPlanHigherThan(planA: RedlinedPlanId, planB: RedlinedPlanId): boolean {
-  const order: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro', 'enterprise'];
+  const order: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
   return order.indexOf(planA) > order.indexOf(planB);
 }
 
@@ -102,7 +102,7 @@ export function isPlanHigherThan(planA: RedlinedPlanId, planB: RedlinedPlanId): 
 export function requiredPlanForFeature(
   featureKey: keyof typeof PLANS.starter.features,
 ): RedlinedPlanId | null {
-  const order: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro', 'enterprise'];
+  const order: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
   for (const planId of order) {
     const value = PLANS[planId].features[featureKey];
     const unlocks =

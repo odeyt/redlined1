@@ -92,28 +92,29 @@ export async function canAccessFeature(
 
 // ─── Event recording ──────────────────────────────────────────────────────────
 
-/** Records a raw payment event. Returns false if already processed (idempotent). */
+/** Records a raw payment event. Returns false if already successfully processed (idempotent). */
 export async function recordPaymentEvent(event: PaymentWebhookEvent): Promise<boolean> {
   try {
     const db = getAdminDb();
 
-    // Check idempotency — skip if already processed
+    // Gate on processed=true so that a previously recorded-but-unprocessed event
+    // (e.g. one where processing threw before markEventProcessed ran) can be retried.
     const { data: existing } = await db
       .from('payment_events')
-      .select('id')
+      .select('id, processed')
       .eq('provider_event_id', event.providerEventId)
       .eq('provider', event.provider)
       .maybeSingle();
 
-    if (existing) return false; // already processed
+    if (existing && (existing as Record<string, unknown>).processed === true) return false;
 
-    const { error } = await db.from('payment_events').insert({
+    const { error } = await db.from('payment_events').upsert({
       provider: event.provider,
       provider_event_id: event.providerEventId,
       event_type: event.type,
       payload: event.data,
       processed: false,
-    });
+    }, { onConflict: 'provider_event_id,provider' });
 
     if (error) {
       console.error('[billing] recordPaymentEvent error:', error.message);
