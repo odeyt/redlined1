@@ -755,18 +755,18 @@ export function RepairOrdersView() {
               key={label}
               onClick={() => { setFilterStatus(active ? 'All' : filter); setSelected(null); }}
               style={{
-                padding: 16, borderRadius: 12, border: active ? `2px solid ${color}` : '1px solid var(--line)',
-                background: active ? color + '14' : 'var(--card)',
+                padding: 16, borderRadius: 12, border: active ? `2px solid ${color}` : '1px solid rgba(255,255,255,0.12)',
+                background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)',
                 cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
-                boxShadow: active ? `0 0 0 3px ${color}22` : undefined,
+                boxShadow: active ? `0 0 0 3px ${color}22` : '0 2px 10px rgba(0,0,0,0.2)',
               }}
             >
-              <div style={{ fontSize: 11, color: active ? color : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: 11, color: active ? color : 'rgba(255,255,255,0.68)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
                 <span>{label}</span>
                 {active && <span style={{ fontSize: 10 }}>✕ clear</span>}
               </div>
               <div style={{ fontSize: 28, fontWeight: 800, color, marginTop: 4 }}>{count}</div>
-              <div style={{ fontSize: 11, color: active ? color : 'var(--muted)', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: active ? color : 'rgba(255,255,255,0.68)', marginTop: 2 }}>
                 {active ? 'Showing filtered list' : 'Click to filter'}
               </div>
             </button>
