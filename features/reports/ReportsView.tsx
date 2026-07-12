@@ -245,7 +245,9 @@ function WorkshopPrintModal({
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={doPrint}
-              style={{ padding: '9px 20px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
+              style={{ padding: '9px 20px', background: 'transparent', color: '#cc0000', border: '2px solid #cc0000', borderRadius: 999, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background .15s, color .15s' }}>
               🖨 Print / Save PDF
             </button>
             <button onClick={onClose}
@@ -1108,7 +1110,9 @@ export function ReportsView() {
         <div style={{ marginLeft: 'auto' }}>
           <button
             onClick={() => setShowPrintModal(true)}
-            style={{ padding: '8px 18px', background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
+            style={{ padding: '8px 18px', background: 'transparent', color: '#cc0000', border: '2px solid #cc0000', borderRadius: 999, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'background .15s, color .15s' }}>
             🔍 Search
           </button>
         </div>
@@ -1986,7 +1990,9 @@ export function ReportsView() {
                     Cancel
                   </button>
                   <button onClick={saveVehicleEdit} disabled={vehicleEditSaving}
-                    style={{ padding: '9px 24px', borderRadius: 8, border: 'none', background: vehicleEditSaving ? 'var(--line)' : '#cc0000', color: '#fff', fontSize: 13, cursor: vehicleEditSaving ? 'default' : 'pointer', fontWeight: 700 }}>
+                    onMouseEnter={e => { if (!vehicleEditSaving) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+                    onMouseLeave={e => { if (!vehicleEditSaving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
+                    style={{ padding: '9px 24px', borderRadius: 999, border: vehicleEditSaving ? '2px solid var(--line)' : '2px solid #cc0000', background: 'transparent', color: vehicleEditSaving ? 'var(--muted)' : '#cc0000', fontSize: 13, cursor: vehicleEditSaving ? 'default' : 'pointer', fontWeight: 700, transition: 'background .15s, color .15s' }}>
                     {vehicleEditSaving ? 'Saving…' : '💾 Save Vehicle'}
                   </button>
                 </div>

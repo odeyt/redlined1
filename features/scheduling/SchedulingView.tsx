@@ -301,7 +301,10 @@ export function SchedulingView() {
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmSave(false)} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-              <button onClick={doSave} disabled={saving} style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+              <button onClick={doSave} disabled={saving}
+                onMouseEnter={e => { if (!saving) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+                onMouseLeave={e => { if (!saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                style={{ padding: '9px 22px', borderRadius: 999, border: '2px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontWeight: 700, fontSize: 14, transition: 'background .15s, color .15s' }}>
                 {saving ? 'Saving…' : 'Yes, Save'}
               </button>
             </div>
@@ -484,7 +487,11 @@ export function SchedulingView() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => handleBookAppointment(selected)}>📅 Book Appointment</button>
-                  <button className="btn btn-primary" style={{ fontSize: 12, background: '#2196f3' }} onClick={() => handleCreateJobCard(selected)}>🔧 Create Job Card</button>
+                  <button className="btn btn-primary"
+                    onMouseEnter={e => { e.currentTarget.style.background = '#2196f3'; e.currentTarget.style.color = '#fff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#2196f3'; }}
+                    style={{ fontSize: 12, background: 'transparent', color: '#2196f3', border: '2px solid #2196f3', transition: 'background .15s, color .15s' }}
+                    onClick={() => handleCreateJobCard(selected)}>🔧 Create Job Card</button>
                   <button className="btn btn-primary" style={{ fontSize: 12, background: 'var(--surface-soft)', color: 'var(--text)', border: '1px solid var(--line)' }}
                     onClick={() => {
                       setForm({ vehicle: selected.vehicle, vin: selected.vin, customerName: selected.customerName, customerId: selected.customerId, customerEmail: selected.customerEmail, customerPhone: selected.customerPhone, serviceType: selected.serviceType, intervalMiles: selected.intervalMiles, intervalDays: selected.intervalDays, lastServiceDate: selected.lastServiceDate, lastServiceMiles: selected.lastServiceMiles, nextDueDate: selected.nextDueDate, nextDueMiles: selected.nextDueMiles, notes: selected.notes, status: selected.status });

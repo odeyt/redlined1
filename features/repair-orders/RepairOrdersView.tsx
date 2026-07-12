@@ -264,7 +264,10 @@ function QAPanel({ ro, onApprove, onSendBack }: {
           <button type="button" onClick={handleSendBack} disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.07)', color: '#f44336', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer' }}>
             ↩ Send Back to Technician
           </button>
-          <button type="button" onClick={handleApprove} disabled={submitting || !allChecked || !advisorName.trim()} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: allChecked && advisorName.trim() ? (allPassed ? '#4caf50' : '#f59e0b') : '#aaa', color: '#fff', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked || !advisorName.trim()) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
+          <button type="button" onClick={handleApprove} disabled={submitting || !allChecked || !advisorName.trim()}
+            onMouseEnter={e => { if (allChecked && advisorName.trim() && !submitting) { const c = allPassed ? '#4caf50' : '#f59e0b'; e.currentTarget.style.background = c; e.currentTarget.style.color = '#fff'; } }}
+            onMouseLeave={e => { if (allChecked && advisorName.trim() && !submitting) { const c = allPassed ? '#4caf50' : '#f59e0b'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = c; } }}
+            style={{ flex: 2, padding: '10px', borderRadius: 999, border: allChecked && advisorName.trim() ? `2px solid ${allPassed ? '#4caf50' : '#f59e0b'}` : '2px solid #aaa', background: 'transparent', color: allChecked && advisorName.trim() ? (allPassed ? '#4caf50' : '#f59e0b') : '#aaa', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked || !advisorName.trim()) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1, transition: 'background .15s, color .15s' }}>
             {submitting ? 'Processing…' : allChecked && advisorName.trim() ? (allPassed ? '✓ Approve — Mark Complete' : '⚠ Approve with Fails — Mark Complete') : 'Complete all checks + sign to approve'}
           </button>
         </div>
@@ -1097,7 +1100,10 @@ export function RepairOrdersView() {
         <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15 }}>✕ Close</button>
-            <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
+            <button onClick={() => { setShowPreview(false); window.print(); }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
+              style={{ position: 'absolute', top: 16, right: 100, background: 'transparent', border: '2px solid #cc0000', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#cc0000', fontWeight: 600, transition: 'background .15s, color .15s' }}>🖨 Print</button>
 
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
@@ -1659,7 +1665,9 @@ export function RepairOrdersView() {
                 <button
                   disabled={pullModal.loading || pullModal.creating}
                   onClick={handlePullCreate}
-                  style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: pullModal.loading || pullModal.creating ? 0.6 : 1 }}>
+                  onMouseEnter={e => { if (!pullModal.loading && !pullModal.creating) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+                  onMouseLeave={e => { if (!pullModal.loading && !pullModal.creating) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                  style={{ padding: '8px 20px', borderRadius: 999, border: '2px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: pullModal.loading || pullModal.creating ? 0.6 : 1, transition: 'background .15s, color .15s' }}>
                   {pullModal.creating ? 'Creating…' : pullModal.target === 'invoice' ? '⚡ Create Invoice' : '📋 Create Estimate'}
                 </button>
               </div>

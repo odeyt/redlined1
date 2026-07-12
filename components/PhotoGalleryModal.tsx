@@ -314,7 +314,10 @@ export function PhotoGalleryModal({
                   <span style={{ fontSize: 12, color: 'var(--accent,#cc0000)', fontWeight: 600 }}>⇄ Photo order changed — save to keep it</span>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => setOrderChanged(false)} style={{ fontSize: 12, padding: '4px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer' }}>Discard</button>
-                    <button onClick={handleSaveOrder} disabled={saving} style={{ fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 6, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                    <button onClick={handleSaveOrder} disabled={saving}
+                      onMouseEnter={e => { if (!saving) { e.currentTarget.style.background = 'var(--accent,#cc0000)'; e.currentTarget.style.color = '#fff'; } }}
+                      onMouseLeave={e => { if (!saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent,#cc0000)'; } }}
+                      style={{ fontSize: 12, fontWeight: 700, padding: '4px 14px', borderRadius: 999, border: '2px solid var(--accent,#cc0000)', background: 'transparent', color: 'var(--accent,#cc0000)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, transition: 'background .15s, color .15s' }}>
                       {saving ? 'Saving…' : '✓ Save Order'}
                     </button>
                   </div>

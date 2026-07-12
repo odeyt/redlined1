@@ -776,7 +776,9 @@ export function InspectionsView() {
                           {TECH_ROLES.map(r => <option key={r}>{r}</option>)}
                         </select>
                         <button type="button" onClick={saveNewTech} disabled={addTechSaving || !addTechForm.name.trim()}
-                          style={{ padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: addTechSaving || !addTechForm.name.trim() ? 0.6 : 1 }}>
+                          onMouseEnter={e => { if (!addTechSaving && addTechForm.name.trim()) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
+                          onMouseLeave={e => { if (!addTechSaving && addTechForm.name.trim()) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
+                          style={{ padding: '7px 14px', borderRadius: 999, background: 'transparent', color: 'var(--accent)', border: '2px solid var(--accent)', cursor: 'pointer', fontWeight: 600, fontSize: 13, opacity: addTechSaving || !addTechForm.name.trim() ? 0.6 : 1, transition: 'background .15s, color .15s' }}>
                           {addTechSaving ? 'Saving…' : 'Save & Select'}
                         </button>
                       </div>
@@ -954,7 +956,9 @@ export function InspectionsView() {
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button
                         onClick={() => { navigator.clipboard.writeText(shareUrl); setCopiedShare(true); setTimeout(() => setCopiedShare(false), 3000); }}
-                        style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: 'none', background: copiedShare ? '#4caf50' : '#9c27b0', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}>
+                        onMouseEnter={e => { const c = copiedShare ? '#4caf50' : '#9c27b0'; e.currentTarget.style.background = c; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={e => { const c = copiedShare ? '#4caf50' : '#9c27b0'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = c; }}
+                        style={{ flex: 1, padding: '10px 0', borderRadius: 999, border: `2px solid ${copiedShare ? '#4caf50' : '#9c27b0'}`, background: 'transparent', color: copiedShare ? '#4caf50' : '#9c27b0', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s, color 0.2s' }}>
                         {copiedShare ? '✓ Copied to clipboard!' : '📋 Copy Link'}
                       </button>
                       <button onClick={() => { setShareUrl(''); setGeneratingShare(false); }}
@@ -1109,7 +1113,10 @@ export function InspectionsView() {
         <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '30px 20px', overflowY: 'auto' }}>
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 700, padding: 44, position: 'relative' }}>
             <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 14, right: 14, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}>✕ Close</button>
-            <button onClick={() => { setShowPreview(false); window.print(); }} style={{ position: 'absolute', top: 14, right: 92, background: '#cc0000', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>🖨 Print</button>
+            <button onClick={() => { setShowPreview(false); window.print(); }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
+              style={{ position: 'absolute', top: 14, right: 92, background: 'transparent', color: '#cc0000', border: '2px solid #cc0000', borderRadius: 999, padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'background .15s, color .15s' }}>🖨 Print</button>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28, paddingBottom: 20, borderBottom: '3px solid #cc0000' }}>
               <div style={{ display: 'flex', gap: 14 }}>

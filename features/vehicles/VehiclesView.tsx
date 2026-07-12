@@ -353,7 +353,9 @@ function ReturnJobModal({ vehicle, onCancel, onConfirm }: {
           <button
             onClick={handleConfirm}
             disabled={!canSubmit || submitting}
-            style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: canSubmit ? '#f59e0b' : '#e2e8f0', color: canSubmit ? '#fff' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', transition: 'all .12s' }}
+            onMouseEnter={e => { if (canSubmit) { e.currentTarget.style.background = '#f59e0b'; e.currentTarget.style.color = '#fff'; } }}
+            onMouseLeave={e => { if (canSubmit) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f59e0b'; } }}
+            style={{ padding: '9px 22px', borderRadius: 999, border: canSubmit ? '2px solid #f59e0b' : '1px solid #e2e8f0', background: 'transparent', color: canSubmit ? '#f59e0b' : '#94a3b8', fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed', transition: 'background .12s, color .12s' }}
           >
             {submitting ? 'Processing…' : '↩ Confirm Return — Set to In Progress'}
           </button>
@@ -777,7 +779,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
 
         {/* Action buttons row 1 */}
         <div style={{ display: 'flex', gap: 8, padding: '12px 20px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
-          <button onClick={onJobCard} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>ï¼‹ Job Card</button>
+          <button onClick={onJobCard}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent,#cc0000)'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent,#cc0000)'; }}
+            style={{ flex: 1, padding: '8px', borderRadius: 999, border: '2px solid var(--accent,#cc0000)', background: 'transparent', color: 'var(--accent,#cc0000)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background .15s, color .15s' }}>ï¼‹ Job Card</button>
           <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
           <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
@@ -1172,7 +1177,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               <div style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Point camera at VIN barcode</div>
               <video ref={vinScanVideoRef} playsInline muted style={{ width: '90vw', maxWidth: 480, borderRadius: 12, border: '2px solid #22c55e' }} />
               <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Scanning automatically…</div>
-              <button onClick={stopVinScan} style={{ padding: '10px 28px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={stopVinScan}
+                onMouseEnter={e => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#fff'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#ef4444'; }}
+                style={{ padding: '10px 28px', borderRadius: 999, border: '2px solid #ef4444', background: 'transparent', color: '#ef4444', fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'background .15s, color .15s' }}>Cancel</button>
             </div>
           )}
           {row('Engine', <input style={inp} value={f.engine} onChange={e => set('engine', e.target.value)} />)}
@@ -1311,7 +1319,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         {/* Save footer */}
         <div style={{ padding: '12px 20px', borderTop: '1px solid var(--line)', flexShrink: 0, display: 'flex', gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: 'var(--accent,#cc0000)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button onClick={handleSave} disabled={saving}
+            onMouseEnter={e => { if (!saving) { e.currentTarget.style.background = 'var(--accent,#cc0000)'; e.currentTarget.style.color = '#fff'; } }}
+            onMouseLeave={e => { if (!saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent,#cc0000)'; } }}
+            style={{ flex: 2, padding: '10px', borderRadius: 999, border: '2px solid var(--accent,#cc0000)', background: 'transparent', color: 'var(--accent,#cc0000)', fontWeight: 700, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, transition: 'background .15s, color .15s' }}>
             {saving ? 'Saving…' : '✓ Save Changes'}
           </button>
         </div>
@@ -2212,7 +2223,9 @@ export function VehiclesView() {
                                 onClick={() => {
                                   dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: v.customerId, vehicle: v.label } });
                                 }}
-                                style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--accent,#cc0000)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent,#cc0000)'; e.currentTarget.style.color = '#fff'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent,#cc0000)'; }}
+                                style={{ padding: '5px 8px', borderRadius: 999, border: '2px solid var(--accent,#cc0000)', background: 'transparent', color: 'var(--accent,#cc0000)', fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'background .15s, color .15s' }}>
                                 + Job
                               </button>
                             </div>

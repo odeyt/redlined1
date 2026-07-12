@@ -1240,7 +1240,9 @@ export function JobCardsView() {
                   </div>
 
                   <button onClick={() => advanceStage(nextStage.id)} disabled={advancingStage}
-                    style={{ width: '100%', padding: '12px 0', borderRadius: 8, background: advancingStage ? '#999' : '#e65100', color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: advancingStage ? 'not-allowed' : 'pointer' }}>
+                    onMouseEnter={e => { if (!advancingStage) { e.currentTarget.style.background = '#e65100'; e.currentTarget.style.color = '#fff'; } }}
+                    onMouseLeave={e => { if (!advancingStage) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#e65100'; } }}
+                    style={{ width: '100%', padding: '12px 0', borderRadius: 999, background: 'transparent', color: advancingStage ? '#999' : '#e65100', fontWeight: 700, fontSize: 14, border: advancingStage ? '2px solid #999' : '2px solid #e65100', cursor: advancingStage ? 'not-allowed' : 'pointer', transition: 'background .15s, color .15s' }}>
                     {advancingStage ? 'Advancing…' : `${nextStage.icon} Advance to "${nextStage.label}"`}
                   </button>
 

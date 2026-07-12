@@ -598,7 +598,9 @@ export function CustomersView() {
               <button
                 disabled={!emailPrompt.pendingEmail || emailPrompt.saving}
                 onClick={handleEmailPromptSend}
-                style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#cc0000', color: '#fff', cursor: emailPrompt.pendingEmail ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: !emailPrompt.pendingEmail || emailPrompt.saving ? 0.6 : 1 }}
+                onMouseEnter={e => { if (emailPrompt.pendingEmail && !emailPrompt.saving) { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; } }}
+                onMouseLeave={e => { if (emailPrompt.pendingEmail && !emailPrompt.saving) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; } }}
+                style={{ padding: '8px 18px', borderRadius: 999, border: '2px solid #cc0000', background: 'transparent', color: '#cc0000', cursor: emailPrompt.pendingEmail ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600, opacity: !emailPrompt.pendingEmail || emailPrompt.saving ? 0.6 : 1, transition: 'background .15s, color .15s' }}
               >
                 {emailPrompt.saving ? 'Saving & Sending…' : '✉️ Save & Send'}
               </button>
