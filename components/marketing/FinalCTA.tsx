@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { colors, container, buttonPrimary, buttonSecondary } from './theme';
 
 export function FinalCTA() {
@@ -12,7 +12,7 @@ export function FinalCTA() {
           <Link href="/signup" data-analytics="trial_cta_click" style={buttonPrimary}>
             Start Your 7-Day Free Trial
           </Link>
-          <a href="mailto:sales@redlined1.com" data-analytics="contact_sales_click" style={{ ...buttonSecondary, background: 'transparent', color: colors.textOnDark, borderColor: 'rgba(250,250,250,0.25)' }}>
+          <a href="mailto:admin@redlined1.com" data-analytics="contact_sales_click" style={{ ...buttonSecondary, background: 'transparent', color: colors.textOnDark, borderColor: 'rgba(250,250,250,0.25)' }}>
             Talk to us
           </a>
         </div>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     await resend.emails.send({
       from: 'Redlined1 <onboarding@resend.dev>',
-      to: 'sales@d1autozone.com',
+      to: 'admin@redlined1.com',
       replyTo: email,
       subject: `🆕 New Trial Signup — ${shopName || name}`,
       html: `

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { LOGO_SRC } from '@/lib/logo';
@@ -68,7 +68,7 @@ export function ChatWidget() {
         }, 800);
       } catch {
         setTimeout(() => {
-          addMessage('bot', 'Sorry, something went wrong. Please email us directly at sales@d1autozone.com.');
+          addMessage('bot', 'Sorry, something went wrong. Please email us directly at admin@redlined1.com.');
           setSending(false);
         }, 800);
       }

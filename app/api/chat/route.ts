@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
 export async function POST(req: NextRequest) {
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
       from: 'Redlined1 Chat <chat@redlined1.com>',
-      to: 'sales@d1autozone.com',
+      to: 'admin@redlined1.com',
       replyTo: email || undefined,
       subject: `💬 New Chat Message from ${name}`,
       html: `

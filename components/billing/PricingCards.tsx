@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { PLANS, PLAN_ORDER, annualSavings } from '@/config/plans';
@@ -146,7 +146,7 @@ export function PricingCards({ currentPlanId, onSelectPlan, loading }: PricingCa
                 </div>
               ) : isEnterprise ? (
                 <a
-                  href="mailto:sales@redlined1.com"
+                  href="mailto:admin@redlined1.com"
                   style={{
                     display: 'block', textAlign: 'center', background: 'var(--surface-soft)',
                     border: '1px solid var(--line)', borderRadius: 8,

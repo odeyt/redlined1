@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -142,7 +142,7 @@ export function PricingSection() {
                   </Link>
                 ) : isEnterprise ? (
                   <a
-                    href="mailto:sales@redlined1.com?subject=Enterprise%20plan%20inquiry"
+                    href="mailto:admin@redlined1.com?subject=Enterprise%20plan%20inquiry"
                     data-analytics="contact_sales_click"
                     style={{ ...buttonSecondary, width: '100%' }}
                   >
@@ -162,7 +162,7 @@ export function PricingSection() {
                 {contactPlan === plan.key && (
                   <p id={`contact-note-${plan.key}`} role="status" style={{ fontSize: '12px', color: colors.textMuted, marginTop: '10px' }}>
                     Billing activation is coming soon. Email{' '}
-                    <a href="mailto:sales@redlined1.com" style={{ color: colors.primary }}>sales@redlined1.com</a> and
+                    <a href="mailto:admin@redlined1.com" style={{ color: colors.primary }}>admin@redlined1.com</a> and
                     we will set up the {plan.name} plan for you.
                   </p>
                 )}
