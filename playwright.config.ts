@@ -53,6 +53,9 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       grepInvert: /@visual/,
+      // tests/marketing covers the public, unauthenticated /landing-preview
+      // route and runs standalone under the "marketing" project instead.
+      testIgnore: /tests\/marketing\//,
     },
     {
       name: 'firefox',
@@ -91,6 +94,13 @@ export default defineConfig({
         storageState: 'tests/.auth/owner.json',
       },
       dependencies: ['setup'],
+    },
+
+    // ── Marketing / landing-preview: public routes only, no auth needed ──────
+    {
+      name: 'marketing',
+      testMatch: /tests\/marketing\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 });

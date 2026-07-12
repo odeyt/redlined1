@@ -1,0 +1,145 @@
+/*
+ * app/landing-preview/landing.css
+ *
+ * Scoped stylesheet for the /landing-preview route only. Imported from
+ * app/landing-preview/layout.tsx. All rules are scoped to descendants of
+ * .rd1-landing to avoid any bleed onto other routes (app/globals.css,
+ * app/portal/page.tsx, and the authenticated app are not touched by this
+ * epic - see docs/design/aura/M2_CHANGE_MANIFEST.md).
+ *
+ * Handles the things inline React style objects cannot express cleanly:
+ * :focus-visible, prefers-reduced-motion, hover-only media features, and
+ * responsive breakpoints (this repo has no Tailwind installed).
+ */
+
+.rd1-landing {
+  color-scheme: light;
+}
+
+.rd1-landing *:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.rd1-landing .rd1-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: #B42318;
+  color: #FFFFFF;
+  padding: 12px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+.rd1-landing .rd1-skip-link:focus {
+  left: 16px;
+  top: 16px;
+}
+
+.rd1-landing a,
+.rd1-landing button {
+  font-family: inherit;
+}
+
+.rd1-landing button {
+  font: inherit;
+}
+
+/* Desktop nav / mobile toggle breakpoint */
+@media (min-width: 900px) {
+  .rd1-landing .rd1-desktop-nav {
+    display: block !important;
+  }
+  .rd1-landing .rd1-desktop-actions {
+    display: flex !important;
+  }
+  .rd1-landing .rd1-mobile-toggle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 899px) {
+  .rd1-landing .rd1-mobile-panel {
+    display: block;
+  }
+}
+
+/* Two-column section layouts collapse to one column below 860px */
+.rd1-landing .rd1-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+@media (min-width: 860px) {
+  .rd1-landing .rd1-two-col {
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+  }
+}
+
+.rd1-landing .rd1-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 640px) {
+  .rd1-landing .rd1-card-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .rd1-landing .rd1-card-grid-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .rd1-landing .rd1-card-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .rd1-landing .rd1-card-grid-6 {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* Comparison table horizontal scroll on narrow viewports instead of page overflow */
+.rd1-landing .rd1-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Pricing toggle switch */
+.rd1-landing .rd1-switch[aria-checked="true"] .rd1-switch-thumb {
+  transform: translateX(20px);
+}
+
+/* FAQ disclosure chevron rotation */
+.rd1-landing .rd1-faq-chevron {
+  transition: transform 0.2s ease;
+}
+.rd1-landing [aria-expanded="true"] .rd1-faq-chevron {
+  transform: rotate(180deg);
+}
+
+/* Reduced motion: disable non-essential transitions/animations */
+@media (prefers-reduced-motion: reduce) {
+  .rd1-landing * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.rd1-landing {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd1-landing {
+    scroll-behavior: auto;
+  }
+}
