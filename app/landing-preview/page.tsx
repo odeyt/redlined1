@@ -42,6 +42,7 @@ export default function LandingPreviewPage() {
 
       <div id="main-content">
         <HeroSection />
+        <MobileMechanicSection />
         <FounderOriginSection />
         <PainPointsSection />
         <ComparisonSection />
@@ -54,7 +55,6 @@ export default function LandingPreviewPage() {
         <ServiceAdvisorSection />
         <CustomerIntelligenceSection />
         <MigrationSection />
-        <MobileMechanicSection />
         <MultiLocationSection />
         <IntelligencePhilosophySection />
         <ProductEvolutionSection />
