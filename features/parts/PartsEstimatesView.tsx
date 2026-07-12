@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
@@ -23,39 +23,39 @@ import {
 } from '@/services/entityImageService';
 import type { Customer } from '@/lib/types';
 
-/* ── Currency support ── */
+/* â”€â”€ Currency support â”€â”€ */
 const CURRENCIES = [
-  { code: 'USD', symbol: '$',    label: 'USD — US Dollar' },
-  { code: 'EUR', symbol: '€',   label: 'EUR — Euro' },
-  { code: 'GBP', symbol: '£',   label: 'GBP — British Pound' },
-  { code: 'JPY', symbol: '¥',   label: 'JPY — Japanese Yen' },
-  { code: 'CAD', symbol: 'CA$', label: 'CAD — Canadian Dollar' },
-  { code: 'AUD', symbol: 'A$',  label: 'AUD — Australian Dollar' },
-  { code: 'CHF', symbol: 'Fr',  label: 'CHF — Swiss Franc' },
-  { code: 'CNY', symbol: '¥',   label: 'CNY — Chinese Yuan' },
-  { code: 'HKD', symbol: 'HK$', label: 'HKD — Hong Kong Dollar' },
-  { code: 'SGD', symbol: 'S$',  label: 'SGD — Singapore Dollar' },
-  { code: 'THB', symbol: '฿',   label: 'THB — Thai Baht' },
-  { code: 'MYR', symbol: 'RM',  label: 'MYR — Malaysian Ringgit' },
-  { code: 'IDR', symbol: 'Rp',  label: 'IDR — Indonesian Rupiah' },
-  { code: 'PHP', symbol: '₱',   label: 'PHP — Philippine Peso' },
-  { code: 'VND', symbol: '₫',   label: 'VND — Vietnamese Dong' },
-  { code: 'LAK', symbol: '₭',   label: 'LAK — Lao Kip' },
-  { code: 'KHR', symbol: '៛',   label: 'KHR — Cambodian Riel' },
-  { code: 'TWD', symbol: 'NT$', label: 'TWD — Taiwan Dollar' },
-  { code: 'MXN', symbol: 'MX$', label: 'MXN — Mexican Peso' },
-  { code: 'BRL', symbol: 'R$',  label: 'BRL — Brazilian Real' },
-  { code: 'INR', symbol: '₹',   label: 'INR — Indian Rupee' },
-  { code: 'KRW', symbol: '₩',   label: 'KRW — South Korean Won' },
-  { code: 'ZAR', symbol: 'R',   label: 'ZAR — South African Rand' },
-  { code: 'AED', symbol: 'د.إ', label: 'AED — UAE Dirham' },
-  { code: 'SAR', symbol: '﷼',   label: 'SAR — Saudi Riyal' },
-  { code: 'TRY', symbol: '₺',   label: 'TRY — Turkish Lira' },
-  { code: 'PLN', symbol: 'zł',  label: 'PLN — Polish Złoty' },
-  { code: 'SEK', symbol: 'kr',  label: 'SEK — Swedish Krona' },
-  { code: 'NOK', symbol: 'kr',  label: 'NOK — Norwegian Krone' },
-  { code: 'DKK', symbol: 'kr',  label: 'DKK — Danish Krone' },
-  { code: 'NZD', symbol: 'NZ$', label: 'NZD — New Zealand Dollar' },
+  { code: 'USD', symbol: '$',    label: 'USD â€” US Dollar' },
+  { code: 'EUR', symbol: 'â‚¬',   label: 'EUR â€” Euro' },
+  { code: 'GBP', symbol: 'Â£',   label: 'GBP â€” British Pound' },
+  { code: 'JPY', symbol: 'Â¥',   label: 'JPY â€” Japanese Yen' },
+  { code: 'CAD', symbol: 'CA$', label: 'CAD â€” Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$',  label: 'AUD â€” Australian Dollar' },
+  { code: 'CHF', symbol: 'Fr',  label: 'CHF â€” Swiss Franc' },
+  { code: 'CNY', symbol: 'Â¥',   label: 'CNY â€” Chinese Yuan' },
+  { code: 'HKD', symbol: 'HK$', label: 'HKD â€” Hong Kong Dollar' },
+  { code: 'SGD', symbol: 'S$',  label: 'SGD â€” Singapore Dollar' },
+  { code: 'THB', symbol: 'à¸¿',   label: 'THB â€” Thai Baht' },
+  { code: 'MYR', symbol: 'RM',  label: 'MYR â€” Malaysian Ringgit' },
+  { code: 'IDR', symbol: 'Rp',  label: 'IDR â€” Indonesian Rupiah' },
+  { code: 'PHP', symbol: 'â‚±',   label: 'PHP â€” Philippine Peso' },
+  { code: 'VND', symbol: 'â‚«',   label: 'VND â€” Vietnamese Dong' },
+  { code: 'LAK', symbol: 'â‚­',   label: 'LAK â€” Lao Kip' },
+  { code: 'KHR', symbol: 'áŸ›',   label: 'KHR â€” Cambodian Riel' },
+  { code: 'TWD', symbol: 'NT$', label: 'TWD â€” Taiwan Dollar' },
+  { code: 'MXN', symbol: 'MX$', label: 'MXN â€” Mexican Peso' },
+  { code: 'BRL', symbol: 'R$',  label: 'BRL â€” Brazilian Real' },
+  { code: 'INR', symbol: 'â‚¹',   label: 'INR â€” Indian Rupee' },
+  { code: 'KRW', symbol: 'â‚©',   label: 'KRW â€” South Korean Won' },
+  { code: 'ZAR', symbol: 'R',   label: 'ZAR â€” South African Rand' },
+  { code: 'AED', symbol: 'Ø¯.Ø¥', label: 'AED â€” UAE Dirham' },
+  { code: 'SAR', symbol: 'ï·¼',   label: 'SAR â€” Saudi Riyal' },
+  { code: 'TRY', symbol: 'â‚º',   label: 'TRY â€” Turkish Lira' },
+  { code: 'PLN', symbol: 'zÅ‚',  label: 'PLN â€” Polish ZÅ‚oty' },
+  { code: 'SEK', symbol: 'kr',  label: 'SEK â€” Swedish Krona' },
+  { code: 'NOK', symbol: 'kr',  label: 'NOK â€” Norwegian Krone' },
+  { code: 'DKK', symbol: 'kr',  label: 'DKK â€” Danish Krone' },
+  { code: 'NZD', symbol: 'NZ$', label: 'NZD â€” New Zealand Dollar' },
 ];
 
 function fmt(v: number, currency: string) {
@@ -130,7 +130,7 @@ function calcTotal(items: EstimateLineItem[], coreCharge: number, mainCurrency =
   if (mainTotal > coreCharge || Object.keys(map).length === 1) {
     return { totalCost: mainTotal };
   }
-  // All items are in foreign currencies — pick the one with highest value as totalCost
+  // All items are in foreign currencies â€” pick the one with highest value as totalCost
   const dominant = Object.entries(map).sort(([, a], [, b]) => b - a)[0];
   return { totalCost: dominant ? dominant[1] : coreCharge };
 }
@@ -223,10 +223,10 @@ export function PartsEstimatesView() {
       } catch (err) {
         const msg = (err as { message?: string })?.message ?? String(err);
         setFormError(`Upload failed: ${msg}`);
-        notify(`⚠ Upload failed: ${msg}`);
+        notify(`âš  Upload failed: ${msg}`);
       }
     }
-    if (uploaded > 0) notify(`✓ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
+    if (uploaded > 0) notify(`âœ“ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
     setUploadingImg(false);
   }
 
@@ -367,15 +367,15 @@ export function PartsEstimatesView() {
       if (editingId) {
         const updated = await updatePartsEstimate(editingId, payload);
         setEstimates(prev => prev.map(e => e.id === editingId ? updated : e));
-        notify(`✓ Estimate updated.`);
+        notify(`âœ“ Estimate updated.`);
       } else {
         const created = await createPartsEstimate(payload);
         setEstimates(prev => [created, ...prev]);
-        notify(`✓ Estimate saved.`);
+        notify(`âœ“ Estimate saved.`);
       }
       setShowForm(false); setEditingId(null); setForm(EMPTY_ESTIMATE);
     } catch (e: unknown) {
-      const msg = (e as Record<string, unknown>)?.message as string || 'Save failed — please try again.';
+      const msg = (e as Record<string, unknown>)?.message as string || 'Save failed â€” please try again.';
       setFormError(msg);
     } finally { setSaving(false); }
   }
@@ -399,7 +399,7 @@ export function PartsEstimatesView() {
         setDeleteLinkedInfo({ estNum, invoiceNum: linked?.invoiceNumber, invoiceStatus: linked?.status });
         setDeleteBlocked(!!linked && !isPaid);
       } catch {
-        // Can't verify — allow with warning
+        // Can't verify â€” allow with warning
         setDeleteLinkedInfo({ estNum });
       } finally {
         setDeleteChecking(false);
@@ -443,10 +443,10 @@ export function PartsEstimatesView() {
       await deletePartsEstimate(e.id);
       setEstimates(prev => prev.filter(x => x.id !== e.id));
       setSelected(null);
-      notify('✓ Converted to Parts Order — quotation removed');
+      notify('âœ“ Converted to Parts Order â€” quotation removed');
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
     } catch (err: unknown) {
-      notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
+      notify('Failed to convert â€” ' + ((err as { message?: string })?.message ?? 'unknown error'));
     }
   }
 
@@ -469,7 +469,7 @@ export function PartsEstimatesView() {
     const mainCur = currencies.length === 1 ? currencies[0] : (e.currency || 'USD');
     const hasMixed = currencies.length > 1;
     const mixedWarning = hasMixed
-      ? `\n\n⚠ Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
+      ? `\n\nâš  Mixed currencies detected: ${currencies.join(', ')}.\nForeign-currency items will be converted to ${mainCur} cost using live exchange rates.`
       : '';
 
     if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Customer Estimate?${mixedWarning}\n\nThe Parts Quotation will be kept with status "Converted" so you can still view the original costs.`)) return;
@@ -485,7 +485,7 @@ export function PartsEstimatesView() {
       const estNum = await nextEstimateNumber();
 
       // Cost in the estimate is always in mainCur (e.g. THB).
-      // For foreign-currency items, fetch FX to convert supplier cost → mainCur,
+      // For foreign-currency items, fetch FX to convert supplier cost â†’ mainCur,
       // then set the line's billing currency so the customer sees the rate in their currency.
       async function fxRate(from: string, to: string): Promise<number> {
         if (!from || !to || from === to) return 1;
@@ -549,10 +549,10 @@ export function PartsEstimatesView() {
       setEstimates(prev => prev.map(x => x.id === e.id ? updated : x));
       setSelected(null);
 
-      notify(`✓ Estimate ${estNum} created — quotation marked Converted`);
+      notify(`âœ“ Estimate ${estNum} created â€” quotation marked Converted`);
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); }, 800);
     } catch (err: unknown) {
-      notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));
+      notify('Failed to convert â€” ' + ((err as { message?: string })?.message ?? 'unknown error'));
     } finally {
       convertingIds.current.delete(e.id);
     }
@@ -665,21 +665,21 @@ export function PartsEstimatesView() {
     const rows: { label: string; value: string; highlight?: boolean }[] = [];
     form.lineItems.forEach((item, idx) => {
       rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(), value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
-      rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
+      rows.push({ label: '  Qty / Condition', value: `${item.quantity} Ã— ${item.condition}` });
       const iCur = item.currency || cur;
-      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} → ${fmt(item.unitCost * item.quantity, iCur)}` });
+      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} â†’ ${fmt(item.unitCost * item.quantity, iCur)}` });
       if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
     });
     rows.push(
-      { label: 'Vendor',      value: form.vendorName || '—' },
-      { label: 'Customer',    value: form.customerName || '—' },
-      { label: 'Vehicle',     value: form.vehicle || '—' },
+      { label: 'Vendor',      value: form.vendorName || 'â€”' },
+      { label: 'Customer',    value: form.customerName || 'â€”' },
+      { label: 'Vehicle',     value: form.vehicle || 'â€”' },
       { label: 'Parts Total', value: fmt(form.totalCost - form.coreCharge, cur) },
       { label: 'Core Charge', value: fmt(form.coreCharge, cur) },
       { label: 'Total Quoted',value: fmt(form.totalCost, cur), highlight: false },
       { label: 'Currency',    value: cur },
       { label: 'Status',      value: form.status },
-      { label: 'Valid Until', value: form.validUntil ? new Date(form.validUntil).toLocaleDateString() : '—' },
+      { label: 'Valid Until', value: form.validUntil ? new Date(form.validUntil).toLocaleDateString() : 'â€”' },
     );
     return rows;
   };
@@ -688,22 +688,22 @@ export function PartsEstimatesView() {
     <div style={{ padding: '20px 24px' }}>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
           {toast}
         </div>
       )}
 
-      {/* ── Delete confirmation modal ── */}
+      {/* â”€â”€ Delete confirmation modal â”€â”€ */}
       {deleteTarget && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={() => { setDeleteTarget(null); setDeleteLinkedInfo(null); }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: 28, maxWidth: 480, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 6, color: '#ef4444' }}>
-              {deleteBlocked ? '🔒 Cannot Delete — Invoice Active' : '⚠ Confirm Deletion'}
+              {deleteBlocked ? 'ðŸ”’ Cannot Delete â€” Invoice Active' : 'âš  Confirm Deletion'}
             </div>
 
             {deleteChecking ? (
-              <div style={{ fontSize: 13, color: 'var(--muted)', margin: '16px 0' }}>Checking invoice status…</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', margin: '16px 0' }}>Checking invoice statusâ€¦</div>
             ) : deleteTarget.status === 'Converted' ? (
               deleteBlocked ? (
                 <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text)', marginBottom: 16 }}>
@@ -713,14 +713,14 @@ export function PartsEstimatesView() {
                     status <strong style={{ color: '#f97316' }}>{deleteLinkedInfo?.invoiceStatus || 'unknown'}</strong>.
                   </p>
                   <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, fontSize: 12 }}>
-                    🔒 Deletion is blocked until the invoice is marked <strong>Paid</strong>. This protects your parts cost records while the job is still open.
+                    ðŸ”’ Deletion is blocked until the invoice is marked <strong>Paid</strong>. This protects your parts cost records while the job is still open.
                   </div>
                 </div>
               ) : (
                 <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--text)', marginBottom: 16 }}>
                   {deleteLinkedInfo?.invoiceStatus === 'Paid' ? (
                     <p style={{ margin: '0 0 10px' }}>
-                      ✅ Invoice <strong>{deleteLinkedInfo?.invoiceNum}</strong> is <strong style={{ color: '#22c55e' }}>Paid</strong>.
+                      âœ… Invoice <strong>{deleteLinkedInfo?.invoiceNum}</strong> is <strong style={{ color: '#22c55e' }}>Paid</strong>.
                       You may now remove this parts quotation.
                     </p>
                   ) : (
@@ -730,7 +730,7 @@ export function PartsEstimatesView() {
                     </p>
                   )}
                   <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
-                    ⚠ Deleting this will permanently remove the original parts cost record for <strong>{deleteTarget.partName || 'these parts'}</strong>.
+                    âš  Deleting this will permanently remove the original parts cost record for <strong>{deleteTarget.partName || 'these parts'}</strong>.
                     This cannot be undone.
                   </div>
                 </div>
@@ -742,7 +742,7 @@ export function PartsEstimatesView() {
                   {deleteTarget.customerName ? <> ({deleteTarget.customerName})</> : ''}?
                 </p>
                 <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, fontSize: 12, color: '#ef4444' }}>
-                  ⚠ This cannot be undone.
+                  âš  This cannot be undone.
                 </div>
               </div>
             )}
@@ -765,7 +765,7 @@ export function PartsEstimatesView() {
                   onMouseEnter={e => { e.currentTarget.style.background = '#f97316'; e.currentTarget.style.color = '#fff'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f97316'; }}
                   style={{ padding: '9px 20px', borderRadius: 999, border: '2px solid #f97316', background: 'transparent', color: '#f97316', fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background 0.15s, color 0.15s' }}>
-                  Go to Invoices →
+                  Go to Invoices â†’
                 </button>
               )}
             </div>
@@ -775,12 +775,12 @@ export function PartsEstimatesView() {
 
       {error === '__NEEDS_MIGRATION__' && (
         <div style={{ marginBottom: 20, padding: '20px 24px', background: 'rgba(245,158,11,0.08)', border: '2px solid #f59e0b', borderRadius: 12, fontSize: 13 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, color: '#b45309', marginBottom: 8 }}>⚙ One-time database setup required</div>
+          <div style={{ fontWeight: 800, fontSize: 15, color: '#b45309', marginBottom: 8 }}>âš™ One-time database setup required</div>
           <p style={{ margin: '0 0 12px', color: '#92400e', lineHeight: 1.6 }}>
             The <strong>parts_estimates</strong> table doesn't exist yet in Supabase. Run this SQL once in your Supabase dashboard to create it:
           </p>
           <ol style={{ margin: '0 0 14px', paddingLeft: 20, color: '#92400e', lineHeight: 2 }}>
-            <li>Go to <strong>supabase.com/dashboard</strong> → your project → <strong>SQL Editor</strong></li>
+            <li>Go to <strong>supabase.com/dashboard</strong> â†’ your project â†’ <strong>SQL Editor</strong></li>
             <li>Click <strong>New query</strong></li>
             <li>Paste the SQL below and click <strong>Run</strong></li>
             <li>Refresh this page</li>
@@ -819,7 +819,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
       )}
       {error && error !== '__NEEDS_MIGRATION__' && (
         <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#ef4444', borderRadius: 8, fontSize: 13 }}>
-          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>✕</button>
+          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>âœ•</button>
         </div>
       )}
 
@@ -849,7 +849,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
         <div className="card-hero" style={{ borderRadius: 12, padding: '16px 20px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Total Quoted</div>
           {Object.entries(totalByCurrency).filter(([, v]) => v > 0).length === 0 ? (
-            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>â€”</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {Object.entries(totalByCurrency).filter(([, v]) => v > 0).sort(([a], [b]) => a.localeCompare(b)).map(([cur, amt]) => (
@@ -867,7 +867,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search part, vendor, job card, vehicle…"
+          placeholder="Search part, vendor, job card, vehicleâ€¦"
           style={{ flex: 1, minWidth: 220, padding: '9px 14px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--surface-soft)' }} />
         <select value={filterVendor} onChange={e => setFilterVendor(e.target.value)}
           style={{ padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface-soft)', fontSize: 13 }}>
@@ -882,7 +882,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
       {/* Table */}
       {loading
-        ? <p style={{ color: 'var(--muted)', padding: 16 }}>Loading…</p>
+        ? <p style={{ color: 'var(--muted)', padding: 16 }}>Loadingâ€¦</p>
         : visible.length === 0
           ? <p style={{ color: 'var(--muted)', padding: 16 }}>No parts quotations yet. Click "+ New Parts Quotation" to start tracking.</p>
           : (
@@ -919,11 +919,11 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{firstItem.partName}</div>
                           {firstItem.partNumber && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.partNumber}</div>}
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} · qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} Â· qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
                           {items.length > 1 && <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{items.length - 1} more part{items.length > 2 ? 's' : ''}</div>}
                         </td>
                         <td>
-                          <div style={{ fontSize: 13 }}>{e.vendorName || '—'}</div>
+                          <div style={{ fontSize: 13 }}>{e.vendorName || 'â€”'}</div>
                           {e.vendorPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{e.vendorPhone}</div>}
                         </td>
                         <td style={{ fontWeight: 700, fontSize: 12 }}>{fmtMultiCurrency(e.lineItems || [], e.coreCharge || 0, e.currency || 'USD')}</td>
@@ -932,14 +932,14 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             {e.status}
                           </span>
                         </td>
-                        <td style={{ fontSize: 12 }}>{e.quoteDate ? new Date(e.quoteDate).toLocaleDateString() : '—'}</td>
+                        <td style={{ fontSize: 12 }}>{e.quoteDate ? new Date(e.quoteDate).toLocaleDateString() : 'â€”'}</td>
                         <td style={{ fontSize: 12, color: e.validUntil && new Date(e.validUntil) < new Date() ? '#ef4444' : undefined }}>
-                          {e.validUntil ? new Date(e.validUntil).toLocaleDateString() : '—'}
+                          {e.validUntil ? new Date(e.validUntil).toLocaleDateString() : 'â€”'}
                         </td>
                         <td onClick={ev => ev.stopPropagation()}>
                           <div className="row-actions">
                             {e.status !== 'Converted' && <button className="mini-btn" onClick={() => openEdit(e)}>Edit</button>}
-                            {e.status !== 'Converted' && <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>→ Order</button>}
+                            {e.status !== 'Converted' && <button className="mini-btn" style={{ color: '#7c3aed' }} onClick={() => handleConvertToOrder(e)}>â†’ Order</button>}
                             {e.status !== 'Converted' && (() => {
                               const busy = convertingIds.current.has(e.id);
                               return (
@@ -948,7 +948,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                                   style={{ color: busy ? '#9ca3af' : '#0284c7', cursor: busy ? 'not-allowed' : 'pointer' }}
                                   disabled={busy}
                                   onClick={() => handleConvertToEstimate(e)}>
-                                  {busy ? '⟳ Converting…' : '→ Estimate'}
+                                  {busy ? 'âŸ³ Convertingâ€¦' : 'â†’ Estimate'}
                                 </button>
                               );
                             })()}
@@ -957,7 +957,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                               return estNum ? (
                                 <button className="mini-btn" style={{ color: '#9c27b0' }}
                                   onClick={() => { dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}>
-                                  View {estNum} →
+                                  View {estNum} â†’
                                 </button>
                               ) : null;
                             })()}
@@ -973,7 +973,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           )
       }
 
-      {/* ── Lightbox ── */}
+      {/* â”€â”€ Lightbox â”€â”€ */}
       {lightbox && (() => {
         const photoImages = images.filter(i => !i.url.toLowerCase().includes('.pdf'));
         const lbIdx = photoImages.findIndex(i => i.id === lightbox.id);
@@ -989,7 +989,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
             ref={el => el?.focus()}
             style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, outline: 'none' }}>
             {/* Close */}
-            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 1 }}>✕</button>
+            <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', zIndex: 1 }}>âœ•</button>
             {/* Counter */}
             {photoImages.length > 1 && (
               <div style={{ position: 'absolute', top: 18, left: '50%', transform: 'translateX(-50%)', color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600 }}>
@@ -1000,14 +1000,14 @@ CREATE POLICY "Shop members can manage their parts estimates"
             {hasPrev && (
               <button onClick={e => { e.stopPropagation(); goPrev(); }}
                 style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                ‹
+                â€¹
               </button>
             )}
             {/* Next arrow */}
             {hasNext && (
               <button onClick={e => { e.stopPropagation(); goNext(); }}
                 style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 48, height: 48, color: '#fff', fontSize: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                ›
+                â€º
               </button>
             )}
             {/* Image */}
@@ -1029,8 +1029,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 value={lightboxLabel}
                 onChange={e => setLightboxLabel(e.target.value)}
                 style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)', background: '#222', color: '#fff', fontSize: 13 }}>
-                <option value="Photo">📷 Photo</option>
-                <option value="Invoice">🧾 Invoice</option>
+                <option value="Photo">ðŸ“· Photo</option>
+                <option value="Invoice">ðŸ§¾ Invoice</option>
               </select>
               <button
                 disabled={lightboxSaving || lightboxLabel === lightbox.label}
@@ -1044,7 +1044,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   finally { setLightboxSaving(false); }
                 }}
                 style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
-                {lightboxSaving ? 'Saving…' : 'Save Label'}
+                {lightboxSaving ? 'Savingâ€¦' : 'Save Label'}
               </button>
               <button
                 onClick={async () => {
@@ -1055,7 +1055,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   else setLightbox(null);
                 }}
                 style={{ padding: '6px 14px', borderRadius: 999, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                🗑 Delete
+                ðŸ—‘ Delete
               </button>
             </div>
           </div>
@@ -1074,8 +1074,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
-                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>✕</button>
+                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>âœ Edit</button>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>âœ•</button>
               </div>
             </div>
 
@@ -1086,14 +1086,14 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 return (
                   <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(156,39,176,0.07)', border: '1px solid rgba(156,39,176,0.3)', borderRadius: 10 }}>
                     <div style={{ fontSize: 12, fontWeight: 800, color: '#9c27b0', letterSpacing: '0.04em', marginBottom: 4 }}>
-                      📦 PARTS ORDERED — QUOTATION PRESERVED FOR REFERENCE
+                      ðŸ“¦ PARTS ORDERED â€” QUOTATION PRESERVED FOR REFERENCE
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
                       This quotation was converted to a customer estimate{estNum ? <> (<strong>{estNum}</strong>)</> : ''}.
                       The original parts cost is kept here so you can track what was ordered and reconcile against the final invoice.
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: '#7c3aed', fontStyle: 'italic' }}>
-                      ℹ Deletion is only allowed once the linked invoice has been marked <strong>Paid</strong>.
+                      â„¹ Deletion is only allowed once the linked invoice has been marked <strong>Paid</strong>.
                     </div>
                   </div>
                 );
@@ -1109,7 +1109,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
                       {item.vendorName && (
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                          🏭 {item.vendorName}
+                          ðŸ­ {item.vendorName}
                         </span>
                       )}
                     </div>
@@ -1138,8 +1138,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 <>
                   <SectionLabel label="Customer & Vehicle" />
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {selected.customerName && <div style={{ fontSize: 13 }}>👤 <strong>{selected.customerName}</strong></div>}
-                    {selected.vehicle && <div style={{ fontSize: 13 }}>🚗 {selected.vehicle}</div>}
+                    {selected.customerName && <div style={{ fontSize: 13 }}>ðŸ‘¤ <strong>{selected.customerName}</strong></div>}
+                    {selected.vehicle && <div style={{ fontSize: 13 }}>ðŸš— {selected.vehicle}</div>}
                   </div>
                 </>
               )}
@@ -1161,16 +1161,16 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
                     style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontSize: 13 }}>
-                    <option value="Photo">📷 Photo</option>
-                    <option value="Invoice">🧾 Quote Doc</option>
+                    <option value="Photo">ðŸ“· Photo</option>
+                    <option value="Invoice">ðŸ§¾ Quote Doc</option>
                   </select>
                   <label style={{ flex: 1, minWidth: 140, padding: '7px 14px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                    {uploadingImg ? 'Uploading…' : '+ Add Files'}
+                    {uploadingImg ? 'Uploadingâ€¦' : '+ Add Files'}
                     <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
                       onChange={e => handleImageUpload(e.target.files)} />
                   </label>
                 </div>
-                {imagesLoading && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</p>}
+                {imagesLoading && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Loadingâ€¦</p>}
                 {images.length > 0 && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                     {images.map((img, idx) => (
@@ -1183,10 +1183,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} onClick={() => { setLightbox(img); setLightboxLabel(img.label); }} />
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 6px' }}>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                            {img.label === 'Invoice' ? '🧾' : '📷'}
+                            {img.label === 'Invoice' ? 'ðŸ§¾' : 'ðŸ“·'}
                           </span>
                           <button onClick={ev => { ev.stopPropagation(); handleDeleteImage(img); }}
-                            style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 13, padding: '1px 5px', lineHeight: 1 }}>✕</button>
+                            style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 13, padding: '1px 5px', lineHeight: 1 }}>âœ•</button>
                         </div>
                       </div>
                     ))}
@@ -1197,8 +1197,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
               <SectionLabel label="Dates" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                <InfoBox label="Quote Date"  value={selected.quoteDate  ? new Date(selected.quoteDate).toLocaleDateString()  : '—'} />
-                <InfoBox label="Valid Until" value={selected.validUntil ? new Date(selected.validUntil).toLocaleDateString() : '—'}
+                <InfoBox label="Quote Date"  value={selected.quoteDate  ? new Date(selected.quoteDate).toLocaleDateString()  : 'â€”'} />
+                <InfoBox label="Valid Until" value={selected.validUntil ? new Date(selected.validUntil).toLocaleDateString() : 'â€”'}
                          color={selected.validUntil && new Date(selected.validUntil) < new Date() ? '#ef4444' : undefined} />
               </div>
 
@@ -1208,19 +1208,19 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {selected.jobCardNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></span>
+                        <span>ðŸ—‚ Job Card: <strong>{selected.jobCardNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('job-cards', 'open-job-card', { jobCardId: selected.jobCardNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open →
+                          Open â†’
                         </button>
                       </div>
                     )}
                     {selected.repairOrderNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
+                        <span>ðŸ”§ Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('repair-orders', 'open-ro', { roNumber: selected.repairOrderNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open →
+                          Open â†’
                         </button>
                       </div>
                     )}
@@ -1236,12 +1236,12 @@ CREATE POLICY "Shop members can manage their parts estimates"
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {selected.status !== 'Converted' && (
                 <>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>âœ Edit Quotation</button>
                   <button onClick={() => handleConvertToOrder(selected)}
                     onMouseEnter={e => { e.currentTarget.style.background = '#8b5cf6'; e.currentTarget.style.color = '#fff'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#7c3aed'; }}
                     style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'transparent', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
-                    ⇄ To Order
+                    â‡„ To Order
                   </button>
                   {(() => {
                     const busy = convertingIds.current.has(selected.id);
@@ -1252,7 +1252,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         onMouseEnter={e => { if (!busy) { e.currentTarget.style.background = '#0ea5e9'; e.currentTarget.style.color = '#fff'; } }}
                         onMouseLeave={e => { if (!busy) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0284c7'; } }}
                         style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'transparent', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
-                        {busy ? '⟳ Converting…' : '→ Estimate'}
+                        {busy ? 'âŸ³ Convertingâ€¦' : 'â†’ Estimate'}
                       </button>
                     );
                   })()}
@@ -1264,7 +1264,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {/* Ordered banner */}
                     <div style={{ padding: '10px 14px', background: 'rgba(156,39,176,0.07)', border: '1px solid rgba(156,39,176,0.25)', borderRadius: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#9c27b0', marginBottom: 2 }}>✓ Converted to Customer Estimate</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#9c27b0', marginBottom: 2 }}>âœ“ Converted to Customer Estimate</div>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>
                         This quotation has been ordered and converted. Parts cost is preserved here for reference.
                         {estNum && <> Linked to <strong>{estNum}</strong>.</>}
@@ -1273,7 +1273,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     {estNum && (
                       <button onClick={() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}
                         style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                        📋 View {estNum} in Estimates →
+                        ðŸ“‹ View {estNum} in Estimates â†’
                       </button>
                     )}
                   </div>
@@ -1286,7 +1286,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
         </>
       )}
 
-      {/* ── Add/Edit Form Modal ── */}
+      {/* â”€â”€ Add/Edit Form Modal â”€â”€ */}
       {showForm && (
         <div
           onClick={() => { setShowForm(false); setEditingId(null); }}
@@ -1296,37 +1296,37 @@ CREATE POLICY "Shop members can manage their parts estimates"
           <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Quotation' : '+ New Parts Quotation'}</span>
+                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? 'âœ Edit Parts Quotation' : '+ New Parts Quotation'}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#cc0000', color: '#fff' }}>v1</span>
               </div>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ESTIMATE); setFormError(''); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', lineHeight: 1 }}>✕</button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', lineHeight: 1 }}>âœ•</button>
             </div>
 
             {formError && (
               <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#dc2626', borderRadius: 8, fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>⚠ {formError}</span>
-                <button onClick={() => setFormError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16 }}>✕</button>
+                <span>âš  {formError}</span>
+                <button onClick={() => setFormError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16 }}>âœ•</button>
               </div>
             )}
 
             {/* Photos section */}
             <div style={{ marginBottom: 20, padding: '14px 16px', background: 'rgba(239,68,68,0.06)', border: '2px solid #cc0000', borderRadius: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap' }}>📎 Photos &amp; Quote Docs</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap' }}>ðŸ“Ž Photos &amp; Quote Docs</span>
                 {activeEstimateId ? (
                   <>
                     <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
                       style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--card)', fontSize: 13 }}>
-                      <option value="Photo">📷 Photo</option>
-                      <option value="Invoice">🧾 Quote Doc</option>
+                      <option value="Photo">ðŸ“· Photo</option>
+                      <option value="Invoice">ðŸ§¾ Quote Doc</option>
                     </select>
                     <label style={{ padding: '7px 16px', borderRadius: 7, background: '#cc0000', color: '#fff', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                      {uploadingImg ? 'Uploading…' : '+ Add Files'}
+                      {uploadingImg ? 'Uploadingâ€¦' : '+ Add Files'}
                       <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx" style={{ display: 'none' }} disabled={uploadingImg}
                         onChange={e => handleImageUpload(e.target.files)} />
                     </label>
-                    {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
+                    {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loadingâ€¦</span>}
                   </>
                 ) : (
                   <span style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>Save this estimate first to enable file uploads</span>
@@ -1350,7 +1350,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       if (!files || files.length === 0) return;
                       await handleImageUpload(files, capturedId);
                     }}>
-                    {uploadingImg ? '⏳ Uploading…' : '📎 Drag & drop photos or quote documents here'}
+                    {uploadingImg ? 'â³ Uploadingâ€¦' : 'ðŸ“Ž Drag & drop photos or quote documents here'}
                   </div>
                   {images.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
@@ -1366,7 +1366,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             onClick={() => { if (!isPdf) { setLightbox(img); setLightboxLabel(img.label); } }}>
                             {isPdf ? (
                               <a href={img.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
-                                <span style={{ fontSize: 32 }}>📄</span>
+                                <span style={{ fontSize: 32 }}>ðŸ“„</span>
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
                               </a>
                             ) : (
@@ -1375,10 +1375,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             )}
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                                {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
+                                {img.label === 'Invoice' ? 'ðŸ§¾' : 'ðŸ“·'} {img.label}
                               </span>
                               <button type="button" onClick={e => { e.stopPropagation(); handleDeleteImage(img); }}
-                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>✕</button>
+                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>âœ•</button>
                             </div>
                           </div>
                         );
@@ -1400,13 +1400,13 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <button type="button"
                           onClick={() => { setShowForm(false); setEditingId(null); handleConvertToOrder(est); }}
                           style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          ⇄ Convert to Order
+                          â‡„ Convert to Order
                         </button>
                         <button type="button"
                           onClick={() => handleConvertToEstimate(est)}
                           disabled={convertingIds.current.has(est.id) || est.status === 'Converted'}
                           style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #0ea5e9', background: convertingIds.current.has(est.id) ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: convertingIds.current.has(est.id) ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: convertingIds.current.has(est.id) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                          {convertingIds.current.has(est.id) ? '⟳ Converting…' : '→ Estimate'}
+                          {convertingIds.current.has(est.id) ? 'âŸ³ Convertingâ€¦' : 'â†’ Estimate'}
                         </button>
                       </>
                     ) : null;
@@ -1444,7 +1444,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
                           <select value={item.vendorName || ''} onChange={e => updateLineItem(idx, 'vendorName', e.target.value)} style={{ ...cellInput, paddingRight: 6, minWidth: 130 }}>
-                            <option value="">— Vendor —</option>
+                            <option value="">â€” Vendor â€”</option>
                             {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                             {item.vendorName && !vendors.find(v => v.name === item.vendorName) && <option value={item.vendorName}>{item.vendorName}</option>}
                           </select>
@@ -1463,7 +1463,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td style={tdStyle}><input type="number" min={0} step="0.01" value={item.unitCost || ''} placeholder="0.00" onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)} style={cellInput} /></td>
                         <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>{fmt(item.unitCost * item.quantity, item.currency || form.currency)}</td>
                         <td style={tdStyle}>
-                          {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>✕</button>}
+                          {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>âœ•</button>}
                         </td>
                       </tr>
                     ))}
@@ -1487,7 +1487,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 ))}
                 {field('Vehicle', (
                   <select value={form.vehicle} onChange={e => setF({ vehicle: e.target.value })} style={selStyle}>
-                    <option value="">— Select vehicle —</option>
+                    <option value="">â€” Select vehicle â€”</option>
                     {customerVehicles.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
                     {form.vehicle && !customerVehicles.find(v => v.label === form.vehicle) && <option value={form.vehicle}>{form.vehicle}</option>}
                   </select>
@@ -1501,7 +1501,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   <label>Vendor Name</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <select value={form.vendorName} onChange={e => handleVendorSelect(e.target.value)} style={{ ...selStyle, flex: 1 }}>
-                      <option value="">— Select vendor —</option>
+                      <option value="">â€” Select vendor â€”</option>
                       {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                       {form.vendorName && !vendors.find(v => v.name === form.vendorName) && <option value={form.vendorName}>{form.vendorName}</option>}
                     </select>
@@ -1512,7 +1512,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
-                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>⚙ Manage</button>
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>âš™ Manage</button>
                   </div>
                 </div>
                 {field('Vendor Phone', inp('tel',   form.vendorPhone, v => setF({ vendorPhone: v }), '555-000-0000'))}
@@ -1563,7 +1563,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
               {/* Notes */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 24 }}>
-                {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Customer preferences, part specifications, sourcing notes…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
+                {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Customer preferences, part specifications, sourcing notesâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
               </div>
             </form>
           </div>
@@ -1585,9 +1585,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
               ))}
             </div>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => setShowConfirm(false)}>← Back to Edit</button>
+              <button className="btn" onClick={() => setShowConfirm(false)}>â† Back to Edit</button>
               <button className="btn btn-primary" onClick={handleConfirmedSave} disabled={saving}>
-                {saving ? 'Saving…' : editingId ? '✓ Confirm Update' : '✓ Confirm & Save'}
+                {saving ? 'Savingâ€¦' : editingId ? 'âœ“ Confirm Update' : 'âœ“ Confirm & Save'}
               </button>
             </div>
           </div>
@@ -1601,7 +1601,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>Vendor Manager</div>
-              <button onClick={() => { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>✕</button>
+              <button onClick={() => { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>âœ•</button>
             </div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
               <button onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
@@ -1610,7 +1610,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
               </button>
               <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
                 style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
-                {editingVendorId ? '✏ Edit Vendor' : '+ Add Vendor'}
+                {editingVendorId ? 'âœ Edit Vendor' : '+ Add Vendor'}
               </button>
             </div>
             {vendorTab === 'list' && (
@@ -1626,9 +1626,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => { setEditingVendorId(v.id); setVendorForm({ name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes }); setVendorTab('add'); }}
-                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏ Edit</button>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>âœ Edit</button>
                           <button onClick={() => handleDeleteVendor(v.id, v.name)}
-                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Remove</button>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>ðŸ—‘ Remove</button>
                         </div>
                       </div>
                     ))}
@@ -1645,8 +1645,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 <div className="login-field"><label>Website</label><input value={vendorForm.website} onChange={e => setVendorForm(f => ({ ...f, website: e.target.value }))} placeholder="www.vendor.com" /></div>
                 <div className="login-field"><label>Account # / Notes</label><input value={vendorForm.notes} onChange={e => setVendorForm(f => ({ ...f, notes: e.target.value }))} placeholder="Account #, terms, net-30, etc." /></div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button type="button" className="btn" onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}>← Back</button>
-                  <button type="submit" className="btn btn-primary" disabled={savingVendor}>{savingVendor ? 'Saving…' : editingVendorId ? '✓ Save Changes' : '+ Add Vendor'}</button>
+                  <button type="button" className="btn" onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}>â† Back</button>
+                  <button type="submit" className="btn btn-primary" disabled={savingVendor}>{savingVendor ? 'Savingâ€¦' : editingVendorId ? 'âœ“ Save Changes' : '+ Add Vendor'}</button>
                 </div>
               </form>
             )}
@@ -1740,7 +1740,7 @@ function CustomerCombobox({
       <div style={{ position: 'relative' }}>
         <input
           value={query}
-          placeholder="Search or select customer…"
+          placeholder="Search or select customerâ€¦"
           autoComplete="off"
           onFocus={() => setOpen(true)}
           onChange={e => {
@@ -1757,7 +1757,7 @@ function CustomerCombobox({
             onClick={() => { onSelect(''); setQuery(''); }}
             style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14 }}
           >
-            ✕
+            âœ•
           </button>
         )}
       </div>
@@ -1765,7 +1765,7 @@ function CustomerCombobox({
       {value && (
         <div style={{ marginTop: 6 }}>
           <span style={{ fontSize: 12, background: 'rgba(0,180,0,0.1)', color: '#16a34a', border: '1px solid rgba(0,180,0,0.25)', borderRadius: 6, padding: '2px 8px', fontWeight: 700 }}>
-            ✓ {value}
+            âœ“ {value}
           </span>
         </div>
       )}
@@ -1822,7 +1822,7 @@ function CustomerCombobox({
 
       {showNew && (
         <div style={{ marginTop: 8, padding: '14px 16px', background: 'rgba(0,0,0,0.03)', border: '1px solid var(--line)', borderRadius: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>👤 New Customer</div>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>ðŸ‘¤ New Customer</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8, marginBottom: 12 }}>
             <div className="login-field" style={{ marginBottom: 0 }}>
               <label>Name *</label>
@@ -1849,7 +1849,7 @@ function CustomerCombobox({
               </select>
             </div>
           </div>
-          {saveError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>⚠ {saveError}</div>}
+          {saveError && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>âš  {saveError}</div>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
@@ -1866,7 +1866,7 @@ function CustomerCombobox({
                 transition: 'background 0.15s, color 0.15s',
               }}
             >
-              {saving ? 'Saving…' : '✓ Save & Select'}
+              {saving ? 'Savingâ€¦' : 'âœ“ Save & Select'}
             </button>
             <button
               type="button"

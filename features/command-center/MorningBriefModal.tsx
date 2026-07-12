@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // SI-7: Full Morning Brief Modal
 // Owner/manager only. Read-only view. Navigation links only.
@@ -131,13 +131,13 @@ export function MorningBriefModal({
       }}>
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)',
+          background: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)',
           padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 4 }}>⚡ {brief.title}</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 4 }}>âš¡ {brief.title}</div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
-              {brief.briefDate} · Generated {new Date(brief.generatedAt).toLocaleTimeString()}
+              {brief.briefDate} Â· Generated {new Date(brief.generatedAt).toLocaleTimeString()}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -149,7 +149,7 @@ export function MorningBriefModal({
             <button onClick={onClose} style={{
               fontSize: 18, background: 'transparent', border: 'none',
               color: 'rgba(255,255,255,0.5)', cursor: 'pointer', lineHeight: 1, padding: '2px 4px',
-            }}>×</button>
+            }}>Ã—</button>
           </div>
         </div>
 
@@ -176,13 +176,13 @@ export function MorningBriefModal({
             background: 'linear-gradient(135deg,#fff7ed,#ffedd5)', border: '1.5px solid #fdba74',
             borderLeft: `4px solid ${D.gold}`, borderRadius: D.radiusSm, padding: '14px 16px',
           }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>⭐ Recommended Focus</div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>â­ Recommended Focus</div>
             <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6 }}>{brief.recommendedFocus}</div>
           </div>
 
           {/* Yesterday */}
           <div>
-            <SectionHead icon="📅" label="Yesterday's Performance" />
+            <SectionHead icon="ðŸ“…" label="Yesterday's Performance" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 10 }}>
               {[
                 { label: 'Revenue', value: fmtMoney(brief.yesterdaySummary.revenueYesterday), onClick: () => nav('payments') },
@@ -204,7 +204,7 @@ export function MorningBriefModal({
           {/* Today's Top Priorities */}
           {brief.todayPriorities.length > 0 && (
             <div>
-              <SectionHead icon="🎯" label="Today's Top Priorities" />
+              <SectionHead icon="ðŸŽ¯" label="Today's Top Priorities" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {brief.todayPriorities.map((p) => {
                   const scoreColor = p.decisionScore >= 700 ? D.red : p.decisionScore >= 450 ? D.gold : D.blue;
@@ -223,9 +223,9 @@ export function MorningBriefModal({
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{p.title}</div>
                         {p.whyItMatters && <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>{p.whyItMatters}</div>}
                         <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 5, padding: '2px 7px' }}>⏱ {p.estimatedTimeMinutes}m</span>
+                          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 5, padding: '2px 7px' }}>â± {p.estimatedTimeMinutes}m</span>
                           {p.estimatedRevenue != null && p.estimatedRevenue > 0 && (
-                            <span style={{ fontSize: 11, color: D.green, background: 'rgba(5,150,105,0.1)', borderRadius: 5, padding: '2px 7px', fontWeight: 700 }}>💵 {fmtMoney(p.estimatedRevenue)}</span>
+                            <span style={{ fontSize: 11, color: D.green, background: 'rgba(5,150,105,0.1)', borderRadius: 5, padding: '2px 7px', fontWeight: 700 }}>ðŸ’µ {fmtMoney(p.estimatedRevenue)}</span>
                           )}
                           {p.module && (
                             <button onClick={() => nav(p.module!)}
@@ -235,7 +235,7 @@ export function MorningBriefModal({
                               fontSize: 11, padding: '2px 10px', borderRadius: 999, cursor: 'pointer',
                               border: `1.5px solid ${scoreColor}60`, background: 'transparent',
                               color: scoreColor, fontWeight: 700, transition: 'background 0.15s, color 0.15s',
-                            }}>Open →</button>
+                            }}>Open â†’</button>
                           )}
                         </div>
                       </div>
@@ -250,7 +250,7 @@ export function MorningBriefModal({
           {/* Revenue Opportunities */}
           {brief.revenueOpportunities.length > 0 && (
             <div>
-              <SectionHead icon="💵" label="Revenue Opportunities" />
+              <SectionHead icon="ðŸ’µ" label="Revenue Opportunities" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {brief.revenueOpportunities.map(op => {
                   const c = urgencyColor(op.urgency);
@@ -275,7 +275,7 @@ export function MorningBriefModal({
           {/* Cash Collection */}
           {(brief.cashCollection.unpaidCount > 0 || brief.cashCollection.overdueCount > 0) && (
             <div>
-              <SectionHead icon="💳" label="Cash Collection" />
+              <SectionHead icon="ðŸ’³" label="Cash Collection" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
                   { label: 'Unpaid Invoices', count: brief.cashCollection.unpaidCount, total: brief.cashCollection.unpaidTotal, module: 'invoices', color: '#ea580c' },
@@ -298,7 +298,7 @@ export function MorningBriefModal({
           {/* Operational Risks */}
           {brief.operationalRisks.length > 0 && (
             <div>
-              <SectionHead icon="⚠️" label="Operational Risks" />
+              <SectionHead icon="âš ï¸" label="Operational Risks" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {brief.operationalRisks.map(r => {
                   const c = urgencyColor(r.severity);
@@ -323,7 +323,7 @@ export function MorningBriefModal({
           {/* Technician Summary */}
           {brief.technicianSummary.totalAssigned > 0 && (
             <div>
-              <SectionHead icon="🧑‍🔧" label="Technician Summary" />
+              <SectionHead icon="ðŸ§‘â€ðŸ”§" label="Technician Summary" />
               <div style={{ display: 'flex', gap: 10 }}>
                 {[
                   { label: 'Active', value: brief.technicianSummary.activeCount, color: D.green },
@@ -339,7 +339,7 @@ export function MorningBriefModal({
                 ))}
               </div>
               {brief.technicianSummary.bottlenecks.map((b, i) => (
-                <div key={i} style={{ fontSize: 12, color: D.gold, marginTop: 8 }}>⚠ {b}</div>
+                <div key={i} style={{ fontSize: 12, color: D.gold, marginTop: 8 }}>âš  {b}</div>
               ))}
             </div>
           )}
@@ -347,7 +347,7 @@ export function MorningBriefModal({
           {/* Inventory */}
           {brief.inventorySummary.lowCount > 0 && (
             <div>
-              <SectionHead icon="📦" label="Inventory Alerts" />
+              <SectionHead icon="ðŸ“¦" label="Inventory Alerts" />
               <div onClick={() => nav('parts')} style={{
                 padding: '14px 16px', background: '#fff7ed', border: '1.5px solid #fdba74',
                 borderRadius: D.radiusSm, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -361,7 +361,7 @@ export function MorningBriefModal({
           {/* Sapelee Executive Insight (SI-8) */}
           {brief.metadata?.sapelee_enhancement ? (
             <div>
-              <SectionHead icon="🔮" label="Sapelee Executive Insight" />
+              <SectionHead icon="ðŸ”®" label="Sapelee Executive Insight" />
               <div style={{
                 background: 'linear-gradient(135deg,#0a0a18,#0f0f2a)',
                 border: '1.5px solid #4338ca60', borderRadius: D.radiusSm, padding: '16px 18px',
@@ -396,7 +396,7 @@ export function MorningBriefModal({
               fontSize: 11, color: 'var(--muted)', textAlign: 'center',
               padding: '10px 0', borderTop: '1px solid var(--line)',
             }}>
-              🔌 Sapelee not connected — local intelligence only
+              ðŸ”Œ Sapelee not connected â€” local intelligence only
             </div>
           ) : null}
         </div>

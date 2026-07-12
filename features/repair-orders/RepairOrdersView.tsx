@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { usePagination } from '@/lib/usePagination';
@@ -28,9 +28,9 @@ import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImag
 import { RepairCaseWizard } from '@/components/RepairCaseWizard';
 import type { RepairCase } from '@/services/repairCaseService';
 
-const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
+const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : 'â€”';
 
-// ── Smart QA checklist generator ────────────────────────────────
+// â”€â”€ Smart QA checklist generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface QAItem { id: string; label: string; passed: boolean | null; }
 
 function generateChecklist(concern: string, cause: string, correction: string): QAItem[] {
@@ -39,7 +39,7 @@ function generateChecklist(concern: string, cause: string, correction: string): 
 
   // Always-present base items
   items.push(
-    { id: 'clean', label: 'Vehicle returned clean — no grease or fingerprints on interior/exterior' },
+    { id: 'clean', label: 'Vehicle returned clean â€” no grease or fingerprints on interior/exterior' },
     { id: 'personal', label: 'Customer personal items returned and undisturbed' },
     { id: 'paperwork', label: 'All paperwork and keys ready for customer' },
   );
@@ -47,7 +47,7 @@ function generateChecklist(concern: string, cause: string, correction: string): 
   // Fluid / leak checks
   if (/oil|leak|drip|seal|gasket|pan|sump/.test(text))
     items.push(
-      { id: 'oil_leak', label: 'No oil leaks visible — check under vehicle with white paper' },
+      { id: 'oil_leak', label: 'No oil leaks visible â€” check under vehicle with white paper' },
       { id: 'oil_level', label: 'Engine oil level correct on dipstick' },
     );
 
@@ -61,20 +61,20 @@ function generateChecklist(concern: string, cause: string, correction: string): 
   if (/transmission|gearbox|gear|shift/.test(text))
     items.push(
       { id: 'trans_fluid', label: 'Transmission fluid level correct' },
-      { id: 'shift', label: 'All gears engage smoothly — no slipping or hesitation' },
+      { id: 'shift', label: 'All gears engage smoothly â€” no slipping or hesitation' },
     );
 
   if (/brake|caliper|rotor|pad|disc|stop/.test(text))
     items.push(
-      { id: 'brake_feel', label: 'Brake pedal firm — no sponginess' },
+      { id: 'brake_feel', label: 'Brake pedal firm â€” no sponginess' },
       { id: 'brake_noise', label: 'No squealing or grinding noise during braking' },
-      { id: 'brake_straight', label: 'Vehicle stops straight — no pull to either side' },
+      { id: 'brake_straight', label: 'Vehicle stops straight â€” no pull to either side' },
       { id: 'brake_fluid', label: 'Brake fluid level correct' },
     );
 
   if (/a\/c|ac |air.con|aircon|refrigerant|freon|compressor|blower|hvac/.test(text))
     items.push(
-      { id: 'ac_cold', label: 'A/C blows cold — outlet temperature below 10°C / 50°F' },
+      { id: 'ac_cold', label: 'A/C blows cold â€” outlet temperature below 10Â°C / 50Â°F' },
       { id: 'ac_noise', label: 'No A/C compressor noise or rattling' },
       { id: 'ac_leak', label: 'No refrigerant leaks at connections' },
     );
@@ -87,21 +87,21 @@ function generateChecklist(concern: string, cause: string, correction: string): 
 
   if (/engine|misfire|idle|knock|timing|spark|ignition/.test(text))
     items.push(
-      { id: 'idle', label: 'Engine idles smoothly — no rough idle or misfires' },
+      { id: 'idle', label: 'Engine idles smoothly â€” no rough idle or misfires' },
       { id: 'start', label: 'Engine starts cleanly on first crank' },
-      { id: 'rev', label: 'Engine revs freely — no hesitation or stumble' },
+      { id: 'rev', label: 'Engine revs freely â€” no hesitation or stumble' },
     );
 
   if (/suspension|shock|strut|spring|bushing|noise|rattle|clunk/.test(text))
     items.push(
       { id: 'susp_noise', label: 'No clunking or rattling over bumps' },
-      { id: 'susp_straight', label: 'Vehicle tracks straight — no wandering' },
+      { id: 'susp_straight', label: 'Vehicle tracks straight â€” no wandering' },
     );
 
   if (/steering|power steering|alignment|wheel|tie rod/.test(text))
     items.push(
-      { id: 'steer_straight', label: 'Steering wheel centered — no pull on straight road' },
-      { id: 'steer_smooth', label: 'Steering smooth — no stiffness or noise on full lock' },
+      { id: 'steer_straight', label: 'Steering wheel centered â€” no pull on straight road' },
+      { id: 'steer_smooth', label: 'Steering smooth â€” no stiffness or noise on full lock' },
     );
 
   if (/tyre|tire|wheel|rotation|balance/.test(text))
@@ -113,12 +113,12 @@ function generateChecklist(concern: string, cause: string, correction: string): 
   if (/battery|alternator|electrical|wiring|fuse|starter|charge/.test(text))
     items.push(
       { id: 'battery', label: 'Battery voltage above 12.4V (engine off)' },
-      { id: 'charge', label: 'Alternator charging — voltage 13.5–14.5V at idle' },
+      { id: 'charge', label: 'Alternator charging â€” voltage 13.5â€“14.5V at idle' },
     );
 
   if (/exhaust|muffler|cat|catalytic|emission|smoke/.test(text))
     items.push(
-      { id: 'exhaust_leak', label: 'No exhaust leaks — no ticking or soot marks at joints' },
+      { id: 'exhaust_leak', label: 'No exhaust leaks â€” no ticking or soot marks at joints' },
       { id: 'smoke', label: 'No blue, white, or black smoke from exhaust' },
     );
 
@@ -128,7 +128,7 @@ function generateChecklist(concern: string, cause: string, correction: string): 
     );
 
   // Road test (always present for any mechanical work)
-  items.push({ id: 'road_test', label: 'Road test completed — concern resolved and no new issues found' });
+  items.push({ id: 'road_test', label: 'Road test completed â€” concern resolved and no new issues found' });
 
   // Dedup by id
   const seen = new Set<string>();
@@ -137,7 +137,7 @@ function generateChecklist(concern: string, cause: string, correction: string): 
     .map(i => ({ ...i, passed: null }));
 }
 
-// ── Misc items that SA must confirm are not left in the vehicle ──
+// â”€â”€ Misc items that SA must confirm are not left in the vehicle â”€â”€
 const MISC_ITEMS: { id: string; label: string }[] = [
   { id: 'misc_tools',   label: 'No shop tools or equipment left in vehicle (ratchets, sockets, pliers, etc.)' },
   { id: 'misc_bolts',   label: 'No loose bolts, nuts, or hardware left inside vehicle or engine bay' },
@@ -148,7 +148,7 @@ const MISC_ITEMS: { id: string; label: string }[] = [
   { id: 'misc_mats',    label: "Customer's floor mats, seat covers, and personal items returned to original position" },
 ];
 
-// ── QA Sign-Off Panel ────────────────────────────────────────────
+// â”€â”€ QA Sign-Off Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function QAPanel({ ro, onApprove, onSendBack }: {
   ro: RepairOrder;
   onApprove: (checklist: QAItem[], miscItems: QAItem[], advisorName: string, notes: string) => void;
@@ -192,8 +192,8 @@ function QAPanel({ ro, onApprove, onSendBack }: {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: item.passed === true ? 'rgba(76,175,80,0.07)' : item.passed === false ? 'rgba(244,67,54,0.07)' : 'var(--surface-soft)', border: `1px solid ${item.passed === true ? 'rgba(76,175,80,0.25)' : item.passed === false ? 'rgba(244,67,54,0.25)' : 'var(--line)'}`, transition: 'all .15s' }}>
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-          <button type="button" onClick={() => toggle(item.id, true, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === true ? '#4caf50' : '#e0e0e0', color: item.passed === true ? '#fff' : '#555', transition: 'all .1s' }}>✓ PASS</button>
-          <button type="button" onClick={() => toggle(item.id, false, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === false ? '#f44336' : '#e0e0e0', color: item.passed === false ? '#fff' : '#555', transition: 'all .1s' }}>✗ FAIL</button>
+          <button type="button" onClick={() => toggle(item.id, true, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === true ? '#4caf50' : '#e0e0e0', color: item.passed === true ? '#fff' : '#555', transition: 'all .1s' }}>âœ“ PASS</button>
+          <button type="button" onClick={() => toggle(item.id, false, isMisc)} style={{ padding: '3px 10px', borderRadius: 6, border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', background: item.passed === false ? '#f44336' : '#e0e0e0', color: item.passed === false ? '#fff' : '#555', transition: 'all .1s' }}>âœ— FAIL</button>
         </div>
         <span style={{ fontSize: 13, flex: 1, color: item.passed === false ? '#f44336' : 'var(--text)', fontWeight: item.passed === false ? 600 : 400 }}>{item.label}</span>
       </div>
@@ -203,9 +203,9 @@ function QAPanel({ ro, onApprove, onSendBack }: {
   return (
     <div style={{ border: '2px solid #f59e0b', borderRadius: 14, background: 'rgba(245,158,11,0.04)', overflow: 'hidden', marginTop: 16 }}>
       <div style={{ background: '#f59e0b', color: '#fff', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 18 }}>🔍</span>
+        <span style={{ fontSize: 18 }}>ðŸ”</span>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 14 }}>SA QA Inspection — Awaiting Sign-Off</div>
+          <div style={{ fontWeight: 800, fontSize: 14 }}>SA QA Inspection â€” Awaiting Sign-Off</div>
           <div style={{ fontSize: 12, opacity: 0.9 }}>Technician submitted work. Complete all checks before marking the RO Complete.</div>
         </div>
       </div>
@@ -214,9 +214,9 @@ function QAPanel({ ro, onApprove, onSendBack }: {
         {/* 3C summary */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
           {[
-            { color: '#f44336', label: '🔴 Concern', text: ro.concern },
-            { color: '#ff9800', label: '🟡 Cause', text: ro.cause },
-            { color: '#4caf50', label: '🟢 Correction', text: ro.correction },
+            { color: '#f44336', label: 'ðŸ”´ Concern', text: ro.concern },
+            { color: '#ff9800', label: 'ðŸŸ¡ Cause', text: ro.cause },
+            { color: '#4caf50', label: 'ðŸŸ¢ Correction', text: ro.correction },
           ].map(({ label, text, color }) => (
             <div key={label} style={{ fontSize: 13, padding: '7px 12px', borderRadius: 7, background: 'var(--surface-soft)', border: '1px solid var(--line)' }}>
               <span style={{ fontWeight: 700, color }}>{label}: </span>
@@ -227,7 +227,7 @@ function QAPanel({ ro, onApprove, onSendBack }: {
 
         {/* Repair-specific checklist */}
         <div className="section-label" style={{ marginBottom: 8 }}>
-          Step 1 — Repair Verification ({items.length} items)
+          Step 1 â€” Repair Verification ({items.length} items)
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
           {items.map(item => <CheckRow key={item.id} item={item} />)}
@@ -235,7 +235,7 @@ function QAPanel({ ro, onApprove, onSendBack }: {
 
         {/* Misc items */}
         <div className="section-label" style={{ marginBottom: 8 }}>
-          Step 2 — Vehicle Walk-Around & Misc Items ({misc.length} items)
+          Step 2 â€” Vehicle Walk-Around & Misc Items ({misc.length} items)
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
           {misc.map(item => <CheckRow key={item.id} item={item} isMisc />)}
@@ -245,30 +245,30 @@ function QAPanel({ ro, onApprove, onSendBack }: {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>QA Notes (optional)</label>
-            <textarea value={qaNotes} onChange={e => setQaNotes(e.target.value)} placeholder="Observations, follow-up items, or customer instructions…" style={{ ...inp, minHeight: 70, resize: 'vertical' }} />
+            <textarea value={qaNotes} onChange={e => setQaNotes(e.target.value)} placeholder="Observations, follow-up items, or customer instructionsâ€¦" style={{ ...inp, minHeight: 70, resize: 'vertical' }} />
           </div>
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Service Advisor Signature *</label>
-            <input value={advisorName} onChange={e => setAdvisorName(e.target.value)} placeholder="Type your full name to sign off…" style={inp} />
+            <input value={advisorName} onChange={e => setAdvisorName(e.target.value)} placeholder="Type your full name to sign offâ€¦" style={inp} />
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>By signing, you confirm the vehicle passed inspection and is ready for the customer.</div>
           </div>
         </div>
 
         {!allChecked && (
           <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 8, padding: '8px 14px', fontSize: 12, color: '#b45309', marginBottom: 12 }}>
-            ⚠ Mark every item Pass or Fail to enable sign-off. ({[...items, ...misc].filter(i => i.passed === null).length} remaining)
+            âš  Mark every item Pass or Fail to enable sign-off. ({[...items, ...misc].filter(i => i.passed === null).length} remaining)
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
           <button type="button" onClick={handleSendBack} disabled={submitting} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid rgba(244,67,54,0.4)', background: 'rgba(244,67,54,0.07)', color: '#f44336', fontWeight: 700, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer' }}>
-            ↩ Send Back to Technician
+            â†© Send Back to Technician
           </button>
           <button type="button" onClick={handleApprove} disabled={submitting || !allChecked || !advisorName.trim()}
             onMouseEnter={e => { if (allChecked && advisorName.trim() && !submitting) { const c = allPassed ? '#4caf50' : '#f59e0b'; e.currentTarget.style.background = c; e.currentTarget.style.color = '#fff'; } }}
             onMouseLeave={e => { if (allChecked && advisorName.trim() && !submitting) { const c = allPassed ? '#4caf50' : '#f59e0b'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = c; } }}
             style={{ flex: 2, padding: '10px', borderRadius: 999, border: allChecked && advisorName.trim() ? `2px solid ${allPassed ? '#4caf50' : '#f59e0b'}` : '2px solid #aaa', background: 'transparent', color: allChecked && advisorName.trim() ? (allPassed ? '#4caf50' : '#f59e0b') : '#aaa', fontWeight: 800, fontSize: 13, cursor: (submitting || !allChecked || !advisorName.trim()) ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1, transition: 'background .15s, color .15s' }}>
-            {submitting ? 'Processing…' : allChecked && advisorName.trim() ? (allPassed ? '✓ Approve — Mark Complete' : '⚠ Approve with Fails — Mark Complete') : 'Complete all checks + sign to approve'}
+            {submitting ? 'Processingâ€¦' : allChecked && advisorName.trim() ? (allPassed ? 'âœ“ Approve â€” Mark Complete' : 'âš  Approve with Fails â€” Mark Complete') : 'Complete all checks + sign to approve'}
           </button>
         </div>
       </div>
@@ -287,13 +287,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_ICONS: Record<string, string> = {
-  'Open':             '📋',
-  'In Progress':      '🔧',
-  'Pending Parts':    '📦',
-  'Pending Approval': '⏳',
-  'Complete':         '✅',
-  'Closed':           '🔒',
-  'Void':             '🚫',
+  'Open':             'ðŸ“‹',
+  'In Progress':      'ðŸ”§',
+  'Pending Parts':    'ðŸ“¦',
+  'Pending Approval': 'â³',
+  'Complete':         'âœ…',
+  'Closed':           'ðŸ”’',
+  'Void':             'ðŸš«',
 };
 
 function statusLabel(s: string) { return `${STATUS_ICONS[s] ?? ''} ${s}`.trim(); }
@@ -359,7 +359,7 @@ export function RepairOrdersView() {
   const [currencyQuery, setCurrencyQuery] = useState('');
   const [currencyOpen, setCurrencyOpen] = useState(false);
 
-  // Parts pull modal — shown before creating invoice or estimate
+  // Parts pull modal â€” shown before creating invoice or estimate
   type PullLine = {
     id: string; source: 'ro' | 'order' | 'quotation';
     description: string; partNumber: string; qty: number; unitCost: number; currency: string;
@@ -382,7 +382,7 @@ export function RepairOrdersView() {
     fetchShopSettings().then(setShopSettings).catch(() => {});
   }, []);
 
-  // Deep-link: open a specific RO when notification "Open RO →" is clicked
+  // Deep-link: open a specific RO when notification "Open RO â†’" is clicked
   useEffect(() => {
     function handleOpenRO(e: Event) {
       const { roId, roNumber } = (e as CustomEvent).detail ?? {};
@@ -407,7 +407,7 @@ export function RepairOrdersView() {
     return () => window.removeEventListener('filter-ro-status', handleFilterStatus);
   }, []);
 
-  // Open new form pre-filled when navigated from Job Card → Repair Order
+  // Open new form pre-filled when navigated from Job Card â†’ Repair Order
   useEffect(() => {
     if (!prefill?.customerName) return;
     nextRONumber().then(num => {
@@ -480,7 +480,7 @@ export function RepairOrdersView() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.customerName) return setError('Customer name is required.');
-    if (form.status === 'Complete' || form.status === 'Closed') return setError('Cannot set status to Complete or Closed directly — complete the QA sign-off process.');
+    if (form.status === 'Complete' || form.status === 'Closed') return setError('Cannot set status to Complete or Closed directly â€” complete the QA sign-off process.');
     setSaving(true); setError('');
     try {
       const roParts: RoPart[] = form.formParts
@@ -535,8 +535,8 @@ export function RepairOrdersView() {
     const allItems = [...checklist, ...miscItems];
     const passed = allItems.filter(i => i.passed === true).length;
     const failed = allItems.filter(i => i.passed === false).length;
-    const repairText = checklist.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
-    const miscText   = miscItems.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
+    const repairText = checklist.map(i => `  [${i.passed ? 'âœ“' : 'âœ—'}] ${i.label}`).join('\n');
+    const miscText   = miscItems.map(i => `  [${i.passed ? 'âœ“' : 'âœ—'}] ${i.label}`).join('\n');
     const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\nRepair Verification:\n${repairText}\nVehicle Walk-Around:\n${miscText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
     try {
       await updateRepairOrder(ro.id, { status: 'Complete', notes: (ro.notes || '') + signOff });
@@ -546,7 +546,7 @@ export function RepairOrdersView() {
       const updated = { ...ro, status: 'Complete', notes: (ro.notes || '') + signOff };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — ready for invoicing.`);
+      notify(`âœ“ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete â€” ready for invoicing.`);
       setWizardRO(updated as RepairOrder);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
@@ -559,7 +559,7 @@ export function RepairOrdersView() {
       const updated = { ...ro, status: 'In Progress', notes: (ro.notes || '') + signOff };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`↩ ${ro.roNumber} returned to technician.`);
+      notify(`â†© ${ro.roNumber} returned to technician.`);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
@@ -624,7 +624,7 @@ export function RepairOrdersView() {
     setPullModal(m => m ? { ...m, creating: true } : null);
     const { ro, target, lines, selected } = pullModal;
     const chosenParts = lines.filter(l => selected.has(l.id));
-    const laborLine = { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern || 'Repair'}`, qty: ro.laborHours || 1, rate: ro.laborRate || 0 };
+    const laborLine = { note: ro.roNumber, description: `Labor â€” ${ro.correction || ro.concern || 'Repair'}`, qty: ro.laborHours || 1, rate: ro.laborRate || 0 };
     const partLines = chosenParts.map(p => ({ note: p.partNumber, description: p.description, qty: p.qty, rate: p.unitCost, currency: p.currency !== ro.currency ? p.currency : '' }));
     const allLines = [laborLine, ...partLines].filter(l => l.description);
     try {
@@ -643,7 +643,7 @@ export function RepairOrdersView() {
         setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
         setSelected(updated);
         setPullModal(null);
-        notify(`${ro.roNumber} → ${invNumber} created with ${chosenParts.length} part(s). Opening Invoices…`);
+        notify(`${ro.roNumber} â†’ ${invNumber} created with ${chosenParts.length} part(s). Opening Invoicesâ€¦`);
         setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
       } else {
         const estNumber = await nextEstimateNumber();
@@ -654,7 +654,7 @@ export function RepairOrdersView() {
           notes: `Created from ${ro.roNumber}.`, validUntil: '', approvedDate: null, currency: ro.currency,
         });
         setPullModal(null);
-        notify(`Estimate ${estNumber} created with ${chosenParts.length} part(s). Opening Estimates…`);
+        notify(`Estimate ${estNumber} created with ${chosenParts.length} part(s). Opening Estimatesâ€¦`);
         setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'estimates' }), 800);
       }
     } catch (e: unknown) {
@@ -675,7 +675,7 @@ export function RepairOrdersView() {
         jobCardId: ro.jobCardId,
         status: 'Draft',
         lines: [
-          { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },
+          { note: ro.roNumber, description: `Labor â€” ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },
           ...(ro.parts.length > 0
             ? ro.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }))
             : ro.partsTotal > 0 ? [{ note: '', description: 'Parts', qty: 1, rate: ro.partsTotal }] : []),
@@ -692,7 +692,7 @@ export function RepairOrdersView() {
       const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`${ro.roNumber} → ${invNumber} created. Opening Invoices…`);
+      notify(`${ro.roNumber} â†’ ${invNumber} created. Opening Invoicesâ€¦`);
       setTimeout(() => dispatch({ type: 'SET_MODULE', module: 'invoices' }), 800);
     } catch (e: unknown) { setError('Convert failed: ' + (e instanceof Error ? e.message : '')); }
   }
@@ -742,7 +742,7 @@ export function RepairOrdersView() {
     <>
       {toast && <div className="toast toast-visible">{toast}</div>}
 
-      {/* Stats — click to filter */}
+      {/* Stats â€” click to filter */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         {[
           { label: 'Open / In Progress', count: openCount,    color: '#2196f3', filter: 'In Progress' },
@@ -756,14 +756,14 @@ export function RepairOrdersView() {
               onClick={() => { setFilterStatus(active ? 'All' : filter); setSelected(null); }}
               style={{
                 padding: 16, borderRadius: 12, border: active ? `2px solid ${color}` : '1px solid rgba(255,255,255,0.12)',
-                background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)',
+                background: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)',
                 cursor: 'pointer', textAlign: 'left', transition: 'all .15s',
                 boxShadow: active ? `0 0 0 3px ${color}22` : '0 2px 10px rgba(0,0,0,0.2)',
               }}
             >
               <div style={{ fontSize: 11, color: active ? color : 'rgba(255,255,255,0.68)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
                 <span>{label}</span>
-                {active && <span style={{ fontSize: 10 }}>✕ clear</span>}
+                {active && <span style={{ fontSize: 10 }}>âœ• clear</span>}
               </div>
               <div style={{ fontSize: 28, fontWeight: 800, color, marginTop: 4 }}>{count}</div>
               <div style={{ fontSize: 11, color: active ? color : 'rgba(255,255,255,0.68)', marginTop: 2 }}>
@@ -782,22 +782,22 @@ export function RepairOrdersView() {
 
       {error && (
         <p style={{ color: 'var(--danger)', padding: '10px 14px', background: '#fff0f0', borderRadius: 6, marginBottom: 12 }}>
-          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>✕</button>
+          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>âœ•</button>
         </p>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 16, alignItems: 'start' }}>
 
-        {/* ── Left: RO List ── */}
+        {/* â”€â”€ Left: RO List â”€â”€ */}
         <Panel title="Repair Orders" hint="Click an RO to view the full 3C worksheet">
           {/* Most Recent */}
           {orders.length > 0 && (
             <div onClick={() => { setSelected(orders[0]); setShowForm(false); }}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderRadius: 10, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', marginBottom: 12, cursor: 'pointer' }}>
               <div>
-                <span className="section-label" style={{ display: 'inline-block' }}>⚡ Most Recent</span>
-                <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{orders[0].roNumber} — {orders[0].customerName}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>{orders[0].vehicle} · <TechPills value={orders[0].technician} /></div>
+                <span className="section-label" style={{ display: 'inline-block' }}>âš¡ Most Recent</span>
+                <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{orders[0].roNumber} â€” {orders[0].customerName}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>{orders[0].vehicle} Â· <TechPills value={orders[0].technician} /></div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 {!isTech && <div style={{ fontWeight: 700 }}>{formatMoney(calcROTotal(orders[0]), orders[0].currency)}</div>}
@@ -807,7 +807,7 @@ export function RepairOrdersView() {
           )}
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search RO, customer, vehicle…" className="search" style={{ flex: 1, minWidth: 120 }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search RO, customer, vehicleâ€¦" className="search" style={{ flex: 1, minWidth: 120 }} />
             <button className="btn btn-primary" onClick={openNew}>+ New RO</button>
           </div>
           <div style={{ marginBottom: 14 }}>
@@ -815,7 +815,7 @@ export function RepairOrdersView() {
           </div>
 
 
-          {loading && <p style={{ color: 'var(--muted)' }}>Loading repair orders…</p>}
+          {loading && <p style={{ color: 'var(--muted)' }}>Loading repair ordersâ€¦</p>}
           {!loading && filtered.length === 0 && (
             <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 20 }}>
               {orders.length === 0 ? 'No repair orders yet. Create your first one.' : 'No ROs match your filter.'}
@@ -835,14 +835,14 @@ export function RepairOrdersView() {
                       <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[ro.status] || '#888', textTransform: 'uppercase' }}>{statusLabel(ro.status)}</span>
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{ro.customerName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{ro.vehicle} {ro.technician ? <><span>·</span><TechPills value={ro.technician} /></> : ''}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>{ro.vehicle} {ro.technician ? <><span>Â·</span><TechPills value={ro.technician} /></> : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       {!isTech && <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoney(calcROTotal(ro), ro.currency)}</div>}
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{fmt(ro.openedDate)}</div>
                     </div>
                   </div>
-                  {ro.concern && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 6 }}>🔴 {ro.concern.slice(0, 80)}{ro.concern.length > 80 ? '…' : ''}</div>}
+                  {ro.concern && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 6 }}>ðŸ”´ {ro.concern.slice(0, 80)}{ro.concern.length > 80 ? 'â€¦' : ''}</div>}
                 </div>
               );
             })}
@@ -856,13 +856,13 @@ export function RepairOrdersView() {
           />
         </Panel>
 
-        {/* ── Right: RO Detail ── */}
+        {/* â”€â”€ Right: RO Detail â”€â”€ */}
         {selected && !showForm && (
           <div>
-            {/* Action bar — role-based */}
+            {/* Action bar â€” role-based */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
 
-              {/* Status display / dropdown — techs see read-only badge; others get limited dropdown */}
+              {/* Status display / dropdown â€” techs see read-only badge; others get limited dropdown */}
               {isTech ? (
                 <span style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontWeight: 700, fontSize: 13, color: STATUS_COLORS[selected.status] || '#888' }}>
                   {statusLabel(selected.status)}
@@ -876,11 +876,11 @@ export function RepairOrdersView() {
                 </select>
               )}
 
-              <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Edit</button>
-              <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
-              <button className="btn" onClick={() => setPhotoRO(selected)}>📷 Photos</button>
+              <button className="btn btn-primary" onClick={() => openEdit(selected)}>âœï¸ Edit</button>
+              <button className="btn" onClick={() => setShowPreview(true)}>ðŸ‘ Preview</button>
+              <button className="btn" onClick={() => setPhotoRO(selected)}>ðŸ“· Photos</button>
 
-              {/* TECH: Submit work done → Pending Approval */}
+              {/* TECH: Submit work done â†’ Pending Approval */}
               {isTech && ['Open', 'In Progress', 'Pending Parts'].includes(selected.status) && (
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '1px solid #f59e0b', fontWeight: 700 }}
                   onClick={async () => {
@@ -892,7 +892,7 @@ export function RepairOrdersView() {
                       notify(`${selected.roNumber} submitted for SA review.`);
                     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
                   }}>
-                  ✓ Submit for SA Review
+                  âœ“ Submit for SA Review
                 </button>
               )}
 
@@ -900,7 +900,7 @@ export function RepairOrdersView() {
               {!isTech && selected.status === 'Pending Approval' && (
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '2px solid #f59e0b', fontWeight: 800, fontSize: 13 }}
                   onClick={() => setQaTarget(selected)}>
-                  🔍 QA Sign-Off
+                  ðŸ” QA Sign-Off
                 </button>
               )}
 
@@ -908,23 +908,23 @@ export function RepairOrdersView() {
               {!isTech && selected.status === 'Complete' && !selected.notes?.includes('QA SIGN-OFF') && (
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.1)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)', fontWeight: 700 }}
                   onClick={() => setQaTarget(selected)}>
-                  ⚠ Complete QA Sign-Off
+                  âš  Complete QA Sign-Off
                 </button>
               )}
 
-              {/* Create Estimate from RO — pulls all parts from orders/quotations */}
+              {/* Create Estimate from RO â€” pulls all parts from orders/quotations */}
               {!isTech && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.08)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => openPullModal(selected, 'estimate')}>
-                  📋 Create Estimate
+                  ðŸ“‹ Create Estimate
                 </button>
               )}
 
-              {/* Create Invoice — available to owner/manager on any active RO */}
+              {/* Create Invoice â€” available to owner/manager on any active RO */}
               {!isTech && selected.status !== 'Closed' && selected.status !== 'Void' && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => openPullModal(selected, 'invoice')}>
-                  ⚡ Create Invoice
+                  âš¡ Create Invoice
                 </button>
               )}
               {/* View linked invoice */}
@@ -934,11 +934,11 @@ export function RepairOrdersView() {
                     dispatch({ type: 'SET_MODULE', module: 'invoices' });
                     setTimeout(() => window.dispatchEvent(new CustomEvent('open-invoice', { detail: { invoiceNumber: selected.invoiceNumber } })), 80);
                   }}>
-                  🧾 View {selected.invoiceNumber}
+                  ðŸ§¾ View {selected.invoiceNumber}
                 </button>
               )}
 
-              {/* Repair Intelligence — shown on Complete/Closed */}
+              {/* Repair Intelligence â€” shown on Complete/Closed */}
               {(selected.status === 'Complete' || selected.status === 'Closed') && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044', fontWeight: 700 }}
                   onClick={() => setWizardRO(selected)}>
@@ -946,18 +946,18 @@ export function RepairOrdersView() {
                 </button>
               )}
 
-              {/* Return Job — shown to non-tech on closed/complete */}
+              {/* Return Job â€” shown to non-tech on closed/complete */}
               {!isTech && (selected.status === 'Closed' || selected.status === 'Complete') && (
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.08)', color: '#b45309', border: '1px solid #f59e0b', fontWeight: 700 }}
-                  onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: selected.customerName, vehicle: selected.vehicle, notes: `↩ RETURN JOB — Original: ${selected.roNumber}. Original issue: ${selected.concern || selected.correction || ''}`.trim() } })}>
-                  ↩ Return Job
+                  onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: selected.customerName, vehicle: selected.vehicle, notes: `â†© RETURN JOB â€” Original: ${selected.roNumber}. Original issue: ${selected.concern || selected.correction || ''}`.trim() } })}>
+                  â†© Return Job
                 </button>
               )}
 
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 
-            {/* RO Detail Card — 3C Worksheet */}
+            {/* RO Detail Card â€” 3C Worksheet */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 28 }}>
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--accent)' }}>
@@ -966,7 +966,7 @@ export function RepairOrdersView() {
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                     {shopSettings?.address && <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
-                    {shopSettings?.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {shopSettings.phone}</div>}
+                    {shopSettings?.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>ðŸ“ž {shopSettings.phone}</div>}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -988,7 +988,7 @@ export function RepairOrdersView() {
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
                   <div className="section-label" style={{ marginBottom: 6 }}>Vehicle</div>
-                  <div style={{ fontWeight: 600 }}>{selected.vehicle || '—'}</div>
+                  <div style={{ fontWeight: 600 }}>{selected.vehicle || 'â€”'}</div>
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
                   <div className="section-label" style={{ marginBottom: 6 }}>Technician</div>
@@ -1000,9 +1000,9 @@ export function RepairOrdersView() {
               {/* 3C Worksheet */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
                 {[
-                  { color: '#f44336', label: '🔴 Concern', text: selected.concern, bg: 'rgba(244,67,54,0.05)', border: 'rgba(244,67,54,0.2)' },
-                  { color: '#ff9800', label: '🟡 Cause', text: selected.cause, bg: 'rgba(255,152,0,0.05)', border: 'rgba(255,152,0,0.2)' },
-                  { color: '#4caf50', label: '🟢 Correction', text: selected.correction, bg: 'rgba(76,175,80,0.05)', border: 'rgba(76,175,80,0.2)' },
+                  { color: '#f44336', label: 'ðŸ”´ Concern', text: selected.concern, bg: 'rgba(244,67,54,0.05)', border: 'rgba(244,67,54,0.2)' },
+                  { color: '#ff9800', label: 'ðŸŸ¡ Cause', text: selected.cause, bg: 'rgba(255,152,0,0.05)', border: 'rgba(255,152,0,0.2)' },
+                  { color: '#4caf50', label: 'ðŸŸ¢ Correction', text: selected.correction, bg: 'rgba(76,175,80,0.05)', border: 'rgba(76,175,80,0.2)' },
                 ].map(({ label, text, bg, border }) => (
                   <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: '14px 16px' }}>
                     <div className="section-label" style={{ marginBottom: 6 }}>{label}</div>
@@ -1011,15 +1011,15 @@ export function RepairOrdersView() {
                 ))}
               </div>
 
-              {/* QA sign-off summary — shown after sign-off is complete */}
+              {/* QA sign-off summary â€” shown after sign-off is complete */}
               {selected.notes?.includes('QA SIGN-OFF') && (
                 <div style={{ border: '1px solid rgba(76,175,80,0.4)', borderRadius: 10, background: 'rgba(76,175,80,0.06)', padding: '12px 16px', marginTop: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf50', marginBottom: 4 }}>✓ QA Sign-Off Recorded</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4caf50', marginBottom: 4 }}>âœ“ QA Sign-Off Recorded</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{selected.notes.split('--- QA').slice(1).map(s => '--- QA' + s).join('\n')}</div>
                 </div>
               )}
 
-              {/* Parts list — shown to everyone */}
+              {/* Parts list â€” shown to everyone */}
               {selected.parts.length > 0 && (
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '14px 18px', marginBottom: 16 }}>
                   <div className="section-label">Parts to Install</div>
@@ -1035,7 +1035,7 @@ export function RepairOrdersView() {
                       {selected.parts.map((p, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
                           <td style={{ padding: '7px 8px', fontWeight: 500 }}>{p.description}</td>
-                          <td style={{ padding: '7px 8px', color: 'var(--muted)' }}>{p.partNumber || '—'}</td>
+                          <td style={{ padding: '7px 8px', color: 'var(--muted)' }}>{p.partNumber || 'â€”'}</td>
                           <td style={{ padding: '7px 8px' }}>{p.qty}</td>
                           <td style={{ padding: '7px 8px' }}>{formatMoney(p.unitCost, selected.currency)}</td>
                           <td style={{ padding: '7px 8px', fontWeight: 700 }}>{formatMoney(p.qty * p.unitCost, selected.currency)}</td>
@@ -1046,14 +1046,14 @@ export function RepairOrdersView() {
                 </div>
               )}
 
-              {/* Labor + Parts — hidden for technicians */}
+              {/* Labor + Parts â€” hidden for technicians */}
               {!isTech && (
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
                   <div className="section-label" style={{ marginBottom: 12 }}>Charges</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                     <div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>Labor</div>
-                      <div style={{ fontWeight: 600 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
+                      <div style={{ fontWeight: 600 }}>{selected.laborHours} hrs Ã— {formatMoney(selected.laborRate, selected.currency)}</div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
                     </div>
                     <div>
@@ -1063,7 +1063,7 @@ export function RepairOrdersView() {
                     <div style={{ borderLeft: '2px solid var(--accent)', paddingLeft: 16 }}>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>Total</div>
                       <div style={{ fontWeight: 800, fontSize: 20, color: 'var(--accent)' }}>{formatMoney(calcROTotal(selected), selected.currency)}</div>
-                      {selected.invoiceNumber && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 4 }}>→ {selected.invoiceNumber}</div>}
+                      {selected.invoiceNumber && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 4 }}>â†’ {selected.invoiceNumber}</div>}
                     </div>
                   </div>
                 </div>
@@ -1076,7 +1076,7 @@ export function RepairOrdersView() {
                 </div>
               )}
 
-              {/* Owner-only flat-rate comparison — invisible to all other roles */}
+              {/* Owner-only flat-rate comparison â€” invisible to all other roles */}
               <OwnerInsights
                 serviceType={selected.correction || selected.concern || selected.cause}
                 vehicle={selected.vehicle}
@@ -1095,15 +1095,15 @@ export function RepairOrdersView() {
         )}
       </div>
 
-      {/* ── Preview Modal ── */}
+      {/* â”€â”€ Preview Modal â”€â”€ */}
       {showPreview && selected && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
           <div style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
-            <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15 }}>✕ Close</button>
+            <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15 }}>âœ• Close</button>
             <button onClick={() => { setShowPreview(false); window.print(); }}
               onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
-              style={{ position: 'absolute', top: 16, right: 100, background: 'transparent', border: '2px solid #cc0000', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#cc0000', fontWeight: 600, transition: 'background .15s, color .15s' }}>🖨 Print</button>
+              style={{ position: 'absolute', top: 16, right: 100, background: 'transparent', border: '2px solid #cc0000', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#cc0000', fontWeight: 600, transition: 'background .15s, color .15s' }}>ðŸ–¨ Print</button>
 
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
@@ -1112,8 +1112,8 @@ export function RepairOrdersView() {
                 <div>
                   <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                   {shopSettings?.address && <div style={{ fontSize: 12, color: '#555', whiteSpace: 'pre-line', marginTop: 4 }}>{shopSettings.address}</div>}
-                  {shopSettings?.phone && <div style={{ fontSize: 12, color: '#555' }}>📞 {shopSettings.phone}</div>}
-                  {shopSettings?.email && <div style={{ fontSize: 12, color: '#555' }}>✉️ {shopSettings.email}</div>}
+                  {shopSettings?.phone && <div style={{ fontSize: 12, color: '#555' }}>ðŸ“ž {shopSettings.phone}</div>}
+                  {shopSettings?.email && <div style={{ fontSize: 12, color: '#555' }}>âœ‰ï¸ {shopSettings.email}</div>}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -1129,7 +1129,7 @@ export function RepairOrdersView() {
 
             {/* Customer / Vehicle / Tech */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
-              {[['Customer', selected.customerName], ['Vehicle', selected.vehicle], ['Technician', selected.technician || '—']].map(([label, val]) => (
+              {[['Customer', selected.customerName], ['Vehicle', selected.vehicle], ['Technician', selected.technician || 'â€”']].map(([label, val]) => (
                 <div key={label} style={{ background: '#f8f8f8', borderRadius: 10, padding: '12px 16px' }}>
                   <div style={{ fontSize: 10, fontWeight: 800, color: '#888', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{label}</div>
                   <div style={{ fontWeight: 600 }}>{val}</div>
@@ -1139,9 +1139,9 @@ export function RepairOrdersView() {
 
             {/* 3C */}
             {[
-              { label: '🔴 Concern (Customer Complaint)', text: selected.concern, bg: '#fff5f5', border: '#fecaca' },
-              { label: '🟡 Cause (Technician Finding)', text: selected.cause, bg: '#fffbeb', border: '#fde68a' },
-              { label: '🟢 Correction (Work Performed)', text: selected.correction, bg: '#f0fdf4', border: '#bbf7d0' },
+              { label: 'ðŸ”´ Concern (Customer Complaint)', text: selected.concern, bg: '#fff5f5', border: '#fecaca' },
+              { label: 'ðŸŸ¡ Cause (Technician Finding)', text: selected.cause, bg: '#fffbeb', border: '#fde68a' },
+              { label: 'ðŸŸ¢ Correction (Work Performed)', text: selected.correction, bg: '#f0fdf4', border: '#bbf7d0' },
             ].map(({ label, text, bg, border }) => (
               <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10, padding: '14px 18px', marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#555', marginBottom: 8 }}>{label}</div>
@@ -1149,13 +1149,13 @@ export function RepairOrdersView() {
               </div>
             ))}
 
-            {/* Charges — hidden for technicians */}
+            {/* Charges â€” hidden for technicians */}
             {!isTech && (
               <div style={{ background: '#f8f8f8', borderRadius: 10, padding: '16px 20px', marginTop: 16 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                   <div>
                     <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: 700 }}>Labor</div>
-                    <div style={{ fontSize: 13 }}>{selected.laborHours} hrs × {formatMoney(selected.laborRate, selected.currency)}</div>
+                    <div style={{ fontSize: 13 }}>{selected.laborHours} hrs Ã— {formatMoney(selected.laborRate, selected.currency)}</div>
                     <div style={{ fontWeight: 700, fontSize: 16 }}>{formatMoney(selected.laborHours * selected.laborRate, selected.currency)}</div>
                   </div>
                   <div>
@@ -1178,46 +1178,46 @@ export function RepairOrdersView() {
             )}
 
             <div style={{ marginTop: 32, textAlign: 'center', fontSize: 11, color: '#aaa', borderTop: '1px solid #eee', paddingTop: 14 }}>
-              {shopSettings?.companyName || 'Redlined1'}{shopSettings?.phone ? ` · ${shopSettings.phone}` : ''}{shopSettings?.email ? ` · ${shopSettings.email}` : ''}
+              {shopSettings?.companyName || 'Redlined1'}{shopSettings?.phone ? ` Â· ${shopSettings.phone}` : ''}{shopSettings?.email ? ` Â· ${shopSettings.email}` : ''}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Mandatory QA Modal ── */}
+      {/* â”€â”€ Mandatory QA Modal â”€â”€ */}
       {qaTarget && (
         <div onClick={e => { if (e.target === e.currentTarget) setQaTarget(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
           <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 760, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.6)', border: '2px solid #f59e0b' }}>
             {/* Modal Header */}
             <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '20px 28px', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>🔍 QA Inspection — {qaTarget.roNumber}</div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>ðŸ” QA Inspection â€” {qaTarget.roNumber}</div>
                 <div style={{ fontSize: 13, opacity: 0.9, marginTop: 3 }}>Complete all checks before the vehicle is returned to the customer</div>
               </div>
-              <button onClick={() => setQaTarget(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 18, cursor: 'pointer', padding: '4px 10px', lineHeight: 1 }}>✕</button>
+              <button onClick={() => setQaTarget(null)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 18, cursor: 'pointer', padding: '4px 10px', lineHeight: 1 }}>âœ•</button>
             </div>
 
             <div style={{ padding: '20px 28px' }}>
               {/* RO Summary */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
-                  <div className="section-label" style={{ marginBottom: 4 }}>Customer · Vehicle</div>
+                  <div className="section-label" style={{ marginBottom: 4 }}>Customer Â· Vehicle</div>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.customerName}</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>{qaTarget.vehicle || '—'}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>{qaTarget.vehicle || 'â€”'}</div>
                 </div>
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 9, padding: '10px 14px' }}>
-                  <div className="section-label" style={{ marginBottom: 4 }}>Technician · Job Card</div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.technician || '—'}</div>
-                  {qaTarget.jobCardId && <div style={{ fontSize: 11, color: '#2196f3' }}>🔗 {qaTarget.jobCardId}</div>}
+                  <div className="section-label" style={{ marginBottom: 4 }}>Technician Â· Job Card</div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{qaTarget.technician || 'â€”'}</div>
+                  {qaTarget.jobCardId && <div style={{ fontSize: 11, color: '#2196f3' }}>ðŸ”— {qaTarget.jobCardId}</div>}
                 </div>
               </div>
 
               {/* 3C Quick View */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
                 {[
-                  { emoji: '🔴', label: 'Concern', text: qaTarget.concern, bg: 'rgba(244,67,54,0.06)', border: 'rgba(244,67,54,0.2)' },
-                  { emoji: '🟡', label: 'Cause', text: qaTarget.cause, bg: 'rgba(255,152,0,0.06)', border: 'rgba(255,152,0,0.2)' },
-                  { emoji: '🟢', label: 'Correction', text: qaTarget.correction, bg: 'rgba(76,175,80,0.06)', border: 'rgba(76,175,80,0.2)' },
+                  { emoji: 'ðŸ”´', label: 'Concern', text: qaTarget.concern, bg: 'rgba(244,67,54,0.06)', border: 'rgba(244,67,54,0.2)' },
+                  { emoji: 'ðŸŸ¡', label: 'Cause', text: qaTarget.cause, bg: 'rgba(255,152,0,0.06)', border: 'rgba(255,152,0,0.2)' },
+                  { emoji: 'ðŸŸ¢', label: 'Correction', text: qaTarget.correction, bg: 'rgba(76,175,80,0.06)', border: 'rgba(76,175,80,0.2)' },
                 ].map(({ emoji, label, text, bg, border }) => (
                   <div key={label} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: '9px 14px', fontSize: 13 }}>
                     <span style={{ fontWeight: 700 }}>{emoji} {label}: </span>
@@ -1246,7 +1246,7 @@ export function RepairOrdersView() {
       {photoRO && (
         <PhotoGalleryModal
           title={photoRO.roNumber}
-          subtitle={`${photoRO.vehicle} · ${photoRO.customerName}`}
+          subtitle={`${photoRO.vehicle} Â· ${photoRO.customerName}`}
           fetchImages={() => fetchEntityImages('repair_order', photoRO.id)}
           uploadImage={(file, label) => uploadEntityImage('repair_order', photoRO.id, file, label)}
           deleteImage={deleteEntityImage}
@@ -1255,17 +1255,17 @@ export function RepairOrdersView() {
         />
       )}
 
-      {/* ── RO Form Modal ── */}
+      {/* â”€â”€ RO Form Modal â”€â”€ */}
       {showForm && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 20px', overflowY: 'auto' }}>
           <form onSubmit={handleSave} style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 860, position: 'relative', boxShadow: '0 32px 100px rgba(0,0,0,0.5)', border: '1px solid var(--line)', marginBottom: 32 }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 28px', borderBottom: '1px solid var(--line)', background: 'var(--surface-soft)', borderRadius: '16px 16px 0 0' }}>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 800 }}>{editingId ? `✏️ Edit ${form.roNumber}` : '+ New Repair Order'}</div>
-                {editingId && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{form.customerName}{form.vehicle ? ` · ${form.vehicle}` : ''}</div>}
+                <div style={{ fontSize: 17, fontWeight: 800 }}>{editingId ? `âœï¸ Edit ${form.roNumber}` : '+ New Repair Order'}</div>
+                {editingId && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{form.customerName}{form.vehicle ? ` Â· ${form.vehicle}` : ''}</div>}
               </div>
-              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', fontSize: 18, cursor: 'pointer', padding: '4px 12px', lineHeight: 1 }}>✕</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); }} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, color: 'var(--text)', fontSize: 18, cursor: 'pointer', padding: '4px 12px', lineHeight: 1 }}>âœ•</button>
             </div>
 
             <div style={{ padding: '24px 28px' }}>
@@ -1294,7 +1294,7 @@ export function RepairOrdersView() {
                     const autoVehicle = cvs.length > 0 ? cvs[0].label : '';
                     setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
                   }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                    <option value="">— select customer —</option>
+                    <option value="">â€” select customer â€”</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
@@ -1350,20 +1350,20 @@ export function RepairOrdersView() {
               {/* 3C Fields */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div className="login-field">
-                  <label>🔴 Concern (Customer Complaint)</label>
-                  <textarea value={form.concern} onChange={e => setForm(f => ({ ...f, concern: e.target.value }))} rows={4} placeholder="What the customer reports…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                  <label>ðŸ”´ Concern (Customer Complaint)</label>
+                  <textarea value={form.concern} onChange={e => setForm(f => ({ ...f, concern: e.target.value }))} rows={4} placeholder="What the customer reportsâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
                 </div>
                 <div className="login-field">
-                  <label>🟡 Cause (Technician Finding)</label>
-                  <textarea value={form.cause} onChange={e => setForm(f => ({ ...f, cause: e.target.value }))} rows={4} placeholder="Root cause found…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                  <label>ðŸŸ¡ Cause (Technician Finding)</label>
+                  <textarea value={form.cause} onChange={e => setForm(f => ({ ...f, cause: e.target.value }))} rows={4} placeholder="Root cause foundâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
                 </div>
                 <div className="login-field">
-                  <label>🟢 Correction (Work Performed)</label>
-                  <textarea value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} rows={4} placeholder="Work performed to correct…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                  <label>ðŸŸ¢ Correction (Work Performed)</label>
+                  <textarea value={form.correction} onChange={e => setForm(f => ({ ...f, correction: e.target.value }))} rows={4} placeholder="Work performed to correctâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
                 </div>
               </div>
 
-              {/* Work Completed — structured line items for logged labor/service */}
+              {/* Work Completed â€” structured line items for logged labor/service */}
               <div style={{ marginBottom: 14 }}>
                 <div className="section-label" style={{ marginBottom: 8 }}>Work Completed</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1378,7 +1378,7 @@ export function RepairOrdersView() {
                     {form.formWorkLines.map((w, i) => (
                       <tr key={i}>
                         <td style={{ padding: '4px 6px' }}>
-                          <input value={w.description} onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], description: e.target.value }; return { ...f, formWorkLines: wl }; })} placeholder="Work performed…" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
+                          <input value={w.description} onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], description: e.target.value }; return { ...f, formWorkLines: wl }; })} placeholder="Work performedâ€¦" style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }} />
                         </td>
                         <td style={{ padding: '4px 6px', width: 120 }}>
                           <select value={w.type} onChange={e => setForm(f => { const wl = [...f.formWorkLines]; wl[i] = { ...wl[i], type: e.target.value }; return { ...f, formWorkLines: wl }; })} style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13 }}>
@@ -1402,7 +1402,7 @@ export function RepairOrdersView() {
                           {formatMoney((Number(w.qty) || 0) * (Number(w.rate) || 0), form.currency)}
                         </td>
                         <td style={{ padding: '4px 6px', width: 36 }}>
-                          <button type="button" onClick={() => setForm(f => ({ ...f, formWorkLines: f.formWorkLines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, formWorkLines: f.formWorkLines.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>âœ•</button>
                         </td>
                       </tr>
                     ))}
@@ -1418,18 +1418,18 @@ export function RepairOrdersView() {
                 </div>
               </div>
 
-              {/* Parts to Install — currency picker sits here so it's clear it affects all amounts */}
+              {/* Parts to Install â€” currency picker sits here so it's clear it affects all amounts */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <div className="section-label" style={{ marginBottom: 0 }}>Parts to Install</div>
                   {/* Currency picker inline */}
                   <div style={{ position: 'relative', width: 220 }}>
                     <input
-                      value={currencyOpen ? currencyQuery : (() => { const c = CURRENCIES.find(c => c.code === form.currency); return c ? `${c.code} — ${c.symbol} ${c.name}` : form.currency; })()}
+                      value={currencyOpen ? currencyQuery : (() => { const c = CURRENCIES.find(c => c.code === form.currency); return c ? `${c.code} â€” ${c.symbol} ${c.name}` : form.currency; })()}
                       onChange={e => { setCurrencyQuery(e.target.value); setCurrencyOpen(true); }}
                       onFocus={() => { setCurrencyQuery(''); setCurrencyOpen(true); }}
                       onBlur={() => setTimeout(() => setCurrencyOpen(false), 150)}
-                      placeholder="Currency…"
+                      placeholder="Currencyâ€¦"
                       style={{ border: '1px solid var(--line)', borderRadius: 7, padding: '5px 10px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box', fontSize: 13 }}
                       autoComplete="off"
                     />
@@ -1494,7 +1494,7 @@ export function RepairOrdersView() {
                           {formatMoney((Number(p.qty) || 0) * (Number(p.unitCost) || 0), form.currency)}
                         </td>
                         <td style={{ padding: '4px 6px', width: 36 }}>
-                          <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>✕</button>
+                          <button type="button" onClick={() => setForm(f => ({ ...f, formParts: f.formParts.filter((_, idx) => idx !== i) }))} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '2px 6px' }}>âœ•</button>
                         </td>
                       </tr>
                     ))}
@@ -1527,14 +1527,14 @@ export function RepairOrdersView() {
 
               <div className="login-field" style={{ marginBottom: 20 }}>
                 <label>Internal Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Internal notes, parts ordered, warranty info…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Internal notes, parts ordered, warranty infoâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical', boxSizing: 'border-box' }} />
               </div>
 
               {error && <p style={{ color: 'var(--danger)', marginBottom: 12, fontSize: 13 }}>{error}</p>}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 16 }}>
                 <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setError(''); }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: 130 }}>{saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create RO'}</button>
+                <button type="submit" className="btn btn-primary" disabled={saving} style={{ minWidth: 130 }}>{saving ? 'Savingâ€¦' : editingId ? 'Save Changes' : 'Create RO'}</button>
               </div>
             </div>
           </form>
@@ -1552,7 +1552,7 @@ export function RepairOrdersView() {
         />
       )}
 
-      {/* ── Parts Pull Modal ── */}
+      {/* â”€â”€ Parts Pull Modal â”€â”€ */}
       {pullModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div style={{ background: 'var(--card)', borderRadius: 14, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 12px 60px rgba(0,0,0,0.4)' }}>
@@ -1560,33 +1560,33 @@ export function RepairOrdersView() {
             {/* Header */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--line)' }}>
               <div style={{ fontSize: 17, fontWeight: 800 }}>
-                {pullModal.target === 'invoice' ? '⚡ Create Invoice' : '📋 Create Estimate'} — Select Parts
+                {pullModal.target === 'invoice' ? 'âš¡ Create Invoice' : 'ðŸ“‹ Create Estimate'} â€” Select Parts
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                {pullModal.ro.roNumber} · {pullModal.ro.vehicle} · {pullModal.ro.customerName}
+                {pullModal.ro.roNumber} Â· {pullModal.ro.vehicle} Â· {pullModal.ro.customerName}
               </div>
             </div>
 
             {/* Body */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
               {pullModal.loading ? (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>Loading parts…</div>
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)', fontSize: 14 }}>Loading partsâ€¦</div>
               ) : (
                 <>
                   {/* Duplicate warning */}
                   {pullModal.lines.some(l => l.isDuplicate) && (
                     <div style={{ background: '#fff8e1', border: '1px solid #fdd835', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 12, color: '#7c6800', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 16 }}>⚠️</span>
-                      <span><strong>Duplicate parts detected</strong> — highlighted rows appear in more than one source. Duplicates are unchecked by default. Review carefully before including them.</span>
+                      <span style={{ fontSize: 16 }}>âš ï¸</span>
+                      <span><strong>Duplicate parts detected</strong> â€” highlighted rows appear in more than one source. Duplicates are unchecked by default. Review carefully before including them.</span>
                     </div>
                   )}
 
                   {/* Labor line (always included, not selectable) */}
                   <div className="section-label" style={{ marginBottom: 8 }}>Labor (always included)</div>
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
-                    <div style={{ fontWeight: 600 }}>Labor — {pullModal.ro.correction || pullModal.ro.concern || 'Repair'}</div>
+                    <div style={{ fontWeight: 600 }}>Labor â€” {pullModal.ro.correction || pullModal.ro.concern || 'Repair'}</div>
                     <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
-                      {pullModal.ro.laborHours || 0} hr(s) × {formatMoney(pullModal.ro.laborRate || 0, pullModal.ro.currency)}
+                      {pullModal.ro.laborHours || 0} hr(s) Ã— {formatMoney(pullModal.ro.laborRate || 0, pullModal.ro.currency)}
                       <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--fg)' }}>= {formatMoney((pullModal.ro.laborHours || 0) * (pullModal.ro.laborRate || 0), pullModal.ro.currency)}</span>
                     </div>
                   </div>
@@ -1633,12 +1633,12 @@ export function RepairOrdersView() {
                                     })} />
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                      <span style={{ fontWeight: 600, fontSize: 13 }}>{line.description || '—'}</span>
+                                      <span style={{ fontWeight: 600, fontSize: 13 }}>{line.description || 'â€”'}</span>
                                       {line.partNumber && <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--bg)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>{line.partNumber}</span>}
                                       {line.isDuplicate && <span style={{ fontSize: 10, fontWeight: 700, background: '#fdd835', color: '#7c6800', padding: '1px 6px', borderRadius: 4 }}>DUPLICATE</span>}
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
-                                      Qty {line.qty} × {formatMoney(line.unitCost, line.currency)}
+                                      Qty {line.qty} Ã— {formatMoney(line.unitCost, line.currency)}
                                       <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--fg)' }}>{formatMoney(line.qty * line.unitCost, line.currency)}</span>
                                     </div>
                                   </div>
@@ -1658,7 +1658,7 @@ export function RepairOrdersView() {
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-soft)', borderRadius: '0 0 14px 14px' }}>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                 {pullModal.selected.size} part line{pullModal.selected.size !== 1 ? 's' : ''} selected
-                {pullModal.lines.some(l => l.isDuplicate) && <span style={{ color: '#d97706', marginLeft: 8 }}>· {pullModal.lines.filter(l => l.isDuplicate).length} duplicate(s) flagged</span>}
+                {pullModal.lines.some(l => l.isDuplicate) && <span style={{ color: '#d97706', marginLeft: 8 }}>Â· {pullModal.lines.filter(l => l.isDuplicate).length} duplicate(s) flagged</span>}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setPullModal(null)} style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
@@ -1668,7 +1668,7 @@ export function RepairOrdersView() {
                   onMouseEnter={e => { if (!pullModal.loading && !pullModal.creating) { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff'; } }}
                   onMouseLeave={e => { if (!pullModal.loading && !pullModal.creating) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent)'; } }}
                   style={{ padding: '8px 20px', borderRadius: 999, border: '2px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontSize: 13, fontWeight: 700, opacity: pullModal.loading || pullModal.creating ? 0.6 : 1, transition: 'background .15s, color .15s' }}>
-                  {pullModal.creating ? 'Creating…' : pullModal.target === 'invoice' ? '⚡ Create Invoice' : '📋 Create Estimate'}
+                  {pullModal.creating ? 'Creatingâ€¦' : pullModal.target === 'invoice' ? 'âš¡ Create Invoice' : 'ðŸ“‹ Create Estimate'}
                 </button>
               </div>
             </div>

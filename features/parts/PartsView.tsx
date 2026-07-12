@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { usePagination } from '@/lib/usePagination';
@@ -10,7 +10,7 @@ import {
   Part, PART_CATEGORIES,
 } from '@/services/partsService';
 
-/* ── helpers ── */
+/* â”€â”€ helpers â”€â”€ */
 const money = (v: number) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 function stockStatus(p: Part): { label: string; color: string } {
@@ -26,7 +26,7 @@ const EMPTY: Omit<Part, 'photos'> = {
   compatibility: '', barcode: '', notes: '',
 };
 
-/* ── CSV / Excel column alias helpers ── */
+/* â”€â”€ CSV / Excel column alias helpers â”€â”€ */
 const COL_ALIASES: Record<string, string> = {
   // part number
   part_number: 'part_number', partno: 'part_number', part_no: 'part_number',
@@ -143,18 +143,18 @@ import { PartsOrdersView } from './PartsOrdersView';
 
 type ActiveTab = 'inventory' | 'lowstock' | 'orders' | 'add';
 
-// Supabase throws PostgrestError objects (not instanceof Error) — extract message from either
+// Supabase throws PostgrestError objects (not instanceof Error) â€” extract message from either
 function errMsg(e: unknown): string {
   if (!e) return 'Unknown error';
   if (e instanceof Error) return e.message;
   if (typeof e === 'object' && 'message' in e && typeof (e as Record<string,unknown>).message === 'string') {
     const pg = e as { message: string; details?: string; hint?: string; code?: string };
-    return [pg.message, pg.details, pg.hint].filter(Boolean).join(' — ');
+    return [pg.message, pg.details, pg.hint].filter(Boolean).join(' â€” ');
   }
   return String(e);
 }
 
-/* ─────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export function PartsView() {
   const { role } = useShop();
   const isTech = role === 'technician';
@@ -237,7 +237,7 @@ export function PartsView() {
   const totalQty    = parts.reduce((s, p) => s + p.quantity, 0);
   const totalValue  = parts.reduce((s, p) => s + p.cost * p.quantity, 0);
   const retailValue = parts.reduce((s, p) => s + p.retail * p.quantity, 0);
-  const margin      = retailValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—';
+  const margin      = retailValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : 'â€”';
 
   const filtered = parts.filter(p => {
     const matchCat    = filterCat === 'All' || p.category === filterCat;
@@ -248,7 +248,7 @@ export function PartsView() {
 
   const partsPage = usePagination(filtered, { pageSize: 25 });
 
-  /* ── form handlers ── */
+  /* â”€â”€ form handlers â”€â”€ */
   function startAdd() {
     setForm(EMPTY);
     setCostStr('');
@@ -351,7 +351,7 @@ export function PartsView() {
     } catch (err: unknown) { setError('Update failed: ' + errMsg(err)); }
   }
 
-  /* photo upload (detail panel — existing part) */
+  /* photo upload (detail panel â€” existing part) */
   async function handlePhotoUpload(files: FileList | null) {
     if (!selected || !files || files.length === 0) return;
     setUploadingPhoto(true);
@@ -384,7 +384,7 @@ export function PartsView() {
     }
   }
 
-  /* ── CSV / Excel bulk import ── */
+  /* â”€â”€ CSV / Excel bulk import â”€â”€ */
   function handleCSVFile(files: FileList | null) {
     setCsvError(''); setCsvRows([]);
     if (!files || files.length === 0) return;
@@ -403,7 +403,7 @@ export function PartsView() {
           const XLSX = await import('xlsx');
           const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellText: true, cellDates: false });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          // Use header:1 to get raw array-of-arrays — avoids __EMPTY columns from merged/empty headers
+          // Use header:1 to get raw array-of-arrays â€” avoids __EMPTY columns from merged/empty headers
           const grid = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' });
           // Scan first 20 rows to find the header row: the first row that contains
           // at least one recognized column name alias (not a title/subtitle row)
@@ -432,7 +432,7 @@ export function PartsView() {
         const parts = raw.map(rowToPart).filter(r => r.partNumber.trim());
         if (parts.length === 0) {
           const found = raw.length > 0 ? Object.keys(raw[0]).join(', ') : 'none';
-          setCsvError(`No valid rows found — every row must have a part_number column. Columns detected: ${found}`);
+          setCsvError(`No valid rows found â€” every row must have a part_number column. Columns detected: ${found}`);
           return;
         }
         setCsvRows(parts);
@@ -465,23 +465,23 @@ export function PartsView() {
     notify(`Bulk import done: ${imported} added${failed > 0 ? `, ${failed} failed (duplicates skipped)` : ''}.`);
   }
 
-  /* ────────────── render ────────────── */
+  /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   return (
     <div style={{ padding: '20px 24px' }}>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,.3)' }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,.3)' }}>
           {toast}
         </div>
       )}
       {error && (
         <div style={{ background: 'rgba(239,68,68,.12)', color: 'var(--red,#ef4444)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>{error}</span>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }} onClick={() => setError('')}>✕</button>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }} onClick={() => setError('')}>âœ•</button>
         </div>
       )}
 
-      {/* ══════ BULK IMPORT MODAL ══════ */}
+      {/* â•â•â•â•â•â• BULK IMPORT MODAL â•â•â•â•â•â• */}
       {showBulkImport && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowBulkImport(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -489,22 +489,22 @@ export function PartsView() {
             {/* Modal header */}
             <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>📤 Bulk Import Parts — CSV / Excel</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>ðŸ“¤ Bulk Import Parts â€” CSV / Excel</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Upload a .csv, .xlsx, or .xls file to add many parts at once</div>
               </div>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }} onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>✕</button>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }} onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>âœ•</button>
             </div>
 
             <div style={{ padding: '18px 22px', overflowY: 'auto', flex: 1 }}>
 
-              {/* Step 1 — download template */}
+              {/* Step 1 â€” download template */}
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label" style={{ marginBottom: 8 }}>Step 1 — Download the template</div>
+                <div className="section-label" style={{ marginBottom: 8 }}>Step 1 â€” Download the template</div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button className="btn" style={{ fontSize: 12 }} onClick={downloadCSVTemplate}>
-                    ⬇ Download CSV Template
+                    â¬‡ Download CSV Template
                   </button>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Fill it in Excel or Google Sheets — upload as .xlsx, .xls, or save as .csv</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Fill it in Excel or Google Sheets â€” upload as .xlsx, .xls, or save as .csv</span>
                 </div>
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--surface,#f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.7 }}>
                   <strong>Required column:</strong> <code>part_number</code> &nbsp;|&nbsp;
@@ -513,9 +513,9 @@ export function PartsView() {
                 </div>
               </div>
 
-              {/* Step 2 — upload file */}
+              {/* Step 2 â€” upload file */}
               <div style={{ marginBottom: 20 }}>
-                <div className="section-label" style={{ marginBottom: 8 }}>Step 2 — Upload your file (.csv, .xlsx, .xls)</div>
+                <div className="section-label" style={{ marginBottom: 8 }}>Step 2 â€” Upload your file (.csv, .xlsx, .xls)</div>
                 <label
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', border: `2px dashed ${csvDragOver ? 'var(--red,#cc0000)' : 'var(--border)'}`, borderRadius: 10, cursor: 'pointer', background: csvDragOver ? 'rgba(204,0,0,0.05)' : 'var(--surface,#f9f9f9)', transition: 'border-color .15s, background .15s' }}
                   onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
@@ -543,7 +543,7 @@ export function PartsView() {
                     }
                   }}
                 >
-                  <span style={{ fontSize: 32 }}>📂</span>
+                  <span style={{ fontSize: 32 }}>ðŸ“‚</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>Click to browse or drag & drop your file</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Accepts .csv, .xlsx, .xls files</div>
@@ -556,11 +556,11 @@ export function PartsView() {
                 )}
               </div>
 
-              {/* Step 3 — preview */}
+              {/* Step 3 â€” preview */}
               {csvRows.length > 0 && (
                 <div>
                   <div className="section-label" style={{ marginBottom: 8 }}>
-                    Step 3 — Review {csvRows.length} part{csvRows.length > 1 ? 's' : ''} to import
+                    Step 3 â€” Review {csvRows.length} part{csvRows.length > 1 ? 's' : ''} to import
                   </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto', maxHeight: 280 }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -576,13 +576,13 @@ export function PartsView() {
                           <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                             <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{i + 1}</td>
                             <td style={{ padding: '6px 10px', fontWeight: 700 }}>{r.partNumber || <span style={{ color: 'var(--red,#ef4444)' }}>MISSING</span>}</td>
-                            <td style={{ padding: '6px 10px' }}>{r.brand || '—'}</td>
-                            <td style={{ padding: '6px 10px' }}>{r.description || '—'}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.brand || 'â€”'}</td>
+                            <td style={{ padding: '6px 10px' }}>{r.description || 'â€”'}</td>
                             <td style={{ padding: '6px 10px' }}>{r.category}</td>
                             <td style={{ padding: '6px 10px' }}>{money(r.cost)}</td>
                             <td style={{ padding: '6px 10px' }}>{money(r.retail)}</td>
                             <td style={{ padding: '6px 10px' }}>{r.quantity}</td>
-                            <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{r.location || '—'}</td>
+                            <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{r.location || 'â€”'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -591,7 +591,7 @@ export function PartsView() {
 
                   {csvImporting && (
                     <div style={{ marginTop: 12 }}>
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Importing… {csvProgress}%</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Importingâ€¦ {csvProgress}%</div>
                       <div style={{ height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
                         <div style={{ width: `${csvProgress}%`, height: '100%', background: 'var(--accent,#db2727)', borderRadius: 4, transition: 'width .2s' }} />
                       </div>
@@ -605,7 +605,7 @@ export function PartsView() {
             <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
               <button className="btn" onClick={() => { setShowBulkImport(false); setCsvRows([]); setCsvError(''); }}>Cancel</button>
               <button className="btn primary" disabled={csvRows.length === 0 || csvImporting} onClick={handleBulkImport}>
-                {csvImporting ? `Importing ${csvProgress}%…` : `Import ${csvRows.length} Part${csvRows.length !== 1 ? 's' : ''}`}
+                {csvImporting ? `Importing ${csvProgress}%â€¦` : `Import ${csvRows.length} Part${csvRows.length !== 1 ? 's' : ''}`}
               </button>
             </div>
           </div>
@@ -615,18 +615,18 @@ export function PartsView() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>🔩 Parts Inventory</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>ðŸ”© Parts Inventory</h1>
           <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 13 }}>
-            Barcode lookup · Multi-photo · Low-stock alerts · Supplier tracking
+            Barcode lookup Â· Multi-photo Â· Low-stock alerts Â· Supplier tracking
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Barcode input */}
           <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14 }}>📷</span>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 14 }}>ðŸ“·</span>
             <input
               className="input"
-              placeholder="Scan barcode or part #…"
+              placeholder="Scan barcode or part #â€¦"
               style={{ paddingLeft: 32, width: 220 }}
               onChange={e => {
                 const v = e.target.value.trim();
@@ -645,7 +645,7 @@ export function PartsView() {
             />
           </div>
           <button className="btn" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => setShowBulkImport(true)}>
-            📤 Bulk Import CSV
+            ðŸ“¤ Bulk Import CSV
           </button>
           <button className="btn primary" onClick={startAdd}>+ Add Part</button>
         </div>
@@ -657,8 +657,8 @@ export function PartsView() {
           { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
           { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
           ...(!isTech ? [
-            { label: 'Cost Value',   value: money(totalValue),  sub: totalQty > 0 ? `${totalQty} units × avg ${money(totalValue / totalQty)}` : '0 units in stock' },
-            { label: 'Retail Value', value: money(retailValue), sub: totalQty > 0 ? `${totalQty} units × avg ${money(retailValue / totalQty)}` : '0 units in stock' },
+            { label: 'Cost Value',   value: money(totalValue),  sub: totalQty > 0 ? `${totalQty} units Ã— avg ${money(totalValue / totalQty)}` : '0 units in stock' },
+            { label: 'Retail Value', value: money(retailValue), sub: totalQty > 0 ? `${totalQty} units Ã— avg ${money(retailValue / totalQty)}` : '0 units in stock' },
             { label: 'Margin',       value: margin,             sub: 'avg gross margin' },
           ] : []),
         ].map(c => (
@@ -682,22 +682,22 @@ export function PartsView() {
               marginBottom: -2, fontSize: 14,
             }}
           >
-            {t === 'inventory' ? '📦 Inventory'
-              : t === 'lowstock' ? `⚠️ Low Stock (${lowStock.length})`
-              : t === 'orders' ? '🛒 Parts Orders'
-              : '➕ Add / Edit'}
+            {t === 'inventory' ? 'ðŸ“¦ Inventory'
+              : t === 'lowstock' ? `âš ï¸ Low Stock (${lowStock.length})`
+              : t === 'orders' ? 'ðŸ›’ Parts Orders'
+              : 'âž• Add / Edit'}
           </button>
         ))}
       </div>
 
-      {/* ═══ INVENTORY TAB ═══ */}
+      {/* â•â•â• INVENTORY TAB â•â•â• */}
       {tab === 'inventory' && (
         <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: 16 }}>
 
           {/* Parts table */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search part #, brand, description, barcode…" style={{ flex: 1, minWidth: 200 }} />
+              <input className="input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search part #, brand, description, barcodeâ€¦" style={{ flex: 1, minWidth: 200 }} />
               <select className="input" value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 160 }}>
                 <option value="All">All Categories</option>
                 {PART_CATEGORIES.map(c => <option key={c}>{c}</option>)}
@@ -706,7 +706,7 @@ export function PartsView() {
             </div>
 
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading inventory…</div>
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading inventoryâ€¦</div>
             ) : filtered.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
                 {parts.length === 0 ? 'No parts yet. Click "+ Add Part" or "Bulk Import CSV" to get started.' : 'No parts match your search.'}
@@ -734,9 +734,9 @@ export function PartsView() {
                         >
                           <td style={{ padding: '10px 12px' }}>
                             <div style={{ fontWeight: 700, fontSize: 12 }}>{p.partNumber}</div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} — {p.description}</div>
-                            {p.barcode && <div style={{ fontSize: 10, color: 'var(--muted)' }}>🔲 {p.barcode}</div>}
-                            {p.photos.length > 0 && <div style={{ fontSize: 10, color: 'var(--blue,#3b82f6)' }}>📷 {p.photos.length} photo{p.photos.length > 1 ? 's' : ''}</div>}
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} â€” {p.description}</div>
+                            {p.barcode && <div style={{ fontSize: 10, color: 'var(--muted)' }}>ðŸ”² {p.barcode}</div>}
+                            {p.photos.length > 0 && <div style={{ fontSize: 10, color: 'var(--blue,#3b82f6)' }}>ðŸ“· {p.photos.length} photo{p.photos.length > 1 ? 's' : ''}</div>}
                           </td>
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{p.category}</td>
                           {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost)}</td>}
@@ -745,8 +745,8 @@ export function PartsView() {
                             {editingQty === p.partNumber ? (
                               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
                                 <input type="number" value={newQty} onChange={e => setNewQty(Number(e.target.value))} min="0" style={{ width: 52, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }} />
-                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p.partNumber)}>✓</button>
-                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontSize: 12 }} onClick={() => setEditingQty(null)}>✕</button>
+                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p.partNumber)}>âœ“</button>
+                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontSize: 12 }} onClick={() => setEditingQty(null)}>âœ•</button>
                               </div>
                             ) : (
                               <span style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline dotted' }} onClick={ev => { ev.stopPropagation(); setEditingQty(p.partNumber); setNewQty(p.quantity); }} title="Click to adjust quantity">
@@ -754,7 +754,7 @@ export function PartsView() {
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{p.location || '—'}</td>
+                          <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{p.location || 'â€”'}</td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: st.color }}>{st.label}</span>
                           </td>
@@ -789,8 +789,8 @@ export function PartsView() {
                   <div style={{ fontSize: 12, color: 'var(--muted)' }}>{selected.brand}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => startEdit(selected)}>✏️ Edit</button>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--muted)' }} onClick={() => setSelected(null)}>✕</button>
+                  <button className="btn" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => startEdit(selected)}>âœï¸ Edit</button>
+                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--muted)' }} onClick={() => setSelected(null)}>âœ•</button>
                 </div>
               </div>
 
@@ -798,7 +798,7 @@ export function PartsView() {
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{selected.description}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{selected.category}</div>
                 {selected.compatibility && <div style={{ fontSize: 11, color: 'var(--muted)' }}>Fits: {selected.compatibility}</div>}
-                {selected.barcode && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>🔲 Barcode: <code style={{ fontSize: 11 }}>{selected.barcode}</code></div>}
+                {selected.barcode && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>ðŸ”² Barcode: <code style={{ fontSize: 11 }}>{selected.barcode}</code></div>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
@@ -806,7 +806,7 @@ export function PartsView() {
                   ...(!isTech ? [
                     ['Cost',         money(selected.cost)],
                     ['Retail',       money(selected.retail)],
-                    ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
+                    ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : 'â€”'],
                   ] as [string, string][] : []),
                   ['On Hand',      String(selected.quantity)],
                   ['Low Stock At', String(selected.lowStockThreshold)],
@@ -823,8 +823,8 @@ export function PartsView() {
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                   <div className="section-label" style={{ marginBottom: 6 }}>Supplier</div>
                   {selected.supplier && <div style={{ fontSize: 13, fontWeight: 600 }}>{selected.supplier}</div>}
-                  {selected.supplierPhone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>📞 {selected.supplierPhone}</div>}
-                  {selected.supplierEmail && <div style={{ fontSize: 12, color: 'var(--muted)' }}>📧 {selected.supplierEmail}</div>}
+                  {selected.supplierPhone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>ðŸ“ž {selected.supplierPhone}</div>}
+                  {selected.supplierEmail && <div style={{ fontSize: 12, color: 'var(--muted)' }}>ðŸ“§ {selected.supplierEmail}</div>}
                 </div>
               )}
 
@@ -834,7 +834,7 @@ export function PartsView() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {selected.location.split(',').map(l => l.trim()).filter(Boolean).map((loc, i) => (
                       <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                        📍 {loc}
+                        ðŸ“ {loc}
                       </span>
                     ))}
                   </div>
@@ -848,7 +848,7 @@ export function PartsView() {
                 </div>
               )}
 
-              {/* ── Photos (detail panel) ── */}
+              {/* â”€â”€ Photos (detail panel) â”€â”€ */}
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                 <div className="section-label" style={{ marginBottom: 8 }}>
                   Photos ({selected.photos.length})
@@ -863,7 +863,7 @@ export function PartsView() {
                         <img src={url} alt={`Part photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                         <button onClick={() => handleDeletePhoto(url)}
                           style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          ✕
+                          âœ•
                         </button>
                       </div>
                     ))}
@@ -880,13 +880,13 @@ export function PartsView() {
 
                   <button className="btn" style={{ padding: '5px 12px', fontSize: 12, opacity: uploadingPhoto ? 0.6 : 1 }}
                     disabled={uploadingPhoto} onClick={() => cameraFileRef.current?.click()}>
-                    📸 Camera
+                    ðŸ“¸ Camera
                   </button>
                   <button className="btn" style={{ padding: '5px 12px', fontSize: 12, opacity: uploadingPhoto ? 0.6 : 1 }}
                     disabled={uploadingPhoto} onClick={() => photoFileRef.current?.click()}>
-                    {uploadingPhoto ? '⏳ Uploading…' : '🖼️ Browse'}
+                    {uploadingPhoto ? 'â³ Uploadingâ€¦' : 'ðŸ–¼ï¸ Browse'}
                   </button>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>JPG · PNG · WEBP</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>JPG Â· PNG Â· WEBP</span>
                 </div>
               </div>
 
@@ -912,19 +912,19 @@ export function PartsView() {
         </div>
       )}
 
-      {/* ═══ LOW STOCK TAB ═══ */}
+      {/* â•â•â• LOW STOCK TAB â•â•â• */}
       {tab === 'lowstock' && (
         <div>
           {lowStock.length === 0 ? (
             <div style={{ padding: 60, textAlign: 'center', color: 'var(--green,#22c55e)', fontSize: 16, fontWeight: 700 }}>
-              ✅ All parts are adequately stocked!
+              âœ… All parts are adequately stocked!
             </div>
           ) : (
             <>
               <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(245,158,11,.1)', border: '1px solid var(--amber,#f59e0b)', borderRadius: 10, display: 'flex', gap: 20, fontSize: 13 }}>
-                <span>⚠️ <strong>{outOfStock.length}</strong> out of stock</span>
-                <span>📉 <strong>{lowStock.length - outOfStock.length}</strong> below threshold</span>
-                {!isTech && <span>💰 Reorder value: <strong>{money(lowStock.reduce((s, p) => s + p.cost * p.reorderQty, 0))}</strong></span>}
+                <span>âš ï¸ <strong>{outOfStock.length}</strong> out of stock</span>
+                <span>ðŸ“‰ <strong>{lowStock.length - outOfStock.length}</strong> below threshold</span>
+                {!isTech && <span>ðŸ’° Reorder value: <strong>{money(lowStock.reduce((s, p) => s + p.cost * p.reorderQty, 0))}</strong></span>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
@@ -935,8 +935,8 @@ export function PartsView() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: 14 }}>{p.partNumber}</div>
-                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} — {p.description}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.category} · {p.location || 'No location'}</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} â€” {p.description}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.category} Â· {p.location || 'No location'}</div>
                         </div>
                         <span style={{ fontSize: 12, fontWeight: 700, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span>
                       </div>
@@ -953,16 +953,16 @@ export function PartsView() {
 
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         <div style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>
-                          {p.supplier && <span>📦 {p.supplier}</span>}
-                          {p.supplierPhone && <span style={{ marginLeft: 8 }}>📞 {p.supplierPhone}</span>}
+                          {p.supplier && <span>ðŸ“¦ {p.supplier}</span>}
+                          {p.supplierPhone && <span style={{ marginLeft: 8 }}>ðŸ“ž {p.supplierPhone}</span>}
                         </div>
                         {p.reorderQty > 0 && (
                           <button className="btn primary" style={{ fontSize: 11, padding: '4px 10px' }}
                             onClick={() => {
-                              const msg = `Reorder ${p.reorderQty}x ${p.partNumber} (${p.description}) from ${p.supplier || 'supplier'}${p.supplierPhone ? ' · ' + p.supplierPhone : ''}`;
+                              const msg = `Reorder ${p.reorderQty}x ${p.partNumber} (${p.description}) from ${p.supplier || 'supplier'}${p.supplierPhone ? ' Â· ' + p.supplierPhone : ''}`;
                               navigator.clipboard.writeText(msg).then(() => notify('Reorder note copied to clipboard!'));
                             }}>
-                            📋 Copy Reorder Note
+                            ðŸ“‹ Copy Reorder Note
                           </button>
                         )}
                         <button className="btn" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setSelected(p); setEditing(false); setTab('inventory'); }}>
@@ -978,15 +978,15 @@ export function PartsView() {
         </div>
       )}
 
-      {/* ═══ PARTS ORDERS TAB ═══ */}
+      {/* â•â•â• PARTS ORDERS TAB â•â•â• */}
       {tab === 'orders' && <PartsOrdersView />}
 
-      {/* ═══ ADD / EDIT TAB ═══ */}
+      {/* â•â•â• ADD / EDIT TAB â•â•â• */}
       {tab === 'add' && (
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-              {selected && editing ? `Edit — ${selected.partNumber}` : 'Add New Part'}
+              {selected && editing ? `Edit â€” ${selected.partNumber}` : 'Add New Part'}
             </h3>
             <button className="btn" onClick={() => { setEditing(false); setTab('inventory'); }}>Cancel</button>
           </div>
@@ -1055,11 +1055,11 @@ export function PartsView() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                     {form.location.split(',').map(loc => loc.trim()).filter(Boolean).map((loc, i) => (
                       <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: 'rgba(204,0,0,0.08)', border: '1px solid rgba(204,0,0,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                        📍 {loc}
+                        ðŸ“ {loc}
                         <button type="button" onClick={() => {
                           const locs = form.location.split(',').map(l => l.trim()).filter((l, idx) => idx !== i && l);
                           setForm(f => ({ ...f, location: locs.join(', ') }));
-                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cc0000', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                        }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cc0000', fontSize: 14, lineHeight: 1, padding: 0 }}>Ã—</button>
                       </span>
                     ))}
                   </div>
@@ -1077,7 +1077,7 @@ export function PartsView() {
                         setLocationInput('');
                       }
                     }}
-                    placeholder="e.g. Shelf A-3, Bay 2, Bin 7…" style={{ flex: 1 }} />
+                    placeholder="e.g. Shelf A-3, Bay 2, Bin 7â€¦" style={{ flex: 1 }} />
                   <button type="button" onClick={() => {
                     const v = locationInput.trim();
                     if (!v) return;
@@ -1088,7 +1088,7 @@ export function PartsView() {
                     + Add Location
                   </button>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Press Enter or click "+ Add Location" to add each location. Click × to remove.</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Press Enter or click "+ Add Location" to add each location. Click Ã— to remove.</div>
               </div>
 
               <div>
@@ -1106,7 +1106,7 @@ export function PartsView() {
 
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier Name</label>
-                <input className="input" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} placeholder="AutoZone, NAPA…" style={{ width: '100%' }} />
+                <input className="input" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))} placeholder="AutoZone, NAPAâ€¦" style={{ width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier Phone</label>
@@ -1123,10 +1123,10 @@ export function PartsView() {
               </div>
               <div style={{ gridColumn: '1/-1' }}>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Notes</label>
-                <textarea className="input" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes, OEM cross-reference, storage tips…" style={{ width: '100%', resize: 'vertical' }} />
+                <textarea className="input" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Internal notes, OEM cross-reference, storage tipsâ€¦" style={{ width: '100%', resize: 'vertical' }} />
               </div>
 
-              {/* ── Photo upload section (only for new parts; existing parts use detail panel) ── */}
+              {/* â”€â”€ Photo upload section (only for new parts; existing parts use detail panel) â”€â”€ */}
               {!(selected && editing) && (
                 <div style={{ gridColumn: '1/-1' }}>
                   <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 8 }}>Photos</label>
@@ -1140,7 +1140,7 @@ export function PartsView() {
                           <img src={url} alt={`Preview ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                           <button type="button" onClick={() => removePendingPhoto(i)}
                             style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            ✕
+                            âœ•
                           </button>
                         </div>
                       ))}
@@ -1149,21 +1149,21 @@ export function PartsView() {
 
                   {/* Upload buttons */}
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', padding: '14px 16px', border: '2px dashed var(--border)', borderRadius: 10, background: 'var(--surface,#f9f9f9)' }}>
-                    <span style={{ fontSize: 20 }}>📷</span>
+                    <span style={{ fontSize: 20 }}>ðŸ“·</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>
                         {pendingPhotos.length > 0 ? `${pendingPhotos.length} photo${pendingPhotos.length > 1 ? 's' : ''} selected` : 'Add part photos'}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>Photos will be uploaded when you save the part. JPG · PNG · WEBP</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>Photos will be uploaded when you save the part. JPG Â· PNG Â· WEBP</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <label style={{ cursor: 'pointer' }}>
-                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>📸 Camera</span>
+                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>ðŸ“¸ Camera</span>
                         <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
                           onChange={e => addPendingPhotos(e.target.files)} />
                       </label>
                       <label style={{ cursor: 'pointer' }}>
-                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>🖼️ Browse</span>
+                        <span className="btn" style={{ padding: '5px 12px', fontSize: 12 }}>ðŸ–¼ï¸ Browse</span>
                         <input type="file" accept="image/*" multiple style={{ display: 'none' }}
                           onChange={e => addPendingPhotos(e.target.files)} />
                       </label>
@@ -1175,13 +1175,13 @@ export function PartsView() {
 
             {!isTech && form.cost > 0 && form.retail > 0 && (
               <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.3)', borderRadius: 8, fontSize: 12, color: 'var(--green,#22c55e)' }}>
-                Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> — Cost {money(form.cost)} · Retail {money(form.retail)} · Profit {money(form.retail - form.cost)} per unit
+                Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> â€” Cost {money(form.cost)} Â· Retail {money(form.retail)} Â· Profit {money(form.retail - form.cost)} per unit
               </div>
             )}
 
             <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
               <button type="submit" className="btn primary" disabled={saving}>
-                {saving ? 'Saving…' : selected && editing ? 'Save Changes' : 'Add to Inventory'}
+                {saving ? 'Savingâ€¦' : selected && editing ? 'Save Changes' : 'Add to Inventory'}
               </button>
               <button type="button" className="btn" onClick={() => { setEditing(false); setTab('inventory'); }}>Cancel</button>
               {selected && editing && deleteConfirm !== selected.partNumber && (

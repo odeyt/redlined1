@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback } from 'react';
 import { useShop } from '@/lib/useShop';
@@ -9,7 +9,7 @@ import { MorningBriefModal } from './MorningBriefModal';
 import { Suspense } from 'react';
 import { LearningDashboardSection } from '@/features/intelligence-learning/LearningDashboardSection';
 
-// ── Types ────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ShopMetrics {
   revenueToday: number;
   revenueYesterday: number;
@@ -52,7 +52,7 @@ interface FetchState<T> {
   error: string | null;
 }
 
-// SI-6 — Decision Engine types (local, matches API response shape)
+// SI-6 â€” Decision Engine types (local, matches API response shape)
 interface QuickAction {
   type: string;
   label: string;
@@ -89,7 +89,7 @@ interface ExecScoreBreakdown {
   trend: 'up' | 'down' | 'stable';
 }
 
-// SI-9 — Business Memory (local shape, matches API response)
+// SI-9 â€” Business Memory (local shape, matches API response)
 interface MemoryItem {
   id: string;
   memoryType: string;
@@ -108,7 +108,7 @@ interface MemorySummaryShape {
   extractedAt: string;
 }
 
-// SI-7 — Morning Brief (local shape, matches API response)
+// SI-7 â€” Morning Brief (local shape, matches API response)
 interface MorningBriefSummary {
   id: string;
   briefDate: string;
@@ -132,7 +132,7 @@ interface MorningBriefSummary {
   yesterdaySummary: { revenueYesterday: number; paymentsYesterday: number; jobsCompleted: number; repairCasesCreated: number; invoicesCreated: number };
 }
 
-// ── Constants ─────────────────────────────────────────────────
+// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
 const PRIORITY_CFG = {
@@ -143,20 +143,20 @@ const PRIORITY_CFG = {
 };
 
 const CATEGORY_ICON: Record<string, string> = {
-  unpaid_invoices:     '💰',
-  estimates:           '📋',
-  revenue:             '📈',
-  operations:          '⚙️',
-  inventory:           '📦',
-  customer_followup:   '👤',
-  repair_intelligence: '🔧',
-  risk:                '⚠️',
-  technician:          '🧑‍🔧',
-  growth:              '🚀',
-  system:              '🖥️',
+  unpaid_invoices:     'ðŸ’°',
+  estimates:           'ðŸ“‹',
+  revenue:             'ðŸ“ˆ',
+  operations:          'âš™ï¸',
+  inventory:           'ðŸ“¦',
+  customer_followup:   'ðŸ‘¤',
+  repair_intelligence: 'ðŸ”§',
+  risk:                'âš ï¸',
+  technician:          'ðŸ§‘â€ðŸ”§',
+  growth:              'ðŸš€',
+  system:              'ðŸ–¥ï¸',
 };
 
-// ── Design tokens ─────────────────────────────────────────────
+// â”€â”€ Design tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const D = {
   red:     '#c0392b',
   redGlow: 'rgba(192,57,43,0.18)',
@@ -169,7 +169,7 @@ const D = {
   radiusSm: 12,
 };
 
-// ── Helpers ───────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function shopHealthScore(recs: Recommendation[], signals: SignalMap): number {
   let score = 100;
   score -= recs.filter(r => r.priority === 'critical').length * 15;
@@ -187,16 +187,16 @@ function healthConfig(score: number) {
 }
 
 function fmtNum(v: number | string | null | undefined): string {
-  if (v === null || v === undefined) return '—';
+  if (v === null || v === undefined) return 'â€”';
   return Number(v).toLocaleString();
 }
 
 function fmtMoney(v: number | string | null | undefined): string {
-  if (v === null || v === undefined) return '—';
+  if (v === null || v === undefined) return 'â€”';
   return `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
-// ── Health Ring SVG ───────────────────────────────────────────
+// â”€â”€ Health Ring SVG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function HealthRing({ score }: { score: number }) {
   const cfg = healthConfig(score);
   const r = 42;
@@ -223,7 +223,7 @@ function HealthRing({ score }: { score: number }) {
   );
 }
 
-// ── Summary Pill ──────────────────────────────────────────────
+// â”€â”€ Summary Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SummaryPill({
   icon, label, value, accent, dimmed, onClick,
 }: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean; onClick?: () => void }) {
@@ -235,7 +235,7 @@ function SummaryPill({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
+        background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
         border: `1.5px solid ${dimmed ? 'rgba(255,255,255,0.14)' : accent + (hovered ? 'aa' : '80')}`,
         borderRadius: D.radius,
         padding: '14px 18px',
@@ -248,12 +248,12 @@ function SummaryPill({
       <div style={{ fontSize: 20 }}>{icon}</div>
       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.68)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? '#ffffff' : accent }}>{value}</div>
-      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.95 : 0.65, fontWeight: 600, transition: 'opacity 0.15s' }}>View →</div>}
+      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.95 : 0.65, fontWeight: 600, transition: 'opacity 0.15s' }}>View â†’</div>}
     </div>
   );
 }
 
-// ── Signal Tile ───────────────────────────────────────────────
+// â”€â”€ Signal Tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SignalTile({ icon, label, value, accent, onClick }: { icon: string; label: string; value: string | number; accent?: string; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
@@ -276,12 +276,12 @@ function SignalTile({ icon, label, value, accent, onClick }: { icon: string; lab
       <div style={{ fontSize: 18 }}>{icon}</div>
       <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 800, color: accent ?? 'var(--text)' }}>{value}</div>
-      {onClick && <div style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0.3, fontWeight: 600, transition: 'opacity 0.15s' }}>Open →</div>}
+      {onClick && <div style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0.3, fontWeight: 600, transition: 'opacity 0.15s' }}>Open â†’</div>}
     </div>
   );
 }
 
-// ── Row Item (for opportunity / risk panels) ──────────────────
+// â”€â”€ Row Item (for opportunity / risk panels) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RowItem({
   label, value, accent, tag, onClick,
 }: { label: string; value: string | number; accent?: string; tag?: string; onClick?: () => void }) {
@@ -303,7 +303,7 @@ function RowItem({
       }}>
       <span style={{ color: 'var(--text)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
         {label}
-        {onClick && <span style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
+        {onClick && <span style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>â†’</span>}
       </span>
       <span style={{
         fontWeight: 700,
@@ -321,7 +321,7 @@ function RowItem({
   );
 }
 
-// ── Evidence types (subset for UI) ───────────────────────────
+// â”€â”€ Evidence types (subset for UI) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface EvidenceItem {
   evidenceTitle: string;
   evidenceValue?: string | null;
@@ -343,7 +343,7 @@ interface EvidenceBundle {
   };
 }
 
-// ── Recommendation Card ───────────────────────────────────────
+// â”€â”€ Recommendation Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RecCard({
   rec, shopId, onDone, onDismiss,
 }: {
@@ -353,7 +353,7 @@ function RecCard({
   onDismiss: (id: string) => void;
 }) {
   const cfg = PRIORITY_CFG[rec.priority] ?? PRIORITY_CFG.medium;
-  const icon = CATEGORY_ICON[rec.category] ?? '📌';
+  const icon = CATEGORY_ICON[rec.category] ?? 'ðŸ“Œ';
   const [expanded, setExpanded] = useState(false);
   const [evidence, setEvidence] = useState<EvidenceBundle | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
@@ -406,7 +406,7 @@ function RecCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
             <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-              💵 {fmtMoney(rec.estimatedRevenue)} opportunity
+              ðŸ’µ {fmtMoney(rec.estimatedRevenue)} opportunity
             </span>
           )}
           <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 7px' }}>
@@ -418,7 +418,7 @@ function RecCard({
               fontSize: 11, color: cfg.accent, background: 'transparent', border: 'none',
               cursor: 'pointer', fontWeight: 600, padding: '2px 6px', borderRadius: 5,
             }}>
-            {expanded ? '▲ Less' : '▼ Evidence & Actions'}
+            {expanded ? 'â–² Less' : 'â–¼ Evidence & Actions'}
           </button>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
             <button
@@ -426,7 +426,7 @@ function RecCard({
               onMouseEnter={e => { e.currentTarget.style.background = '#059669'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#059669'; }}
               style={{ padding: '5px 14px', borderRadius: 999, border: '1.5px solid #059669', background: 'transparent', color: '#059669', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em', transition: 'background 0.15s, color 0.15s' }}>
-              ✓ Done
+              âœ“ Done
             </button>
             <button
               onClick={() => onDismiss(rec.id)}
@@ -447,7 +447,7 @@ function RecCard({
         }}>
           {evidenceLoading && (
             <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '8px 0' }}>
-              Loading evidence…
+              Loading evidenceâ€¦
             </div>
           )}
 
@@ -455,7 +455,7 @@ function RecCard({
           {evidence && evidence.items.length > 0 && (
             <div>
               <div className="section-label" style={{ marginBottom: 8 }}>
-                📊 Evidence
+                ðŸ“Š Evidence
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {evidence.items.map((ev, i) => (
@@ -466,7 +466,7 @@ function RecCard({
                   }}>
                     <span style={{ color: 'var(--text)', fontWeight: 500 }}>{ev.evidenceTitle}</span>
                     <span style={{ fontWeight: 700, color: cfg.accent, background: `${cfg.accent}14`, padding: '2px 9px', borderRadius: 20, fontSize: 11 }}>
-                      {ev.evidenceValue ?? (ev.evidenceNumeric != null ? ev.evidenceNumeric : '—')}
+                      {ev.evidenceValue ?? (ev.evidenceNumeric != null ? ev.evidenceNumeric : 'â€”')}
                     </span>
                   </div>
                 ))}
@@ -484,7 +484,7 @@ function RecCard({
           {/* Expected impact */}
           {evidence?.explanation?.expectedImpact && (
             <div style={{ fontSize: 11, color: '#059669', lineHeight: 1.5 }}>
-              💡 {evidence.explanation.expectedImpact}
+              ðŸ’¡ {evidence.explanation.expectedImpact}
             </div>
           )}
 
@@ -492,7 +492,7 @@ function RecCard({
           {evidence?.explanation?.suggestedActions && evidence.explanation.suggestedActions.length > 0 && (
             <div>
               <div className="section-label" style={{ marginBottom: 7 }}>
-                ▶ Next Actions
+                â–¶ Next Actions
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {evidence.explanation.suggestedActions.map((action, i) => (
@@ -501,7 +501,7 @@ function RecCard({
                     border: '1px solid var(--line)', borderRadius: 6, padding: '6px 11px',
                     display: 'flex', alignItems: 'center', gap: 7,
                   }}>
-                    <span style={{ color: cfg.accent, fontWeight: 700, fontSize: 14 }}>→</span>
+                    <span style={{ color: cfg.accent, fontWeight: 700, fontSize: 14 }}>â†’</span>
                     {action}
                   </div>
                 ))}
@@ -520,7 +520,7 @@ function RecCard({
   );
 }
 
-// ── Action Queue Card (SI-6) ──────────────────────────────────
+// â”€â”€ Action Queue Card (SI-6) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ActionQueueCard({
   item, onNavigate,
 }: { item: RankedAction; onNavigate: (module: string) => void }) {
@@ -532,7 +532,7 @@ function ActionQueueCard({
     : `${Math.round(item.score.estimatedTimeMinutes / 60)}h`;
   const confidencePct = Math.round(item.score.confidenceMultiplier * 100);
   const rec = item.recommendation;
-  const icon = CATEGORY_ICON[rec.category] ?? '📌';
+  const icon = CATEGORY_ICON[rec.category] ?? 'ðŸ“Œ';
 
   const navActions = item.quickActions.filter(a => a.module);
 
@@ -567,14 +567,14 @@ function ActionQueueCard({
         {/* Meta row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
-            ⏱ {timeLabel}
+            â± {timeLabel}
           </span>
           <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
             {confidencePct}% confidence
           </span>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
             <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-              💵 {fmtMoney(rec.estimatedRevenue)}
+              ðŸ’µ {fmtMoney(rec.estimatedRevenue)}
             </span>
           )}
           {/* Quick nav buttons */}
@@ -583,12 +583,12 @@ function ActionQueueCard({
               fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 999,
               border: `1.5px solid ${scoreColor}60`, background: `${scoreColor}10`,
               color: scoreColor, cursor: 'pointer',
-            }}>{a.label} →</button>
+            }}>{a.label} â†’</button>
           ))}
           <button onClick={() => setExpanded(e => !e)} style={{
             fontSize: 11, color: 'var(--muted)', background: 'transparent', border: 'none',
             cursor: 'pointer', fontWeight: 600, padding: '2px 6px', marginLeft: 'auto',
-          }}>{expanded ? '▲ Less' : '▼ Why'}</button>
+          }}>{expanded ? 'â–² Less' : 'â–¼ Why'}</button>
         </div>
       </div>
 
@@ -609,7 +609,7 @@ function ActionQueueCard({
           )}
           {item.score.rationale && (
             <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
-              💡 {item.score.rationale}
+              ðŸ’¡ {item.score.rationale}
             </div>
           )}
           {item.expectedImpact && (
@@ -621,11 +621,11 @@ function ActionQueueCard({
   );
 }
 
-// ── Executive Score Badge (SI-6) ──────────────────────────────
+// â”€â”€ Executive Score Badge (SI-6) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ExecScoreBadge({ score }: { score: ExecScoreBreakdown }) {
   const color = score.overall >= 75 ? '#059669' : score.overall >= 50 ? '#d97706' : '#dc2626';
   const label = score.overall >= 75 ? 'Strong' : score.overall >= 50 ? 'Fair' : 'Needs Work';
-  const trendIcon = score.trend === 'up' ? '↑' : score.trend === 'down' ? '↓' : '→';
+  const trendIcon = score.trend === 'up' ? 'â†‘' : score.trend === 'down' ? 'â†“' : 'â†’';
   const components = [
     { label: 'Revenue', value: score.revenueHealth },
     { label: 'Efficiency', value: score.efficiency },
@@ -649,7 +649,7 @@ function ExecScoreBadge({ score }: { score: ExecScoreBreakdown }) {
           <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>
             Executive Score <span style={{ color, fontWeight: 900 }}>{trendIcon}</span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Composite shop performance (0–100)</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Composite shop performance (0â€“100)</div>
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
@@ -664,18 +664,18 @@ function ExecScoreBadge({ score }: { score: ExecScoreBreakdown }) {
   );
 }
 
-// ── Disabled state ────────────────────────────────────────────
+// â”€â”€ Disabled state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DisabledState({ reason }: { reason: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 340, gap: 14, color: 'var(--muted)', textAlign: 'center', padding: 40 }}>
-      <span style={{ fontSize: 44 }}>🛡️</span>
+      <span style={{ fontSize: 44 }}>ðŸ›¡ï¸</span>
       <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>Command Center</div>
       <div style={{ fontSize: 13, maxWidth: 380 }}>{reason}</div>
     </div>
   );
 }
 
-// ── Section heading ───────────────────────────────────────────
+// â”€â”€ Section heading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SectionHeading({ icon, label }: { icon: string; label: string }) {
   return (
     <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -686,7 +686,7 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────
+// â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function CommandCenterView() {
   const { role } = useShop();
   const dispatch = useAppDispatch();
@@ -773,7 +773,7 @@ export function CommandCenterView() {
           if (!esBody.disabled && esBody.score) setExecScore(esBody.score);
         }
       }
-    } catch { /* fail silently — SI-6 is additive */ }
+    } catch { /* fail silently â€” SI-6 is additive */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
@@ -784,7 +784,7 @@ export function CommandCenterView() {
       const body = await res.json() as { disabled?: boolean; brief?: MorningBriefSummary | null };
       if (body.disabled || !body.brief) return;
       setMorningBrief(body.brief);
-    } catch { /* fail silently — SI-7 is additive */ }
+    } catch { /* fail silently â€” SI-7 is additive */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
@@ -795,11 +795,11 @@ export function CommandCenterView() {
       const body = await res.json() as { disabled?: boolean; data?: MemorySummaryShape | null };
       if (body.disabled || !body.data) return;
       setBusinessMemory(body.data);
-    } catch { /* fail silently — SI-9 is additive */ }
+    } catch { /* fail silently â€” SI-9 is additive */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
-  // SI-10: Load vehicle intelligence summary — count high-risk vehicles only
+  // SI-10: Load vehicle intelligence summary â€” count high-risk vehicles only
   const loadVehicleIntelligence = useCallback(async () => {
     try {
       const flagRes = await fetch('/api/intelligence/vehicle/health-summary', { headers: shopHeaders }).catch(() => null);
@@ -807,7 +807,7 @@ export function CommandCenterView() {
       const body = await flagRes.json() as { disabled?: boolean; highRiskCount?: number } | null;
       if (body?.disabled || body?.highRiskCount == null) return;
       setVehicleHighRiskCount(body.highRiskCount);
-    } catch { /* fail silently — SI-10 is additive */ }
+    } catch { /* fail silently â€” SI-10 is additive */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
@@ -881,7 +881,7 @@ export function CommandCenterView() {
     } catch { /* fail silently */ }
   }
 
-  // ── Computed values ───────────────────────────────────────────
+  // â”€â”€ Computed values â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const recList = (recs.data ?? []).sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
   const sig = signals.data ?? {};
 
@@ -903,7 +903,7 @@ export function CommandCenterView() {
   const highCount     = recList.filter(r => r.priority === 'high').length;
   const top5 = recList.slice(0, 5);
 
-  // ── Guard states ──────────────────────────────────────────────
+  // â”€â”€ Guard states â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (tablesMissing) {
     return <Panel title="D1 Command Center"><DisabledState reason="Intelligence Bus tables are not active yet. Run the SI-2 migration in Supabase to enable Command Center." /></Panel>;
   }
@@ -916,9 +916,9 @@ export function CommandCenterView() {
   return (
     <>
     <Panel title="D1 Command Center">
-      {/* ── Premium Header ─────────────────────────────────── */}
+      {/* â”€â”€ Premium Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div style={{
-        background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
+        background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
         borderRadius: 16,
         padding: '22px 26px',
         marginBottom: 24,
@@ -935,13 +935,13 @@ export function CommandCenterView() {
         }} />
         <div style={{ position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <span style={{ fontSize: 22 }}>⚡</span>
+            <span style={{ fontSize: 22 }}>âš¡</span>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
               D1 Command Center
             </h2>
           </div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
-            Intelligence Dashboard · Owner &amp; Manager View
+            Intelligence Dashboard Â· Owner &amp; Manager View
           </div>
         </div>
         <button
@@ -965,8 +965,8 @@ export function CommandCenterView() {
             letterSpacing: '0.02em',
             transition: 'all 0.2s',
           }}>
-          <span style={{ fontSize: 15 }}>{generating ? '⟳' : '⚡'}</span>
-          {generating ? 'Refreshing…' : 'Refresh Intelligence'}
+          <span style={{ fontSize: 15 }}>{generating ? 'âŸ³' : 'âš¡'}</span>
+          {generating ? 'Refreshingâ€¦' : 'Refresh Intelligence'}
         </button>
       </div>
 
@@ -975,19 +975,19 @@ export function CommandCenterView() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           minHeight: 240, gap: 14, color: 'var(--muted)',
         }}>
-          <div style={{ fontSize: 32, animation: 'spin 1s linear infinite' }}>⟳</div>
-          <div style={{ fontSize: 13 }}>Loading intelligence data…</div>
+          <div style={{ fontSize: 32, animation: 'spin 1s linear infinite' }}>âŸ³</div>
+          <div style={{ fontSize: 13 }}>Loading intelligence dataâ€¦</div>
           <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         </div>
       ) : (
         <>
-          {/* ── Section 1: Health Score + Summary Pills ──────── */}
+          {/* â”€â”€ Section 1: Health Score + Summary Pills â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div style={{
             display: 'flex', gap: 20, alignItems: 'stretch', marginBottom: 24, flexWrap: 'wrap',
           }}>
             {/* Health ring card */}
             <div style={{
-              background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
+              background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
               border: `2px solid ${hCfg.color}60`,
               borderRadius: D.radius,
               padding: '20px 24px',
@@ -1003,29 +1003,29 @@ export function CommandCenterView() {
 
             {/* Summary pills */}
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
-              <SummaryPill icon="🚨" label="Critical" value={criticalCount}
+              <SummaryPill icon="ðŸš¨" label="Critical" value={criticalCount}
                 accent="#dc2626" dimmed={criticalCount === 0}
                 onClick={criticalCount > 0 ? () => nav('repair-orders') : undefined} />
-              <SummaryPill icon="⚠️" label="High Priority" value={highCount}
+              <SummaryPill icon="âš ï¸" label="High Priority" value={highCount}
                 accent="#ea580c" dimmed={highCount === 0}
                 onClick={highCount > 0 ? () => nav('job-cards') : undefined} />
-              <SummaryPill icon="📋" label="Open Recs" value={recList.length}
+              <SummaryPill icon="ðŸ“‹" label="Open Recs" value={recList.length}
                 accent="#2563eb" dimmed={recList.length === 0}
                 onClick={recList.length > 0 ? () => nav('estimates') : undefined} />
-              <SummaryPill icon="🔴" label="Overdue Invoices" value={overdueCount}
+              <SummaryPill icon="ðŸ”´" label="Overdue Invoices" value={overdueCount}
                 accent="#dc2626" dimmed={overdueCount === 0}
                 onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
             </div>
           </div>
 
-          {/* ── Section SI-7: Morning Brief ──────────────────── */}
+          {/* â”€â”€ Section SI-7: Morning Brief â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {(morningBrief || true) && (() => {
             const brief = morningBrief && morningBrief.status !== 'dismissed';
             const urgencyColor = (brief && morningBrief!.cashCollection.collectionUrgency === 'critical') ? D.red
               : (brief && morningBrief!.shopHealthScore < 55) ? D.gold : D.green;
             return (
               <div style={{ marginBottom: 24 }}>
-                <SectionHeading icon="☀️" label="Morning Brief" />
+                <SectionHeading icon="â˜€ï¸" label="Morning Brief" />
                 {!brief ? (
                   <div style={{
                     background: 'var(--surface)', border: '1.5px dashed var(--line)',
@@ -1050,7 +1050,7 @@ export function CommandCenterView() {
                         boxShadow: generatingBrief ? 'none' : `0 3px 10px ${D.gold}40`,
                         transition: 'background 0.15s, color 0.15s',
                       }}>
-                      {generatingBrief ? '⟳ Generating…' : '☀️ Generate Brief'}
+                      {generatingBrief ? 'âŸ³ Generatingâ€¦' : 'â˜€ï¸ Generate Brief'}
                     </button>
                   </div>
                 ) : (
@@ -1066,7 +1066,7 @@ export function CommandCenterView() {
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 3 }}>{morningBrief!.title}</div>
                         <div style={{ fontSize: 10, color: 'var(--muted)' }}>
-                          {morningBrief!.briefDate} · {new Date(morningBrief!.generatedAt).toLocaleTimeString()}
+                          {morningBrief!.briefDate} Â· {new Date(morningBrief!.generatedAt).toLocaleTimeString()}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>
@@ -1084,7 +1084,7 @@ export function CommandCenterView() {
                       background: `${D.gold}10`, borderRadius: 6, padding: '8px 10px',
                       borderLeft: `3px solid ${D.gold}`,
                     }}>
-                      <strong style={{ color: D.gold }}>⭐ Focus:</strong> {morningBrief!.recommendedFocus}
+                      <strong style={{ color: D.gold }}>â­ Focus:</strong> {morningBrief!.recommendedFocus}
                     </div>
                     {/* Top 3 priorities inline */}
                     {morningBrief!.todayPriorities.slice(0, 3).map(p => (
@@ -1097,7 +1097,7 @@ export function CommandCenterView() {
                           color: '#fff', fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>{p.rank}</span>
                         <span style={{ flex: 1 }}>{p.title}</span>
-                        <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>⏱ {p.estimatedTimeMinutes}m</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>â± {p.estimatedTimeMinutes}m</span>
                       </div>
                     ))}
                     {/* Action buttons */}
@@ -1112,7 +1112,7 @@ export function CommandCenterView() {
                           background: 'transparent', color: D.gold, fontWeight: 700, cursor: 'pointer',
                           opacity: generatingBrief ? 0.6 : 1, transition: 'background 0.15s, color 0.15s',
                         }}>
-                        {generatingBrief ? '⟳ Refreshing…' : '↺ Refresh Brief'}
+                        {generatingBrief ? 'âŸ³ Refreshingâ€¦' : 'â†º Refresh Brief'}
                       </button>
                       <button
                         onClick={() => setBriefModalOpen(true)}
@@ -1120,7 +1120,7 @@ export function CommandCenterView() {
                           fontSize: 11, padding: '6px 14px', borderRadius: 999, border: '1.5px solid var(--line)',
                           background: 'var(--surface)', color: 'var(--text)', fontWeight: 600, cursor: 'pointer',
                         }}>
-                        📋 View Full Brief
+                        ðŸ“‹ View Full Brief
                       </button>
                       <button
                         onClick={() => handleDismissBrief(morningBrief!.id)}
@@ -1137,10 +1137,10 @@ export function CommandCenterView() {
             );
           })()}
 
-          {/* ── Section SI-6: Today's Action Queue ───────────── */}
+          {/* â”€â”€ Section SI-6: Today's Action Queue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {actionQueue && actionQueue.length > 0 && (
             <div style={{ marginBottom: 24 }}>
-              <SectionHeading icon="🎯" label="Today's Action Queue" />
+              <SectionHeading icon="ðŸŽ¯" label="Today's Action Queue" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {actionQueue.map(item => (
                   <ActionQueueCard key={item.recommendation.id} item={item} onNavigate={nav} />
@@ -1149,9 +1149,9 @@ export function CommandCenterView() {
             </div>
           )}
 
-          {/* ── Section 2: Top Priorities ────────────────────── */}
+          {/* â”€â”€ Section 2: Top Priorities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div style={{ marginBottom: 24 }}>
-            <SectionHeading icon="🎯" label="Top Priorities" />
+            <SectionHeading icon="ðŸŽ¯" label="Top Priorities" />
             {top5.length === 0 ? (
               <div style={{
                 background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
@@ -1161,7 +1161,7 @@ export function CommandCenterView() {
                 textAlign: 'center',
                 color: '#15803d', fontSize: 13, fontWeight: 600,
               }}>
-                ✅ Your shop is clear. No urgent recommendations right now.
+                âœ… Your shop is clear. No urgent recommendations right now.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1170,14 +1170,14 @@ export function CommandCenterView() {
                 ))}
                 {recList.length > 5 && (
                   <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', paddingTop: 4 }}>
-                    +{recList.length - 5} more recommendation{recList.length - 5 !== 1 ? 's' : ''} — click Refresh Intelligence to see all.
+                    +{recList.length - 5} more recommendation{recList.length - 5 !== 1 ? 's' : ''} â€” click Refresh Intelligence to see all.
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* ── Sections 3 + 4: Revenue Opportunities + Risks ── */}
+          {/* â”€â”€ Sections 3 + 4: Revenue Opportunities + Risks â”€â”€ */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             {/* Revenue */}
             <div style={{
@@ -1188,7 +1188,7 @@ export function CommandCenterView() {
               padding: '18px 20px',
               boxShadow: D.cardShadow,
             }}>
-              <SectionHeading icon="💵" label="Revenue Opportunities" />
+              <SectionHeading icon="ðŸ’µ" label="Revenue Opportunities" />
               <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
               <RowItem label="Stale estimates"         value={staleEst}     tag="estimates" accent={staleEst     > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
               <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} onClick={() => nav('job-cards')} />
@@ -1210,7 +1210,7 @@ export function CommandCenterView() {
               padding: '18px 20px',
               boxShadow: D.cardShadow,
             }}>
-              <SectionHeading icon="⚠️" label="Operations Risks" />
+              <SectionHeading icon="âš ï¸" label="Operations Risks" />
               <RowItem label="Stuck repair orders"  value={stuckJobs}    accent={stuckJobs   > 0 ? '#dc2626' : undefined} onClick={() => nav('repair-orders')} />
               <RowItem label="Low inventory items"  value={lowInv}       accent={lowInv      > 0 ? '#ea580c' : undefined} onClick={() => nav('parts')} />
               <RowItem label="Overdue invoices"     value={overdueCount} accent={overdueCount > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
@@ -1219,27 +1219,27 @@ export function CommandCenterView() {
             </div>
           </div>
 
-          {/* ── Data freshness ───────────────────────────────── */}
+          {/* â”€â”€ Data freshness â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {metrics?.calculatedAt && (
             <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', marginBottom: 16, marginTop: -16 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 20, padding: '3px 10px' }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
-                Live data · updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
+                Live data Â· updated {new Date(metrics.calculatedAt).toLocaleTimeString()}
               </span>
             </div>
           )}
 
-          {/* ── Section SI-6: Executive Score ────────────────── */}
+          {/* â”€â”€ Section SI-6: Executive Score â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {execScore && (
             <div style={{ marginBottom: 24 }}>
               <ExecScoreBadge score={execScore} />
             </div>
           )}
 
-          {/* ── Section SI-9: Business Memory ────────────────── */}
+          {/* â”€â”€ Section SI-9: Business Memory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {businessMemory && (businessMemory.criticalCount > 0 || businessMemory.highCount > 0) && (
             <div style={{ marginBottom: 24 }}>
-              <SectionHeading icon="🧠" label="Business Memory" />
+              <SectionHeading icon="ðŸ§ " label="Business Memory" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {businessMemory.topItems.map(item => {
                   const impColor =
@@ -1277,43 +1277,43 @@ export function CommandCenterView() {
             </div>
           )}
 
-          {/* ── SI-10: Vehicle Intelligence Alerts ───────────── */}
+          {/* â”€â”€ SI-10: Vehicle Intelligence Alerts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {vehicleHighRiskCount != null && vehicleHighRiskCount > 0 && (
             <div style={{ marginBottom: 8 }}>
-              <SectionHeading icon="🚗" label="Vehicle Intelligence" />
+              <SectionHeading icon="ðŸš—" label="Vehicle Intelligence" />
               <div style={{
                 background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
                 padding: '10px 14px', fontSize: 13, color: '#991b1b', display: 'flex',
                 alignItems: 'center', gap: 8,
               }}>
-                <span style={{ fontWeight: 700 }}>⚠️ {vehicleHighRiskCount} high-risk vehicle{vehicleHighRiskCount === 1 ? '' : 's'} flagged</span>
-                <span style={{ color: '#b91c1c', fontSize: 12 }}>— open Vehicles module to review</span>
+                <span style={{ fontWeight: 700 }}>âš ï¸ {vehicleHighRiskCount} high-risk vehicle{vehicleHighRiskCount === 1 ? '' : 's'} flagged</span>
+                <span style={{ color: '#b91c1c', fontSize: 12 }}>â€” open Vehicles module to review</span>
               </div>
             </div>
           )}
 
-          {/* ── Section 5: Live Signals ───────────────────────── */}
+          {/* â”€â”€ Section 5: Live Signals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div style={{ marginBottom: 8 }}>
-            <SectionHeading icon="📡" label="Live Signals" />
+            <SectionHeading icon="ðŸ“¡" label="Live Signals" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
-              <SignalTile icon="💵" label="Revenue Today"      value={fmtMoney(revenueToday)}
+              <SignalTile icon="ðŸ’µ" label="Revenue Today"      value={fmtMoney(revenueToday)}
                 accent={revenueToday > 0 ? D.green : 'var(--muted)'} onClick={() => nav('payments')} />
-              <SignalTile icon="💳" label="Payments Today"     value={fmtNum(paymentsToday)}
+              <SignalTile icon="ðŸ’³" label="Payments Today"     value={fmtNum(paymentsToday)}
                 accent={paymentsToday > 0 ? D.blue : undefined} onClick={() => nav('payments')} />
-              <SignalTile icon="🔧" label="Open Jobs"          value={fmtNum(openJobs)}
+              <SignalTile icon="ðŸ”§" label="Open Jobs"          value={fmtNum(openJobs)}
                 accent={openJobs > 5 ? D.gold : undefined} onClick={() => nav('job-cards')} />
-              <SignalTile icon="📋" label="Stale Estimates"    value={fmtNum(staleEst)}
+              <SignalTile icon="ðŸ“‹" label="Stale Estimates"    value={fmtNum(staleEst)}
                 accent={staleEst > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
-              <SignalTile icon="📦" label="Low Inventory"      value={fmtNum(lowInv)}
+              <SignalTile icon="ðŸ“¦" label="Low Inventory"      value={fmtNum(lowInv)}
                 accent={lowInv > 0 ? '#ea580c' : undefined} onClick={() => nav('parts')} />
-              <SignalTile icon="🗂️" label="Repair Cases Today" value={fmtNum(repairCases)}
+              <SignalTile icon="ðŸ—‚ï¸" label="Repair Cases Today" value={fmtNum(repairCases)}
                 accent={repairCases > 0 ? D.green : undefined} onClick={() => nav('repair-intelligence')} />
             </div>
           </div>
 
           {recs.error && (
             <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, color: '#b91c1c', marginTop: 12 }}>
-              ⚠️ {recs.error}
+              âš ï¸ {recs.error}
             </div>
           )}
 
