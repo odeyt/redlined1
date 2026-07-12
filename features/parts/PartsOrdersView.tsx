@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
@@ -21,61 +21,61 @@ import {
 } from '@/services/entityImageService';
 import type { Customer } from '@/lib/types';
 
-/* â”€â”€ Currency support â”€â”€ */
+/* ── Currency support ── */
 const CURRENCIES = [
-  { code: 'USD', symbol: '$',    label: 'USD â€” US Dollar' },
-  { code: 'EUR', symbol: 'â‚¬',   label: 'EUR â€” Euro' },
-  { code: 'GBP', symbol: 'Â£',   label: 'GBP â€” British Pound' },
-  { code: 'JPY', symbol: 'Â¥',   label: 'JPY â€” Japanese Yen' },
-  { code: 'CAD', symbol: 'CA$', label: 'CAD â€” Canadian Dollar' },
-  { code: 'AUD', symbol: 'A$',  label: 'AUD â€” Australian Dollar' },
-  { code: 'CHF', symbol: 'Fr',  label: 'CHF â€” Swiss Franc' },
-  { code: 'CNY', symbol: 'Â¥',   label: 'CNY â€” Chinese Yuan' },
-  { code: 'HKD', symbol: 'HK$', label: 'HKD â€” Hong Kong Dollar' },
-  { code: 'SGD', symbol: 'S$',  label: 'SGD â€” Singapore Dollar' },
-  { code: 'MXN', symbol: 'MX$', label: 'MXN â€” Mexican Peso' },
-  { code: 'BRL', symbol: 'R$',  label: 'BRL â€” Brazilian Real' },
-  { code: 'INR', symbol: 'â‚¹',   label: 'INR â€” Indian Rupee' },
-  { code: 'KRW', symbol: 'â‚©',   label: 'KRW â€” South Korean Won' },
-  { code: 'SEK', symbol: 'kr',  label: 'SEK â€” Swedish Krona' },
-  { code: 'NOK', symbol: 'kr',  label: 'NOK â€” Norwegian Krone' },
-  { code: 'DKK', symbol: 'kr',  label: 'DKK â€” Danish Krone' },
-  { code: 'NZD', symbol: 'NZ$', label: 'NZD â€” New Zealand Dollar' },
-  { code: 'ZAR', symbol: 'R',   label: 'ZAR â€” South African Rand' },
-  { code: 'AED', symbol: 'Ø¯.Ø¥', label: 'AED â€” UAE Dirham' },
-  { code: 'SAR', symbol: 'ï·¼',   label: 'SAR â€” Saudi Riyal' },
-  { code: 'THB', symbol: 'à¸¿',   label: 'THB â€” Thai Baht' },
-  { code: 'MYR', symbol: 'RM',  label: 'MYR â€” Malaysian Ringgit' },
-  { code: 'IDR', symbol: 'Rp',  label: 'IDR â€” Indonesian Rupiah' },
-  { code: 'PHP', symbol: 'â‚±',   label: 'PHP â€” Philippine Peso' },
-  { code: 'VND', symbol: 'â‚«',   label: 'VND â€” Vietnamese Dong' },
-  { code: 'LAK', symbol: 'â‚­',   label: 'LAK â€” Lao Kip' },
-  { code: 'KHR', symbol: 'áŸ›',   label: 'KHR â€” Cambodian Riel' },
-  { code: 'TWD', symbol: 'NT$', label: 'TWD â€” Taiwan Dollar' },
-  { code: 'PKR', symbol: 'â‚¨',   label: 'PKR â€” Pakistani Rupee' },
-  { code: 'BDT', symbol: 'à§³',   label: 'BDT â€” Bangladeshi Taka' },
-  { code: 'TRY', symbol: 'â‚º',   label: 'TRY â€” Turkish Lira' },
-  { code: 'RUB', symbol: 'â‚½',   label: 'RUB â€” Russian Ruble' },
-  { code: 'PLN', symbol: 'zÅ‚',  label: 'PLN â€” Polish ZÅ‚oty' },
-  { code: 'CZK', symbol: 'KÄ',  label: 'CZK â€” Czech Koruna' },
-  { code: 'HUF', symbol: 'Ft',  label: 'HUF â€” Hungarian Forint' },
-  { code: 'RON', symbol: 'lei', label: 'RON â€” Romanian Leu' },
-  { code: 'EGP', symbol: 'Â£',   label: 'EGP â€” Egyptian Pound' },
-  { code: 'NGN', symbol: 'â‚¦',   label: 'NGN â€” Nigerian Naira' },
-  { code: 'KES', symbol: 'KSh', label: 'KES â€” Kenyan Shilling' },
-  { code: 'GHS', symbol: 'â‚µ',   label: 'GHS â€” Ghanaian Cedi' },
-  { code: 'CLP', symbol: '$',   label: 'CLP â€” Chilean Peso' },
-  { code: 'COP', symbol: '$',   label: 'COP â€” Colombian Peso' },
-  { code: 'ARS', symbol: '$',   label: 'ARS â€” Argentine Peso' },
-  { code: 'PEN', symbol: 'S/',  label: 'PEN â€” Peruvian Sol' },
-  { code: 'ILS', symbol: 'â‚ª',   label: 'ILS â€” Israeli New Shekel' },
-  { code: 'QAR', symbol: 'ï·¼',   label: 'QAR â€” Qatari Riyal' },
-  { code: 'KWD', symbol: 'Ø¯.Ùƒ', label: 'KWD â€” Kuwaiti Dinar' },
-  { code: 'BHD', symbol: '.Ø¯.Ø¨', label: 'BHD â€” Bahraini Dinar' },
-  { code: 'OMR', symbol: 'ï·¼',   label: 'OMR â€” Omani Rial' },
-  { code: 'JOD', symbol: 'JD',  label: 'JOD â€” Jordanian Dinar' },
-  { code: 'MAD', symbol: 'MAD', label: 'MAD â€” Moroccan Dirham' },
-  { code: 'UAH', symbol: 'â‚´',   label: 'UAH â€” Ukrainian Hryvnia' },
+  { code: 'USD', symbol: '$',    label: 'USD — US Dollar' },
+  { code: 'EUR', symbol: '€',   label: 'EUR — Euro' },
+  { code: 'GBP', symbol: '£',   label: 'GBP — British Pound' },
+  { code: 'JPY', symbol: '¥',   label: 'JPY — Japanese Yen' },
+  { code: 'CAD', symbol: 'CA$', label: 'CAD — Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$',  label: 'AUD — Australian Dollar' },
+  { code: 'CHF', symbol: 'Fr',  label: 'CHF — Swiss Franc' },
+  { code: 'CNY', symbol: '¥',   label: 'CNY — Chinese Yuan' },
+  { code: 'HKD', symbol: 'HK$', label: 'HKD — Hong Kong Dollar' },
+  { code: 'SGD', symbol: 'S$',  label: 'SGD — Singapore Dollar' },
+  { code: 'MXN', symbol: 'MX$', label: 'MXN — Mexican Peso' },
+  { code: 'BRL', symbol: 'R$',  label: 'BRL — Brazilian Real' },
+  { code: 'INR', symbol: '₹',   label: 'INR — Indian Rupee' },
+  { code: 'KRW', symbol: '₩',   label: 'KRW — South Korean Won' },
+  { code: 'SEK', symbol: 'kr',  label: 'SEK — Swedish Krona' },
+  { code: 'NOK', symbol: 'kr',  label: 'NOK — Norwegian Krone' },
+  { code: 'DKK', symbol: 'kr',  label: 'DKK — Danish Krone' },
+  { code: 'NZD', symbol: 'NZ$', label: 'NZD — New Zealand Dollar' },
+  { code: 'ZAR', symbol: 'R',   label: 'ZAR — South African Rand' },
+  { code: 'AED', symbol: 'د.إ', label: 'AED — UAE Dirham' },
+  { code: 'SAR', symbol: '﷼',   label: 'SAR — Saudi Riyal' },
+  { code: 'THB', symbol: '฿',   label: 'THB — Thai Baht' },
+  { code: 'MYR', symbol: 'RM',  label: 'MYR — Malaysian Ringgit' },
+  { code: 'IDR', symbol: 'Rp',  label: 'IDR — Indonesian Rupiah' },
+  { code: 'PHP', symbol: '₱',   label: 'PHP — Philippine Peso' },
+  { code: 'VND', symbol: '₫',   label: 'VND — Vietnamese Dong' },
+  { code: 'LAK', symbol: '₭',   label: 'LAK — Lao Kip' },
+  { code: 'KHR', symbol: '៛',   label: 'KHR — Cambodian Riel' },
+  { code: 'TWD', symbol: 'NT$', label: 'TWD — Taiwan Dollar' },
+  { code: 'PKR', symbol: '₨',   label: 'PKR — Pakistani Rupee' },
+  { code: 'BDT', symbol: '৳',   label: 'BDT — Bangladeshi Taka' },
+  { code: 'TRY', symbol: '₺',   label: 'TRY — Turkish Lira' },
+  { code: 'RUB', symbol: '₽',   label: 'RUB — Russian Ruble' },
+  { code: 'PLN', symbol: 'zł',  label: 'PLN — Polish Złoty' },
+  { code: 'CZK', symbol: 'Kč',  label: 'CZK — Czech Koruna' },
+  { code: 'HUF', symbol: 'Ft',  label: 'HUF — Hungarian Forint' },
+  { code: 'RON', symbol: 'lei', label: 'RON — Romanian Leu' },
+  { code: 'EGP', symbol: '£',   label: 'EGP — Egyptian Pound' },
+  { code: 'NGN', symbol: '₦',   label: 'NGN — Nigerian Naira' },
+  { code: 'KES', symbol: 'KSh', label: 'KES — Kenyan Shilling' },
+  { code: 'GHS', symbol: '₵',   label: 'GHS — Ghanaian Cedi' },
+  { code: 'CLP', symbol: '$',   label: 'CLP — Chilean Peso' },
+  { code: 'COP', symbol: '$',   label: 'COP — Colombian Peso' },
+  { code: 'ARS', symbol: '$',   label: 'ARS — Argentine Peso' },
+  { code: 'PEN', symbol: 'S/',  label: 'PEN — Peruvian Sol' },
+  { code: 'ILS', symbol: '₪',   label: 'ILS — Israeli New Shekel' },
+  { code: 'QAR', symbol: '﷼',   label: 'QAR — Qatari Riyal' },
+  { code: 'KWD', symbol: 'د.ك', label: 'KWD — Kuwaiti Dinar' },
+  { code: 'BHD', symbol: '.د.ب', label: 'BHD — Bahraini Dinar' },
+  { code: 'OMR', symbol: '﷼',   label: 'OMR — Omani Rial' },
+  { code: 'JOD', symbol: 'JD',  label: 'JOD — Jordanian Dinar' },
+  { code: 'MAD', symbol: 'MAD', label: 'MAD — Moroccan Dirham' },
+  { code: 'UAH', symbol: '₴',   label: 'UAH — Ukrainian Hryvnia' },
 ];
 
 function fmt(v: number, currency: string) {
@@ -200,7 +200,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     finally { setImgLoading(false); }
   }, []);
 
-  /* activeOrderId â€” works in both detail drawer and edit form */
+  /* activeOrderId — works in both detail drawer and edit form */
   const activeOrderId = editingId ?? selected?.id ?? null;
 
   useEffect(() => {
@@ -238,7 +238,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         setOrders(prev => [created, ...prev]);
         setEditingId(created.id);
         orderId = created.id;
-        notify('Order saved â€” uploading photosâ€¦');
+        notify('Order saved — uploading photos…');
       } catch (e: unknown) {
         const msg = (e as Record<string, unknown>)?.message as string || 'Auto-save failed.';
         setFormError(msg);
@@ -261,7 +261,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         console.error('Image upload error:', err);
       }
     }
-    if (uploaded > 0) notify(`âœ“ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
+    if (uploaded > 0) notify(`✓ ${uploaded} file${uploaded > 1 ? 's' : ''} uploaded.`);
     setUploadingImg(false);
   }
 
@@ -299,7 +299,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       setError(`Could not load parts orders: ${msg}`);
     }
     if (vendorsR.status === 'fulfilled')   { setVendors(vendorsR.value); }
-    else if (ordersR.status === 'fulfilled') setError('Vendor list unavailable â€” check parts_vendors table permissions.');
+    else if (ordersR.status === 'fulfilled') setError('Vendor list unavailable — check parts_vendors table permissions.');
     if (customersR.status === 'fulfilled') setCustomers(customersR.value);
     if (vehiclesR.status === 'fulfilled')  setVehicles(vehiclesR.value);
     setLoading(false);
@@ -375,7 +375,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     setSelected(null); setShowForm(true);
   }
 
-  /* step 1: form submit â†’ show confirm modal */
+  /* step 1: form submit → show confirm modal */
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     const hasItem = form.lineItems.some(i => i.partName.trim());
@@ -383,7 +383,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     setShowConfirm(true);
   }
 
-  /* step 2: confirmed â†’ save */
+  /* step 2: confirmed → save */
   async function handleConfirmedSave() {
     setShowConfirm(false);
     setSaving(true);
@@ -411,15 +411,15 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       if (editingId) {
         const updated = await updatePartsOrder(editingId, payload);
         setOrders(prev => prev.map(o => o.id === editingId ? updated : o));
-        notify(`âœ“ Order updated.`);
+        notify(`✓ Order updated.`);
       } else {
         const created = await createPartsOrder(payload);
         setOrders(prev => [created, ...prev]);
-        notify(`âœ“ Order saved.`);
+        notify(`✓ Order saved.`);
       }
       setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER);
     } catch (e: unknown) {
-      const msg = (e as Record<string, unknown>)?.message as string || 'Save failed â€” please try again.';
+      const msg = (e as Record<string, unknown>)?.message as string || 'Save failed — please try again.';
       setFormError(msg);
     } finally { setSaving(false); }
   }
@@ -458,7 +458,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       } else {
         setF({ estimateNumber: est.estimateNumber });
       }
-      notify(`âœ“ Estimate ${est.estimateNumber} created`);
+      notify(`✓ Estimate ${est.estimateNumber} created`);
       setTimeout(() => {
         setSelected(null); setShowForm(false);
         dispatch({ type: 'SET_MODULE', module: 'estimates' });
@@ -504,7 +504,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       } else {
         setF({ invoiceNumber: inv.invoiceNumber });
       }
-      notify(`âœ“ Invoice ${inv.invoiceNumber} created`);
+      notify(`✓ Invoice ${inv.invoiceNumber} created`);
       setTimeout(() => {
         setSelected(null); setShowForm(false);
         dispatch({ type: 'SET_MODULE', module: 'invoices' });
@@ -535,10 +535,10 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       await deletePartsOrder(o.id);
       setOrders(prev => prev.filter(x => x.id !== o.id));
       setSelected(null);
-      notify('âœ“ Converted to Parts Quotation â€” order removed');
+      notify('✓ Converted to Parts Quotation — order removed');
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-estimates' }); }, 600);
     } catch (e: unknown) {
-      notify('Failed to convert â€” ' + ((e as { message?: string })?.message ?? 'unknown error'));
+      notify('Failed to convert — ' + ((e as { message?: string })?.message ?? 'unknown error'));
     }
   }
 
@@ -615,7 +615,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   /* filters */
   const ON_ORDER_STATUSES = ['Quote', 'Ordered', 'Deposit Paid', 'Waiting Customer', 'Pending Customer', 'Backordered'];
   const visible = orders.filter(o => {
-    // Received orders belong exclusively in Parts Received â€” hide them here unless
+    // Received orders belong exclusively in Parts Received — hide them here unless
     // this view IS the received view (initialFilterGroup === 'received').
     if (initialFilterGroup !== 'received' && o.status === 'Received') return false;
     if (filterGroup === 'on-order' && !ON_ORDER_STATUSES.includes(o.status)) return false;
@@ -683,29 +683,29 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   };
   const tdStyle: React.CSSProperties = { padding: '6px 6px 6px 0', verticalAlign: 'top' };
 
-  /* â”€â”€â”€ confirm summary â”€â”€â”€ */
+  /* ─── confirm summary ─── */
   const confirmSummary = () => {
     const cur = form.currency;
     const rows: { label: string; value: string; highlight?: boolean }[] = [];
     form.lineItems.forEach((item, idx) => {
       rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(),
         value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
-      rows.push({ label: '  Qty / Condition', value: `${item.quantity} Ã— ${item.condition}` });
+      rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
       const iCur = item.currency || cur;
-      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} â†’ ${fmt(item.unitCost * item.quantity, iCur)}` });
+      rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} → ${fmt(item.unitCost * item.quantity, iCur)}` });
       if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
     });
     rows.push(
-      { label: 'Vendor',       value: form.vendorName || 'â€”' },
-      { label: 'Customer',     value: form.customerName || 'â€”' },
-      { label: 'Vehicle',      value: form.vehicle || 'â€”' },
+      { label: 'Vendor',       value: form.vendorName || '—' },
+      { label: 'Customer',     value: form.customerName || '—' },
+      { label: 'Vehicle',      value: form.vehicle || '—' },
       { label: 'Parts Total',  value: fmt(form.totalCost, cur) },
       { label: 'Core Charge',  value: fmt(form.coreCharge, cur) },
       { label: 'Deposit Paid', value: fmt(form.depositPaid, cur) },
       { label: 'Balance Due',  value: fmt(form.balanceDue, cur), highlight: form.balanceDue > 0 },
       { label: 'Currency',     value: cur },
       { label: 'Status',       value: form.status },
-      { label: 'ETR',          value: form.etr ? new Date(form.etr).toLocaleDateString() : 'â€”' },
+      { label: 'ETR',          value: form.etr ? new Date(form.etr).toLocaleDateString() : '—' },
     );
     return rows;
   };
@@ -722,7 +722,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
       {error && (
         <div style={{ marginBottom: 12, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#ef4444', borderRadius: 8, fontSize: 13 }}>
-          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>âœ•</button>
+          {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>✕</button>
         </div>
       )}
 
@@ -744,7 +744,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           <div style={{ fontSize: 26, fontWeight: 900, color: '#22c55e' }}>{totalReceived}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>this shop</div>
         </div>
-        {/* Balance Due â€” multi-currency */}
+        {/* Balance Due — multi-currency */}
         <div onClick={() => setFilterGroup(filterGroup === 'balance' ? null : 'balance')}
           className="card-hero"
           style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'balance' ? { border: '2px solid #ef4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
@@ -770,13 +770,13 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           )}
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>outstanding to vendors</div>
         </div>
-        {/* Deposits Paid â€” multi-currency */}
+        {/* Deposits Paid — multi-currency */}
         <div onClick={() => setFilterGroup(filterGroup === 'deposits' ? null : 'deposits')}
           className="card-hero"
           style={{ borderRadius: 12, padding: '16px 20px', cursor: 'pointer', transition: 'all .15s', ...(filterGroup === 'deposits' ? { border: '2px solid #8b5cf6', boxShadow: '0 0 0 3px rgba(139,92,246,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>Deposits Paid</div>
           {Object.entries(depositsByCurrency).filter(([, v]) => v > 0).length === 0 ? (
-            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>â€”</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--muted)' }}>—</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {Object.entries(depositsByCurrency)
@@ -801,7 +801,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search part, vendor, job card, vehicleâ€¦"
+          placeholder="Search part, vendor, job card, vehicle…"
           style={{ flex: 1, minWidth: 220, padding: '9px 14px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, background: 'var(--surface-soft)' }} />
         <select value={filterVendor} onChange={e => setFilterVendor(e.target.value)}
           style={{ padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--surface-soft)', fontSize: 13 }}>
@@ -816,7 +816,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
       {/* Table */}
       {loading
-        ? <p style={{ color: 'var(--muted)', padding: 16 }}>Loadingâ€¦</p>
+        ? <p style={{ color: 'var(--muted)', padding: 16 }}>Loading…</p>
         : visible.length === 0
           ? <p style={{ color: 'var(--muted)', padding: 16 }}>No parts orders yet. Click "+ New Parts Order" to start tracking.</p>
           : (
@@ -859,13 +859,13 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                         <td>
                           <div style={{ fontWeight: 600, fontSize: 13 }}>{firstItem.partName}</div>
                           {firstItem.partNumber && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.partNumber}</div>}
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} Â· qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{firstItem.condition} · qty {items.reduce((s, i) => s + i.quantity, 0)}</div>
                           {items.length > 1 && (
                             <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 2 }}>+{items.length - 1} more part{items.length > 2 ? 's' : ''}</div>
                           )}
                         </td>
                         <td>
-                          <div style={{ fontSize: 13 }}>{o.vendorName || 'â€”'}</div>
+                          <div style={{ fontSize: 13 }}>{o.vendorName || '—'}</div>
                           {o.vendorPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{o.vendorPhone}</div>}
                         </td>
                         <td>{fmt(o.totalCost, oc)}</td>
@@ -881,7 +881,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                             {o.paymentStatus}
                           </span>
                         </td>
-                        <td style={{ fontSize: 12 }}>{o.etr ? new Date(o.etr).toLocaleDateString() : 'â€”'}</td>
+                        <td style={{ fontSize: 12 }}>{o.etr ? new Date(o.etr).toLocaleDateString() : '—'}</td>
                         <td onClick={e => e.stopPropagation()}>
                           <div className="row-actions">
                             <button className="mini-btn" onClick={() => openEdit(o)}>Edit</button>
@@ -897,13 +897,13 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           )
       }
 
-      {/* â”€â”€ Detail Drawer â”€â”€ */}
+      {/* ── Detail Drawer ── */}
       {/* Lightbox */}
       {lightbox && (
         <div onClick={() => setLightbox(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button onClick={() => setLightbox(null)}
-            style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>âœ•</button>
+            style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
           <img src={lightbox} alt="" onClick={e => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
@@ -922,8 +922,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>âœ Edit</button>
-                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>âœ•</button>
+                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>✕</button>
               </div>
             </div>
 
@@ -940,7 +940,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
                       {item.vendorName && (
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                          ðŸ­ {item.vendorName}
+                          🏭 {item.vendorName}
                         </span>
                       )}
                     </div>
@@ -975,8 +975,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 <>
                   <SectionLabel label="Customer & Vehicle" />
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {selected.customerName && <div style={{ fontSize: 13 }}>ðŸ‘¤ <strong>{selected.customerName}</strong></div>}
-                    {selected.vehicle && <div style={{ fontSize: 13 }}>ðŸš— {selected.vehicle}</div>}
+                    {selected.customerName && <div style={{ fontSize: 13 }}>👤 <strong>{selected.customerName}</strong></div>}
+                    {selected.vehicle && <div style={{ fontSize: 13 }}>🚗 {selected.vehicle}</div>}
                   </div>
                 </>
               )}
@@ -993,24 +993,24 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 </>
               )}
 
-              {/* â”€â”€ Photos & Invoices â”€â”€ */}
+              {/* ── Photos & Invoices ── */}
               <SectionLabel label="Photos & Invoices" />
               <div style={{ marginBottom: 20 }}>
                 {/* Upload controls */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
                     style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', fontSize: 13 }}>
-                    <option value="Photo">ðŸ“· Photo</option>
-                    <option value="Invoice">ðŸ§¾ Invoice</option>
+                    <option value="Photo">📷 Photo</option>
+                    <option value="Invoice">🧾 Invoice</option>
                   </select>
                   <label style={{ flex: 1, minWidth: 140, padding: '7px 14px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', textAlign: 'center', display: 'block' }}>
-                    {uploadingImg ? 'Uploadingâ€¦' : '+ Add Images'}
+                    {uploadingImg ? 'Uploading…' : '+ Add Images'}
                     <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
                       onChange={e => handleImageUpload(e.target.files)} />
                   </label>
                 </div>
 
-                {imagesLoading && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Loading imagesâ€¦</p>}
+                {imagesLoading && <p style={{ fontSize: 12, color: 'var(--muted)' }}>Loading images…</p>}
 
                 {/* Image grid with drag-to-reorder */}
                 {images.length > 0 && (
@@ -1036,12 +1036,12 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                         />
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 6px' }}>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                            {img.label === 'Invoice' ? 'ðŸ§¾' : 'ðŸ“·'}
+                            {img.label === 'Invoice' ? '🧾' : '📷'}
                           </span>
                           <button
                             onClick={e => { e.stopPropagation(); handleDeleteImage(img); }}
                             style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 13, padding: '1px 5px', lineHeight: 1 }}>
-                            âœ•
+                            ✕
                           </button>
                         </div>
                       </div>
@@ -1064,7 +1064,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                   { label: 'ETR',        value: selected.etr },
                   { label: 'Received',   value: selected.receivedDate },
                 ].map(({ label, value }) => (
-                  <InfoBox key={label} label={label} value={value ? new Date(value).toLocaleDateString() : 'â€”'} />
+                  <InfoBox key={label} label={label} value={value ? new Date(value).toLocaleDateString() : '—'} />
                 ))}
               </div>
 
@@ -1075,37 +1075,37 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {selected.jobCardNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>ðŸ—‚ Job Card: <strong>{selected.jobCardNumber}</strong></span>
+                        <span>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('job-cards', 'open-job-card', { jobCardId: selected.jobCardNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open â†’
+                          Open →
                         </button>
                       </div>
                     )}
                     {selected.repairOrderNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>ðŸ”§ Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
+                        <span>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('repair-orders', 'open-ro', { roNumber: selected.repairOrderNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open â†’
+                          Open →
                         </button>
                       </div>
                     )}
                     {selected.estimateNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>ðŸ“‹ Estimate: <strong>{selected.estimateNumber}</strong></span>
+                        <span>📋 Estimate: <strong>{selected.estimateNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('estimates', 'open-estimate', { estimateNumber: selected.estimateNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open â†’
+                          Open →
                         </button>
                       </div>
                     )}
                     {selected.invoiceNumber && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span>ðŸ§¾ Invoice: <strong>{selected.invoiceNumber}</strong></span>
+                        <span>🧾 Invoice: <strong>{selected.invoiceNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('invoices', 'open-invoice', { invoiceNumber: selected.invoiceNumber })}
                           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
-                          Open â†’
+                          Open →
                         </button>
                       </div>
                     )}
@@ -1125,18 +1125,18 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => handleCreateEstimate(selected)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                  ðŸ“‹ Create Estimate
+                  📋 Create Estimate
                 </button>
                 <button onClick={() => handleCreateInvoice(selected)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                  ðŸ§¾ Create Invoice
+                  🧾 Create Invoice
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>âœ Edit Order</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
                 <button onClick={() => handleConvertToQuotation(selected)}
                   style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  â‡„ To Quotation
+                  ⇄ To Quotation
                 </button>
                 <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
                 <button className="btn" onClick={() => setSelected(null)}>Close</button>
@@ -1146,49 +1146,49 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         </>
       )}
 
-      {/* â”€â”€ Add/Edit Form Modal â”€â”€ */}
+      {/* ── Add/Edit Form Modal ── */}
       {showForm && (
         <div onClick={() => { setShowForm(false); setEditingId(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? 'âœ Edit Parts Order' : '+ New Parts Order'}</span>
+                <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Order' : '+ New Parts Order'}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: '#cc0000', color: '#fff' }}>v3</span>
               </div>
               <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', lineHeight: 1 }}>âœ•</button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', lineHeight: 1 }}>✕</button>
             </div>
 
             {formError && (
               <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,.1)', color: '#dc2626', borderRadius: 8, fontSize: 13, fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>âš  {formError}</span>
-                <button onClick={() => setFormError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16 }}>âœ•</button>
+                <span>⚠ {formError}</span>
+                <button onClick={() => setFormError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16 }}>✕</button>
               </div>
             )}
 
-            {/* â”€â”€ Photos & Invoices â€” outside form so it's always visible â”€â”€ */}
+            {/* ── Photos & Invoices — outside form so it's always visible ── */}
             <div style={{ marginBottom: 20, padding: '14px 16px', background: 'rgba(239,68,68,0.06)', border: '2px solid #cc0000', borderRadius: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap' }}>ðŸ“Ž Photos &amp; Invoices</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap' }}>📎 Photos &amp; Invoices</span>
                 <select value={imgLabel} onChange={e => setImgLabel(e.target.value as 'Photo' | 'Invoice')}
                   style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--card)', fontSize: 13 }}>
-                  <option value="Photo">ðŸ“· Photo</option>
-                  <option value="Invoice">ðŸ§¾ Invoice</option>
+                  <option value="Photo">📷 Photo</option>
+                  <option value="Invoice">🧾 Invoice</option>
                 </select>
                 <label style={{ padding: '7px 16px', borderRadius: 7, background: '#cc0000', color: '#fff', fontWeight: 700, fontSize: 13, cursor: uploadingImg ? 'not-allowed' : 'pointer', opacity: uploadingImg ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                  {uploadingImg ? 'Uploadingâ€¦' : '+ Add Images / Invoices'}
+                  {uploadingImg ? 'Uploading…' : '+ Add Images / Invoices'}
                   <input type="file" multiple accept="image/*,application/pdf,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} disabled={uploadingImg}
                     onChange={e => handleImageUpload(e.target.files)} />
                 </label>
-                {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loadingâ€¦</span>}
+                {imagesLoading && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Loading…</span>}
               </div>
               <>
-                  {/* Drop zone â€” accepts any file dragged from OS */}
+                  {/* Drop zone — accepts any file dragged from OS */}
                   <div style={{ display: 'block', marginTop: 10, border: '2px dashed #cc000066', borderRadius: 8, padding: '10px', textAlign: 'center', cursor: 'default', background: 'var(--card)', fontSize: 13, color: 'var(--muted)' }}
                     onDragOver={e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = '#cc0000'; }}
                     onDragLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; }}
                     onDrop={async e => { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).style.borderColor = ''; await handleImageUpload(e.dataTransfer.files); }}>
-                    ðŸ“Ž Drag &amp; drop photos, invoices, or PDFs here
+                    📎 Drag &amp; drop photos, invoices, or PDFs here
                   </div>
                   {images.length > 0 && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
@@ -1204,7 +1204,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                             {isPdf ? (
                               <a href={img.url} target="_blank" rel="noreferrer"
                                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
-                                <span style={{ fontSize: 32 }}>ðŸ“„</span>
+                                <span style={{ fontSize: 32 }}>📄</span>
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
                               </a>
                             ) : (
@@ -1214,10 +1214,10 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                             )}
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
-                                {img.label === 'Invoice' ? 'ðŸ§¾' : 'ðŸ“·'} {img.label}
+                                {img.label === 'Invoice' ? '🧾' : '📷'} {img.label}
                               </span>
                               <button type="button" onClick={() => handleDeleteImage(img)}
-                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>âœ•</button>
+                                style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: 4, color: '#fff', cursor: 'pointer', fontSize: 12, padding: '1px 5px' }}>✕</button>
                             </div>
                           </div>
                         );
@@ -1232,16 +1232,16 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
             <form onSubmit={handleFormSubmit}>
 
-              {/* â”€â”€ Action bar (top) â”€â”€ */}
+              {/* ── Action bar (top) ── */}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => handleCreateEstimate()}
                     style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                    ðŸ“‹ Create Estimate
+                    📋 Create Estimate
                   </button>
                   <button type="button" onClick={() => handleCreateInvoice()}
                     style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                    ðŸ§¾ Create Invoice
+                    🧾 Create Invoice
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
@@ -1252,7 +1252,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 </div>
               </div>
 
-              {/* â”€â”€ Parts Table â”€â”€ */}
+              {/* ── Parts Table ── */}
               <FormSection label="Parts" />
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -1294,7 +1294,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                             onChange={e => updateLineItem(idx, 'vendorName', e.target.value)}
                             style={{ ...cellInput, paddingRight: 6, minWidth: 130 }}
                           >
-                            <option value="">â€” Vendor â€”</option>
+                            <option value="">— Vendor —</option>
                             {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                             {item.vendorName && !vendors.find(v => v.name === item.vendorName) && (
                               <option value={item.vendorName}>{item.vendorName}</option>
@@ -1345,7 +1345,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                           {form.lineItems.length > 1 && (
                             <button type="button" onClick={() => removeLineItem(idx)}
                               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>
-                              âœ•
+                              ✕
                             </button>
                           )}
                         </td>
@@ -1359,12 +1359,12 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 + Add Part
               </button>
 
-              {/* â”€â”€ Customer & Vehicle â”€â”€ */}
+              {/* ── Customer & Vehicle ── */}
               <FormSection label="Customer & Vehicle" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 {field('Customer', (
                   <select value={form.customerName} onChange={e => handleCustomerSelect(e.target.value)} style={selStyle}>
-                    <option value="">â€” Select customer â€”</option>
+                    <option value="">— Select customer —</option>
                     {customers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     {form.customerName && !customers.find(c => c.name === form.customerName) && (
                       <option value={form.customerName}>{form.customerName}</option>
@@ -1373,7 +1373,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 ))}
                 {field('Vehicle', (
                   <select value={form.vehicle} onChange={e => setF({ vehicle: e.target.value })} style={selStyle}>
-                    <option value="">â€” Select vehicle â€”</option>
+                    <option value="">— Select vehicle —</option>
                     {customerVehicles.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
                     {form.vehicle && !customerVehicles.find(v => v.label === form.vehicle) && (
                       <option value={form.vehicle}>{form.vehicle}</option>
@@ -1382,7 +1382,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 ))}
               </div>
 
-              {/* â”€â”€ Vendor â”€â”€ */}
+              {/* ── Vendor ── */}
               <FormSection label="Default Vendor (auto-fills new rows)" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <div className="login-field">
@@ -1390,7 +1390,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                   <div style={{ display: 'flex', gap: 8 }}>
                     <select value={form.vendorName} onChange={e => handleVendorSelect(e.target.value)}
                       style={{ ...selStyle, flex: 1 }}>
-                      <option value="">â€” Select vendor â€”</option>
+                      <option value="">— Select vendor —</option>
                       {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                       {form.vendorName && !vendors.find(v => v.name === form.vendorName) && (
                         <option value={form.vendorName}>{form.vendorName}</option>
@@ -1406,7 +1406,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--text)'; e.currentTarget.style.color = 'var(--surface)'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text)'; }}
                       style={{ padding: '8px 12px', borderRadius: 999, border: '1.5px solid var(--text)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s' }}>
-                      âš™ Manage
+                      ⚙ Manage
                     </button>
                   </div>
                 </div>
@@ -1414,7 +1414,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 {field('Vendor Email', inp('email', form.vendorEmail, v => setF({ vendorEmail: v }), 'parts@vendor.com'))}
               </div>
 
-              {/* â”€â”€ Pricing â”€â”€ */}
+              {/* ── Pricing ── */}
               <FormSection label="Pricing" />
               <div style={{ marginBottom: 10 }}>
                 {field('Currency', (
@@ -1442,7 +1442,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 <CalcBox label="Payment" value={form.paymentStatus} color={PAY_COLOR[form.paymentStatus]} />
               </div>
 
-              {/* â”€â”€ Status & Dates â”€â”€ */}
+              {/* ── Status & Dates ── */}
               <FormSection label="Status & Dates" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 {field('Order Status', <select value={form.status} onChange={e => setF({ status: e.target.value })} style={selStyle}>{ORDER_STATUSES.map(o => <option key={o}>{o}</option>)}</select>)}
@@ -1451,7 +1451,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 {field('Received Date', inp('date', form.receivedDate, v => setF({ receivedDate: v })))}
               </div>
 
-              {/* â”€â”€ Linked Records â”€â”€ */}
+              {/* ── Linked Records ── */}
               <FormSection label="Linked Records" />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 {field('Job Card #', inp('text', form.jobCardNumber, v => setF({ jobCardNumber: v }), 'e.g. JC-1042'))}
@@ -1460,10 +1460,10 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 {field('Invoice #', inp('text', form.invoiceNumber, v => setF({ invoiceNumber: v }), 'e.g. INV-0001'))}
               </div>
 
-              {/* â”€â”€ Warranty & Notes â”€â”€ */}
+              {/* ── Warranty & Notes ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 24 }}>
                 {field('Warranty', inp('text', form.warranty, v => setF({ warranty: v }), 'e.g. 12 months / 12,000 miles'), true)}
-                {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Any additional notesâ€¦" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
+                {field('Notes', <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={2} placeholder="Any additional notes…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', fontSize: 13, resize: 'vertical', width: '100%' }} />, true)}
               </div>
 
 
@@ -1472,7 +1472,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         </div>
       )}
 
-      {/* â”€â”€ Confirm Save Modal â”€â”€ */}
+      {/* ── Confirm Save Modal ── */}
       {showConfirm && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowConfirm(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
@@ -1493,16 +1493,16 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
             </div>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn" onClick={() => { setShowConfirm(false); }}>â† Back to Edit</button>
+              <button className="btn" onClick={() => { setShowConfirm(false); }}>← Back to Edit</button>
               <button className="btn btn-primary" onClick={handleConfirmedSave} disabled={saving}>
-                {saving ? 'Savingâ€¦' : editingId ? 'âœ“ Confirm Update' : 'âœ“ Confirm & Save'}
+                {saving ? 'Saving…' : editingId ? '✓ Confirm Update' : '✓ Confirm & Save'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* â”€â”€ Vendor Manager Modal â”€â”€ */}
+      {/* ── Vendor Manager Modal ── */}
       {showVendorModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); } }}>
@@ -1511,7 +1511,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>Vendor Manager</div>
               <button onClick={() => { setShowVendorModal(false); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setVendorTab('list'); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>âœ•</button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>✕</button>
             </div>
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
@@ -1521,7 +1521,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
               </button>
               <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
                 style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
-                {editingVendorId ? 'âœ Edit Vendor' : '+ Add Vendor'}
+                {editingVendorId ? '✏ Edit Vendor' : '+ Add Vendor'}
               </button>
             </div>
 
@@ -1543,11 +1543,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => openEditVendor(v)}
                             style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                            âœ Edit
+                            ✏ Edit
                           </button>
                           <button onClick={() => handleDeleteVendor(v.id, v.name)}
                             style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                            ðŸ—‘ Remove
+                            🗑 Remove
                           </button>
                         </div>
                       </div>
@@ -1572,9 +1572,9 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 <div className="login-field"><label>Website</label><input value={vendorForm.website} onChange={e => setVendorForm(f => ({ ...f, website: e.target.value }))} placeholder="www.vendor.com" /></div>
                 <div className="login-field"><label>Account # / Notes</label><input value={vendorForm.notes} onChange={e => setVendorForm(f => ({ ...f, notes: e.target.value }))} placeholder="Account #, terms, net-30, etc." /></div>
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button type="button" className="btn" onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}>â† Back</button>
+                  <button type="button" className="btn" onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}>← Back</button>
                   <button type="submit" className="btn btn-primary" disabled={savingVendor}>
-                    {savingVendor ? 'Savingâ€¦' : editingVendorId ? 'âœ“ Save Changes' : '+ Add Vendor'}
+                    {savingVendor ? 'Saving…' : editingVendorId ? '✓ Save Changes' : '+ Add Vendor'}
                   </button>
                 </div>
               </form>
@@ -1586,7 +1586,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   );
 }
 
-/* â”€â”€ tiny sub-components to reduce repetition â”€â”€ */
+/* ── tiny sub-components to reduce repetition ── */
 function SectionLabel({ label }: { label: string }) {
   return <div className="section-label">{label}</div>;
 }

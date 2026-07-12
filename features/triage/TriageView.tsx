@@ -1,15 +1,15 @@
-﻿'use client';
+'use client';
 
 /**
- * Automotive Triage Engine â€” Main View
+ * Automotive Triage Engine — Main View
  * Epic 1 / Feature 1.1
  *
- * Workflow: Vehicle â†’ Category â†’ Questions â†’ Tech Notes â†’ Summary â†’ Job Card
+ * Workflow: Vehicle → Category → Questions → Tech Notes → Summary → Job Card
  *
  * Operates in three modes:
- *   mock           â€” works with no AI key (default)
- *   knowledge_graph â€” queries internal graph for similar vehicle insights
- *   ai             â€” future hook (triageContextBuilder feeds the LLM)
+ *   mock           — works with no AI key (default)
+ *   knowledge_graph — queries internal graph for similar vehicle insights
+ *   ai             — future hook (triageContextBuilder feeds the LLM)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -34,7 +34,7 @@ import { QuestionsStep }  from './steps/QuestionsStep';
 import { TechNotesStep }  from './steps/TechNotesStep';
 import { SummaryStep }    from './steps/SummaryStep';
 
-// â”€â”€â”€ Knowledge Graph insight lookup (no AI) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Knowledge Graph insight lookup (no AI) ──────────────────────────────────
 
 async function fetchKnowledgeInsights(vehicle: TriageVehicle, categoryId: CategoryId | null): Promise<string[]> {
   if (!categoryId || !vehicle.make || !vehicle.model) return [];
@@ -64,7 +64,7 @@ async function fetchKnowledgeInsights(vehicle: TriageVehicle, categoryId: Catego
   }
 }
 
-// â”€â”€â”€ Step metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Step metadata ─────────────────────────────────────────────────────────────
 
 type Step = 'vehicle' | 'category' | 'questions' | 'tech_notes' | 'summary';
 
@@ -78,7 +78,7 @@ const STEPS: { id: Step; label: string }[] = [
 
 const engine = new QuestionEngine();
 
-// â”€â”€â”€ Default state factories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Default state factories ───────────────────────────────────────────────────
 
 function defaultVehicle(): TriageVehicle {
   return { make: '', model: '', year: '', engine: '', mileage: '', fuelType: '', transmission: '' };
@@ -95,7 +95,7 @@ function defaultTechNotes(): TechnicianNotes {
   };
 }
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function TriageView() {
   const dispatch = useAppDispatch();
@@ -146,14 +146,14 @@ export function TriageView() {
     fetchKnowledgeInsights(vehicle, categoryId).then(setInsights);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   function go(to: Step) {
     if (to === 'questions' && categoryId) engine.setCategory(categoryId);
     setStep(to);
   }
 
-  // â”€â”€ Save / convert â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Save / convert ────────────────────────────────────────────────────────
 
   const handleSaveDraft = useCallback(async () => {
     if (!session) return;
@@ -194,11 +194,11 @@ export function TriageView() {
           status:       'Active',
           recommendation: '',
         });
-      } catch { /* non-fatal â€” vehicle may already exist */ }
+      } catch { /* non-fatal — vehicle may already exist */ }
     }
 
     setSaving(false);
-    showToast('Triage saved â€” opening Job Cardsâ€¦');
+    showToast('Triage saved — opening Job Cards…');
     dispatch({
       type: 'OPEN_NEW_JOB_CARD',
       prefill: {
@@ -237,7 +237,7 @@ export function TriageView() {
         } catch { /* non-fatal */ }
       }
 
-      showToast('Inspection created â€” opening Digital Inspectionsâ€¦');
+      showToast('Inspection created — opening Digital Inspections…');
       dispatch({ type: 'SET_MODULE', module: 'inspections' });
     } catch (e) {
       showToast('Failed to create inspection');
@@ -246,7 +246,7 @@ export function TriageView() {
     }
   }, [session, dispatch]);
 
-  // â”€â”€ Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Reset ──────────────────────────────────────────────────────────────────
 
   function resetForm() {
     setStep('vehicle');
@@ -259,13 +259,13 @@ export function TriageView() {
     setStartedAt(Date.now());
   }
 
-  // â”€â”€ Step index for progress bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Step index for progress bar ────────────────────────────────────────────
 
   const stepIndex = STEPS.findIndex(s => s.id === step);
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─────────────────────────────────────────────────────────────────────────────
   // Render
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ padding: '0 0 40px' }}>
@@ -286,7 +286,7 @@ export function TriageView() {
         background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)',
         borderRadius: 8, padding: '9px 14px', marginBottom: 16, fontSize: 12, color: 'var(--muted)',
       }}>
-        <span style={{ fontSize: 15 }}>ðŸ’¡</span>
+        <span style={{ fontSize: 15 }}>💡</span>
         <span>
           <strong style={{ color: 'var(--text)' }}>Smart Intake</strong> is also available inside{' '}
           <button
@@ -295,7 +295,7 @@ export function TriageView() {
           >
             New Job Card
           </button>
-          {' '}â€” guided complaint capture without leaving the job card workflow.
+          {' '}— guided complaint capture without leaving the job card workflow.
         </span>
       </div>
 
@@ -319,7 +319,7 @@ export function TriageView() {
                 cursor: 'pointer', color: 'var(--muted)',
               }}
             >
-              â†º New Triage
+              ↺ New Triage
             </button>
           )}
         </div>
@@ -342,7 +342,7 @@ export function TriageView() {
                     fontSize: 11, fontWeight: 800,
                     color: done || current ? '#fff' : 'var(--muted)',
                   }}>
-                    {done ? 'âœ“' : i + 1}
+                    {done ? '✓' : i + 1}
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: current ? 700 : 500,
@@ -475,7 +475,7 @@ export function TriageView() {
                           color: 'var(--muted)', cursor: 'pointer', fontSize: 16, padding: '0 4px',
                         }}
                         title="Delete"
-                      >Ã—</button>
+                      >×</button>
                     )}
                   </div>
                 </div>
