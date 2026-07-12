@@ -12,7 +12,7 @@ const SLIDES = [
     headline: 'The #1 Auto Repair CRM for Modern Shops',
     sub: 'From booking to payment — manage your entire shop in one place. Built for mobile mechanics, independent shops, and multi-bay operations.',
     cta: 'Start Free 7-Day Trial',
-    badge: '4,000+ Shops Worldwide',
+    badge: 'No Credit Card Required',
     tag: null,
   },
   {
@@ -26,7 +26,7 @@ const SLIDES = [
     headline: 'Digital Inspections That Close More Jobs',
     sub: 'Send photo-based inspection reports to customers in seconds. Build trust, increase job approvals, and grow your average repair order.',
     cta: 'See How It Works',
-    badge: 'Increase ARO by 40%',
+    badge: 'Photo-Based Reports',
     tag: null,
   },
   {
@@ -116,22 +116,6 @@ const MOBILE_FEATURES = [
   { img: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=80&h=80&fit=crop&q=85', title: 'SMS & Email from the Field', desc: 'Send estimates, invoices, and follow-ups via SMS or email directly from the app — no copy-pasting, no separate tools.' },
   { img: 'https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?w=80&h=80&fit=crop&q=85', title: 'Mobile Parts Lookup', desc: 'Search your parts inventory and add items to a job card while you\'re under the hood. Reorder low-stock parts on the spot.' },
 ];
-
-const TECHS = [
-  { name: 'Marcus J.', role: 'Master Technician', img: '/marcus-j.png',  color: '#cc0000' },
-  { name: 'Tina S.',   role: 'Service Advisor',   img: '/tina-s.png',    color: '#e05500' },
-  { name: 'Rico K.',   role: 'Lead Mechanic',      img: '/rico-k.png',    color: '#9900cc' },
-  { name: 'Andre L.',  role: 'Diagnostics Spec.',  img: '/andre-l.png',   color: '#0066cc' },
-  { name: 'Priya W.',  role: 'Shop Manager',       img: '/priya-w.png',   color: '#00997a' },
-  { name: 'Damien R.', role: 'Transmission Tech',  img: '/damien-r.png',  color: '#bb6600' },
-];
-
-const MOBILE_TECH = {
-  name: 'Carlos M.',
-  role: 'Mobile Mechanic Specialist',
-  vanImg: '/carlos-m-mobile-mechanic.png',
-  personImg: '/carlos-m-mobile-mechanic.png',
-};
 
 const PRO_FEATURES   = ['Invoicing & Estimates', 'Digital Inspections', 'Parts Inventory', 'Appointments & Maintenance Schedules', 'SMS & Email Reminders', 'Time Tracking', 'Payment Collection', 'Reporting & Analytics'];
 const PLUS_FEATURES  = ['Everything in Pro', '3,000 AI Credits / mo', 'Image Attachments', 'Priority Support', 'Multi-user Access', 'Advanced Permissions', 'Dedicated Onboarding', 'SLA Response Times'];
@@ -534,61 +518,18 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
-              {TECHS.map((t, i) => (
-                <Link key={i} href="/signup" style={{ textDecoration: 'none', background: '#0d0d10', border: `1px solid ${t.color}55`, borderRadius: 14, overflow: 'hidden', position: 'relative', display: 'block', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = `0 8px 24px ${t.color}33`; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
-                >
-                  <div style={{ aspectRatio: '3/4', overflow: 'hidden' }}>
-                    <img src={t.img} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block', filter: 'brightness(0.88) contrast(1.05)' }} />
-                  </div>
-                  {/* Gradient overlay */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: `linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 50%, transparent 100%)`, padding: '20px 10px 10px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>{t.name}</div>
-                    <div style={{ fontSize: 9, color: t.color, marginTop: 2, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{t.role}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginTop: 5 }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
-                      <span style={{ fontSize: 9, color: '#22c55e' }}>Active</span>
-                    </div>
-                  </div>
-                  {/* Color accent border top */}
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: t.color }} />
-                </Link>
-              ))}
-            </div>
-
-            {/* Mobile Mechanic featured card */}
-            <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(204,0,0,0.5)', background: '#0d0d10' }}>
-              <div style={{ height: 120, overflow: 'hidden', position: 'relative' }}>
-                <img src={MOBILE_TECH.vanImg} alt="Mobile service van" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.6)' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
-                {/* Red accent top bar */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: '#cc0000' }} />
-                {/* Mobile badge */}
-                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(204,0,0,0.9)', borderRadius: 6, padding: '3px 10px', fontSize: 9, fontWeight: 800, letterSpacing: 1, color: '#fff', textTransform: 'uppercase' }}>📱 Mobile Mechanic</div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid #cc0000', overflow: 'hidden', flexShrink: 0, boxShadow: '0 0 14px rgba(204,0,0,0.4)' }}>
-                  <img src={MOBILE_TECH.personImg} alt={MOBILE_TECH.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800 }}>{MOBILE_TECH.name}</div>
-                  <div style={{ fontSize: 10, color: '#cc0000', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{MOBILE_TECH.role}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
-                  <span style={{ fontSize: 9, color: '#22c55e' }}>Active</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-              {[['4,000+','Shops Active'],['1.2M+','Invoices Sent'],['50+','Countries']].map(([v,l],i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, padding: '14px 10px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: '#cc0000' }}>{v}</div>
-                  <div style={{ fontSize: 10, color: '#777', marginTop: 4 }}>{l}</div>
+            {/* Feature highlight grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+              {[
+                { icon: '🧾', title: 'Invoices & Estimates', desc: 'Sent in seconds, paid online' },
+                { icon: '🔍', title: 'Digital Inspections', desc: 'Photo reports customers approve' },
+                { icon: '🧰', title: 'Parts & Inventory', desc: 'Track stock, link to job cards' },
+                { icon: '📱', title: 'Mobile-First', desc: 'Run your whole shop from your phone' },
+              ].map((f, i) => (
+                <div key={i} style={{ background: '#0d0d10', border: '1px solid rgba(204,0,0,0.28)', borderRadius: 14, padding: '18px 16px' }}>
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{f.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{f.title}</div>
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 4, lineHeight: 1.5 }}>{f.desc}</div>
                 </div>
               ))}
             </div>
@@ -786,7 +727,7 @@ export default function LandingPage() {
           <div style={{ background: 'rgba(204,0,0,0.1)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 18, padding: '36px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
             <div>
               <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Ready to go mobile?</h3>
-              <p style={{ color: '#aaa', fontSize: 15, maxWidth: 500 }}>Join hundreds of independent mobile mechanics already using Redlined1 to run a professional, paperless business from the road.</p>
+              <p style={{ color: '#aaa', fontSize: 15, maxWidth: 500 }}>Run a professional, paperless mobile mechanic business from the road with Redlined1.</p>
             </div>
             <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
               <Link href="/signup" style={{ background: '#cc0000', color: '#fff', padding: '13px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 15 }}>Start Free Trial →</Link>
