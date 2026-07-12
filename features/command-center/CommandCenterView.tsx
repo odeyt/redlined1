@@ -205,7 +205,7 @@ function HealthRing({ score }: { score: number }) {
   return (
     <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
       <svg width={110} height={110} viewBox="0 0 110 110">
-        <circle cx={55} cy={55} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth={9} />
+        <circle cx={55} cy={55} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={9} />
         <circle
           cx={55} cy={55} r={r} fill="none"
           stroke={cfg.ring} strokeWidth={9}
@@ -235,20 +235,20 @@ function SummaryPill({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: dimmed ? 'var(--surface)' : `linear-gradient(135deg,${accent}12,${accent}06)`,
-        border: `1.5px solid ${dimmed ? 'var(--line)' : accent + (hovered ? '70' : '40')}`,
+        background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
+        border: `1.5px solid ${dimmed ? 'rgba(255,255,255,0.14)' : accent + (hovered ? 'aa' : '80')}`,
         borderRadius: D.radius,
         padding: '14px 18px',
         display: 'flex', flexDirection: 'column', gap: 6,
         cursor: clickable ? 'pointer' : 'default',
         transform: hovered && clickable ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered && clickable ? `0 6px 20px ${accent}25` : 'none',
+        boxShadow: hovered && clickable ? `0 6px 20px rgba(0,0,0,0.35)` : '0 2px 10px rgba(0,0,0,0.2)',
         transition: 'all 0.18s ease',
       }}>
       <div style={{ fontSize: 20 }}>{icon}</div>
-      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? 'var(--text)' : accent }}>{value}</div>
-      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.9 : 0.4, fontWeight: 600, transition: 'opacity 0.15s' }}>View →</div>}
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.68)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? '#ffffff' : accent }}>{value}</div>
+      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.95 : 0.65, fontWeight: 600, transition: 'opacity 0.15s' }}>View →</div>}
     </div>
   );
 }
@@ -918,12 +918,12 @@ export function CommandCenterView() {
     <Panel title="D1 Command Center">
       {/* ── Premium Header ─────────────────────────────────── */}
       <div style={{
-        background: `linear-gradient(135deg, #0f0f14 0%, #1a0a0a 60%, #2a0e0e 100%)`,
+        background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
         borderRadius: 16,
         padding: '22px 26px',
         marginBottom: 24,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
-        boxShadow: `0 4px 32px rgba(192,57,43,0.25), inset 0 1px 0 rgba(255,255,255,0.06)`,
+        boxShadow: `0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
         position: 'relative', overflow: 'hidden',
       }}>
         {/* subtle grid pattern overlay */}
@@ -987,16 +987,16 @@ export function CommandCenterView() {
           }}>
             {/* Health ring card */}
             <div style={{
-              background: `linear-gradient(135deg,${hCfg.color}10,${hCfg.color}05)`,
-              border: `2px solid ${hCfg.color}40`,
+              background: `linear-gradient(135deg, #1b4965 0%, #0d2436 100%)`,
+              border: `2px solid ${hCfg.color}60`,
               borderRadius: D.radius,
               padding: '20px 24px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               gap: 8, minWidth: 140,
-              boxShadow: `0 0 24px ${hCfg.color}20`,
+              boxShadow: `0 2px 14px rgba(0,0,0,0.25)`,
             }}>
               <HealthRing score={score} />
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.68)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                 Shop Health
               </div>
             </div>
