@@ -131,7 +131,7 @@ export function MorningBriefModal({
       }}>
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg,#0f0f14,#1a0a0a,#2a0e0e)',
+          background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)',
           padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         }}>
           <div>

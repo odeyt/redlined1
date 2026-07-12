@@ -688,7 +688,7 @@ export function PartsEstimatesView() {
     <div style={{ padding: '20px 24px' }}>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: '#111', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
           {toast}
         </div>
       )}

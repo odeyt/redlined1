@@ -273,7 +273,8 @@ export function TriageView() {
       {toast && (
         <div style={{
           position: 'fixed', top: 72, right: 24, zIndex: 9999,
-          background: '#1a1a1a', border: '1px solid #333',
+          background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)',
+          color: '#fff',
           borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600,
           boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
         }}>{toast}</div>

@@ -715,7 +715,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: '#111', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ position: 'fixed', bottom: 28, right: 28, zIndex: 2000, background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: 10 }}>
           {toast}
         </div>
       )}

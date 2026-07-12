@@ -1047,7 +1047,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
                               setSavingNewCust(false);
                             }
                           }}
-                          style={{ flex: 1, padding: '8px', borderRadius: 7, border: 'none', background: '#2563eb', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !inlineNewCust.name.trim() || savingNewCust ? 0.5 : 1 }}
+                          onMouseEnter={e => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = '#2563eb'; e.currentTarget.style.color = '#fff'; } }}
+                          onMouseLeave={e => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#2563eb'; } }}
+                          style={{ flex: 1, padding: '7px', borderRadius: 7, border: '2px solid #2563eb', background: 'transparent', color: '#2563eb', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: !inlineNewCust.name.trim() || savingNewCust ? 0.5 : 1, transition: 'background .15s, color .15s' }}
                         >
                           {savingNewCust ? 'Saving…' : 'Create & Assign'}
                         </button>

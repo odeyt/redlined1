@@ -867,6 +867,7 @@ export function JobCardsView() {
       {/* ── STATS ── */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <StatCard
+          className="card-hero"
           label="Active Jobs"
           value={String(jobs.length)}
           subtext="In queue"
@@ -876,6 +877,7 @@ export function JobCardsView() {
           trend={jobs.length > 0 ? { value: jobs.filter(j => j.approval === 'Approved').length > 0 ? Math.round((jobs.filter(j => j.approval === 'Approved').length / jobs.length) * 100) : 0, label: 'approved' } : undefined}
         />
         <StatCard
+          className="card-hero"
           label="Approved"
           value={String(jobs.filter(j => j.approval === 'Approved').length)}
           subtext="Ready to work"
@@ -884,6 +886,7 @@ export function JobCardsView() {
           onClick={() => { setTab('active'); setFilterStatus('Approved'); setFilterService(''); }}
         />
         <StatCard
+          className="card-hero"
           label="Closed This Month"
           value={String(closedJobs.length)}
           subtext="View archive"
@@ -892,6 +895,7 @@ export function JobCardsView() {
           onClick={() => { setTab('closed'); setFilterStatus(''); setFilterService(''); }}
         />
         <StatCard
+          className="card-hero"
           label="Technicians"
           value={String(techs.length)}
           subtext="Manage staff"

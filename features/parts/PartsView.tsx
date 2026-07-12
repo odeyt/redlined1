@@ -470,7 +470,7 @@ export function PartsView() {
     <div style={{ padding: '20px 24px' }}>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#1a1a2e', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,.3)' }}>
+        <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'linear-gradient(135deg, #1b4965 0%, #0d2436 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,.3)' }}>
           {toast}
         </div>
       )}

@@ -36,9 +36,9 @@ export function DiagnosticsView() {
           <Badge text={scanStatus} />
         </div>
         <div className="grid cols-3">
-          <StatCard label="Vehicle detected" value={connected ? '2020 BMW 330i' : 'Waiting'} subtext={connected ? 'VIN WBA5R1C05LFH11223' : 'No scan tool connected'} />
-          <StatCard label="Protocol" value={connected ? 'ISO 15765-4 CAN' : '--'} subtext="OBD-II" />
-          <StatCard label="Linked Job Card" value="JC-3110" subtext="Diagnostic report source" />
+          <StatCard className="card-hero" label="Vehicle detected" value={connected ? '2020 BMW 330i' : 'Waiting'} subtext={connected ? 'VIN WBA5R1C05LFH11223' : 'No scan tool connected'} />
+          <StatCard className="card-hero" label="Protocol" value={connected ? 'ISO 15765-4 CAN' : '--'} subtext="OBD-II" />
+          <StatCard className="card-hero" label="Linked Job Card" value="JC-3110" subtext="Diagnostic report source" />
         </div>
       </Panel>
 

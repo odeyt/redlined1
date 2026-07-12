@@ -19,8 +19,8 @@ export function StatCard({ label, value, subtext, accent, active, onClick, trend
       style={{
         cursor: isClickable ? 'pointer' : 'default',
         borderBottom: accent ? `3px solid ${accent}` : undefined,
-        background: active ? `${accent}10` : undefined,
-        boxShadow: active ? `0 0 0 2px ${accent}40, var(--shadow)` : undefined,
+        border: active && accent ? `2px solid ${accent}` : undefined,
+        boxShadow: active && accent ? `0 0 0 1px ${accent}66, 0 0 14px ${accent}66, var(--shadow)` : undefined,
         transition: 'box-shadow 0.15s, background 0.15s, transform 0.1s',
         userSelect: 'none',
       }}
