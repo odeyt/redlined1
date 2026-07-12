@@ -10,9 +10,21 @@ import './landing.css';
  * page (not activated here).
  */
 export const metadata: Metadata = {
-  title: 'RedlineD1 - Automotive Business Operating System (Preview)',
+  title: 'RedlineD1 - Automotive Business OS for Repair Shops and Mobile Mechanics (Preview)',
   description:
-    'Run customers, vehicles, estimates, repair orders, invoices, staff, and shop intelligence from one connected platform.',
+    'Run customers, vehicles, estimates, repair orders, invoices, staff, and shop intelligence from one connected platform — built for repair shops and mobile mechanics.',
+  keywords: [
+    'mobile mechanic software',
+    'mobile mechanic app',
+    'auto repair shop management',
+    'mobile mechanic business tools',
+    'automotive business operating system',
+    'repair shop software',
+    'on-site estimate app',
+    'mobile invoicing for mechanics',
+    'digital job cards for mechanics',
+    'solo mechanic software',
+  ],
   robots: {
     index: false,
     follow: false,
