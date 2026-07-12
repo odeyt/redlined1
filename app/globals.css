@@ -262,11 +262,11 @@ textarea {
   padding: 10px 12px;
 }
 
-/* ── Ghost button — visible in both light and dark ── */
+/* ── Outline pill button — bordered, transparent fill, colored text ── */
 .btn {
-  border: 2px solid #aab4be;
-  background: #e4eaef;
-  color: #1a2e3d;
+  border: 2px solid var(--text);
+  background: transparent;
+  color: var(--text);
   border-radius: 999px;
   padding: 12px 26px;
   cursor: pointer;
@@ -277,55 +277,51 @@ textarea {
   font-size: 14.5px;
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 .btn:hover {
-  background: #d4dde5;
-  border-color: #8a9baa;
+  background: var(--text);
+  color: var(--surface);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-/* Primary / accent buttons */
+/* Primary / accent buttons — colored outline, fills solid on hover */
 .btn.primary,
 .btn.btn-primary {
-  background: var(--accent);
-  color: #ffffff;
+  background: transparent;
+  color: var(--accent);
   border-color: var(--accent);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
 }
 
 .btn.primary:hover,
 .btn.btn-primary:hover {
-  opacity: 0.92;
+  background: var(--accent);
+  color: #ffffff;
   transform: translateY(-1px);
   box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22);
 }
 
 .btn.success,
 .btn.btn-success {
-  background: var(--accent-2);
-  color: #ffffff;
+  background: transparent;
+  color: var(--accent-2);
   border-color: var(--accent-2);
 }
 
-/* Dark mode — restore dark surface look */
-[data-theme="dark"] .btn {
-  background: #252525;
-  border-color: #3d3d3d;
-  color: #f0f0f0;
+.btn.success:hover,
+.btn.btn-success:hover {
+  background: var(--accent-2);
+  color: #ffffff;
 }
 
-[data-theme="dark"] .btn:hover {
-  background: #2e2e2e;
-}
-
-/* ── Mini buttons ── */
+/* ── Mini buttons — same outline convention, smaller scale ── */
 .mini-btn {
-  border: 1.75px solid #aab4be;
-  background: #e4eaef;
-  color: #1a2e3d;
+  border: 1.75px solid var(--text);
+  background: transparent;
+  color: var(--text);
   border-radius: 999px;
   padding: 7px 16px;
   cursor: pointer;
@@ -333,35 +329,32 @@ textarea {
   min-height: 34px;
   font-weight: 700;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
-  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 .mini-btn:hover {
-  background: #d4dde5;
+  background: var(--text);
+  color: var(--surface);
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
 }
 
 .mini-btn.primary,
 .mini-btn.btn-primary {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mini-btn.primary:hover,
+.mini-btn.btn-primary:hover {
   background: var(--accent);
   color: #ffffff;
-  border-color: var(--accent);
 }
 
 .mini-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-[data-theme="dark"] .mini-btn {
-  background: #252525;
-  border-color: #3d3d3d;
-  color: #f0f0f0;
-}
-
-[data-theme="dark"] .mini-btn:hover {
-  background: #2e2e2e;
 }
 
 .row-actions {
