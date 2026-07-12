@@ -24,13 +24,13 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/portal', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview'];
+  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview'];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
-  // Unauthenticated visitors at / → landing page
+  // Unauthenticated visitors at / → login
   if (!session && isRoot) {
-    return NextResponse.redirect(new URL('/portal', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // If not logged in and not on a public page, redirect to login
@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If logged in and on the login or portal page, redirect to dashboard
-  if (session && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/portal')) {
+  if (session && request.nextUrl.pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
