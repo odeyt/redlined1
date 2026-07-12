@@ -142,7 +142,7 @@ function OwnerDashboard({ cases }: { cases: RepairCase[] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
       {widgets.map(w => (
-        <div key={w.label} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '14px 16px' }}>
+        <div key={w.label} className="card-hero" style={{ borderRadius: 10, padding: '14px 16px' }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>{w.value}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{w.label}</div>
         </div>
@@ -169,7 +169,7 @@ function GraphStatusWidget({ status, error }: { status: GraphStatus | null; erro
   const healthColor = health === 'Healthy' ? '#4caf50' : health === 'Building' ? '#ff9800' : '#9e9e9e';
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+    <div className="card-hero" style={{ borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <span className="section-label" style={{ display: 'inline-block' }}>Knowledge Graph</span>
         {health && (

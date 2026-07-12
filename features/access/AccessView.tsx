@@ -121,10 +121,10 @@ export function AccessView() {
   return (
     <>
       <div className="grid cols-4">
-        <StatCard label="Signed in as" value={displayName} subtext={`${myRole.charAt(0).toUpperCase() + myRole.slice(1) || 'Loading…'} · ${currentUserEmail}`} />
-        <StatCard label="Shop" value={currentShop?.name || '—'} subtext="Active location" />
-        <StatCard label="Team members" value={members.length} subtext="In this shop" />
-        <StatCard label="Session" value="Active" subtext="Authenticated" />
+        <StatCard className="card-hero" label="Signed in as" value={displayName} subtext={`${myRole.charAt(0).toUpperCase() + myRole.slice(1) || 'Loading…'} · ${currentUserEmail}`} />
+        <StatCard className="card-hero" label="Shop" value={currentShop?.name || '—'} subtext="Active location" />
+        <StatCard className="card-hero" label="Team members" value={members.length} subtext="In this shop" />
+        <StatCard className="card-hero" label="Session" value="Active" subtext="Authenticated" />
       </div>
 
       {isOwner && (

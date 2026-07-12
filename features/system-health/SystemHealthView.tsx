@@ -117,7 +117,7 @@ export function SystemHealthView() {
       </div>
 
       {/* Health Status */}
-      <Panel title="Health Check" hint="GET /api/health — real-time system status">
+      <Panel className="card-hero" title="Health Check" hint="GET /api/health — real-time system status">
         {loadingHealth ? (
           <div style={{ color: 'var(--muted)', fontSize: 13 }}>Checking health…</div>
         ) : !health ? (

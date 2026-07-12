@@ -99,10 +99,10 @@ export function LaborGuideView() {
       {toast && <div className="toast toast-visible">{toast}</div>}
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
-        <StatCard label="Unique operations" value={entries.length} subtext="In your guide" />
-        <StatCard label="Total jobs recorded" value={totalJobs} subtext="Times performed" />
-        <StatCard label="Avg standard hours" value={avgHours} subtext="Across all operations" />
-        <StatCard label="Access" value="Owner Only" subtext="Confidential" />
+        <StatCard className="card-hero" label="Unique operations" value={entries.length} subtext="In your guide" />
+        <StatCard className="card-hero" label="Total jobs recorded" value={totalJobs} subtext="Times performed" />
+        <StatCard className="card-hero" label="Avg standard hours" value={avgHours} subtext="Across all operations" />
+        <StatCard className="card-hero" label="Access" value="Owner Only" subtext="Confidential" />
       </div>
 
       <Panel

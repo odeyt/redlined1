@@ -6,14 +6,15 @@ interface StatCardProps {
   active?: boolean;  // currently selected / highlighted
   onClick?: () => void;
   trend?: { value: number; label: string }; // optional trend indicator
+  className?: string; // extra classes, e.g. "card-hero"
 }
 
-export function StatCard({ label, value, subtext, accent, active, onClick, trend }: StatCardProps) {
+export function StatCard({ label, value, subtext, accent, active, onClick, trend, className }: StatCardProps) {
   const isClickable = !!onClick;
 
   return (
     <div
-      className="card stat"
+      className={`card stat${className ? ` ${className}` : ''}`}
       onClick={onClick}
       style={{
         cursor: isClickable ? 'pointer' : 'default',
