@@ -3,7 +3,7 @@
 // ── Shared status color map used everywhere in the portal ──────────
 export const STATUS_PILL_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
   // Universal
-  'All':              { bg: '#1a1a1a',                   text: '#ffffff',  border: '#1a1a1a',                dot: '#ffffff' },
+  'All':              { bg: '#0d2436',                   text: '#ffffff',  border: '#1b4965',                dot: '#ffffff' },
 
   // Progress / workflow
   'In Progress':      { bg: 'rgba(37,99,235,0.1)',        text: '#1d4ed8',  border: 'rgba(37,99,235,0.35)',   dot: '#2563eb' },
