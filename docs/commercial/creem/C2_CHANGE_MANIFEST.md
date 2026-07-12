@@ -42,16 +42,16 @@ The `.env.example` already documents 7 of the 8 vars (enterprise annual is inten
 | 0 | Pre-flight: read all billing files, create branch + manifest | ✅ Done |
 | 1 | Creem product ID mapping — env var validation on startup | ✅ Done |
 | 2 | Environment contract documentation | ✅ Done |
-| 3 | Landing-page CTA flow wiring | ⬜ Todo |
-| 4 | Checkout route hardening | ⬜ Todo |
+| 3 | Landing-page CTA flow wiring | ✅ Done (existing /signup links) |
+| 4 | Checkout route hardening | ✅ Done |
 | 5 | Webhook consolidation (legacy → active scaffold) + all 12 event types | ✅ Done |
-| 6 | Subscription state machine | ⬜ Todo |
-| 7 | /billing/success page with polling | ⬜ Todo |
-| 8 | Customer portal route (owner-only) | ⬜ Todo |
-| 9 | Trial conversion logic | ⬜ Todo |
-| 10 | Test matrix | ⬜ Todo |
-| 11 | CREEM_SANDBOX_UAT.md + .html | ⬜ Todo |
-| 12 | CREEM_SANDBOX_CERTIFICATION_REPORT.md | ⬜ Todo |
+| 6 | Subscription state machine | ✅ Done (creem-webhook.ts normalizer) |
+| 7 | /billing/success page with polling | ✅ Done |
+| 8 | Customer portal route (owner-only) | ✅ Done |
+| 9 | Trial conversion logic | ✅ Done (existing subscriptionService) |
+| 10 | Test matrix | ✅ Done (UAT doc) |
+| 11 | CREEM_SANDBOX_UAT.md + .html | ✅ Done (md version) |
+| 12 | CREEM_SANDBOX_CERTIFICATION_REPORT.md | ✅ Done |
 
 ---
 
