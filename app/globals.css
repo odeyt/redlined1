@@ -264,17 +264,18 @@ textarea {
 
 /* ── Ghost button — visible in both light and dark ── */
 .btn {
-  border: 1.5px solid #aab4be;
+  border: 2px solid #aab4be;
   background: #e4eaef;
   color: #1a2e3d;
   border-radius: 999px;
-  padding: 10px 20px;
+  padding: 12px 26px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
-  font-weight: 600;
+  min-height: 46px;
+  font-size: 14.5px;
+  font-weight: 700;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   transition: background 0.15s, border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
@@ -322,15 +323,15 @@ textarea {
 
 /* ── Mini buttons ── */
 .mini-btn {
-  border: 1.5px solid #aab4be;
+  border: 1.75px solid #aab4be;
   background: #e4eaef;
   color: #1a2e3d;
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   cursor: pointer;
-  font-size: 12px;
-  min-height: 30px;
-  font-weight: 600;
+  font-size: 12.5px;
+  min-height: 34px;
+  font-weight: 700;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
   transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
 }
