@@ -31,7 +31,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <RedlineD1Logo height={56} background="light" animated={true} />
+          <RedlineD1Logo height={56} background="dark" animated={true} />
           <span className="login-logo-sub">Shop Operations</span>
         </div>
 
