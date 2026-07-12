@@ -19,7 +19,7 @@ export function HeroSection() {
       }}
     >
       <div style={{ ...container, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-        <span style={eyebrow}>Built inside a real automotive repair business</span>
+        <span style={eyebrow}>Built for Repair Shops and Mobile Mechanics</span>
         <h1
           style={{
             fontSize: 'clamp(36px, 6vw, 72px)',
@@ -31,10 +31,10 @@ export function HeroSection() {
             margin: 0,
           }}
         >
-          The operating system that helps repair shops think.
+          The operating system that helps repair shops and mobile mechanics think.
         </h1>
         <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', lineHeight: 1.6, color: colors.textMuted, maxWidth: '720px', margin: 0 }}>
-          Run customers, vehicles, estimates, technicians, invoices, payments, and business intelligence from one connected platform.
+          Run customers, vehicles, estimates, technicians, invoices, payments, and business intelligence from one connected platform — whether you work from a shop or the road.
         </p>
         <p style={{ fontSize: '15px', lineHeight: 1.6, color: colors.textMuted, maxWidth: '640px', margin: 0 }}>
           RedlineD1 helps automotive businesses recover missed revenue, preserve repair knowledge, reduce repeated mistakes, and know what deserves attention next.
@@ -44,7 +44,10 @@ export function HeroSection() {
           <Link href="/signup" data-analytics="trial_cta_click" style={buttonPrimary}>
             Start Your 7-Day Free Trial
           </Link>
-          <a href="#workflow" data-analytics="product_tour_click" style={buttonSecondary}>
+          <a href="#mobile-mechanic" data-analytics="mobile_mechanic_cta_click" style={buttonSecondary}>
+            Explore Mobile Mechanic Tools
+          </a>
+          <a href="#workflow" data-analytics="product_tour_click" style={{ ...buttonSecondary, color: colors.textMuted, borderColor: 'transparent', background: 'transparent' }}>
             Watch Product Tour
           </a>
         </div>

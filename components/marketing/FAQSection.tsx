@@ -32,6 +32,26 @@ const FAQS = [
     q: "What if I decide RedlineD1 isn't the right fit?",
     a: 'You can export your data and cancel at any time. Contact our team for help.',
   },
+  {
+    q: 'Do I need a physical shop address to use RedlineD1?',
+    a: 'No. RedlineD1 works entirely from a phone, tablet, or laptop. There is no requirement for a fixed shop location — mobile mechanics can create jobs, send estimates, and invoice customers from any location.',
+  },
+  {
+    q: 'Can I create and send estimates from my phone at a job site?',
+    a: "Yes. Estimates are built and sent directly from the app — you can add parts, labor, and notes on the spot and send the estimate to the customer before you leave the driveway. The customer receives a digital copy immediately.",
+  },
+  {
+    q: 'How does scheduling work for mobile mechanics?',
+    a: "You can create and manage job cards with customer addresses directly in the app. Route-ready scheduling — showing the day's jobs with locations and priority — is available now. Turn-by-turn navigation integrations are on the roadmap.",
+  },
+  {
+    q: 'Can I take customer payment on-site?',
+    a: "Yes. You can record cash payments and mark invoices paid on the spot from your phone. Digital payment collection (card-on-file, links) is on the roadmap and not yet shipped.",
+  },
+  {
+    q: 'What if I work alone — is there a plan for a solo mechanic?',
+    a: "Yes. The Solo plan ($24/month) is designed for individual mechanics. It includes all core job management, estimating, invoicing, and customer history features with no seat minimums.",
+  },
 ];
 
 function FAQItem({ q, a }: { q: string; a: string }) {
