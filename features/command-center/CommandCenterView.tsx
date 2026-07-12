@@ -423,12 +423,12 @@ function RecCard({
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
             <button
               onClick={() => onDone(rec.id)}
-              style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
+              style={{ padding: '5px 14px', borderRadius: 999, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', letterSpacing: '0.03em' }}>
               ✓ Done
             </button>
             <button
               onClick={() => onDismiss(rec.id)}
-              style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
+              style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
               Dismiss
             </button>
           </div>
@@ -578,7 +578,7 @@ function ActionQueueCard({
           {/* Quick nav buttons */}
           {navActions.map((a, i) => (
             <button key={i} onClick={() => a.module && onNavigate(a.module)} style={{
-              fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 6,
+              fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 999,
               border: `1.5px solid ${scoreColor}60`, background: `${scoreColor}10`,
               color: scoreColor, cursor: 'pointer',
             }}>{a.label} →</button>
@@ -949,7 +949,7 @@ export function CommandCenterView() {
             position: 'relative',
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '11px 22px',
-            borderRadius: 10,
+            borderRadius: 999,
             background: generating
               ? 'rgba(255,255,255,0.08)'
               : 'linear-gradient(135deg,#e74c3c,#c0392b)',
@@ -1035,10 +1035,11 @@ export function CommandCenterView() {
                       onClick={handleGenerateBrief}
                       disabled={generatingBrief}
                       style={{
-                        padding: '9px 18px', borderRadius: 8, border: 'none', cursor: generatingBrief ? 'not-allowed' : 'pointer',
+                        padding: '9px 18px', borderRadius: 999, border: 'none', cursor: generatingBrief ? 'not-allowed' : 'pointer',
                         background: generatingBrief ? 'rgba(0,0,0,0.05)' : `linear-gradient(135deg,${D.gold},#b45309)`,
                         color: generatingBrief ? 'var(--muted)' : '#fff', fontWeight: 700, fontSize: 12,
                         opacity: generatingBrief ? 0.6 : 1, whiteSpace: 'nowrap',
+                        boxShadow: generatingBrief ? 'none' : `0 3px 10px ${D.gold}40`,
                       }}>
                       {generatingBrief ? '⟳ Generating…' : '☀️ Generate Brief'}
                     </button>
@@ -1096,7 +1097,7 @@ export function CommandCenterView() {
                         onClick={handleGenerateBrief}
                         disabled={generatingBrief}
                         style={{
-                          fontSize: 11, padding: '6px 14px', borderRadius: 6, border: `1.5px solid ${D.gold}60`,
+                          fontSize: 11, padding: '6px 14px', borderRadius: 999, border: `1.5px solid ${D.gold}60`,
                           background: `${D.gold}10`, color: D.gold, fontWeight: 700, cursor: 'pointer',
                           opacity: generatingBrief ? 0.6 : 1,
                         }}>
@@ -1105,7 +1106,7 @@ export function CommandCenterView() {
                       <button
                         onClick={() => setBriefModalOpen(true)}
                         style={{
-                          fontSize: 11, padding: '6px 14px', borderRadius: 6, border: '1.5px solid var(--line)',
+                          fontSize: 11, padding: '6px 14px', borderRadius: 999, border: '1.5px solid var(--line)',
                           background: 'var(--surface)', color: 'var(--text)', fontWeight: 600, cursor: 'pointer',
                         }}>
                         📋 View Full Brief
@@ -1113,7 +1114,7 @@ export function CommandCenterView() {
                       <button
                         onClick={() => handleDismissBrief(morningBrief!.id)}
                         style={{
-                          fontSize: 11, padding: '6px 12px', borderRadius: 6, border: '1px solid var(--line)',
+                          fontSize: 11, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--line)',
                           background: 'transparent', color: 'var(--muted)', cursor: 'pointer',
                         }}>
                         Dismiss

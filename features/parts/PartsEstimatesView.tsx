@@ -749,18 +749,18 @@ export function PartsEstimatesView() {
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
               <button onClick={() => { setDeleteTarget(null); setDeleteLinkedInfo(null); }}
-                style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                style={{ padding: '9px 20px', borderRadius: 999, border: '1px solid var(--line)', background: 'none', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 Cancel
               </button>
               {!deleteBlocked && !deleteChecking && (
                 <button onClick={confirmDelete}
-                  style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  style={{ padding: '9px 20px', borderRadius: 999, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   Yes, Delete
                 </button>
               )}
               {deleteBlocked && (
                 <button onClick={() => { setSelected(null); setDeleteTarget(null); dispatch({ type: 'SET_MODULE', module: 'invoices' }); }}
-                  style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  style={{ padding: '9px 20px', borderRadius: 999, border: 'none', background: '#f97316', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   Go to Invoices →
                 </button>
               )}
@@ -1036,7 +1036,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   } catch { /* non-fatal */ }
                   finally { setLightboxSaving(false); }
                 }}
-                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
+                style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: lightboxLabel === lightbox.label ? 'rgba(255,255,255,0.15)' : '#cc0000', color: '#fff', fontWeight: 600, fontSize: 13, cursor: lightboxLabel === lightbox.label ? 'default' : 'pointer' }}>
                 {lightboxSaving ? 'Saving…' : 'Save Label'}
               </button>
               <button
@@ -1047,7 +1047,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   else if (hasPrev) { const img = photoImages[lbIdx - 1]; setLightbox(img); setLightboxLabel(img.label); }
                   else setLightbox(null);
                 }}
-                style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                style={{ padding: '6px 14px', borderRadius: 999, border: '1px solid rgba(255,100,100,0.5)', background: 'rgba(200,0,0,0.3)', color: '#ff8888', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 🗑 Delete
               </button>
             </div>
@@ -1067,7 +1067,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
+                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
                 <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>✕</button>
               </div>
             </div>
@@ -1203,7 +1203,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('job-cards', 'open-job-card', { jobCardId: selected.jobCardNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1212,7 +1212,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('repair-orders', 'open-ro', { roNumber: selected.repairOrderNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1231,7 +1231,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 <>
                   <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Quotation</button>
                   <button onClick={() => handleConvertToOrder(selected)}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     ⇄ To Order
                   </button>
                   {(() => {
@@ -1240,7 +1240,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <button
                         onClick={() => handleConvertToEstimate(selected)}
                         disabled={busy}
-                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                        style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #0ea5e9', background: busy ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: busy ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: busy ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                         {busy ? '⟳ Converting…' : '→ Estimate'}
                       </button>
                     );
@@ -1261,7 +1261,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     </div>
                     {estNum && (
                       <button onClick={() => { setSelected(null); dispatch({ type: 'SET_MODULE', module: 'estimates' }); setTimeout(() => window.dispatchEvent(new CustomEvent('open-estimate', { detail: { estimateNumber: estNum } })), 80); }}
-                        style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                        style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #9c27b0', background: 'rgba(156,39,176,0.08)', color: '#9c27b0', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                         📋 View {estNum} in Estimates →
                       </button>
                     )}
@@ -1388,13 +1388,13 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <>
                         <button type="button"
                           onClick={() => { setShowForm(false); setEditingId(null); handleConvertToOrder(est); }}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                           ⇄ Convert to Order
                         </button>
                         <button type="button"
                           onClick={() => handleConvertToEstimate(est)}
                           disabled={convertingIds.current.has(est.id) || est.status === 'Converted'}
-                          style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #0ea5e9', background: convertingIds.current.has(est.id) ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: convertingIds.current.has(est.id) ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: convertingIds.current.has(est.id) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                          style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #0ea5e9', background: convertingIds.current.has(est.id) ? 'rgba(156,163,175,0.1)' : 'rgba(14,165,233,0.08)', color: convertingIds.current.has(est.id) ? '#9ca3af' : '#0284c7', fontWeight: 700, fontSize: 13, cursor: convertingIds.current.has(est.id) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
                           {convertingIds.current.has(est.id) ? '⟳ Converting…' : '→ Estimate'}
                         </button>
                       </>
@@ -1459,7 +1459,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   </tbody>
                 </table>
               </div>
-              <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
+              <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
                 + Add Part
               </button>
 
@@ -1495,9 +1495,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       {form.vendorName && !vendors.find(v => v.name === form.vendorName) && <option value={form.vendorName}>{form.vendorName}</option>}
                     </select>
                     <button type="button" onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>+ Add</button>
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>+ Add</button>
                     <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>⚙ Manage</button>
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>⚙ Manage</button>
                   </div>
                 </div>
                 {field('Vendor Phone', inp('tel',   form.vendorPhone, v => setF({ vendorPhone: v }), '555-000-0000'))}
@@ -1590,11 +1590,11 @@ CREATE POLICY "Shop members can manage their parts estimates"
             </div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
               <button onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
                 All Vendors ({vendors.length})
               </button>
               <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
                 {editingVendorId ? '✏ Edit Vendor' : '+ Add Vendor'}
               </button>
             </div>
@@ -1611,9 +1611,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => { setEditingVendorId(v.id); setVendorForm({ name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes }); setVendorTab('add'); }}
-                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏ Edit</button>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✏ Edit</button>
                           <button onClick={() => handleDeleteVendor(v.id, v.name)}
-                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Remove</button>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Remove</button>
                         </div>
                       </div>
                     ))}
@@ -1841,7 +1841,7 @@ function CustomerCombobox({
               onClick={handleSave}
               disabled={saving || !newCustomer.name.trim()}
               style={{
-                padding: '7px 16px', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                padding: '7px 16px', border: 'none', borderRadius: 999, fontWeight: 700, fontSize: 13,
                 background: (saving || !newCustomer.name.trim()) ? 'var(--surface-soft)' : 'var(--accent)',
                 color:      (saving || !newCustomer.name.trim()) ? 'var(--muted)' : '#fff',
                 cursor:     (saving || !newCustomer.name.trim()) ? 'not-allowed' : 'pointer',
@@ -1852,7 +1852,7 @@ function CustomerCombobox({
             <button
               type="button"
               onClick={() => { setShowNew(false); setNewCustomer(EMPTY_NEW_CUSTOMER); setSaveError(null); }}
-              style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: 'var(--text)' }}
+              style={{ padding: '7px 12px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 999, fontSize: 13, cursor: 'pointer', color: 'var(--text)' }}
             >
               Cancel
             </button>

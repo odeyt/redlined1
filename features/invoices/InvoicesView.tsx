@@ -1105,7 +1105,7 @@ export function InvoicesView() {
               <button
                 onClick={() => handleCloneInvoice(selected)}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
                   fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
                   background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
                   color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
@@ -1400,11 +1400,11 @@ export function InvoicesView() {
               </>}
               <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
                 <button onClick={() => setEmailModal(null)}
-                  style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  style={{ padding: '9px 20px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   Cancel
                 </button>
                 <button disabled={!canSend || emailModal.sending} onClick={isEmail ? handleSendEmail : handleSendMessage}
-                  style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                  style={{ padding: '9px 22px', borderRadius: 999, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
                   {emailModal.sending ? '⟳ Sending…' : (sendLabel[ch] ?? 'Send')}
                 </button>
               </div>
@@ -1435,7 +1435,7 @@ export function InvoicesView() {
                 {(['Cash', 'QR Code', 'Split'] as const).map(m => (
                   <button key={m} type="button"
                     onClick={() => setPayModal(pm => pm ? { ...pm, mode: m, cashAmt: m === 'QR Code' ? '0' : String(pm.total), qrAmt: m === 'Cash' ? '0' : m === 'QR Code' ? String(pm.total) : '0' } : null)}
-                    style={{ padding: '10px 6px', borderRadius: 9, border: payModal.mode === m ? '2px solid var(--accent)' : '2px solid var(--line)', background: payModal.mode === m ? 'rgba(204,0,0,0.07)' : 'var(--surface)', color: payModal.mode === m ? 'var(--accent)' : 'var(--text)', fontWeight: payModal.mode === m ? 800 : 600, fontSize: 13, cursor: 'pointer' }}>
+                    style={{ padding: '10px 6px', borderRadius: 999, border: payModal.mode === m ? '2px solid var(--accent)' : '2px solid var(--line)', background: payModal.mode === m ? 'rgba(204,0,0,0.07)' : 'var(--surface)', color: payModal.mode === m ? 'var(--accent)' : 'var(--text)', fontWeight: payModal.mode === m ? 800 : 600, fontSize: 13, cursor: 'pointer' }}>
                     {m === 'Cash' ? '💵 Cash' : m === 'QR Code' ? '📱 QR Code' : '⚡ Split'}
                   </button>
                 ))}
@@ -1485,9 +1485,9 @@ export function InvoicesView() {
               {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 12, fontWeight: 600 }}>{error}</div>}
 
               <div style={{ display: 'flex', gap: 10, borderTop: '1px solid var(--line)', paddingTop: 16 }}>
-                <button type="button" onClick={() => { setPayModal(null); setError(''); }} style={{ flex: 1, padding: '10px', borderRadius: 9, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={() => { setPayModal(null); setError(''); }} style={{ flex: 1, padding: '10px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
                 <button type="button" onClick={handlePayConfirm} disabled={payModal.saving}
-                  style={{ flex: 2, padding: '10px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 800, fontSize: 14, cursor: payModal.saving ? 'not-allowed' : 'pointer', opacity: payModal.saving ? 0.7 : 1 }}>
+                  style={{ flex: 2, padding: '10px', borderRadius: 999, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 800, fontSize: 14, cursor: payModal.saving ? 'not-allowed' : 'pointer', opacity: payModal.saving ? 0.7 : 1, boxShadow: payModal.saving ? 'none' : '0 3px 10px rgba(204,0,0,0.35)' }}>
                   {payModal.saving ? 'Recording…' : `✓ Confirm ${payModal.mode} Payment`}
                 </button>
               </div>

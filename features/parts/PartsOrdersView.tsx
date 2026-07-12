@@ -918,7 +918,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
+                <button onClick={() => openEdit(selected)} style={{ padding: '6px 16px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>✏ Edit</button>
                 <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)' }}>✕</button>
               </div>
             </div>
@@ -1073,7 +1073,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>🗂 Job Card: <strong>{selected.jobCardNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('job-cards', 'open-job-card', { jobCardId: selected.jobCardNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1082,7 +1082,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>🔧 Repair Order: <strong>{selected.repairOrderNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('repair-orders', 'open-ro', { roNumber: selected.repairOrderNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1091,7 +1091,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>📋 Estimate: <strong>{selected.estimateNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('estimates', 'open-estimate', { estimateNumber: selected.estimateNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1100,7 +1100,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                         <span>🧾 Invoice: <strong>{selected.invoiceNumber}</strong></span>
                         <button onClick={() => navigateToLinkedRecord('invoices', 'open-invoice', { invoiceNumber: selected.invoiceNumber })}
-                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, cursor: 'pointer' }}>
                           Open →
                         </button>
                       </div>
@@ -1120,18 +1120,18 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => handleCreateEstimate(selected)}
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   📋 Create Estimate
                 </button>
                 <button onClick={() => handleCreateInvoice(selected)}
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   🧾 Create Invoice
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
                 <button onClick={() => handleConvertToQuotation(selected)}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid #8b5cf6', background: 'rgba(139,92,246,0.08)', color: '#7c3aed', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                   ⇄ To Quotation
                 </button>
                 <button className="btn" style={{ color: '#ef4444' }} onClick={() => handleDelete(selected.id, selected.partName)}>Remove</button>
@@ -1232,11 +1232,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => handleCreateEstimate()}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     📋 Create Estimate
                   </button>
                   <button type="button" onClick={() => handleCreateInvoice()}
-                    style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     🧾 Create Invoice
                   </button>
                 </div>
@@ -1351,7 +1351,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 </table>
               </div>
               <button type="button" onClick={addLineItem}
-                style={{ padding: '7px 16px', borderRadius: 8, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
+                style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
                 + Add Part
               </button>
 
@@ -1393,11 +1393,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                       )}
                     </select>
                     <button type="button" onClick={openAddVendor}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       + Add
                     </button>
                     <button type="button" onClick={() => { setVendorTab('list'); setShowVendorModal(true); }}
-                      style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      style={{ padding: '8px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
                       ⚙ Manage
                     </button>
                   </div>
@@ -1508,11 +1508,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
               <button onClick={() => { setVendorTab('list'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'list' ? 700 : 400, background: vendorTab === 'list' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'list' ? '#fff' : 'var(--text)', fontSize: 13 }}>
                 All Vendors ({vendors.length})
               </button>
               <button onClick={() => { setVendorTab('add'); setEditingVendorId(null); setVendorForm(EMPTY_VENDOR); }}
-                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
+                style={{ padding: '6px 16px', borderRadius: 999, border: 'none', cursor: 'pointer', fontWeight: vendorTab === 'add' ? 700 : 400, background: vendorTab === 'add' ? 'var(--accent)' : 'var(--surface-soft)', color: vendorTab === 'add' ? '#fff' : 'var(--text)', fontSize: 13 }}>
                 {editingVendorId ? '✏ Edit Vendor' : '+ Add Vendor'}
               </button>
             </div>
@@ -1534,11 +1534,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                         </div>
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button onClick={() => openEditVendor(v)}
-                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                             ✏ Edit
                           </button>
                           <button onClick={() => handleDeleteVendor(v.id, v.name)}
-                            style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                             🗑 Remove
                           </button>
                         </div>

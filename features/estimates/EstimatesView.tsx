@@ -939,7 +939,7 @@ export function EstimatesView() {
               <button
                 onClick={() => handleCloneEstimate(selected)}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 999, border: 'none', cursor: 'pointer',
                   fontWeight: 700, fontSize: 13, letterSpacing: 0.3,
                   background: 'linear-gradient(135deg, #ff6b00, #ff9500)',
                   color: '#fff', boxShadow: '0 2px 8px rgba(255,107,0,0.45)',
@@ -1119,13 +1119,13 @@ export function EstimatesView() {
           <div className="print-content" style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             {/* UI controls — hidden on print via globals.css .no-print */}
             <div className="no-print">
-              <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
-              <button onClick={() => window.print()} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600 }}>🖨 Print</button>
+              <button onClick={() => setShowPreview(false)} style={{ position: 'absolute', top: 16, right: 16, background: '#f0f0f0', border: 'none', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 15, color: '#333' }}>✕ Close</button>
+              <button onClick={() => window.print()} style={{ position: 'absolute', top: 16, right: 100, background: '#cc0000', border: 'none', borderRadius: 999, padding: '6px 14px', cursor: 'pointer', fontSize: 13, color: '#fff', fontWeight: 600, boxShadow: '0 3px 10px rgba(204,0,0,0.35)' }}>🖨 Print</button>
               {/* Language toggle */}
               <div style={{ position: 'absolute', top: 56, right: 16, display: 'flex', gap: 4 }}>
                 {(['en', 'both', 'lo'] as const).map(lang => (
                   <button key={lang} onClick={() => setPrintLang(lang)}
-                    style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid #ddd', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: printLang === lang ? '#cc0000' : '#f5f5f5', color: printLang === lang ? '#fff' : '#555' }}>
+                    style={{ padding: '4px 10px', borderRadius: 999, border: '1px solid #ddd', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: printLang === lang ? '#cc0000' : '#f5f5f5', color: printLang === lang ? '#fff' : '#555' }}>
                     {lang === 'en' ? 'EN' : lang === 'lo' ? 'ລາວ' : 'EN+ລາວ'}
                   </button>
                 ))}
@@ -1371,12 +1371,12 @@ export function EstimatesView() {
               {/* Actions */}
               <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
                 <button onClick={() => setEmailModal(null)}
-                  style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                  style={{ padding: '9px 20px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
                   Cancel
                 </button>
                 <button disabled={!canSend || emailModal.sending}
                   onClick={isEmail ? handleSendEmail : handleSendMessage}
-                  style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
+                  style={{ padding: '9px 22px', borderRadius: 999, border: 'none', background: canSend && !emailModal.sending ? 'linear-gradient(135deg,#1e88e5,#1565c0)' : '#9ca3af', color: '#fff', cursor: canSend && !emailModal.sending ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, transition: 'all 0.15s' }}>
                   {emailModal.sending ? '⟳ Sending…' : (sendLabel[ch] ?? 'Send')}
                 </button>
               </div>

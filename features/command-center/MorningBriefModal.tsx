@@ -142,7 +142,7 @@ export function MorningBriefModal({
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => onDismiss(brief.id)} style={{
-              fontSize: 11, padding: '6px 14px', borderRadius: 7,
+              fontSize: 11, padding: '6px 14px', borderRadius: 999,
               border: '1px solid rgba(255,255,255,0.2)', background: 'transparent',
               color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
             }}>Dismiss</button>
@@ -229,7 +229,7 @@ export function MorningBriefModal({
                           )}
                           {p.module && (
                             <button onClick={() => nav(p.module!)} style={{
-                              fontSize: 11, padding: '2px 10px', borderRadius: 5, cursor: 'pointer',
+                              fontSize: 11, padding: '2px 10px', borderRadius: 999, cursor: 'pointer',
                               border: `1.5px solid ${scoreColor}60`, background: `${scoreColor}10`,
                               color: scoreColor, fontWeight: 700,
                             }}>Open →</button>
