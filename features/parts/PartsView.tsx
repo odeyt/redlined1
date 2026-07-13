@@ -33,6 +33,9 @@ const COL_ALIASES: Record<string, string> = {
   part: 'part_number', sku: 'part_number', item_number: 'part_number', item_no: 'part_number',
   itemnumber: 'part_number', stockno: 'part_number', stock_no: 'part_number',
   partnumber: 'part_number', product_code: 'part_number', productcode: 'part_number',
+  part_model_no: 'part_number', model_no: 'part_number', model_number: 'part_number',
+  modelnumber: 'part_number', part_code: 'part_number', code: 'part_number',
+  ref: 'part_number', reference: 'part_number', ref_no: 'part_number', oem: 'part_number',
   // brand
   brand: 'brand', make: 'brand', manufacturer: 'brand', mfr: 'brand',
   // description
@@ -42,10 +45,14 @@ const COL_ALIASES: Record<string, string> = {
   category: 'category', type: 'category', part_type: 'category',
   // cost / retail
   cost: 'cost', unit_cost: 'cost', purchase_price: 'cost', buy_price: 'cost',
+  unit_price: 'retail', unit_price_lak: 'retail', unit_price_thb: 'retail', unit_price_usd: 'retail',
   retail: 'retail', retail_price: 'retail', sale_price: 'retail', selling_price: 'retail', price: 'retail',
+  price_lak: 'retail', price_thb: 'retail', price_usd: 'retail',
   // quantity
   quantity: 'quantity', qty: 'quantity', stock: 'quantity', on_hand: 'quantity',
   stock_quantity: 'quantity', current_stock: 'quantity', in_stock: 'quantity',
+  initial_stock: 'quantity', stock_balance: 'quantity', balance: 'quantity',
+  total_qty: 'quantity', available: 'quantity', available_qty: 'quantity',
   // location
   location: 'location', bin: 'location', bin_location: 'location', shelf: 'location',
   // barcode
@@ -415,7 +422,8 @@ export function PartsView() {
             const resolved = row.map(c => resolveColName(String(c ?? '')));
             return resolved.includes('part_number') || resolved.includes('description') ||
                    resolved.includes('sku') || resolved.includes('brand') ||
-                   resolved.includes('quantity') || resolved.includes('cost');
+                   resolved.includes('quantity') || resolved.includes('cost') ||
+                   resolved.includes('retail');
           }) ?? nonBlankRows[0]; // fallback to first non-blank row
           if (!headerRowEntry) { setCsvError('No data found in the file.'); return; }
           const headers = headerRowEntry.row.map(h => resolveColName(String(h ?? '')));
