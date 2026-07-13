@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
@@ -32,25 +29,25 @@ export async function POST(req: NextRequest) {
     const roleLabel = ROLE_LABELS[role] ?? role;
 
     // Get shop name for the email
-    const { data: shop } = await admin.from('shops').select('name').eq('id', shopId).single();
+    const { data: shop } = await getAdmin().from('shops').select('name').eq('id', shopId).single();
     const shopName = shop?.name ?? 'D1 Imports';
 
     // Check if user already exists
-    const { data: existingList } = await admin.auth.admin.listUsers();
+    const { data: existingList } = await getAdmin().auth.admin.listUsers();
     const existing = existingList?.users?.find(u => u.email === email);
 
     let userId: string;
 
     if (existing) {
       // Update their password to the new temp one
-      await admin.auth.admin.updateUserById(existing.id, {
+      await getAdmin().auth.admin.updateUserById(existing.id, {
         password: tempPassword,
         email_confirm: true,
       });
       userId = existing.id;
     } else {
       // Create new user with temp password — no magic link needed
-      const { data, error } = await admin.auth.admin.createUser({
+      const { data, error } = await getAdmin().auth.admin.createUser({
         email,
         password: tempPassword,
         email_confirm: true,
@@ -61,13 +58,13 @@ export async function POST(req: NextRequest) {
 
     // Find all shops owned by the same owners as the target shop
     // so the new user is added to every location automatically
-    const { data: coOwners } = await admin
+    const { data: coOwners } = await getAdmin()
       .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
     const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
 
     let allShopIds: string[] = [shopId];
     if (ownerIds.length > 0) {
-      const { data: ownerShops } = await admin
+      const { data: ownerShops } = await getAdmin()
         .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
       allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
       if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
@@ -75,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     // Add user to all locations
     for (const sid of allShopIds) {
-      await admin.from('shop_users').upsert({
+      await getAdmin().from('shop_users').upsert({
         shop_id: sid,
         user_id: userId,
         role: role ?? 'manager',
@@ -83,7 +80,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create/update profile
-    await admin.from('profiles').upsert({
+    await getAdmin().from('profiles').upsert({
       id: userId,
       email,
     }, { onConflict: 'id' });
@@ -160,20 +157,20 @@ export async function PATCH(req: NextRequest) {
 
     // Find all shops owned by the same owner(s) as the target shop, then update
     // the member's role in every one of those shops so it stays in sync.
-    const { data: coOwners } = await admin
+    const { data: coOwners } = await getAdmin()
       .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
     const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
 
     let allShopIds: string[] = [shopId];
     if (ownerIds.length > 0) {
-      const { data: ownerShops } = await admin
+      const { data: ownerShops } = await getAdmin()
         .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
       allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
       if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
     }
 
     for (const sid of allShopIds) {
-      const { error } = await admin.from('shop_users')
+      const { error } = await getAdmin().from('shop_users')
         .update({ role })
         .eq('shop_id', sid)
         .eq('user_id', userId);

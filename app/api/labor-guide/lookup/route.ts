@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { slugifyJob, parseVehicle } from '@/lib/slugify';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -34,7 +31,7 @@ export async function POST(req: NextRequest) {
   const { year, make } = parseVehicle(vehicle ?? '');
 
   // 1. Check historical guide first (shop-specific self-learned data)
-  const { data: historical } = await admin
+  const { data: historical } = await getAdmin()
     .from('standard_labor_guides')
     .select('*')
     .eq('shop_id', shopId)
@@ -57,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Fall back to static labor_times table
-  const { data: staticRows } = await admin
+  const { data: staticRows } = await getAdmin()
     .from('labor_times')
     .select('suggested_hours, notes, source, make')
     .ilike('service_type', `%${serviceType?.replace(/\s+/g, '%')}%`)
@@ -69,7 +66,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ found: false, message: `No rate found for "${serviceType}"` });
   }
 
-  const { data: settings } = await admin
+  const { data: settings } = await getAdmin()
     .from('shop_settings').select('labor_rate').eq('shop_id', shopId).single();
   const laborRate = Number(settings?.labor_rate ?? 145);
 

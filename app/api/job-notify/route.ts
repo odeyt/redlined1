@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 const STAGE_MESSAGES: Record<string, { short: string; body: string }> = {
   checked_in:    { short: 'Checked In',       body: 'Your vehicle has been checked in and is in our queue.' },
@@ -20,8 +17,8 @@ export async function POST(req: NextRequest) {
     const { jobId, shopId, stage, statusUrl, customerPhone, customerEmail } = await req.json();
     if (!jobId || !shopId || !stage) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    const { data: shop } = await admin.from('shops').select('name').eq('id', shopId).single();
-    const { data: settings } = await admin.from('shop_settings').select('phone, email').eq('shop_id', shopId).single();
+    const { data: shop } = await getAdmin().from('shops').select('name').eq('id', shopId).single();
+    const { data: settings } = await getAdmin().from('shop_settings').select('phone, email').eq('shop_id', shopId).single();
 
     const shopName = shop?.name ?? 'Your Auto Shop';
     const msg = STAGE_MESSAGES[stage] ?? { short: stage, body: 'Your repair status has been updated.' };

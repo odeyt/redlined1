@@ -1,13 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { slugifyJob, parseVehicle } from '@/lib/slugify';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 export async function POST(req: NextRequest) {
   // Auth via cookie session
@@ -21,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Only owners may seed
-  const { data: memberships } = await admin
+  const { data: memberships } = await getAdmin()
     .from('shop_users').select('role, shop_id').eq('user_id', user.id).eq('role', 'owner');
   if (!memberships?.length) return NextResponse.json({ error: 'Owner required' }, { status: 403 });
 
@@ -37,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!slug) return NextResponse.json({ ok: true });
 
   // Upsert: create baseline on first seen, increment counter on repeat
-  const { data: existing } = await admin
+  const { data: existing } = await getAdmin()
     .from('standard_labor_guides')
     .select('id, times_performed')
     .eq('shop_id', shopId)
@@ -47,12 +44,12 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    await admin
+    await getAdmin()
       .from('standard_labor_guides')
       .update({ times_performed: existing.times_performed + 1, updated_at: new Date().toISOString() })
       .eq('id', existing.id);
   } else {
-    await admin.from('standard_labor_guides').insert({
+    await getAdmin().from('standard_labor_guides').insert({
       shop_id: shopId,
       make,
       model,

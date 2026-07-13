@@ -1,12 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 async function getOwnerShopId(req: NextRequest): Promise<{ userId: string; shopId: string } | null> {
   const cookieStore = await cookies();
@@ -17,7 +14,7 @@ async function getOwnerShopId(req: NextRequest): Promise<{ userId: string; shopI
   );
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return null;
-  const { data } = await admin
+  const { data } = await getAdmin()
     .from('shop_users').select('role, shop_id').eq('user_id', user.id).eq('role', 'owner');
   if (!data?.length) return null;
   return { userId: user.id, shopId: data[0].shop_id as string };
@@ -31,7 +28,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('q') ?? '';
 
-  let query = admin
+  let query = getAdmin()
     .from('standard_labor_guides')
     .select('*')
     .eq('shop_id', owner.shopId)
@@ -65,7 +62,7 @@ export async function PATCH(req: NextRequest) {
   if (laborRate !== undefined) patch.labor_rate = Number(laborRate);
   if (jobDescriptionRaw !== undefined) patch.job_description_raw = jobDescriptionRaw;
 
-  const { error } = await admin
+  const { error } = await getAdmin()
     .from('standard_labor_guides')
     .update(patch)
     .eq('id', id)
@@ -83,7 +80,7 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-  const { error } = await admin
+  const { error } = await getAdmin()
     .from('standard_labor_guides')
     .delete()
     .eq('id', id)
