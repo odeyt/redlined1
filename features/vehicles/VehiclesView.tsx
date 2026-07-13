@@ -405,6 +405,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
   const [pulling, setPulling] = useState(false);
   const [showVehicleIntelligence, setShowVehicleIntelligence] = useState(false);
 
+  // Auto-decode VIN on mount if it's 17 chars and year/make are missing
+  useEffect(() => {
+    if (vehicle.vin?.length === 17 && (!vehicle.year || !vehicle.make)) {
+      decodeVin(vehicle.vin);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // SI-10: Probe vehicle intelligence API — disabled:true means flags are OFF
   useEffect(() => {
     void (async () => {
@@ -530,13 +538,20 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
         : fuel.includes('Electric') ? 'EV'
         : fuel.includes('Gasoline') || fuel.includes('Petrol') ? 'Petrol'
         : fuel || '';
-      setF(prev => ({
-        ...prev,
-        year:     year  || prev.year,
-        make:     make  ? make.charAt(0) + make.slice(1).toLowerCase() : prev.make,
-        model:    model || prev.model,
-        fuelType: fuelMapped || prev.fuelType,
-      }));
+      const makeFmt = make ? make.charAt(0) + make.slice(1).toLowerCase() : '';
+      setF(prev => {
+        const autoLabel = !prev.label && year && makeFmt
+          ? `${year} ${makeFmt}${model ? ' ' + model : ''}`.trim()
+          : prev.label;
+        return {
+          ...prev,
+          year:     year     || prev.year,
+          make:     makeFmt  || prev.make,
+          model:    model    || prev.model,
+          fuelType: fuelMapped || prev.fuelType,
+          label:    autoLabel,
+        };
+      });
       setVinDecodeMsg(`✓ Decoded: ${year} ${make} ${model}`);
     } catch { setVinDecodeMsg('Decode failed — check connection.'); }
     finally { setVinDecoding(false); }
@@ -1352,7 +1367,29 @@ export function VehiclesView() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [vinError, setVinError] = useState('');
+  const [formVinMsg, setFormVinMsg] = useState('');
   const [toast, setToast] = useState('');
+
+  async function decodeVinForForm(vin: string) {
+    if (vin.length !== 17) return;
+    setFormVinMsg('⏳ Decoding…');
+    try {
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`);
+      const json = await res.json();
+      const get = (v: string) => (json.Results as {Variable: string; Value: string | null}[])
+        .find(r => r.Variable === v)?.Value || '';
+      const year = get('Model Year');
+      const make = get('Make');
+      const model = get('Model');
+      if (!year && !make && !model) { setFormVinMsg('VIN not found in NHTSA database.'); return; }
+      const makeFmt = make ? make.charAt(0) + make.slice(1).toLowerCase() : '';
+      setForm(prev => ({
+        ...prev,
+        label: prev.label ? prev.label : `${year} ${makeFmt}${model ? ' ' + model : ''}`.trim(),
+      }));
+      setFormVinMsg(`✓ ${year} ${makeFmt} ${model}`.trim());
+    } catch { setFormVinMsg('Decode failed — check connection.'); }
+  }
   const [galleryVehicle, setGalleryVehicle] = useState<VehicleRecord | null>(null);
   const [drawerVehicle, setDrawerVehicle] = useState<VehicleRecord | null>(null);
   const [transferTarget, setTransferTarget] = useState<VehicleRecord | null>(null);
@@ -1923,10 +1960,10 @@ export function VehiclesView() {
               <span>VIN</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: form.vin.length === 17 ? '#22c55e' : form.vin.length > 0 ? '#f59e0b' : 'var(--muted)' }}>{form.vin.length}/17</span>
             </label>
-            <input value={form.vin} onChange={e => { const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17); setForm(f => ({ ...f, vin: v })); if (vinError) setVinError(''); }} placeholder="1FTFW1E85PFA24680" maxLength={17} style={{ borderColor: vinError ? '#ef4444' : form.vin.length === 17 ? '#22c55e' : undefined, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
+            <input value={form.vin} onChange={e => { const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17); setForm(f => ({ ...f, vin: v })); if (vinError) setVinError(''); setFormVinMsg(''); if (v.length === 17) decodeVinForForm(v); }} placeholder="1FTFW1E85PFA24680" maxLength={17} style={{ borderColor: vinError ? '#ef4444' : form.vin.length === 17 ? '#22c55e' : undefined, fontFamily: 'monospace', letterSpacing: '0.08em' }} />
             {vinError && <div style={{ marginTop: 4, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>⚠ {vinError}</div>}
-            {!vinError && form.vin.length > 0 && form.vin.length < 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b' }}>{17 - form.vin.length} more needed</div>}
-            {!vinError && form.vin.length === 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#22c55e', fontWeight: 600 }}>✓ Valid length</div>}
+            {!vinError && formVinMsg && <div style={{ marginTop: 4, fontSize: 11, color: formVinMsg.startsWith('✓') ? '#22c55e' : formVinMsg.startsWith('⏳') ? '#3b82f6' : '#ef4444', fontWeight: 600 }}>{formVinMsg}</div>}
+            {!vinError && !formVinMsg && form.vin.length > 0 && form.vin.length < 17 && <div style={{ marginTop: 4, fontSize: 11, color: '#f59e0b' }}>{17 - form.vin.length} more needed</div>}
           </div>
           {field('trim', 'Trim', 'XL SuperCrew 4WD')}
           {field('engine', 'Engine', '3.5L EcoBoost')}

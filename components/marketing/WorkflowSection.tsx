@@ -1,6 +1,6 @@
 import { colors, container, h2Style } from './theme';
 
-const STEPS = ['Intake', 'Job Card', 'Estimate', 'Repair Order', 'Invoice', 'Payment', 'Intelligence'];
+const STEPS = ['Intake', 'Job Card', 'Digital Inspection', 'Estimate', 'Repair Order', 'Invoice', 'Payment', 'Intelligence'];
 
 /**
  * WorkflowSection - repair lifecycle. All steps AVAILABLE NOW per
@@ -14,7 +14,7 @@ export function WorkflowSection() {
         <div style={{ maxWidth: '640px', marginBottom: '40px' }}>
           <h2 style={h2Style}>One connected repair lifecycle.</h2>
           <p style={{ color: colors.textMuted, marginTop: '12px' }}>
-            Every step below is available today - no separate tools, no re-entering the same customer or vehicle twice.
+            Every step below is available today — no separate tools, no re-entering the same customer or vehicle twice. Digital inspections connect directly to the vehicle, job, estimate, and permanent repair history.
           </p>
         </div>
         <div className="rd1-scroll-x">

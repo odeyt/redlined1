@@ -10,20 +10,20 @@ import './landing.css';
  * page (not activated here).
  */
 export const metadata: Metadata = {
-  title: 'RedlineD1 - Automotive Business OS for Repair Shops and Mobile Mechanics (Preview)',
+  title: 'RedlineD1 | Automotive Business OS with Digital Vehicle Inspections (Preview)',
   description:
-    'Run customers, vehicles, estimates, repair orders, invoices, staff, and shop intelligence from one connected platform — built for repair shops and mobile mechanics.',
+    'Manage customers, vehicles, digital inspections, estimates, repair orders, invoices, payments, inventory, and repair intelligence from one connected automotive business platform.',
   keywords: [
+    'digital vehicle inspection software',
+    'DVI software for repair shops',
+    'automotive inspection software',
+    'digital inspection app for mechanics',
+    'mobile mechanic inspection software',
+    'vehicle inspection report software',
+    'auto repair inspection checklist',
+    'automotive shop management software',
     'mobile mechanic software',
-    'mobile mechanic app',
-    'auto repair shop management',
-    'mobile mechanic business tools',
-    'automotive business operating system',
     'repair shop software',
-    'on-site estimate app',
-    'mobile invoicing for mechanics',
-    'digital job cards for mechanics',
-    'solo mechanic software',
   ],
   robots: {
     index: false,

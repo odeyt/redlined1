@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { LOGO_SRC } from '@/lib/logo';
+import { useState, useEffect } from 'react';
+import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
@@ -10,6 +10,13 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [shopName, setShopName] = useState('');
   const [email, setEmail] = useState('');
+
+  // Pre-fill email when redirected from forgot-password "not found" flow
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prefill = params.get('email');
+    if (prefill) setEmail(decodeURIComponent(prefill));
+  }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -73,8 +80,8 @@ export default function SignupPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 110, width: 'auto', objectFit: 'contain' }} />
-          <span className="login-logo-sub">Start your free 7-day trial</span>
+          <RedlineD1Logo height={56} background="dark" animated={true} />
+          <span className="login-logo-sub">Start Your Free 7-Day Trial</span>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">

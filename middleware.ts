@@ -28,6 +28,15 @@ export async function middleware(request: NextRequest) {
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
+  // PKCE invite/recovery: Supabase redirects to site root with ?code=XXX.
+  // Forward to /auth/callback so the code can be exchanged before the session check.
+  const code = request.nextUrl.searchParams.get('code');
+  if (code && !session) {
+    const callbackUrl = new URL('/auth/callback', request.url);
+    callbackUrl.searchParams.set('code', code);
+    return NextResponse.redirect(callbackUrl);
+  }
+
   // Unauthenticated visitors at / → login
   if (!session && isRoot) {
     return NextResponse.redirect(new URL('/login', request.url));

@@ -9,6 +9,12 @@ const COLUMNS = [
     title: 'Available Now',
     items: [
       'Customer, Vehicle, Job Card, Estimate, Repair Order, Invoice, Payment, Inventory management',
+      'Digital Vehicle Inspections (DVI)',
+      'Inspection templates and checklists',
+      'Inspection findings with technician notes and photos',
+      'Customer-facing shareable inspection report',
+      'Online customer approval via share link',
+      'Vehicle-linked inspection history',
       'Time Tracking',
       'Command Center + Morning Brief',
       'Vehicle Intelligence',
@@ -32,7 +38,8 @@ const COLUMNS = [
   {
     title: 'Planned',
     items: [
-      'Native mobile apps',
+      'Native Android application',
+      'Native iPhone application',
       'Published developer API access',
       'Expanded migration tooling beyond CSV/Excel',
     ],

@@ -176,14 +176,28 @@ export function PhotoGalleryModal({
     finally { setUploading(false); if (htmlRef.current) htmlRef.current.value = ''; }
   }
 
-  function onThumbDragStart(idx: number, e: React.DragEvent) { setThumbDragFrom(idx); e.dataTransfer.effectAllowed = 'move'; }
-  function onThumbDragOver(idx: number, e: React.DragEvent)  { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setThumbDragOver(idx); }
+  function onThumbDragStart(idx: number, e: React.DragEvent) {
+    setThumbDragFrom(idx);
+    e.dataTransfer.effectAllowed = 'move';
+    // Mark as internal reorder so the outer drop zone ignores it
+    e.dataTransfer.setData('application/x-thumb-reorder', String(idx));
+    e.stopPropagation();
+  }
+  function onThumbDragOver(idx: number, e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation(); // prevent outer drop zone from stealing the event
+    e.dataTransfer.dropEffect = 'move';
+    setThumbDragOver(idx);
+  }
   function onThumbDrop(toIdx: number, e: React.DragEvent) {
     e.preventDefault();
-    if (thumbDragFrom === null || thumbDragFrom === toIdx) { setThumbDragFrom(null); setThumbDragOver(null); return; }
+    e.stopPropagation(); // prevent outer drop zone from firing
+    const fromStr = e.dataTransfer.getData('application/x-thumb-reorder');
+    const fromIdx = fromStr !== '' ? parseInt(fromStr, 10) : thumbDragFrom;
+    if (fromIdx === null || fromIdx === toIdx) { setThumbDragFrom(null); setThumbDragOver(null); return; }
     setImages(prev => {
       const next = [...prev];
-      const [moved] = next.splice(thumbDragFrom, 1);
+      const [moved] = next.splice(fromIdx!, 1);
       next.splice(toIdx, 0, moved);
       return next;
     });

@@ -80,6 +80,7 @@ export function Sidebar() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
+  const [isPlatformOwner, setIsPlatformOwner] = useState(false);
   // Start empty so the hardcoded getBlockedModules() fallback is used while settings load.
   // setRolePermissions is called once fetchShopSettings() resolves with real data.
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
@@ -116,6 +117,37 @@ export function Sidebar() {
     }
     window.addEventListener('shop-settings-updated', onBrandingUpdate);
     return () => window.removeEventListener('shop-settings-updated', onBrandingUpdate);
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const email = user?.email?.toLowerCase() ?? '';
+      if (!email) return;
+      // Primary: server-side authoritative check
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token;
+        if (token) {
+          fetch('/api/admin/me', { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (d?.isPlatformOwner === true) { setIsPlatformOwner(true); return; }
+              // Fallback: compare against known owner email directly
+              const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+              const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+              setIsPlatformOwner(owners.includes(email));
+            })
+            .catch(() => {
+              const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+              const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+              setIsPlatformOwner(owners.includes(email));
+            });
+        } else {
+          const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+          const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+          setIsPlatformOwner(owners.includes(email));
+        }
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -452,7 +484,24 @@ export function Sidebar() {
         )}
       </div>
 
-<a
+{isPlatformOwner && (
+        <a
+          href="/admin/billing-health"
+          title="Billing Health"
+          onMouseEnter={e => showTooltip(e, 'Billing Health')}
+          onMouseLeave={hideTooltip}
+          style={{
+            padding: '10px 16px', background: 'transparent',
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, color: '#818cf8',
+            fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            textDecoration: 'none', marginBottom: 8,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+          }}
+        >
+          <span>📊</span>{!collapsed && ' Billing Health'}
+        </a>
+      )}
+      <a
         href="/help"
         target="_blank"
         title="Help & Manual"

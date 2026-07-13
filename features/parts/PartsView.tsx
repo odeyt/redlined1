@@ -33,6 +33,9 @@ const COL_ALIASES: Record<string, string> = {
   part: 'part_number', sku: 'part_number', item_number: 'part_number', item_no: 'part_number',
   itemnumber: 'part_number', stockno: 'part_number', stock_no: 'part_number',
   partnumber: 'part_number', product_code: 'part_number', productcode: 'part_number',
+  part_model_no: 'part_number', model_no: 'part_number', model_number: 'part_number',
+  modelnumber: 'part_number', part_code: 'part_number', code: 'part_number',
+  ref: 'part_number', reference: 'part_number', ref_no: 'part_number', oem: 'part_number',
   // brand
   brand: 'brand', make: 'brand', manufacturer: 'brand', mfr: 'brand',
   // description
@@ -42,10 +45,14 @@ const COL_ALIASES: Record<string, string> = {
   category: 'category', type: 'category', part_type: 'category',
   // cost / retail
   cost: 'cost', unit_cost: 'cost', purchase_price: 'cost', buy_price: 'cost',
+  unit_price: 'retail', unit_price_lak: 'retail', unit_price_thb: 'retail', unit_price_usd: 'retail',
   retail: 'retail', retail_price: 'retail', sale_price: 'retail', selling_price: 'retail', price: 'retail',
+  price_lak: 'retail', price_thb: 'retail', price_usd: 'retail',
   // quantity
   quantity: 'quantity', qty: 'quantity', stock: 'quantity', on_hand: 'quantity',
   stock_quantity: 'quantity', current_stock: 'quantity', in_stock: 'quantity',
+  initial_stock: 'quantity', stock_balance: 'quantity', balance: 'quantity',
+  total_qty: 'quantity', available: 'quantity', available_qty: 'quantity',
   // location
   location: 'location', bin: 'location', bin_location: 'location', shelf: 'location',
   // barcode
@@ -106,23 +113,33 @@ function splitCSVLine(line: string): string[] {
 }
 
 function rowToPart(r: Record<string, string>): Omit<Part, 'photos'> {
+  // g() checks multiple key aliases in order, also checking UPPERCASE variants in case
+  // resolveColName wasn't applied (e.g. file read via an alternate code path).
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = r[k] ?? r[k.toUpperCase()] ?? r[k.replace(/_/g, '').toUpperCase()];
+      if (v?.trim()) return v.trim();
+    }
+    return '';
+  };
+  const catRaw = g('category', 'type', 'part_type');
   return {
-    partNumber:        r.part_number     || '',
-    brand:             r.brand           || '',
-    description:       r.description     || '',
-    category:          PART_CATEGORIES.includes(r.category as typeof PART_CATEGORIES[number]) ? r.category : 'Other',
-    cost:              parseFloat(r.cost)              || 0,
-    retail:            parseFloat(r.retail)            || 0,
-    quantity:          parseInt(r.quantity)            || 0,
-    location:          r.location        || '',
-    barcode:           r.barcode         || '',
-    supplier:          r.supplier        || '',
-    supplierPhone:     r.supplier_phone  || '',
-    supplierEmail:     r.supplier_email  || '',
-    lowStockThreshold: parseInt(r.low_stock_threshold) || 5,
-    reorderQty:        parseInt(r.reorder_qty)         || 10,
-    compatibility:     r.compatibility   || '',
-    notes:             r.notes           || '',
+    partNumber:        g('part_number', 'part_model_no', 'partno', 'sku', 'model_no', 'code', 'ref', 'oem'),
+    brand:             g('brand', 'make', 'manufacturer'),
+    description:       g('description', 'desc', 'name', 'part_name'),
+    category:          PART_CATEGORIES.includes(catRaw as typeof PART_CATEGORIES[number]) ? catRaw : 'Other',
+    cost:              parseFloat(g('cost', 'unit_cost', 'buy_price')) || 0,
+    retail:            parseFloat(g('retail', 'unit_price', 'unit_price_lak', 'unit_price_thb', 'price', 'selling_price')) || 0,
+    quantity:          parseInt(g('quantity', 'qty', 'initial_stock', 'stock', 'stock_balance', 'balance', 'available')) || 0,
+    location:          g('location', 'bin', 'shelf'),
+    barcode:           g('barcode', 'upc', 'ean'),
+    supplier:          g('supplier', 'vendor', 'vendor_name'),
+    supplierPhone:     g('supplier_phone', 'vendor_phone'),
+    supplierEmail:     g('supplier_email', 'vendor_email'),
+    lowStockThreshold: parseInt(g('low_stock_threshold', 'min_stock', 'reorder_point')) || 5,
+    reorderQty:        parseInt(g('reorder_qty', 'reorder_quantity', 'order_qty')) || 10,
+    compatibility:     g('compatibility', 'compatible', 'fits'),
+    notes:             g('notes', 'note', 'comments'),
   };
 }
 
@@ -415,7 +432,8 @@ export function PartsView() {
             const resolved = row.map(c => resolveColName(String(c ?? '')));
             return resolved.includes('part_number') || resolved.includes('description') ||
                    resolved.includes('sku') || resolved.includes('brand') ||
-                   resolved.includes('quantity') || resolved.includes('cost');
+                   resolved.includes('quantity') || resolved.includes('cost') ||
+                   resolved.includes('retail');
           }) ?? nonBlankRows[0]; // fallback to first non-blank row
           if (!headerRowEntry) { setCsvError('No data found in the file.'); return; }
           const headers = headerRowEntry.row.map(h => resolveColName(String(h ?? '')));
