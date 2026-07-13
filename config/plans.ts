@@ -32,15 +32,36 @@ export interface PlanConfig {
 }
 
 export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
+  solo: {
+    id: 'solo',
+    name: 'Solo',
+    description: 'For individual mechanics and mobile operators',
+    monthlyPrice: 24,
+    annualPrice: 240,
+    features: {
+      unlimitedInvoices: false,
+      maxTechnicians: 1,
+      aiAdvisor: false,
+      smsCredits: 0,
+      digitalInspections: true,
+      smartIntake: false,
+      multiLocation: false,
+      reports: false,
+      repairIntelligence: false,
+      triage: false,
+      prioritySupport: false,
+    },
+  },
+
   starter: {
     id: 'starter',
     name: 'Starter',
-    description: 'Perfect for solo mechanics and small shops',
-    monthlyPrice: 29,
-    annualPrice: 290,
+    description: 'Perfect for small shops with a few technicians',
+    monthlyPrice: 49,
+    annualPrice: 490,
     features: {
       unlimitedInvoices: false,
-      maxTechnicians: 2,
+      maxTechnicians: 3,
       aiAdvisor: false,
       smsCredits: 0,
       digitalInspections: true,
@@ -57,8 +78,8 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
     id: 'professional',
     name: 'Professional',
     description: 'For growing shops with multiple technicians',
-    monthlyPrice: 59,
-    annualPrice: 590,
+    monthlyPrice: 99,
+    annualPrice: 990,
     highlighted: true,
     features: {
       unlimitedInvoices: true,
@@ -75,12 +96,12 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
     },
   },
 
-  shop_pro: {
-    id: 'shop_pro',
-    name: 'Shop Pro',
+  business: {
+    id: 'business',
+    name: 'Business',
     description: 'Full-featured for established multi-bay operations',
-    monthlyPrice: 99,
-    annualPrice: 990,
+    monthlyPrice: 179,
+    annualPrice: 1790,
     features: {
       unlimitedInvoices: true,
       maxTechnicians: null,
@@ -118,7 +139,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
   },
 };
 
-export const PLAN_ORDER: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro', 'enterprise'];
+export const PLAN_ORDER: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
 
 /**
  * Resolves the provider-specific product or price ID for a given plan + interval.

@@ -8,7 +8,7 @@ export type PaymentProviderName = 'creem' | 'stripe';
 
 export type BillingInterval = 'monthly' | 'annual';
 
-export type RedlinedPlanId = 'starter' | 'professional' | 'shop_pro' | 'enterprise';
+export type RedlinedPlanId = 'solo' | 'starter' | 'professional' | 'business' | 'enterprise';
 
 /**
  * Normalized subscription statuses.

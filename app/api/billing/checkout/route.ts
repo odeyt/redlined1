@@ -11,9 +11,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
+import { getInternalShopIds } from '@/lib/adminAuth';
 import type { RedlinedPlanId, BillingInterval } from '@/lib/payments/types';
 
-async function getUser() {
+async function getAuthContext() {
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +22,15 @@ async function getUser() {
     { cookies: { getAll: () => cookieStore.getAll() } },
   );
   const { data: { user } } = await supabase.auth.getUser();
-  return user;
+  if (!user) return { user: null, shopUser: null };
+
+  const { data: shopUser } = await supabase
+    .from('shop_users')
+    .select('role, shop_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  return { user, shopUser };
 }
 
 export async function POST(req: NextRequest) {
@@ -30,9 +39,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const user = await getUser();
+    const { user, shopUser } = await getAuthContext();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (shopUser?.role === 'technician') {
+      return NextResponse.json({ error: 'Technicians cannot manage billing' }, { status: 403 });
+    }
+
+    if (shopUser?.shop_id && getInternalShopIds().has(shopUser.shop_id)) {
+      return NextResponse.json({ error: 'Internal accounts are not subject to billing' }, { status: 403 });
     }
 
     const body = await req.json() as { planId?: string; billingInterval?: string };

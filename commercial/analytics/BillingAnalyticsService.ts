@@ -128,25 +128,23 @@ export interface PlanDistribution {
 // ─── Internal D1 plan prices (USD) ────────────────────────────────────────────
 
 const PLAN_MONTHLY_PRICE: Record<string, number> = {
-  starter:      PLANS.starter?.monthlyPrice      ?? 29,
-  professional: PLANS.professional?.monthlyPrice ?? 59,
-  shop_pro:     PLANS.shop_pro?.monthlyPrice      ?? 99,
-  enterprise:   0, // contact sales — unknown recurring value
-  trial:        0,
-  internal:     0,
-  solo:         24,
-  business:     149,
-};
-
-const PLAN_ANNUAL_MONTHLY: Record<string, number> = {
-  starter:      (PLANS.starter?.annualPrice      ?? 290) / 12,
-  professional: (PLANS.professional?.annualPrice ?? 590) / 12,
-  shop_pro:     (PLANS.shop_pro?.annualPrice      ?? 990) / 12,
+  solo:         PLANS.solo?.monthlyPrice         ?? 24,
+  starter:      PLANS.starter?.monthlyPrice      ?? 49,
+  professional: PLANS.professional?.monthlyPrice ?? 99,
+  business:     PLANS.business?.monthlyPrice     ?? 179,
   enterprise:   0,
   trial:        0,
   internal:     0,
-  solo:         (24 * 12 * 0.8) / 12,   // assumed 20% annual discount
-  business:     (149 * 12 * 0.8) / 12,
+};
+
+const PLAN_ANNUAL_MONTHLY: Record<string, number> = {
+  solo:         (PLANS.solo?.annualPrice         ?? 240)  / 12,
+  starter:      (PLANS.starter?.annualPrice      ?? 490)  / 12,
+  professional: (PLANS.professional?.annualPrice ?? 990)  / 12,
+  business:     (PLANS.business?.annualPrice     ?? 1790) / 12,
+  enterprise:   0,
+  trial:        0,
+  internal:     0,
 };
 
 function normalizedMonthlyRevenue(planKey: string, billingInterval: string | null): number {
