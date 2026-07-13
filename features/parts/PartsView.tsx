@@ -113,23 +113,33 @@ function splitCSVLine(line: string): string[] {
 }
 
 function rowToPart(r: Record<string, string>): Omit<Part, 'photos'> {
+  // g() checks multiple key aliases in order, also checking UPPERCASE variants in case
+  // resolveColName wasn't applied (e.g. file read via an alternate code path).
+  const g = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = r[k] ?? r[k.toUpperCase()] ?? r[k.replace(/_/g, '').toUpperCase()];
+      if (v?.trim()) return v.trim();
+    }
+    return '';
+  };
+  const catRaw = g('category', 'type', 'part_type');
   return {
-    partNumber:        r.part_number     || '',
-    brand:             r.brand           || '',
-    description:       r.description     || '',
-    category:          PART_CATEGORIES.includes(r.category as typeof PART_CATEGORIES[number]) ? r.category : 'Other',
-    cost:              parseFloat(r.cost)              || 0,
-    retail:            parseFloat(r.retail)            || 0,
-    quantity:          parseInt(r.quantity)            || 0,
-    location:          r.location        || '',
-    barcode:           r.barcode         || '',
-    supplier:          r.supplier        || '',
-    supplierPhone:     r.supplier_phone  || '',
-    supplierEmail:     r.supplier_email  || '',
-    lowStockThreshold: parseInt(r.low_stock_threshold) || 5,
-    reorderQty:        parseInt(r.reorder_qty)         || 10,
-    compatibility:     r.compatibility   || '',
-    notes:             r.notes           || '',
+    partNumber:        g('part_number', 'part_model_no', 'partno', 'sku', 'model_no', 'code', 'ref', 'oem'),
+    brand:             g('brand', 'make', 'manufacturer'),
+    description:       g('description', 'desc', 'name', 'part_name'),
+    category:          PART_CATEGORIES.includes(catRaw as typeof PART_CATEGORIES[number]) ? catRaw : 'Other',
+    cost:              parseFloat(g('cost', 'unit_cost', 'buy_price')) || 0,
+    retail:            parseFloat(g('retail', 'unit_price', 'unit_price_lak', 'unit_price_thb', 'price', 'selling_price')) || 0,
+    quantity:          parseInt(g('quantity', 'qty', 'initial_stock', 'stock', 'stock_balance', 'balance', 'available')) || 0,
+    location:          g('location', 'bin', 'shelf'),
+    barcode:           g('barcode', 'upc', 'ean'),
+    supplier:          g('supplier', 'vendor', 'vendor_name'),
+    supplierPhone:     g('supplier_phone', 'vendor_phone'),
+    supplierEmail:     g('supplier_email', 'vendor_email'),
+    lowStockThreshold: parseInt(g('low_stock_threshold', 'min_stock', 'reorder_point')) || 5,
+    reorderQty:        parseInt(g('reorder_qty', 'reorder_quantity', 'order_qty')) || 10,
+    compatibility:     g('compatibility', 'compatible', 'fits'),
+    notes:             g('notes', 'note', 'comments'),
   };
 }
 
