@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,13 @@ export default function SignupPage() {
   const [name, setName] = useState('');
   const [shopName, setShopName] = useState('');
   const [email, setEmail] = useState('');
+
+  // Pre-fill email when redirected from forgot-password "not found" flow
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prefill = params.get('email');
+    if (prefill) setEmail(decodeURIComponent(prefill));
+  }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
