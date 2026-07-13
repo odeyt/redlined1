@@ -25,6 +25,10 @@ async function getUser() {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Billing is not enabled on this deployment' }, { status: 403 });
+  }
+
   try {
     const user = await getUser();
     if (!user) {
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validPlans: RedlinedPlanId[] = ['starter', 'professional', 'shop_pro', 'enterprise'];
+    const validPlans: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
     const validIntervals: BillingInterval[] = ['monthly', 'annual'];
 
     if (!validPlans.includes(planId as RedlinedPlanId)) {
