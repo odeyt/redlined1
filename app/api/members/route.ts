@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -20,13 +17,13 @@ export async function DELETE(req: NextRequest) {
     const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
     // Collect all shops owned by any owner of the target shop
-    const { data: owners } = await admin
+    const { data: owners } = await getAdmin()
       .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
     const ownerIds = (owners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
 
     let allShopIds: string[] = [shopId];
     if (ownerIds.length > 0) {
-      const { data: ownerShops } = await admin
+      const { data: ownerShops } = await getAdmin()
         .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
       allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
       if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
@@ -83,8 +80,8 @@ export async function GET(req: NextRequest) {
       .eq('shop_id', shopId);
 
     if (suError) {
-      // Fallback: use admin client directly
-      const { data: adminRows, error: adminErr } = await admin
+      // Fallback: use getAdmin() client directly
+      const { data: adminRows, error: adminErr } = await getAdmin()
         .from('shop_users')
         .select('user_id, role')
         .eq('shop_id', shopId);
@@ -92,7 +89,7 @@ export async function GET(req: NextRequest) {
       if (!adminRows || adminRows.length === 0) return NextResponse.json({ members: [] });
 
       const userIds = adminRows.map((r: Record<string, unknown>) => r.user_id as string);
-      const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+      const { data: { users: authUsers } } = await getAdmin().auth.admin.listUsers({ perPage: 1000 });
       const authMap = Object.fromEntries(
         (authUsers ?? []).filter(u => userIds.includes(u.id)).map(u => [u.id, u.email ?? ''])
       );
@@ -108,7 +105,7 @@ export async function GET(req: NextRequest) {
     if (!suRows || suRows.length === 0) return NextResponse.json({ members: [] });
 
     const userIds = suRows.map((r: Record<string, unknown>) => r.user_id as string);
-    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const { data: { users: authUsers } } = await getAdmin().auth.admin.listUsers({ perPage: 1000 });
     const authMap = Object.fromEntries(
       (authUsers ?? []).filter(u => userIds.includes(u.id)).map(u => [u.id, u.email ?? ''])
     );

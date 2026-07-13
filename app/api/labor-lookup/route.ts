@@ -1,12 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 export async function POST(req: NextRequest) {
   // ── 1. Authenticate via cookie session (same as browser) ─────────
@@ -33,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Verify owner role (service key bypasses RLS) ──────────────
-  const { data: memberships } = await admin
+  const { data: memberships } = await getAdmin()
     .from('shop_users')
     .select('role, shop_id')
     .eq('user_id', user.id)
@@ -47,7 +44,7 @@ export async function POST(req: NextRequest) {
   const shopId = memberships[0].shop_id as string;
 
   // ── 4. Pull shop labor rate ──────────────────────────────────────
-  const { data: settings } = await admin
+  const { data: settings } = await getAdmin()
     .from('shop_settings')
     .select('labor_rate')
     .eq('shop_id', shopId)
@@ -60,7 +57,7 @@ export async function POST(req: NextRequest) {
   const make = (year ? parts[1] : parts[0])?.toLowerCase() ?? '';
 
   // ── 6. Query labor_times ─────────────────────────────────────────
-  const { data: rows } = await admin
+  const { data: rows } = await getAdmin()
     .from('labor_times')
     .select('suggested_hours, notes, source, make')
     .ilike('service_type', `%${serviceType.replace(/\s+/g, '%')}%`)

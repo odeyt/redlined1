@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
 const STAGES = [
   { id: 'checked_in',    label: 'Checked In',       icon: '📋' },
@@ -28,7 +25,7 @@ export async function PUT(req: NextRequest) {
     const { jobId, shopId } = await req.json();
     if (!jobId || !shopId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
-    const { data: job, error } = await admin
+    const { data: job, error } = await getAdmin()
       .from('job_cards').select('id, status_token, repair_stage, stage_history')
       .eq('id', jobId).eq('shop_id', shopId).single();
     if (error || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
@@ -38,7 +35,7 @@ export async function PUT(req: NextRequest) {
     const token = generateToken();
     // Initialize with checked_in in history
     const history = [{ stage: 'checked_in', label: 'Checked In', icon: '📋', advancedAt: new Date().toISOString(), notifiedSms: false, notifiedEmail: false }];
-    await admin.from('job_cards').update({ status_token: token, repair_stage: 'checked_in', stage_history: history }).eq('id', jobId);
+    await getAdmin().from('job_cards').update({ status_token: token, repair_stage: 'checked_in', stage_history: history }).eq('id', jobId);
     return NextResponse.json({ token, stage: 'checked_in', history });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
@@ -54,7 +51,7 @@ export async function POST(req: NextRequest) {
     const stageInfo = STAGES.find(s => s.id === stage);
     if (!stageInfo) return NextResponse.json({ error: 'Invalid stage' }, { status: 400 });
 
-    const { data: job, error } = await admin
+    const { data: job, error } = await getAdmin()
       .from('job_cards').select('id, stage_history').eq('id', jobId).eq('shop_id', shopId).single();
     if (error || !job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
 
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
       notifiedEmail: notifiedEmail ?? false,
     }];
 
-    await admin.from('job_cards').update({ repair_stage: stage, stage_history: history }).eq('id', jobId);
+    await getAdmin().from('job_cards').update({ repair_stage: stage, stage_history: history }).eq('id', jobId);
     return NextResponse.json({ ok: true, stage, history });
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 });
@@ -78,13 +75,13 @@ export async function GET(req: NextRequest) {
     const token = req.nextUrl.searchParams.get('token');
     if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
 
-    const { data: job, error } = await admin
+    const { data: job, error } = await getAdmin()
       .from('job_cards').select('id, customer, vehicle, service_type, repair_stage, stage_history, shop_id, check_in_date')
       .eq('status_token', token).single();
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const { data: shop } = await admin.from('shops').select('name').eq('id', job.shop_id).single();
-    const { data: settings } = await admin.from('shop_settings').select('phone, address, logo_url, email').eq('shop_id', job.shop_id).single();
+    const { data: shop } = await getAdmin().from('shops').select('name').eq('id', job.shop_id).single();
+    const { data: settings } = await getAdmin().from('shop_settings').select('phone, address, logo_url, email').eq('shop_id', job.shop_id).single();
 
     return NextResponse.json({
       job: {
