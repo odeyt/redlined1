@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
 
 // POST: customer submits approval decision via share token (public — no auth)
 export async function POST(req: NextRequest) {
@@ -15,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Token and name are required.' }, { status: 400 });
     }
 
-    const { data: ins, error } = await admin
+    const { data: ins, error } = await getAdmin()
       .from('inspections')
       .select('id, status, customer_approval')
       .eq('share_token', token)
@@ -62,7 +65,7 @@ export async function GET(req: NextRequest) {
     const token = req.nextUrl.searchParams.get('token');
     if (!token) return NextResponse.json({ error: 'Missing token' }, { status: 400 });
 
-    const { data: ins, error } = await admin
+    const { data: ins, error } = await getAdmin()
       .from('inspections')
       .select('customer_approval, status')
       .eq('share_token', token)
