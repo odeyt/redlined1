@@ -1,13 +1,11 @@
 /**
- * /admin/billing-health
- * Server-rendered access gate — verifies platform owner before sending ANY
- * client HTML. Never exposes the dashboard to unauthorized users.
+ * /admin/billing-health — Platform owner only.
+ * Uses next/headers cookies() directly (correct Server Component pattern).
  */
 
-import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { NextRequest } from 'next/server';
-import { verifyPlatformOwner } from '@/lib/adminAuth';
+import { createServerClient } from '@supabase/ssr';
 import { BillingHealthDashboard } from '@/features/admin/billing-health/BillingHealthDashboard';
 
 export const dynamic = 'force-dynamic';
@@ -17,24 +15,33 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+async function getSessionEmail(): Promise<string | null> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll() {},
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.email?.toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function BillingHealthPage() {
-  // Build a minimal request object from headers so verifyPlatformOwner can
-  // read cookies / auth headers in the server component context.
-  const headersList = await headers();
-  const cookieHeader = headersList.get('cookie') ?? '';
-  const authHeader = headersList.get('authorization') ?? '';
+  const email = await getSessionEmail();
 
-  const mockReq = new NextRequest('http://localhost/admin/billing-health', {
-    headers: {
-      cookie: cookieHeader,
-      ...(authHeader ? { authorization: authHeader } : {}),
-    },
-  });
+  const raw = process.env.PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+  const ownerEmails = raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 
-  const auth = await verifyPlatformOwner(mockReq);
-
-  if (!auth.authorized) {
-    // Redirect unauthorized users to login without revealing this route exists
+  if (!email || !ownerEmails.includes(email)) {
     redirect('/login');
   }
 
