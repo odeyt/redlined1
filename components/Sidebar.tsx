@@ -120,10 +120,16 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/admin/me')
-      .then(r => r.ok ? r.json() : { isPlatformOwner: false })
-      .then(d => setIsPlatformOwner(d.isPlatformOwner === true))
-      .catch(() => setIsPlatformOwner(false));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const token = session?.access_token;
+      if (!token) return;
+      fetch('/api/admin/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : { isPlatformOwner: false })
+        .then(d => setIsPlatformOwner(d.isPlatformOwner === true))
+        .catch(() => setIsPlatformOwner(false));
+    });
   }, []);
 
   useEffect(() => {
