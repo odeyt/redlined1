@@ -26,6 +26,32 @@ export const COMMERCIAL_FLAGS = {
 
   /** Enable usage tracking writes to usage_records table. */
   usage_metering: 'usage_metering',
+
+  // ── C-2.2 Billing Health Dashboard ────────────────────────────────────────
+
+  /** Master switch for the internal Billing Health & Revenue Dashboard. */
+  billing_health_dashboard: 'billing_health_dashboard',
+
+  /** Enable revenue metrics (MRR, ARR, ARPA) in the admin dashboard. */
+  billing_revenue_metrics: 'billing_revenue_metrics',
+
+  /** Enable trial funnel view in the admin dashboard. */
+  billing_trial_funnel: 'billing_trial_funnel',
+
+  /** Enable churn analytics in the admin dashboard. */
+  billing_churn_analytics: 'billing_churn_analytics',
+
+  /** Enable webhook health panel in the admin dashboard. */
+  billing_webhook_health: 'billing_webhook_health',
+
+  /** Enable renewal health panel in the admin dashboard. */
+  billing_renewal_health: 'billing_renewal_health',
+
+  /** Enable LTV and CAC panel in the admin dashboard. */
+  billing_ltv_cac: 'billing_ltv_cac',
+
+  /** Enable daily metric snapshot job. */
+  billing_metric_snapshots: 'billing_metric_snapshots',
 } as const;
 
 export type CommercialFlagKey = typeof COMMERCIAL_FLAGS[keyof typeof COMMERCIAL_FLAGS];
@@ -36,12 +62,20 @@ export type CommercialFlagKey = typeof COMMERCIAL_FLAGS[keyof typeof COMMERCIAL_
  * All defaults are FALSE — billing is opt-in, never opt-out.
  */
 export const COMMERCIAL_FLAG_DEFAULTS: Record<CommercialFlagKey, boolean> = {
-  commercial_billing:       false,
-  self_service_signup:      false,
-  billing_portal:           false,
-  subscription_enforcement: false,
-  trial_system:             false,
-  usage_metering:           false,
+  commercial_billing:          false,
+  self_service_signup:         false,
+  billing_portal:              false,
+  subscription_enforcement:    false,
+  trial_system:                false,
+  usage_metering:              false,
+  billing_health_dashboard:    false,
+  billing_revenue_metrics:     false,
+  billing_trial_funnel:        false,
+  billing_churn_analytics:     false,
+  billing_webhook_health:      false,
+  billing_renewal_health:      false,
+  billing_ltv_cac:             false,
+  billing_metric_snapshots:    false,
 };
 
 /**
