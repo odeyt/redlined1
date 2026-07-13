@@ -34,7 +34,7 @@ export function HeroSection() {
           The operating system that helps repair shops and mobile mechanics think.
         </h1>
         <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', lineHeight: 1.6, color: colors.textMuted, maxWidth: '720px', margin: 0 }}>
-          Run customers, vehicles, estimates, technicians, invoices, payments, and business intelligence from one connected platform — whether you work from a shop or the road.
+          Run customers, vehicles, digital inspections, estimates, technicians, invoices, payments, and business intelligence from one connected platform — whether you work from a shop or the road.
         </p>
         <p style={{ fontSize: '15px', lineHeight: 1.6, color: colors.textMuted, maxWidth: '640px', margin: 0 }}>
           RedlineD1 helps automotive businesses recover missed revenue, preserve repair knowledge, reduce repeated mistakes, and know what deserves attention next.

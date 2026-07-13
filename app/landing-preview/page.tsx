@@ -13,6 +13,7 @@ import { ServiceAdvisorSection } from '@/components/marketing/ServiceAdvisorSect
 import { CustomerIntelligenceSection } from '@/components/marketing/CustomerIntelligenceSection';
 import { MigrationSection } from '@/components/marketing/MigrationSection';
 import { MobileMechanicSection } from '@/components/marketing/MobileMechanicSection';
+import { DVISection } from '@/components/marketing/DVISection';
 import { MultiLocationSection } from '@/components/marketing/MultiLocationSection';
 import { IntelligencePhilosophySection } from '@/components/marketing/IntelligencePhilosophySection';
 import { ProductEvolutionSection } from '@/components/marketing/ProductEvolutionSection';
@@ -43,6 +44,7 @@ export default function LandingPreviewPage() {
       <div id="main-content">
         <HeroSection />
         <MobileMechanicSection />
+        <DVISection />
         <FounderOriginSection />
         <PainPointsSection />
         <ComparisonSection />

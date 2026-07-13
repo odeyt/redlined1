@@ -19,6 +19,7 @@ const ROWS: { category: string; traditional: Maturity; redline: Maturity }[] = [
   { category: 'Knowledge Retention', traditional: 'Limited', redline: 'Advanced' },
   { category: 'Migration Assistance', traditional: 'Standard', redline: 'Available' },
   { category: 'Mobile Readiness', traditional: 'Limited', redline: 'Available' },
+  { category: 'Digital Vehicle Inspections', traditional: 'Limited', redline: 'Available' },
 ];
 
 const MATURITY_COLOR: Record<Maturity, { bg: string; fg: string }> = {
