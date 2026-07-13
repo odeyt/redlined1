@@ -120,18 +120,33 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const token = session?.access_token;
-      if (!token) return;
-      fetch('/api/admin/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(r => r.json())
-        .then(d => {
-          console.log('[admin/me]', d);
-          setIsPlatformOwner(d.isPlatformOwner === true);
-        })
-        .catch(err => console.error('[admin/me] fetch failed', err));
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const email = user?.email?.toLowerCase() ?? '';
+      if (!email) return;
+      // Primary: server-side authoritative check
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const token = session?.access_token;
+        if (token) {
+          fetch('/api/admin/me', { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (d?.isPlatformOwner === true) { setIsPlatformOwner(true); return; }
+              // Fallback: compare against known owner email directly
+              const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+              const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+              setIsPlatformOwner(owners.includes(email));
+            })
+            .catch(() => {
+              const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+              const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+              setIsPlatformOwner(owners.includes(email));
+            });
+        } else {
+          const ownerRaw = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
+          const owners = ownerRaw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+          setIsPlatformOwner(owners.includes(email));
+        }
+      });
     });
   }, []);
 
