@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LOGO_SRC } from '@/lib/logo';
+import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail]         = useState('');
-  const [sent, setSent]           = useState(false);
-  const [redirectUsed, setRedirectUsed] = useState('');
-  const [error, setError]         = useState('');
-  const [loading, setLoading]     = useState(false);
+  const [email, setEmail]     = useState('');
+  const [sent, setSent]       = useState(false);
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
   const [linkExpired, setLinkExpired] = useState(false);
 
   useEffect(() => {
@@ -23,7 +22,6 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
-      setRedirectUsed(redirectTo);
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (error) throw error;
       setSent(true);
@@ -38,7 +36,7 @@ export default function ForgotPasswordPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 110, width: 'auto', objectFit: 'contain' }} />
+          <RedlineD1Logo height={56} background="dark" animated={true} />
           <span className="login-logo-sub">Shop Operations</span>
         </div>
 
@@ -51,16 +49,10 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div style={{ textAlign: 'center', padding: '10px 0 20px' }}>
             <div style={{ fontSize: 44, marginBottom: 16 }}>📧</div>
-            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>Check your inbox</h2>
-            <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
+            <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
               Reset link sent to <strong style={{ color: '#fff' }}>{email}</strong>.<br />
               Click the link in that email to set a new password.
             </p>
-            {/* Debug: show redirect URL so Supabase allowlist can be verified */}
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', marginBottom: 20, textAlign: 'left' }}>
-              <div style={{ fontSize: 10, color: '#555', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Redirect URL sent to Supabase</div>
-              <div style={{ fontSize: 11, color: '#888', wordBreak: 'break-all' }}>{redirectUsed}</div>
-            </div>
             <a href="/login" style={{ color: '#cc0000', fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>← Back to Sign In</a>
           </div>
         ) : (
