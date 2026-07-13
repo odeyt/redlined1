@@ -126,9 +126,12 @@ export function Sidebar() {
       fetch('/api/admin/me', {
         headers: { Authorization: `Bearer ${token}` },
       })
-        .then(r => r.ok ? r.json() : { isPlatformOwner: false })
-        .then(d => setIsPlatformOwner(d.isPlatformOwner === true))
-        .catch(() => setIsPlatformOwner(false));
+        .then(r => r.json())
+        .then(d => {
+          console.log('[admin/me]', d);
+          setIsPlatformOwner(d.isPlatformOwner === true);
+        })
+        .catch(err => console.error('[admin/me] fetch failed', err));
     });
   }, []);
 
