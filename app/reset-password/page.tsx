@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LOGO_SRC } from '@/lib/logo';
+import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src={LOGO_SRC} alt="Redlined1" style={{ height: 110, width: 'auto', objectFit: 'contain' }} />
+          <RedlineD1Logo height={56} background="dark" animated={true} />
           <span className="login-logo-sub">Shop Operations</span>
         </div>
 

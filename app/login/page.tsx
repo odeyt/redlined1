@@ -1,12 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { signIn } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+
+  // Implicit flow: Supabase invite/recovery redirects to site root with
+  // #access_token=...&type=invite. Middleware strips hash → lands on /login.
+  // Detect it here and forward to /auth/callback so the session is exchanged.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const p = new URLSearchParams(hash);
+    const type = p.get('type');
+    const accessToken = p.get('access_token');
+    if (accessToken && (type === 'invite' || type === 'recovery')) {
+      router.replace('/auth/callback' + window.location.hash);
+    }
+  }, [router]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
