@@ -4,9 +4,9 @@
  * Creates a hosted checkout session and returns the redirect URL.
  *
  * Guards:
+ *  - Billing feature flag must be enabled
  *  - Authenticated user (session required)
  *  - Owner role only (shop_users.role = 'owner')
- *  - Billing feature flag must be enabled
  *  - D1 internal shops are never billed
  *  - Duplicate prevention — rejects if shop already has active/trialing subscription
  *  - Server-side product ID resolution (no client-supplied price IDs accepted)
@@ -20,15 +20,10 @@ import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getCurrentSubscription } from '@/lib/billing/billing-service';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { getInternalShopIds } from '@/lib/adminAuth';
 import type { RedlinedPlanId, BillingInterval } from '@/lib/payments/types';
 
-// D1 internal shops — never billed
-const INTERNAL_SHOP_IDS = new Set([
-  '38d55fae-741b-4bac-b520-f96eed65bf38',
-  '90b72748-bf01-4456-999f-f4ba48091606',
-]);
-
-const VALID_PLANS: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business'];
+const VALID_PLANS: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
 const VALID_INTERVALS: BillingInterval[] = ['monthly', 'annual'];
 
 async function getAuthenticatedUser() {
@@ -43,24 +38,21 @@ async function getAuthenticatedUser() {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    // ── Billing feature flag ─────────────────────────────────────────────────
-    if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
-      return NextResponse.json(
-        { error: 'Billing is not yet enabled. Contact admin@redlined1.com to activate.' },
-        { status: 403 },
-      );
-    }
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return NextResponse.json(
+      { error: 'Billing is not yet enabled. Contact admin@redlined1.com to activate.' },
+      { status: 403 },
+    );
+  }
 
-    // ── Auth ──────────────────────────────────────────────────────────────────
+  try {
     const user = await getAuthenticatedUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ── Owner role + shop lookup ───────────────────────────────────────────────
+    // Owner role check — uses admin DB to bypass RLS
     const adminDb = getAdminDb();
-
     const { data: shopUser } = await adminDb
       .from('shop_users')
       .select('shop_id, role')
@@ -77,15 +69,13 @@ export async function POST(req: NextRequest) {
 
     const { shop_id: shopId } = shopUser;
 
-    // ── D1 internal shop guard ────────────────────────────────────────────────
-    if (INTERNAL_SHOP_IDS.has(shopId)) {
+    if (getInternalShopIds().has(shopId)) {
       return NextResponse.json(
-        { error: 'Internal shops are not eligible for billing.' },
+        { error: 'Internal accounts are not subject to billing.' },
         { status: 403 },
       );
     }
 
-    // ── Input validation ──────────────────────────────────────────────────────
     const body = await req.json() as { planId?: string; billingInterval?: string };
     const { planId, billingInterval } = body;
 
@@ -103,7 +93,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Invalid billingInterval: ${billingInterval}` }, { status: 400 });
     }
 
-    // ── Duplicate prevention ──────────────────────────────────────────────────
+    // Duplicate prevention
     const existing = await getCurrentSubscription(user.id);
     if (existing && ['active', 'trialing'].includes(existing.status)) {
       return NextResponse.json(
@@ -116,7 +106,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Create checkout session ───────────────────────────────────────────────
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     const provider = getPaymentProvider();
 
@@ -127,9 +116,7 @@ export async function POST(req: NextRequest) {
       billingInterval: billingInterval as BillingInterval,
       successUrl: process.env.CREEM_SUCCESS_URL ?? `${siteUrl}/billing/success`,
       cancelUrl: process.env.CREEM_CANCEL_URL ?? `${siteUrl}/pricing`,
-      metadata: {
-        shop_id: shopId,
-      },
+      metadata: { shop_id: shopId },
     });
 
     return NextResponse.json({ url: result.checkoutUrl, sessionId: result.sessionId });

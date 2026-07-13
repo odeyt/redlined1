@@ -30,6 +30,10 @@ async function getAuthenticatedUser() {
 }
 
 export async function POST(req: NextRequest) {
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Billing is not enabled on this deployment' }, { status: 403 });
+  }
+
   try {
     // ── Auth ──────────────────────────────────────────────────────────────────
     const user = await getAuthenticatedUser();

@@ -1,5 +1,5 @@
 /**
- * Redlined1plan configuration.
+ * Redlined1 plan configuration.
  * Canonical plan IDs match the public PricingSection catalog exactly.
  * Provider-specific product/price IDs come from environment variables only —
  * never hardcoded here.
