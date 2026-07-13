@@ -120,12 +120,10 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const email = data?.user?.email ?? '';
-      const ownerEmails = (process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '')
-        .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-      setIsPlatformOwner(ownerEmails.length > 0 && ownerEmails.includes(email.toLowerCase()));
-    });
+    fetch('/api/admin/me')
+      .then(r => r.ok ? r.json() : { isPlatformOwner: false })
+      .then(d => setIsPlatformOwner(d.isPlatformOwner === true))
+      .catch(() => setIsPlatformOwner(false));
   }, []);
 
   useEffect(() => {
