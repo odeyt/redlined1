@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       decision === 'partial'  ? 'Partially Approved' :
                                 'Customer Declined';
 
-    await admin.from('inspections').update({
+    await getAdmin().from('inspections').update({
       customer_approval: approval,
       status: newStatus,
     }).eq('id', ins.id);
