@@ -61,19 +61,130 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="login-page">
-        <div className="login-card" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-          <h2 style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>Account Created!</h2>
-          <p style={{ color: '#666', fontSize: 14, marginBottom: 8 }}>
-            You have <strong>7 days of full access</strong> to explore Redlined1.
+      <div style={{
+        minHeight: '100vh',
+        background: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Inter', system-ui, sans-serif",
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {/* Animated background grid */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'linear-gradient(rgba(204,0,0,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(204,0,0,0.07) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+          maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
+        }} />
+        {/* Red glow orb */}
+        <div style={{
+          position: 'absolute', top: '30%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 600, height: 600,
+          background: 'radial-gradient(circle, rgba(204,0,0,0.18) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{
+          position: 'relative',
+          width: '100%', maxWidth: 480,
+          margin: '0 24px',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(204,0,0,0.3)',
+          borderRadius: 20,
+          padding: '48px 40px',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 0 60px rgba(204,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) inset',
+          textAlign: 'center',
+        }}>
+          {/* Logo mark */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 64, height: 64, borderRadius: 16,
+            background: 'linear-gradient(135deg, #cc0000, #ff3333)',
+            marginBottom: 28,
+            boxShadow: '0 8px 32px rgba(204,0,0,0.4)',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <path d="M6 8h12a6 6 0 010 12H6V8z" fill="white" fillOpacity="0.9"/>
+              <circle cx="22" cy="22" r="4" fill="white" fillOpacity="0.5"/>
+            </svg>
+          </div>
+
+          {/* Status pill */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+            borderRadius: 100, padding: '4px 14px', marginBottom: 24,
+          }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
+            <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 600, letterSpacing: 0.5 }}>ACCOUNT ACTIVATED</span>
+          </div>
+
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>
+            Welcome to RedlineD1
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 32px', lineHeight: 1.6 }}>
+            Your 7-day full-access trial is ready. One step left — confirm your email to unlock the platform.
           </p>
-          <p style={{ color: '#999', fontSize: 13, marginBottom: 24 }}>
-            Check your email to confirm your account, then sign in.
-          </p>
-          <button className="login-btn" onClick={() => router.push('/login')}>
-            Go to Sign In
+
+          {/* Steps */}
+          {[
+            { n: '1', label: 'Check your inbox', sub: 'We sent a confirmation link to your email', done: false },
+            { n: '2', label: 'Confirm your email', sub: 'Click the link to verify your account', done: false },
+            { n: '3', label: 'Sign in & explore', sub: 'Full access to all features for 7 days', done: false },
+          ].map((step, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 14,
+              textAlign: 'left', marginBottom: 16,
+              padding: '14px 16px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: 12,
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(204,0,0,0.2)', border: '1px solid rgba(204,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 700, color: '#ff4444',
+              }}>{step.n}</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 2 }}>{step.label}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{step.sub}</div>
+              </div>
+            </div>
+          ))}
+
+          <button
+            onClick={() => router.push('/login')}
+            style={{
+              width: '100%', marginTop: 8,
+              padding: '15px 24px',
+              background: 'linear-gradient(135deg, #cc0000, #ff2222)',
+              border: 'none', borderRadius: 12,
+              color: '#fff', fontSize: 15, fontWeight: 700,
+              cursor: 'pointer', letterSpacing: 0.3,
+              boxShadow: '0 4px 24px rgba(204,0,0,0.4)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 32px rgba(204,0,0,0.5)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 24px rgba(204,0,0,0.4)';
+            }}
+          >
+            Go to Sign In →
           </button>
+
+          <p style={{ marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
+            Didn&apos;t receive the email? Check your spam folder or{' '}
+            <a href="/signup" style={{ color: 'rgba(204,0,0,0.8)', textDecoration: 'none' }}>try again</a>.
+          </p>
         </div>
       </div>
     );
