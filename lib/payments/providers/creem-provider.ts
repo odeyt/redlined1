@@ -81,8 +81,6 @@ export class CreemPaymentProvider implements PaymentProvider {
       body: JSON.stringify({
         product_id: productId,
         success_url: input.successUrl,
-        cancel_url: input.cancelUrl,
-        customer_email: input.email,
         metadata: {
           user_id: input.userId,
           plan_id: input.planId,
