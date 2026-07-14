@@ -34,19 +34,14 @@ import { colors } from '@/components/marketing/theme';
  */
 export default function LandingPreviewPage() {
   return (
-    <main style={{ background: colors.surfaceBg, fontFamily: "'Inter', system-ui, sans-serif", position: 'relative' }}>
-      {/* Ambient red glow — matches login page aesthetic */}
-      <div aria-hidden="true" style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(204,0,0,0.13) 0%, transparent 70%)',
-      }} />
+    <main style={{ background: colors.surfaceBg, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <a href="#main-content" className="rd1-skip-link">
         Skip to main content
       </a>
 
       <MarketingHeader />
 
-      <div id="main-content" style={{ position: 'relative', zIndex: 1 }}>
+      <div id="main-content">
         <HeroSection />
         <MobileMechanicSection />
         <DVISection />

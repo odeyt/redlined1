@@ -11,23 +11,26 @@ import type { CSSProperties } from 'react';
 
 export const colors = {
   primary: '#cc0000',
-  primaryHover: '#e60000',
+  primaryHover: '#990000',
   white: '#ffffff',
-  surfaceBg: '#080808',
-  surfaceWhite: '#111111',
-  surfaceDark: '#0a0a0a',
-  textMain: '#f0f0f0',
+  surfaceBg: '#f0f0f0',        // matches app --bg
+  surfaceWhite: '#ffffff',     // matches app --surface
+  surfaceSoft: '#f7f7f7',      // matches app --surface-soft
+  surfaceDark: '#0a0a0a',      // matches app --nav (dark sections / FinalCTA)
+  textMain: '#111111',         // matches app --text
   textOnDark: '#f0f0f0',
-  textMuted: '#888888',
-  textLight: '#555555',
-  borderLight: 'rgba(255,255,255,0.08)',
-  borderDark: 'rgba(255,255,255,0.14)',
-  success: '#10b981',
-  successText: '#34d399',
-  successBg: 'rgba(16,185,129,0.1)',
-  warning: '#f59e0b',
-  warningOnDark: '#fbbf24',
+  textMuted: '#666666',        // matches app --muted
+  textLight: '#999999',
+  borderLight: '#e0e0e0',      // matches app --line
+  borderDark: 'rgba(255,255,255,0.12)',
+  success: '#059669',
+  successText: '#065F46',
+  successBg: '#ECFDF5',
+  warning: '#cc6600',
+  warningOnDark: '#f59e0b',
   focusRing: '#cc0000',
+  // Dark red gradient used by app hero / KPI cards
+  heroGradient: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)',
 } as const;
 
 export const font = {
@@ -61,10 +64,10 @@ export const eyebrow: CSSProperties = {
 };
 
 export const h2Style: CSSProperties = {
-  fontSize: 'clamp(28px, 4vw, 40px)',
+  fontSize: 'clamp(28px, 4vw, 36px)',
   fontWeight: 700,
-  lineHeight: 1.1,
-  letterSpacing: '-0.03em',
+  lineHeight: 1.15,
+  letterSpacing: '-0.025em',
   color: colors.textMain,
   margin: 0,
 };
@@ -98,13 +101,13 @@ export const buttonSecondary: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  background: 'rgba(255,255,255,0.06)',
+  background: colors.surfaceWhite,
   color: colors.textMain,
   fontWeight: 600,
   fontSize: '15px',
   padding: '13px 24px',
   borderRadius: layout.radiusSm,
-  border: `1px solid ${colors.borderDark}`,
+  border: `1px solid ${colors.borderLight}`,
   cursor: 'pointer',
   minHeight: '44px',
   textDecoration: 'none',
@@ -116,8 +119,8 @@ export const buttonDisabled: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  background: 'rgba(255,255,255,0.05)',
-  color: '#555555',
+  background: '#F5F5F5',
+  color: '#A3A3A3',
   fontWeight: 600,
   fontSize: '15px',
   padding: '13px 24px',
@@ -132,7 +135,7 @@ export const card: CSSProperties = {
   border: `1px solid ${colors.borderLight}`,
   borderRadius: layout.radiusLg,
   padding: '24px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
 };
 
 export const badge: CSSProperties = {
