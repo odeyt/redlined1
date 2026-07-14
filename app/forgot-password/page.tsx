@@ -23,21 +23,28 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     try {
-      // Check if email exists in auth before sending reset link
-      const res = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      if (res.status === 429) {
-        setError('Too many attempts. Please wait a minute and try again.');
-        return;
+      // Check if email exists — fail open so a missing service key never blocks the form
+      let emailExists: boolean | null = null;
+      try {
+        const res = await fetch('/api/auth/check-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        if (res.status === 429) {
+          setError('Too many attempts. Please wait a minute and try again.');
+          return;
+        }
+        if (res.ok) {
+          const data = await res.json();
+          emailExists = data.exists ?? null;
+        }
+      } catch {
+        // API unavailable — proceed to send so the user isn't blocked
+        emailExists = null;
       }
 
-      const { exists } = await res.json();
-
-      if (!exists) {
+      if (emailExists === false) {
         setStep('not-found');
         return;
       }
