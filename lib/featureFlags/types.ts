@@ -54,4 +54,10 @@ export type KnownFlagKey =
   // SI-5: Evidence Engine
   | 'evidence_engine'
   | 'actionable_recommendations'
-  | 'recommendation_outcomes';
+  | 'recommendation_outcomes'
+  // Diagnostic Orchestrator — all default OFF
+  | 'diagnostic_orchestrator_enabled'
+  | 'diagnostic_bridge_enabled'
+  | 'diagnostic_ai_reasoning_enabled'
+  | 'diagnostic_claude_review_enabled'
+  | 'diagnostic_live_hardware_enabled';
