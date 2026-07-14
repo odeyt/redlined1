@@ -49,6 +49,9 @@ export default function ForgotPasswordPage() {
         return;
       }
 
+      // Set a cookie so /auth/callback knows this is a recovery flow even if
+      // Supabase strips extra query params from redirectTo.
+      document.cookie = 'rd1_auth_intent=recovery; path=/; max-age=600; SameSite=Lax';
       const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
       if (resetError) throw resetError;

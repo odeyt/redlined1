@@ -49,12 +49,20 @@ export default function AuthCallbackPage() {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          // If next was explicitly provided (e.g. reset password flow sets ?next=/reset-password)
-          // use it. Otherwise this is email confirmation — send to login to avoid SSR loop.
+          // Determine destination: prefer explicit ?next= param, then fall back to
+          // the rd1_auth_intent cookie (set by forgot-password before sending email,
+          // in case Supabase strips extra query params from redirectTo).
           if (nextParam) {
             router.replace(next);
           } else {
-            router.replace('/login?verified=1');
+            const intentCookie = document.cookie.split('; ').find(r => r.startsWith('rd1_auth_intent='));
+            const intent = intentCookie?.split('=')[1];
+            if (intent) document.cookie = 'rd1_auth_intent=; path=/; max-age=0';
+            if (intent === 'recovery') {
+              router.replace('/reset-password');
+            } else {
+              router.replace('/login?verified=1');
+            }
           }
           return;
         }
