@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-10: Vehicle Intelligence Health Summary
 // GET /api/intelligence/vehicle/health-summary
 // Returns aggregate counts for Command Center — no PII, no VIN

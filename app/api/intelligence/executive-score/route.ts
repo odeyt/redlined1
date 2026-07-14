@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-6: GET /api/intelligence/executive-score
 // Returns the Executive Score (0–100) and breakdown.
 // Auth required. Owner/manager only. Feature-flagged.

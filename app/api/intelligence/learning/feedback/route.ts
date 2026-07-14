@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-11: POST /api/intelligence/learning/feedback
 // Auth required. Validates input. Calls submitFeedback engine function.
 

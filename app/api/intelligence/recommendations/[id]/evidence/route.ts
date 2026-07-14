@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-5: GET /api/intelligence/recommendations/[id]/evidence
 // Returns evidence bundle for a single recommendation.
 // Auth required. Owner/manager only. Technician blocked.

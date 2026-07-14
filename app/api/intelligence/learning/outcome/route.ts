@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-11: POST /api/intelligence/learning/outcome
 // Auth required. Owner/manager only. Records realized revenue and time saved.
 

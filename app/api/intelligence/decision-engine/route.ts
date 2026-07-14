@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-6: POST /api/intelligence/decision-engine
 // Triggers full decision scoring for all open recommendations.
 // Returns scored + ranked list. Auth required. Owner/manager only.

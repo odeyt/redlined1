@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-11: POST /api/intelligence/learning/recalculate
 // Auth required. Owner only. Triggers profile recalculation for the shop.
 

@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-9: Business Memory API
 // GET  — shop memory summary, or entity memory with ?entity_type=&entity_id=
 // POST — refresh memory (shop-level or entity-level)

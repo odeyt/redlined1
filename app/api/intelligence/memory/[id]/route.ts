@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-9: Business Memory Item — GET / PATCH by ID
 
 import { NextRequest, NextResponse } from 'next/server';

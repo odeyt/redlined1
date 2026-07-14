@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-6: GET /api/intelligence/action-queue
 // Returns the ranked Top 5 action queue for the shop.
 // Auth required. Owner/manager only. Technician blocked. Feature-flagged.

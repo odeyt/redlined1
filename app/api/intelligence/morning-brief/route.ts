@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-7: Morning Brief API
 // GET  — return today's brief (or null if not yet generated)
 // POST — generate/re-generate today's brief

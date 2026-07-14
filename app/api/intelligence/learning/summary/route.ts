@@ -1,3 +1,4 @@
+﻿export const dynamic = 'force-dynamic'
 // SI-11: GET /api/intelligence/learning/summary
 // Auth required. Owner/manager only. Returns shop learning health status.
 

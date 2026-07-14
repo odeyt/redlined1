@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-10: Vehicle Intelligence Timeline API
 // GET /api/intelligence/vehicle/[vehicleId]/timeline
 

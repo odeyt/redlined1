@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-13: Customer Opportunities API
 
 import { NextRequest, NextResponse } from 'next/server';

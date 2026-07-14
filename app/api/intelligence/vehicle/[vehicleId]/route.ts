@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-10: Vehicle Intelligence API
 // GET  /api/intelligence/vehicle/[vehicleId]  — get or fetch profile
 // POST /api/intelligence/vehicle/[vehicleId]  — refresh intelligence

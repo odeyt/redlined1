@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-11: GET /api/intelligence/learning/rules/[ruleKey]
 // Auth required. Owner/manager only. Returns per-rule performance summary.
 

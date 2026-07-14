@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // SI-5: POST /api/intelligence/recommendations/[id]/outcome
 // Records the outcome of acting on a recommendation (completed, dismissed, etc.)
 // Auth required. Owner/manager only. Technician blocked.
