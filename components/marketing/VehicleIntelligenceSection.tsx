@@ -79,10 +79,10 @@ export function VehicleIntelligenceSection() {
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     width: '100%', padding: '14px 20px', cursor: 'pointer',
-                    borderBottom: i < SIGNALS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
                     background: isActive ? `${s.color}0f` : 'transparent',
                     borderLeft: isActive ? `3px solid ${s.color}` : '3px solid transparent',
-                    border: 'none', borderBottom: i < SIGNALS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
+                    borderRight: 'none', borderTop: 'none',
+                    borderBottom: i < SIGNALS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
                     transition: 'all 0.2s ease', textAlign: 'left',
                   }}
                 >
