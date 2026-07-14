@@ -40,32 +40,16 @@ export function MarketingFooter() {
           </nav>
         </div>
 
-        <div style={{ borderTop: `1px solid ${colors.borderLight}`, paddingTop: '24px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textMuted, marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Brand - logo variants (design reference)
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-            <div style={{ padding: '16px', border: `1px solid ${colors.borderLight}`, borderRadius: '8px', background: colors.surfaceWhite }}>
-              <RedlineD1Logo variant="full" background="light" height={28} />
-            </div>
-            <div style={{ padding: '16px', border: `1px solid ${colors.borderLight}`, borderRadius: '8px', background: colors.surfaceDark }}>
-              <RedlineD1Logo variant="full" background="dark" height={28} />
-            </div>
-            <div style={{ padding: '16px', border: `1px solid ${colors.borderLight}`, borderRadius: '8px', background: colors.surfaceWhite }}>
-              <RedlineD1Logo variant="compact" background="light" height={28} />
-            </div>
-            <div style={{ padding: '16px', border: `1px solid ${colors.borderLight}`, borderRadius: '8px', background: colors.surfaceWhite }}>
-              <RedlineD1Logo variant="monochrome" background="light" height={28} />
-            </div>
-            <div style={{ padding: '16px', border: `1px solid ${colors.borderLight}`, borderRadius: '8px', background: colors.surfaceWhite }}>
-              <RedlineD1Logo variant="full" background="light" tagline height={28} />
-            </div>
+        <div style={{ borderTop: `1px solid ${colors.borderLight}`, paddingTop: '24px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0 }}>
+            &copy; {new Date().getFullYear()} RedlineD1. All rights reserved.
+          </p>
+          <div style={{ display: 'flex', gap: 20 }}>
+            <Link href="/privacy" style={{ fontSize: '12px', color: colors.textMuted, textDecoration: 'none' }}>Privacy</Link>
+            <Link href="/terms" style={{ fontSize: '12px', color: colors.textMuted, textDecoration: 'none' }}>Terms</Link>
+            <Link href="/refund-policy" style={{ fontSize: '12px', color: colors.textMuted, textDecoration: 'none' }}>Refund Policy</Link>
           </div>
         </div>
-
-        <p style={{ fontSize: '12px', color: colors.textMuted, marginTop: '32px' }}>
-          &copy; {new Date().getFullYear()} RedlineD1. Preview build - not indexed, not linked from the public site.
-        </p>
       </div>
     </footer>
   );
