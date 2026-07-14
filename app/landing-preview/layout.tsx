@@ -12,23 +12,56 @@ import './landing.css';
 export const metadata: Metadata = {
   title: 'RedlineD1 | Automotive Shop Management Software',
   description:
-    'Manage customers, vehicles, digital inspections, estimates, repair orders, invoices, payments, inventory, and repair intelligence from one connected automotive business platform.',
+    'Manage customers, vehicles, digital inspections, estimates, repair orders, invoices, payments, and repair intelligence from one connected automotive business platform. Built for independent shops and mobile mechanics.',
   keywords: [
+    'automotive shop management software',
+    'auto repair shop software',
     'digital vehicle inspection software',
     'DVI software for repair shops',
-    'automotive inspection software',
-    'digital inspection app for mechanics',
-    'mobile mechanic inspection software',
-    'vehicle inspection report software',
-    'auto repair inspection checklist',
-    'automotive shop management software',
     'mobile mechanic software',
-    'repair shop software',
+    'repair shop management system',
+    'automotive CRM',
+    'auto repair invoicing software',
+    'vehicle inspection report software',
+    'repair order software',
   ],
+  metadataBase: new URL('https://www.redlined1.com'),
+  alternates: {
+    canonical: 'https://www.redlined1.com',
+  },
+  openGraph: {
+    type: 'website',
+    url: 'https://www.redlined1.com',
+    title: 'RedlineD1 | Automotive Shop Management Software',
+    description:
+      'The all-in-one shop OS for independent auto repair shops and mobile mechanics. Digital inspections, invoicing, AI repair intelligence, and more.',
+    siteName: 'RedlineD1',
+    images: [
+      {
+        url: '/icons/icon-512x512.png',
+        width: 512,
+        height: 512,
+        alt: 'RedlineD1 Logo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RedlineD1 | Automotive Shop Management Software',
+    description:
+      'The all-in-one shop OS for independent auto repair shops and mobile mechanics.',
+    images: ['/icons/icon-512x512.png'],
+  },
   robots: {
-    index: false,
-    follow: false,
-    nocache: true,
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large',
+      'max-video-preview': -1,
+    },
   },
 };
 
