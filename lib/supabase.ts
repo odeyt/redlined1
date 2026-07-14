@@ -19,7 +19,7 @@ function getInstance() {
 export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop: string | symbol) {
     const inst = getInstance();
-    const val = (inst as Record<string | symbol, unknown>)[prop];
+    const val = (inst as any)[prop];
     return typeof val === 'function' ? (val as Function).bind(inst) : val;
   },
 });
