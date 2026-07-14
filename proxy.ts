@@ -47,7 +47,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!session && isRoot) {
-    return NextResponse.redirect(new URL('/landing-preview', request.url));
+    return NextResponse.rewrite(new URL('/landing-preview', request.url));
   }
 
   if (!session && !isPublic) {
