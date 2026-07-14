@@ -10,7 +10,7 @@ import './landing.css';
  * page (not activated here).
  */
 export const metadata: Metadata = {
-  title: 'RedlineD1 | Automotive Business OS with Digital Vehicle Inspections (Preview)',
+  title: 'RedlineD1 | Automotive Shop Management Software',
   description:
     'Manage customers, vehicles, digital inspections, estimates, repair orders, invoices, payments, inventory, and repair intelligence from one connected automotive business platform.',
   keywords: [
