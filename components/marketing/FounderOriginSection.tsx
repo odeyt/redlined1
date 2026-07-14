@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { colors, container, h2Style } from './theme';
@@ -6,9 +6,9 @@ import { colors, container, h2Style } from './theme';
 const STEPS = [
   {
     label: 'Intake',
-    icon: '🚗',
+    icon: 'ðŸš—',
     heading: "Customer walks in. You're ready.",
-    body: 'Capture vehicle details, customer info, and the reason for visit in seconds. Every job starts with a clean intake — no sticky notes, no whiteboard chaos.',
+    body: 'Capture vehicle details, customer info, and the reason for visit in seconds. Every job starts with a clean intake â€” no sticky notes, no whiteboard chaos.',
     points: [
       'VIN decode auto-fills make, model, year',
       'Customer history surfaces instantly',
@@ -18,19 +18,19 @@ const STEPS = [
   },
   {
     label: 'Job Card',
-    icon: '🔧',
+    icon: 'ðŸ”§',
     heading: 'Every tech knows exactly what to do.',
-    body: 'Assign jobs, log diagnostic notes, and track live status across your bays. Technicians work from their phone — no paperwork, no waiting for the front desk.',
+    body: 'Assign jobs, log diagnostic notes, and track live status across your bays. Technicians work from their phone â€” no paperwork, no waiting for the front desk.',
     points: [
       'Assign to a tech in one tap',
-      'Real-time status: Waiting → In Progress → Done',
+      'Real-time status: Waiting â†’ In Progress â†’ Done',
       'Attach DTC codes and oscilloscope notes',
       'Parts requests straight from the job card',
     ],
   },
   {
     label: 'Estimate',
-    icon: '📄',
+    icon: 'ðŸ“„',
     heading: 'Quotes sent before the car cools down.',
     body: 'Build itemised estimates with parts, labour, and fees. Send to the customer via SMS or email and get approval without a phone call.',
     points: [
@@ -42,9 +42,9 @@ const STEPS = [
   },
   {
     label: 'Invoice',
-    icon: '🧾',
+    icon: 'ðŸ§¾',
     heading: 'Get paid before they leave the bay.',
-    body: 'Generate a professional invoice the moment the job is closed. Collect payment on-site or send a pay link — cash, card, or digital wallet.',
+    body: 'Generate a professional invoice the moment the job is closed. Collect payment on-site or send a pay link â€” cash, card, or digital wallet.',
     points: [
       'Auto-generated from the closed job card',
       'Accept card, cash, or online payment',
@@ -81,7 +81,7 @@ export function FounderOriginSection() {
     <section style={{ paddingBlock: 'clamp(56px, 8vw, 128px)', background: colors.surfaceBg }}>
       <div style={container} className="rd1-two-col">
 
-        {/* Left — animated copy */}
+        {/* Left â€” animated copy */}
         <div>
           <div
             style={{
@@ -106,7 +106,7 @@ export function FounderOriginSection() {
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {step.points.map(pt => (
                 <li key={pt} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontSize: '15px', color: colors.textMain }}>
-                  <span aria-hidden="true" style={{ color: colors.success, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                  <span aria-hidden="true" style={{ color: colors.success, fontWeight: 700, flexShrink: 0 }}>âœ“</span>
                   {pt}
                 </li>
               ))}
@@ -114,7 +114,7 @@ export function FounderOriginSection() {
           </div>
         </div>
 
-        {/* Right — workflow visual */}
+        {/* Right â€” workflow visual */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           {/* Step cards row */}
@@ -183,7 +183,7 @@ export function FounderOriginSection() {
                       boxShadow: isActive ? `0 0 0 4px ${colors.primary}22` : 'none',
                     }}>
                       {isDone && !isActive
-                        ? <span style={{ color: colors.surfaceWhite, fontSize: '14px', fontWeight: 700 }}>✓</span>
+                        ? <span style={{ color: colors.white, fontSize: '14px', fontWeight: 700 }}>âœ“</span>
                         : <span style={{ filter: isActive ? 'none' : 'grayscale(1)', opacity: isActive ? 1 : 0.5 }}>{s.icon}</span>
                       }
                     </div>
@@ -241,7 +241,7 @@ export function FounderOriginSection() {
                       background: colors.primary,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <span style={{ color: colors.surfaceWhite, fontSize: '10px', fontWeight: 700 }}>✓</span>
+                      <span style={{ color: colors.white, fontSize: '10px', fontWeight: 700 }}>âœ“</span>
                     </div>
                     <span style={{ fontSize: '12px', color: colors.textMuted, lineHeight: 1.4 }}>{pt}</span>
                   </div>
@@ -275,3 +275,4 @@ export function FounderOriginSection() {
     </section>
   );
 }
+

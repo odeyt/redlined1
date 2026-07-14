@@ -10,23 +10,24 @@
 import type { CSSProperties } from 'react';
 
 export const colors = {
-  primary: '#B42318',
-  primaryHover: '#991B12',
-  surfaceBg: '#FAFAFA',
-  surfaceWhite: '#FFFFFF',
-  surfaceDark: '#171717',
-  textMain: '#171717',
-  textOnDark: '#FAFAFA',
-  textMuted: '#525252', // darker than the spec's #737373 for extra safety margin on small text
-  textLight: '#A3A3A3', // DECORATIVE ONLY - fails WCAG AA as text per DESIGN_VERIFIED.md. Never used for copy in these components.
-  borderLight: '#E5E5E5',
-  borderDark: 'rgba(255,255,255,0.12)',
-  success: '#059669', // icon/large-accent use only - 3.77:1 on white, fails AA as small text per DESIGN_VERIFIED.md
-  successText: '#065F46', // darker emerald for small badge/text labels on light backgrounds - passes AA
-  successBg: '#ECFDF5',
-  warning: '#F59E0B', // NEVER as text on a light background (2.15:1, fails). Dark-section text or icon/badge fill only.
-  warningOnDark: '#FBBF24',
-  focusRing: '#2563EB',
+  primary: '#cc0000',
+  primaryHover: '#e60000',
+  white: '#ffffff',
+  surfaceBg: '#080808',
+  surfaceWhite: '#111111',
+  surfaceDark: '#0a0a0a',
+  textMain: '#f0f0f0',
+  textOnDark: '#f0f0f0',
+  textMuted: '#888888',
+  textLight: '#555555',
+  borderLight: 'rgba(255,255,255,0.08)',
+  borderDark: 'rgba(255,255,255,0.14)',
+  success: '#10b981',
+  successText: '#34d399',
+  successBg: 'rgba(16,185,129,0.1)',
+  warning: '#f59e0b',
+  warningOnDark: '#fbbf24',
+  focusRing: '#cc0000',
 } as const;
 
 export const font = {
@@ -60,10 +61,10 @@ export const eyebrow: CSSProperties = {
 };
 
 export const h2Style: CSSProperties = {
-  fontSize: 'clamp(28px, 4vw, 36px)',
-  fontWeight: 500,
-  lineHeight: 1.15,
-  letterSpacing: '-0.025em',
+  fontSize: 'clamp(28px, 4vw, 40px)',
+  fontWeight: 700,
+  lineHeight: 1.1,
+  letterSpacing: '-0.03em',
   color: colors.textMain,
   margin: 0,
 };
@@ -80,7 +81,7 @@ export const buttonPrimary: CSSProperties = {
   justifyContent: 'center',
   gap: '8px',
   background: colors.primary,
-  color: colors.surfaceWhite,
+  color: colors.white,
   fontWeight: 600,
   fontSize: '15px',
   padding: '13px 24px',
@@ -97,13 +98,13 @@ export const buttonSecondary: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  background: colors.surfaceWhite,
+  background: 'rgba(255,255,255,0.06)',
   color: colors.textMain,
   fontWeight: 600,
   fontSize: '15px',
   padding: '13px 24px',
   borderRadius: layout.radiusSm,
-  border: `1px solid ${colors.borderLight}`,
+  border: `1px solid ${colors.borderDark}`,
   cursor: 'pointer',
   minHeight: '44px',
   textDecoration: 'none',
@@ -115,8 +116,8 @@ export const buttonDisabled: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '8px',
-  background: '#F5F5F5',
-  color: '#A3A3A3',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#555555',
   fontWeight: 600,
   fontSize: '15px',
   padding: '13px 24px',
@@ -131,6 +132,7 @@ export const card: CSSProperties = {
   border: `1px solid ${colors.borderLight}`,
   borderRadius: layout.radiusLg,
   padding: '24px',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
 };
 
 export const badge: CSSProperties = {

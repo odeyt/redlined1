@@ -148,7 +148,7 @@ export function MarketingHeader() {
         paddingInline: 'clamp(16px, 4vw, 32px)',
         height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <Link href="#top" aria-label="RedlineD1 home" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <Link href="/" aria-label="RedlineD1 home" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <RedlineD1Logo variant="full" height={32} animated={true} background="dark" />
         </Link>
 

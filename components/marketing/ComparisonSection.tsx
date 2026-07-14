@@ -23,12 +23,12 @@ const ROWS: { category: string; traditional: Maturity; redline: Maturity }[] = [
 ];
 
 const MATURITY_COLOR: Record<Maturity, { bg: string; fg: string }> = {
-  Standard: { bg: '#F5F5F5', fg: colors.textMuted },
-  Limited: { bg: '#F5F5F5', fg: colors.textMuted },
+  Standard: { bg: 'rgba(255,255,255,0.06)', fg: colors.textMuted },
+  Limited: { bg: 'rgba(255,255,255,0.06)', fg: colors.textMuted },
   Available: { bg: colors.successBg, fg: colors.successText },
   Advanced: { bg: colors.successBg, fg: colors.successText },
-  'Evidence-Based': { bg: '#FEF3E2', fg: '#92400E' },
-  Planned: { bg: '#F5F5F5', fg: colors.textMuted },
+  'Evidence-Based': { bg: 'rgba(245,158,11,0.12)', fg: '#fbbf24' },
+  Planned: { bg: 'rgba(255,255,255,0.04)', fg: colors.textLight },
 };
 
 function MaturityBadge({ value }: { value: Maturity }) {
