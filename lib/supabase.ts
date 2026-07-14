@@ -1,15 +1,16 @@
 import { createBrowserClient } from '@supabase/ssr';
 
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Read from runtime globals injected by app/layout.tsx <script> tag.
+  // Falls back to build-time NEXT_PUBLIC_* baking if globals aren't set yet
+  // (e.g. during SSR or early module eval before the script runs).
+  const w = typeof window !== 'undefined' ? (window as any) : undefined;
+  const url = (w?.__SB_URL__ || process.env.NEXT_PUBLIC_SUPABASE_URL) as string;
+  const key = (w?.__SB_KEY__ || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) as string;
+  return createBrowserClient(url, key);
 }
 
 // Lazy singleton — defers createBrowserClient() until first property access.
-// Prevents build-time failures when NEXT_PUBLIC_* vars are not yet baked in
-// during Next.js page-data-collection phase.
 let _instance: ReturnType<typeof createClient> | undefined;
 function getInstance() {
   if (!_instance) _instance = createClient();

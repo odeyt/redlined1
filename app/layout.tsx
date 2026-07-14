@@ -36,6 +36,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
           } catch(e) {}
         `}} />
+        {/* Inject Supabase public config at runtime so client bundles don't
+            rely on build-time NEXT_PUBLIC_* baking (works around Turbopack cache) */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.__SB_URL__="${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}";
+          window.__SB_KEY__="${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''}";
+        `}} />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <meta name="theme-color" content="#dc2626" />
       </head>
