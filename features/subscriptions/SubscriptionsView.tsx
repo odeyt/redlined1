@@ -22,9 +22,10 @@ export function SubscriptionsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, billingInterval: interval }),
       });
-      const data = await res.json() as { url?: string; error?: string };
+      const data = await res.json() as { url?: string; error?: string; detail?: string };
       if (!res.ok || !data.url) {
-        throw new Error(data.error ?? 'Failed to start checkout');
+        const msg = data.error ?? 'Failed to start checkout';
+        throw new Error(data.detail ? `${msg}: ${data.detail}` : msg);
       }
       window.location.href = data.url;
     } catch (e) {
