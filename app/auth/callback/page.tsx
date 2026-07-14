@@ -4,14 +4,24 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
+type Status = 'verifying' | 'error' | 'expired-recovery' | 'expired-invite';
+
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<'verifying' | 'error'>('verifying');
+  const [status, setStatus] = useState<Status>('verifying');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Supabase forwards auth errors as query params — handle them before any exchange.
+    const errorCode = params.get('error_code');
+    const nextParam = params.get('next');
+    if (errorCode === 'otp_expired' || params.get('error') === 'access_denied') {
+      setStatus(nextParam === '/reset-password' ? 'expired-recovery' : 'expired-invite');
+      return;
+    }
+
     const code = params.get('code');
-    const nextParam = params.get('next'); // null if not in URL
     const next = nextParam || '/reset-password';
     const tokenHash = params.get('token_hash');
     const type = params.get('type') as 'recovery' | 'email' | 'signup' | 'invite' | null;
@@ -83,12 +93,29 @@ export default function AuthCallbackPage() {
     exchange();
   }, [router]);
 
-  if (status === 'error') {
+  if (status === 'expired-recovery') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
+        <div style={{ textAlign: 'center', padding: 32, maxWidth: 360 }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⏱️</div>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Reset link expired</p>
+          <p style={{ color: '#888', fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
+            Password reset links expire after 1 hour. Request a new one below — it only takes a second.
+          </p>
+          <a href="/forgot-password" style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '11px 24px', borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+            Request New Reset Link
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'error' || status === 'expired-invite') {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
         <div style={{ textAlign: 'center', padding: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
-          <p style={{ color: '#888', marginBottom: 16 }}>This invite link has expired or is invalid.</p>
+          <p style={{ color: '#888', marginBottom: 16 }}>This link has expired or is invalid.</p>
           <p style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>Ask your shop owner to resend the invite.</p>
           <a href="/login" style={{ color: '#cc0000', fontWeight: 600 }}>Go to Login →</a>
         </div>
