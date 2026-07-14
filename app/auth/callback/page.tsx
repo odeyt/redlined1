@@ -11,7 +11,8 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    const next = params.get('next') || '/reset-password';
+    const nextParam = params.get('next'); // null if not in URL
+    const next = nextParam || '/reset-password';
     const tokenHash = params.get('token_hash');
     const type = params.get('type') as 'recovery' | 'email' | 'signup' | 'invite' | null;
 
@@ -48,7 +49,13 @@ export default function AuthCallbackPage() {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          router.replace(next);
+          // If next was explicitly provided (e.g. reset password flow sets ?next=/reset-password)
+          // use it. Otherwise this is email confirmation — send to login to avoid SSR loop.
+          if (nextParam) {
+            router.replace(next);
+          } else {
+            router.replace('/login?verified=1');
+          }
           return;
         }
 
