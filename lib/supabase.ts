@@ -7,10 +7,10 @@ export function createClient() {
   );
 }
 
-let _supabase: ReturnType<typeof createClient> | null = null;
-export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
-  get(_target, prop) {
-    if (!_supabase) _supabase = createClient();
-    return ((_supabase as unknown) as Record<string | symbol, unknown>)[prop];
-  },
-});
+export function getSupabase() {
+  return createClient();
+}
+
+// Named export for backward compatibility — creates a fresh client on each import
+// Do NOT call at module level in server components or API routes
+export const supabase = createClient();
