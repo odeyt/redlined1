@@ -54,11 +54,11 @@ export function RepairIntelligenceSection() {
                   style={{
                     display: 'flex', gap: '16px', alignItems: 'center',
                     padding: '14px 20px',
-                    borderBottom: i < TREE_STEPS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
                     background: isActive ? `${step.color}0f` : 'transparent',
                     borderLeft: isActive ? `3px solid ${step.color}` : '3px solid transparent',
-                    cursor: 'pointer', textAlign: 'left', width: '100%', border: 'none',
+                    borderRight: 'none', borderTop: 'none',
                     borderBottom: i < TREE_STEPS.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
+                    cursor: 'pointer', textAlign: 'left', width: '100%',
                     transition: 'all 0.2s ease',
                   }}
                 >
