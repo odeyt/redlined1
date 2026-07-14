@@ -259,10 +259,10 @@ export function Sidebar() {
     ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
     ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
   ];
-  // billing and subscriptions are always visible to owners regardless of hiddenModules or role-load state
-  const OWNER_PINNED = ['billing', 'subscriptions'];
+  // billing and subscriptions always visible — never blocked by role, feature flags, or hiddenModules
+  const ALWAYS_SHOW = new Set(['billing', 'subscriptions']);
   const visibleNav = navItems.filter(([id]) => {
-    if (OWNER_PINNED.includes(id) && (role === 'owner' || roleLoading)) return true;
+    if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
     if (featureHidden.includes(id)) return false;
     if (role === 'owner' && hiddenModules.includes(id)) return false;
