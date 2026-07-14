@@ -60,4 +60,19 @@ export type KnownFlagKey =
   | 'diagnostic_bridge_enabled'
   | 'diagnostic_ai_reasoning_enabled'
   | 'diagnostic_claude_review_enabled'
-  | 'diagnostic_live_hardware_enabled';
+  | 'diagnostic_live_hardware_enabled'
+  // Intelligence Platform Engines — all default OFF
+  | 'fleet_intelligence_enabled'
+  | 'predictive_failure_enabled'
+  | 'repair_intelligence_enabled'
+  | 'technician_performance_enabled'
+  | 'vehicle_health_score_enabled'
+  | 'customer_intelligence_enabled'
+  | 'parts_intelligence_enabled'
+  | 'revenue_intelligence_enabled'
+  | 'shop_intelligence_enabled'
+  | 'knowledge_graph_engine_enabled'
+  // AI Provider flags — all default OFF
+  | 'ai_provider_openai_enabled'
+  | 'ai_provider_anthropic_enabled'
+  | 'ai_provider_gemini_enabled';
