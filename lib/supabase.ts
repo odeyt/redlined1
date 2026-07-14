@@ -7,4 +7,19 @@ export function createClient() {
   );
 }
 
-export const supabase = createClient();
+// Lazy singleton — defers createBrowserClient() until first property access.
+// Prevents build-time failures when NEXT_PUBLIC_* vars are not yet baked in
+// during Next.js page-data-collection phase.
+let _instance: ReturnType<typeof createClient> | undefined;
+function getInstance() {
+  if (!_instance) _instance = createClient();
+  return _instance;
+}
+
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop: string | symbol) {
+    const inst = getInstance();
+    const val = (inst as Record<string | symbol, unknown>)[prop];
+    return typeof val === 'function' ? (val as Function).bind(inst) : val;
+  },
+});
