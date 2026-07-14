@@ -34,7 +34,12 @@ async function getAuthContext() {
 }
 
 export async function POST(req: NextRequest) {
-  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+  // Use runtime CREEM_API_KEY presence as the billing gate on the server.
+  // NEXT_PUBLIC_BILLING_ENABLED is baked at build time and unreliable for API routes.
+  const billingEnabled =
+    process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true' ||
+    !!process.env.CREEM_API_KEY;
+  if (!billingEnabled) {
     return NextResponse.json({ error: 'Billing is not enabled on this deployment' }, { status: 403 });
   }
 
