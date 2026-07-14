@@ -38,9 +38,11 @@ export async function proxy(request: NextRequest) {
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
-  // PKCE invite/recovery: Supabase redirects to site root with ?code=XXX.
+  // PKCE invite/recovery: Supabase sometimes redirects to site root with ?code=XXX.
+  // Only intercept if the current path is NOT already /auth/callback — otherwise we'd
+  // redirect /auth/callback?code=XXX to itself, causing ERR_TOO_MANY_REDIRECTS.
   const code = request.nextUrl.searchParams.get('code');
-  if (code && !session) {
+  if (code && !session && !request.nextUrl.pathname.startsWith('/auth/callback')) {
     const callbackUrl = new URL('/auth/callback', request.url);
     callbackUrl.searchParams.set('code', code);
     return NextResponse.redirect(callbackUrl);
