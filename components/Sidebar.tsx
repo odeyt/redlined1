@@ -257,10 +257,11 @@ export function Sidebar() {
     ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
     ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
   ];
+  const ALWAYS_VISIBLE_FOR_OWNER = ['billing', 'subscriptions'];
   const visibleNav = navItems.filter(([id]) => {
     if (blockedForRole.includes(id)) return false;
     if (featureHidden.includes(id)) return false;
-    if (role === 'owner' && hiddenModules.includes(id)) return false;
+    if (role === 'owner' && hiddenModules.includes(id) && !ALWAYS_VISIBLE_FOR_OWNER.includes(id)) return false;
     return true;
   });
 
