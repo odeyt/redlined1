@@ -33,15 +33,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 });
   }
 
-  const admin = getAdminDb();
-  // listUsers supports filtering by email via the admin API
-  const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
-
-  if (error) {
-    // Fail open — don't block password reset if the check errors
+  try {
+    const admin = getAdminDb();
+    const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (error) return NextResponse.json({ exists: true });
+    const exists = data.users.some(u => u.email?.toLowerCase() === email);
+    return NextResponse.json({ exists });
+  } catch {
+    // Fail open if admin client is unavailable (e.g. missing service role key)
     return NextResponse.json({ exists: true });
   }
-
-  const exists = data.users.some(u => u.email?.toLowerCase() === email);
-  return NextResponse.json({ exists });
 }
