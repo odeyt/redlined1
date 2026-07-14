@@ -12,7 +12,11 @@ const ACTION_QUEUE = [
 // docs/design/aura/DESIGN_VERIFIED.md's contrast restriction. #92400E passes
 // and matches the same darkened-amber pattern used for "Evidence-Based" in
 // ComparisonSection.tsx.
-const PRIORITY_COLOR: Record<string, string> = { High: colors.primary, Medium: '#92400E', Low: colors.textMuted };
+const PRIORITY_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+  High:   { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' },
+  Medium: { bg: '#fffbeb', color: '#d97706', border: '#fcd34d' },
+  Low:    { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },
+};
 
 /**
  * CommandCenterSection - "Owner Command Center". Sample/illustrative data
@@ -50,7 +54,7 @@ export function CommandCenterSection() {
                 {ACTION_QUEUE.map((row) => (
                   <tr key={row.action}>
                     <td style={{ padding: '14px 16px', borderBottom: `1px solid ${colors.borderLight}` }}>
-                      <span style={{ ...badge, background: 'transparent', border: `1px solid ${PRIORITY_COLOR[row.priority]}`, color: PRIORITY_COLOR[row.priority] }}>
+                      <span style={{ ...badge, background: PRIORITY_STYLE[row.priority]?.bg, border: `1px solid ${PRIORITY_STYLE[row.priority]?.border}`, color: PRIORITY_STYLE[row.priority]?.color, fontWeight: 700 }}>
                         {row.priority}
                       </span>
                     </td>
