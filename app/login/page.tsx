@@ -25,6 +25,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('verified') === '1') {
+      setVerified(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +55,12 @@ export default function LoginPage() {
           <RedlineD1Logo height={56} background="dark" animated={true} />
           <span className="login-logo-sub">Shop Operations</span>
         </div>
+
+        {verified && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, color: '#22c55e', fontSize: 13, textAlign: 'center' }}>
+            Email confirmed! Sign in to access your account.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="login-field">

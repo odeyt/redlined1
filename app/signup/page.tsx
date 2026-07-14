@@ -32,7 +32,7 @@ export default function SignupPage() {
         password,
         options: {
           data: { full_name: name, shop_name: shopName },
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (signUpError) throw signUpError;

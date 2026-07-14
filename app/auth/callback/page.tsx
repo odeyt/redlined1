@@ -32,15 +32,16 @@ export default function AuthCallbackPage() {
         }
 
         if (tokenHash && type) {
-          // 'invite' tokens verify as 'email' in Supabase OTP flow
           const verifyType = type === 'invite' ? 'email' : type;
           const { error } = await supabase.auth.verifyOtp({
             token_hash: tokenHash,
             type: verifyType as 'recovery' | 'email' | 'signup',
           });
           if (error) throw error;
-          // Always send invite flow to set-password page
-          router.replace(type === 'invite' ? '/reset-password' : next);
+          if (type === 'invite') { router.replace('/reset-password'); return; }
+          // Signup/email confirmation: go to login so SSR cookies are set cleanly
+          if (type === 'signup' || type === 'email') { router.replace('/login?verified=1'); return; }
+          router.replace(next);
           return;
         }
 
