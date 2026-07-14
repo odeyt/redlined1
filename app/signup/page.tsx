@@ -231,6 +231,13 @@ export default function SignupPage() {
             After 7 days, free plan continues with core features.{' '}
             <br />No credit card required.
           </p>
+
+          <p style={{ textAlign: 'center', fontSize: 11, color: '#777', marginTop: 12, lineHeight: 1.6 }}>
+            By starting your trial, you agree to our{' '}
+            <a href="/terms" style={{ color: '#999', textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+            <a href="/privacy" style={{ color: '#999', textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
+            <a href="/refund-policy" style={{ color: '#999', textDecoration: 'underline' }}>Refund Policy</a>.
+          </p>
         </form>
 
         <p style={{ textAlign: 'center', fontSize: 13, color: '#888', marginTop: 16 }}>
