@@ -18,6 +18,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Redlined1',
   },
+  verification: {
+    google: 'XXXXXXXXX',
+  },
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
