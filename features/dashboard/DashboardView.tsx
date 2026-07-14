@@ -118,10 +118,14 @@ export function DashboardView() {
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthRevenue[]>([]);
   const [companyName, setCompanyName] = useState('Redlined1');
   const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   useEffect(() => {
     load();
     fetchShopSettings().then(s => setCompanyName(s.companyName)).catch(() => {});
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setUserEmail(user.email);
+    });
   }, []);
 
   async function load() {
@@ -603,7 +607,12 @@ export function DashboardView() {
 
       {/* Shop greeting footer */}
       <div style={{ marginTop: 20, textAlign: 'center', padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
-        {companyName} · Dashboard · {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        {(() => {
+          const hour = new Date().getHours();
+          const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+          const name = userEmail ? userEmail.split('@')[0] : '';
+          return `${timeGreeting}${name ? `, ${name}` : ''} · ${companyName} · ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+        })()}
       </div>
     </>
   );

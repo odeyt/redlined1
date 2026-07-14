@@ -81,6 +81,7 @@ export function Sidebar() {
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   // Start empty so the hardcoded getBlockedModules() fallback is used while settings load.
   // setRolePermissions is called once fetchShopSettings() resolves with real data.
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
@@ -123,6 +124,7 @@ export function Sidebar() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       const email = user?.email?.toLowerCase() ?? '';
       if (!email) return;
+      setCurrentUserEmail(email);
       // Primary: server-side authoritative check
       supabase.auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token;
@@ -518,6 +520,33 @@ export function Sidebar() {
       >
         <span>❓</span>{!collapsed && ' Help & Manual'}
       </a>
+      {currentUserEmail && (
+        <div
+          title={currentUserEmail}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 12px', marginBottom: 8,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 8, overflow: 'hidden',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+          }}
+        >
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%',
+            background: 'var(--accent)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 700, flexShrink: 0, textTransform: 'uppercase',
+          }}>
+            {currentUserEmail[0]}
+          </div>
+          {!collapsed && (
+            <span style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentUserEmail}
+            </span>
+          )}
+        </div>
+      )}
       <button
         onClick={handleSignOut}
         title="Sign Out"
