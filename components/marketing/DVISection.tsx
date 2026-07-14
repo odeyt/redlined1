@@ -1,3 +1,6 @@
+﻿'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { colors, container, h2Style, badge, buttonPrimary, buttonSecondary, card } from './theme';
 
@@ -34,56 +37,76 @@ const DEMO_ITEMS: { cat: string; name: string; status: keyof typeof STATUS; note
   { cat: 'Fluids',     name: 'Coolant',           status: 'Pass' },
 ];
 
-const FEATURES: { icon: string; title: string; desc: string }[] = [
+const FEATURES: { icon: string; title: string; desc: string; color: string; detail: string }[] = [
   {
     icon: '📋',
     title: 'Built-In Inspection Checklists',
-    desc: 'Default 26-item checklist covers Brakes, Tires, Fluids, Lights, Under Hood, and Suspension — plus a full vehicle intake and outtake QA checklist. Custom shop templates also supported.',
+    desc: 'Default 26-item checklist covers Brakes, Tires, Fluids, Lights, Under Hood, and Suspension.',
+    color: '#6366f1',
+    detail: 'Default 26-item checklist covers Brakes, Tires, Fluids, Lights, Under Hood, and Suspension — plus a full vehicle intake and outtake QA checklist. Custom shop templates also supported. Every technician works from the same consistent structure.',
   },
   {
     icon: '🔴',
     title: 'Pass / Attention / Fail Ratings',
-    desc: 'Technicians classify every item as Pass, Attention, Fail, or N/A. Findings are colour-coded and grouped so the most critical items stand out immediately.',
+    desc: 'Technicians classify every item as Pass, Attention, Fail, or N/A — colour-coded so critical items stand out.',
+    color: '#ef4444',
+    detail: 'Technicians classify every item as Pass, Attention, Fail, or N/A. Findings are colour-coded and grouped so the most critical items stand out immediately. Customers see a clear, visual summary — no interpretation required.',
   },
   {
     icon: '📷',
     title: 'Per-Item Photos',
-    desc: 'Attach a photo to any inspection item directly from a phone or tablet camera. Photos are stored securely and appear in the customer-facing report alongside the finding.',
+    desc: 'Attach a photo to any inspection item directly from a phone or tablet camera.',
+    color: '#0ea5e9',
+    detail: 'Attach a photo to any inspection item directly from a phone or tablet camera. Photos are stored securely and appear in the customer-facing report alongside the finding. Visual evidence removes doubt and builds trust.',
   },
   {
     icon: '✍️',
     title: 'Technician Notes',
-    desc: 'Add a concise note to any Attention or Fail item — measurements, observations, or repair recommendations — so the customer understands exactly what was found.',
+    desc: 'Add concise notes to any Attention or Fail item — measurements, observations, or repair recommendations.',
+    color: '#f59e0b',
+    detail: 'Add a concise note to any Attention or Fail item — measurements, observations, or repair recommendations — so the customer understands exactly what was found. Notes carry over to estimates automatically.',
   },
   {
     icon: '🔗',
     title: 'Customer Share Link',
-    desc: 'Generate a secure, unique link for each completed inspection and share it with the customer. No account required to view.',
+    desc: 'Generate a secure, unique link for each completed inspection. No account required to view.',
+    color: '#10b981',
+    detail: 'Generate a secure, unique link for each completed inspection and share it with the customer via SMS or messaging app. No account required to view. Customers review the full report — photos, findings, and notes — on any device.',
   },
   {
     icon: '✅',
     title: 'Online Customer Approval',
-    desc: 'Customers review findings, photos, and notes, then approve or decline each recommended repair individually. Their name serves as a timestamped digital approval — recorded in the inspection record.',
+    desc: 'Customers approve or decline each recommended repair individually — timestamped digital approval.',
+    color: '#8b5cf6',
+    detail: 'Customers review findings, photos, and notes, then approve or decline each recommended repair individually. Their name serves as a timestamped digital approval — recorded in the inspection record. No paper forms, no phone tag.',
   },
   {
     icon: '✉️',
     title: 'Email Report',
-    desc: 'Send the full inspection report directly to the customer\'s email address from inside the app.',
+    desc: "Send the full inspection report directly to the customer's email address from inside the app.",
+    color: '#ec4899',
+    detail: "Send the full inspection report directly to the customer's email address from inside the app. The email includes a link to the interactive report — customers can review and approve from their inbox without downloading anything.",
   },
   {
     icon: '🖨️',
     title: 'Print-Ready Report',
-    desc: 'Generate a clean, branded printed report from any browser. Customer-facing summary includes shop logo, contact details, inspection results, and photos.',
+    desc: 'Generate a clean, branded printed report from any browser.',
+    color: '#f97316',
+    detail: 'Generate a clean, branded printed report from any browser. Customer-facing summary includes shop logo, contact details, inspection results, and photos. Hand a professional printed report to the customer at vehicle handover.',
   },
   {
     icon: '📄',
     title: 'Connected to Estimates',
-    desc: 'Convert a completed inspection directly to an estimate — findings carry over to the estimate without re-entering vehicle or customer details. AI-assisted estimate drafting also available.',
+    desc: 'Convert a completed inspection directly to an estimate — findings carry over automatically.',
+    color: '#14b8a6',
+    detail: 'Convert a completed inspection directly to an estimate — findings carry over to the estimate without re-entering vehicle or customer details. AI-assisted estimate drafting also available. One click from inspection to revenue.',
   },
   {
     icon: '📂',
     title: 'Permanent Vehicle History',
-    desc: 'Every completed inspection is linked to the customer and vehicle record. Recurring concerns, previously recommended work, and condition changes are visible on every future visit.',
+    desc: 'Every inspection is linked to the customer and vehicle record — visible on every future visit.',
+    color: '#cc0000',
+    detail: 'Every completed inspection is linked to the customer and vehicle record. Recurring concerns, previously recommended work, and condition changes are visible on every future visit. Build trust with documented history the customer can see.',
   },
 ];
 
@@ -96,19 +119,22 @@ const WORKFLOW_STEPS = [
   { label: 'Repair',   desc: 'Convert findings to an estimate and job' },
 ];
 
-/**
- * DVISection — Digital Vehicle Inspection showcase.
- * All capabilities described are verified in the production codebase.
- * Demo data is illustrative — no real customer records used.
- */
 export function DVISection() {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setActive(p => (p + 1) % FEATURES.length), 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  const feat = FEATURES[active];
+
   return (
     <>
-      {/* ── Hero intro ── */}
+      {/* Hero intro */}
       <section id="digital-inspections" style={{ paddingBlock: 'clamp(56px, 8vw, 128px)', background: colors.surfaceWhite }}>
         <div style={container}>
 
-          {/* Top: badge + heading + CTA */}
           <div style={{ maxWidth: '760px', marginBottom: '56px' }}>
             <span style={{ ...badge, background: colors.successBg, color: colors.successText, marginBottom: '16px' }}>
               Digital Vehicle Inspections Built In
@@ -144,14 +170,10 @@ export function DVISection() {
                     <div style={{ flex: 1 }}>
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
+                        padding: '10px 12px', borderRadius: '8px',
                         fontSize: '13px', fontWeight: 600,
-                        background: colors.surfaceBg,
-                        border: `1px solid ${colors.borderLight}`,
-                        color: colors.textMain,
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap',
+                        background: colors.surfaceBg, border: `1px solid ${colors.borderLight}`,
+                        color: colors.textMain, textAlign: 'center', whiteSpace: 'nowrap',
                       }}>
                         <span style={{ fontSize: '10px', fontWeight: 700, color: colors.primary, marginRight: '6px' }}>{i + 1}</span>
                         {step.label}
@@ -169,12 +191,10 @@ export function DVISection() {
             </div>
           </div>
 
-          {/* Demo mockup + summary */}
+          {/* Demo mockup + supporting copy */}
           <div className="rd1-two-col">
-            {/* Left: demo card */}
             <div>
               <div style={{ ...card, padding: '0', overflow: 'hidden', maxWidth: '480px' }}>
-                {/* Header */}
                 <div style={{ background: colors.primary, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Digital Vehicle Inspection</div>
@@ -188,13 +208,9 @@ export function DVISection() {
                     </div>
                   </div>
                 </div>
-
-                {/* Progress bar */}
                 <div style={{ height: '4px', background: colors.borderLight }}>
                   <div style={{ height: '100%', width: '75%', background: colors.primary }} aria-label="75% complete" />
                 </div>
-
-                {/* Summary counts */}
                 <div style={{ display: 'flex', borderBottom: `1px solid ${colors.borderLight}` }}>
                   {[
                     { label: 'Fail',      count: 1, ...STATUS.Fail },
@@ -208,8 +224,6 @@ export function DVISection() {
                     </div>
                   ))}
                 </div>
-
-                {/* Items */}
                 <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {DEMO_ITEMS.map((item) => (
                     <div key={item.name} style={{
@@ -243,8 +257,6 @@ export function DVISection() {
                     </div>
                   ))}
                 </div>
-
-                {/* Actions row */}
                 <div style={{ padding: '12px 16px 16px', borderTop: `1px solid ${colors.borderLight}`, display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '120px', padding: '8px 12px', borderRadius: '6px', background: colors.surfaceBg, border: `1px solid ${colors.borderLight}`, fontSize: '11px', fontWeight: 600, color: colors.textMuted, textAlign: 'center' }}>
                     🔗 Share Link
@@ -262,7 +274,6 @@ export function DVISection() {
               </p>
             </div>
 
-            {/* Right: supporting copy */}
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '20px' }}>
               <div>
                 <h3 style={{ fontSize: '20px', fontWeight: 600, color: colors.textMain, margin: '0 0 10px' }}>
@@ -272,7 +283,6 @@ export function DVISection() {
                   Digital inspections connect directly to the vehicle record, job card, estimate, and permanent repair history. Technicians never re-enter what the inspection already captured.
                 </p>
               </div>
-
               {[
                 { label: 'Structured inspection checklists', sub: 'Default template + custom shop checklists supported' },
                 { label: 'Pass, Attention, Fail condition ratings', sub: 'Every item classified and colour-coded for immediate clarity' },
@@ -296,7 +306,7 @@ export function DVISection() {
         </div>
       </section>
 
-      {/* ── Feature cards ── */}
+      {/* Interactive feature showcase */}
       <section id="dvi-features" style={{ paddingBlock: 'clamp(56px, 8vw, 96px)', background: colors.surfaceBg }}>
         <div style={container}>
           <div style={{ maxWidth: '640px', marginBottom: '40px' }}>
@@ -306,25 +316,96 @@ export function DVISection() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-            {FEATURES.map(f => (
-              <div key={f.title} style={{ ...card, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '20px', lineHeight: 1 }} aria-hidden="true">{f.icon}</span>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: colors.textMain }}>{f.title}</span>
-                  <span style={{ ...badge, background: colors.successBg, color: colors.successText, marginLeft: 'auto', flexShrink: 0 }}>Available now</span>
+          {/* Feature pills */}
+          <div className="rd1-scroll-x" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', minWidth: '600px' }}>
+              {FEATURES.map((f, i) => {
+                const isActive = i === active;
+                return (
+                  <button
+                    key={f.title}
+                    onClick={() => setActive(i)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '10px 16px', borderRadius: '9999px',
+                      fontSize: '13px', fontWeight: isActive ? 700 : 500,
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                      border: `2px solid ${isActive ? f.color : colors.borderLight}`,
+                      background: isActive ? f.color : colors.surfaceWhite,
+                      color: isActive ? '#fff' : colors.textMain,
+                      transition: 'all 0.25s ease',
+                      boxShadow: isActive ? `0 4px 16px ${f.color}44` : 'none',
+                      transform: isActive ? 'translateY(-2px)' : 'none',
+                    }}
+                  >
+                    <span style={{ fontSize: '15px', lineHeight: 1 }} aria-hidden="true">{f.icon}</span>
+                    {f.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Active feature detail */}
+          <div style={{
+            padding: '32px 36px', borderRadius: '20px',
+            border: `2px solid ${feat.color}33`,
+            background: `${feat.color}08`,
+            transition: 'all 0.3s ease',
+            display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap',
+          }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '16px',
+              background: feat.color, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '26px',
+              boxShadow: `0 4px 20px ${feat.color}55`,
+              transition: 'all 0.3s ease',
+            }}>
+              {feat.icon}
+            </div>
+            <div style={{ flex: 1, minWidth: '240px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: feat.color, transition: 'color 0.3s' }}>
+                  {feat.title}
                 </div>
-                <p style={{ fontSize: '13px', color: colors.textMuted, lineHeight: 1.55, margin: 0 }}>{f.desc}</p>
+                <span style={{ ...badge, background: colors.successBg, color: colors.successText }}>Available now</span>
               </div>
+              <p style={{ fontSize: '15px', color: colors.textMain, lineHeight: 1.7, margin: 0 }}>
+                {feat.detail}
+              </p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ marginTop: '16px', height: '3px', background: colors.borderLight, borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${((active + 1) / FEATURES.length) * 100}%`,
+              background: feat.color, borderRadius: '9999px',
+              transition: 'width 0.3s ease, background 0.3s ease',
+            }} />
+          </div>
+
+          {/* Progress dots */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '14px', justifyContent: 'center' }}>
+            {FEATURES.map((f, i) => (
+              <div
+                key={i}
+                onClick={() => setActive(i)}
+                style={{
+                  width: i === active ? 24 : 8, height: 8, borderRadius: '9999px',
+                  background: i === active ? feat.color : colors.borderLight,
+                  cursor: 'pointer', transition: 'all 0.3s ease',
+                }}
+              />
             ))}
           </div>
 
           {/* Mobile mechanic callout */}
           <div style={{
-            marginTop: '40px',
-            padding: '28px 32px',
-            background: colors.surfaceDark,
-            borderRadius: '16px',
+            marginTop: '48px', padding: '28px 32px',
+            background: colors.surfaceDark, borderRadius: '16px',
             display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center',
           }}>
             <div style={{ flex: 1, minWidth: '280px' }}>
@@ -335,7 +416,7 @@ export function DVISection() {
                 Professional inspections — even without a physical shop.
               </h3>
               <p style={{ fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
-                Inspect a vehicle at the customer's home, workplace, roadside location, or fleet yard. Capture photos and findings from your phone, share the report instantly, and keep every inspection linked to the customer and vehicle record.
+                Inspect a vehicle at the customer home, workplace, roadside location, or fleet yard. Capture photos and findings from your phone, share the report instantly, and keep every inspection linked to the customer and vehicle record.
               </p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '220px' }}>
