@@ -129,7 +129,7 @@ export const BridgeScanUploadSchema = z.object({
     address: z.string(),
     protocol: z.string(),
     supportsObd: z.boolean(),
-    rawIdentification: z.record(z.string()).optional(),
+    rawIdentification: z.record(z.string(), z.string()).optional(),
   })),
   dtcs: z.array(z.object({
     moduleAddress: z.string(),
@@ -144,7 +144,7 @@ export const BridgeScanUploadSchema = z.object({
     rawPayload: z.string(),
   })),
   liveData: z.array(DiagnosticMeasurementSchema).optional(),
-  readinessMonitors: z.record(z.enum(['COMPLETE', 'INCOMPLETE', 'NOT_SUPPORTED'])).optional(),
+  readinessMonitors: z.record(z.string(), z.enum(['COMPLETE', 'INCOMPLETE', 'NOT_SUPPORTED'])).optional(),
 });
 
 // ── Bridge pairing ─────────────────────────────────────────────────────────────
