@@ -406,20 +406,6 @@ export function Sidebar() {
       )}
 
       <nav className="nav">
-        {/* Home shortcut — always visible, routes to dashboard */}
-        <button
-          className={activeModule === 'dashboard' ? 'active' : ''}
-          title="Home — Operations Dashboard"
-          style={{ '--icon-color': '#e74c3c' } as React.CSSProperties}
-          onClick={() => dispatch({ type: 'SET_MODULE', module: 'dashboard' })}
-          onMouseEnter={e => showTooltip(e, 'Home')}
-          onMouseLeave={hideTooltip}
-        >
-          <svg viewBox="0 0 24 24" className="ui-icon" style={{ color: '#e74c3c' }} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/>
-          </svg>
-          {!collapsed && <span className="label">Home</span>}
-        </button>
         {roleLoading && (
           <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
         )}
