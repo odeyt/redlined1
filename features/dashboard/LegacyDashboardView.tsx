@@ -58,10 +58,6 @@ const MODULE_PALETTE: Record<string, [string, string, string]> = {
   billing:              ['#f59e0b', '#f59e0b99', '#f59e0b40'],
   subscriptions:        ['#a78bfa', '#a78bfa99', '#a78bfa40'],
   settings:             ['#94a3b8', '#94a3b899', '#94a3b840'],
-  'repair-orders':      ['#f87171', '#f8717199', '#f8717140'],
-  technicians:          ['#fb7185', '#fb718599', '#fb718540'],
-  'time-tracking':      ['#fbbf24', '#fbbf2499', '#fbbf2440'],
-  'job-archive':        ['#64748b', '#64748b99', '#64748b40'],
 };
 
 const ROLE_DASH_STYLES = `
