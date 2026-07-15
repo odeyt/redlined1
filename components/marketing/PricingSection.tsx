@@ -142,21 +142,21 @@ export function PricingSection() {
         body: JSON.stringify({ planId: planKey, billingInterval: annual ? 'annual' : 'monthly' }),
       });
 
-      if (res.status === 401) {
-        // Not logged in — send to login with a note
-        window.location.href = '/login?next=pricing';
+      if (res.status === 401 || res.status === 403) {
+        window.location.href = `/signup?plan=${planKey}`;
         return;
       }
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Could not create checkout session');
+        window.location.href = `/signup?plan=${planKey}`;
+        return;
       }
 
       const { url } = await res.json();
       if (url) window.location.href = url;
-    } catch (err) {
-      setErrorPlan(planKey);
+      else window.location.href = `/signup?plan=${planKey}`;
+    } catch {
+      window.location.href = `/signup?plan=${planKey}`;
     } finally {
       setLoadingPlan(null);
     }

@@ -43,12 +43,14 @@ export function HeroSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, billingInterval: 'monthly' }),
       });
-      if (res.status === 401) { window.location.href = '/login?next=pricing'; return; }
-      if (!res.ok) throw new Error();
+      if (res.status === 401) { window.location.href = `/signup?plan=${planId}`; return; }
+      if (res.status === 403) { window.location.href = `/signup?plan=${planId}`; return; }
+      if (!res.ok) { window.location.href = `/signup?plan=${planId}`; return; }
       const { url } = await res.json();
       if (url) window.location.href = url;
+      else window.location.href = `/signup?plan=${planId}`;
     } catch {
-      // silent
+      window.location.href = `/signup?plan=${planId}`;
     } finally {
       setLoadingPlan(null);
     }
