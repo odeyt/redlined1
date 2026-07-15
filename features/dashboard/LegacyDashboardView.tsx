@@ -55,17 +55,18 @@ const MODULE_PALETTE: Record<string, [string, string, string]> = {
 };
 
 const ROLE_DASH_STYLES = `
+  /* ── dark (default) ── */
   .rd-wrap { display:flex; gap:0; min-height:520px; background:#0a0a0f; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.06); }
   .rd-sidebar { width:200px; flex-shrink:0; background:#0d0d14; border-right:1px solid rgba(255,255,255,0.06); padding:20px 10px; display:flex; flex-direction:column; gap:2px; }
   .rd-sidebar-label { font-size:10px; font-weight:800; color:#e74c3c; text-transform:uppercase; letter-spacing:0.12em; padding:0 10px 14px; }
-  .rd-cat-btn { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; border:none; cursor:pointer; background:transparent; color:#4a5568; font-size:12.5px; font-weight:500; text-align:left; width:100%; transition:all 0.15s; border-left:2px solid transparent; }
-  .rd-cat-btn:hover { background:rgba(255,255,255,0.05); color:#94a3b8; }
-  .rd-cat-btn.active { background:rgba(231,76,60,0.12); color:#e74c3c; font-weight:700; border-left:2px solid #e74c3c; }
+  .rd-cat-btn { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; border:none; cursor:pointer; background:transparent; color:#6b7280; font-size:12.5px; font-weight:500; text-align:left; width:100%; transition:all 0.15s; border-left:2px solid transparent; }
+  .rd-cat-btn:hover { background:rgba(255,255,255,0.06); color:#94a3b8; }
+  .rd-cat-btn.active { background:rgba(231,76,60,0.14); color:#e74c3c; font-weight:700; border-left:2px solid #e74c3c; }
   .rd-cat-emoji { font-size:14px; line-height:1; }
   .rd-main { flex:1; padding:24px; display:flex; flex-direction:column; }
   .rd-header { margin-bottom:20px; }
-  .rd-header h2 { font-size:11px; font-weight:800; color:#4a5568; text-transform:uppercase; letter-spacing:0.12em; margin:0 0 3px; }
-  .rd-header p { font-size:12px; color:#374151; margin:0; }
+  .rd-header h2 { font-size:11px; font-weight:800; color:#6b7280; text-transform:uppercase; letter-spacing:0.12em; margin:0 0 3px; }
+  .rd-header p { font-size:12px; color:#4b5563; margin:0; }
   .rd-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
   .rd-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:22px 10px 18px; background:#111118; border:1px solid rgba(255,255,255,0.07); border-radius:14px; cursor:pointer; position:relative; overflow:hidden; transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); }
   .rd-tile:hover { transform:translateY(-4px) scale(1.03); }
@@ -75,6 +76,20 @@ const ROLE_DASH_STYLES = `
   .rd-tile.tile-active .rd-label { color:#e2e8f0; }
   .rd-accent-bar { position:absolute; bottom:0; left:15%; right:15%; height:2px; border-radius:2px; }
   .rd-glow-blob { position:absolute; top:-30px; left:50%; transform:translateX(-50%); width:100px; height:100px; border-radius:50%; pointer-events:none; }
+
+  /* ── light mode overrides ── */
+  [data-theme="light"] .rd-wrap { background:#f4f6f9; border:1px solid #e2e8f0; }
+  [data-theme="light"] .rd-sidebar { background:#ffffff; border-right:1px solid #e2e8f0; }
+  [data-theme="light"] .rd-cat-btn { color:#6b7280; }
+  [data-theme="light"] .rd-cat-btn:hover { background:rgba(0,0,0,0.04); color:#374151; }
+  [data-theme="light"] .rd-cat-btn.active { background:rgba(204,0,0,0.08); color:#cc0000; border-left-color:#cc0000; }
+  [data-theme="light"] .rd-sidebar-label { color:#cc0000; }
+  [data-theme="light"] .rd-header h2 { color:#6b7280; }
+  [data-theme="light"] .rd-header p { color:#9ca3af; }
+  [data-theme="light"] .rd-tile { background:#ffffff; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+  [data-theme="light"] .rd-tile.tile-active { background:#fef2f2; border-color:#fca5a5; }
+  [data-theme="light"] .rd-label { color:#374151; }
+  [data-theme="light"] .rd-tile.tile-active .rd-label { color:#111111; }
 `;
 
 function RoleDashboard({ role, allowedModules, activeModule }: { role: string; allowedModules: string[]; activeModule: string }) {
