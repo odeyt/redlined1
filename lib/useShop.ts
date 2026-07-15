@@ -37,10 +37,18 @@ export const TECHNICIAN_BLOCKED: string[] = [
 // Handles intake (customers, vehicles, appointments), job cards, inspections,
 // estimates, parts sourcing (parts + parts-orders), and repair-order visibility.
 // Cannot access invoicing, payments, financial reports, admin, or labor-guide.
+// This fallback is intentionally restrictive — the owner's saved role_permissions
+// from shop_settings override this list when loaded via /api/role-permissions.
 export const ADVISOR_BLOCKED: string[] = [
-  'invoices', 'payments', 'reports', 'campaigns',
-  'settings', 'subscriptions', 'access', 'labor-guide', 'system-health', 'disaster-recovery', 'testing-dashboard',
-  'billing',
+  'command-center',
+  'job-archive', 'time-tracking',
+  'repair-orders', 'technicians',
+  'parts-estimates', 'parts-orders', 'parts-received',
+  'invoices', 'payments',
+  'repair-intelligence', 'reports', 'labor-guide',
+  'access', 'billing', 'subscriptions',
+  'settings', 'system-health', 'disaster-recovery', 'testing-dashboard',
+  'campaigns',
 ];
 
 // Every non-dashboard module — used to block unverified/loading roles

@@ -9,7 +9,8 @@ import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LOGO_SRC } from '@/lib/logo';
-import { fetchShopSettings, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { fetchShopSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { getShopId } from '@/lib/shopStore';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
@@ -82,9 +83,11 @@ export function Sidebar() {
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
-  // Start empty so the hardcoded getBlockedModules() fallback is used while settings load.
-  // setRolePermissions is called once fetchShopSettings() resolves with real data.
+  // Start empty; settingsLoaded stays false until /api/role-permissions resolves.
+  // While loading, non-owners see nothing (safe default). Once loaded the saved
+  // allowlist from shop_settings is authoritative.
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Close shop menu / notification panel when clicking outside
   useEffect(() => {
@@ -102,9 +105,25 @@ export function Sidebar() {
       setTagline(s.tagline);
       setLogoUrl(s.logoUrl);
       setHiddenModules(s.hiddenModules ?? []);
-      if (s.rolePermissions) setRolePermissions(s.rolePermissions);
       setFeatureFlags({ enableJobArchive: s.enableJobArchive ?? true, enableTimeTracking: s.enableTimeTracking ?? true });
     }).catch(() => {});
+
+    // Fetch role permissions server-side (service role bypasses RLS) so non-owner
+    // users get the correct allowlist regardless of shop_settings RLS policies.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const token = session?.access_token;
+      const sid = getShopId();
+      if (!token || !sid) { setSettingsLoaded(true); return; }
+      fetch(`/api/role-permissions?shopId=${sid}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d?.rolePermissions) setRolePermissions(d.rolePermissions);
+        })
+        .catch(() => {})
+        .finally(() => setSettingsLoaded(true));
+    }).catch(() => setSettingsLoaded(true));
 
     function onBrandingUpdate(e: Event) {
       const detail = (e as CustomEvent).detail;
@@ -243,10 +262,12 @@ export function Sidebar() {
     return mockCount;
   }
 
-  // Use owner-configured permissions for non-owner roles; fallback to hardcoded defaults
+  // Use owner-configured permissions for non-owner roles; fallback to hardcoded defaults.
+  // Block everything for non-owners until /api/role-permissions has resolved so that
+  // the empty initial state never leaks through as "show all".
   const blockedForRole = (() => {
     if (role === 'owner') return [];
-    if (!role) return getBlockedModules(''); // loading / unknown
+    if (!role || !settingsLoaded) return getBlockedModules(''); // block all while loading
     const allowed = rolePermissions[role as RoleKey];
     if (allowed && allowed.length > 0) {
       // Saved allowlist is authoritative — block everything not explicitly permitted.
