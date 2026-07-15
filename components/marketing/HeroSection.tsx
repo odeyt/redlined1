@@ -116,13 +116,16 @@ export function HeroSection() {
       <div aria-hidden="true" style={{ position: 'absolute', top: 0, right: 0, width: 1, height: '40%', background: 'linear-gradient(to bottom, #cc0000, transparent)', opacity: 0.5 }} />
 
       {/* Corner brackets */}
-      {[['top:0;left:0', 'top:0;left:0;width:1px;height:60px', 'top:0;left:0;height:1px;width:60px'],
-        ['top:0;right:0', 'top:0;right:0;width:1px;height:60px', 'top:0;right:0;height:1px;width:60px']].map((pos, pi) => (
-        <div key={pi} aria-hidden="true" style={{ position: 'absolute', ...(Object.fromEntries(pos[0].split(';').map(p => p.split(':')))) as React.CSSProperties, width: 200, height: 200, pointerEvents: 'none', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', ...(Object.fromEntries(pos[1].split(';').map(p => p.split(':')))) as React.CSSProperties, background: 'linear-gradient(to bottom, rgba(204,0,0,0.9), transparent)' }} />
-          <div style={{ position: 'absolute', ...(Object.fromEntries(pos[2].split(';').map(p => p.split(':')))) as React.CSSProperties, background: pi === 0 ? 'linear-gradient(to right, rgba(204,0,0,0.9), transparent)' : 'linear-gradient(to left, rgba(204,0,0,0.9), transparent)' }} />
-        </div>
-      ))}
+      {/* Top-left bracket */}
+      <div aria-hidden="true" style={{ position: 'absolute', top: 0, left: 0, width: 200, height: 200, pointerEvents: 'none', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 60, background: 'linear-gradient(to bottom, rgba(204,0,0,0.9), transparent)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, height: 1, width: 60, background: 'linear-gradient(to right, rgba(204,0,0,0.9), transparent)' }} />
+      </div>
+      {/* Top-right bracket */}
+      <div aria-hidden="true" style={{ position: 'absolute', top: 0, right: 0, width: 200, height: 200, pointerEvents: 'none', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, right: 0, width: 1, height: 60, background: 'linear-gradient(to bottom, rgba(204,0,0,0.9), transparent)' }} />
+        <div style={{ position: 'absolute', top: 0, right: 0, height: 1, width: 60, background: 'linear-gradient(to left, rgba(204,0,0,0.9), transparent)' }} />
+      </div>
 
       <div style={{ maxWidth: 1280, marginInline: 'auto', paddingInline: 'clamp(16px,5vw,48px)', position: 'relative', textAlign: 'center' }}>
 
