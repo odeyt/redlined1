@@ -16,7 +16,8 @@ import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchPartsOrders } from '@/services/partsOrderService';
 import { fetchPartsEstimates } from '@/services/partsEstimateService';
-import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles, saveVehicle } from '@/services/vehicleService';
+import { saveCustomer } from '@/services/customerService';
 import { addNotification } from '@/lib/useNotifications';
 import { fetchTechnicians, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
@@ -360,6 +361,10 @@ export function RepairOrdersView() {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerOpen, setCustomerOpen] = useState(false);
+  const [addingCustomer, setAddingCustomer] = useState(false);
+  const [vehicleQuery, setVehicleQuery] = useState('');
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [addingVehicle, setAddingVehicle] = useState(false);
 
   // Parts pull modal — shown before creating invoice or estimate
   type PullLine = {
@@ -433,6 +438,41 @@ export function RepairOrdersView() {
   }
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
+
+  async function handleAddCustomer(name: string) {
+    if (!name || addingCustomer) return;
+    setAddingCustomer(true);
+    try {
+      const created = await saveCustomer({ name, type: '', phone: '', email: '', address: '', tags: [], followUp: '', portalToken: null });
+      setCustomers(prev => [...prev, { id: created.id, name: created.name }].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm(f => ({ ...f, customerId: created.id, customerName: created.name, vehicle: '' }));
+      setCustomerQuery(''); setCustomerOpen(false);
+      notify(`Customer "${created.name}" added.`);
+    } catch (e: unknown) {
+      setError('Failed to add customer: ' + (e instanceof Error ? e.message : ''));
+    } finally {
+      setAddingCustomer(false);
+    }
+  }
+
+  async function handleAddVehicle(label: string) {
+    if (!label || !form.customerId || addingVehicle) return;
+    setAddingVehicle(true);
+    try {
+      const created = await saveVehicle({
+        customerId: form.customerId, vin: '', label, trim: '', engine: '', transmission: '',
+        mileage: '', plate: '', status: 'Active', recommendation: '',
+      });
+      setAllVehicles(prev => [...prev, { id: created.id, customerId: created.customerId, label: created.label }]);
+      setForm(f => ({ ...f, vehicle: created.label }));
+      setVehicleQuery(''); setVehicleOpen(false);
+      notify(`Vehicle "${created.label}" added.`);
+    } catch (e: unknown) {
+      setError('Failed to add vehicle: ' + (e instanceof Error ? e.message : ''));
+    } finally {
+      setAddingVehicle(false);
+    }
+  }
 
   async function openNew() {
     const num = await nextRONumber();
@@ -1302,8 +1342,10 @@ export function RepairOrdersView() {
                   {customerOpen && (() => {
                     const q = customerQuery.toLowerCase();
                     const matches = customers.filter(c => c.name.toLowerCase().includes(q));
-                    return matches.length > 0 ? (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                    const trimmed = customerQuery.trim();
+                    const exact = customers.some(c => c.name.toLowerCase() === trimmed.toLowerCase());
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 280, overflowY: 'auto', marginTop: 2 }}>
                         {matches.map(c => (
                           <div
                             key={c.id}
@@ -1321,25 +1363,68 @@ export function RepairOrdersView() {
                             {c.name}
                           </div>
                         ))}
-                      </div>
-                    ) : (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', marginTop: 2, padding: '9px 14px', fontSize: 13, color: 'var(--muted)' }}>
-                        No customers match &ldquo;{customerQuery}&rdquo;
+                        {matches.length === 0 && !trimmed && (
+                          <div style={{ padding: '9px 14px', fontSize: 13, color: 'var(--muted)' }}>No customers yet.</div>
+                        )}
+                        {trimmed && !exact && (
+                          <div
+                            onMouseDown={() => handleAddCustomer(trimmed)}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--accent)', borderTop: matches.length > 0 ? '1px solid var(--line)' : 'none' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {addingCustomer ? 'Adding…' : `+ Add "${trimmed}" as new customer`}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
                 </div>
-                <div className="login-field">
+                <div className="login-field" style={{ position: 'relative' }}>
                   <label>Vehicle</label>
-                  {(() => {
+                  <input
+                    value={vehicleOpen ? vehicleQuery : form.vehicle}
+                    onChange={e => { setVehicleQuery(e.target.value); setVehicleOpen(true); }}
+                    onFocus={() => { if (!form.customerId) return; setVehicleQuery(''); setVehicleOpen(true); }}
+                    onBlur={() => setTimeout(() => setVehicleOpen(false), 150)}
+                    placeholder={form.customerId ? 'Search or add a vehicle…' : 'Select a customer first'}
+                    autoComplete="off"
+                    disabled={!form.customerId}
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box', opacity: form.customerId ? 1 : 0.6, cursor: form.customerId ? 'text' : 'not-allowed' }}
+                  />
+                  {vehicleOpen && form.customerId && (() => {
                     const cvs = allVehicles.filter(v => v.customerId === form.customerId);
-                    return cvs.length > 0 ? (
-                      <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
-                        style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                        {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
-                      </select>
-                    ) : (
-                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder={form.customerId ? '2022 Ford F-150' : 'Select a customer first'} />
+                    const q = vehicleQuery.toLowerCase();
+                    const matches = cvs.filter(v => v.label.toLowerCase().includes(q));
+                    const trimmed = vehicleQuery.trim();
+                    const exact = cvs.some(v => v.label.toLowerCase() === trimmed.toLowerCase());
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(v => (
+                          <div
+                            key={v.id}
+                            onMouseDown={() => { setForm(f => ({ ...f, vehicle: v.label })); setVehicleQuery(''); setVehicleOpen(false); }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, background: form.vehicle === v.label ? 'rgba(204,0,0,0.07)' : 'transparent' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = form.vehicle === v.label ? 'rgba(204,0,0,0.07)' : 'transparent')}
+                          >
+                            {v.label}
+                          </div>
+                        ))}
+                        {matches.length === 0 && !trimmed && (
+                          <div style={{ padding: '9px 14px', fontSize: 13, color: 'var(--muted)' }}>No vehicles on file for this customer.</div>
+                        )}
+                        {trimmed && !exact && (
+                          <div
+                            onMouseDown={() => handleAddVehicle(trimmed)}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--accent)', borderTop: matches.length > 0 ? '1px solid var(--line)' : 'none' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            {addingVehicle ? 'Adding…' : `+ Add "${trimmed}" as new vehicle`}
+                          </div>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>
