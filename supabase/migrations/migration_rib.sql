@@ -88,6 +88,12 @@ CREATE POLICY "shop members can read rib_subscriptions"
 -- ---------------------------------------------------------------------------
 
 INSERT INTO feature_flags (flag_key, display_name, description, enabled, scope)
-VALUES
-  ('intelligence_bus', 'Redline Intelligence Bus', 'Event-driven intelligence backbone — all modules communicate through the bus', false, 'global')
-ON CONFLICT (flag_key) DO NOTHING;
+SELECT
+  'intelligence_bus',
+  'Redline Intelligence Bus',
+  'Event-driven intelligence backbone — all modules communicate through the bus',
+  false,
+  'global'
+WHERE NOT EXISTS (
+  SELECT 1 FROM feature_flags WHERE flag_key = 'intelligence_bus'
+);
