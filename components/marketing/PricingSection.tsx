@@ -164,6 +164,25 @@ export function PricingSection() {
 
   return (
     <section id="pricing" style={{ paddingBlock: 'clamp(56px, 8vw, 120px)', background: '#080808', position: 'relative', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes price-red-pulse {
+          0%,100% { box-shadow: 0 0 20px rgba(204,0,0,0.6), 0 4px 24px rgba(204,0,0,0.45); }
+          50%      { box-shadow: 0 0 40px rgba(204,0,0,0.95), 0 8px 40px rgba(204,0,0,0.7); }
+        }
+        @keyframes price-white-pulse {
+          0%,100% { box-shadow: 0 0 12px rgba(255,255,255,0.1), 0 2px 16px rgba(255,255,255,0.06); }
+          50%      { box-shadow: 0 0 24px rgba(255,255,255,0.22), 0 4px 28px rgba(255,255,255,0.12); }
+        }
+        @keyframes price-shimmer {
+          0%   { background-position: -300px 0; }
+          100% { background-position: 300px 0; }
+        }
+        .price-btn-red  { animation: price-red-pulse 2.5s ease-in-out infinite; }
+        .price-btn-white { animation: price-white-pulse 3s ease-in-out infinite; }
+        .price-btn-red:hover  { animation: none !important; box-shadow: 0 0 60px rgba(204,0,0,1), 0 8px 48px rgba(204,0,0,0.8) !important; transform: translateY(-2px) scale(1.02); background: linear-gradient(135deg,#e52020,#aa0000) !important; }
+        .price-btn-white:hover { animation: none !important; box-shadow: 0 0 32px rgba(255,255,255,0.35), 0 4px 24px rgba(204,0,0,0.3) !important; transform: translateY(-2px); border-color: rgba(204,0,0,0.5) !important; background: rgba(204,0,0,0.1) !important; }
+        .price-btn-red:active, .price-btn-white:active { transform: translateY(0) scale(0.99) !important; }
+      `}</style>
 
       {/* Background */}
       <div aria-hidden="true" style={{
@@ -311,16 +330,19 @@ export function PricingSection() {
                 {isTrial ? (
                   <Link
                     href="/signup"
+                    className="price-btn-red"
                     style={{
-                      display: 'block', textAlign: 'center', padding: '12px 0',
-                      borderRadius: '10px', fontWeight: 700, fontSize: '14px',
+                      display: 'block', textAlign: 'center', padding: '13px 0',
+                      borderRadius: '10px', fontWeight: 800, fontSize: '14px',
                       textDecoration: 'none', marginBottom: '22px',
-                      background: 'rgba(255,255,255,0.08)',
+                      background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',
                       color: '#fff',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      transition: 'all 0.2s',
+                      border: '1px solid rgba(255,100,100,0.2)',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      position: 'relative', overflow: 'hidden',
                     }}
                   >
+                    <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '300px 100%', animation: 'price-shimmer 3s linear infinite', pointerEvents: 'none' }} />
                     Start Free Trial
                   </Link>
                 ) : (
@@ -328,19 +350,25 @@ export function PricingSection() {
                     type="button"
                     disabled={isLoading}
                     onClick={() => handlePlanClick(plan.key)}
+                    className={plan.featured ? 'price-btn-red' : 'price-btn-white'}
                     style={{
-                      display: 'block', width: '100%', padding: '12px 0',
-                      borderRadius: '10px', fontWeight: 700, fontSize: '14px',
+                      display: 'block', width: '100%', padding: '13px 0',
+                      borderRadius: '10px', fontWeight: 800, fontSize: '14px',
                       cursor: isLoading ? 'wait' : 'pointer',
                       marginBottom: '22px',
-                      background: plan.featured ? '#cc0000' : 'rgba(255,255,255,0.06)',
+                      background: plan.featured
+                        ? 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)'
+                        : 'rgba(255,255,255,0.07)',
                       color: '#fff',
-                      border: plan.featured ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                      boxShadow: plan.featured ? '0 4px 20px rgba(204,0,0,0.4)' : 'none',
-                      transition: 'all 0.2s',
-                      opacity: isLoading ? 0.7 : 1,
+                      border: plan.featured ? '1px solid rgba(255,100,100,0.2)' : '1px solid rgba(255,255,255,0.14)',
+                      transition: 'transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s',
+                      opacity: isLoading ? 0.6 : 1,
+                      position: 'relative', overflow: 'hidden',
                     }}
                   >
+                    {plan.featured && (
+                      <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '300px 100%', animation: 'price-shimmer 3s linear infinite', pointerEvents: 'none' }} />
+                    )}
                     {isLoading ? 'Redirecting…' : plan.cta}
                   </button>
                 )}
