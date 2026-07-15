@@ -31,6 +31,16 @@ import type { RepairCase } from '@/services/repairCaseService';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
+// ── Archive: Complete/Closed ROs older than this move out of the working list ──
+const ARCHIVE_AFTER_DAYS = 60;
+function isArchivedRO(ro: RepairOrder): boolean {
+  if (ro.status !== 'Complete' && ro.status !== 'Closed') return false;
+  const refDate = ro.closedDate || ro.openedDate;
+  if (!refDate) return false;
+  const ageDays = (Date.now() - new Date(refDate).getTime()) / 86400000;
+  return ageDays >= ARCHIVE_AFTER_DAYS;
+}
+
 // ── Smart QA checklist generator ────────────────────────────────
 interface QAItem { id: string; label: string; passed: boolean | null; }
 
@@ -581,11 +591,12 @@ export function RepairOrdersView() {
     const miscText   = miscItems.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
     const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\nRepair Verification:\n${repairText}\nVehicle Walk-Around:\n${miscText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
     try {
-      await updateRepairOrder(ro.id, { status: 'Complete', notes: (ro.notes || '') + signOff });
+      const closedDate = ro.closedDate || new Date().toISOString();
+      await updateRepairOrder(ro.id, { status: 'Complete', notes: (ro.notes || '') + signOff, closedDate });
       if (ro.correction || ro.concern) {
         seedLaborGuide({ vehicle: ro.vehicle, jobDescription: ro.correction || ro.concern, laborHours: ro.laborHours, laborRate: ro.laborRate });
       }
-      const updated = { ...ro, status: 'Complete', notes: (ro.notes || '') + signOff };
+      const updated = { ...ro, status: 'Complete', notes: (ro.notes || '') + signOff, closedDate };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — ready for invoicing.`);
@@ -730,8 +741,9 @@ export function RepairOrdersView() {
         paidDate: null,
         currency: ro.currency,
       });
-      await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber });
-      const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber };
+      const closedDate = ro.closedDate || new Date().toISOString();
+      await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber, closedDate });
+      const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber, closedDate };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`${ro.roNumber} → ${invNumber} created. Opening Invoices…`);
@@ -765,9 +777,14 @@ export function RepairOrdersView() {
   }
 
   const filtered = orders.filter(ro => {
-    const matchStatus = filterStatus === 'All'
-      || (filterStatus === 'Pending' && (ro.status === 'Pending Approval' || ro.status === 'Pending Parts'))
-      || ro.status === filterStatus;
+    const archived = isArchivedRO(ro);
+    const matchStatus = filterStatus === 'Archived'
+      ? archived
+      : archived
+        ? false // archived ROs only show under the Archived tab, keeping every other list short
+        : filterStatus === 'All'
+          || (filterStatus === 'Pending' && (ro.status === 'Pending Approval' || ro.status === 'Pending Parts'))
+          || ro.status === filterStatus;
     const matchSearch = !search || [ro.roNumber, ro.customerName, ro.vehicle, ro.technician]
       .some(v => v.toLowerCase().includes(search.toLowerCase()));
     return matchStatus && matchSearch;
@@ -775,9 +792,10 @@ export function RepairOrdersView() {
 
   const roPage = usePagination(filtered, { pageSize: 25 });
 
+  const archivedCount = orders.filter(isArchivedRO).length;
   const openCount = orders.filter(r => r.status === 'Open' || r.status === 'In Progress').length;
   const pendingCount = orders.filter(r => r.status === 'Pending Parts' || r.status === 'Pending Approval').length;
-  const completeCount = orders.filter(r => r.status === 'Complete' || r.status === 'Closed').length;
+  const completeCount = orders.filter(r => (r.status === 'Complete' || r.status === 'Closed') && !isArchivedRO(r)).length;
   const totalLabor = orders.filter(r => r.status !== 'Void').reduce((s, r) => s + r.laborHours * r.laborRate, 0);
 
   return (
@@ -853,8 +871,22 @@ export function RepairOrdersView() {
             <button className="btn btn-primary" onClick={openNew}>+ New RO</button>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <FilterPills statuses={['All', ...RO_STATUSES]} active={filterStatus} onChange={setFilterStatus} />
+            <FilterPills
+              statuses={['All', ...RO_STATUSES, 'Archived']}
+              active={filterStatus}
+              onChange={setFilterStatus}
+              counts={{
+                All: orders.length - archivedCount,
+                ...Object.fromEntries(RO_STATUSES.map(s => [s, orders.filter(o => o.status === s && !isArchivedRO(o)).length])),
+                Archived: archivedCount,
+              }}
+            />
           </div>
+          {archivedCount > 0 && filterStatus !== 'Archived' && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: -8, marginBottom: 14 }}>
+              🗃️ {archivedCount} completed/closed RO{archivedCount === 1 ? '' : 's'} {ARCHIVE_AFTER_DAYS}+ days old {archivedCount === 1 ? 'is' : 'are'} tucked away in <button type="button" onClick={() => setFilterStatus('Archived')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', fontSize: 12, textDecoration: 'underline' }}>Archived</button>.
+            </p>
+          )}
 
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading repair orders…</p>}
