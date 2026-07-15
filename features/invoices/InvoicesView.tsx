@@ -107,9 +107,8 @@ export function InvoicesView() {
     inv: InvoiceFull;
     total: number;
     currency: string;
-    mode: 'Cash' | 'QR Code' | 'Split';
-    cashAmt: string;
-    qrAmt: string;
+    mode: 'Cash' | 'Card' | 'QR Code';
+    cardType: 'Credit' | 'Debit';
     ref: string;
     saving: boolean;
   } | null>(null);
@@ -489,19 +488,12 @@ export function InvoicesView() {
 
   function openPayModal(inv: InvoiceFull) {
     const { amount, currency } = getEffectiveTotal(inv);
-    setPayModal({ inv, total: amount, currency, mode: 'Cash', cashAmt: String(amount), qrAmt: '0', ref: '', saving: false });
+    setPayModal({ inv, total: amount, currency, mode: 'Cash', cardType: 'Credit', ref: '', saving: false });
   }
 
   async function handlePayConfirm() {
     if (!payModal) return;
-    const { inv, total, currency, mode, cashAmt, qrAmt, ref } = payModal;
-    const cash = Number(cashAmt) || 0;
-    const qr = Number(qrAmt) || 0;
-    if (mode === 'Split' && Math.abs(cash + qr - total) > 1) {
-      setPayModal(m => m ? { ...m, saving: false } : null);
-      setError(`Split amounts (${formatMoney(cash, currency)} + ${formatMoney(qr, currency)}) must equal ${formatMoney(total, currency)}`);
-      return;
-    }
+    const { inv, total, currency, mode, cardType, ref } = payModal;
     setPayModal(m => m ? { ...m, saving: true } : null);
     try {
       const paidDate = new Date().toISOString();
@@ -512,16 +504,12 @@ export function InvoicesView() {
       } else if (mode === 'QR Code') {
         await createPayment({ ...base, amount: total, method: 'Bank Transfer', methodDetail: 'QR Code', notes: `QR Code transfer — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
       } else {
-        // Split — two payment records
-        await Promise.all([
-          createPayment({ ...base, amount: cash, method: 'Cash', methodDetail: '', notes: `Split cash portion — ${inv.invoiceNumber}` }),
-          createPayment({ ...base, amount: qr, method: 'Bank Transfer', methodDetail: 'QR Code', notes: `Split QR portion — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` }),
-        ]);
+        await createPayment({ ...base, amount: total, method: cardType === 'Debit' ? 'Debit Card' : 'Credit Card', methodDetail: `${cardType} Card`, notes: `${cardType} card payment — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
       }
       const updated = { ...inv, status: 'Paid', paidDate };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       setSelected(updated);
-      const label = mode === 'Split' ? `Cash ${formatMoney(cash, currency)} + QR ${formatMoney(qr, currency)}` : `${mode} ${formatMoney(total, currency)}`;
+      const label = mode === 'Card' ? `${cardType} Card ${formatMoney(total, currency)}` : `${mode} ${formatMoney(total, currency)}`;
       notify(`${inv.invoiceNumber} paid — ${label}`);
       setPayModal(null);
       triggerPaidCleanup(inv);
@@ -1437,48 +1425,41 @@ export function InvoicesView() {
               {/* Mode selector */}
               <div className="section-label" style={{ marginBottom: 8 }}>Payment Method</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
-                {(['Cash', 'QR Code', 'Split'] as const).map(m => (
+                {(['Cash', 'Card', 'QR Code'] as const).map(m => (
                   <button key={m} type="button"
-                    onClick={() => setPayModal(pm => pm ? { ...pm, mode: m, cashAmt: m === 'QR Code' ? '0' : String(pm.total), qrAmt: m === 'Cash' ? '0' : m === 'QR Code' ? String(pm.total) : '0' } : null)}
+                    onClick={() => setPayModal(pm => pm ? { ...pm, mode: m } : null)}
                     style={{ padding: '10px 6px', borderRadius: 999, border: payModal.mode === m ? '2px solid var(--accent)' : '2px solid var(--line)', background: payModal.mode === m ? 'rgba(204,0,0,0.07)' : 'var(--surface)', color: payModal.mode === m ? 'var(--accent)' : 'var(--text)', fontWeight: payModal.mode === m ? 800 : 600, fontSize: 13, cursor: 'pointer' }}>
-                    {m === 'Cash' ? '💵 Cash' : m === 'QR Code' ? '📱 QR Code' : '⚡ Split'}
+                    {m === 'Cash' ? '💵 Cash' : m === 'Card' ? '💳 Card' : '📱 QR Code'}
                   </button>
                 ))}
               </div>
 
-              {/* Split amounts */}
-              {payModal.mode === 'Split' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>💵 Cash Amount</label>
-                    <input type="text" inputMode="decimal" value={payModal.cashAmt}
-                      onFocus={e => e.target.select()}
-                      onChange={e => {
-                        const v = e.target.value.replace(/[^0-9.]/g, '');
-                        const remaining = Math.max(0, payModal.total - (Number(v) || 0));
-                        setPayModal(pm => pm ? { ...pm, cashAmt: v, qrAmt: String(Math.round(remaining)) } : null);
-                      }}
-                      style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 14, fontWeight: 600, boxSizing: 'border-box' }} />
+              {/* Card type + reference */}
+              {payModal.mode === 'Card' && (
+                <>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Card Type</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      {(['Credit', 'Debit'] as const).map(ct => (
+                        <button key={ct} type="button"
+                          onClick={() => setPayModal(pm => pm ? { ...pm, cardType: ct } : null)}
+                          style={{ padding: '9px 6px', borderRadius: 8, border: payModal.cardType === ct ? '2px solid var(--accent)' : '1px solid var(--line)', background: payModal.cardType === ct ? 'rgba(204,0,0,0.07)' : 'var(--surface)', color: payModal.cardType === ct ? 'var(--accent)' : 'var(--text)', fontWeight: payModal.cardType === ct ? 800 : 600, fontSize: 13, cursor: 'pointer' }}>
+                          💳 {ct}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>📱 QR Amount</label>
-                    <input type="text" inputMode="decimal" value={payModal.qrAmt}
-                      onFocus={e => e.target.select()}
-                      onChange={e => {
-                        const v = e.target.value.replace(/[^0-9.]/g, '');
-                        const remaining = Math.max(0, payModal.total - (Number(v) || 0));
-                        setPayModal(pm => pm ? { ...pm, qrAmt: v, cashAmt: String(Math.round(remaining)) } : null);
-                      }}
-                      style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 14, fontWeight: 600, boxSizing: 'border-box' }} />
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Card Reference / Last 4 Digits (optional)</label>
+                    <input value={payModal.ref} onChange={e => setPayModal(pm => pm ? { ...pm, ref: e.target.value } : null)}
+                      placeholder="e.g. Auth #123456 or •••• 4242"
+                      style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '9px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' }} />
                   </div>
-                  <div style={{ gridColumn: '1/-1', fontSize: 12, color: Math.abs((Number(payModal.cashAmt)||0) + (Number(payModal.qrAmt)||0) - payModal.total) > 1 ? '#ef4444' : '#4caf50', fontWeight: 600 }}>
-                    Total: {formatMoney((Number(payModal.cashAmt)||0) + (Number(payModal.qrAmt)||0), payModal.currency)} {Math.abs((Number(payModal.cashAmt)||0) + (Number(payModal.qrAmt)||0) - payModal.total) <= 1 ? '✓ Balanced' : `(need ${formatMoney(payModal.total, payModal.currency)})`}
-                  </div>
-                </div>
+                </>
               )}
 
               {/* QR ref */}
-              {(payModal.mode === 'QR Code' || payModal.mode === 'Split') && (
+              {payModal.mode === 'QR Code' && (
                 <div style={{ marginBottom: 18 }}>
                   <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>QR Reference / Transaction ID (optional)</label>
                   <input value={payModal.ref} onChange={e => setPayModal(pm => pm ? { ...pm, ref: e.target.value } : null)}
