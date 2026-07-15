@@ -586,8 +586,8 @@ export function Sidebar() {
       <button
         onClick={toggleTheme}
         title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        onMouseEnter={e => showTooltip(e, theme === 'dark' ? 'Light Mode' : 'Dark Mode')}
-        onMouseLeave={hideTooltip}
+        onMouseEnter={e => { showTooltip(e, theme === 'dark' ? 'Light Mode' : 'Dark Mode'); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+        onMouseLeave={e => { hideTooltip(); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
         style={{
           padding: '10px 16px', background: 'transparent',
           border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
@@ -596,8 +596,6 @@ export function Sidebar() {
           marginBottom: 8, justifyContent: collapsed ? 'center' : 'flex-start',
           transition: 'color 0.2s, border-color 0.2s',
         }}
-        onMouseEnter={e => { showTooltip(e, theme === 'dark' ? 'Light Mode' : 'Dark Mode'); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
-        onMouseLeave={e => { hideTooltip(); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
       >
         <span style={{ fontSize: 15 }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
         {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
