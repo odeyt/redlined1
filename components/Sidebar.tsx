@@ -106,24 +106,11 @@ export function Sidebar() {
       setLogoUrl(s.logoUrl);
       setHiddenModules(s.hiddenModules ?? []);
       setFeatureFlags({ enableJobArchive: s.enableJobArchive ?? true, enableTimeTracking: s.enableTimeTracking ?? true });
-    }).catch(() => {});
-
-    // Fetch role permissions server-side (service role bypasses RLS) so non-owner
-    // users get the correct allowlist regardless of shop_settings RLS policies.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const token = session?.access_token;
-      const sid = getShopId();
-      if (!token || !sid) { setSettingsLoaded(true); return; }
-      fetch(`/api/role-permissions?shopId=${sid}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d?.rolePermissions) setRolePermissions(d.rolePermissions);
-        })
-        .catch(() => {})
-        .finally(() => setSettingsLoaded(true));
-    }).catch(() => setSettingsLoaded(true));
+      // role_permissions is now readable by all shop members via RLS SELECT policy
+      if (s.rolePermissions && Object.values(s.rolePermissions).some(arr => arr.length > 0)) {
+        setRolePermissions(s.rolePermissions);
+      }
+    }).catch(() => {}).finally(() => setSettingsLoaded(true));
 
     function onBrandingUpdate(e: Event) {
       const detail = (e as CustomEvent).detail;
@@ -280,8 +267,8 @@ export function Sidebar() {
     ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
     ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
   ];
-  // billing and subscriptions always visible — never blocked by role, feature flags, or hiddenModules
-  const ALWAYS_SHOW = new Set(['billing', 'subscriptions']);
+  // billing and subscriptions always visible for owners only
+  const ALWAYS_SHOW = role === 'owner' ? new Set(['billing', 'subscriptions']) : new Set<string>();
   const visibleNav = navItems.filter(([id]) => {
     if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
