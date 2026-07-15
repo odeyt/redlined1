@@ -2,8 +2,8 @@
  * lib/intelligence-bus/middleware/logging.ts
  *
  * Structured event logging middleware.
- * Logs every RIB event at INFO level with key envelope fields.
- * Errors from downstream handlers are logged at ERROR level.
+ * Logs causality envelope fields (depth, causationId, originModule) alongside
+ * the existing event identifiers.
  */
 
 import type { RibEvent } from '../event-types';
@@ -14,31 +14,34 @@ export const loggingMiddleware: RibMiddlewareFn = async (event, next) => {
   const start = Date.now();
   console.log('[RIB]', JSON.stringify({
     level: 'info',
+    action: 'publish',
     eventId: event.eventId,
     eventType: event.eventType,
     shopId: event.shopId,
     vehicleId: event.vehicleId,
-    diagnosticSessionId: event.diagnosticSessionId,
     correlationId: event.correlationId,
-    timestamp: event.timestamp,
+    causationId: event.causationId,
+    eventDepth: event.eventDepth,
+    originModule: event.originModule,
   }));
 
   try {
     await next();
     console.log('[RIB]', JSON.stringify({
       level: 'info',
+      action: 'dispatched',
       eventId: event.eventId,
       eventType: event.eventType,
-      status: 'dispatched',
       durationMs: Date.now() - start,
     }));
   } catch (err) {
     console.error('[RIB]', JSON.stringify({
       level: 'error',
+      action: 'dispatch_failed',
       eventId: event.eventId,
       eventType: event.eventType,
-      status: 'error',
-      error: String(err),
+      error: err instanceof Error ? err.message : String(err),
+      errorName: err instanceof Error ? err.name : 'unknown',
       durationMs: Date.now() - start,
     }));
     throw err;

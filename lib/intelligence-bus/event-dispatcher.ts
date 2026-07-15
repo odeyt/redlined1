@@ -1,84 +1,139 @@
 /**
  * lib/intelligence-bus/event-dispatcher.ts
  *
- * Fans a validated RibEvent out to all registered handlers for its event type.
- * Handler errors are isolated — one failure logs and continues; it never
- * prevents other handlers from receiving the event.
+ * Fan-out dispatcher: delivers an event to all registered handlers that match
+ * its eventType. Handlers run concurrently with Promise.allSettled so one
+ * handler failure never blocks others.
+ *
+ * Each handler runs with an optional timeout (default 30 s). Timed-out
+ * handlers are tracked as errors, not dropped silently.
  */
 
 import type { RibEvent, RibEventType } from './event-types';
-import type { RibHandler } from './subscriber';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type RibHandlerFn<T extends RibEvent = RibEvent> = (event: T) => Promise<void>;
+
+export interface RibSubscriberInfo {
+  subscriberId: string;
+  eventType: RibEventType;
+  handler: RibHandlerFn;
+  addedAt: Date;
+  version: string;
+}
+
+export interface RibSubscription {
+  subscriberId: string;
+  unsubscribe: () => void;
+}
 
 export interface DispatchResult {
   eventId: string;
   eventType: RibEventType;
   handlerCount: number;
+  succeededSubscriberIds: string[];
   errors: Array<{ subscriberId: string; error: string }>;
 }
 
+// ---------------------------------------------------------------------------
+// Timeout helper
+// ---------------------------------------------------------------------------
+
+const DEFAULT_HANDLER_TIMEOUT_MS = 30_000;
+
+function withTimeout(p: Promise<void>, ms: number, label: string): Promise<void> {
+  return Promise.race([
+    p,
+    new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error(`Handler '${label}' timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+// ---------------------------------------------------------------------------
+// Dispatcher
+// ---------------------------------------------------------------------------
+
 export class RibEventDispatcher {
-  private readonly handlers = new Map<RibEventType, Map<string, RibHandler>>();
+  private readonly subscribers = new Map<string, RibSubscriberInfo>();
+  private nextId = 0;
 
-  register(eventTypes: RibEventType[], subscriberId: string, handler: RibHandler): void {
-    for (const eventType of eventTypes) {
-      if (!this.handlers.has(eventType)) {
-        this.handlers.set(eventType, new Map());
-      }
-      this.handlers.get(eventType)!.set(subscriberId, handler);
-    }
+  subscribe<T extends RibEventType>(
+    eventType: T,
+    handler: RibHandlerFn<Extract<RibEvent, { eventType: T }>>,
+    version = '1',
+  ): RibSubscription {
+    const subscriberId = `sub_${++this.nextId}`;
+    this.subscribers.set(subscriberId, {
+      subscriberId,
+      eventType,
+      handler: handler as RibHandlerFn,
+      addedAt: new Date(),
+      version,
+    });
+
+    return {
+      subscriberId,
+      unsubscribe: () => { this.subscribers.delete(subscriberId); },
+    };
   }
 
-  unregister(eventTypes: RibEventType[], subscriberId: string): void {
-    for (const eventType of eventTypes) {
-      this.handlers.get(eventType)?.delete(subscriberId);
+  async dispatch(event: RibEvent, handlerTimeoutMs = DEFAULT_HANDLER_TIMEOUT_MS): Promise<DispatchResult> {
+    const matching = Array.from(this.subscribers.values()).filter(
+      (s) => s.eventType === event.eventType,
+    );
+
+    if (matching.length === 0) {
+      return {
+        eventId: event.eventId,
+        eventType: event.eventType,
+        handlerCount: 0,
+        succeededSubscriberIds: [],
+        errors: [],
+      };
     }
-  }
 
-  async dispatch(event: RibEvent): Promise<DispatchResult> {
-    const handlerMap = this.handlers.get(event.eventType);
-    const errors: Array<{ subscriberId: string; error: string }> = [];
-
-    if (!handlerMap?.size) {
-      return { eventId: event.eventId, eventType: event.eventType, handlerCount: 0, errors };
-    }
-
-    // Run all handlers concurrently, isolate failures
-    const settlements = await Promise.allSettled(
-      Array.from(handlerMap.entries()).map(([subscriberId, handler]) =>
-        handler(event).catch((err) => {
-          throw Object.assign(err, { subscriberId });
-        }),
+    const results = await Promise.allSettled(
+      matching.map((s) =>
+        withTimeout(s.handler(event), handlerTimeoutMs, s.subscriberId),
       ),
     );
 
-    for (const result of settlements) {
-      if (result.status === 'rejected') {
-        const err = result.reason as Error & { subscriberId?: string };
+    const succeededSubscriberIds: string[] = [];
+    const errors: DispatchResult['errors'] = [];
+
+    results.forEach((result, idx) => {
+      if (result.status === 'fulfilled') {
+        succeededSubscriberIds.push(matching[idx].subscriberId);
+      } else {
         errors.push({
-          subscriberId: err.subscriberId ?? 'unknown',
-          error: err.message ?? String(result.reason),
-        });
-        console.error('[RIB dispatcher] handler error', {
-          eventId: event.eventId,
-          eventType: event.eventType,
-          subscriberId: err.subscriberId,
-          error: err.message,
+          subscriberId: matching[idx].subscriberId,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
       }
-    }
+    });
 
-    return { eventId: event.eventId, eventType: event.eventType, handlerCount: handlerMap.size, errors };
+    return {
+      eventId: event.eventId,
+      eventType: event.eventType,
+      handlerCount: matching.length,
+      succeededSubscriberIds,
+      errors,
+    };
   }
 
-  subscriberCount(eventType: RibEventType): number {
-    return this.handlers.get(eventType)?.size ?? 0;
+  getSubscriberCount(): number {
+    return this.subscribers.size;
   }
 
-  allSubscriberIds(): string[] {
-    const ids = new Set<string>();
-    for (const map of this.handlers.values()) {
-      for (const id of map.keys()) ids.add(id);
-    }
-    return Array.from(ids);
+  getSubscribersForEventType(eventType: RibEventType): RibSubscriberInfo[] {
+    return Array.from(this.subscribers.values()).filter((s) => s.eventType === eventType);
+  }
+
+  clear(): void {
+    this.subscribers.clear();
   }
 }

@@ -1,151 +1,135 @@
 /**
  * lib/intelligence-bus/bus.ts
  *
- * Redline Intelligence Bus — the central nervous system of RedlineD1.
+ * Core Redline Intelligence Bus (RIB) implementation.
  *
- * Architecture:
- *   publish(event)
- *     → middleware pipeline (correlation → validation → logging)
- *     → dispatcher fan-out (all subscribed handlers run concurrently)
- *     → persist to rib_events (append-only audit log)
- *
- * V1: in-process synchronous dispatch.
- * Future: swap the dispatcher for a queue-based worker (Trigger.dev / Inngest)
- * without changing any publish() or subscribe() call sites.
+ * Architecture notes:
+ * - The bus singleton is module-level and shared within a Node.js process.
+ *   Handlers are registered once at process startup (see handlers/index.ts).
+ * - The persistFn is passed per-publish call, NOT stored on the singleton.
+ *   This avoids the race condition where one request's Supabase client bleeds
+ *   into the next request's publish.
+ * - Event persist (append to rib_events) happens BEFORE handler dispatch so
+ *   the audit trail is complete even when a handler crashes.
+ * - Loop guard runs in the middleware pipeline before dispatch.
  */
 
-import { randomUUID } from 'crypto';
+import { RibEventDispatcher } from './event-dispatcher';
+import type { RibSubscription } from './event-dispatcher';
 import type { RibEvent, RibEventType } from './event-types';
-import type { RibHandler, RibSubscription, RibSubscriberInfo } from './subscriber';
-import { RibEventDispatcher, type DispatchResult } from './event-dispatcher';
-import { defaultMiddlewarePipeline, type RibMiddlewareFn } from './middleware';
+import { defaultMiddlewarePipeline } from './middleware';
+import type { RibMiddlewareFn } from './middleware/logging';
+import { loopGuard } from './loop-guard';
 
 export interface RibPublishResult {
   eventId: string;
   eventType: RibEventType;
   persisted: boolean;
   handlerCount: number;
-  errors: Array<{ subscriberId: string; error: string }>;
+  handlerErrors: Array<{ subscriberId: string; error: string }>;
+  loopGuardRejected: boolean;
 }
 
 export class RibEventBus {
   private readonly dispatcher = new RibEventDispatcher();
   private readonly middleware: RibMiddlewareFn[] = [...defaultMiddlewarePipeline];
-  private readonly stats = new Map<string, RibSubscriberInfo>();
-  private persistFn: ((event: RibEvent) => Promise<void>) | null = null;
 
-  /**
-   * Attach a persistence function. When set, every event is appended to storage
-   * after successful dispatch. Designed to be injected at app startup with a
-   * Supabase client, keeping the bus itself free of DB imports.
-   */
-  setPersistFn(fn: (event: RibEvent) => Promise<void>): void {
-    this.persistFn = fn;
-  }
-
-  /** Add a middleware to the pipeline (appended after defaults) */
-  use(mw: RibMiddlewareFn): void {
-    this.middleware.push(mw);
-  }
-
-  /**
-   * Subscribe a handler to one or more event types.
-   * Returns a subscription object whose .unsubscribe() removes the handler.
-   */
-  subscribe(
-    subscriberId: string,
-    displayName: string,
-    eventTypes: RibEventType[],
-    handler: RibHandler,
+  subscribe<T extends RibEventType>(
+    eventType: T,
+    handler: (event: Extract<RibEvent, { eventType: T }>) => Promise<void>,
+    version = '1',
   ): RibSubscription {
-    const subscriptionId = randomUUID();
-    const registeredAt = new Date().toISOString();
+    return this.dispatcher.subscribe(eventType, handler, version);
+  }
 
-    this.dispatcher.register(eventTypes, subscriberId, handler);
-
-    if (!this.stats.has(subscriberId)) {
-      this.stats.set(subscriberId, {
-        subscriberId,
-        displayName,
-        subscribedEvents: eventTypes,
-        isEnabled: true,
-        registeredAt,
-        lastProcessedAt: null,
-        errorCount: 0,
-        processedCount: 0,
-      });
-    }
-
-    const unsubscribe = () => {
-      this.dispatcher.unregister(eventTypes, subscriberId);
-    };
-
-    return { subscriptionId, subscriberId, eventTypes, registeredAt, unsubscribe };
+  use(fn: RibMiddlewareFn): void {
+    this.middleware.push(fn);
   }
 
   /**
    * Publish an event to the bus.
-   * Runs the middleware pipeline then fans out to all subscribed handlers.
+   *
+   * Order:
+   *   1. Run middleware pipeline (validation → loop guard → payload guard → logging)
+   *   2. Persist the event (if persistFn provided) — BEFORE dispatch
+   *   3. Dispatch to handlers concurrently via Promise.allSettled
+   *
+   * persistFn is injected per-call so each request uses its own Supabase client.
    */
-  async publish(event: RibEvent): Promise<RibPublishResult> {
-    let dispatchResult: DispatchResult = {
-      eventId: event.eventId,
-      eventType: event.eventType,
-      handlerCount: 0,
-      errors: [],
-    };
+  async publish(
+    event: RibEvent,
+    persistFn?: (event: RibEvent) => Promise<void>,
+  ): Promise<RibPublishResult> {
+    let dispatchReady = false;
 
     const runPipeline = async (index: number): Promise<void> => {
-      if (index >= this.middleware.length) {
-        // End of middleware — dispatch
-        dispatchResult = await this.dispatcher.dispatch(event);
-        // Update stats
-        for (const [id, info] of this.stats) {
-          const wasCalled = dispatchResult.handlerCount > 0;
-          if (wasCalled) {
-            const hadError = dispatchResult.errors.some((e) => e.subscriberId === id);
-            info.processedCount++;
-            if (hadError) info.errorCount++;
-            info.lastProcessedAt = new Date().toISOString();
-          }
-        }
-        return;
+      if (index < this.middleware.length) {
+        await this.middleware[index](event, () => runPipeline(index + 1));
+      } else {
+        dispatchReady = true;
       }
-      await this.middleware[index](event, () => runPipeline(index + 1));
     };
 
-    await runPipeline(0);
+    try {
+      await runPipeline(0);
+    } catch (err) {
+      const isGuardError =
+        err instanceof Error &&
+        (err.name === 'RibLoopError' || err.name === 'RibValidationError' ||
+         err.name === 'RibPayloadSizeError' || err.name === 'RibSecretLeakError');
+      return {
+        eventId: event.eventId,
+        eventType: event.eventType,
+        persisted: false,
+        handlerCount: 0,
+        handlerErrors: [],
+        loopGuardRejected: isGuardError,
+      };
+    }
 
-    // Persist event (append-only audit — never overwrite)
+    if (!dispatchReady) {
+      return {
+        eventId: event.eventId,
+        eventType: event.eventType,
+        persisted: false,
+        handlerCount: 0,
+        handlerErrors: [],
+        loopGuardRejected: false,
+      };
+    }
+
+    // Persist BEFORE dispatch — audit trail complete even if handlers crash
     let persisted = false;
-    if (this.persistFn) {
+    if (persistFn) {
       try {
-        await this.persistFn(event);
+        await persistFn(event);
         persisted = true;
-      } catch (err) {
-        console.error('[RIB] persistence failed', { eventId: event.eventId, error: String(err) });
+      } catch {
+        // Persist failure is non-fatal: dispatch continues
+        // The calling route should log this separately
       }
     }
+
+    const dispatchResult = await this.dispatcher.dispatch(event);
 
     return {
       eventId: event.eventId,
       eventType: event.eventType,
       persisted,
       handlerCount: dispatchResult.handlerCount,
-      errors: dispatchResult.errors,
+      handlerErrors: dispatchResult.errors,
+      loopGuardRejected: false,
     };
   }
 
-  /** Returns subscriber info for all registered subscribers */
-  getSubscriberInfo(): RibSubscriberInfo[] {
-    return Array.from(this.stats.values());
+  getSubscriberCount(): number {
+    return this.dispatcher.getSubscriberCount();
   }
 
-  /** Health check — true if bus is operational */
-  isHealthy(): boolean {
-    return true;
+  resetLoopGuard(): void {
+    loopGuard.reset();
   }
 }
 
-/** Singleton bus instance — import this everywhere */
+/** Module-level singleton — handlers registered once at process startup */
 export const intelligenceBus = new RibEventBus();

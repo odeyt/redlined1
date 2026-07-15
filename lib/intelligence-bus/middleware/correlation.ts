@@ -1,19 +1,17 @@
 /**
  * lib/intelligence-bus/middleware/correlation.ts
  *
- * Correlation ID middleware.
- * Ensures every event has a correlationId. If one was not set by the publisher,
- * a new one is generated and stamped onto the event before dispatch.
- * This enables tracing chains of events across handlers.
+ * Correlation middleware — ensures every event has a correlationId.
+ * For root events (no causationId) a new UUID is minted if one wasn't provided.
+ * For derived events the correlationId should already be set by the caller via derivedFrom().
  */
 
 import { randomUUID } from 'crypto';
-import type { RibEvent } from '../event-types';
 import type { RibMiddlewareFn } from './logging';
 
 export const correlationMiddleware: RibMiddlewareFn = async (event, next) => {
   if (!event.correlationId) {
-    (event as RibEvent & { correlationId: string }).correlationId = randomUUID();
+    (event as { correlationId: string }).correlationId = randomUUID();
   }
   await next();
 };

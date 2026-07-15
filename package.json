@@ -26,15 +26,18 @@
     "@sentry/nextjs": "^10.63.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.108.0",
+    "@types/uuid": "^10.0.0",
     "next": "^16.2.9",
     "pdf-lib": "^1.17.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.12.4",
+    "uuid": "^14.0.1",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
     "@playwright/test": "^1.61.1",
     "@types/dotenv": "^6.1.1",
     "@types/jest": "^30.0.0",
@@ -45,8 +48,10 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "^16.2.9",
+    "jest": "^30.4.2",
     "pdfkit": "^0.19.1",
     "sharp": "^0.35.0",
+    "ts-jest": "^29.4.11",
     "typescript": "^5"
   }
 }

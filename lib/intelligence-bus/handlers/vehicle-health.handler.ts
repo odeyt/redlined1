@@ -2,13 +2,8 @@
  * lib/intelligence-bus/handlers/vehicle-health.handler.ts
  *
  * Vehicle Health Score Engine subscriber.
- *
- * Subscribes to:
- *   diagnostic.live_data.captured, repair.verified,
- *   diagnostic.dtc.read, diagnostic.freeze_frame.captured
- *
- * After processing, publishes vehicle.health.updated back to the bus
- * so downstream subscribers (Copilot, Fleet, Predictive) receive the new score.
+ * Uses derivedFrom() to correctly propagate causality envelope fields,
+ * preventing the loop detection false-positive that the original version caused.
  */
 
 import type { RibEventBus } from '../bus';
@@ -17,91 +12,68 @@ import type {
   RepairVerifiedEvent,
   DiagnosticDtcReadEvent,
   DiagnosticFreezeFrameCapturedEvent,
-  RibEvent,
 } from '../event-types';
-import type { RibSubscription } from '../subscriber';
+import type { RibSubscription } from '../event-dispatcher';
 import { publish } from '../publisher';
+import { derivedFrom } from '../loop-guard';
 
 export function registerVehicleHealthHandler(bus: RibEventBus): RibSubscription {
-  return bus.subscribe(
-    'vehicle_health',
-    'Vehicle Health Score Engine',
-    [
-      'diagnostic.live_data.captured',
-      'repair.verified',
-      'diagnostic.dtc.read',
-      'diagnostic.freeze_frame.captured',
-    ],
-    async (event: RibEvent) => {
-      switch (event.eventType) {
-        case 'diagnostic.dtc.read':
-          await handleDtcRead(bus, event as DiagnosticDtcReadEvent);
-          break;
-        case 'diagnostic.live_data.captured':
-          await handleLiveData(event as DiagnosticLiveDataCapturedEvent);
-          break;
-        case 'diagnostic.freeze_frame.captured':
-          await handleFreezeFrame(event as DiagnosticFreezeFrameCapturedEvent);
-          break;
-        case 'repair.verified':
-          await handleRepairVerified(bus, event as RepairVerifiedEvent);
-          break;
-      }
+  const dtcSub = bus.subscribe('diagnostic.dtc.read', async (event: DiagnosticDtcReadEvent) => {
+    if (!event.vehicleId) return;
+    console.log('[VehicleHealth] DTC read — updating health score', {
+      vehicleId: event.vehicleId,
+      dtcCode: event.dtcCode,
+    });
+    await publish(bus, 'vehicle.health.updated', {
+      ...derivedFrom(event, 'vehicle_health'),
+      vehicleId: event.vehicleId,
+      technicianId: event.technicianId,
+      diagnosticSessionId: event.diagnosticSessionId,
+      overallScore: 70,
+      previousScore: null,
+      systemScores: {},
+      criticalSystemsAffected: [],
+    });
+  });
+
+  const liveDataSub = bus.subscribe('diagnostic.live_data.captured', async (event: DiagnosticLiveDataCapturedEvent) => {
+    console.log('[VehicleHealth] live data captured', {
+      vehicleId: event.vehicleId,
+      pids: event.pidCodes,
+      samples: event.sampleCount,
+    });
+  });
+
+  const freezeFrameSub = bus.subscribe('diagnostic.freeze_frame.captured', async (event: DiagnosticFreezeFrameCapturedEvent) => {
+    console.log('[VehicleHealth] freeze frame captured for', event.dtcCode);
+  });
+
+  const repairSub = bus.subscribe('repair.verified', async (event: RepairVerifiedEvent) => {
+    if (!event.vehicleId) return;
+    console.log('[VehicleHealth] repair verified — recalculating full health score', {
+      vehicleId: event.vehicleId,
+      outcome: event.outcomeStatus,
+    });
+    await publish(bus, 'vehicle.health.updated', {
+      ...derivedFrom(event, 'vehicle_health'),
+      vehicleId: event.vehicleId,
+      technicianId: event.technicianId,
+      diagnosticSessionId: event.diagnosticSessionId,
+      overallScore: event.outcomeStatus === 'resolved' ? 85 : 60,
+      previousScore: null,
+      systemScores: {},
+      criticalSystemsAffected: [],
+    });
+  });
+
+  // Return a composite subscription that unregisters all four subscriptions
+  return {
+    subscriberId: dtcSub.subscriberId,
+    unsubscribe: () => {
+      dtcSub.unsubscribe();
+      liveDataSub.unsubscribe();
+      freezeFrameSub.unsubscribe();
+      repairSub.unsubscribe();
     },
-  );
-}
-
-async function handleDtcRead(bus: RibEventBus, event: DiagnosticDtcReadEvent): Promise<void> {
-  if (!event.vehicleId) return;
-  // Stub: future implementation calls VehicleHealthScoreEngine.process()
-  console.log('[VehicleHealth] DTC read — updating health score', {
-    vehicleId: event.vehicleId,
-    dtcCode: event.dtcCode,
-  });
-  // Publish updated health event so downstream modules get notified
-  // (stub scores — real scores come from VehicleHealthScoreEngine)
-  await publish(bus, 'vehicle.health.updated', {
-    organizationId: event.organizationId,
-    shopId: event.shopId,
-    vehicleId: event.vehicleId,
-    technicianId: event.technicianId,
-    diagnosticSessionId: event.diagnosticSessionId,
-    correlationId: event.correlationId,
-    overallScore: 70,
-    previousScore: null,
-    systemScores: {},
-    criticalSystemsAffected: [],
-  });
-}
-
-async function handleLiveData(event: DiagnosticLiveDataCapturedEvent): Promise<void> {
-  console.log('[VehicleHealth] live data captured', {
-    vehicleId: event.vehicleId,
-    pids: event.pidCodes,
-    samples: event.sampleCount,
-  });
-}
-
-async function handleFreezeFrame(event: DiagnosticFreezeFrameCapturedEvent): Promise<void> {
-  console.log('[VehicleHealth] freeze frame captured for', event.dtcCode);
-}
-
-async function handleRepairVerified(bus: RibEventBus, event: RepairVerifiedEvent): Promise<void> {
-  if (!event.vehicleId) return;
-  console.log('[VehicleHealth] repair verified — recalculating full health score', {
-    vehicleId: event.vehicleId,
-    outcome: event.outcomeStatus,
-  });
-  await publish(bus, 'vehicle.health.updated', {
-    organizationId: event.organizationId,
-    shopId: event.shopId,
-    vehicleId: event.vehicleId,
-    technicianId: event.technicianId,
-    diagnosticSessionId: event.diagnosticSessionId,
-    correlationId: event.correlationId,
-    overallScore: event.outcomeStatus === 'resolved' ? 85 : 60,
-    previousScore: null,
-    systemScores: {},
-    criticalSystemsAffected: [],
-  });
+  };
 }

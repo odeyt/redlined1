@@ -2,20 +2,21 @@
  * POST /api/rib/publish
  *
  * HTTP ingestion endpoint for the Redline Intelligence Bus.
- * Accepts a typed RibEvent, validates it, dispatches to all subscribed handlers,
- * and persists to the append-only rib_events audit log.
+ * Validates the event, persists it to rib_events, and dispatches to handlers.
  *
- * Internal use only — called from API routes, the diagnostic bridge,
- * and future mobile / cloud worker integrations.
- *
- * Gated by the 'intelligence_bus' feature flag.
+ * Fixes vs original:
+ *   - persistFn is passed per-publish call, not stored on the singleton (D1)
+ *   - initializeRibHandlers is NOT called here — handlers must be registered at
+ *     process startup via instrumentation.ts or equivalent (D1)
+ *   - Event persist happens BEFORE dispatch inside bus.publish() (D2)
+ *   - RLS INSERT policy enforces shop membership (enforced in migration)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getFlags, getCurrentEnvironment } from '@/lib/featureFlags/featureFlagService';
-import { intelligenceBus, initializeRibHandlers } from '@/lib/intelligence-bus';
+import { intelligenceBus } from '@/lib/intelligence-bus';
 import { RibEventSchema } from '@/lib/intelligence-bus/schemas';
 import type { RibEvent } from '@/lib/intelligence-bus/event-types';
 
@@ -39,7 +40,6 @@ export async function POST(req: NextRequest) {
     const ctx = await getAuthContext(req);
     if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Feature flag gate
     const flags = await getFlags({
       userId: ctx.user.id,
       shopId: ctx.shopId,
@@ -61,40 +61,36 @@ export async function POST(req: NextRequest) {
 
     const event = parsed.data as unknown as RibEvent;
 
-    // Enforce tenant isolation — event must belong to the authenticated shop
     if (event.shopId !== ctx.shopId) {
       return NextResponse.json({ error: 'Shop ID mismatch' }, { status: 403 });
     }
 
-    // Wire persistence to this request's Supabase client (server-side, service role not needed)
-    intelligenceBus.setPersistFn(async (e: RibEvent) => {
-      await ctx.supabase.from('rib_events').insert({
+    // Build a per-request persist function using this request's Supabase client.
+    // It is passed directly to bus.publish() — never stored on the singleton.
+    const persistFn = async (e: RibEvent) => {
+      const { error } = await ctx.supabase.from('rib_events').insert({
         event_id: e.eventId,
         event_type: e.eventType,
-        timestamp: e.timestamp,
+        occurred_at: e.occurredAt,
         organization_id: e.organizationId,
         shop_id: e.shopId,
         technician_id: e.technicianId ?? null,
         vehicle_id: e.vehicleId ?? null,
         diagnostic_session_id: e.diagnosticSessionId ?? null,
         correlation_id: e.correlationId,
+        causation_id: e.causationId ?? null,
+        event_depth: e.eventDepth,
+        origin_module: e.originModule,
         schema_version: e.schemaVersion,
         payload: e as unknown as Record<string, unknown>,
-        processed_by: [],
       });
-    });
+      if (error) {
+        console.error('[RIB] persist failed', { eventId: e.eventId, error: error.message });
+        throw error;
+      }
+    };
 
-    // Initialize handlers based on live flags
-    initializeRibHandlers(intelligenceBus, {
-      diagnostic_orchestrator_enabled: flags['diagnostic_orchestrator_enabled'] ?? false,
-      fleet_intelligence_enabled: flags['fleet_intelligence_enabled'] ?? false,
-      predictive_failure_enabled: flags['predictive_failure_enabled'] ?? false,
-      vehicle_health_score_enabled: flags['vehicle_health_score_enabled'] ?? false,
-      technician_performance_enabled: flags['technician_performance_enabled'] ?? false,
-      revenue_intelligence_enabled: flags['revenue_intelligence_enabled'] ?? false,
-    });
-
-    const result = await intelligenceBus.publish(event);
+    const result = await intelligenceBus.publish(event, persistFn);
 
     return NextResponse.json({
       ok: true,
@@ -102,9 +98,11 @@ export async function POST(req: NextRequest) {
       eventType: result.eventType,
       persisted: result.persisted,
       handlerCount: result.handlerCount,
-      errors: result.errors,
+      handlerErrors: result.handlerErrors,
+      loopGuardRejected: result.loopGuardRejected,
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    console.error('[RIB] publish route error', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

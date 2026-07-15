@@ -12,13 +12,23 @@ export type { RibPublishResult } from './bus';
 // Publisher helpers
 export { publish, createPublisher } from './publisher';
 
+// Loop guard helpers
+export { derivedFrom, loopGuard, LoopGuard, RibLoopError, MAX_EVENTS_PER_CORRELATION } from './loop-guard';
+
+// Payload governance
+export { payloadGuardMiddleware, RibPayloadSizeError, RibSecretLeakError, MAX_EVENT_PAYLOAD_BYTES } from './payload-guard';
+
+// Idempotency
+export { runIdempotent, buildIdempotencyKey } from './idempotency';
+export type { HandlerMeta, DeliveryStatus, DeliveryRecord, IdempotentRunResult } from './idempotency';
+
 // Event types
 export type {
   RibBaseEvent,
   RibEvent,
   RibEventType,
   RibEventOfType,
-  // All concrete event interfaces
+  RibPayloadReference,
   VehicleConnectedEvent,
   VehicleIdentifiedEvent,
   VehicleDisconnectedEvent,
@@ -51,16 +61,14 @@ export type {
   InventoryRecommendationCreatedEvent,
   FailurePredictedEvent,
 } from './event-types';
+export { MAX_EVENT_DEPTH, RIB_SCHEMA_VERSION, REPLAY_SUPPRESSED_EVENT_TYPES } from './event-types';
 
 // Schemas
-export { RibEventSchema, RibBaseSchema } from './schemas';
-
-// Subscriber types
-export type { RibHandler, RibTypedHandler, RibSubscription, RibSubscriberInfo } from './subscriber';
+export { RibEventSchema } from './schemas';
 
 // Dispatcher
 export { RibEventDispatcher } from './event-dispatcher';
-export type { DispatchResult } from './event-dispatcher';
+export type { DispatchResult, RibSubscription, RibSubscriberInfo } from './event-dispatcher';
 
 // Middleware
 export { defaultMiddlewarePipeline, loggingMiddleware, validationMiddleware, correlationMiddleware } from './middleware';
