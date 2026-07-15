@@ -88,6 +88,17 @@ export function Sidebar() {
   // allowlist from shop_settings is authoritative.
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') return 'dark';
+    return (localStorage.getItem('redlined1-theme') as 'dark' | 'light') ?? 'dark';
+  });
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('redlined1-theme', next);
+    document.documentElement.setAttribute('data-theme', next);
+  }
 
   // Close shop menu / notification panel when clicking outside
   useEffect(() => {
@@ -302,7 +313,7 @@ export function Sidebar() {
         </svg>
       </button>
 
-      <div className="brand">
+      <div className="brand" style={{ cursor: 'pointer' }} onClick={() => dispatch({ type: 'SET_MODULE', module: 'dashboard' })} title="Home — Operations Dashboard">
         {logoUrl
           ? <Image src={logoUrl} alt="Logo" width={38} height={38} style={{ objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3, flexShrink: 0 }} unoptimized />
           : <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal', flexShrink: 0 }} />
@@ -395,6 +406,20 @@ export function Sidebar() {
       )}
 
       <nav className="nav">
+        {/* Home shortcut — always visible, routes to dashboard */}
+        <button
+          className={activeModule === 'dashboard' ? 'active' : ''}
+          title="Home — Operations Dashboard"
+          style={{ '--icon-color': '#e74c3c' } as React.CSSProperties}
+          onClick={() => dispatch({ type: 'SET_MODULE', module: 'dashboard' })}
+          onMouseEnter={e => showTooltip(e, 'Home')}
+          onMouseLeave={hideTooltip}
+        >
+          <svg viewBox="0 0 24 24" className="ui-icon" style={{ color: '#e74c3c' }} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/>
+          </svg>
+          {!collapsed && <span className="label">Home</span>}
+        </button>
         {roleLoading && (
           <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
         )}
@@ -557,6 +582,26 @@ export function Sidebar() {
           )}
         </div>
       )}
+      {/* Theme toggle */}
+      <button
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        onMouseEnter={e => showTooltip(e, theme === 'dark' ? 'Light Mode' : 'Dark Mode')}
+        onMouseLeave={hideTooltip}
+        style={{
+          padding: '10px 16px', background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+          color: theme === 'dark' ? '#fbbf24' : '#818cf8',
+          cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          marginBottom: 8, justifyContent: collapsed ? 'center' : 'flex-start',
+          transition: 'color 0.2s, border-color 0.2s',
+        }}
+        onMouseEnter={e => { showTooltip(e, theme === 'dark' ? 'Light Mode' : 'Dark Mode'); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.2)'; }}
+        onMouseLeave={e => { hideTooltip(); (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+      >
+        <span style={{ fontSize: 15 }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
+        {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+      </button>
       <button
         onClick={handleSignOut}
         title="Sign Out"
