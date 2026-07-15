@@ -138,10 +138,10 @@ interface MorningBriefSummary {
 const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
 const PRIORITY_CFG = {
-  critical: { bg: 'linear-gradient(135deg,#fef2f2,#fee2e2)', border: '#fca5a5', accent: '#dc2626', badge: '#dc2626', label: 'Critical' },
-  high:     { bg: 'linear-gradient(135deg,#fff7ed,#ffedd5)', border: '#fdba74', accent: '#ea580c', badge: '#ea580c', label: 'High' },
-  medium:   { bg: 'linear-gradient(135deg,#fefce8,#fef9c3)', border: '#fde047', accent: '#ca8a04', badge: '#ca8a04', label: 'Medium' },
-  low:      { bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', border: '#86efac', accent: '#16a34a', badge: '#16a34a', label: 'Low' },
+  critical: { bg: 'linear-gradient(135deg,rgba(220,38,38,0.13),rgba(220,38,38,0.05))',  border: 'rgba(248,113,113,0.3)', accent: '#f87171', badge: '#dc2626', label: 'Critical' },
+  high:     { bg: 'linear-gradient(135deg,rgba(234,88,12,0.13),rgba(234,88,12,0.05))',  border: 'rgba(251,146,60,0.3)',  accent: '#fb923c', badge: '#ea580c', label: 'High' },
+  medium:   { bg: 'linear-gradient(135deg,rgba(202,138,4,0.13),rgba(202,138,4,0.05))',  border: 'rgba(251,191,36,0.3)',  accent: '#fbbf24', badge: '#ca8a04', label: 'Medium' },
+  low:      { bg: 'linear-gradient(135deg,rgba(22,163,74,0.13),rgba(22,163,74,0.05))',  border: 'rgba(74,222,128,0.25)', accent: '#4ade80', badge: '#16a34a', label: 'Low' },
 };
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -160,13 +160,15 @@ const CATEGORY_ICON: Record<string, string> = {
 
 // ── Design tokens ─────────────────────────────────────────────
 const D = {
-  red:     '#c0392b',
-  redGlow: 'rgba(192,57,43,0.18)',
-  gold:    '#d97706',
-  green:   '#059669',
-  blue:    '#2563eb',
-  cardShadow: '0 3px 16px rgba(0,0,0,0.08)',
-  cardShadowHover: '0 6px 28px rgba(0,0,0,0.15)',
+  red:     '#e74c3c',
+  redGlow: 'rgba(231,76,60,0.25)',
+  gold:    '#f59e0b',
+  green:   '#22d3a0',
+  blue:    '#60a5fa',
+  cardBg:  '#0d0d14',
+  cardBorder: 'rgba(255,255,255,0.07)',
+  cardShadow: '0 4px 24px rgba(0,0,0,0.4)',
+  cardShadowHover: '0 8px 36px rgba(0,0,0,0.55)',
   radius: 18,
   radiusSm: 12,
 };
@@ -258,27 +260,34 @@ function SummaryPill({
 // ── Signal Tile ───────────────────────────────────────────────
 function SignalTile({ icon, label, value, accent, onClick }: { icon: string; label: string; value: string | number; accent?: string; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const a = accent ?? 'rgba(255,255,255,0.3)';
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: hovered && onClick ? `${accent ?? '#64748b'}08` : 'var(--surface)',
-        border: '1px solid var(--line)',
-        borderTop: `3px solid ${hovered && onClick ? (accent ?? '#64748b') : (accent ?? 'var(--line)')}`,
+        background: hovered && onClick
+          ? `linear-gradient(160deg, ${a}18 0%, #0d0d14 70%)`
+          : '#0d0d14',
+        border: `1px solid ${hovered && onClick ? `${a}55` : 'rgba(255,255,255,0.07)'}`,
+        borderTop: `2px solid ${a}`,
         borderRadius: D.radiusSm,
-        padding: '12px 14px',
-        boxShadow: hovered && onClick ? D.cardShadowHover : D.cardShadow,
-        display: 'flex', flexDirection: 'column', gap: 5,
+        padding: '14px 16px',
+        boxShadow: hovered && onClick ? `0 0 20px ${a}25, ${D.cardShadowHover}` : D.cardShadow,
+        display: 'flex', flexDirection: 'column', gap: 6,
         cursor: onClick ? 'pointer' : 'default',
-        transform: hovered && onClick ? 'translateY(-2px)' : 'none',
-        transition: 'all 0.18s ease',
+        transform: hovered && onClick ? 'translateY(-3px) scale(1.02)' : 'none',
+        transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
       }}>
       <div style={{ fontSize: 18 }}>{icon}</div>
-      <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: accent ?? 'var(--text)' }}>{value}</div>
-      {onClick && <div style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0.3, fontWeight: 600, transition: 'opacity 0.15s' }}>Open →</div>}
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em' }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 900, color: accent ?? '#e8eaf0', letterSpacing: '-0.01em' }}>{value}</div>
+      {onClick && (
+        <div style={{ fontSize: 10, color: a, opacity: hovered ? 1 : 0.4, fontWeight: 700, transition: 'opacity 0.15s', letterSpacing: '0.05em' }}>
+          OPEN →
+        </div>
+      )}
     </div>
   );
 }
@@ -295,26 +304,27 @@ function RowItem({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '9px 8px', borderBottom: '1px solid var(--line)', fontSize: 13,
+        padding: '9px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
         cursor: onClick ? 'pointer' : 'default',
-        borderRadius: hovered && onClick ? 6 : 0,
-        background: hovered && onClick ? (accent ? `${accent}08` : 'rgba(0,0,0,0.03)') : 'transparent',
+        borderRadius: hovered && onClick ? 8 : 0,
+        background: hovered && onClick ? (accent ? `${accent}12` : 'rgba(255,255,255,0.04)') : 'transparent',
         marginInline: hovered && onClick ? -4 : 0,
-        paddingInline: hovered && onClick ? 12 : 8,
+        paddingInline: hovered && onClick ? 14 : 10,
         transition: 'all 0.14s ease',
       }}>
-      <span style={{ color: 'var(--text)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ color: hovered ? '#e8eaf0' : 'rgba(255,255,255,0.65)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
         {label}
-        {onClick && <span style={{ fontSize: 10, color: accent ?? 'var(--muted)', opacity: hovered ? 0.8 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
+        {onClick && <span style={{ fontSize: 10, color: accent ?? 'rgba(255,255,255,0.4)', opacity: hovered ? 1 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
       </span>
       <span style={{
-        fontWeight: 700,
-        color: accent ?? 'var(--text)',
-        background: accent ? `${accent}14` : 'transparent',
-        padding: accent ? '2px 10px' : undefined,
-        borderRadius: accent ? 20 : undefined,
+        fontWeight: 800,
+        color: accent ?? '#e8eaf0',
+        background: accent ? `${accent}20` : 'rgba(255,255,255,0.06)',
+        padding: '3px 11px',
+        borderRadius: 20,
         fontSize: 12,
-        transform: hovered && onClick ? 'scale(1.05)' : 'scale(1)',
+        border: accent ? `1px solid ${accent}35` : '1px solid rgba(255,255,255,0.08)',
+        transform: hovered && onClick ? 'scale(1.06)' : 'scale(1)',
         transition: 'transform 0.14s',
       }}>
         {value}{tag ? ` ${tag}` : ''}
@@ -411,7 +421,7 @@ function RecCard({
               💵 {fmtMoney(rec.estimatedRevenue)} opportunity
             </span>
           )}
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 7px' }}>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 7px' }}>
             {confidencePct}% confidence
           </span>
           <button
@@ -443,7 +453,7 @@ function RecCard({
       {expanded && (
         <div style={{
           borderTop: `1px solid ${cfg.border}`,
-          background: 'rgba(255,255,255,0.6)',
+          background: 'rgba(0,0,0,0.35)',
           padding: '14px 16px',
           display: 'flex', flexDirection: 'column', gap: 12,
         }}>
@@ -540,11 +550,11 @@ function ActionQueueCard({
 
   return (
     <div style={{
-      background: 'var(--surface)',
-      border: '1.5px solid var(--line)',
+      background: `linear-gradient(135deg, ${scoreColor}10 0%, #0d0d14 60%)`,
+      border: `1px solid ${scoreColor}30`,
       borderLeft: `4px solid ${scoreColor}`,
       borderRadius: D.radiusSm,
-      boxShadow: D.cardShadow,
+      boxShadow: `0 0 18px ${scoreColor}15, ${D.cardShadow}`,
       overflow: 'hidden',
     }}>
       <div style={{ padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -568,10 +578,10 @@ function ActionQueueCard({
 
         {/* Meta row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 8px' }}>
             ⏱ {timeLabel}
           </span>
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(0,0,0,0.05)', borderRadius: 6, padding: '2px 8px' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 8px' }}>
             {confidencePct}% confidence
           </span>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
@@ -597,7 +607,7 @@ function ActionQueueCard({
       {/* Expandable why + rationale */}
       {expanded && (
         <div style={{
-          borderTop: '1px solid var(--line)', background: 'rgba(0,0,0,0.02)',
+          borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.35)',
           padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           {item.whyItMatters && (
@@ -1038,7 +1048,7 @@ export function CommandCenterView() {
                 <SectionHeading icon="☀️" label="Morning Brief" />
                 {!brief ? (
                   <div style={{
-                    background: 'var(--surface)', border: '1.5px dashed var(--line)',
+                    background: '#0d0d14', border: '1.5px dashed rgba(255,255,255,0.1)',
                     borderRadius: D.radiusSm, padding: '16px 20px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                   }}>
@@ -1164,12 +1174,13 @@ export function CommandCenterView() {
             <SectionHeading icon="🎯" label="Top Priorities" />
             {top5.length === 0 ? (
               <div style={{
-                background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
-                border: '1.5px solid #86efac',
+                background: 'linear-gradient(135deg,rgba(34,211,160,0.12),rgba(34,211,160,0.04))',
+                border: '1.5px solid rgba(74,222,128,0.3)',
                 borderRadius: D.radiusSm,
                 padding: '20px 24px',
                 textAlign: 'center',
-                color: '#15803d', fontSize: 13, fontWeight: 600,
+                color: '#4ade80', fontSize: 13, fontWeight: 700,
+                boxShadow: '0 0 20px rgba(34,211,160,0.1)',
               }}>
                 ✅ Your shop is clear. No urgent recommendations right now.
               </div>
@@ -1191,12 +1202,12 @@ export function CommandCenterView() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             {/* Revenue */}
             <div style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--line)',
-              borderTop: `3px solid ${D.green}`,
+              background: `linear-gradient(160deg, rgba(34,211,160,0.08) 0%, #0d0d14 50%)`,
+              border: `1px solid rgba(34,211,160,0.18)`,
+              borderTop: `2px solid ${D.green}`,
               borderRadius: D.radius,
               padding: '18px 20px',
-              boxShadow: D.cardShadow,
+              boxShadow: `0 0 24px rgba(34,211,160,0.08), ${D.cardShadow}`,
             }}>
               <SectionHeading icon="💵" label="Revenue Opportunities" />
               <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
@@ -1204,21 +1215,21 @@ export function CommandCenterView() {
               <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} onClick={() => nav('job-cards')} />
               <RowItem label="Revenue today"           value={fmtMoney(revenueToday)} accent={revenueToday > 0 ? D.green : undefined} onClick={() => nav('payments')} />
               {revenueOpportunity > 0 && (
-                <div style={{ marginTop: 10, padding: '10px 14px', background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Total Opportunity</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: '#15803d' }}>{fmtMoney(revenueOpportunity)}</span>
+                <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(34,211,160,0.12)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#4ade80' }}>Total Opportunity</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: '#4ade80' }}>{fmtMoney(revenueOpportunity)}</span>
                 </div>
               )}
             </div>
 
             {/* Risks */}
             <div style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--line)',
-              borderTop: `3px solid ${D.red}`,
+              background: `linear-gradient(160deg, rgba(231,76,60,0.08) 0%, #0d0d14 50%)`,
+              border: `1px solid rgba(231,76,60,0.18)`,
+              borderTop: `2px solid ${D.red}`,
               borderRadius: D.radius,
               padding: '18px 20px',
-              boxShadow: D.cardShadow,
+              boxShadow: `0 0 24px rgba(231,76,60,0.08), ${D.cardShadow}`,
             }}>
               <SectionHeading icon="⚠️" label="Operations Risks" />
               <RowItem label="Stuck repair orders"  value={stuckJobs}    accent={stuckJobs   > 0 ? '#dc2626' : undefined} onClick={() => nav('repair-orders')} />
@@ -1292,9 +1303,9 @@ export function CommandCenterView() {
             <div style={{ marginBottom: 8 }}>
               <SectionHeading icon="🚗" label="Vehicle Intelligence" />
               <div style={{
-                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10,
-                padding: '10px 14px', fontSize: 13, color: '#991b1b', display: 'flex',
-                alignItems: 'center', gap: 8,
+                background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 10,
+                padding: '10px 14px', fontSize: 13, color: '#f87171', display: 'flex',
+                alignItems: 'center', gap: 8, boxShadow: '0 0 16px rgba(231,76,60,0.12)',
               }}>
                 <span style={{ fontWeight: 700 }}>⚠️ {vehicleHighRiskCount} high-risk vehicle{vehicleHighRiskCount === 1 ? '' : 's'} flagged</span>
                 <span style={{ color: '#b91c1c', fontSize: 12 }}>— open Vehicles module to review</span>
@@ -1322,7 +1333,7 @@ export function CommandCenterView() {
           </div>
 
           {recs.error && (
-            <div style={{ padding: '10px 14px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, fontSize: 12, color: '#b91c1c', marginTop: 12 }}>
+            <div style={{ padding: '10px 14px', background: 'rgba(231,76,60,0.12)', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, fontSize: 12, color: '#f87171', marginTop: 12 }}>
               ⚠️ {recs.error}
             </div>
           )}
