@@ -358,6 +358,8 @@ export function RepairOrdersView() {
   const [photoRO, setPhotoRO] = useState<RepairOrder | null>(null);
   const [currencyQuery, setCurrencyQuery] = useState('');
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerOpen, setCustomerOpen] = useState(false);
 
   // Parts pull modal — shown before creating invoice or estimate
   type PullLine = {
@@ -1285,22 +1287,47 @@ export function RepairOrdersView() {
                     {(form.status === 'Complete' || form.status === 'Closed') && <option value={form.status}>{statusLabel(form.status)}</option>}
                   </select>
                 </div>
-                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }}>
                   <label>Customer</label>
-                  <select value={form.customerId} onChange={e => {
-                    const c = customers.find(c => c.id === e.target.value);
-                    const cvs = allVehicles.filter(v => v.customerId === e.target.value);
-                    // Auto-select first vehicle whenever the customer has any vehicles
-                    const autoVehicle = cvs.length > 0 ? cvs[0].label : '';
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: autoVehicle }));
-                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="login-field">
-                  <label>Customer Name</label>
-                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
+                  <input
+                    value={customerOpen ? customerQuery : form.customerName}
+                    onChange={e => { setCustomerQuery(e.target.value); setCustomerOpen(true); }}
+                    onFocus={() => { setCustomerQuery(''); setCustomerOpen(true); }}
+                    onBlur={() => setTimeout(() => setCustomerOpen(false), 150)}
+                    placeholder="Search customers by name…"
+                    autoComplete="off"
+                    required
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {customerOpen && (() => {
+                    const q = customerQuery.toLowerCase();
+                    const matches = customers.filter(c => c.name.toLowerCase().includes(q));
+                    return matches.length > 0 ? (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(c => (
+                          <div
+                            key={c.id}
+                            onMouseDown={() => {
+                              const cvs = allVehicles.filter(v => v.customerId === c.id);
+                              // Auto-select first vehicle whenever the customer has any vehicles
+                              const autoVehicle = cvs.length > 0 ? cvs[0].label : '';
+                              setForm(f => ({ ...f, customerId: c.id, customerName: c.name, vehicle: autoVehicle }));
+                              setCustomerQuery(''); setCustomerOpen(false);
+                            }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, background: form.customerId === c.id ? 'rgba(204,0,0,0.07)' : 'transparent' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = form.customerId === c.id ? 'rgba(204,0,0,0.07)' : 'transparent')}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', marginTop: 2, padding: '9px 14px', fontSize: 13, color: 'var(--muted)' }}>
+                        No customers match &ldquo;{customerQuery}&rdquo;
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="login-field">
                   <label>Vehicle</label>
@@ -1312,9 +1339,13 @@ export function RepairOrdersView() {
                         {cvs.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
                       </select>
                     ) : (
-                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" />
+                      <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder={form.customerId ? '2022 Ford F-150' : 'Select a customer first'} />
                     );
                   })()}
+                </div>
+                <div className="login-field">
+                  <label>Job Card ID</label>
+                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
                 </div>
                 <div className="login-field" style={{ gridColumn: '1 / -1' }}>
                   <label>
@@ -1340,10 +1371,6 @@ export function RepairOrdersView() {
                   ) : (
                     <input value={form.technician} onChange={e => setForm(f => ({ ...f, technician: e.target.value }))} placeholder="Technician name" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }} />
                   )}
-                </div>
-                <div className="login-field">
-                  <label>Job Card ID</label>
-                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
                 </div>
               </div>
 
