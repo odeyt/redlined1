@@ -98,6 +98,7 @@ export function InvoicesView() {
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
+  const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
   const [ratesFetching, setRatesFetching] = useState(false);
@@ -118,7 +119,22 @@ export function InvoicesView() {
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
     fetchCustomers().then(list => setFullCustomers(list.map(c => ({ id: c.id, name: c.name, email: c.email })))).catch(() => {});
+    fetchPayments().then(setAllPayments).catch(() => {});
   }, []);
+
+  // Short display label for a payment method, e.g. "Cash", "Credit Card", "QR Code".
+  function paymentMethodShortLabel(p: Payment): string {
+    if (p.method === 'Bank Transfer' && p.methodDetail === 'QR Code') return 'QR Code';
+    if (p.method === 'Invoice (Status Change)') return 'Manual';
+    return p.methodDetail || p.method;
+  }
+
+  // Combined payment-type label for an invoice (handles the rare case of more than one payment).
+  function invoicePaymentLabel(invoiceNumber: string, payments: Payment[]): string {
+    const relevant = payments.filter(p => p.invoiceNumber === invoiceNumber && p.status !== 'Void' && p.status !== 'Refunded');
+    if (relevant.length === 0) return '';
+    return Array.from(new Set(relevant.map(paymentMethodShortLabel))).join(' + ');
+  }
 
   useEffect(() => {
     function handleOpenInvoice(e: Event) {
@@ -231,7 +247,7 @@ export function InvoicesView() {
         <div style="text-align:right">
           <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.1em;font-weight:700">Invoice</div>
           <div style="font-size:26px;font-weight:800;color:#111;margin-top:2px">${inv.invoiceNumber}</div>
-          <div style="margin-top:6px"><span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${(STATUS_COLORS[inv.status]||'#888')}22;color:${STATUS_COLORS[inv.status]||'#888'}">${inv.status.toUpperCase()}</span></div>
+          <div style="margin-top:6px"><span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${(STATUS_COLORS[inv.status]||'#888')}22;color:${STATUS_COLORS[inv.status]||'#888'}">${inv.status.toUpperCase()}${inv.status === 'Paid' && invoicePaymentLabel(inv.invoiceNumber, payments) ? ` · ${invoicePaymentLabel(inv.invoiceNumber, payments).toUpperCase()}` : ''}</span></div>
           <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.7">
             Date: ${fmt2(inv.createdAt)}<br>
             ${inv.dueDate ? `Due: ${fmt2(inv.dueDate)}<br>` : ''}
@@ -499,13 +515,16 @@ export function InvoicesView() {
       const paidDate = new Date().toISOString();
       await markInvoicePaid(inv.id);
       const base = { invoiceNumber: inv.invoiceNumber, customerName: inv.customerName, customerId: inv.customerId, status: 'Recorded' as const, currency, referenceNumber: ref, paymentDate: paidDate };
+      let recorded: Payment;
       if (mode === 'Cash') {
-        await createPayment({ ...base, amount: total, method: 'Cash', methodDetail: '', notes: `Cash payment — ${inv.invoiceNumber}` });
+        recorded = await createPayment({ ...base, amount: total, method: 'Cash', methodDetail: '', notes: `Cash payment — ${inv.invoiceNumber}` });
       } else if (mode === 'QR Code') {
-        await createPayment({ ...base, amount: total, method: 'Bank Transfer', methodDetail: 'QR Code', notes: `QR Code transfer — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
+        recorded = await createPayment({ ...base, amount: total, method: 'Bank Transfer', methodDetail: 'QR Code', notes: `QR Code transfer — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
       } else {
-        await createPayment({ ...base, amount: total, method: cardType === 'Debit' ? 'Debit Card' : 'Credit Card', methodDetail: `${cardType} Card`, notes: `${cardType} card payment — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
+        recorded = await createPayment({ ...base, amount: total, method: cardType === 'Debit' ? 'Debit Card' : 'Credit Card', methodDetail: `${cardType} Card`, notes: `${cardType} card payment — ${inv.invoiceNumber}${ref ? ` Ref: ${ref}` : ''}` });
       }
+      setAllPayments(prev => [recorded, ...prev]);
+      setInvoicePayments(prev => [recorded, ...prev]);
       const updated = { ...inv, status: 'Paid', paidDate };
       setInvoices(prev => prev.map(i => i.id === inv.id ? updated : i));
       setSelected(updated);
@@ -528,6 +547,7 @@ export function InvoicesView() {
     try {
       await deletePayment(paymentId);
       setInvoicePayments(prev => prev.filter(p => p.id !== paymentId));
+      setAllPayments(prev => prev.filter(p => p.id !== paymentId));
       notify('Payment record removed.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove payment.'); }
   }
@@ -538,7 +558,7 @@ export function InvoicesView() {
       await updateInvoice(inv.id, { status, ...(paidDate ? { paidDate } : {}) });
       if (status === 'Paid' && inv.status !== 'Paid') {
         const { amount: total, currency: payCurrency } = getEffectiveTotal(inv);
-        await createPayment({
+        const recorded = await createPayment({
           invoiceNumber: inv.invoiceNumber,
           customerName: inv.customerName,
           customerId: inv.customerId,
@@ -551,6 +571,8 @@ export function InvoicesView() {
           referenceNumber: '',
           paymentDate: paidDate!,
         });
+        setAllPayments(prev => [recorded, ...prev]);
+        if (selected?.id === inv.id) setInvoicePayments(prev => [recorded, ...prev]);
         triggerPaidCleanup(inv);
       }
       const updated = { ...inv, status, ...(paidDate ? { paidDate } : {}) };
@@ -760,7 +782,9 @@ export function InvoicesView() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 700 }}>{(() => { const e = getEffectiveTotal(invoices[0]); return formatMoney(e.amount, e.currency); })()}</div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[invoices[0].status] || '#888' }}>{invoices[0].status}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[invoices[0].status] || '#888' }}>
+                  {invoices[0].status}{invoices[0].status === 'Paid' && invoicePaymentLabel(invoices[0].invoiceNumber, allPayments) ? ` · ${invoicePaymentLabel(invoices[0].invoiceNumber, allPayments)}` : ''}
+                </span>
               </div>
             </div>
           )}
@@ -799,7 +823,9 @@ export function InvoicesView() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                       <strong style={{ fontSize: 14 }}>{inv.invoiceNumber}</strong>
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[inv.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{inv.status}</span>
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[inv.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {inv.status}{inv.status === 'Paid' && invoicePaymentLabel(inv.invoiceNumber, allPayments) ? ` · ${invoicePaymentLabel(inv.invoiceNumber, allPayments)}` : ''}
+                      </span>
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{inv.customerName}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inv.vehicle}</div>
@@ -1141,7 +1167,7 @@ export function InvoicesView() {
                   <div style={{ fontSize: 22, fontWeight: 700 }}>{selected.invoiceNumber}</div>
                   <div style={{ marginTop: 4 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[selected.status] + '22', color: STATUS_COLORS[selected.status] }}>
-                      {selected.status.toUpperCase()}
+                      {selected.status.toUpperCase()}{selected.status === 'Paid' && invoicePaymentLabel(selected.invoiceNumber, invoicePayments) ? ` · ${invoicePaymentLabel(selected.invoiceNumber, invoicePayments).toUpperCase()}` : ''}
                     </span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
