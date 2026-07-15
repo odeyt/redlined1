@@ -610,6 +610,21 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+/* ── Dark mode: table row borders need more contrast ── */
+[data-theme="dark"] th,
+[data-theme="dark"] td {
+  border-bottom-color: rgba(255, 255, 255, 0.09);
+}
+
+[data-theme="dark"] th {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] tr:last-child td {
+  border-bottom: 0;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
