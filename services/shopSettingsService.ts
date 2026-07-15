@@ -13,7 +13,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
   advisor: [
     'dashboard', 'triage', 'customers', 'vehicles', 'appointments', 'scheduling',
-    'job-cards', 'inspections', 'estimates',
+    'job-cards', 'inspections',
     'parts', 'parts-estimates', 'parts-orders',
     'communication', 'vin', 'dtc', 'diagnostics', 'ai',
   ],
