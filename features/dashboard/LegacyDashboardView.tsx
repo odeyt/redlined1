@@ -18,7 +18,9 @@ import { RecentRepairOrdersTable } from './shared/RecentRepairOrdersTable';
 export function LegacyDashboardView() {
   const { role } = useShop();
   const dispatch = useAppDispatch();
-  const isTech = role === 'technician' || role === 'advisor';
+  // Only owner and manager see financial panels — all other roles (advisor, technician,
+  // or unresolved '' while useShop loads) are blocked from revenue data.
+  const isTech = role !== 'owner' && role !== 'manager';
 
   function nav(module: string) {
     dispatch({ type: 'SET_MODULE', module });
