@@ -117,28 +117,10 @@ function RoleDashboard({ role, allowedModules, activeModule }: { role: string; a
     <div>
       <style>{ROLE_DASH_STYLES}</style>
       <div className="rd-wrap">
-        {/* ── Category sidebar ── */}
-        <div className="rd-sidebar">
-          <div className="rd-sidebar-label">{roleLabel}</div>
-          {visibleCategories.map(cat => {
-            const isActive = activeCategory === cat.key;
-            return (
-              <button
-                key={cat.key}
-                className={`rd-cat-btn${isActive ? ' active' : ''}`}
-                onClick={() => setActiveCategory(cat.key)}
-              >
-                <span className="rd-cat-emoji">{cat.emoji}</span>
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* ── Tile grid ── */}
         <div className="rd-main">
           <div className="rd-header">
-            <h2>{visibleCategories.find(c => c.key === activeCategory)?.label ?? 'All Modules'}</h2>
+            <h2>{roleLabel}</h2>
             <p>Click a module to open it</p>
           </div>
           <div className="rd-grid">
