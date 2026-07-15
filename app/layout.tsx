@@ -36,7 +36,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             var t = localStorage.getItem('redlined1-theme');
-            if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            // Dark is the platform default — only opt into light explicitly
+            if (t === 'light') {
+              document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+              document.documentElement.setAttribute('data-theme', 'dark');
+            }
           } catch(e) {}
         `}} />
         {/* Inject Supabase public config at runtime so client bundles don't

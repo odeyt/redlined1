@@ -1,4 +1,64 @@
+/* ── Dark is the platform default ── */
 :root {
+  --bg: #07070a;
+  --surface: #0d0d14;
+  --surface-soft: #111118;
+  --line: #1e1e2a;
+  --text: #e8eaf0;
+  --muted: #6b7280;
+  --nav: #070709;
+  --nav-soft: rgba(224, 48, 48, 0.18);
+  --accent: #e03030;
+  --accent-2: #b02020;
+  --warn: #f59e0b;
+  --danger: #e03030;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --btn-bg: #16161f;
+  --btn-bg-hover: #1e1e2a;
+  --btn-border: #2a2a3a;
+  --btn-text: #e8eaf0;
+  --card: #0d0d14;
+  --border: #1e1e2a;
+  --table-head: #0a0a10;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --blue: #60a5fa;
+  --red: #f87171;
+  --purple: #a78bfa;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Explicit dark — same as root, kept for any runtime toggle ── */
+[data-theme="dark"] {
+  --bg: #07070a;
+  --surface: #0d0d14;
+  --surface-soft: #111118;
+  --line: #1e1e2a;
+  --text: #e8eaf0;
+  --muted: #6b7280;
+  --nav: #070709;
+  --nav-soft: rgba(224, 48, 48, 0.18);
+  --accent: #e03030;
+  --accent-2: #b02020;
+  --warn: #f59e0b;
+  --danger: #e03030;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --btn-bg: #16161f;
+  --btn-bg-hover: #1e1e2a;
+  --btn-border: #2a2a3a;
+  --btn-text: #e8eaf0;
+  --card: #0d0d14;
+  --border: #1e1e2a;
+  --table-head: #0a0a10;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --blue: #60a5fa;
+  --red: #f87171;
+  --purple: #a78bfa;
+}
+
+/* ── Light theme (opt-in only) ── */
+[data-theme="light"] {
   --bg: #f0f0f0;
   --surface: #ffffff;
   --surface-soft: #f7f7f7;
@@ -12,28 +72,18 @@
   --warn: #cc6600;
   --danger: #cc0000;
   --shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-[data-theme="dark"] {
-  --bg: #111111;
-  --surface: #1a1a1a;
-  --surface-soft: #222222;
-  --line: #333333;
-  --text: #f0f0f0;
-  --muted: #888888;
-  --nav: #0a0a0a;
-  --nav-soft: rgba(224, 48, 48, 0.18);
-  --accent: #e03030;
-  --accent-2: #b02020;
-  --warn: #cc6600;
-  --danger: #e03030;
-  --shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-  /* Dark-mode button tokens — restore dark surface look */
-  --btn-bg: #252525;
-  --btn-bg-hover: #2e2e2e;
-  --btn-border: #3d3d3d;
-  --btn-text: #f0f0f0;
+  --btn-bg: #f7f7f7;
+  --btn-bg-hover: #eeeeee;
+  --btn-border: #dddddd;
+  --btn-text: #111111;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --table-head: #f7f7f7;
+  --green: #16a34a;
+  --amber: #d97706;
+  --blue: #2563eb;
+  --red: #dc2626;
+  --purple: #7c3aed;
 }
 
 * {
@@ -226,12 +276,15 @@ textarea {
   justify-content: space-between;
   gap: 18px;
   padding: 18px 28px;
-  background: rgba(244, 246, 248, 0.9);
+  background: rgba(7, 7, 10, 0.92);
   border-bottom: 1px solid var(--line);
   position: sticky;
   top: 0;
   z-index: 5;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px);
+}
+[data-theme="light"] .topbar {
+  background: rgba(244, 246, 248, 0.9);
 }
 
 .topbar h1 {
@@ -364,9 +417,9 @@ textarea {
 }
 
 .toast {
-  border: 1px solid #b9d8c7;
-  background: #eef8f2;
-  color: #206343;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
   border-radius: 8px;
   padding: 11px 13px;
   font-size: 13px;
@@ -378,7 +431,7 @@ textarea {
   max-width: 100%;
   height: 8px;
   border-radius: 999px;
-  background: #e8edf2;
+  background: var(--line);
   overflow: hidden;
 }
 
@@ -533,29 +586,40 @@ tr:last-child td {
 }
 
 .badge.blue {
-  background: #e7f2f5;
-  color: #176b87;
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.25);
 }
 
 .badge.green {
-  background: #e8f4ee;
-  color: #287d5b;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 .badge.yellow {
-  background: #fff5df;
-  color: #9b650f;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .badge.red {
-  background: #fdecec;
-  color: #b64040;
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.25);
 }
 
 .badge.gray {
-  background: #eef2f5;
-  color: #536575;
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
+
+[data-theme="light"] .badge.blue   { background:#e7f2f5; color:#176b87; border:none; }
+[data-theme="light"] .badge.green  { background:#e8f4ee; color:#287d5b; border:none; }
+[data-theme="light"] .badge.yellow { background:#fff5df; color:#9b650f; border:none; }
+[data-theme="light"] .badge.red    { background:#fdecec; color:#b64040; border:none; }
+[data-theme="light"] .badge.gray   { background:#eef2f5; color:#536575; border:none; }
 
 .vehicle-card {
   padding: 15px;
@@ -633,7 +697,8 @@ tr:last-child td {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 11px;
-  background: #fff;
+  background: var(--surface-soft);
+  color: var(--text);
   min-height: 40px;
 }
 
@@ -643,7 +708,7 @@ tr:last-child td {
 }
 
 .invoice {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 22px;
@@ -751,7 +816,7 @@ tr:last-child td {
 .empty-note {
   color: var(--muted);
   background: var(--surface-soft);
-  border: 1px dashed #bac7d1;
+  border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 16px;
   font-size: 13px;
@@ -1071,32 +1136,7 @@ tr:last-child td {
   transform: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DESIGN-TOKEN ALIASES
-   New views use --card, --border, --green, --amber, --blue, --red
-   Map them to the existing token set so both light & dark work.
-   ═══════════════════════════════════════════════════════════════ */
-:root {
-  --card:          var(--surface);
-  --border:        var(--line);
-  --table-head:    var(--surface-soft);
-  --green:         #16a34a;
-  --amber:         #d97706;
-  --blue:          #2563eb;
-  --red:           #dc2626;
-  --purple:        #7c3aed;
-}
-
-[data-theme="dark"] {
-  --card:       #1e1e1e;
-  --border:     #2e2e2e;
-  --table-head: #1a1a1a;
-  --green:      #22c55e;
-  --amber:      #f59e0b;
-  --blue:       #60a5fa;
-  --red:        #f87171;
-  --purple:     #a78bfa;
-}
+/* token aliases are now set directly in :root / [data-theme] blocks above */
 
 /* ═══════════════════════════════════════════════════════════════
    .input  — shared text/select/textarea style used by new views
@@ -1304,31 +1344,26 @@ tr:last-child td {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   DARK MODE — extra tokens for new views
-   ═══════════════════════════════════════════════════════════════ */
-[data-theme="dark"] .login-error {
-  background: #2a0000;
-  border-color: #660000;
-  color: #ff8080;
-}
-
-[data-theme="dark"] .login-field input,
-[data-theme="dark"] .login-field select,
-[data-theme="dark"] .login-field textarea {
+/* login fields — dark default */
+.login-field input,
+.login-field select,
+.login-field textarea {
   background: var(--surface-soft);
   border-color: var(--line);
   color: var(--text);
 }
 
-[data-theme="dark"] .login-field input::placeholder,
-[data-theme="dark"] .login-field textarea::placeholder {
+.login-field input::placeholder,
+.login-field textarea::placeholder {
   color: var(--muted);
 }
 
-/* table alt-row tinting in dark mode */
-[data-theme="dark"] tr:nth-child(even) {
+/* table alt-row tinting */
+tr:nth-child(even) {
   background: rgba(255,255,255,.025);
+}
+[data-theme="light"] tr:nth-child(even) {
+  background: rgba(0,0,0,.025);
 }
 
 /* ═══════════════════════════════════════════════════════════════
