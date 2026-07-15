@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 /**
  * Four illustrative app screens that auto-scroll inside the phone frame.
- * All data is sample/illustrative â€” no real customer data, no real VINs.
+ * All data is sample/illustrative — no real customer data, no real VINs.
  */
 const SCREENS = [
   {
@@ -51,7 +51,7 @@ const SCREENS = [
         <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Open Jobs</span>
         {[
           { title: 'Toyota Hilux', sub: 'Oil change + brake inspection', status: 'In Progress', statusColor: '#F59E0B' },
-          { title: 'Honda Civic', sub: 'Engine diagnostic â€” DTC P0300', status: 'Waiting Parts', statusColor: colors.primary },
+          { title: 'Honda Civic', sub: 'Engine diagnostic — DTC P0300', status: 'Waiting Parts', statusColor: colors.primary },
           { title: 'Ford Ranger', sub: 'AC recharge + cabin filter', status: 'Ready', statusColor: colors.success },
         ].map((job) => (
           <div key={job.title} style={{ background: colors.surfaceWhite, border: `1px solid ${colors.borderLight}`, borderRadius: '10px', padding: '10px 12px' }}>
@@ -69,11 +69,11 @@ const SCREENS = [
     label: 'Build Estimate',
     content: (
       <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Estimate â€” Honda Civic</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Estimate — Honda Civic</span>
         {[
           { name: 'Diagnostic scan', qty: '1', price: '$85' },
-          { name: 'Spark plugs Ã—4', qty: '4', price: '$120' },
-          { name: 'Labor â€” tune-up', qty: '1.5h', price: '$135' },
+          { name: 'Spark plugs ×4', qty: '4', price: '$120' },
+          { name: 'Labor — tune-up', qty: '1.5h', price: '$135' },
         ].map((item) => (
           <div key={item.name} style={{ background: colors.surfaceWhite, border: `1px solid ${colors.borderLight}`, borderRadius: '10px', padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -100,7 +100,7 @@ const SCREENS = [
         <span style={{ fontSize: '11px', fontWeight: 700, color: colors.textMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Invoice #1042</span>
         <div style={{ background: colors.surfaceWhite, border: `1px solid ${colors.borderLight}`, borderRadius: '10px', padding: '12px' }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textMain, marginBottom: '4px' }}>Toyota Hilux</div>
-          <div style={{ fontSize: '11px', color: colors.textMuted, marginBottom: '10px' }}>Oil change Â· Brake inspection Â· Labor</div>
+          <div style={{ fontSize: '11px', color: colors.textMuted, marginBottom: '10px' }}>Oil change · Brake inspection · Labor</div>
           <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: `1px solid ${colors.borderLight}` }}>
             <span style={{ fontSize: '11px', color: colors.textMuted }}>Total due</span>
             <span style={{ fontSize: '14px', fontWeight: 700, color: colors.textMain }}>$280</span>
@@ -115,7 +115,7 @@ const SCREENS = [
           </div>
         </div>
         <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '10px', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>âœ“</span>
+          <span style={{ fontSize: '16px' }}>✓</span>
           <span style={{ fontSize: '12px', fontWeight: 600, color: '#065F46' }}>Payment recorded</span>
         </div>
       </div>
@@ -133,63 +133,63 @@ const AVAIL_STYLE: Record<AvailabilityLabel, { bg: string; fg: string }> = {
 
 const FEATURES: { icon: string; title: string; desc: string; avail: AvailabilityLabel }[] = [
   {
-    icon: 'ðŸ“‹',
+    icon: '📋',
     title: 'Digital Job Cards',
-    desc: 'Create, track, and close jobs from your phone â€” no clipboard, no office required.',
+    desc: 'Create, track, and close jobs from your phone — no clipboard, no office required.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ’°',
+    icon: '💰',
     title: 'On-Site Estimates',
     desc: 'Build and send professional estimates at the customer\'s driveway or parking lot.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ§¾',
+    icon: '🧾',
     title: 'Mobile Invoicing',
     desc: 'Invoice and record payment on the spot the moment the job is complete.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ”©',
+    icon: '🔩',
     title: 'Parts Lookup',
     desc: 'Search parts, check pricing, and add them directly to an open job in seconds.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ“‚',
+    icon: '📂',
     title: 'Customer & Vehicle History',
     desc: 'Full service history for every customer and vehicle, always at your fingertips.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ—ºï¸',
+    icon: '🗺️',
     title: 'Route-Ready Scheduling',
     desc: 'See your day\'s jobs with addresses and priority so you move efficiently between sites.',
     avail: 'Available now',
   },
   {
-    icon: 'âœï¸',
+    icon: '✍️',
     title: 'Digital Signatures',
-    desc: 'Capture customer approval on-screen before work begins â€” no paper required.',
+    desc: 'Capture customer approval on-screen before work begins — no paper required.',
     avail: 'Beta',
   },
   {
-    icon: 'ðŸ“·',
+    icon: '📷',
     title: 'Photo Documentation',
     desc: 'Attach before-and-after photos to jobs for liability protection and customer trust.',
     avail: 'Available now',
   },
   {
-    icon: 'ðŸ“¶',
+    icon: '📶',
     title: 'Offline-Ready',
     desc: 'Keep working without cell service. Jobs sync automatically when you\'re back online.',
     avail: 'Beta',
   },
   {
-    icon: 'ðŸ””',
+    icon: '🔔',
     title: 'Instant Customer Notifications',
-    desc: 'Customers receive automatic updates when a job status changes â€” no calls needed.',
+    desc: 'Customers receive automatic updates when a job status changes — no calls needed.',
     avail: 'Coming soon',
   },
 ];
@@ -206,9 +206,9 @@ const COMPARISON_ROWS: { category: string; traditional: string; mobile: string }
 ];
 
 /**
- * MobileMechanicSection â€” phone mockup + mobile mechanic positioning.
+ * MobileMechanicSection — phone mockup + mobile mechanic positioning.
  * Includes 10-feature capability grid and Traditional vs Mobile comparison.
- * All screen data is sample/illustrative â€” no real customer data, no real VINs.
+ * All screen data is sample/illustrative — no real customer data, no real VINs.
  * Feature availability labels reflect current shipped state:
  *   Available now = shipped; Beta = active but limited; Coming soon = not yet shipped.
  */
@@ -229,19 +229,19 @@ export function MobileMechanicSection() {
 
   return (
     <>
-      {/* â”€â”€ Intro: phone mockup + positioning copy â”€â”€ */}
+      {/* ── Intro: phone mockup + positioning copy ── */}
       <section id="mobile-mechanic" style={{ paddingBlock: 'clamp(56px, 8vw, 128px)' }}>
         <div style={container} className="rd1-two-col">
           <div>
             <span style={{ ...badge, background: colors.successBg, color: colors.successText, marginBottom: '16px' }}>Mobile-ready today</span>
             <h2 style={h2Style}>Built for the shop floor, driveway, and road.</h2>
             <p style={{ color: colors.textMuted, marginTop: '12px', lineHeight: 1.6 }}>
-              RedlineD1 is a responsive, installable web app â€” add it to your home screen and run a full job from your
+              RedlineD1 is a responsive, installable web app — add it to your home screen and run a full job from your
               phone, no office required.
             </p>
             <p style={{ color: colors.textMuted, marginTop: '10px', lineHeight: 1.6 }}>
               Whether you work alone out of a van, take roadside calls between shop jobs, or run a fleet of mobile
-              technicians â€” RedlineD1 gives you the same tools as a fixed shop, minus the overhead.
+              technicians — RedlineD1 gives you the same tools as a fixed shop, minus the overhead.
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '28px' }}>
@@ -287,7 +287,7 @@ export function MobileMechanicSection() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            {/* iPhone shell â€” outer titanium frame */}
+            {/* iPhone shell — outer titanium frame */}
             <div
               aria-hidden="true"
               style={{
@@ -388,14 +388,14 @@ export function MobileMechanicSection() {
         </div>
       </section>
 
-      {/* â”€â”€ Feature grid: Everything You Need â”€â”€ */}
+      {/* ── Feature grid: Everything You Need ── */}
       <section id="mm-features" style={{ paddingBlock: 'clamp(56px, 8vw, 96px)', background: colors.surfaceWhite }}>
         <div style={container}>
           <div style={{ maxWidth: '640px', marginBottom: '48px' }}>
             <span style={{ ...badge, background: colors.successBg, color: colors.successText, marginBottom: '12px' }}>Mobile mechanic tools</span>
             <h2 style={h2Style}>Everything you need to run a mobile mechanic business.</h2>
             <p style={{ color: colors.textMuted, marginTop: '12px', lineHeight: 1.6 }}>
-              No shop? No problem. RedlineD1 is built to go wherever you go â€” every tool you need, accessible from your phone.
+              No shop? No problem. RedlineD1 is built to go wherever you go — every tool you need, accessible from your phone.
             </p>
           </div>
 
@@ -440,7 +440,7 @@ export function MobileMechanicSection() {
         </div>
       </section>
 
-      {/* â”€â”€ Cost comparison: Traditional shop vs Mobile mechanic â”€â”€ */}
+      {/* ── Cost comparison: Traditional shop vs Mobile mechanic ── */}
       <section style={{ paddingBlock: 'clamp(56px, 8vw, 96px)', background: colors.surfaceBg }}>
         <div style={container}>
           <div style={{ maxWidth: '640px', marginBottom: '40px' }}>
@@ -482,12 +482,12 @@ export function MobileMechanicSection() {
         </div>
       </section>
 
-      {/* â”€â”€ Mobile mechanic CTA â”€â”€ */}
+      {/* ── Mobile mechanic CTA ── */}
       <section style={{ paddingBlock: 'clamp(48px, 6vw, 80px)', background: colors.surfaceDark }}>
         <div style={{ ...container, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
           <span style={{ ...badge, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.7)' }}>No office required</span>
           <h2 style={{ ...h2Style, color: colors.textOnDark, maxWidth: '640px' }}>
-            Run your mobile mechanic business from the road â€” starting today.
+            Run your mobile mechanic business from the road — starting today.
           </h2>
           <p style={{ fontSize: '16px', lineHeight: 1.6, color: 'rgba(255,255,255,0.65)', maxWidth: '520px', margin: 0 }}>
             7-day free trial. No credit card required. Works on any phone, tablet, or laptop.

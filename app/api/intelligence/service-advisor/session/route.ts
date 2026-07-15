@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       createdBy: user.id,
     });
 
-    // Generate suggestions asynchronously â€” return session immediately
+    // Generate suggestions asynchronously — return session immediately
     generateAdvisorSuggestions(session.id).catch(() => null);
 
     return NextResponse.json({ session });
