@@ -118,14 +118,7 @@ function InspectionPhoto() {
 }
 
 // ── Workflow step screens ────────────────────────────────────────────────────
-const DEMO_STEPS: {
-  label: string;
-  icon: string;
-  color: string;
-  headline: string;
-  sub: string;
-  component: () => JSX.Element;
-}[] = [
+const DEMO_STEPS = [
   {
     label: 'Inspect', icon: '📋', color: '#60a5fa',
     headline: 'Structured checklist on any device',
