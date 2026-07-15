@@ -29,30 +29,53 @@ const CATEGORIES: { key: string; label: string; emoji: string; ids: string[] }[]
   { key: 'comms',        label: 'Communication',  emoji: '💬', ids: ['communication'] },
 ];
 
-// Rich per-module color palettes: [from, to, glow]
+// Rich per-module color palettes: [accent, glow60, glow25]
 const MODULE_PALETTE: Record<string, [string, string, string]> = {
-  triage:          ['#0ea5e9', '#06b6d4', '#0ea5e940'],
-  customers:       ['#10b981', '#059669', '#10b98140'],
-  vehicles:        ['#f59e0b', '#d97706', '#f59e0b40'],
-  appointments:    ['#ec4899', '#db2777', '#ec489940'],
-  'job-cards':     ['#14b8a6', '#0d9488', '#14b8a640'],
-  inspections:     ['#22c55e', '#16a34a', '#22c55e40'],
-  scheduling:      ['#a855f7', '#9333ea', '#a855f740'],
-  'repair-orders': ['#ef4444', '#dc2626', '#ef444440'],
-  technicians:     ['#f43f5e', '#e11d48', '#f43f5e40'],
-  'time-tracking': ['#f59e0b', '#b45309', '#f59e0b40'],
-  'job-archive':   ['#64748b', '#475569', '#64748b40'],
-  parts:           ['#8b5cf6', '#7c3aed', '#8b5cf640'],
-  'parts-estimates':['#6366f1','#4f46e5','#6366f140'],
-  'parts-orders':  ['#3b82f6', '#2563eb', '#3b82f640'],
-  'parts-received':['#0ea5e9', '#0284c7', '#0ea5e940'],
-  communication:   ['#0ea5e9', '#0284c7', '#0ea5e940'],
-  vin:             ['#06b6d4', '#0891b2', '#06b6d440'],
-  dtc:             ['#f97316', '#ea580c', '#f9731640'],
-  diagnostics:     ['#3b82f6', '#1d4ed8', '#3b82f640'],
-  ai:              ['#9b5de5', '#7c3aed', '#9b5de540'],
-  'repair-intelligence': ['#4caf50', '#388e3c', '#4caf5040'],
+  triage:               ['#22d3ee', '#22d3ee99', '#22d3ee40'],
+  customers:            ['#34d399', '#34d39999', '#34d39940'],
+  vehicles:             ['#fbbf24', '#fbbf2499', '#fbbf2440'],
+  appointments:         ['#f472b6', '#f472b699', '#f472b640'],
+  'job-cards':          ['#2dd4bf', '#2dd4bf99', '#2dd4bf40'],
+  inspections:          ['#4ade80', '#4ade8099', '#4ade8040'],
+  scheduling:           ['#c084fc', '#c084fc99', '#c084fc40'],
+  'repair-orders':      ['#f87171', '#f8717199', '#f8717140'],
+  technicians:          ['#fb7185', '#fb718599', '#fb718540'],
+  'time-tracking':      ['#fbbf24', '#fbbf2499', '#fbbf2440'],
+  'job-archive':        ['#94a3b8', '#94a3b899', '#94a3b840'],
+  parts:                ['#a78bfa', '#a78bfa99', '#a78bfa40'],
+  'parts-estimates':    ['#818cf8', '#818cf899', '#818cf840'],
+  'parts-orders':       ['#60a5fa', '#60a5fa99', '#60a5fa40'],
+  'parts-received':     ['#38bdf8', '#38bdf899', '#38bdf840'],
+  communication:        ['#38bdf8', '#38bdf899', '#38bdf840'],
+  vin:                  ['#22d3ee', '#22d3ee99', '#22d3ee40'],
+  dtc:                  ['#fb923c', '#fb923c99', '#fb923c40'],
+  diagnostics:          ['#60a5fa', '#60a5fa99', '#60a5fa40'],
+  ai:                   ['#e879f9', '#e879f999', '#e879f940'],
+  'repair-intelligence':['#86efac', '#86efac99', '#86efac40'],
 };
+
+const ROLE_DASH_STYLES = `
+  .rd-wrap { display:flex; gap:0; min-height:520px; background:#0a0a0f; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.06); }
+  .rd-sidebar { width:200px; flex-shrink:0; background:#0d0d14; border-right:1px solid rgba(255,255,255,0.06); padding:20px 10px; display:flex; flex-direction:column; gap:2px; }
+  .rd-sidebar-label { font-size:10px; font-weight:800; color:#e74c3c; text-transform:uppercase; letter-spacing:0.12em; padding:0 10px 14px; }
+  .rd-cat-btn { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; border:none; cursor:pointer; background:transparent; color:#4a5568; font-size:12.5px; font-weight:500; text-align:left; width:100%; transition:all 0.15s; border-left:2px solid transparent; }
+  .rd-cat-btn:hover { background:rgba(255,255,255,0.05); color:#94a3b8; }
+  .rd-cat-btn.active { background:rgba(231,76,60,0.12); color:#e74c3c; font-weight:700; border-left:2px solid #e74c3c; }
+  .rd-cat-emoji { font-size:14px; line-height:1; }
+  .rd-main { flex:1; padding:24px; display:flex; flex-direction:column; }
+  .rd-header { margin-bottom:20px; }
+  .rd-header h2 { font-size:11px; font-weight:800; color:#4a5568; text-transform:uppercase; letter-spacing:0.12em; margin:0 0 3px; }
+  .rd-header p { font-size:12px; color:#374151; margin:0; }
+  .rd-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .rd-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:22px 10px 18px; background:#111118; border:1px solid rgba(255,255,255,0.07); border-radius:14px; cursor:pointer; position:relative; overflow:hidden; transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+  .rd-tile:hover { transform:translateY(-4px) scale(1.03); }
+  .rd-tile.tile-active { background:#13131f; }
+  .rd-icon-wrap { width:52px; height:52px; border-radius:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .rd-label { font-size:11px; font-weight:600; color:#94a3b8; text-align:center; line-height:1.35; letter-spacing:0.01em; }
+  .rd-tile.tile-active .rd-label { color:#e2e8f0; }
+  .rd-accent-bar { position:absolute; bottom:0; left:15%; right:15%; height:2px; border-radius:2px; }
+  .rd-glow-blob { position:absolute; top:-30px; left:50%; transform:translateX(-50%); width:100px; height:100px; border-radius:50%; pointer-events:none; }
+`;
 
 function RoleDashboard({ role, allowedModules, activeModule }: { role: string; allowedModules: string[]; activeModule: string }) {
   const dispatch = useAppDispatch();
@@ -69,118 +92,81 @@ function RoleDashboard({ role, allowedModules, activeModule }: { role: string; a
     : role.charAt(0).toUpperCase() + role.slice(1);
 
   return (
-    <div style={{ display: 'flex', gap: 20, minHeight: 500 }}>
-      {/* ── Category sidebar ── */}
-      <div style={{
-        width: 180, flexShrink: 0,
-        display: 'flex', flexDirection: 'column', gap: 4,
-      }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 8px 8px' }}>
-          {roleLabel}
-        </div>
-        {visibleCategories.map(cat => {
-          const isActive = activeCategory === cat.key;
-          return (
-            <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 9,
-                padding: '9px 12px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                background: isActive ? 'rgba(192,57,43,0.18)' : 'transparent',
-                color: isActive ? '#e74c3c' : '#888',
-                fontSize: 13, fontWeight: isActive ? 700 : 500,
-                textAlign: 'left', width: '100%',
-                transition: 'background 0.15s, color 0.15s',
-                borderLeft: isActive ? '3px solid #e74c3c' : '3px solid transparent',
-              }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-            >
-              <span style={{ fontSize: 15 }}>{cat.emoji}</span>
-              <span>{cat.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Tile grid ── */}
-      <div style={{ flex: 1 }}>
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.09em', margin: 0 }}>
-            {visibleCategories.find(c => c.key === activeCategory)?.label ?? 'All Modules'}
-          </h2>
-          <p style={{ fontSize: 11, color: '#555', margin: '3px 0 0' }}>Click a module to open it</p>
-        </div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
-          gap: 12,
-        }}>
-          {tiles.map(([id, icon, label]) => {
-            const palette = MODULE_PALETTE[id] ?? ['#9eb2c2', '#7a9bb5', '#9eb2c220'];
-            const [from, to, glow] = palette;
-            const isActive = activeModule === id;
+    <div>
+      <style>{ROLE_DASH_STYLES}</style>
+      <div className="rd-wrap">
+        {/* ── Category sidebar ── */}
+        <div className="rd-sidebar">
+          <div className="rd-sidebar-label">{roleLabel}</div>
+          {visibleCategories.map(cat => {
+            const isActive = activeCategory === cat.key;
             return (
               <button
-                key={id}
-                onClick={() => dispatch({ type: 'SET_MODULE', module: id })}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 12, padding: '24px 10px 20px',
-                  background: isActive
-                    ? `linear-gradient(145deg, ${from}33, ${to}22)`
-                    : 'rgba(255,255,255,0.03)',
-                  border: isActive ? `1.5px solid ${from}88` : '1.5px solid rgba(255,255,255,0.07)',
-                  borderRadius: 14, cursor: 'pointer',
-                  boxShadow: isActive ? `0 0 18px ${glow}, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none',
-                  transition: 'all 0.18s ease',
-                  position: 'relative', overflow: 'hidden',
-                }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.background = `linear-gradient(145deg, ${from}28, ${to}18)`;
-                  el.style.borderColor = `${from}66`;
-                  el.style.boxShadow = `0 0 22px ${glow}, 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)`;
-                  el.style.transform = 'translateY(-3px) scale(1.02)';
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.background = isActive ? `linear-gradient(145deg, ${from}33, ${to}22)` : 'rgba(255,255,255,0.03)';
-                  el.style.borderColor = isActive ? `${from}88` : 'rgba(255,255,255,0.07)';
-                  el.style.boxShadow = isActive ? `0 0 18px ${glow}, inset 0 1px 0 rgba(255,255,255,0.08)` : 'none';
-                  el.style.transform = 'none';
-                }}
+                key={cat.key}
+                className={`rd-cat-btn${isActive ? ' active' : ''}`}
+                onClick={() => setActiveCategory(cat.key)}
               >
-                {/* Icon glow blob */}
-                <div style={{
-                  position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%)',
-                  width: 80, height: 80, borderRadius: '50%',
-                  background: `radial-gradient(circle, ${from}18 0%, transparent 70%)`,
-                  pointerEvents: 'none',
-                }} />
-                <div style={{
-                  width: 48, height: 48, borderRadius: 12,
-                  background: `linear-gradient(135deg, ${from}22, ${to}18)`,
-                  border: `1px solid ${from}44`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: `0 2px 10px ${glow}`,
-                }}>
-                  <Icon name={icon} style={{ color: from, width: 24, height: 24 }} />
-                </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#ccc', textAlign: 'center', lineHeight: 1.35, letterSpacing: '0.01em' }}>
-                  {label}
-                </span>
-                {isActive && (
-                  <div style={{
-                    position: 'absolute', bottom: 0, left: '10%', right: '10%', height: 2,
-                    background: `linear-gradient(90deg, transparent, ${from}, transparent)`,
-                    borderRadius: 2,
-                  }} />
-                )}
+                <span className="rd-cat-emoji">{cat.emoji}</span>
+                <span>{cat.label}</span>
               </button>
             );
           })}
+        </div>
+
+        {/* ── Tile grid ── */}
+        <div className="rd-main">
+          <div className="rd-header">
+            <h2>{visibleCategories.find(c => c.key === activeCategory)?.label ?? 'All Modules'}</h2>
+            <p>Click a module to open it</p>
+          </div>
+          <div className="rd-grid">
+            {tiles.map(([id, icon, label]) => {
+              const [accent, glow60, glow25] = MODULE_PALETTE[id] ?? ['#9eb2c2', '#9eb2c299', '#9eb2c240'];
+              const isActive = activeModule === id;
+              return (
+                <button
+                  key={id}
+                  className={`rd-tile${isActive ? ' tile-active' : ''}`}
+                  onClick={() => dispatch({ type: 'SET_MODULE', module: id })}
+                  style={{
+                    borderColor: isActive ? `${accent}55` : 'rgba(255,255,255,0.07)',
+                    boxShadow: isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = `${accent}77`;
+                    el.style.boxShadow = `0 0 32px ${glow25}, 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)`;
+                    el.style.background = `linear-gradient(160deg, ${glow25} 0%, #111118 60%)`;
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = isActive ? `${accent}55` : 'rgba(255,255,255,0.07)';
+                    el.style.boxShadow = isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : 'none';
+                    el.style.background = isActive ? '#13131f' : '#111118';
+                  }}
+                >
+                  {/* ambient glow blob behind icon */}
+                  <div className="rd-glow-blob" style={{ background: `radial-gradient(circle, ${glow25} 0%, transparent 70%)` }} />
+
+                  {/* icon container */}
+                  <div className="rd-icon-wrap" style={{
+                    background: `linear-gradient(135deg, ${glow25} 0%, rgba(255,255,255,0.04) 100%)`,
+                    border: `1px solid ${accent}44`,
+                    boxShadow: `0 0 16px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                  }}>
+                    <Icon name={icon} style={{ color: accent, width: 26, height: 26 }} />
+                  </div>
+
+                  <span className="rd-label">{label}</span>
+
+                  {/* active bottom accent */}
+                  {isActive && (
+                    <div className="rd-accent-bar" style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
