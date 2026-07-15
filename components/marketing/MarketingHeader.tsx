@@ -197,15 +197,25 @@ export function MarketingHeader() {
           }}>
             Sign In
           </Link>
-          <Link href="/signup" style={{
-            padding: '9px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 700,
-            color: '#fff', textDecoration: 'none',
-            background: '#cc0000', border: 'none',
-            boxShadow: '0 2px 12px rgba(204,0,0,0.35)',
-            transition: 'all 0.2s',
-          }}>
-            Start Free Trial
-          </Link>
+          <>
+            <style>{`
+              @keyframes nav-btn-pulse { 0%,100%{box-shadow:0 0 16px rgba(204,0,0,0.55),0 2px 20px rgba(204,0,0,0.4)}50%{box-shadow:0 0 32px rgba(204,0,0,0.9),0 4px 32px rgba(204,0,0,0.65)} }
+              @keyframes nav-btn-shimmer { 0%{background-position:-200px 0}100%{background-position:200px 0} }
+              .rd1-nav-trial:hover{animation:none!important;box-shadow:0 0 48px rgba(204,0,0,1),0 6px 36px rgba(204,0,0,0.8)!important;transform:translateY(-1px) scale(1.02)}
+            `}</style>
+            <Link href="/signup" className="rd1-nav-trial" style={{
+              padding: '9px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 700,
+              color: '#fff', textDecoration: 'none',
+              background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',
+              border: '1px solid rgba(255,100,100,0.2)',
+              animation: 'nav-btn-pulse 2.5s ease-in-out infinite',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              position: 'relative', overflow: 'hidden', display: 'inline-block',
+            }}>
+              <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '200px 100%', animation: 'nav-btn-shimmer 3s linear infinite', pointerEvents: 'none' }} />
+              Start Free Trial
+            </Link>
+          </>
         </div>
 
         {/* Mobile toggle */}
@@ -285,7 +295,8 @@ export function MarketingHeader() {
             <Link href="/signup" onClick={() => setOpen(false)} style={{
               display: 'block', textAlign: 'center', padding: '13px', borderRadius: '10px',
               color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: '15px',
-              background: '#cc0000', boxShadow: '0 4px 16px rgba(204,0,0,0.35)',
+              background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',
+              animation: 'nav-btn-pulse 2.5s ease-in-out infinite',
             }}>
               Start Free Trial
             </Link>
