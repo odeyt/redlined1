@@ -121,7 +121,36 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.18) !important;
+}
+
+/* ── Dark mode: make every form control legible ─────────────────────
+   The default --surface-soft (#111118) is too dark to distinguish
+   from the page background. Lift it to a visible mid-dark tone.      */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #1c1c28 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #e8eaf0 !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: rgba(255, 255, 255, 0.30);
+}
+
+[data-theme="dark"] select option {
+  background: #1c1c28;
+  color: #e8eaf0;
+}
+
+[data-theme="dark"] input:focus:not([type="checkbox"]):not([type="radio"]),
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  background: #21212e !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(224, 48, 48, 0.18) !important;
 }
 
 button,
