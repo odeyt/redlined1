@@ -8,6 +8,8 @@ import { getShopId } from '@/lib/shopStore';
 import { MorningBriefModal } from './MorningBriefModal';
 import { Suspense } from 'react';
 import { LearningDashboardSection } from '@/features/intelligence-learning/LearningDashboardSection';
+import { FeatureGate } from '@/components/featureFlags/FeatureFlagProvider';
+import { OperationalMetricsSection } from './OperationalMetricsSection';
 
 // ── Types ────────────────────────────────────────────────────
 interface ShopMetrics {
@@ -1017,6 +1019,14 @@ export function CommandCenterView() {
                 onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
             </div>
           </div>
+
+          {/* ── Operational Metrics (flagged) ─────────────────── */}
+          <FeatureGate flag="command_center_operational_metrics">
+            <div style={{ marginBottom: 24 }}>
+              <SectionHeading icon="📊" label="Operational Metrics" />
+              <OperationalMetricsSection onNav={nav} />
+            </div>
+          </FeatureGate>
 
           {/* ── Section SI-7: Morning Brief ──────────────────── */}
           {(morningBrief || true) && (() => {

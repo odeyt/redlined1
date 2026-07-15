@@ -21,7 +21,10 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['lib/intelligence-bus/**/*.ts', '!lib/intelligence-bus/__tests__/**'],
+  collectCoverageFrom: [
+    'lib/intelligence-bus/**/*.ts', '!lib/intelligence-bus/__tests__/**',
+    'lib/dashboardWidgets/**/*.ts', '!lib/dashboardWidgets/__tests__/**',
+  ],
 };
 
 export default config;

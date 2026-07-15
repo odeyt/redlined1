@@ -75,4 +75,9 @@ export type KnownFlagKey =
   // AI Provider flags — all default OFF
   | 'ai_provider_openai_enabled'
   | 'ai_provider_anthropic_enabled'
-  | 'ai_provider_gemini_enabled';
+  | 'ai_provider_gemini_enabled'
+  // Personal Dashboard / Widget System — all default OFF
+  | 'personal_dashboard'
+  | 'widget_system'
+  | 'command_center_operational_metrics'
+  | 'dashboard_widget_placeholders';
