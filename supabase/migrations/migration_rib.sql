@@ -48,12 +48,14 @@ CREATE INDEX IF NOT EXISTS rib_events_technician_id_idx   ON rib_events (technic
 -- Row-level security
 ALTER TABLE rib_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "shop members can read their own rib_events"
+DROP POLICY IF EXISTS "shop members can read their own rib_events" ON rib_events;
+CREATE POLICY "shop members can read their own rib_events"
   ON rib_events FOR SELECT
   USING (shop_id IN (SELECT shop_id FROM shop_users WHERE user_id = auth.uid()));
 
 -- INSERT allowed for authenticated users (publish path enforces shop_id)
-CREATE POLICY IF NOT EXISTS "authenticated users can insert rib_events"
+DROP POLICY IF EXISTS "authenticated users can insert rib_events" ON rib_events;
+CREATE POLICY "authenticated users can insert rib_events"
   ON rib_events FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
@@ -76,7 +78,8 @@ CREATE TABLE IF NOT EXISTS rib_subscriptions (
 
 ALTER TABLE rib_subscriptions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "shop members can read rib_subscriptions"
+DROP POLICY IF EXISTS "shop members can read rib_subscriptions" ON rib_subscriptions;
+CREATE POLICY "shop members can read rib_subscriptions"
   ON rib_subscriptions FOR SELECT
   USING (shop_id IN (SELECT shop_id FROM shop_users WHERE user_id = auth.uid()));
 

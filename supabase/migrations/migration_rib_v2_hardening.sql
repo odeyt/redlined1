@@ -106,7 +106,8 @@ CREATE INDEX IF NOT EXISTS rib_del_replay_id_idx      ON rib_event_deliveries (r
 -- Row-level security
 ALTER TABLE rib_event_deliveries ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "org members can read their deliveries"
+DROP POLICY IF EXISTS "org members can read their deliveries" ON rib_event_deliveries;
+CREATE POLICY "org members can read their deliveries"
   ON rib_event_deliveries FOR SELECT
   USING (
     organization_id IN (
@@ -117,7 +118,8 @@ CREATE POLICY IF NOT EXISTS "org members can read their deliveries"
   );
 
 -- Service role has full access for handler tracking
-CREATE POLICY IF NOT EXISTS "service role can manage deliveries"
+DROP POLICY IF EXISTS "service role can manage deliveries" ON rib_event_deliveries;
+CREATE POLICY "service role can manage deliveries"
   ON rib_event_deliveries FOR ALL
   USING (auth.role() = 'service_role');
 
