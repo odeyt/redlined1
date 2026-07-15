@@ -473,6 +473,13 @@ textarea {
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
 }
 
+/* ── Dark-mode panel: subtle glass + inner highlight ── */
+[data-theme="dark"] .panel,
+[data-theme="dark"] .card {
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 /* ── Dark hero card — for KPI/summary tiles, matches landing-page dark red/black look ── */
 .card-hero {
   --muted: rgba(255, 255, 255, 0.72);
@@ -486,6 +493,7 @@ textarea {
 
 .card-hero:hover {
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transform: translateY(-2px);
 }
 
 .panel {

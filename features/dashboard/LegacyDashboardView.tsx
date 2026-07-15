@@ -18,7 +18,9 @@ import { RevenueByMonthTable } from './shared/RevenueByMonthTable';
 import { RecentInvoicesTable } from './shared/RecentInvoicesTable';
 import { RecentRepairOrdersTable } from './shared/RecentRepairOrdersTable';
 
-const MODULE_TILE_EXCLUDE = new Set(['dashboard', 'billing', 'subscriptions', 'settings', 'system-health', 'disaster-recovery', 'testing-dashboard']);
+// Owners see billing/subscriptions/settings tiles; all other roles don't
+const OWNER_TILE_EXCLUDE   = new Set(['dashboard', 'system-health', 'disaster-recovery', 'testing-dashboard']);
+const STAFF_TILE_EXCLUDE   = new Set(['dashboard', 'billing', 'subscriptions', 'settings', 'system-health', 'disaster-recovery', 'testing-dashboard']);
 
 const CATEGORIES: { key: string; label: string; emoji: string; ids: string[] }[] = [
   { key: 'all',          label: 'All Modules',    emoji: '⚡', ids: [] },
@@ -27,6 +29,7 @@ const CATEGORIES: { key: string; label: string; emoji: string; ids: string[] }[]
   { key: 'parts',        label: 'Parts',          emoji: '📦', ids: ['parts', 'parts-estimates', 'parts-orders', 'parts-received'] },
   { key: 'diagnostics',  label: 'Diagnostics',    emoji: '🔬', ids: ['vin', 'dtc', 'diagnostics', 'ai', 'repair-intelligence'] },
   { key: 'comms',        label: 'Communication',  emoji: '💬', ids: ['communication'] },
+  { key: 'admin',        label: 'Admin',          emoji: '⚙️', ids: ['settings', 'billing', 'subscriptions'] },
 ];
 
 // Rich per-module color palettes: [accent, glow60, glow25]
@@ -52,6 +55,13 @@ const MODULE_PALETTE: Record<string, [string, string, string]> = {
   diagnostics:          ['#60a5fa', '#60a5fa99', '#60a5fa40'],
   ai:                   ['#e879f9', '#e879f999', '#e879f940'],
   'repair-intelligence':['#86efac', '#86efac99', '#86efac40'],
+  billing:              ['#f59e0b', '#f59e0b99', '#f59e0b40'],
+  subscriptions:        ['#a78bfa', '#a78bfa99', '#a78bfa40'],
+  settings:             ['#94a3b8', '#94a3b899', '#94a3b840'],
+  'repair-orders':      ['#f87171', '#f8717199', '#f8717140'],
+  technicians:          ['#fb7185', '#fb718599', '#fb718540'],
+  'time-tracking':      ['#fbbf24', '#fbbf2499', '#fbbf2440'],
+  'job-archive':        ['#64748b', '#64748b99', '#64748b40'],
 };
 
 const ROLE_DASH_STYLES = `
@@ -96,7 +106,8 @@ function RoleDashboard({ role, allowedModules, activeModule }: { role: string; a
   const dispatch = useAppDispatch();
   const [activeCategory, setActiveCategory] = useState('all');
 
-  const allTiles = navItems.filter(([id]) => allowedModules.includes(id) && !MODULE_TILE_EXCLUDE.has(id));
+  const excludeSet = (role === 'owner' || role === 'manager') ? OWNER_TILE_EXCLUDE : STAFF_TILE_EXCLUDE;
+  const allTiles = navItems.filter(([id]) => allowedModules.includes(id) && !excludeSet.has(id));
   const visibleCategories = CATEGORIES.filter(c => c.key === 'all' || c.ids.some(id => allTiles.some(([tid]) => tid === id)));
   const tiles = activeCategory === 'all'
     ? allTiles
@@ -144,20 +155,25 @@ function RoleDashboard({ role, allowedModules, activeModule }: { role: string; a
                   className={`rd-tile${isActive ? ' tile-active' : ''}`}
                   onClick={() => dispatch({ type: 'SET_MODULE', module: id })}
                   style={{
-                    borderColor: isActive ? `${accent}55` : 'rgba(255,255,255,0.07)',
-                    boxShadow: isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : 'none',
+                    borderColor: isActive ? `${accent}55` : undefined,
+                    boxShadow: isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : undefined,
                   }}
                   onMouseEnter={e => {
                     const el = e.currentTarget as HTMLButtonElement;
-                    el.style.borderColor = `${accent}77`;
-                    el.style.boxShadow = `0 0 32px ${glow25}, 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)`;
-                    el.style.background = `linear-gradient(160deg, ${glow25} 0%, #111118 60%)`;
+                    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+                    el.style.borderColor = isDark ? `${accent}77` : `${accent}99`;
+                    el.style.boxShadow = isDark
+                      ? `0 0 32px ${glow25}, 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)`
+                      : `0 4px 16px ${glow25}`;
+                    el.style.background = isDark
+                      ? `linear-gradient(160deg, ${glow25} 0%, #111118 60%)`
+                      : `linear-gradient(160deg, ${glow25} 0%, #ffffff 70%)`;
                   }}
                   onMouseLeave={e => {
                     const el = e.currentTarget as HTMLButtonElement;
-                    el.style.borderColor = isActive ? `${accent}55` : 'rgba(255,255,255,0.07)';
-                    el.style.boxShadow = isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : 'none';
-                    el.style.background = isActive ? '#13131f' : '#111118';
+                    el.style.borderColor = isActive ? `${accent}55` : '';
+                    el.style.boxShadow = isActive ? `0 0 24px ${glow25}, inset 0 1px 0 rgba(255,255,255,0.06)` : '';
+                    el.style.background = '';
                   }}
                 >
                   {/* ambient glow blob behind icon */}
@@ -206,7 +222,10 @@ export function LegacyDashboardView() {
   useEffect(() => {
     fetchShopSettings().then(s => {
       setCompanyName(s.companyName);
-      if (role && role !== 'owner' && role !== 'manager') {
+      if (role === 'owner' || role === 'manager') {
+        // Owners/managers get all modules as tiles
+        setAllowedModules(navItems.map(([id]) => id));
+      } else if (role) {
         const saved = s.rolePermissions?.[role as RoleKey];
         setAllowedModules(saved?.length ? saved : DEFAULT_ROLE_PERMISSIONS[role as RoleKey] ?? []);
       }
@@ -229,40 +248,44 @@ export function LegacyDashboardView() {
     return `${timeGreeting}${name ? `, ${name}` : ''} · ${companyName} · ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
   })();
 
-  // Non-financial roles (advisor, technician, unknown) get the module tile grid
-  if (!isFinancialRole) {
-    return (
-      <>
-        <style>{dashStyle}</style>
-        <RoleDashboard role={role || 'staff'} allowedModules={allowedModules} activeModule={activeModule} />
-        <div style={{ marginTop: 24, textAlign: 'center', padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
-          {greeting}
-        </div>
-      </>
-    );
-  }
-
-  const s = stats!;
-
+  // All roles: tile grid first
+  // Owner/manager: also show financial intel panels below
   return (
     <>
       <style>{dashStyle}</style>
-      <RevenueKpiRow stats={s} onNav={nav} />
-      <OperationalKpiRow stats={s} onNav={nav} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 16 }}>
-        <RevenueChart revenue7={revenue7} onNav={nav} />
-        <InvoiceStatusPanel stats={s} onNav={nav} />
-      </div>
-      {monthlyRevenue.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <RevenueByMonthTable monthlyRevenue={monthlyRevenue} />
-        </div>
-      )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <RecentInvoicesTable invoices={recentInvoices} onNav={nav} />
-        <RecentRepairOrdersTable ros={recentROs} onNav={nav} />
-      </div>
-      <div style={{ marginTop: 20, textAlign: 'center', padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
+
+      {/* ── Module tile grid — all roles ── */}
+      <RoleDashboard role={role || 'staff'} allowedModules={allowedModules} activeModule={activeModule} />
+
+      {/* ── Financial Intelligence — owner / manager only ── */}
+      {isFinancialRole && stats && (() => {
+        const s = stats;
+        return (
+          <>
+            <div className="dash-fin-head">
+              <span className="dash-fin-head-label">Financial Intelligence</span>
+              <div className="dash-fin-head-line" />
+            </div>
+            <RevenueKpiRow stats={s} onNav={nav} />
+            <OperationalKpiRow stats={s} onNav={nav} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, marginBottom: 16 }}>
+              <RevenueChart revenue7={revenue7} onNav={nav} />
+              <InvoiceStatusPanel stats={s} onNav={nav} />
+            </div>
+            {monthlyRevenue.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <RevenueByMonthTable monthlyRevenue={monthlyRevenue} />
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <RecentInvoicesTable invoices={recentInvoices} onNav={nav} />
+              <RecentRepairOrdersTable ros={recentROs} onNav={nav} />
+            </div>
+          </>
+        );
+      })()}
+
+      <div style={{ marginTop: 24, textAlign: 'center', padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
         {greeting}
       </div>
     </>
