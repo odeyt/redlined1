@@ -129,8 +129,8 @@ export function PricingSection() {
       window.location.href = 'mailto:admin@redlined1.com?subject=Enterprise%20plan%20inquiry';
       return;
     }
-    const interval = annual ? 'annual' : 'monthly';
-    window.location.href = `/signup?plan=${planKey}&billing=${interval}`;
+    const period = annual ? 'annual' : 'monthly';
+    window.location.href = `/signup?plan=${planKey}&period=${period}&intent=paid`;
   }
 
   return (
@@ -298,7 +298,7 @@ export function PricingSection() {
                 {/* CTA */}
                 {isTrial ? (
                   <Link
-                    href="/signup"
+                    href="/signup?intent=trial"
                     className="price-btn-red"
                     style={{
                       display: 'block', textAlign: 'center', padding: '13px 0',

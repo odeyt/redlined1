@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>C-3 UAT — Signup, Trial &amp; Payment</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --muted: #888;
+    --accent: #cc0000;
+    --pass: #22c55e;
+    --fail: #ef4444;
+    --pending: #fbbf24;
+    --input-bg: #111;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; padding: 24px; }
+  h1 { font-size: 20px; color: #fff; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+  .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .meta-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
+  .meta-card label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+  .meta-card input { background: transparent; border: none; color: var(--text); font-size: 14px; width: 100%; outline: none; }
+  .section { margin-bottom: 32px; }
+  h2 { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  h2 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(204,0,0,0.2); color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  thead { background: #111; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; white-space: nowrap; }
+  td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: top; }
+  td:first-child { color: var(--muted); font-size: 12px; font-family: monospace; white-space: nowrap; }
+  td.step { font-weight: 500; }
+  td.expected { color: #ccc; font-size: 13px; }
+  td.status { white-space: nowrap; }
+  td.notes-cell input { background: transparent; border: none; color: var(--muted); font-size: 13px; width: 100%; min-width: 120px; outline: none; }
+  td.notes-cell input::placeholder { color: #444; }
+  .status-btn { border: none; border-radius: 5px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; width: 72px; }
+  .status-btn.pending { background: rgba(251,191,36,0.15); color: var(--pending); }
+  .status-btn.pass { background: rgba(34,197,94,0.15); color: var(--pass); }
+  .status-btn.fail { background: rgba(239,68,68,0.15); color: var(--fail); }
+  .progress-bar-wrap { margin-bottom: 24px; }
+  .progress-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .progress-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--pass), #16a34a); border-radius: 3px; transition: width 0.3s; }
+  .signoff { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .signoff h3 { font-size: 14px; margin-bottom: 16px; color: #fff; }
+  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr 120px 1fr; gap: 16px; }
+  .signoff-field label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .signoff-field input { background: transparent; border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; width: 100%; padding: 4px 0; outline: none; }
+  .signoff-row { display: grid; grid-template-columns: 1fr 1fr 120px 1fr; gap: 16px; margin-bottom: 12px; }
+  .warning { background: rgba(204,0,0,0.1); border: 1px solid rgba(204,0,0,0.3); border-radius: 8px; padding: 12px 16px; margin-top: 20px; font-size: 13px; color: #ff9999; }
+  .print-btn { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: auto; display: block; margin-bottom: 20px; }
+  @media print {
+    body { background: #fff; color: #000; }
+    .print-btn { display: none; }
+    :root { --bg: #fff; --surface: #f9f9f9; --border: #ddd; --text: #000; --muted: #555; }
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">Print / Save PDF</button>
+
+<h1>C-3 UAT — Signup, Trial &amp; Payment Flows</h1>
+<p class="subtitle">Branch: feature/commercial-signup-subscription-flow &nbsp;|&nbsp; Environment: Creem Sandbox (Test Mode)</p>
+
+<div class="meta-grid">
+  <div class="meta-card"><label>Tester</label><input type="text" placeholder="Name"/></div>
+  <div class="meta-card"><label>Date Tested</label><input type="text" placeholder="YYYY-MM-DD"/></div>
+  <div class="meta-card"><label>Preview URL</label><input type="text" placeholder="https://..."/></div>
+  <div class="meta-card"><label>Billing Enabled</label><input type="text" placeholder="false / sandbox / live"/></div>
+</div>
+
+<div class="progress-bar-wrap">
+  <div class="progress-label"><span>Overall Progress</span><span id="progress-text">0 / 0 passed</span></div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+</div>
+
+<div id="uat-root"></div>
+
+<div class="signoff" style="margin-top:32px">
+  <h3>Sign-Off</h3>
+  <div class="signoff-row">
+    <div class="signoff-field"><label>Role</label><input value="Owner" readonly/></div>
+    <div class="signoff-field"><label>Name</label><input type="text" placeholder=""/></div>
+    <div class="signoff-field"><label>Date</label><input type="text" placeholder=""/></div>
+    <div class="signoff-field"><label>Signature / Initials</label><input type="text" placeholder=""/></div>
+  </div>
+  <div class="signoff-row">
+    <div class="signoff-field"><label>Role</label><input value="Developer" readonly/></div>
+    <div class="signoff-field"><label>Name</label><input type="text" placeholder=""/></div>
+    <div class="signoff-field"><label>Date</label><input type="text" placeholder=""/></div>
+    <div class="signoff-field"><label>Signature / Initials</label><input type="text" placeholder=""/></div>
+  </div>
+  <div class="warning">
+    ⚠ Billing flows (BP, C, D) must be signed off before NEXT_PUBLIC_BILLING_ENABLED is set to true in production.
+  </div>
+</div>
+
+<script>
+const SECTIONS = [
+  {
+    id: 'A', title: 'Flow A — Free Trial Signup', badge: null,
+    cases: [
+      ['A-1', 'Visit /signup?intent=trial', 'Form shown, no plan badge, "Start your 7-day free trial"'],
+      ['A-2', 'Submit without ticking consent', 'Submit blocked, error shown'],
+      ['A-3', 'Fill form, tick consent, submit', '"EMAIL VERIFICATION REQUIRED" badge shown (NOT green "Account Created")'],
+      ['A-4', 'Confirmation screen', 'Shows step list: Check inbox → Click link → Sign in'],
+      ['A-5', 'Check inbox', 'Email subject: "Confirm your RedlineD1 account"'],
+      ['A-6', 'Click confirmation link', 'Redirects to /auth/callback → then to /'],
+      ['A-7', 'App loads', 'Trial banner visible with days remaining'],
+      ['A-8', 'Navigate to any module', 'Access granted during trial'],
+      ['A-9', 'Click resend on confirmation', 'Button disabled 60 s, re-enabled; second email arrives'],
+    ]
+  },
+  {
+    id: 'B', title: 'Flow B — Paid Plan Signup (Billing Disabled)', badge: null,
+    cases: [
+      ['B-1', 'Pricing → Professional monthly', 'Redirect to /signup?plan=professional&period=monthly&intent=paid'],
+      ['B-2', 'Form shown', 'Plan badge: "Professional — $99/mo" visible'],
+      ['B-3', 'Submit form', 'Confirmation screen shows selected plan badge'],
+      ['B-4', 'Confirm email (billing off)', 'Auth callback fires; no checkout; redirects to /'],
+      ['B-5', 'App loads', 'Trial banner shown (no payment taken)'],
+    ]
+  },
+  {
+    id: 'BP', title: 'Flow B-Pay — Paid Plan Signup (Creem Sandbox)', badge: 'sandbox',
+    cases: [
+      ['BP-1', 'Enable billing on preview env', 'NEXT_PUBLIC_BILLING_ENABLED=true confirmed'],
+      ['BP-2', 'Sign up with Professional monthly (new email)', 'Same as B-1 to B-3'],
+      ['BP-3', 'Click email confirmation link', 'Auth callback reads rd1_pending_checkout → calls /api/billing/checkout'],
+      ['BP-4', 'Redirect to Creem checkout', 'Creem sandbox checkout page shown'],
+      ['BP-5', 'Enter test card', '4242 4242 4242 4242, any expiry/CVC'],
+      ['BP-6', 'Complete payment', 'Redirect to /billing/success'],
+      ['BP-7', 'Success page initial state', '"Processing your subscription..." spinner shown'],
+      ['BP-8', 'Webhook fires (check Creem dashboard)', 'DB: subscriptions.status=active, profiles.plan=professional'],
+      ['BP-9', 'Poll resolves within 60 s', '"Subscription Active" with plan name and renewal date'],
+      ['BP-10', 'Click "Go to Dashboard"', 'Redirects to /, no trial banner, full access'],
+    ]
+  },
+  {
+    id: 'C', title: 'Flow C — Trial User Upgrades (Creem Sandbox)', badge: 'sandbox',
+    cases: [
+      ['C-1', 'Sign up via Flow A, confirm email', 'Trial active'],
+      ['C-2', 'Visit pricing, click Professional', 'POST /api/billing/checkout called'],
+      ['C-3', 'Checkout opens', 'Creem sandbox checkout shown'],
+      ['C-4', 'Complete payment', 'Redirect to /billing/success'],
+      ['C-5', 'Poll resolves', '"Subscription Active"'],
+      ['C-6', 'Check DB', 'subscriptions.converted_at not null, profiles.plan=professional'],
+      ['C-7', 'No duplicate subscription', 'Only one row in subscriptions for this user'],
+    ]
+  },
+  {
+    id: 'D', title: 'Flow D — Subscription Management (Creem Portal)', badge: 'sandbox',
+    cases: [
+      ['D-1', 'Active paid user visits /billing', 'Shows plan, status, renewal date, "Manage Subscription" button'],
+      ['D-2', 'Click "Manage Subscription"', 'Redirects to Creem portal'],
+      ['D-3', 'Cancel in portal', 'Returns to app; DB updated via webhook'],
+      ['D-4', 'Check /billing after cancel', 'Status shows "Cancels on [date]"'],
+    ]
+  },
+  {
+    id: 'E', title: 'Flow E — Expired Trial', badge: null,
+    cases: [
+      ['E-1', 'Set trial_ends_at to past in Supabase', 'Done via SQL Editor'],
+      ['E-2', 'Refresh app', 'Full-screen trial expired overlay shown'],
+      ['E-3', 'Click "Choose a Plan"', 'Redirects to pricing section'],
+      ['E-4', 'Verify data preserved', 'Customers, vehicles, jobs, estimates intact'],
+      ['E-5', 'D1 shops unaffected', 'D1 shop owner sees no trial expiry overlay'],
+    ]
+  },
+  {
+    id: 'I', title: 'Idempotency &amp; Edge Cases', badge: null,
+    cases: [
+      ['I-1', 'Sign up twice with same email', 'Second signup shows email already registered'],
+      ['I-2', 'Click confirmation link twice', 'Second click: already active, redirect to /'],
+      ['I-3', 'Retry checkout after tab close', 'rd1_pending_checkout triggers new checkout session'],
+      ['I-4', 'Two concurrent signups (test timing)', 'Only one shop created per user'],
+    ]
+  },
+  {
+    id: 'D1', title: 'D1 Internal Shop Protection', badge: null,
+    cases: [
+      ['D1-1', 'Log in as D1 shop owner', 'No billing banner, no upgrade prompts'],
+      ['D1-2', 'POST /api/billing/checkout as D1 owner', 'Returns 403'],
+      ['D1-3', 'Invoice with THB on D1 shop', 'LAK conversion box visible with rate input'],
+      ['D1-4', 'Invoice with THB on non-D1 shop', 'LAK conversion box NOT visible'],
+      ['D1-5', 'Print invoice from D1 shop with THB', 'LAK box appears in print output'],
+    ]
+  },
+];
+
+const states = {};
+SECTIONS.forEach(s => s.cases.forEach(([id]) => { states[id] = 'pending'; }));
+
+function render() {
+  const root = document.getElementById('uat-root');
+  let html = '';
+  SECTIONS.forEach(section => {
+    html += `<div class="section">
+      <h2>${section.title}${section.badge ? ` <span class="badge">${section.badge}</span>` : ''}</h2>
+      <table>
+        <thead><tr><th>#</th><th>Step</th><th>Expected</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>`;
+    section.cases.forEach(([id, step, expected]) => {
+      const s = states[id];
+      html += `<tr>
+        <td>${id}</td>
+        <td class="step">${step}</td>
+        <td class="expected">${expected}</td>
+        <td class="status"><button class="status-btn ${s}" onclick="cycle('${id}')">${s.toUpperCase()}</button></td>
+        <td class="notes-cell"><input type="text" placeholder="notes…" id="note-${id}"/></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  });
+  root.innerHTML = html;
+  updateProgress();
+}
+
+function cycle(id) {
+  const order = ['pending', 'pass', 'fail'];
+  const cur = order.indexOf(states[id]);
+  states[id] = order[(cur + 1) % order.length];
+  render();
+  // Re-focus the notes field for this row
+  const note = document.getElementById('note-' + id);
+  if (note) note.focus();
+}
+
+function updateProgress() {
+  const all = Object.values(states);
+  const passed = all.filter(s => s === 'pass').length;
+  const pct = all.length ? Math.round(passed / all.length * 100) : 0;
+  document.getElementById('progress-text').textContent = `${passed} / ${all.length} passed (${pct}%)`;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+render();
+</script>
+</body>
+</html>

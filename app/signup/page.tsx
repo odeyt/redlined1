@@ -1,41 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const PLAN_META: Record<string, { name: string; price: string; color: string }> = {
-  trial:        { name: 'Free Trial',    price: 'Free for 7 days', color: '#22d3a0' },
-  solo:         { name: 'Solo',          price: '$24/mo',          color: '#60a5fa' },
-  starter:      { name: 'Starter',       price: '$49/mo',          color: '#a78bfa' },
-  professional: { name: 'Professional',  price: '$99/mo',          color: '#cc0000' },
-  business:     { name: 'Business',      price: '$179/mo',         color: '#f59e0b' },
-  enterprise:   { name: 'Enterprise',    price: 'Custom',          color: '#e74c3c' },
+const VALID_PLANS = new Set(['trial', 'solo', 'starter', 'professional', 'business']);
+const VALID_PERIODS = new Set(['monthly', 'annual']);
+
+const PLAN_META: Record<string, { name: string; price: string; annualPrice: string; color: string }> = {
+  trial:        { name: 'Free Trial',    price: 'Free for 7 days', annualPrice: 'Free for 7 days', color: '#22d3a0' },
+  solo:         { name: 'Solo',          price: '$24/mo',          annualPrice: '$240/yr',          color: '#60a5fa' },
+  starter:      { name: 'Starter',       price: '$49/mo',          annualPrice: '$490/yr',          color: '#a78bfa' },
+  professional: { name: 'Professional',  price: '$99/mo',          annualPrice: '$990/yr',          color: '#cc0000' },
+  business:     { name: 'Business',      price: '$179/mo',         annualPrice: '$1,790/yr',        color: '#f59e0b' },
 };
 
 export default function SignupPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [shopName, setShopName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName]           = useState('');
+  const [shopName, setShopName]   = useState('');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [success, setSuccess]     = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('trial');
+  const [period, setPeriod]       = useState<string>('monthly');
+  const [consented, setConsented] = useState(false);
+
+  // Resend confirmation state
+  const [resending, setResending]       = useState(false);
+  const [resendMsg, setResendMsg]       = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const prefill = params.get('email');
-    if (prefill) setEmail(decodeURIComponent(prefill));
-    const plan = params.get('plan');
-    if (plan && PLAN_META[plan]) setSelectedPlan(plan);
+
+    const emailParam = params.get('email');
+    if (emailParam) setEmail(decodeURIComponent(emailParam));
+
+    // Accept both ?plan= and ?intent= for plan selection
+    const planParam = params.get('plan');
+    if (planParam && VALID_PLANS.has(planParam)) setSelectedPlan(planParam);
+
+    // Accept both ?period= and legacy ?billing= for interval
+    const periodParam = params.get('period') ?? params.get('billing');
+    if (periodParam && VALID_PERIODS.has(periodParam)) setPeriod(periodParam);
+
+    // ?intent=trial is handled by defaulting to trial if no plan given
+    const intent = params.get('intent');
+    if (intent === 'trial' && !planParam) setSelectedPlan('trial');
   }, []);
 
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  // Cooldown ticker
+  useEffect(() => {
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!consented) { setError('Please accept the Terms and Privacy Policy to continue.'); return; }
     setError('');
     setLoading(true);
     try {
@@ -49,30 +75,33 @@ export default function SignupPage() {
       });
       if (signUpError) throw signUpError;
       if (data.user) {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          email,
-          plan: 'trial',
-          trial_ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-          shop_name: shopName,
-        });
+        // Store commercial signup intent in localStorage for recovery after email verification
+        const intent: Record<string, string> = {
+          intent:    selectedPlan === 'trial' ? 'trial' : 'paid',
+          plan:      selectedPlan,
+          period,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 48 * 3600000).toISOString(),
+        };
+        try {
+          localStorage.setItem('rd1_signup_intent', JSON.stringify(intent));
+        } catch { /* unavailable */ }
+
+        // For paid plans: also store pending checkout key (picked up by auth/callback and AppShell)
+        if (selectedPlan !== 'trial') {
+          try {
+            localStorage.setItem(
+              'rd1_pending_checkout',
+              JSON.stringify({ planId: selectedPlan, billingInterval: period }),
+            );
+          } catch { /* unavailable */ }
+        }
 
         fetch('/api/signup-notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, shopName, email, plan: selectedPlan }),
+          body: JSON.stringify({ name, shopName, email, plan: selectedPlan, period }),
         }).catch(() => {});
-
-        // For paid plans: store the pending checkout so auth/callback fires
-        // it immediately after the user clicks the confirmation email link.
-        const isPaid = selectedPlan && selectedPlan !== 'trial';
-        if (isPaid) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const billingInterval = urlParams.get('billing') || 'monthly';
-          try {
-            localStorage.setItem('rd1_pending_checkout', JSON.stringify({ planId: selectedPlan, billingInterval }));
-          } catch { /* localStorage unavailable */ }
-        }
       }
       setSuccess(true);
     } catch (err: unknown) {
@@ -82,8 +111,33 @@ export default function SignupPage() {
     }
   }
 
-  const isPaidPlan = selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan];
+  async function handleResend() {
+    if (resendCooldown > 0 || resending) return;
+    setResending(true);
+    setResendMsg('');
+    try {
+      const { error: resendErr } = await supabase.auth.resend({ type: 'signup', email });
+      if (resendErr) throw resendErr;
+      setResendMsg('Confirmation email resent. Check your inbox (and spam folder).');
+      setResendCooldown(60);
+      cooldownRef.current = setInterval(() => {
+        setResendCooldown(n => {
+          if (n <= 1) { clearInterval(cooldownRef.current!); return 0; }
+          return n - 1;
+        });
+      }, 1000);
+    } catch (err: unknown) {
+      setResendMsg(err instanceof Error ? err.message : 'Could not resend. Try again shortly.');
+    } finally {
+      setResending(false);
+    }
+  }
 
+  const isPaidPlan  = selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan];
+  const planMeta    = PLAN_META[selectedPlan] ?? PLAN_META['trial'];
+  const displayPrice = period === 'annual' ? planMeta.annualPrice : planMeta.price;
+
+  // ── Confirmation screen ──────────────────────────────────────────────────────
   if (success) {
     return (
       <div style={{
@@ -98,16 +152,9 @@ export default function SignupPage() {
           backgroundSize: '40px 40px',
           maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
         }} />
-        <div style={{
-          position: 'absolute', top: '30%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 600, height: 600,
-          background: 'radial-gradient(circle, rgba(204,0,0,0.18) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
 
         <div style={{
-          position: 'relative', width: '100%', maxWidth: 480, margin: '0 24px',
+          position: 'relative', width: '100%', maxWidth: 500, margin: '0 24px',
           background: 'rgba(255,255,255,0.03)',
           border: '1px solid rgba(204,0,0,0.3)', borderRadius: 20,
           padding: '48px 40px', backdropFilter: 'blur(20px)',
@@ -126,44 +173,51 @@ export default function SignupPage() {
             </svg>
           </div>
 
+          {/* Status badge — EMAIL VERIFICATION REQUIRED (not "account activated") */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+            background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)',
             borderRadius: 100, padding: '4px 14px', marginBottom: 24,
           }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
-            <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 600, letterSpacing: 0.5 }}>ACCOUNT CREATED</span>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#eab308', boxShadow: '0 0 8px #eab308' }} />
+            <span style={{ fontSize: 12, color: '#eab308', fontWeight: 600, letterSpacing: 0.5 }}>EMAIL VERIFICATION REQUIRED</span>
           </div>
 
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>
             Welcome to RedlineD1
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 32px', lineHeight: 1.6 }}>
-            {isPaidPlan
-              ? `One step left — confirm your email and you'll be taken directly to payment for the ${PLAN_META[selectedPlan].name} plan.`
-              : 'Your 7-day full-access trial is ready. One step left — confirm your email to unlock the platform.'}
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 24px', lineHeight: 1.6 }}>
+            Your account has been created. Confirm your email to activate your account and continue setting up your shop.
           </p>
 
+          {/* Selected plan badge */}
+          {isPaidPlan && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              padding: '10px 16px', borderRadius: 10, marginBottom: 20,
+              background: `${planMeta.color}14`, border: `1px solid ${planMeta.color}44`,
+            }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%', background: planMeta.color }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: planMeta.color }}>Selected plan: {planMeta.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{displayPrice}</span>
+            </div>
+          )}
+
+          {/* Steps */}
           {[
-            {
-              n: '1', label: 'Check your inbox',
-              sub: `We sent a confirmation link to ${email || 'your email'}`,
-            },
-            {
-              n: '2', label: 'Click the confirmation link',
-              sub: 'This verifies your email address',
-            },
+            { n: '1', label: 'Check your inbox', sub: `We sent a confirmation link to ${email || 'your email'}` },
+            { n: '2', label: 'Click the confirmation link', sub: 'This verifies your email and activates your account' },
             {
               n: '3',
-              label: isPaidPlan ? 'Complete payment' : 'Sign in & explore',
+              label: isPaidPlan ? 'Complete payment' : 'Sign in and explore',
               sub: isPaidPlan
-                ? `You'll be redirected to pay for the ${PLAN_META[selectedPlan].name} plan`
-                : 'Full access to all features for 7 days',
+                ? `You'll be redirected to pay for the ${planMeta.name} plan (${displayPrice})`
+                : 'Full 7-day access — no credit card required',
             },
           ].map((step, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'flex-start', gap: 14,
-              textAlign: 'left', marginBottom: 12,
+              textAlign: 'left', marginBottom: 10,
               padding: '14px 16px',
               background: 'rgba(255,255,255,0.03)',
               border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12,
@@ -181,32 +235,54 @@ export default function SignupPage() {
             </div>
           ))}
 
-          {!isPaidPlan && (
+          {/* Sign In CTA */}
+          <button
+            onClick={() => router.push('/login')}
+            style={{
+              width: '100%', marginTop: 16,
+              padding: '15px 24px',
+              background: 'linear-gradient(135deg, #cc0000, #ff2222)',
+              border: 'none', borderRadius: 12,
+              color: '#fff', fontSize: 15, fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 24px rgba(204,0,0,0.4)',
+            }}
+          >
+            Go to Sign In →
+          </button>
+
+          {/* Resend confirmation */}
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            {resendMsg && (
+              <p style={{ fontSize: 12, color: resendMsg.startsWith('Confirmation') ? '#22c55e' : '#f87171', marginBottom: 8 }}>
+                {resendMsg}
+              </p>
+            )}
             <button
-              onClick={() => router.push('/login')}
+              onClick={handleResend}
+              disabled={resending || resendCooldown > 0}
               style={{
-                width: '100%', marginTop: 8,
-                padding: '15px 24px',
-                background: 'linear-gradient(135deg, #cc0000, #ff2222)',
-                border: 'none', borderRadius: 12,
-                color: '#fff', fontSize: 15, fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 4px 24px rgba(204,0,0,0.4)',
+                background: 'none', border: 'none', cursor: resendCooldown > 0 ? 'default' : 'pointer',
+                fontSize: 12, color: resendCooldown > 0 ? 'rgba(255,255,255,0.2)' : 'rgba(204,0,0,0.8)',
+                textDecoration: 'underline', padding: 0,
               }}
             >
-              Go to Sign In →
+              {resending
+                ? 'Sending…'
+                : resendCooldown > 0
+                  ? `Resend available in ${resendCooldown}s`
+                  : "Didn't receive the email? Resend confirmation"}
             </button>
-          )}
-
-          <p style={{ marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
-            Didn&apos;t receive the email? Check your spam folder or{' '}
-            <a href="/signup" style={{ color: 'rgba(204,0,0,0.8)', textDecoration: 'none' }}>try again</a>.
-          </p>
+            <p style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.2)' }}>
+              Also check your spam or junk folder.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Signup form ──────────────────────────────────────────────────────────────
   return (
     <div className="login-page">
       <div className="login-card">
@@ -215,25 +291,28 @@ export default function SignupPage() {
             <RedlineD1Logo height={56} background="dark" animated={true} />
           </a>
           <span className="login-logo-sub">
-            {isPaidPlan ? `Get ${PLAN_META[selectedPlan].name} — ${PLAN_META[selectedPlan].price}` : 'Start Your Free 7-Day Trial'}
+            {isPaidPlan
+              ? `Get ${planMeta.name} — ${displayPrice}`
+              : 'Start Your Free 7-Day Trial'}
           </span>
         </div>
 
+        {/* Selected plan indicator */}
         {isPaidPlan && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 16px', marginBottom: 20, borderRadius: 10,
-            background: `${PLAN_META[selectedPlan].color}14`,
-            border: `1px solid ${PLAN_META[selectedPlan].color}44`,
+            background: `${planMeta.color}14`,
+            border: `1px solid ${planMeta.color}44`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: PLAN_META[selectedPlan].color, boxShadow: `0 0 8px ${PLAN_META[selectedPlan].color}` }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: PLAN_META[selectedPlan].color }}>
-                {PLAN_META[selectedPlan].name} Plan
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: planMeta.color, boxShadow: `0 0 8px ${planMeta.color}` }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: planMeta.color }}>
+                {planMeta.name} — {period === 'annual' ? 'Annual' : 'Monthly'}
               </span>
             </div>
             <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>
-              {PLAN_META[selectedPlan].price}
+              {displayPrice}
             </span>
           </div>
         )}
@@ -261,27 +340,39 @@ export default function SignupPage() {
               onChange={e => setPassword(e.target.value)} placeholder="Min. 6 characters" />
           </div>
 
+          {/* Terms + Privacy consent — required */}
+          <label style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+            fontSize: 12, color: '#999', lineHeight: 1.5, marginBottom: 8,
+          }}>
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={e => setConsented(e.target.checked)}
+              style={{ marginTop: 2, accentColor: '#cc0000', flexShrink: 0, width: 14, height: 14 }}
+            />
+            <span>
+              I agree to the{' '}
+              <a href="/terms" style={{ color: '#cc0000', textDecoration: 'underline' }} target="_blank" rel="noopener">Terms of Service</a>,{' '}
+              <a href="/privacy" style={{ color: '#cc0000', textDecoration: 'underline' }} target="_blank" rel="noopener">Privacy Policy</a>, and{' '}
+              <a href="/refund-policy" style={{ color: '#cc0000', textDecoration: 'underline' }} target="_blank" rel="noopener">Refund Policy</a>.
+            </span>
+          </label>
+
           {error && <p className="login-error">{error}</p>}
 
-          <button type="submit" className="login-btn" disabled={loading}>
+          <button type="submit" className="login-btn" disabled={loading || !consented}>
             {loading
               ? 'Creating account…'
               : isPaidPlan
-                ? `Get ${PLAN_META[selectedPlan].name} — ${PLAN_META[selectedPlan].price}`
+                ? `Get ${planMeta.name} — ${displayPrice}`
                 : 'Start Free Trial'}
           </button>
 
-          <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 16 }}>
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
             {isPaidPlan
               ? 'After creating your account, confirm your email to proceed to payment.'
               : 'After 7 days, free plan continues with core features. No credit card required.'}
-          </p>
-
-          <p style={{ textAlign: 'center', fontSize: 11, color: '#777', marginTop: 12, lineHeight: 1.6 }}>
-            By continuing, you agree to our{' '}
-            <a href="/terms" style={{ color: '#999', textDecoration: 'underline' }}>Terms</a>,{' '}
-            <a href="/privacy" style={{ color: '#999', textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
-            <a href="/refund-policy" style={{ color: '#999', textDecoration: 'underline' }}>Refund Policy</a>.
           </p>
         </form>
 
