@@ -1603,3 +1603,93 @@ tr:nth-child(even) {
   padding-left: 8px;
   line-height: 1.4;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 6 — Table system
+   All bare <table> elements scroll horizontally inside a capped
+   container on mobile (the 760px rule sets display:block).
+   .table-wrap gives opt-in scroll with display:table preserved.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 760px) {
+  /* Ensure table cells can wrap on mobile so wide text doesn't force scroll */
+  td { white-space: normal; word-break: break-word; }
+
+  /* table-wrap: constrain to viewport and allow horizontal scroll */
+  .table-wrap {
+    max-width: calc(100vw - 28px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 7 — Form system
+   .form-row already collapses to 1-col at 760px.
+   On phone: reduce padding inside form panels and make all
+   selects/textareas fill their container.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .field input,
+  .field select,
+  .field textarea,
+  .input {
+    font-size: 16px; /* prevent iOS auto-zoom on focus */
+  }
+
+  /* Inline-grid form rows that aren't caught by .form-row */
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 8 — Modals & right-side drawers
+   Centered modals already use maxWidth:'95vw' inline.
+   Right drawers without maxWidth get capped here.
+   Full-screen sheet behavior on very small phones.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Any right-anchored fixed drawer that escaped component-level maxWidth */
+  [style*="position: fixed"][style*="right: 0"],
+  [style*="position:'fixed'"][style*="right:'0'"] {
+    max-width: 100vw !important;
+  }
+
+  /* Centered overlay modals: reduce padding on phone */
+  [style*="position: fixed"][style*="alignItems: center"][style*="justifyContent: center"] > div,
+  [style*="position: fixed"][style*="align-items: center"][style*="justify-content: center"] > div {
+    padding: 20px 16px !important;
+    border-radius: 14px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 9 — Diagnostics tabs & data grids
+   .diagnostic-grid already collapses at 1120px → 2-col.
+   Tab rows scroll horizontally (already set via .tab-row).
+   Compact scan result cards on phone.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .diagnostic-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .data-card strong {
+    font-size: 16px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PHASE 10 — Customer / staff portal pages
+   Portal views use inline flex/grid layouts.
+   Ensure portal content is scrollable and padded on phone.
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Portal card grids: single column */
+  .portal-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Split layout (left detail + right summary) → stack */
+  .split {
+    grid-template-columns: 1fr;
+  }
+}

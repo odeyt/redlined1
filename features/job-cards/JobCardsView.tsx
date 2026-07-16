@@ -1090,7 +1090,7 @@ export function JobCardsView() {
       {/* ── JOB DETAIL DRAWER ── */}
       {selectedJob && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }} onClick={() => setSelectedJob(null)}>
-          <div style={{ width: 420, height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 28, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '-8px 0 40px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ width: 420, maxWidth: '100vw', height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 28, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20, boxShadow: '-8px 0 40px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{selectedJob.id}</h2>
@@ -1166,7 +1166,7 @@ export function JobCardsView() {
       {/* ── STATUS TRACKER MODAL ── */}
       {trackerJob && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }} onClick={() => setTrackerJob(null)}>
-          <div style={{ width: 460, height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '-8px 0 40px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ width: 460, maxWidth: '100vw', height: '100vh', background: 'var(--surface)', borderLeft: '1px solid var(--line)', padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, boxShadow: '-8px 0 40px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>📍 Status Tracker</h2>
