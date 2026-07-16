@@ -7,7 +7,7 @@ export function createClient() {
   const w = typeof window !== 'undefined' ? (window as any) : undefined;
   const url = (w?.__SB_URL__ || process.env.NEXT_PUBLIC_SUPABASE_URL) as string;
   const key = (w?.__SB_KEY__ || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) as string;
-  return createBrowserClient(url, key);
+  return createBrowserClient(url, key, { auth: { flowType: 'implicit' } });
 }
 
 // Lazy singleton — defers createBrowserClient() until first property access.

@@ -35,10 +35,15 @@ export default function AuthCallbackPage() {
 
     async function exchange() {
       try {
-        if (accessToken && refreshToken && (hashType === 'recovery' || hashType === 'invite')) {
+        if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           if (error) throw error;
-          router.replace('/reset-password');
+          if (hashType === 'recovery' || hashType === 'invite') {
+            router.replace('/reset-password');
+          } else {
+            // signup / email confirmation — session is live, go straight to app
+            router.replace('/');
+          }
           return;
         }
 
