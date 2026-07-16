@@ -153,7 +153,8 @@ export function EstimatesView() {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem('d1_lak_thb_rate') ?? 0) || 0;
   });
-  const isD1Shop = getShopId().toUpperCase().startsWith('D1_SHOP');
+  const D1_SHOP_IDS = new Set(['38d55fae-741b-4bac-b520-f96eed65bf38', '90b72748-bf01-4456-999f-f4ba48091606']);
+  const isD1Shop = D1_SHOP_IDS.has(getShopId());
   function updateLakRate(v: number) {
     setLakRate(v);
     if (typeof window !== 'undefined') localStorage.setItem('d1_lak_thb_rate', String(v));
