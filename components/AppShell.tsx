@@ -102,8 +102,12 @@ function Shell() {
         body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
       })
         .then(r => r.ok ? r.json() : null)
-        .then(json => { if (json?.url) window.location.href = json.url; })
-        .catch(() => {});
+        .then(json => {
+          if (json?.url) { window.location.href = json.url; return; }
+          // Checkout URL not returned — redirect to billing page so user can complete manually
+          window.location.href = '/billing';
+        })
+        .catch(() => { window.location.href = '/billing'; });
     } catch { /* malformed entry */ }
   }, [roleLoading]);
 

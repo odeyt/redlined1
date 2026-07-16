@@ -63,20 +63,26 @@ export default function SignupPage() {
           body: JSON.stringify({ name, shopName, email }),
         }).catch(() => {});
 
-        // If paid plan selected, go to Creem checkout before email confirmation
+        // If paid plan selected, auto-confirm email server-side so we can get a
+        // live session immediately and redirect straight to Creem checkout.
         const isPaid = selectedPlan && selectedPlan !== 'trial';
         if (isPaid) {
           const urlParams = new URLSearchParams(window.location.search);
           const billingInterval = urlParams.get('billing') || 'monthly';
 
-          // Ensure we have a live session — signUp may return one directly (email confirm disabled)
-          // or we sign in immediately so the session cookie is set for the checkout API call.
+          // Step 1: auto-confirm the email via service-role endpoint (account must be < 5 min old)
           let liveSession = data.session;
           if (!liveSession) {
             try {
+              await fetch('/api/auth/auto-confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: data.user.id }),
+              });
+              // Email is now confirmed — sign in to get a live session
               const { data: signInData } = await supabase.auth.signInWithPassword({ email, password });
               liveSession = signInData.session;
-            } catch { /* sign-in failed — fall through */ }
+            } catch { /* fall through to localStorage fallback */ }
           }
 
           if (liveSession) {
@@ -98,7 +104,7 @@ export default function SignupPage() {
             }
           }
 
-          // Fallback: store pending checkout — AppShell picks it up after email confirm + login
+          // Fallback: store pending checkout — AppShell picks it up after manual email confirm + login
           try {
             localStorage.setItem('rd1_pending_checkout', JSON.stringify({ planId: selectedPlan, billingInterval }));
           } catch { /* localStorage unavailable */ }
