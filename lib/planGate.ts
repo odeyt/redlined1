@@ -1,7 +1,9 @@
 export type PlanStatus = 'trial' | 'free' | 'pro';
 
+const PAID_PLANS = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
+
 export function getPlanStatus(plan: string | null, trialEndsAt: string | null): PlanStatus {
-  if (plan === 'pro') return 'pro';
+  if (plan && PAID_PLANS.has(plan)) return 'pro';
   if ((plan === 'trial' || plan == null) && trialEndsAt && new Date(trialEndsAt) > new Date()) return 'trial';
   return 'free';
 }

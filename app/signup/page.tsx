@@ -21,7 +21,6 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<string>('trial');
 
-  // Read ?plan= and ?email= params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const prefill = params.get('email');
@@ -29,6 +28,7 @@ export default function SignupPage() {
     const plan = params.get('plan');
     if (plan && PLAN_META[plan]) setSelectedPlan(plan);
   }, []);
+
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,55 +56,19 @@ export default function SignupPage() {
           trial_ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
           shop_name: shopName,
         });
-        // Notify sales team — fire and forget, don't block signup on failure
+
         fetch('/api/signup-notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, shopName, email }),
+          body: JSON.stringify({ name, shopName, email, plan: selectedPlan }),
         }).catch(() => {});
 
-        // If paid plan selected, auto-confirm email server-side so we can get a
-        // live session immediately and redirect straight to Creem checkout.
+        // For paid plans: store the pending checkout so auth/callback fires
+        // it immediately after the user clicks the confirmation email link.
         const isPaid = selectedPlan && selectedPlan !== 'trial';
         if (isPaid) {
           const urlParams = new URLSearchParams(window.location.search);
           const billingInterval = urlParams.get('billing') || 'monthly';
-
-          // Step 1: auto-confirm the email via service-role endpoint (account must be < 5 min old)
-          let liveSession = data.session;
-          if (!liveSession) {
-            try {
-              await fetch('/api/auth/auto-confirm', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: data.user.id }),
-              });
-              // Email is now confirmed — sign in to get a live session
-              const { data: signInData } = await supabase.auth.signInWithPassword({ email, password });
-              liveSession = signInData.session;
-            } catch { /* fall through to localStorage fallback */ }
-          }
-
-          if (liveSession) {
-            try {
-              const res = await fetch('/api/billing/checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ planId: selectedPlan, billingInterval }),
-              });
-              if (res.ok) {
-                const json = await res.json();
-                if (json.url) { window.location.href = json.url; return; }
-              } else {
-                const json = await res.json().catch(() => ({}));
-                console.error('[checkout]', res.status, json);
-              }
-            } catch (err) {
-              console.error('[checkout fetch]', err);
-            }
-          }
-
-          // Fallback: store pending checkout — AppShell picks it up after manual email confirm + login
           try {
             localStorage.setItem('rd1_pending_checkout', JSON.stringify({ planId: selectedPlan, billingInterval }));
           } catch { /* localStorage unavailable */ }
@@ -118,26 +82,22 @@ export default function SignupPage() {
     }
   }
 
+  const isPaidPlan = selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan];
+
   if (success) {
     return (
       <div style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        minHeight: '100vh', background: '#000',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Inter', system-ui, sans-serif",
-        overflow: 'hidden',
-        position: 'relative',
+        overflow: 'hidden', position: 'relative',
       }}>
-        {/* Animated background grid */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'linear-gradient(rgba(204,0,0,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(204,0,0,0.07) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
           maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%)',
         }} />
-        {/* Red glow orb */}
         <div style={{
           position: 'absolute', top: '30%', left: '50%',
           transform: 'translate(-50%, -50%)',
@@ -147,24 +107,18 @@ export default function SignupPage() {
         }} />
 
         <div style={{
-          position: 'relative',
-          width: '100%', maxWidth: 480,
-          margin: '0 24px',
+          position: 'relative', width: '100%', maxWidth: 480, margin: '0 24px',
           background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(204,0,0,0.3)',
-          borderRadius: 20,
-          padding: '48px 40px',
-          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(204,0,0,0.3)', borderRadius: 20,
+          padding: '48px 40px', backdropFilter: 'blur(20px)',
           boxShadow: '0 0 60px rgba(204,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.05) inset',
           textAlign: 'center',
         }}>
-          {/* Logo mark */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 64, height: 64, borderRadius: 16,
             background: 'linear-gradient(135deg, #cc0000, #ff3333)',
-            marginBottom: 28,
-            boxShadow: '0 8px 32px rgba(204,0,0,0.4)',
+            marginBottom: 28, boxShadow: '0 8px 32px rgba(204,0,0,0.4)',
           }}>
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
               <path d="M6 8h12a6 6 0 010 12H6V8z" fill="white" fillOpacity="0.9"/>
@@ -172,36 +126,47 @@ export default function SignupPage() {
             </svg>
           </div>
 
-          {/* Status pill */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
             borderRadius: 100, padding: '4px 14px', marginBottom: 24,
           }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e' }} />
-            <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 600, letterSpacing: 0.5 }}>ACCOUNT ACTIVATED</span>
+            <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 600, letterSpacing: 0.5 }}>ACCOUNT CREATED</span>
           </div>
 
           <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.5px' }}>
             Welcome to RedlineD1
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '0 0 32px', lineHeight: 1.6 }}>
-            Your 7-day full-access trial is ready. One step left — confirm your email to unlock the platform.
+            {isPaidPlan
+              ? `One step left — confirm your email and you'll be taken directly to payment for the ${PLAN_META[selectedPlan].name} plan.`
+              : 'Your 7-day full-access trial is ready. One step left — confirm your email to unlock the platform.'}
           </p>
 
-          {/* Steps */}
           {[
-            { n: '1', label: 'Check your inbox', sub: 'We sent a confirmation link to your email', done: false },
-            { n: '2', label: 'Confirm your email', sub: 'Click the link to verify your account', done: false },
-            { n: '3', label: 'Sign in & explore', sub: 'Full access to all features for 7 days', done: false },
+            {
+              n: '1', label: 'Check your inbox',
+              sub: `We sent a confirmation link to ${email || 'your email'}`,
+            },
+            {
+              n: '2', label: 'Click the confirmation link',
+              sub: 'This verifies your email address',
+            },
+            {
+              n: '3',
+              label: isPaidPlan ? 'Complete payment' : 'Sign in & explore',
+              sub: isPaidPlan
+                ? `You'll be redirected to pay for the ${PLAN_META[selectedPlan].name} plan`
+                : 'Full access to all features for 7 days',
+            },
           ].map((step, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'flex-start', gap: 14,
-              textAlign: 'left', marginBottom: 16,
+              textAlign: 'left', marginBottom: 12,
               padding: '14px 16px',
               background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12,
             }}>
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
@@ -216,29 +181,22 @@ export default function SignupPage() {
             </div>
           ))}
 
-          <button
-            onClick={() => router.push('/login')}
-            style={{
-              width: '100%', marginTop: 8,
-              padding: '15px 24px',
-              background: 'linear-gradient(135deg, #cc0000, #ff2222)',
-              border: 'none', borderRadius: 12,
-              color: '#fff', fontSize: 15, fontWeight: 700,
-              cursor: 'pointer', letterSpacing: 0.3,
-              boxShadow: '0 4px 24px rgba(204,0,0,0.4)',
-              transition: 'transform 0.15s, box-shadow 0.15s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 32px rgba(204,0,0,0.5)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
-              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 24px rgba(204,0,0,0.4)';
-            }}
-          >
-            Go to Sign In →
-          </button>
+          {!isPaidPlan && (
+            <button
+              onClick={() => router.push('/login')}
+              style={{
+                width: '100%', marginTop: 8,
+                padding: '15px 24px',
+                background: 'linear-gradient(135deg, #cc0000, #ff2222)',
+                border: 'none', borderRadius: 12,
+                color: '#fff', fontSize: 15, fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 24px rgba(204,0,0,0.4)',
+              }}
+            >
+              Go to Sign In →
+            </button>
+          )}
 
           <p style={{ marginTop: 20, fontSize: 12, color: 'rgba(255,255,255,0.25)' }}>
             Didn&apos;t receive the email? Check your spam folder or{' '}
@@ -256,11 +214,12 @@ export default function SignupPage() {
           <a href="/landing-preview" aria-label="RedlineD1 home" style={{ display: 'inline-block', textDecoration: 'none' }}>
             <RedlineD1Logo height={56} background="dark" animated={true} />
           </a>
-          <span className="login-logo-sub">Start Your Free 7-Day Trial</span>
+          <span className="login-logo-sub">
+            {isPaidPlan ? `Get ${PLAN_META[selectedPlan].name} — ${PLAN_META[selectedPlan].price}` : 'Start Your Free 7-Day Trial'}
+          </span>
         </div>
 
-        {/* Selected plan banner */}
-        {selectedPlan && PLAN_META[selectedPlan] && selectedPlan !== 'trial' && (
+        {isPaidPlan && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 16px', marginBottom: 20, borderRadius: 10,
@@ -307,19 +266,20 @@ export default function SignupPage() {
           <button type="submit" className="login-btn" disabled={loading}>
             {loading
               ? 'Creating account…'
-              : selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan]
+              : isPaidPlan
                 ? `Get ${PLAN_META[selectedPlan].name} — ${PLAN_META[selectedPlan].price}`
                 : 'Start Free Trial'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 16 }}>
-            After 7 days, free plan continues with core features.{' '}
-            <br />No credit card required.
+            {isPaidPlan
+              ? 'After creating your account, confirm your email to proceed to payment.'
+              : 'After 7 days, free plan continues with core features. No credit card required.'}
           </p>
 
           <p style={{ textAlign: 'center', fontSize: 11, color: '#777', marginTop: 12, lineHeight: 1.6 }}>
-            By starting your trial, you agree to our{' '}
-            <a href="/terms" style={{ color: '#999', textDecoration: 'underline' }}>Terms of Service</a>,{' '}
+            By continuing, you agree to our{' '}
+            <a href="/terms" style={{ color: '#999', textDecoration: 'underline' }}>Terms</a>,{' '}
             <a href="/privacy" style={{ color: '#999', textDecoration: 'underline' }}>Privacy Policy</a>, and{' '}
             <a href="/refund-policy" style={{ color: '#999', textDecoration: 'underline' }}>Refund Policy</a>.
           </p>
