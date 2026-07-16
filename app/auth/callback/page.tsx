@@ -39,11 +39,17 @@ export default function AuthCallbackPage() {
         if (raw) {
           localStorage.removeItem('rd1_pending_checkout');
 
-          // Client-side owner guard — skip checkout before even hitting the API
-          const ownerEnv = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '';
-          const ownerSet = new Set(ownerEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
+          // Client-side billing exemption guard — skip checkout before hitting the API
           const { data: { user: me } } = await supabase.auth.getUser();
-          if (ownerSet.size > 0 && ownerSet.has((me?.email ?? '').toLowerCase())) {
+          const myEmail = (me?.email ?? '').toLowerCase();
+          const myDomain = myEmail.split('@')[1] ?? '';
+          const exemptEmails = new Set(
+            (process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+          );
+          const exemptDomains = new Set(
+            (process.env.NEXT_PUBLIC_BILLING_EXEMPT_DOMAINS ?? '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
+          );
+          if (exemptEmails.has(myEmail) || (myDomain && exemptDomains.has(myDomain))) {
             router.replace('/');
             return;
           }

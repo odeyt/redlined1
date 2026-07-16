@@ -120,23 +120,24 @@ function Shell() {
       } catch { /* malformed */ }
     }
 
-    // Client-side owner guard — clear and skip before hitting the API
-    const ownerEnv = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '';
-    const ownerSet = new Set(ownerEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
-    if (ownerSet.size > 0) {
-      import('@/lib/supabase').then(({ supabase }) =>
-        supabase.auth.getUser().then(({ data }) => {
-          if (!ownerSet.has((data.user?.email ?? '').toLowerCase())) {
-            firePendingCheckout(raw);
-          } else {
-            localStorage.removeItem('rd1_pending_checkout');
-          }
-        })
-      );
-      return;
-    }
-
-    firePendingCheckout(raw);
+    // Client-side billing exemption guard — clear and skip before hitting the API
+    import('@/lib/supabase').then(({ supabase }) =>
+      supabase.auth.getUser().then(({ data }) => {
+        const email = (data.user?.email ?? '').toLowerCase();
+        const domain = email.split('@')[1] ?? '';
+        const exemptEmails = new Set(
+          (process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+        );
+        const exemptDomains = new Set(
+          (process.env.NEXT_PUBLIC_BILLING_EXEMPT_DOMAINS ?? '').split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
+        );
+        if (exemptEmails.has(email) || (domain && exemptDomains.has(domain))) {
+          localStorage.removeItem('rd1_pending_checkout');
+        } else {
+          firePendingCheckout(raw);
+        }
+      })
+    );
   }, [roleLoading]);
 
   // Role-based module blocking (sidebar does visual hiding; this is the safety net)

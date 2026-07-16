@@ -53,16 +53,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Technicians cannot manage billing' }, { status: 403 });
     }
 
-    // Block platform owner email(s) from being billed.
-    // Supports comma-separated list, e.g. "admin@example.com,owner@example.com"
-    const ownerEmails = new Set(
+    // Block internal staff from being billed.
+    // PLATFORM_OWNER_EMAIL / NEXT_PUBLIC_PLATFORM_OWNER_EMAIL — comma-separated exact emails
+    // BILLING_EXEMPT_DOMAINS — comma-separated domains, e.g. "d1autozone.com"
+    const userEmail = (user.email ?? '').toLowerCase();
+    const userDomain = userEmail.split('@')[1] ?? '';
+
+    const exemptEmails = new Set(
       [process.env.PLATFORM_OWNER_EMAIL, process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL]
         .flatMap(v => (v ?? '').split(','))
         .map(e => e.trim().toLowerCase())
         .filter(Boolean)
     );
-    if (ownerEmails.has((user.email ?? '').toLowerCase())) {
-      return NextResponse.json({ error: 'Platform owner account is not subject to billing' }, { status: 403 });
+    const exemptDomains = new Set(
+      (process.env.BILLING_EXEMPT_DOMAINS ?? '')
+        .split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
+    );
+
+    if (exemptEmails.has(userEmail) || (userDomain && exemptDomains.has(userDomain))) {
+      return NextResponse.json({ error: 'This account is not subject to billing' }, { status: 403 });
     }
 
     if (shopUser?.shop_id && getInternalShopIds().has(shopUser.shop_id)) {
