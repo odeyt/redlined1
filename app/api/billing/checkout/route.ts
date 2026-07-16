@@ -53,6 +53,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Technicians cannot manage billing' }, { status: 403 });
     }
 
+    // Block platform owner email from being billed
+    const ownerEmail = process.env.PLATFORM_OWNER_EMAIL;
+    if (ownerEmail && user.email === ownerEmail) {
+      return NextResponse.json({ error: 'Platform owner account is not subject to billing' }, { status: 403 });
+    }
+
     if (shopUser?.shop_id && getInternalShopIds().has(shopUser.shop_id)) {
       return NextResponse.json({ error: 'Internal accounts are not subject to billing' }, { status: 403 });
     }

@@ -101,11 +101,15 @@ function Shell() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
       })
-        .then(r => r.ok ? r.json() : null)
+        .then(r => {
+          // 403 = owner/internal/technician — not an error, just skip silently
+          if (r.status === 403) return null;
+          return r.ok ? r.json() : Promise.reject(r.status);
+        })
         .then(json => {
           if (json?.url) { window.location.href = json.url; return; }
-          // Checkout URL not returned — redirect to billing page so user can complete manually
-          window.location.href = '/billing';
+          // Non-403 failure — redirect to billing so user can complete manually
+          if (json !== null) window.location.href = '/billing';
         })
         .catch(() => { window.location.href = '/billing'; });
     } catch { /* malformed entry */ }
