@@ -299,7 +299,7 @@ export function HeroSection() {
                   transition: 'all 0.2s',
                 }}
               >
-                <div>{loadingPlan === plan.planId ? '…' : plan.label}</div>
+                <div>{plan.label}</div>
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{plan.price}/mo</div>
               </button>
             ))}
