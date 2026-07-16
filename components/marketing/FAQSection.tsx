@@ -131,26 +131,10 @@ const PLAN_CTАС = [
 
 function FAQItem({ q, a, cta, color }: { q: string; a: string; cta?: { label: string; href?: string; planId?: string; type: string }; color: string }) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const panelId = useId();
 
-  async function handleCheckout(planId: string) {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, billingInterval: 'monthly' }),
-      });
-      if (res.status === 401) { window.location.href = '/login?next=pricing'; return; }
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      if (url) window.location.href = url;
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
+  function handleCheckout(planId: string) {
+    window.location.href = `/signup?plan=${planId}&billing=monthly`;
   }
 
   return (
@@ -206,17 +190,16 @@ function FAQItem({ q, a, cta, color }: { q: string; a: string; cta?: { label: st
             ) : (
               <button
                 type="button"
-                disabled={loading}
                 onClick={() => handleCheckout(cta.planId!)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: '6px',
                   fontSize: '13px', fontWeight: 700, color: color,
-                  padding: '8px 16px', borderRadius: '8px', cursor: loading ? 'wait' : 'pointer',
+                  padding: '8px 16px', borderRadius: '8px', cursor: 'pointer',
                   background: `${color}15`, border: `1px solid ${color}33`,
-                  transition: 'all 0.2s', opacity: loading ? 0.6 : 1,
+                  transition: 'all 0.2s',
                 }}
               >
-                {loading ? 'Redirecting…' : `${cta.label} →`}
+                {cta.label} →
               </button>
             )
           )}
@@ -235,28 +218,12 @@ const CAT_COLORS: Record<string, string> = {
 
 export function FAQSection() {
   const [activeCat, setActiveCat] = useState('All');
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const filtered = activeCat === 'All' ? FAQS : FAQS.filter(f => f.cat === activeCat);
   const catColor = activeCat === 'All' ? '#cc0000' : (CAT_COLORS[activeCat] ?? '#cc0000');
 
-  async function handlePlanCheckout(planId: string) {
-    setLoadingPlan(planId);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, billingInterval: 'monthly' }),
-      });
-      if (res.status === 401) { window.location.href = '/login?next=pricing'; return; }
-      if (!res.ok) throw new Error();
-      const { url } = await res.json();
-      if (url) window.location.href = url;
-    } catch {
-      // silent
-    } finally {
-      setLoadingPlan(null);
-    }
+  function handlePlanCheckout(planId: string) {
+    window.location.href = `/signup?plan=${planId}&billing=monthly`;
   }
 
   return (
@@ -348,7 +315,6 @@ export function FAQSection() {
               <button
                 key={plan.planId}
                 type="button"
-                disabled={loadingPlan === plan.planId}
                 onClick={() => handlePlanCheckout(plan.planId)}
                 style={{
                   padding: '14px 12px', borderRadius: '12px', cursor: 'pointer',
@@ -357,10 +323,9 @@ export function FAQSection() {
                   color: '#fff', fontWeight: 700, fontSize: '14px',
                   boxShadow: plan.featured ? `0 4px 20px ${plan.color}44` : 'none',
                   transition: 'all 0.2s',
-                  opacity: loadingPlan === plan.planId ? 0.6 : 1,
                 }}
               >
-                <div>{loadingPlan === plan.planId ? '…' : plan.label}</div>
+                <div>{plan.label}</div>
                 <div style={{ fontSize: '11px', fontWeight: 500, color: plan.featured ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)', marginTop: '3px' }}>{plan.price}</div>
               </button>
             ))}
