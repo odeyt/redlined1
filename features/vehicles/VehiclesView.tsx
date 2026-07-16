@@ -378,7 +378,7 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated, onGoToModule }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated, onGoToModule, onThumbsUpdated }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
@@ -395,9 +395,47 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   onGoToCustomer: (customerId: string) => void;
   onCustomerCreated: (c: Customer) => void;
   onGoToModule: (module: string, extra?: Record<string, unknown>) => void;
+  onThumbsUpdated?: (vehicleId: string, urls: string[]) => void;
 }) {
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
+  // Local image state for lightbox + inline upload
+  const [drawerImages, setDrawerImages] = useState<Array<{id: string; url: string; label: string}>>([]);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const photoUploadRef = useRef<HTMLInputElement>(null);
+
+  // Seed from thumbUrls immediately, then fetch full list once
+  useEffect(() => {
+    if (thumbUrls?.length && drawerImages.length === 0) {
+      setDrawerImages(thumbUrls.map((url, i) => ({ id: `seed-${i}`, url, label: '' })));
+    }
+    fetchVehicleImages(vehicle.id).then(imgs => {
+      setDrawerImages(imgs);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicle.id]);
+
+  async function handleInlineUpload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploadingPhotos(true);
+    const uploaded: Array<{id: string; url: string; label: string}> = [];
+    for (const file of Array.from(files)) {
+      try {
+        const img = await uploadVehicleImage(vehicle.id, file);
+        uploaded.push(img);
+      } catch { /* skip failed file */ }
+    }
+    if (uploaded.length) {
+      setDrawerImages(prev => {
+        const next = [...prev.filter(i => !i.id.startsWith('seed-')), ...uploaded];
+        onThumbsUpdated?.(vehicle.id, next.map(i => i.url));
+        return next;
+      });
+    }
+    setUploadingPhotos(false);
+    if (photoUploadRef.current) photoUploadRef.current.value = '';
+  }
   const [err, setErr] = useState('');
   const [toast, setToast] = useState('');
   const [custSearch, setCustSearch] = useState('');
@@ -846,57 +884,137 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
 
         {/* Photo thumbnail strip */}
         <div style={{ padding: '10px 20px 2px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
-            {(thumbUrls && thumbUrls.length > 0) ? (
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, alignItems: 'center' }}>
+            {drawerImages.length > 0 ? (
               <>
-                {thumbUrls.map((url, i) => (
+                {drawerImages.map((img, i) => (
                   <div
-                    key={i}
-                    onClick={onPhotos}
-                    title="View photos"
+                    key={img.id}
+                    onClick={() => setLightboxIdx(i)}
+                    title="View full size"
                     style={{
                       flexShrink: 0, width: 80, height: 60, borderRadius: 8,
-                      overflow: 'hidden', cursor: 'pointer', border: '1.5px solid var(--line)',
+                      overflow: 'hidden', cursor: 'zoom-in', border: '1.5px solid var(--line)',
                       background: '#000', position: 'relative',
+                      transition: 'border-color .15s, transform .15s',
                     }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent,#cc0000)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'scale(1)'; }}
                   >
-                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </div>
                 ))}
                 <div
-                  onClick={onPhotos}
-                  title="Add / manage photos"
+                  onClick={() => photoUploadRef.current?.click()}
+                  title="Add more photos"
                   style={{
                     flexShrink: 0, width: 60, height: 60, borderRadius: 8,
                     border: '1.5px dashed var(--line)', background: 'var(--surface-soft)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center',
                     justifyContent: 'center', cursor: 'pointer', gap: 2,
+                    opacity: uploadingPhotos ? 0.5 : 1,
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>📷</span>
-                  <span style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>ADD</span>
+                  <span style={{ fontSize: 18 }}>{uploadingPhotos ? '⏳' : '📷'}</span>
+                  <span style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>{uploadingPhotos ? '…' : 'ADD'}</span>
                 </div>
               </>
             ) : (
               <div
-                onClick={onPhotos}
+                onClick={() => photoUploadRef.current?.click()}
                 title="Add photos"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                   padding: '8px 12px', borderRadius: 10,
                   border: '1.5px dashed var(--line)', background: 'var(--surface-soft)',
-                  flex: 1,
+                  flex: 1, opacity: uploadingPhotos ? 0.5 : 1,
                 }}
               >
-                <span style={{ fontSize: 22 }}>📷</span>
+                <span style={{ fontSize: 22 }}>{uploadingPhotos ? '⏳' : '📷'}</span>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>No photos yet</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{uploadingPhotos ? 'Uploading…' : 'No photos yet'}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>Tap to add vehicle photos</div>
                 </div>
               </div>
             )}
           </div>
         </div>
+        <input
+          ref={photoUploadRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={e => handleInlineUpload(e.target.files)}
+        />
+
+        {/* Lightbox */}
+        {lightboxIdx !== null && drawerImages[lightboxIdx] && (() => {
+          const img = drawerImages[lightboxIdx];
+          const prev = () => setLightboxIdx(i => i !== null ? (i > 0 ? i - 1 : drawerImages.length - 1) : null);
+          const next = () => setLightboxIdx(i => i !== null ? (i < drawerImages.length - 1 ? i + 1 : 0) : null);
+          return (
+            <div
+              onClick={() => setLightboxIdx(null)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '92vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                {/* Close */}
+                <button
+                  onClick={() => setLightboxIdx(null)}
+                  style={{ position: 'absolute', top: -40, right: 0, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 34, height: 34, cursor: 'pointer', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >✕</button>
+
+                {/* Main image */}
+                <img
+                  src={img.url}
+                  alt={img.label}
+                  style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 8px 48px rgba(0,0,0,0.6)' }}
+                />
+
+                {/* Counter + link */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{lightboxIdx + 1} / {drawerImages.length}</span>
+                  <a
+                    href={img.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    🔗 Open full size ↗
+                  </a>
+                </div>
+
+                {/* Thumbnail strip */}
+                {drawerImages.length > 1 && (
+                  <div style={{ display: 'flex', gap: 6, maxWidth: '90vw', overflowX: 'auto', paddingBottom: 4 }}>
+                    {drawerImages.map((im, i) => (
+                      <div
+                        key={im.id}
+                        onClick={() => setLightboxIdx(i)}
+                        style={{
+                          flexShrink: 0, width: 56, height: 42, borderRadius: 6, overflow: 'hidden',
+                          cursor: 'pointer', border: i === lightboxIdx ? '2px solid #cc0000' : '2px solid transparent',
+                          opacity: i === lightboxIdx ? 1 : 0.55, transition: 'opacity .15s, border-color .15s',
+                        }}
+                      >
+                        <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Prev / Next */}
+              {drawerImages.length > 1 && (
+                <>
+                  <button onClick={e => { e.stopPropagation(); prev(); }} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, cursor: 'pointer', color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+                  <button onClick={e => { e.stopPropagation(); next(); }} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, cursor: 'pointer', color: '#fff', fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Form body */}
         <div style={{ flex: 1, padding: '20px 28px', overflowY: 'auto' }}>
@@ -1772,6 +1890,7 @@ export function VehiclesView() {
           }}
           onDelete={() => { handleDeleteVehicle(drawerVehicle); setDrawerVehicle(null); }}
           onPhotos={() => { setGalleryVehicle(drawerVehicle); }}
+          onThumbsUpdated={(vehicleId, urls) => setThumbs(prev => ({ ...prev, [vehicleId]: urls }))}
           onJobCard={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label } });
