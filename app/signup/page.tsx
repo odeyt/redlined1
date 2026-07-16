@@ -5,17 +5,29 @@ import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
+const PLAN_META: Record<string, { name: string; price: string; color: string }> = {
+  trial:        { name: 'Free Trial',    price: 'Free for 7 days', color: '#22d3a0' },
+  solo:         { name: 'Solo',          price: '$24/mo',          color: '#60a5fa' },
+  starter:      { name: 'Starter',       price: '$49/mo',          color: '#a78bfa' },
+  professional: { name: 'Professional',  price: '$99/mo',          color: '#cc0000' },
+  business:     { name: 'Business',      price: '$179/mo',         color: '#f59e0b' },
+  enterprise:   { name: 'Enterprise',    price: 'Custom',          color: '#e74c3c' },
+};
+
 export default function SignupPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [shopName, setShopName] = useState('');
   const [email, setEmail] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState<string>('trial');
 
-  // Pre-fill email when redirected from forgot-password "not found" flow
+  // Read ?plan= and ?email= params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const prefill = params.get('email');
     if (prefill) setEmail(decodeURIComponent(prefill));
+    const plan = params.get('plan');
+    if (plan && PLAN_META[plan]) setSelectedPlan(plan);
   }, []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -200,6 +212,26 @@ export default function SignupPage() {
           <span className="login-logo-sub">Start Your Free 7-Day Trial</span>
         </div>
 
+        {/* Selected plan banner */}
+        {selectedPlan && PLAN_META[selectedPlan] && selectedPlan !== 'trial' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px', marginBottom: 20, borderRadius: 10,
+            background: `${PLAN_META[selectedPlan].color}14`,
+            border: `1px solid ${PLAN_META[selectedPlan].color}44`,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: PLAN_META[selectedPlan].color, boxShadow: `0 0 8px ${PLAN_META[selectedPlan].color}` }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: PLAN_META[selectedPlan].color }}>
+                {PLAN_META[selectedPlan].name} Plan
+              </span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>
+              {PLAN_META[selectedPlan].price}
+            </span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="login-form">
           <div className="login-field">
             <label htmlFor="name">Your Name</label>
@@ -226,7 +258,11 @@ export default function SignupPage() {
           {error && <p className="login-error">{error}</p>}
 
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Creating account…' : 'Start Free Trial'}
+            {loading
+              ? 'Creating account…'
+              : selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan]
+                ? `Get ${PLAN_META[selectedPlan].name} — ${PLAN_META[selectedPlan].price}`
+                : 'Start Free Trial'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 16 }}>

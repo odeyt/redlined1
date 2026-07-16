@@ -29,7 +29,6 @@ const JOBS = [
 export function HeroSection() {
   const [wordIdx, setWordIdx] = useState(0);
   const [fading, setFading]   = useState(false);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -46,25 +45,8 @@ export function HeroSection() {
     return () => clearInterval(t);
   }, []);
 
-  async function handleCheckout(planId: string) {
-    setLoadingPlan(planId);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, billingInterval: 'monthly' }),
-      });
-      if (res.status === 401) { window.location.href = `/signup?plan=${planId}`; return; }
-      if (res.status === 403) { window.location.href = `/signup?plan=${planId}`; return; }
-      if (!res.ok)            { window.location.href = `/signup?plan=${planId}`; return; }
-      const { url } = await res.json();
-      if (url) window.location.href = url;
-      else     window.location.href = `/signup?plan=${planId}`;
-    } catch {
-      window.location.href = `/signup?plan=${planId}`;
-    } finally {
-      setLoadingPlan(null);
-    }
+  function handleCheckout(planId: string) {
+    window.location.href = `/signup?plan=${planId}&billing=monthly`;
   }
 
   return (
@@ -305,7 +287,6 @@ export function HeroSection() {
               <button
                 key={plan.planId}
                 type="button"
-                disabled={loadingPlan === plan.planId}
                 onClick={() => handleCheckout(plan.planId)}
                 className={plan.featured ? 'hero-trial-btn' : 'hero-plan-btn'}
                 style={{
@@ -315,7 +296,6 @@ export function HeroSection() {
                   color: plan.featured ? '#fff' : 'rgba(255,255,255,0.5)',
                   fontWeight: 700, fontSize: 13,
                   animation: plan.featured ? 'hero-glow-pulse 2.5s ease-in-out infinite' : 'none',
-                  opacity: loadingPlan === plan.planId ? 0.6 : 1,
                   transition: 'all 0.2s',
                 }}
               >

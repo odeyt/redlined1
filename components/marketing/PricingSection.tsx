@@ -122,44 +122,15 @@ const PLANS = [
 
 export function PricingSection() {
   const [annual, setAnnual] = useState(false);
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
-  const [errorPlan, setErrorPlan] = useState<string | null>(null);
 
-  async function handlePlanClick(planKey: string) {
+  function handlePlanClick(planKey: string) {
     if (planKey === 'trial') return; // handled by Link
     if (planKey === 'enterprise') {
       window.location.href = 'mailto:admin@redlined1.com?subject=Enterprise%20plan%20inquiry';
       return;
     }
-
-    setLoadingPlan(planKey);
-    setErrorPlan(null);
-
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId: planKey, billingInterval: annual ? 'annual' : 'monthly' }),
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        window.location.href = `/signup?plan=${planKey}`;
-        return;
-      }
-
-      if (!res.ok) {
-        window.location.href = `/signup?plan=${planKey}`;
-        return;
-      }
-
-      const { url } = await res.json();
-      if (url) window.location.href = url;
-      else window.location.href = `/signup?plan=${planKey}`;
-    } catch {
-      window.location.href = `/signup?plan=${planKey}`;
-    } finally {
-      setLoadingPlan(null);
-    }
+    const interval = annual ? 'annual' : 'monthly';
+    window.location.href = `/signup?plan=${planKey}&billing=${interval}`;
   }
 
   return (
@@ -247,8 +218,6 @@ export function PricingSection() {
             const price = annual ? plan.annual : plan.monthly;
             const isTrial = plan.key === 'trial';
             const isEnterprise = plan.key === 'enterprise';
-            const isLoading = loadingPlan === plan.key;
-            const hasError = errorPlan === plan.key;
 
             return (
               <div
@@ -348,32 +317,29 @@ export function PricingSection() {
                 ) : (
                   <button
                     type="button"
-                    disabled={isLoading}
                     onClick={() => handlePlanClick(plan.key)}
                     className={plan.featured ? 'price-btn-red' : 'price-btn-white'}
                     style={{
                       display: 'block', width: '100%', padding: '13px 0',
                       borderRadius: '10px', fontWeight: 800, fontSize: '14px',
-                      cursor: isLoading ? 'wait' : 'pointer',
-                      marginBottom: '22px',
+                      cursor: 'pointer', marginBottom: '22px',
                       background: plan.featured
                         ? 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)'
                         : 'rgba(255,255,255,0.07)',
                       color: '#fff',
                       border: plan.featured ? '1px solid rgba(255,100,100,0.2)' : '1px solid rgba(255,255,255,0.14)',
                       transition: 'transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s',
-                      opacity: isLoading ? 0.6 : 1,
                       position: 'relative', overflow: 'hidden',
                     }}
                   >
                     {plan.featured && (
                       <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '300px 100%', animation: 'price-shimmer 3s linear infinite', pointerEvents: 'none' }} />
                     )}
-                    {isLoading ? 'Redirecting…' : plan.cta}
+                    {plan.cta}
                   </button>
                 )}
 
-                {hasError && (
+                {false && (
                   <p style={{ fontSize: '12px', color: '#f87171', marginTop: '-14px', marginBottom: '14px', textAlign: 'center' }}>
                     Could not start checkout.{' '}
                     <a href="mailto:admin@redlined1.com" style={{ color: '#f87171' }}>Contact us</a>
