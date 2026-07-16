@@ -43,7 +43,7 @@ import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvid
 import { EnvBanner } from '@/components/EnvBanner';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
 import { CommandCenterView } from '@/features/command-center/CommandCenterView';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, needsWatermark } from '@/lib/planGate';
 
@@ -90,6 +90,17 @@ function Shell() {
   const { role, loading: roleLoading } = useShop();
   const { status: planStatus, daysLeft, loading: planLoading } = usePlan();
   const checkoutFired = useRef(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileNavOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileNavOpen]);
 
   // Fallback: if auth/callback missed the pending checkout (cross-browser), pick it up here
   useEffect(() => {
@@ -255,9 +266,9 @@ function Shell() {
       )}
 
       <div className="shell" style={planStatus === 'trial' && daysLeft !== null && daysLeft <= 2 ? { paddingTop: '40px' } : {}}>
-        <Sidebar />
+        <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
         <main className="main">
-          <Header />
+          <Header onMobileNavToggle={() => setMobileNavOpen(o => !o)} />
           <div className="content" style={{ position: 'relative' }}>
             <Toast message={toast} />
             <ErrorBoundary>

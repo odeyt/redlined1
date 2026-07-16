@@ -49,7 +49,7 @@ function highlight(text: string, query: string) {
   );
 }
 
-export function Header() {
+export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }) {
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -154,9 +154,19 @@ export function Header() {
 
   return (
     <header className="topbar">
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
+      <div className="topbar-row">
+        <button
+          className="mobile-menu-btn"
+          onClick={onMobileNavToggle}
+          aria-label="Open navigation menu"
+          aria-expanded={false}
+        >
+          ☰
+        </button>
+        <div>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
       </div>
       <div className="actions">
 
@@ -193,7 +203,7 @@ export function Header() {
                 position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
                 background: 'var(--surface)', border: '1px solid var(--line)',
                 borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                zIndex: 9999, maxHeight: 460, overflowY: 'auto', minWidth: 380,
+                zIndex: 9999, maxHeight: 460, overflowY: 'auto', minWidth: 'min(380px, calc(100vw - 28px))',
               }}
             >
               {results.length === 0 && !searching ? (

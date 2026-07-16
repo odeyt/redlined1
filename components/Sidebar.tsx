@@ -16,7 +16,7 @@ import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
 import { useNotifications } from '@/lib/useNotifications';
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -289,7 +289,16 @@ export function Sidebar() {
   });
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}`} style={{ position: 'relative' }}>
+    <>
+      {/* Backdrop — closes drawer when tapping outside on mobile */}
+      {mobileOpen && (
+        <div
+          className="sidebar-backdrop visible"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} style={{ position: 'relative' }}>
       {/* Collapse toggle — upper-right corner */}
       <button
         onClick={toggleCollapse}
@@ -421,7 +430,7 @@ export function Sidebar() {
               className={activeModule === id ? 'active' : ''}
               title={tipLabel}
               style={{ '--icon-color': locked ? '#555' : (iconColors[id] || '#9eb2c2'), opacity: locked ? 0.5 : 1 } as React.CSSProperties}
-              onClick={() => locked ? null : dispatch({ type: 'SET_MODULE', module: id })}
+              onClick={() => { if (locked) return; dispatch({ type: 'SET_MODULE', module: id }); onClose?.(); }}
               onMouseEnter={e => showTooltip(e, tipLabel)}
               onMouseLeave={hideTooltip}
             >
@@ -624,5 +633,6 @@ export function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }

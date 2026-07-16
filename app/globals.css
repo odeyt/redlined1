@@ -344,6 +344,56 @@ textarea {
   padding: 10px 12px;
 }
 
+/* ── Mobile hamburger toggle ── */
+.mobile-menu-btn {
+  display: none; /* shown via media query at ≤760px */
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+  transition: background 0.15s;
+  padding: 0;
+}
+.mobile-menu-btn:hover { background: rgba(255, 255, 255, 0.12); }
+[data-theme="light"] .mobile-menu-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* ── Topbar title row: wraps hamburger + title ── */
+.topbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.topbar-row > div { min-width: 0; }
+
+/* ── Sidebar backdrop overlay (mobile) ── */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 399;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.sidebar-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ── Outline pill button — bordered, transparent fill, colored text ── */
 .btn {
   border: 2px solid var(--text);
@@ -910,16 +960,27 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  /* ── Off-canvas drawer (replaces horizontal scroll nav) ── */
   .sidebar {
-    height: auto;
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 20;
-    padding: 10px 12px;
+    left: -290px;
+    width: 280px;
+    height: 100dvh;
+    z-index: 400;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s;
+    padding: 16px 12px 48px;
+  }
+
+  .sidebar.mobile-open {
+    left: 0;
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.7);
   }
 
   .brand {
-    padding: 0 2px 10px;
+    padding: 0 2px 16px;
   }
 
   .brand-mark {
@@ -935,42 +996,51 @@ tr:last-child td {
     font-size: 11px;
   }
 
+  /* Restore vertical nav inside the drawer */
   .nav {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    scrollbar-width: thin;
+    display: grid;
+    gap: 2px;
+    margin-top: 12px;
+    overflow-x: visible;
+    overflow-y: auto;
+    padding-bottom: 0;
+    scrollbar-width: auto;
   }
 
   .nav button {
-    grid-template-columns: 20px 1fr;
-    min-width: 128px;
-    min-height: 40px;
-    padding: 8px 10px;
+    grid-template-columns: 26px 1fr auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
     justify-items: start;
   }
 
   .nav .count {
-    display: none;
+    display: inline;
   }
 
   .nav .label {
     display: inline;
-    font-size: 12px;
+    font-size: 13px;
   }
 
+  /* Show hamburger */
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  /* Topbar: sticky, stacks title row then actions */
   .topbar {
-    align-items: flex-start;
+    align-items: stretch;
     flex-direction: column;
-    padding: 14px;
-    position: static;
+    gap: 10px;
+    padding: 12px 14px;
+    position: sticky;
     min-height: auto;
   }
 
   .topbar h1 {
-    font-size: 19px;
+    font-size: 18px;
   }
 
   .topbar p {
@@ -982,10 +1052,20 @@ tr:last-child td {
     gap: 14px;
   }
 
-  .search,
-  .actions,
-  .btn {
+  /* Search fills width; actions stack column */
+  .search {
     width: 100%;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .grid.cols-2,
@@ -1052,9 +1132,7 @@ tr:last-child td {
 }
 
 @media (max-width: 430px) {
-  .nav button {
-    min-width: 112px;
-  }
+  /* nav button min-width removed — drawer fills 280px */
 
   .btn {
     justify-content: center;
