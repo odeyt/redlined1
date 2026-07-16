@@ -1215,7 +1215,7 @@ export function InvoicesView() {
                   {selected.lines.map((line, i) => {
                     const lc = line.currency || selected.currency;
                     return (
-                    <tr key={i} style={{ background: i % 2 === 0 ? '#fffde7' : 'transparent' }}>
+                    <tr key={i} style={{ background: i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
                       <td style={{ color: 'var(--muted)', fontSize: 12 }}>{line.note || '—'}</td>
                       <td>
                         <div>{line.description}</div>
