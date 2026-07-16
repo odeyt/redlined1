@@ -50,8 +50,8 @@ export default function AuthCallbackPage() {
           });
           if (error) throw error;
           if (type === 'invite') { router.replace('/reset-password'); return; }
-          // Signup/email confirmation: go to login so SSR cookies are set cleanly
-          if (type === 'signup' || type === 'email') { router.replace('/login?verified=1'); return; }
+          // Signup/email confirmation: go to app — session is live, AppShell fires pending checkout
+          if (type === 'signup' || type === 'email') { router.replace('/'); return; }
           router.replace(next);
           return;
         }
@@ -71,7 +71,8 @@ export default function AuthCallbackPage() {
             if (intent === 'recovery') {
               router.replace('/reset-password');
             } else {
-              router.replace('/login?verified=1');
+              // Email confirmation after signup — session is live, go straight to app
+              router.replace('/');
             }
           }
           return;
@@ -110,14 +111,39 @@ export default function AuthCallbackPage() {
     );
   }
 
-  if (status === 'error' || status === 'expired-invite') {
+  if (status === 'expired-invite') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
-        <div style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
-          <p style={{ color: '#888', marginBottom: 16 }}>This link has expired or is invalid.</p>
-          <p style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>Ask your shop owner to resend the invite.</p>
-          <a href="/login" style={{ color: '#cc0000', fontWeight: 600 }}>Go to Login →</a>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ textAlign: 'center', padding: 32, maxWidth: 400 }}>
+          <div style={{ fontSize: 44, marginBottom: 16 }}>⏱️</div>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 10 }}>Confirmation link expired</p>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
+            Email confirmation links expire after 24 hours. Request a new one — it only takes a second.
+          </p>
+          <a href="/signup" style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '12px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none', marginBottom: 16 }}>
+            Sign Up Again
+          </a>
+          <br />
+          <a href="/login" style={{ color: '#666', fontSize: 13 }}>Already confirmed? Sign in →</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ textAlign: 'center', padding: 32, maxWidth: 400 }}>
+          <div style={{ fontSize: 44, marginBottom: 16 }}>⚠️</div>
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 10 }}>This link has expired or is invalid.</p>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
+            The link may have already been used or expired. Try signing in, or request a new link.
+          </p>
+          <a href="/login" style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '12px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none', marginBottom: 16 }}>
+            Go to Sign In
+          </a>
+          <br />
+          <a href="/forgot-password" style={{ color: '#666', fontSize: 13 }}>Need a password reset link?</a>
         </div>
       </div>
     );

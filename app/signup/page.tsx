@@ -63,14 +63,23 @@ export default function SignupPage() {
           body: JSON.stringify({ name, shopName, email }),
         }).catch(() => {});
 
-        // If paid plan selected, attempt checkout
+        // If paid plan selected, go to Creem checkout before email confirmation
         const isPaid = selectedPlan && selectedPlan !== 'trial';
         if (isPaid) {
-          const params = new URLSearchParams(window.location.search);
-          const billingInterval = params.get('billing') || 'monthly';
+          const urlParams = new URLSearchParams(window.location.search);
+          const billingInterval = urlParams.get('billing') || 'monthly';
 
-          if (data.session) {
-            // Session is live — go straight to Creem checkout
+          // Ensure we have a live session — signUp may return one directly (email confirm disabled)
+          // or we sign in immediately so the session cookie is set for the checkout API call.
+          let liveSession = data.session;
+          if (!liveSession) {
+            try {
+              const { data: signInData } = await supabase.auth.signInWithPassword({ email, password });
+              liveSession = signInData.session;
+            } catch { /* sign-in failed — fall through */ }
+          }
+
+          if (liveSession) {
             try {
               const res = await fetch('/api/billing/checkout', {
                 method: 'POST',
@@ -80,19 +89,19 @@ export default function SignupPage() {
               if (res.ok) {
                 const json = await res.json();
                 if (json.url) { window.location.href = json.url; return; }
+              } else {
+                const json = await res.json().catch(() => ({}));
+                console.error('[checkout]', res.status, json);
               }
-            } catch {
-              // Fall through to success screen
+            } catch (err) {
+              console.error('[checkout fetch]', err);
             }
-          } else {
-            // Email confirmation required — store pending checkout so /app can pick it up after login
-            try {
-              localStorage.setItem('rd1_pending_checkout', JSON.stringify({
-                planId: selectedPlan,
-                billingInterval,
-              }));
-            } catch { /* localStorage unavailable */ }
           }
+
+          // Fallback: store pending checkout — AppShell picks it up after email confirm + login
+          try {
+            localStorage.setItem('rd1_pending_checkout', JSON.stringify({ planId: selectedPlan, billingInterval }));
+          } catch { /* localStorage unavailable */ }
         }
       }
       setSuccess(true);
