@@ -378,11 +378,12 @@ const KANBAN_COLUMNS = [
   { status: 'Archived',         label: 'Archived',                  icon: '🗄', color: '#6b7280', bg: '#f3f4f6', border: '#d1d5db', headerBg: '#f3f4f6', extraStatuses: [] as string[] },
 ];
 
-function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated, onGoToModule }: {
+function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls, onClose, onSaved, onDelete, onPhotos, onJobCard, onReturnJob, onCreateInvoice, onSwitchVehicle, onGoToCustomer, onCustomerCreated, onGoToModule }: {
   vehicle: VehicleRecord;
   customers: Customer[];
   allVehicles: VehicleRecord[];
   technicians: Technician[];
+  thumbUrls?: string[];
   onClose: () => void;
   onSaved: (v: VehicleRecord) => void;
   onDelete: () => void;
@@ -841,6 +842,60 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, onClose, 
               ♻ Restore from Archive
             </button>
           )}
+        </div>
+
+        {/* Photo thumbnail strip */}
+        <div style={{ padding: '10px 20px 2px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8 }}>
+            {(thumbUrls && thumbUrls.length > 0) ? (
+              <>
+                {thumbUrls.map((url, i) => (
+                  <div
+                    key={i}
+                    onClick={onPhotos}
+                    title="View photos"
+                    style={{
+                      flexShrink: 0, width: 80, height: 60, borderRadius: 8,
+                      overflow: 'hidden', cursor: 'pointer', border: '1.5px solid var(--line)',
+                      background: '#000', position: 'relative',
+                    }}
+                  >
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ))}
+                <div
+                  onClick={onPhotos}
+                  title="Add / manage photos"
+                  style={{
+                    flexShrink: 0, width: 60, height: 60, borderRadius: 8,
+                    border: '1.5px dashed var(--line)', background: 'var(--surface-soft)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', cursor: 'pointer', gap: 2,
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>📷</span>
+                  <span style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 600 }}>ADD</span>
+                </div>
+              </>
+            ) : (
+              <div
+                onClick={onPhotos}
+                title="Add photos"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                  padding: '8px 12px', borderRadius: 10,
+                  border: '1.5px dashed var(--line)', background: 'var(--surface-soft)',
+                  flex: 1,
+                }}
+              >
+                <span style={{ fontSize: 22 }}>📷</span>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>No photos yet</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Tap to add vehicle photos</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Form body */}
@@ -1707,6 +1762,7 @@ export function VehiclesView() {
           customers={customers}
           allVehicles={vehicles}
           technicians={technicians}
+          thumbUrls={thumbs[drawerVehicle.id]}
           onClose={() => setDrawerVehicle(null)}
           onSwitchVehicle={v => setDrawerVehicle(v)}
           onSaved={updated => {
@@ -1715,7 +1771,7 @@ export function VehiclesView() {
             notify(`${updated.label} updated.`);
           }}
           onDelete={() => { handleDeleteVehicle(drawerVehicle); setDrawerVehicle(null); }}
-          onPhotos={() => { setGalleryVehicle(drawerVehicle); setDrawerVehicle(null); }}
+          onPhotos={() => { setGalleryVehicle(drawerVehicle); }}
           onJobCard={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label } });
