@@ -10,8 +10,9 @@ import {
   INSPECTION_TEMPLATE, INTAKE_OUTTAKE_ITEMS, INSPECTION_STATUSES,
   type Inspection, type InspectionItem, type CustomerApproval,
 } from '@/services/inspectionService';
-import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
-import type { Vehicle } from '@/lib/types';
+import { fetchVehicles } from '@/services/vehicleService';
+import { fetchCustomers } from '@/services/customerService';
+import type { Vehicle, Customer } from '@/lib/types';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
@@ -214,7 +215,7 @@ export function InspectionsView() {
   const [selected, setSelected] = useState<Inspection | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   const [techMembers, setTechMembers] = useState<{ email: string; role: string }[]>([]);
@@ -262,7 +263,7 @@ export function InspectionsView() {
 
   useEffect(() => {
     load();
-    fetchCustomerNames().then(setCustomers).catch(() => {});
+    fetchCustomers().then(setCustomers).catch(() => {});
     fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
     fetchTechnicians(true).then(ts => setDbTechs(ts.map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
@@ -668,15 +669,25 @@ export function InspectionsView() {
                     <label>Customer</label>
                     <select value={form.customerId} onChange={e => {
                       const c = customers.find(c => c.id === e.target.value);
-                      setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? f.customerName, vehicle: '', vin: '' }));
+                      if (!c) { setForm(f => ({ ...f, customerId: '', customerName: '', customerPhone: '', customerEmail: '', vehicle: '', vin: '' })); return; }
+                      const firstVehicle = allVehicles.find(v => v.customerId === c.id);
+                      setForm(f => ({
+                        ...f,
+                        customerId: c.id,
+                        customerName: c.name ?? f.customerName,
+                        customerPhone: c.phone ?? f.customerPhone,
+                        customerEmail: c.email ?? f.customerEmail,
+                        vehicle: firstVehicle?.label ?? f.vehicle,
+                        vin: firstVehicle?.vin ?? f.vin,
+                      }));
                     }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                      <option value="">— select —</option>
-                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      <option value="">— select customer —</option>
+                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ''}</option>)}
                     </select>
                   </div>
                   <div className="login-field">
                     <label>Customer Name</label>
-                    <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required />
+                    <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))} required placeholder="Auto-filled from customer" />
                   </div>
                   {(() => {
                     const customerVehicles = allVehicles.filter(v => v.customerId === form.customerId);
@@ -786,11 +797,11 @@ export function InspectionsView() {
                   </div>
                   <div className="login-field">
                     <label>Customer Email</label>
-                    <input type="email" value={form.customerEmail} onChange={e => setForm(f => ({ ...f, customerEmail: e.target.value }))} />
+                    <input type="email" value={form.customerEmail} onChange={e => setForm(f => ({ ...f, customerEmail: e.target.value }))} placeholder="Auto-filled from customer" />
                   </div>
                   <div className="login-field">
                     <label>Customer Phone</label>
-                    <input type="tel" value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} />
+                    <input type="tel" value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} placeholder="Auto-filled from customer" />
                   </div>
                 </div>
 
