@@ -52,7 +52,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <a href="/landing-preview" aria-label="RedlineD1 home" style={{ display: 'inline-block', textDecoration: 'none' }}>
+          <a href="/" aria-label="RedlineD1 home" style={{ display: 'inline-block', textDecoration: 'none' }}>
             <RedlineD1Logo height={56} background="dark" animated={true} />
           </a>
           <span className="login-logo-sub">Shop Operations</span>

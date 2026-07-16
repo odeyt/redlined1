@@ -190,7 +190,7 @@ function Shell() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <a
-                href="/landing-preview#pricing"
+                href="/#pricing"
                 style={{
                   display: 'block', padding: '14px 28px', borderRadius: 12,
                   background: 'linear-gradient(135deg,#e52020,#aa0000)',
@@ -227,7 +227,7 @@ function Shell() {
             ⚠️ Your trial ends in {daysLeft === 0 ? 'less than a day' : `${daysLeft} day${daysLeft > 1 ? 's' : ''}`}.
           </span>
           <a
-            href="/landing-preview#pricing"
+            href="/#pricing"
             style={{ padding: '6px 16px', borderRadius: 8, background: '#fff', color: '#cc0000', fontWeight: 700, fontSize: 12, textDecoration: 'none' }}
           >
             Upgrade Now

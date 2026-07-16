@@ -11,7 +11,7 @@ export default function RefundPolicyPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.back}>
-          <Link href="/landing-preview" style={styles.backLink}>← Redlined1</Link>
+          <Link href="/" style={styles.backLink}>← Redlined1</Link>
         </div>
 
         <h1 style={styles.h1}>Refund Policy</h1>
@@ -139,7 +139,7 @@ export default function RefundPolicyPage() {
           {' · '}
           <Link href="/terms" style={styles.link}>Terms of Service</Link>
           {' · '}
-          <Link href="/landing-preview" style={styles.link}>Back to Home</Link>
+          <Link href="/" style={styles.link}>Back to Home</Link>
         </div>
       </div>
     </div>
