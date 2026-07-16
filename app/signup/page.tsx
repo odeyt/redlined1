@@ -62,6 +62,38 @@ export default function SignupPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, shopName, email }),
         }).catch(() => {});
+
+        // If paid plan selected, attempt checkout
+        const isPaid = selectedPlan && selectedPlan !== 'trial';
+        if (isPaid) {
+          const params = new URLSearchParams(window.location.search);
+          const billingInterval = params.get('billing') || 'monthly';
+
+          if (data.session) {
+            // Session is live — go straight to Creem checkout
+            try {
+              const res = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ planId: selectedPlan, billingInterval }),
+              });
+              if (res.ok) {
+                const json = await res.json();
+                if (json.url) { window.location.href = json.url; return; }
+              }
+            } catch {
+              // Fall through to success screen
+            }
+          } else {
+            // Email confirmation required — store pending checkout so /app can pick it up after login
+            try {
+              localStorage.setItem('rd1_pending_checkout', JSON.stringify({
+                planId: selectedPlan,
+                billingInterval,
+              }));
+            } catch { /* localStorage unavailable */ }
+          }
+        }
       }
       setSuccess(true);
     } catch (err: unknown) {

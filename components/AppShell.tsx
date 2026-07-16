@@ -43,6 +43,7 @@ import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvid
 import { EnvBanner } from '@/components/EnvBanner';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
 import { CommandCenterView } from '@/features/command-center/CommandCenterView';
+import { useEffect } from 'react';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -85,6 +86,26 @@ const views: Record<string, React.ComponentType> = {
 function Shell() {
   const { activeModule, toast } = useAppState();
   const { role, loading: roleLoading } = useShop();
+
+  // After email confirmation + login, fire any pending checkout stored at signup
+  useEffect(() => {
+    if (roleLoading) return;
+    const raw = localStorage.getItem('rd1_pending_checkout');
+    if (!raw) return;
+    localStorage.removeItem('rd1_pending_checkout');
+    try {
+      const { planId, billingInterval } = JSON.parse(raw);
+      if (!planId || planId === 'trial') return;
+      fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(json => { if (json?.url) window.location.href = json.url; })
+        .catch(() => {});
+    } catch { /* malformed entry */ }
+  }, [roleLoading]);
 
   // Block direct module access if the role doesn't permit it.
   // Sidebar already hides the nav items; this is the safety net.
