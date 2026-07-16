@@ -99,25 +99,44 @@ function Shell() {
     checkoutFired.current = true;
 
     function firePendingCheckout(rawJson: string) {
-      localStorage.removeItem('rd1_pending_checkout');
       try {
         const { planId, billingInterval } = JSON.parse(rawJson);
-        if (!planId || planId === 'trial') return;
+        if (!planId || planId === 'trial') {
+          localStorage.removeItem('rd1_pending_checkout');
+          return;
+        }
         fetch('/api/billing/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
         })
           .then(r => {
-            if (r.status === 403) return null; // owner/internal — skip silently
+            if (r.status === 403) {
+              // Owner/internal account — clear and skip silently
+              localStorage.removeItem('rd1_pending_checkout');
+              return null;
+            }
             return r.ok ? r.json() : Promise.reject(r.status);
           })
           .then(json => {
-            if (json?.url) { window.location.href = json.url; return; }
-            if (json !== null) window.location.href = '/billing';
+            if (json === null) return; // exempt account handled above
+            if (json?.url) {
+              localStorage.removeItem('rd1_pending_checkout');
+              window.location.href = json.url;
+              return;
+            }
+            // Checkout created but no redirect URL — go to billing dashboard
+            localStorage.removeItem('rd1_pending_checkout');
+            window.location.href = '/billing';
           })
-          .catch(() => { window.location.href = '/billing'; });
-      } catch { /* malformed */ }
+          .catch(() => {
+            // Transient error — keep key so next page load retries
+            window.location.href = '/billing';
+          });
+      } catch {
+        // Malformed JSON — clear to avoid infinite retry
+        localStorage.removeItem('rd1_pending_checkout');
+      }
     }
 
     // Client-side billing exemption guard — clear and skip before hitting the API
