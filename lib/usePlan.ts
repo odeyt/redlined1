@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 import { getPlanStatus, trialDaysLeft, PlanStatus } from './planGate';
 
 export function usePlan() {
-  const [status, setStatus] = useState<PlanStatus>('trial');
+  const [status, setStatus] = useState<PlanStatus>('free');
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
