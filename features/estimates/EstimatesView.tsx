@@ -1300,6 +1300,12 @@ export function EstimatesView() {
                             <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
                             <span style={{ color: '#cc0000' }}>{formatMoney(grandTotal, cur)}</span>
                           </div>
+                          {isD1Shop && cur === 'THB' && isMain && lakRate > 0 && (
+                            <div style={{ marginTop: 8, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>≈ LAK (1 THB = {lakRate} LAK)</span>
+                              <span style={{ fontSize: 16, fontWeight: 800, color: '#b45309' }}>{new Intl.NumberFormat('lo-LA').format(Math.round(grandTotal * lakRate))} LAK</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1321,6 +1327,12 @@ export function EstimatesView() {
                             <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
                             <span style={{ color: '#cc0000' }}>{formatMoney(grand, cur)}</span>
                           </div>
+                          {isD1Shop && cur === 'THB' && lakRate > 0 && (
+                            <div style={{ marginTop: 8, padding: '8px 12px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>≈ LAK (1 THB = {lakRate} LAK)</span>
+                              <span style={{ fontSize: 16, fontWeight: 800, color: '#b45309' }}>{new Intl.NumberFormat('lo-LA').format(Math.round(grand * lakRate))} LAK</span>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

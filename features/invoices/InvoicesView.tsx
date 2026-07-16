@@ -306,6 +306,7 @@ export function InvoicesView() {
             return `
               ${printTax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Tax / VAT (${taxPct}%)</span><span>+${formatMoney(printTax, displayCur)}</span></div>` : ''}
               <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>
+              ${isD1Shop && displayCur === 'THB' && lakRate > 0 ? `<div style="margin-top:8px;padding:8px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;color:#92400e;font-weight:600">≈ LAK Equivalent (1 THB = ${lakRate} LAK)</span><span style="font-size:16px;font-weight:800;color:#b45309">${new Intl.NumberFormat('lo-LA').format(Math.round(displayAmt * lakRate))} LAK</span></div>` : ''}
             `;
           })()}
           ${Object.keys(payByCurPrint).length > 0 ? `
