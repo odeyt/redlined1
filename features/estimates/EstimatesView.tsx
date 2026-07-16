@@ -86,6 +86,33 @@ const EMPTY_FORM = {
   currency: 'USD',
 };
 
+function LakConversionBox({ lakRate, updateLakRate, totalThb }: { lakRate: number; updateLakRate: (v: number) => void; totalThb: number }) {
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(255,193,7,0.08)', border: '1px solid rgba(255,193,7,0.25)', borderRadius: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>LAK Rate (1 THB =)</span>
+        <input
+          type="number"
+          min={0}
+          value={lakRate || ''}
+          onChange={e => updateLakRate(Number(e.target.value))}
+          placeholder="e.g. 410"
+          style={{ width: 90, padding: '3px 7px', borderRadius: 5, border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}
+        />
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>LAK</span>
+      </div>
+      {lakRate > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <span style={{ fontSize: 12, color: '#ffc107', fontWeight: 600 }}>≈ LAK Equivalent</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: '#ffc107' }}>
+            {new Intl.NumberFormat('lo-LA').format(Math.round(totalThb * lakRate))} LAK
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EstimatesView() {
   const { prefill } = useAppState();
   const dispatch = useAppDispatch();
@@ -122,6 +149,15 @@ export function EstimatesView() {
   const { status: planStatus } = usePlan();
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean; channel: 'email' | 'sms' | 'whatsapp' | 'line' | 'telegram'; msgTo: string } | null>(null);
+  const [lakRate, setLakRate] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    return Number(localStorage.getItem('d1_lak_thb_rate') ?? 0) || 0;
+  });
+  const isD1Shop = getShopId().toUpperCase().startsWith('D1_SHOP');
+  function updateLakRate(v: number) {
+    setLakRate(v);
+    if (typeof window !== 'undefined') localStorage.setItem('d1_lak_thb_rate', String(v));
+  }
 
   useEffect(() => {
     load();
@@ -1072,6 +1108,10 @@ export function EstimatesView() {
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grandTotal, cur)}</span>
                             </div>
+                            {/* LAK conversion — D1 shops only, THB currency only */}
+                            {isD1Shop && cur === 'THB' && isMain && (
+                              <LakConversionBox lakRate={lakRate} updateLakRate={updateLakRate} totalThb={grandTotal} />
+                            )}
                           </div>
                         );
                       })}
@@ -1091,6 +1131,9 @@ export function EstimatesView() {
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grand, cur)}</span>
                             </div>
+                            {isD1Shop && cur === 'THB' && (
+                              <LakConversionBox lakRate={lakRate} updateLakRate={updateLakRate} totalThb={grand} />
+                            )}
                           </div>
                         );
                       })()}
