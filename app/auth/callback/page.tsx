@@ -9,6 +9,7 @@ type Status = 'verifying' | 'redirecting-checkout' | 'error' | 'expired-recovery
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>('verifying');
+  const [debugMsg, setDebugMsg] = useState<string>('');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -118,7 +119,10 @@ export default function AuthCallbackPage() {
         if (session) { router.replace(next); return; }
 
         setStatus('error');
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[auth/callback] exchange error:', msg, err);
+        setDebugMsg(msg);
         setStatus('error');
       }
     }
@@ -182,9 +186,14 @@ export default function AuthCallbackPage() {
         <div style={{ textAlign: 'center', padding: 32, maxWidth: 400 }}>
           <div style={{ fontSize: 44, marginBottom: 16 }}>⚠️</div>
           <p style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 10 }}>Something went wrong</p>
-          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
+          <p style={{ color: '#888', fontSize: 14, lineHeight: 1.6, marginBottom: debugMsg ? 12 : 28 }}>
             We couldn&apos;t verify this link. Try signing in — if your email is confirmed you&apos;ll be let straight through.
           </p>
+          {debugMsg && (
+            <p style={{ color: '#ff6666', fontSize: 12, fontFamily: 'monospace', background: '#1a0000', padding: '8px 12px', borderRadius: 6, marginBottom: 28, wordBreak: 'break-all' }}>
+              {debugMsg}
+            </p>
+          )}
           <a href="/login" style={{ display: 'inline-block', background: '#cc0000', color: '#fff', padding: '12px 28px', borderRadius: 10, fontWeight: 700, fontSize: 14, textDecoration: 'none', marginBottom: 16 }}>
             Go to Sign In
           </a>
