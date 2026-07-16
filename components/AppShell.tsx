@@ -97,25 +97,46 @@ function Shell() {
     const raw = localStorage.getItem('rd1_pending_checkout');
     if (!raw) return;
     checkoutFired.current = true;
-    localStorage.removeItem('rd1_pending_checkout');
-    try {
-      const { planId, billingInterval } = JSON.parse(raw);
-      if (!planId || planId === 'trial') return;
-      fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
-      })
-        .then(r => {
-          if (r.status === 403) return null; // owner/internal — skip silently
-          return r.ok ? r.json() : Promise.reject(r.status);
+
+    function firePendingCheckout(rawJson: string) {
+      localStorage.removeItem('rd1_pending_checkout');
+      try {
+        const { planId, billingInterval } = JSON.parse(rawJson);
+        if (!planId || planId === 'trial') return;
+        fetch('/api/billing/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ planId, billingInterval: billingInterval || 'monthly' }),
         })
-        .then(json => {
-          if (json?.url) { window.location.href = json.url; return; }
-          if (json !== null) window.location.href = '/billing';
+          .then(r => {
+            if (r.status === 403) return null; // owner/internal — skip silently
+            return r.ok ? r.json() : Promise.reject(r.status);
+          })
+          .then(json => {
+            if (json?.url) { window.location.href = json.url; return; }
+            if (json !== null) window.location.href = '/billing';
+          })
+          .catch(() => { window.location.href = '/billing'; });
+      } catch { /* malformed */ }
+    }
+
+    // Client-side owner guard — clear and skip before hitting the API
+    const ownerEnv = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '';
+    const ownerSet = new Set(ownerEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
+    if (ownerSet.size > 0) {
+      import('@/lib/supabase').then(({ supabase }) =>
+        supabase.auth.getUser().then(({ data }) => {
+          if (!ownerSet.has((data.user?.email ?? '').toLowerCase())) {
+            firePendingCheckout(raw);
+          } else {
+            localStorage.removeItem('rd1_pending_checkout');
+          }
         })
-        .catch(() => { window.location.href = '/billing'; });
-    } catch { /* malformed */ }
+      );
+      return;
+    }
+
+    firePendingCheckout(raw);
   }, [roleLoading]);
 
   // Role-based module blocking (sidebar does visual hiding; this is the safety net)

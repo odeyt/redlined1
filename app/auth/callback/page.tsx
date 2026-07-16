@@ -38,6 +38,16 @@ export default function AuthCallbackPage() {
         const raw = localStorage.getItem('rd1_pending_checkout');
         if (raw) {
           localStorage.removeItem('rd1_pending_checkout');
+
+          // Client-side owner guard — skip checkout before even hitting the API
+          const ownerEnv = process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL ?? '';
+          const ownerSet = new Set(ownerEnv.split(',').map(e => e.trim().toLowerCase()).filter(Boolean));
+          const { data: { user: me } } = await supabase.auth.getUser();
+          if (ownerSet.size > 0 && ownerSet.has((me?.email ?? '').toLowerCase())) {
+            router.replace('/');
+            return;
+          }
+
           const { planId, billingInterval } = JSON.parse(raw);
           if (planId && planId !== 'trial') {
             setStatus('redirecting-checkout');

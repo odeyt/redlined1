@@ -53,9 +53,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Technicians cannot manage billing' }, { status: 403 });
     }
 
-    // Block platform owner email from being billed
-    const ownerEmail = process.env.PLATFORM_OWNER_EMAIL;
-    if (ownerEmail && user.email === ownerEmail) {
+    // Block platform owner email(s) from being billed.
+    // Supports comma-separated list, e.g. "admin@example.com,owner@example.com"
+    const ownerEmails = new Set(
+      [process.env.PLATFORM_OWNER_EMAIL, process.env.NEXT_PUBLIC_PLATFORM_OWNER_EMAIL]
+        .flatMap(v => (v ?? '').split(','))
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    if (ownerEmails.has((user.email ?? '').toLowerCase())) {
       return NextResponse.json({ error: 'Platform owner account is not subject to billing' }, { status: 403 });
     }
 
