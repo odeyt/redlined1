@@ -11,7 +11,7 @@ export async function proxy(request: NextRequest) {
   // If Supabase env vars are not yet available, redirect unauthenticated
   // users to login rather than crashing the handler.
   if (!supabaseUrl || !supabaseKey) {
-    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled'];
+    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/api/billing/webhook', '/api/ping'];
     const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
     if (!isPublic) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -34,7 +34,7 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled'];
+  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/api/billing/webhook', '/api/ping'];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
