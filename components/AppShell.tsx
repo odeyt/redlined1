@@ -88,7 +88,7 @@ const views: Record<string, React.ComponentType> = {
 function Shell() {
   const { activeModule, toast } = useAppState();
   const { role, loading: roleLoading } = useShop();
-  const { status: planStatus, daysLeft, loading: planLoading } = usePlan();
+  const { status: planStatus, daysLeft, loading: planLoading, profileLoaded } = usePlan();
   const checkoutFired = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -173,9 +173,10 @@ function Shell() {
   // Role-based module blocking (sidebar does visual hiding; this is the safety net)
   const roleBlocked = !roleLoading && role ? getBlockedModules(role) : [];
 
-  // Plan-based module blocking (trial expired → only free modules allowed)
+  // Plan-based module blocking — only block if profile was actually read AND plan is free.
+  // If profileLoaded is false the DB read failed; don't restrict modules in that case.
   const planReady = !planLoading;
-  const planBlocked = (planReady && planStatus === 'free')
+  const planBlocked = (planReady && planStatus === 'free' && profileLoaded)
     ? Object.keys(views).filter(m => !canAccess(m, planStatus))
     : [];
 
@@ -188,8 +189,10 @@ function Shell() {
     <>
       <EnvBanner />
 
-      {/* Trial expiry banner (shown while account is still in 'free' status) */}
-      {planReady && planStatus === 'free' && (
+      {/* Trial expiry banner — only shown when profile was successfully read AND plan is free.
+          If the DB read failed (RLS issue, network error) profileLoaded is false and we
+          never show the hard lock, so a billing infrastructure problem can't lock out users. */}
+      {planReady && planStatus === 'free' && profileLoaded && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)',
