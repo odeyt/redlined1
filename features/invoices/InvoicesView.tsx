@@ -826,7 +826,7 @@ export function InvoicesView() {
         </p>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: showForm ? '300px 1fr' : '1fr 1.4fr', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 16, alignItems: 'start' }}>
 
         {/* ── Left: Invoice List ── */}
         <Panel title="Invoices" hint="Click an invoice to view details">
@@ -856,6 +856,376 @@ export function InvoicesView() {
           <div style={{ marginBottom: 14 }}>
             <FilterPills statuses={['All', 'Draft', 'Sent', 'Paid', 'Void']} active={filterStatus} onChange={setFilterStatus} />
           </div>
+
+          {showForm && (
+            <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
+              <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.invoiceNumber}` : 'New Invoice'}</h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div className="login-field">
+                  <label>Invoice #</label>
+                  <input value={form.invoiceNumber} onChange={e => setForm(f => ({ ...f, invoiceNumber: e.target.value }))} required readOnly={!!editingId} style={editingId ? { opacity: 0.6 } : {}} />
+                </div>
+                <div className="login-field">
+                  <label>Status</label>
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {['Draft', 'Sent', 'Paid', 'Void'].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                {/* Customer autocomplete */}
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }} ref={custRef}>
+                  <label>Customer</label>
+                  <input
+                    value={custQuery}
+                    onChange={e => {
+                      setCustQuery(e.target.value);
+                      setForm(f => ({ ...f, customerName: e.target.value, customerId: '' }));
+                      setCustOpen(true);
+                    }}
+                    onFocus={() => setCustOpen(true)}
+                    placeholder="Type to search customers…"
+                    required
+                    autoComplete="off"
+                    style={{ border: `1px solid ${custOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {form.customerId && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>✓ Matched: {form.customerName}</div>}
+                  {custOpen && custQuery.length > 0 && (() => {
+                    const q = custQuery.toLowerCase();
+                    const matches = customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 10);
+                    const exactMatch = customers.some(c => c.name.toLowerCase() === q);
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(c => (
+                          <div key={c.id}
+                            onMouseDown={async () => {
+                              setForm(f => ({ ...f, customerId: c.id, customerName: c.name, vehicle: '' }));
+                              setCustQuery(c.name);
+                              setCustOpen(false);
+                              setVehQuery('');
+                              setCustVehicles([]);
+                              const { data } = await supabase.from('vehicles').select('id, label').eq('shop_id', getShopId()).eq('customer_id', c.id).order('label').limit(500);
+                              setCustVehicles(data ?? []);
+                            }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >{c.name}</div>
+                        ))}
+                        {!exactMatch && (
+                          <div
+                            onMouseDown={() => addNewCustomer(custQuery)}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 600, opacity: addingCustomer ? 0.5 : 1 }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >{addingCustomer ? '⏳ Adding…' : `+ Add "${custQuery}" as new customer`}</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Vehicle autocomplete */}
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }} ref={vehRef}>
+                  <label>Vehicle <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--muted)' }}>— search by year, make, model, VIN, or plate</span></label>
+                  <input
+                    value={vehQuery}
+                    onChange={e => { setVehQuery(e.target.value); setForm(f => ({ ...f, vehicle: e.target.value })); setVehOpen(true); }}
+                    onFocus={() => setVehOpen(true)}
+                    placeholder="e.g. 2022 Ford F-150, KNHMF37AB…, ABC-1234"
+                    autoComplete="off"
+                    style={{ border: `1px solid ${vehOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {vehOpen && vehQuery.length > 0 && (() => {
+                    const q = vehQuery.toLowerCase();
+                    const pool = form.customerId ? custVehicles.map(v => ({ ...v, customerId: form.customerId, vin: '', plate: '' })) : allVehicles;
+                    const matches = pool.filter(v => {
+                      return (v.label ?? '').toLowerCase().includes(q) || ((v as { vin?: string }).vin ?? '').toLowerCase().includes(q) || ((v as { plate?: string }).plate ?? '').toLowerCase().includes(q);
+                    }).slice(0, 10);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 260, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(v => {
+                          const owner = customers.find(c => c.id === v.customerId);
+                          return (
+                            <div key={v.id}
+                              onMouseDown={() => {
+                                setForm(f => ({ ...f, vehicle: v.label }));
+                                setVehQuery(v.label);
+                                setVehOpen(false);
+                                if (!form.customerId && owner) {
+                                  setForm(f => ({ ...f, vehicle: v.label, customerId: owner.id, customerName: owner.name }));
+                                  setCustQuery(owner.name);
+                                }
+                              }}
+                              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                              <div style={{ fontWeight: 600 }}>{v.label}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                                {owner ? `${owner.name} · ` : ''}{(v as { vin?: string }).vin ? `VIN: ${(v as { vin?: string }).vin}` : ''}{(v as { plate?: string }).plate ? ` · ${(v as { plate?: string }).plate}` : ''}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="login-field">
+                  <label>Due Date</label>
+                  <input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }} />
+                </div>
+                <div className="login-field">
+                  <label>Currency</label>
+                  <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
+                    {CURRENCIES.filter(c => PORTAL_CURRENCIES.includes(c.code)).map(c => (
+                      <option key={c.code} value={c.code}>{c.code} — {c.name} ({c.symbol})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Job Card autocomplete */}
+                <div className="login-field" style={{ position: 'relative' }} ref={jcRef}>
+                  <label>Job Card ID (optional)</label>
+                  <input
+                    value={jcQuery}
+                    onChange={e => { setJcQuery(e.target.value); setForm(f => ({ ...f, jobCardId: e.target.value })); setJcOpen(true); }}
+                    onFocus={() => setJcOpen(true)}
+                    placeholder="Search JC number or customer…"
+                    autoComplete="off"
+                    style={{ border: `1px solid ${jcOpen ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                  />
+                  {jcOpen && jcQuery.length > 0 && (() => {
+                    const q = jcQuery.toLowerCase();
+                    const matches = allJobCards.filter(jc =>
+                      jc.id.toLowerCase().includes(q) ||
+                      jc.customer.toLowerCase().includes(q) ||
+                      (jc.vehicle ?? '').toLowerCase().includes(q)
+                    ).slice(0, 8);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.14)', maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                        {matches.map(jc => (
+                          <div key={jc.id}
+                            onMouseDown={() => {
+                              setForm(f => ({
+                                ...f,
+                                jobCardId: jc.id,
+                                customerName: f.customerName || jc.customer,
+                                customerId: f.customerId || '',
+                                vehicle: f.vehicle || jc.vehicle || '',
+                              }));
+                              setJcQuery(jc.id);
+                              if (!form.customerName) setCustQuery(jc.customer);
+                              if (!form.vehicle) setVehQuery(jc.vehicle || '');
+                              setJcOpen(false);
+                            }}
+                            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.06)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div style={{ fontWeight: 600 }}>{jc.id}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                              {jc.customer}{jc.vehicle ? ` · ${jc.vehicle}` : ''} · <span style={{ color: '#888' }}>{jc.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label className="section-label" style={{ marginBottom: 0 }}>LINE ITEMS</label>
+                  <button type="button" className="mini-btn primary" onClick={addLine}>+ Add Line</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 4, padding: '0 0 6px', borderBottom: '1px solid var(--line)' }}>
+                  {['NOTE / REF #', 'DESCRIPTION (EN)', 'ລາຍລະອຽດ (ລາວ)', 'QTY', 'COST', 'MARKUP %', 'CURRENCY', ratesFetching ? 'LINE TOTAL ⟳' : 'LINE TOTAL', ''].map((h, idx) => (
+                    <div key={idx} style={{ fontSize: 10, fontWeight: 700, color: idx === 7 && ratesFetching ? '#d97706' : 'var(--muted)', letterSpacing: '0.05em', padding: '0 4px' }}>{h}</div>
+                  ))}
+                </div>
+                {form.lines.map((line, i) => {
+                  const rate = parseFloat(line.rate) || 0;
+                  const qty = parseFloat(line.qty) || 0;
+                  const lineCur = line.currency || form.currency;
+                  const lineTotal = rate * qty;
+                  return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 6, marginBottom: 6 }}>
+                      <input value={line.note} onChange={e => setLine(i, 'note', e.target.value)} placeholder="Note / ref #"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <div style={{ display: 'flex', gap: 3 }}>
+                        <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..."
+                          style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', minWidth: 0 }} />
+                        <button type="button" title="Auto-translate to Lao"
+                          onClick={async () => {
+                            if (!line.description) return;
+                            const lao = await translateToLao(line.description);
+                            setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                          }}
+                          style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>🌐</button>
+                      </div>
+                      <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0"
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                      <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}>
+                        <option value="">{form.currency}</option>
+                        {[...CURRENCIES].filter(c => c.code !== form.currency).sort((a, b) => {
+                          const order = ['USD', 'THB', 'LAK'];
+                          const ai = order.indexOf(a.code); const bi = order.indexOf(b.code);
+                          if (ai !== -1 && bi !== -1) return ai - bi;
+                          if (ai !== -1) return -1; if (bi !== -1) return 1;
+                          return 0;
+                        }).map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                      </select>
+                      <input
+                        type="text" inputMode="decimal"
+                        value={lineTotal !== 0 ? String(Math.round(lineTotal)) : ''}
+                        placeholder="0"
+                        onFocus={e => e.target.select()}
+                        onChange={e => {
+                          const total = parseFloat(e.target.value.replace(/[^0-9.-]/g, '')) || 0;
+                          const q = parseFloat(line.qty) || 1;
+                          setLine(i, 'rate', String(total / q));
+                        }}
+                        style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: lineTotal < 0 ? '#22c55e' : lineCur !== form.currency ? '#d97706' : 'var(--text)', fontWeight: 600, width: '100%', boxSizing: 'border-box' }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <button type="button" title="Move up" disabled={i === 0}
+                          onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i-1], ls[i]] = [ls[i], ls[i-1]]; return { ...f, lines: ls }; })}
+                          style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === 0 ? 'var(--line)' : 'var(--muted)', cursor: i === 0 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▲</button>
+                        <button type="button" title="Move down" disabled={i === form.lines.length - 1}
+                          onClick={() => setForm(f => { const ls = [...f.lines]; [ls[i], ls[i+1]] = [ls[i+1], ls[i]]; return { ...f, lines: ls }; })}
+                          style={{ background: 'none', border: '1px solid var(--line)', borderRadius: 4, color: i === form.lines.length - 1 ? 'var(--line)' : 'var(--muted)', cursor: i === form.lines.length - 1 ? 'default' : 'pointer', fontSize: 10, padding: '1px 5px', lineHeight: 1 }}>▼</button>
+                        <button type="button" title="Remove line" onClick={() => removeLine(i)}
+                          style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 14, padding: '1px 3px', lineHeight: 1 }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Line items subtotal */}
+              {(() => {
+                const totalsMap: Record<string, number> = {};
+                form.lines.forEach(l => {
+                  const cur = l.currency || form.currency;
+                  const val = (parseFloat(l.rate) || 0) * (parseFloat(l.qty) || 0);
+                  totalsMap[cur] = (totalsMap[cur] || 0) + val;
+                });
+                const entries = Object.entries(totalsMap).filter(([, v]) => v !== 0);
+                if (entries.length === 0) return null;
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 16, padding: '10px 4px', borderTop: '2px solid var(--line)', marginBottom: 12 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Line Items Total</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      {entries.map(([cur, total]) => (
+                        <span key={cur} style={{ fontSize: 15, fontWeight: 700, color: total < 0 ? '#22c55e' : cur !== form.currency ? '#d97706' : 'var(--text)' }}>
+                          {formatMoney(total, cur)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Adjustments */}
+              {(() => {
+                const { amount: adjEff, currency: adjCur } = calcFormEffectiveTotal(form.lines, form.currency);
+                const discPct = Number(form.discountPct) || 0;
+                const taxPct  = Number(form.taxPct) || 0;
+                const discAmt = Math.round(adjEff * (discPct / 100));
+                const shopSup = Number(form.shopSupplies) || 0;
+                const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
+                const taxAmt  = Math.round(taxable * (taxPct / 100));
+                const liveTotal = taxable + taxAmt;
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div className="login-field">
+                        <label>Discount (%)</label>
+                        <input
+                          type="text" inputMode="decimal"
+                          value={form.discountPct === 0 || form.discountPct === undefined ? '' : String(form.discountPct)}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            const n = Math.min(100, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, discountPct: raw === '' ? 0 : n }));
+                          }}
+                          placeholder="0"
+                          onFocus={e => e.target.select()}
+                        />
+                        {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
+                      </div>
+                      <div className="login-field">
+                        <label>Tax / VAT (%)</label>
+                        <input
+                          type="text" inputMode="decimal"
+                          value={form.taxPct === 0 || form.taxPct === undefined ? '' : String(form.taxPct)}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            const n = Math.min(100, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, taxPct: raw === '' ? 0 : n }));
+                          }}
+                          placeholder="0"
+                          onFocus={e => e.target.select()}
+                        />
+                        {taxPct > 0 && <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 3 }}>= +{formatMoney(taxAmt, adjCur)}</div>}
+                      </div>
+                    </div>
+                    {adjEff > 0 && (
+                      <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontSize: 13 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', marginBottom: 4 }}>
+                          <span>Subtotal</span><span>{formatMoney(adjEff, adjCur)}</span>
+                        </div>
+                        {discAmt > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4caf50', marginBottom: 4 }}>
+                            <span>Discount ({discPct}%)</span><span>-{formatMoney(discAmt, adjCur)}</span>
+                          </div>
+                        )}
+                        {shopSup > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', marginBottom: 4 }}>
+                            <span>Shop Supplies</span><span>+{formatMoney(shopSup, adjCur)}</span>
+                          </div>
+                        )}
+                        {taxAmt > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b', marginBottom: 4 }}>
+                            <span>Tax / VAT ({taxPct}%)</span><span>+{formatMoney(taxAmt, adjCur)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 15, borderTop: '2px solid var(--line)', paddingTop: 8, marginTop: 4, color: 'var(--accent)' }}>
+                          <span>TOTAL</span><span>{formatMoney(liveTotal, adjCur)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              <div className="login-field" style={{ marginBottom: 12 }}>
+                <label>Notes</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Payment terms, warranty info…" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Invoice'}
+                </button>
+              </div>
+            </form>
+          )}
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading invoices…</p>}
           {!loading && filtered.length === 0 && (
@@ -909,9 +1279,9 @@ export function InvoicesView() {
           />
         </Panel>
 
-        {/* ── Right: Edit/New Form OR Invoice Detail ── */}
-        {showForm ? (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 14, padding: 24 }}>
+        {/* ── Right: Invoice Detail ── */}
+        {false && (
+          <div>
             <form onSubmit={handleSave}>
               <h3 style={{ margin: '0 0 16px', fontSize: 16 }}>{editingId ? `✏️ Edit ${form.invoiceNumber}` : 'New Invoice'}</h3>
 
@@ -1228,7 +1598,8 @@ export function InvoicesView() {
               </div>
             </form>
           </div>
-        ) : selected && totals && (
+        )}
+        {!showForm && selected && totals && (
           <div>
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
