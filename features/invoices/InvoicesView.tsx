@@ -11,8 +11,9 @@ import {
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
 import { createPayment, deletePayment, fetchPayments, type Payment } from '@/services/paymentService';
-import { fetchCustomerNames } from '@/services/vehicleService';
+import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
+import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
@@ -104,6 +105,19 @@ export function InvoicesView() {
   const [ratesFetching, setRatesFetching] = useState(false);
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
   const [emailModal, setEmailModal] = useState<{ invoice: InvoiceFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean; channel: 'email' | 'sms' | 'whatsapp' | 'line' | 'telegram'; msgTo: string } | null>(null);
+  // Autocomplete state
+  const [custQuery, setCustQuery] = useState('');
+  const [custOpen, setCustOpen] = useState(false);
+  const custRef = useRef<HTMLDivElement>(null);
+  const [allVehicles, setAllVehicles] = useState<{ id: string; label: string; customerId: string; vin?: string; plate?: string }[]>([]);
+  const [vehQuery, setVehQuery] = useState('');
+  const [vehOpen, setVehOpen] = useState(false);
+  const vehRef = useRef<HTMLDivElement>(null);
+  const [allJobCards, setAllJobCards] = useState<JobCardFull[]>([]);
+  const [jcQuery, setJcQuery] = useState('');
+  const [jcOpen, setJcOpen] = useState(false);
+  const jcRef = useRef<HTMLDivElement>(null);
+  const [addingCustomer, setAddingCustomer] = useState(false);
   const [payModal, setPayModal] = useState<{
     inv: InvoiceFull;
     total: number;
@@ -130,6 +144,8 @@ export function InvoicesView() {
     fetchShopSettings().then(setShopSettings).catch(() => {});
     fetchCustomers().then(list => setFullCustomers(list.map(c => ({ id: c.id, name: c.name, email: c.email })))).catch(() => {});
     fetchPayments().then(setAllPayments).catch(() => {});
+    fetchVehicles().then(v => setAllVehicles(v.map(x => ({ id: x.id, label: x.label, customerId: x.customerId, vin: x.vin, plate: x.plate })))).catch(() => {});
+    fetchJobCards().then(setAllJobCards).catch(() => {});
   }, []);
 
   // Short display label for a payment method, e.g. "Cash", "Credit Card", "QR Code".
@@ -145,6 +161,17 @@ export function InvoicesView() {
     if (relevant.length === 0) return '';
     return Array.from(new Set(relevant.map(paymentMethodShortLabel))).join(' + ');
   }
+
+  // Click outside to close autocomplete dropdowns
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (custRef.current && !custRef.current.contains(e.target as Node)) setCustOpen(false);
+      if (vehRef.current && !vehRef.current.contains(e.target as Node)) setVehOpen(false);
+      if (jcRef.current && !jcRef.current.contains(e.target as Node)) setJcOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   useEffect(() => {
     function handleOpenInvoice(e: Event) {
@@ -331,16 +358,39 @@ export function InvoicesView() {
     w.onload = () => { w.focus(); w.print(); };
   }
 
+  async function addNewCustomer(name: string) {
+    setAddingCustomer(true);
+    try {
+      const shopId = getShopId();
+      const { data, error } = await supabase.from('customers').insert({ shop_id: shopId, name }).select('id, name').single();
+      if (error) throw error;
+      setCustomers(prev => [...prev, { id: data.id, name: data.name }]);
+      setForm(f => ({ ...f, customerId: data.id, customerName: data.name }));
+      setCustQuery(data.name);
+      setCustOpen(false);
+      notify(`Customer "${name}" created.`);
+    } catch (e) {
+      setError('Failed to add customer: ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setAddingCustomer(false);
+    }
+  }
+
   async function openNewForm() {
     const num = await nextInvoiceNumber();
-    setForm({ ...EMPTY_FORM, invoiceNumber: num, lines: [{ ...EMPTY_LINE }] });
+    const defaultCurrency = isD1Shop ? 'THB' : 'USD';
+    setForm({ ...EMPTY_FORM, invoiceNumber: num, lines: [{ ...EMPTY_LINE }], currency: defaultCurrency });
     setCustVehicles([]);
+    setCustQuery(''); setVehQuery(''); setJcQuery('');
     setEditingId(null);
     setShowForm(true);
     setSelected(null);
   }
 
   function openEditForm(inv: InvoiceFull) {
+    setCustQuery(inv.customerName || '');
+    setVehQuery(inv.vehicle || '');
+    setJcQuery(inv.jobCardId || '');
     setForm({
       invoiceNumber: inv.invoiceNumber,
       customerName: inv.customerName,
@@ -776,7 +826,7 @@ export function InvoicesView() {
         </p>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showForm ? '300px 1fr' : '1fr 1.4fr', gap: 16, alignItems: 'start' }}>
 
         {/* ── Left: Invoice List ── */}
         <Panel title="Invoices" hint="Click an invoice to view details">
@@ -876,46 +926,109 @@ export function InvoicesView() {
                     {['Draft', 'Sent', 'Paid', 'Void'].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="login-field" style={{ gridColumn: '1 / -1' }}>
+                <div className="login-field" style={{ gridColumn: '1 / -1', position: 'relative' }} ref={custRef}>
                   <label>Customer</label>
-                  <select value={form.customerId} onChange={async e => {
-                    const c = customers.find(c => c.id === e.target.value);
-                    setForm(f => ({ ...f, customerId: e.target.value, customerName: c?.name ?? '', vehicle: '' }));
-                    setCustVehicles([]);
-                    if (!e.target.value) return;
-                    const shopId = getShopId();
-                    const { data } = await supabase
-                      .from('vehicles')
-                      .select('id, label')
-                      .eq('shop_id', shopId)
-                      .eq('customer_id', e.target.value)
-                      .order('label')
-                      .limit(500);
-                    setCustVehicles(data ?? []);
-                  }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    <option value="">— select customer —</option>
-                    {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <input
+                    value={custQuery}
+                    onChange={e => { setCustQuery(e.target.value); setCustOpen(true); }}
+                    onFocus={() => setCustOpen(true)}
+                    placeholder="Search customers…"
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                    autoComplete="off"
+                  />
+                  {custOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+                      {customers.filter(c => !custQuery || c.name.toLowerCase().includes(custQuery.toLowerCase())).slice(0, 20).map(c => (
+                        <div key={c.id} onMouseDown={async () => {
+                          setForm(f => ({ ...f, customerId: c.id, customerName: c.name, vehicle: '' }));
+                          setCustQuery(c.name);
+                          setCustOpen(false);
+                          setVehQuery('');
+                          setCustVehicles([]);
+                          const shopId = getShopId();
+                          const { data } = await supabase.from('vehicles').select('id, label').eq('shop_id', shopId).eq('customer_id', c.id).order('label').limit(500);
+                          setCustVehicles(data ?? []);
+                        }} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          {c.name}
+                        </div>
+                      ))}
+                      {custQuery && !customers.some(c => c.name.toLowerCase() === custQuery.toLowerCase()) && (
+                        <div onMouseDown={() => addNewCustomer(custQuery)}
+                          style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, opacity: addingCustomer ? 0.5 : 1 }}>
+                          {addingCustomer ? '⏳ Adding…' : `+ Add "${custQuery}" as new customer`}
+                        </div>
+                      )}
+                      {!custQuery && customers.length === 0 && (
+                        <div style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 13 }}>No customers found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="login-field">
+                <div className="login-field" style={{ position: 'relative' }} ref={vehRef}>
                   <label>Vehicle</label>
-                  {custVehicles.length > 0 ? (
-                    <select value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))}
-                      style={{ border: `1px solid ${!form.vehicle ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                      <option value="">— select vehicle —</option>
-                      {custVehicles.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
-                    </select>
-                  ) : (
-                    <input value={form.vehicle} onChange={e => setForm(f => ({ ...f, vehicle: e.target.value }))} placeholder="2022 Ford F-150" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }} />
+                  <input
+                    value={vehQuery}
+                    onChange={e => { setVehQuery(e.target.value); setVehOpen(true); setForm(f => ({ ...f, vehicle: e.target.value })); }}
+                    onFocus={() => setVehOpen(true)}
+                    placeholder="Search by year/make/model, VIN, plate…"
+                    style={{ border: `1px solid ${!form.vehicle ? 'var(--accent)' : 'var(--line)'}`, borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                    autoComplete="off"
+                  />
+                  {vehOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                      {(form.customerId ? custVehicles.map(v => ({ ...v, customerId: form.customerId })) : allVehicles)
+                        .filter(v => !vehQuery || [v.label, (v as { vin?: string }).vin, (v as { plate?: string }).plate].filter(Boolean).some(s => s!.toLowerCase().includes(vehQuery.toLowerCase())))
+                        .slice(0, 20).map(v => (
+                          <div key={v.id} onMouseDown={() => {
+                            setForm(f => ({ ...f, vehicle: v.label }));
+                            setVehQuery(v.label);
+                            setVehOpen(false);
+                          }} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                            {v.label}
+                          </div>
+                        ))}
+                      {vehQuery && (
+                        <div style={{ padding: '10px 14px', color: 'var(--muted)', fontSize: 12, borderTop: '1px solid var(--line)' }}>
+                          Press Enter to use "{vehQuery}" as-is
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="login-field">
                   <label>Due Date</label>
                   <input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }} />
                 </div>
-                <div className="login-field">
+                <div className="login-field" style={{ position: 'relative' }} ref={jcRef}>
                   <label>Job Card ID (optional)</label>
-                  <input value={form.jobCardId} onChange={e => setForm(f => ({ ...f, jobCardId: e.target.value }))} placeholder="JC-001" />
+                  <input
+                    value={jcQuery}
+                    onChange={e => { setJcQuery(e.target.value); setJcOpen(true); setForm(f => ({ ...f, jobCardId: e.target.value })); }}
+                    onFocus={() => setJcOpen(true)}
+                    placeholder="JC-001"
+                    style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%', boxSizing: 'border-box' }}
+                    autoComplete="off"
+                  />
+                  {jcOpen && allJobCards.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                      {allJobCards.filter(jc => !jcQuery || (jc.ro ?? '').toLowerCase().includes(jcQuery.toLowerCase()) || jc.customer?.toLowerCase().includes(jcQuery.toLowerCase())).slice(0, 20).map(jc => (
+                        <div key={jc.id} onMouseDown={() => {
+                          setForm(f => ({ ...f, jobCardId: jc.ro ?? '' }));
+                          setJcQuery(jc.ro ?? '');
+                          setJcOpen(false);
+                        }} style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                          <span style={{ fontWeight: 600 }}>{jc.ro}</span>
+                          {jc.customer && <span style={{ color: 'var(--muted)', marginLeft: 8 }}>{jc.customer}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="login-field">
                   <label>Currency</label>
