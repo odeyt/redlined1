@@ -46,6 +46,8 @@ import { CommandCenterView } from '@/features/command-center/CommandCenterView';
 import { useEffect, useRef, useState } from 'react';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, needsWatermark } from '@/lib/planGate';
+import { fetchShopSettings } from '@/services/shopSettingsService';
+import type { RolePermissions, RoleKey } from '@/services/shopSettingsService';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -91,6 +93,15 @@ function Shell() {
   const { status: planStatus, daysLeft, loading: planLoading, profileLoaded } = usePlan();
   const checkoutFired = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions | null>(null);
+  const [permLoaded, setPermLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchShopSettings()
+      .then(s => setRolePermissions(s.rolePermissions))
+      .catch(() => {})
+      .finally(() => setPermLoaded(true));
+  }, []);
 
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
@@ -170,8 +181,19 @@ function Shell() {
     );
   }, [roleLoading]);
 
-  // Role-based module blocking (sidebar does visual hiding; this is the safety net)
-  const roleBlocked = !roleLoading && role ? getBlockedModules(role) : [];
+  // Role-based module blocking — mirrors Sidebar logic exactly.
+  // Use the owner-configured allowlist from shop_settings when available;
+  // fall back to hardcoded defaults only if no saved permissions exist.
+  const roleBlocked = (() => {
+    if (roleLoading || !role) return [];
+    if (role === 'owner') return [];
+    if (!permLoaded) return getBlockedModules(''); // block all while loading
+    const allowed = rolePermissions?.[role as RoleKey];
+    if (allowed && allowed.length > 0) {
+      return Object.keys(views).filter(id => !allowed.includes(id));
+    }
+    return getBlockedModules(role);
+  })();
 
   // Plan-based module blocking — only block if profile was actually read AND plan is free.
   // If profileLoaded is false the DB read failed; don't restrict modules in that case.
