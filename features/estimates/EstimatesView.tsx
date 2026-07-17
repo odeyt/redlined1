@@ -239,7 +239,8 @@ export function EstimatesView() {
 
   async function openNewForm() {
     const num = await nextEstimateNumber();
-    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }, { ...LABOR_LINE }] });
+    const defaultCurrency = isD1Shop ? 'THB' : 'USD';
+    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }, { ...LABOR_LINE }], currency: defaultCurrency });
     setEditingId(null);
     setCustQuery('');
     setVehQuery('');
@@ -286,7 +287,7 @@ export function EstimatesView() {
       const costRaw = field === 'cost' ? value : line.cost;
       const cost    = parseFloat(costRaw) || 0;
       const markup  = parseFloat(field === 'markup' ? value : line.markup);
-      const pct     = isNaN(markup) ? 50 : markup;
+      const pct     = isNaN(markup) ? 0 : markup;
 
       // When cost is zero/empty, zero out the rate immediately and stop
       if (cost === 0) {
@@ -824,7 +825,7 @@ export function EstimatesView() {
                     </div>
                     <input type="text" inputMode="numeric" value={line.qty} onChange={e => setLine(i, 'qty', e.target.value)} placeholder="1" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <input type="text" inputMode="decimal" value={line.cost} onChange={e => setLine(i, 'cost', e.target.value)} placeholder="Cost" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                    <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="50" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
+                    <input type="text" inputMode="decimal" value={line.markup} onChange={e => setLine(i, 'markup', e.target.value)} placeholder="0" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 6px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <select value={line.currency} onChange={e => setLine(i, 'currency', e.target.value)}
                       style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 4px', fontSize: 11, background: 'var(--surface)', color: 'var(--text)' }}>
                       <option value="">— same —</option>
