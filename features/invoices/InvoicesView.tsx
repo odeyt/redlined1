@@ -33,7 +33,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 type FormLine = { note: string; description: string; laoDescription: string; qty: string; cost: string; markup: string; rate: string; currency: string };
-const EMPTY_LINE: FormLine = { note: '', description: '', laoDescription: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
+const EMPTY_LINE: FormLine = { note: '', description: '', laoDescription: '', qty: '1', cost: '', markup: '0', rate: '0', currency: '' };
 
 async function translateToLao(text: string): Promise<string> {
   if (!text.trim()) return '';
@@ -401,7 +401,17 @@ export function InvoicesView() {
       jobCardId: inv.jobCardId,
       status: inv.status,
       lines: inv.lines.length > 0
-        ? inv.lines.map(l => ({ note: l.note || '', description: l.description || '', laoDescription: l.laoDescription || '', qty: String(l.qty), cost: l.cost != null ? String(l.cost) : '', markup: l.markup != null ? String(l.markup) : '', rate: String(l.rate), currency: l.currency || '' }))
+        ? inv.lines.map(l => {
+            // If cost not saved in DB but rate+markup exist, back-calculate cost so markup changes work
+            let costStr = '';
+            if (l.cost != null) {
+              costStr = String(l.cost);
+            } else if (l.rate) {
+              const mk = l.markup ?? 0;
+              costStr = String(+(l.rate / (1 + mk / 100)).toFixed(2));
+            }
+            return { note: l.note || '', description: l.description || '', laoDescription: l.laoDescription || '', qty: String(l.qty), cost: costStr, markup: l.markup != null ? String(l.markup) : '0', rate: String(l.rate), currency: l.currency || '' };
+          })
         : [{ ...EMPTY_LINE }],
       discount: inv.discount,
       discountPct: (() => {
@@ -443,15 +453,25 @@ export function InvoicesView() {
   }
 
   async function setLine(i: number, field: keyof FormLine, value: string) {
-    const line = form.lines[i];
-    if (!line) return;
+    if (!form.lines[i]) return;
+    // First pass: update the changed field immediately so the UI reflects it
     setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value }) }));
     if (field === 'cost' || field === 'markup' || field === 'currency') {
-      const cost = parseFloat(field === 'cost' ? value : line.cost) || 0;
-      const markup = parseFloat(field === 'markup' ? value : line.markup);
+      // Read from current form state (not stale snapshot) using latest lines
+      const currentLine = form.lines[i];
+      const cost = parseFloat(field === 'cost' ? value : currentLine.cost);
+      const markup = parseFloat(field === 'markup' ? value : currentLine.markup);
       const pct = isNaN(markup) ? 0 : markup;
-      if (cost === 0) return;
-      const billingCur = field === 'currency' ? (value || form.currency) : (line.currency || form.currency);
+      // If cost is zero or not provided, clear rate only when cost is explicitly set to 0/empty
+      // Otherwise leave rate unchanged so existing values persist while user is typing
+      if (!cost || cost <= 0) {
+        if (field === 'cost') {
+          // User cleared cost — zero out rate too
+          setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: '0' }) }));
+        }
+        return;
+      }
+      const billingCur = field === 'currency' ? (value || form.currency) : (currentLine.currency || form.currency);
       const fx = await getRate(form.currency, billingCur);
       const rate = +(cost * fx * (1 + pct / 100)).toFixed(2);
       setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: String(rate) }) }));
