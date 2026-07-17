@@ -33,8 +33,12 @@ export function usePlan() {
         const s = getPlanStatus(data.plan, data.trial_ends_at);
         setStatus(s);
         if (s === 'trial') setDaysLeft(trialDaysLeft(data.trial_ends_at));
+      } else {
+        // No profile row yet — trigger may not have fired for this account.
+        // Give trial access so they are never locked out due to a missing row.
+        setStatus('trial');
+        setDaysLeft(7);
       }
-      // If no profiles row exists, status stays 'free' — user must log in or sign up properly
       setLoading(false);
     }
     void load();
