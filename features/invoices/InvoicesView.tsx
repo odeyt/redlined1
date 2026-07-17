@@ -1599,7 +1599,7 @@ export function InvoicesView() {
             </form>
           </div>
         )}
-        {!showForm && selected && totals && (
+        {selected && totals && (
           <div>
             {/* Action bar */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
