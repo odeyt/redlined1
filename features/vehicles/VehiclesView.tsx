@@ -443,6 +443,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   const [pulledFrom, setPulledFrom] = useState<string | null>(null);
   const [pulling, setPulling] = useState(false);
   const [showVehicleIntelligence, setShowVehicleIntelligence] = useState(false);
+  const [showOtherVehicles, setShowOtherVehicles] = useState(false);
 
   // Auto-decode VIN on mount if it's 17 chars and year/make are missing
   useEffect(() => {
@@ -496,45 +497,72 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   async function pullFromRO(silent = false) {
     setPulling(true);
     try {
-      const allROs = await fetchRepairOrders();
       const vLabel = vehicle.label?.toLowerCase() ?? '';
       const vCustId = vehicle.customerId ?? '';
-      // Find ROs matching this vehicle by label or customer+vehicle string, prefer active ones
-      const matched = allROs
+
+      // ── 1. Try Repair Orders first ────────────────────────────────
+      const allROs = await fetchRepairOrders();
+      const matchedROs = allROs
         .filter(ro =>
           (ro.vehicle?.toLowerCase() === vLabel) ||
           (ro.customerId === vCustId && ro.vehicle?.toLowerCase() === vLabel)
         )
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      const ro: RepairOrder | undefined = matched[0];
-      if (!ro) {
-        if (!silent) notify('No linked Repair Order found for this vehicle.');
+      const ro: RepairOrder | undefined = matchedROs[0];
+
+      // ── 2. Try Job Cards as fallback (or supplement) ──────────────
+      const allJCs = await fetchJobCards();
+      const matchedJCs = allJCs
+        .filter(jc =>
+          jc.vehicle?.toLowerCase() === vLabel ||
+          (jc.vehicle?.toLowerCase().includes(vLabel) && vLabel.length > 4)
+        )
+        .sort((a, b) => new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime());
+      const jc = matchedJCs[0];
+
+      if (!ro && !jc) {
+        if (!silent) notify('No linked Repair Order or Job Card found for this vehicle.');
         return;
       }
-      // Build parts string from inline RO parts
-      const partsList = ro.parts?.length
+
+      // Build parts string from RO parts list
+      const partsList = ro?.parts?.length
         ? ro.parts.map(p => `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''} ×${p.qty}`).join('\n')
         : '';
 
+      // Job card techs as semicolon string
+      const jcTech = jc?.technicians?.length ? jc.technicians.join('; ') : '';
+
       setF(prev => ({
         ...prev,
-        issues:          ro.concern      || prev.issues,
-        damageIntake:    ro.notes        || prev.damageIntake,
-        partsNeeded:     partsList       || prev.partsNeeded,
-        partsExchanged:  ro.correction   || prev.partsExchanged,
-        flatRateLak:     ro.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak,
-        assignedTech:    ro.technician   || prev.assignedTech,
-        recommendation:  (ro.cause ? `Cause: ${ro.cause}` : '') +
-                         (ro.cause && ro.correction ? '\n' : '') +
-                         (ro.correction ? `Correction: ${ro.correction}` : '') || prev.recommendation,
+        // Issues / Work Needed: RO concern → JC notes → keep existing
+        issues:         ro?.concern      || jc?.notes      || prev.issues,
+        // Damage at Intake: RO notes → keep existing
+        damageIntake:   ro?.notes        || prev.damageIntake,
+        // Parts Needed: RO parts list → keep existing
+        partsNeeded:    partsList        || prev.partsNeeded,
+        // Parts Exchanged: RO correction → keep existing
+        partsExchanged: ro?.correction   || prev.partsExchanged,
+        // Flat Rate: RO flat rate cost → keep existing
+        flatRateLak:    ro?.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak,
+        // Assigned Tech: RO technician → JC technicians → keep existing
+        assignedTech:   ro?.technician   || jcTech         || prev.assignedTech,
+        // Recommendation: built from RO cause + correction
+        recommendation: ro
+          ? ((ro.cause ? `Cause: ${ro.cause}` : '') +
+             (ro.cause && ro.correction ? '\n' : '') +
+             (ro.correction ? `Correction: ${ro.correction}` : '')) || prev.recommendation
+          : prev.recommendation,
       }));
-      setPulledFrom(ro.roNumber);
-      if (!silent) notify(`Pulled from ${ro.roNumber}`);
-    } catch { if (!silent) notify('Could not fetch Repair Orders.'); }
+
+      const source = ro ? ro.roNumber : (jc ? jc.id : '');
+      setPulledFrom(source);
+      if (!silent) notify(`Pulled from ${source}`);
+    } catch { if (!silent) notify('Could not fetch linked records.'); }
     finally { setPulling(false); }
   }
 
-  // Auto-pull on open (only fills empty fields, handled inside pullFromRO via || prev.x)
+  // Auto-pull on open — fills only empty fields (|| prev.x guards prevent overwrites)
   useEffect(() => { pullFromRO(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lifecycle: fetch all linked records for this vehicle
@@ -1256,31 +1284,30 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
             </div>
           </div>
 
-          {/* ── Other vehicles for this customer ── */}
+          {/* ── Other vehicles for this customer — collapsed by default ── */}
           {custVehicles.length > 0 && (
-            <div style={{ marginBottom: 14, background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#2196f3', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid rgba(33,150,243,0.15)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>🚗 {customers.find(c => c.id === f.customerId)?.name}&apos;s Other Vehicles ({custVehicles.length})</span>
-                <button type="button" onClick={() => setShowAddForCust(v => !v)}
-                  style={{ fontSize: 11, fontWeight: 700, color: showAddForCust ? '#888' : '#2196f3', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {showAddForCust ? '✕ cancel' : '+ New vehicle'}
-                </button>
-              </div>
-              {custVehicles.map(v => (
-                <div key={v.id} onClick={() => onSwitchVehicle(v)}
-                  style={{ padding: '9px 12px', borderBottom: '1px solid rgba(33,150,243,0.1)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(33,150,243,0.07)') as unknown as void}
-                  onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{v.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || '—'} · {v.vin || 'No VIN'}</div>
-                  </div>
-                  <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open →</span>
-                </div>
-              ))}
-              {showAddForCust && (
-                <div style={{ padding: '10px 12px', background: 'rgba(33,150,243,0.04)', borderTop: '1px solid rgba(33,150,243,0.15)', fontSize: 12, color: 'var(--muted)' }}>
-                  Save this record first, then use <strong>+ Add Vehicle</strong> from the list and select this customer — their info will auto-fill.
+            <div style={{ marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={() => setShowOtherVehicles(v => !v)}
+                style={{ fontSize: 11, fontWeight: 700, color: '#2196f3', background: 'none', border: '1px solid rgba(33,150,243,0.25)', borderRadius: 6, cursor: 'pointer', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              >
+                🚗 {custVehicles.length} other vehicle{custVehicles.length !== 1 ? 's' : ''} {showOtherVehicles ? '▲' : '▼'}
+              </button>
+              {showOtherVehicles && (
+                <div style={{ marginTop: 6, background: 'rgba(33,150,243,0.04)', border: '1px solid rgba(33,150,243,0.2)', borderRadius: 10, overflow: 'hidden' }}>
+                  {custVehicles.map(v => (
+                    <div key={v.id} onClick={() => onSwitchVehicle(v)}
+                      style={{ padding: '9px 12px', borderBottom: '1px solid rgba(33,150,243,0.1)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(33,150,243,0.07)') as unknown as void}
+                      onMouseLeave={e => (e.currentTarget.style.background = '') as unknown as void}>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{v.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{v.plate || '—'} · {v.vin || 'No VIN'}</div>
+                      </div>
+                      <span style={{ fontSize: 11, color: '#2196f3', fontWeight: 700, flexShrink: 0 }}>Open →</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
