@@ -366,6 +366,7 @@ export function JobCardsView() {
   const [newTechEmail, setNewTechEmail] = useState('');
 
   useEffect(() => {
+    if (!shopId) return;
     Promise.all([fetchJobCards(), fetchClosedJobs(), fetchCustomerNames(), fetchTechnicians(true), fetchShopSettings(), fetchVehicles(), fetchCustomers()])
       .then(([j, c, custs, t, settings, v, fc]) => {
         setJobs(j); setClosedJobs(c); setCustomers(custs); setTechs(t);
@@ -400,7 +401,7 @@ export function JobCardsView() {
     }
     window.addEventListener('shop-settings-updated', onSettingsUpdate);
     return () => window.removeEventListener('shop-settings-updated', onSettingsUpdate);
-  }, []);
+  }, [shopId]);
 
   const [selectedVehicleEngine, setSelectedVehicleEngine] = useState('');
   const [selectedVehicleMileage, setSelectedVehicleMileage] = useState('');

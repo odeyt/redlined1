@@ -1616,6 +1616,10 @@ export function VehiclesView() {
   }, []);
 
   useEffect(() => {
+    // Wait until useShop has resolved the current shop so getShopIds() returns correct IDs
+    if (!currentShop?.id) return;
+
+    setLoading(true);
     // Fetch technicians independently so a failure there never blocks vehicles/customers
     fetchTechnicians(true).then(setTechnicians).catch(() => {});
 
@@ -1642,7 +1646,7 @@ export function VehiclesView() {
       })
       .catch(err => setError('Load error: ' + (err?.message || '')))
       .finally(() => setLoading(false));
-  }, []);
+  }, [currentShop?.id]);
 
   // Deep-link: open a specific vehicle drawer from global search or other modules
   useEffect(() => {

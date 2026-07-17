@@ -10,6 +10,7 @@ import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCus
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
 import { getShopId } from '@/lib/shopStore';
+import { useShop } from '@/lib/useShop';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
@@ -20,6 +21,7 @@ interface RepairOrder { ro_number: string; status: string; opened_date: string; 
 
 export function CustomersView() {
   const dispatch = useAppDispatch();
+  const { currentShop } = useShop();
   const [customers, setCustomers]         = useState<Customer[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
@@ -48,6 +50,7 @@ export function CustomersView() {
   const [pendingCustomerId, setPendingCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!currentShop?.id) return;
     fetchCustomers()
       .then(list => {
         setCustomers(list);
@@ -62,7 +65,7 @@ export function CustomersView() {
       })
       .catch((err) => setError('Load error: ' + (err?.message || JSON.stringify(err))))
       .finally(() => setLoading(false));
-  }, []);
+  }, [currentShop?.id]);
 
   useEffect(() => {
     function handleOpenCustomer(e: Event) {
