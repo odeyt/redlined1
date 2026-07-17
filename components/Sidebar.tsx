@@ -265,7 +265,8 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   // the empty initial state never leaks through as "show all".
   const blockedForRole = (() => {
     if (role === 'owner') return [];
-    if (!role || !settingsLoaded) return getBlockedModules(''); // block all while loading
+    if (!role || roleLoading) return getBlockedModules(''); // role genuinely unknown — block all
+    if (!settingsLoaded) return getBlockedModules(role);   // role known, DB perms still loading — use hardcoded defaults
     const allowed = rolePermissions[role as RoleKey];
     if (allowed && allowed.length > 0) {
       // Saved allowlist is authoritative — block everything not explicitly permitted.
