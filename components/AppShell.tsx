@@ -128,10 +128,29 @@ function Shell() {
     return () => { document.body.style.overflow = ''; };
   }, [mobileNavOpen]);
 
-  // Fallback: if auth/callback missed the pending checkout (cross-browser), pick it up here
+  // Pick up pending checkout from localStorage OR from URL params (cross-browser safe)
   useEffect(() => {
     if (roleLoading || checkoutFired.current) return;
-    const raw = localStorage.getItem('rd1_pending_checkout');
+
+    // Check URL params first (set by emailRedirectTo in signup), then localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPlan = urlParams.get('plan');
+    const urlPeriod = urlParams.get('period');
+
+    let raw = localStorage.getItem('rd1_pending_checkout');
+
+    // If URL has plan params, they take priority (email-confirmation cross-browser path)
+    if (urlPlan && urlPlan !== 'trial') {
+      const fromUrl = JSON.stringify({ planId: urlPlan, billingInterval: urlPeriod || 'monthly' });
+      localStorage.setItem('rd1_pending_checkout', fromUrl);
+      raw = fromUrl;
+      // Clean URL params without reload
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('plan');
+      cleanUrl.searchParams.delete('period');
+      window.history.replaceState({}, '', cleanUrl.toString());
+    }
+
     if (!raw) return;
     checkoutFired.current = true;
 
@@ -149,34 +168,33 @@ function Shell() {
         })
           .then(r => {
             if (r.status === 403) {
-              // Owner/internal account — clear and skip silently
               localStorage.removeItem('rd1_pending_checkout');
+              // Show subscriptions page so user can see their plan status
+              dispatch({ type: 'SET_MODULE', module: 'subscriptions' });
+              dispatch({ type: 'NOTIFY', message: 'Your account already has full access — no payment required.' });
               return null;
             }
             return r.ok ? r.json() : Promise.reject(r.status);
           })
           .then(json => {
-            if (json === null) return; // exempt account handled above
+            if (json === null) return;
             if (json?.url) {
               localStorage.removeItem('rd1_pending_checkout');
               window.location.href = json.url;
               return;
             }
-            // Checkout created but no redirect URL — go to billing dashboard
             localStorage.removeItem('rd1_pending_checkout');
-            window.location.href = '/billing';
+            dispatch({ type: 'SET_MODULE', module: 'subscriptions' });
           })
           .catch(() => {
             // Transient error — keep key so next page load retries
-            window.location.href = '/billing';
+            dispatch({ type: 'SET_MODULE', module: 'subscriptions' });
           });
       } catch {
-        // Malformed JSON — clear to avoid infinite retry
         localStorage.removeItem('rd1_pending_checkout');
       }
     }
 
-    // Client-side billing exemption guard — clear and skip before hitting the API
     import('@/lib/supabase').then(({ supabase }) =>
       supabase.auth.getUser().then(({ data }) => {
         const email = (data.user?.email ?? '').toLowerCase();
@@ -189,12 +207,14 @@ function Shell() {
         );
         if (exemptEmails.has(email) || (domain && exemptDomains.has(domain))) {
           localStorage.removeItem('rd1_pending_checkout');
+          dispatch({ type: 'SET_MODULE', module: 'subscriptions' });
+          dispatch({ type: 'NOTIFY', message: 'Your account already has full access — no payment required.' });
         } else {
-          firePendingCheckout(raw);
+          firePendingCheckout(raw!);
         }
       })
     );
-  }, [roleLoading]);
+  }, [roleLoading, dispatch]);
 
   // Role-based module blocking — mirrors Sidebar logic exactly.
   // Use the owner-configured allowlist from shop_settings when available;

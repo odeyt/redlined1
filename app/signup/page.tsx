@@ -70,7 +70,9 @@ export default function SignupPage() {
         password,
         options: {
           data: { full_name: name, shop_name: shopName },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: selectedPlan !== 'trial'
+          ? `${window.location.origin}/auth/callback?next=/?plan=${selectedPlan}&period=${period}`
+          : `${window.location.origin}/auth/callback`,
         },
       });
       if (signUpError) throw signUpError;
