@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import { Panel } from '@/components/Panel';
@@ -10,6 +10,8 @@ import { Suspense } from 'react';
 import { LearningDashboardSection } from '@/features/intelligence-learning/LearningDashboardSection';
 import { FeatureGate } from '@/components/featureFlags/FeatureFlagProvider';
 import { OperationalMetricsSection } from './OperationalMetricsSection';
+import { useOperationalStats } from '@/features/dashboard/shared/useOperationalStats';
+import { CURRENCIES } from '@/services/invoiceService';
 
 // ── Types ────────────────────────────────────────────────────
 interface ShopMetrics {
@@ -256,7 +258,7 @@ const CC_STYLES = `
 // ── Summary Pill ──────────────────────────────────────────────
 function SummaryPill({
   icon, label, value, accent, dimmed, onClick, urgency,
-}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean; onClick?: () => void; urgency?: 'critical' | 'high' | 'none' }) {
+}: { icon: string; label: string; value: string | number | ReactNode; accent: string; dimmed?: boolean; onClick?: () => void; urgency?: 'critical' | 'high' | 'none' }) {
   const [hovered, setHovered] = useState(false);
   const clickable = !!onClick;
   const isAlert = !dimmed && (urgency === 'critical' || urgency === 'high');
@@ -369,7 +371,7 @@ function SignalTile({ icon, label, value, accent, onClick }: { icon: string; lab
 // ── Row Item (for opportunity / risk panels) ──────────────────
 function RowItem({
   label, value, accent, tag, onClick,
-}: { label: string; value: string | number; accent?: string; tag?: string; onClick?: () => void }) {
+}: { label: string; value: string | number | ReactNode; accent?: string; tag?: string; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -773,10 +775,31 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
 }
 
 // ── Main Component ────────────────────────────────────────────
+function fmtCur(amount: number, currency: string): string {
+  const cur = CURRENCIES.find(c => c.code === currency);
+  const symbol = cur?.symbol ?? currency;
+  return `${symbol}${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function RevenueByCurrency({ byCurrency, accent }: { byCurrency: Record<string, number>; accent: string }) {
+  const entries = Object.entries(byCurrency).filter(([, v]) => v > 0);
+  if (entries.length === 0) return <span style={{ color: 'rgba(255,255,255,0.25)' }}>฿0</span>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {entries.map(([cur, amt]) => (
+        <span key={cur} style={{ fontSize: entries.length > 1 ? 22 : 32, fontWeight: 900, color: accent, lineHeight: 1.1 }}>
+          {fmtCur(amt, cur)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CommandCenterView() {
   const { role } = useShop();
   const dispatch = useAppDispatch();
   const shopId = getShopId();
+  const { stats: liveStats } = useOperationalStats();
 
   function nav(module: string) {
     dispatch({ type: 'SET_MODULE', module });
@@ -1109,9 +1132,12 @@ export function CommandCenterView() {
               dimmed={overdueCount === 0}
               urgency={overdueCount > 0 ? 'high' : 'none'}
               onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
-            <SummaryPill icon="💵" label="Revenue Today" value={fmtMoney(revenueToday)}
+            <SummaryPill icon="💵" label="Revenue Today"
+              value={liveStats?.revenueTodayByCurrency
+                ? <RevenueByCurrency byCurrency={liveStats.revenueTodayByCurrency} accent="#22d3a0" />
+                : fmtMoney(revenueToday)}
               accent="#22d3a0"
-              dimmed={revenueToday === 0}
+              dimmed={liveStats ? Object.values(liveStats.revenueTodayByCurrency ?? {}).every(v => v === 0) : revenueToday === 0}
               urgency="none"
               onClick={() => nav('payments')} />
             <SummaryPill icon="🔧" label="Open Jobs" value={openJobs}
@@ -1304,7 +1330,11 @@ export function CommandCenterView() {
               <RowItem label="Unpaid invoices"         value={unpaidCount}  tag="invoices"  accent={unpaidCount  > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
               <RowItem label="Stale estimates"         value={staleEst}     tag="estimates" accent={staleEst     > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
               <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} onClick={() => nav('job-cards')} />
-              <RowItem label="Revenue today"           value={fmtMoney(revenueToday)} accent={revenueToday > 0 ? D.green : undefined} onClick={() => nav('payments')} />
+              <RowItem label="Revenue today"
+                value={liveStats?.revenueTodayByCurrency && Object.keys(liveStats.revenueTodayByCurrency).length > 0
+                  ? Object.entries(liveStats.revenueTodayByCurrency).filter(([,v]) => v > 0).map(([cur, amt]) => fmtCur(amt, cur)).join(' + ') || '—'
+                  : fmtMoney(revenueToday)}
+                accent={revenueToday > 0 ? D.green : undefined} onClick={() => nav('payments')} />
               {revenueOpportunity > 0 && (
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(34,211,160,0.12)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#4ade80' }}>Total Opportunity</span>
