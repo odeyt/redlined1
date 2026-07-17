@@ -47,17 +47,32 @@ function buildGroups(enabled: string[]) {
   }));
 }
 
-function StatCard({ label, value, valueColor, items, countOnly }: {
+// Sum payments grouped by currency → { USD: 1200, THB: 4500 }
+function sumByCurrency(payments: Payment[]): Record<string, number> {
+  return payments.reduce((acc, p) => {
+    const cur = p.currency || 'USD';
+    acc[cur] = (acc[cur] || 0) + p.amount;
+    return acc;
+  }, {} as Record<string, number>);
+}
+
+// Format a currency amount with proper symbol (no mixing)
+function fmtCur(amount: number, currency: string): string {
+  const cur = CURRENCIES.find(c => c.code === currency);
+  const sym = cur?.symbol ?? currency;
+  return `${sym}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function StatCard({ label, totals, valueColor, items, countOnly }: {
   label: string;
-  value: string;
+  totals?: Record<string, number>;
   valueColor: string;
   items: Payment[];
-  currency: string;
   countOnly?: boolean;
 }) {
   const [hover, setHover] = useState(false);
-  const fmtAmt = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const fmtDT  = (d: string) => d ? new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtDT = (d: string) => d ? new Date(d).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const entries = totals ? Object.entries(totals).filter(([, v]) => v > 0) : [];
   return (
     <div
       className="card card-hero"
@@ -66,7 +81,16 @@ function StatCard({ label, value, valueColor, items, countOnly }: {
       onMouseLeave={() => setHover(false)}
     >
       <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ fontSize: countOnly ? 28 : 22, fontWeight: 700, color: valueColor }}>{value}</div>
+      {countOnly
+        ? <div style={{ fontSize: 28, fontWeight: 700, color: valueColor }}>{items.length}</div>
+        : entries.length > 0
+          ? <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {entries.map(([cur, amt]) => (
+                <div key={cur} style={{ fontSize: 20, fontWeight: 700, color: valueColor, lineHeight: 1.2 }}>{fmtCur(amt, cur)}</div>
+              ))}
+            </div>
+          : <div style={{ fontSize: 20, fontWeight: 700, color: valueColor }}>—</div>
+      }
       {items.length > 0 && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>hover for details</div>}
       {hover && items.length > 0 && (
         <div style={{
@@ -89,7 +113,7 @@ function StatCard({ label, value, valueColor, items, countOnly }: {
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.method}{p.referenceNumber ? ` · ${p.referenceNumber}` : ''}</div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: valueColor, whiteSpace: 'nowrap' }}>{fmtAmt(p.amount)}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: valueColor, whiteSpace: 'nowrap' }}>{fmtCur(p.amount, p.currency || 'USD')}</div>
               </div>
             ))}
           </div>
@@ -241,18 +265,21 @@ export function PaymentsView() {
   const refundedList  = payments.filter(p => p.status === 'Refunded');
   const voidedList    = payments.filter(p => p.status === 'Void');
   const todayList     = payments.filter(p => new Date(p.paymentDate).toDateString() === new Date().toDateString());
-  const totalCollected = collectedList.reduce((s, p) => s + p.amount, 0);
-  const totalRefunded  = refundedList.reduce((s, p) => s + p.amount, 0);
-  const totalVoided    = voidedList.reduce((s, p) => s + p.amount, 0);
-  const todayCount     = todayList.length;
 
-  // Breakdown by method — driven from actual payment data so no method is silently dropped
+  const collectedByCurrency = sumByCurrency(collectedList);
+  const refundedByCurrency  = sumByCurrency(refundedList);
+  const voidedByCurrency    = sumByCurrency(voidedList);
+
+  // Breakdown by method per currency — { 'Cash': { USD: 200, THB: 1000 }, ... }
   const methodTotals = payments
     .filter(p => p.status !== 'Void' && p.status !== 'Refunded')
     .reduce((acc, p) => {
-      acc[p.method] = (acc[p.method] || 0) + p.amount;
+      if (!acc[p.method]) acc[p.method] = {};
+      const cur = p.currency || 'USD';
+      acc[p.method][cur] = (acc[p.method][cur] || 0) + p.amount;
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<string, Record<string, number>>);
+
 
   return (
     <>
@@ -260,48 +287,11 @@ export function PaymentsView() {
 
       {/* Stats */}
       <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-        {/* Total Collected */}
-        <StatCard
-          label="Total Collected"
-          value={`$${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          valueColor="#4caf50"
-          items={collectedList}
-          currency="USD"
-        />
-        {/* Total Payments */}
-        <StatCard
-          label="Total Payments"
-          value={String(payments.length)}
-          valueColor="var(--text)"
-          items={payments}
-          currency="USD"
-          countOnly
-        />
-        {/* Today */}
-        <StatCard
-          label="Today"
-          value={String(todayCount)}
-          valueColor="#2196f3"
-          items={todayList}
-          currency="USD"
-          countOnly
-        />
-        {/* Refunded */}
-        <StatCard
-          label="Refunded"
-          value={`$${totalRefunded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          valueColor="#f44336"
-          items={refundedList}
-          currency="USD"
-        />
-        {/* Voided */}
-        <StatCard
-          label="Voided"
-          value={`$${totalVoided.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          valueColor="#ff9800"
-          items={voidedList}
-          currency="USD"
-        />
+        <StatCard label="Total Collected" totals={collectedByCurrency} valueColor="#4caf50" items={collectedList} />
+        <StatCard label="Total Payments" valueColor="var(--text)" items={payments} countOnly />
+        <StatCard label="Today" valueColor="#2196f3" items={todayList} countOnly />
+        <StatCard label="Refunded" totals={refundedByCurrency} valueColor="#f44336" items={refundedList} />
+        <StatCard label="Voided" totals={voidedByCurrency} valueColor="#ff9800" items={voidedList} />
       </div>
 
       {error && (
@@ -436,15 +426,24 @@ export function PaymentsView() {
           {/* Method Breakdown */}
           {Object.keys(methodTotals).length > 0 && (
             <Panel title="Collected by Method" hint="Breakdown of all recorded payments">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {Object.entries(methodTotals).sort((a, b) => b[1] - a[1]).map(([method, total]) => {
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {Object.entries(methodTotals).map(([method, byCur]) => {
                   const methodInfo = PAYMENT_METHODS.find(m => m.value === method);
-                  const pct = totalCollected > 0 ? (total / totalCollected) * 100 : 0;
+                  const entries = Object.entries(byCur).filter(([, v]) => v > 0);
+                  // progress bar uses the first-currency ratio vs collected in same currency
+                  const firstCur = entries[0]?.[0] ?? 'USD';
+                  const firstAmt = entries[0]?.[1] ?? 0;
+                  const pct = (collectedByCurrency[firstCur] ?? 0) > 0
+                    ? (firstAmt / (collectedByCurrency[firstCur] ?? 1)) * 100 : 0;
                   return (
                     <div key={method}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13, alignItems: 'flex-start' }}>
                         <span>{methodInfo?.label || method}</span>
-                        <span style={{ fontWeight: 600 }}>${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                          {entries.map(([cur, amt]) => (
+                            <span key={cur} style={{ fontWeight: 600 }}>{fmtCur(amt, cur)}</span>
+                          ))}
+                        </div>
                       </div>
                       <div style={{ height: 6, background: 'var(--line)', borderRadius: 3, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent)', borderRadius: 3, transition: 'width 0.4s' }} />
@@ -533,28 +532,37 @@ export function PaymentsView() {
             </table>
           )}
 
-          {/* Daily total footer */}
+          {/* Register footer totals — per currency */}
           {filtered.length > 0 && (
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 13, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ color: 'var(--muted)' }}>Showing {filtered.length} payment{filtered.length !== 1 ? 's' : ''}</span>
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 13, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--muted)', alignSelf: 'center' }}>Showing {filtered.length} payment{filtered.length !== 1 ? 's' : ''}</span>
               {(() => {
-                const gross = filtered.reduce((s, p) => s + p.amount, 0);
-                const excluded = filtered.filter(p => p.status === 'Void' || p.status === 'Refunded').reduce((s, p) => s + p.amount, 0);
-                const net = gross - excluded;
+                const grossByCur = sumByCurrency(filtered);
+                const excludedByCur = sumByCurrency(filtered.filter(p => p.status === 'Void' || p.status === 'Refunded'));
+                const currencies = Array.from(new Set([...Object.keys(grossByCur), ...Object.keys(excludedByCur)]));
                 return (
-                  <>
-                    <span style={{ color: 'var(--muted)' }}>
-                      Gross: ${gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    {excluded > 0 && (
-                      <span style={{ color: 'var(--danger, #e53e3e)' }}>
-                        Void/Refunded: −${excluded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
+                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>GROSS</div>
+                      {currencies.map(cur => (
+                        <div key={cur}>{fmtCur(grossByCur[cur] ?? 0, cur)}</div>
+                      ))}
+                    </div>
+                    {Object.keys(excludedByCur).length > 0 && (
+                      <div>
+                        <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>VOID/REFUNDED</div>
+                        {currencies.map(cur => excludedByCur[cur] ? (
+                          <div key={cur} style={{ color: 'var(--danger, #e53e3e)' }}>−{fmtCur(excludedByCur[cur], cur)}</div>
+                        ) : null)}
+                      </div>
                     )}
-                    <span style={{ fontWeight: 700 }}>
-                      Net Collected: ${net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </>
+                    <div style={{ fontWeight: 700 }}>
+                      <div style={{ color: 'var(--muted)', fontSize: 11, marginBottom: 2 }}>NET COLLECTED</div>
+                      {currencies.map(cur => (
+                        <div key={cur}>{fmtCur((grossByCur[cur] ?? 0) - (excludedByCur[cur] ?? 0), cur)}</div>
+                      ))}
+                    </div>
+                  </div>
                 );
               })()}
             </div>
