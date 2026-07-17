@@ -187,7 +187,7 @@ function Shell() {
   const roleBlocked = (() => {
     if (roleLoading || !role) return [];
     if (role === 'owner') return [];
-    if (!permLoaded) return getBlockedModules(''); // block all while loading
+    if (!permLoaded) return getBlockedModules(role); // use hardcoded fallback while loading — avoids redirect-to-dashboard race
     const allowed = rolePermissions?.[role as RoleKey];
     if (allowed && allowed.length > 0) {
       return Object.keys(views).filter(id => !allowed.includes(id));
