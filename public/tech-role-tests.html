@@ -167,7 +167,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
     <span class="brand-doc">Technician Role — Test Plan</span>
   </div>
   <div class="topbar-right">
-    <span class="tc-count">55 test cases · 10 sections</span>
+    <span class="tc-count" id="progress-label">0 / 55 passed</span>
+    <button class="print-btn" style="background:var(--surface);border:1px solid var(--line2);color:var(--muted)" onclick="loadAudit()">⬆ Load</button>
+    <button class="print-btn" style="background:#16a34a" onclick="saveAudit()">💾 Save Audit</button>
     <button class="print-btn" onclick="window.print()">⬇ Export PDF</button>
   </div>
 </div>
@@ -1426,6 +1428,8 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 </div>
 
 <script>
+const STORAGE_KEY = 'redlined1_qa_audit';
+
 function toggle(id) {
   const el = document.getElementById(id);
   el.classList.toggle('open');
@@ -1437,16 +1441,97 @@ document.querySelectorAll('.tc-head').forEach(h => {
   h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
 });
 
-// Update passed count
-document.querySelectorAll('.tc-check').forEach(cb => {
-  cb.addEventListener('change', () => {
-    const count = document.querySelectorAll('.tc-check:checked').length;
-    const el = document.querySelector('.summary-cell:last-child .num');
-    if (el) el.textContent = count;
+function updateProgress() {
+  const checked = document.querySelectorAll('.tc-check:checked').length;
+  const total = document.querySelectorAll('.tc-check').length;
+  const el = document.querySelector('.summary-cell:last-child .num');
+  if (el) el.textContent = checked;
+  const lbl = document.getElementById('progress-label');
+  if (lbl) lbl.textContent = checked + ' / ' + total + ' passed';
+  // auto-save state to localStorage on every change
+  autoSave();
+}
+
+function autoSave() {
+  const state = {};
+  document.querySelectorAll('.tc-check').forEach(cb => {
+    const tc = cb.closest('.tc');
+    if (tc) state[tc.id] = cb.checked;
   });
-  // stop click from toggling accordion
+  try { localStorage.setItem(STORAGE_KEY + '_state', JSON.stringify(state)); } catch(e) {}
+}
+
+function restoreState(state) {
+  document.querySelectorAll('.tc-check').forEach(cb => {
+    const tc = cb.closest('.tc');
+    if (tc && state[tc.id] !== undefined) cb.checked = state[tc.id];
+  });
+  updateProgress();
+}
+
+// On load: restore from localStorage
+(function() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY + '_state');
+    if (saved) restoreState(JSON.parse(saved));
+  } catch(e) {}
+})();
+
+// Update passed count on change
+document.querySelectorAll('.tc-check').forEach(cb => {
+  cb.addEventListener('change', updateProgress);
   cb.addEventListener('click', e => e.stopPropagation());
 });
+
+function saveAudit() {
+  const tester = prompt('Tester name (or leave blank):') || 'Unknown';
+  const notes = prompt('Audit notes (optional):') || '';
+  const results = {};
+  document.querySelectorAll('.tc').forEach(tc => {
+    const cb = tc.querySelector('.tc-check');
+    const name = tc.querySelector('.tc-name');
+    results[tc.id] = { passed: cb ? cb.checked : false, name: name ? name.textContent.trim() : tc.id };
+  });
+  const passed = Object.values(results).filter(r => r.passed).length;
+  const total = Object.values(results).length;
+  const audit = { tester, date: new Date().toISOString(), notes, passed, total, results };
+
+  // Save to localStorage
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(audit)); } catch(e) {}
+
+  // Download as JSON
+  const blob = new Blob([JSON.stringify(audit, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'redlined1-qa-audit-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  alert('Audit saved! ' + passed + '/' + total + ' tests passed.');
+}
+
+function loadAudit() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const audit = JSON.parse(ev.target.result);
+        if (!audit.results) { alert('Invalid audit file.'); return; }
+        const state = {};
+        for (const [id, r] of Object.entries(audit.results)) state[id] = r.passed;
+        restoreState(state);
+        alert('Loaded audit by ' + (audit.tester || 'Unknown') + ' from ' + (audit.date || '?').slice(0,10) + '\n' + audit.passed + '/' + audit.total + ' passed' + (audit.notes ? '\nNotes: ' + audit.notes : ''));
+      } catch(ex) { alert('Could not parse audit file.'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 // Expand all on print
 window.addEventListener('beforeprint', () => {
