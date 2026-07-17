@@ -227,32 +227,106 @@ function HealthRing({ score }: { score: number }) {
   );
 }
 
+// ── Keyframe animations (injected once) ──────────────────────
+const CC_STYLES = `
+  @keyframes cc-pulse-red {
+    0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); border-color: rgba(220,38,38,0.55); }
+    50%      { box-shadow: 0 0 22px 6px rgba(220,38,38,0.28); border-color: rgba(220,38,38,0.9); }
+  }
+  @keyframes cc-pulse-orange {
+    0%,100% { box-shadow: 0 0 0 0 rgba(234,88,12,0); border-color: rgba(234,88,12,0.45); }
+    50%      { box-shadow: 0 0 16px 4px rgba(234,88,12,0.22); border-color: rgba(234,88,12,0.8); }
+  }
+  @keyframes cc-dot-blink {
+    0%,100% { opacity: 1; } 50% { opacity: 0.25; }
+  }
+  @keyframes cc-slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes cc-count-in {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes cc-spin {
+    from { transform: rotate(0deg); } to { transform: rotate(360deg); }
+  }
+`;
+
 // ── Summary Pill ──────────────────────────────────────────────
 function SummaryPill({
-  icon, label, value, accent, dimmed, onClick,
-}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean; onClick?: () => void }) {
+  icon, label, value, accent, dimmed, onClick, urgency,
+}: { icon: string; label: string; value: string | number; accent: string; dimmed?: boolean; onClick?: () => void; urgency?: 'critical' | 'high' | 'none' }) {
   const [hovered, setHovered] = useState(false);
   const clickable = !!onClick;
+  const isAlert = !dimmed && (urgency === 'critical' || urgency === 'high');
+
+  const animName = urgency === 'critical' ? 'cc-pulse-red' : urgency === 'high' ? 'cc-pulse-orange' : 'none';
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
-        border: `1.5px solid ${dimmed ? 'rgba(255,255,255,0.14)' : accent + (hovered ? 'aa' : '80')}`,
+        background: dimmed
+          ? 'linear-gradient(145deg,#111118,#0a0a10)'
+          : urgency === 'critical'
+            ? 'linear-gradient(145deg,rgba(220,38,38,0.15),rgba(10,10,16,0.95))'
+            : urgency === 'high'
+              ? 'linear-gradient(145deg,rgba(234,88,12,0.12),rgba(10,10,16,0.95))'
+              : 'linear-gradient(145deg,rgba(255,255,255,0.04),rgba(10,10,16,0.95))',
+        border: `1.5px solid ${dimmed ? 'rgba(255,255,255,0.08)' : accent + '55'}`,
         borderRadius: D.radius,
-        padding: '14px 18px',
-        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: '18px 20px',
+        display: 'flex', flexDirection: 'column', gap: 8,
         cursor: clickable ? 'pointer' : 'default',
-        transform: hovered && clickable ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered && clickable ? `0 6px 20px rgba(0,0,0,0.35)` : '0 2px 10px rgba(0,0,0,0.2)',
-        transition: 'all 0.18s ease',
+        transform: hovered && clickable ? 'translateY(-3px) scale(1.015)' : 'none',
+        boxShadow: hovered && clickable
+          ? `0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px ${accent}30`
+          : `0 4px 16px rgba(0,0,0,0.3)`,
+        transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease',
+        animation: isAlert ? `${animName} 2.2s ease-in-out infinite` : 'none',
+        position: 'relative', overflow: 'hidden',
       }}>
-      <div style={{ fontSize: 20 }}>{icon}</div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.68)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 900, color: dimmed ? '#ffffff' : accent }}>{value}</div>
-      {clickable && <div style={{ fontSize: 10, color: accent, opacity: hovered ? 0.95 : 0.65, fontWeight: 600, transition: 'opacity 0.15s' }}>View →</div>}
+      {/* Subtle shimmer line at top */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+        background: `linear-gradient(90deg,transparent,${accent}60,transparent)`,
+        opacity: dimmed ? 0.2 : 0.7,
+      }} />
+      {/* Live dot for alert states */}
+      {isAlert && (
+        <div style={{ position: 'absolute', top: 12, right: 14, display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{
+            width: 7, height: 7, borderRadius: '50%', background: accent,
+            animation: 'cc-dot-blink 1.4s ease-in-out infinite',
+            boxShadow: `0 0 6px ${accent}`,
+          }} />
+          <span style={{ fontSize: 9, fontWeight: 800, color: accent, letterSpacing: '0.1em', textTransform: 'uppercase' }}>LIVE</span>
+        </div>
+      )}
+      <div style={{ fontSize: 22, lineHeight: 1 }}>{icon}</div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      <div style={{
+        fontSize: 32, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1,
+        color: dimmed ? 'rgba(255,255,255,0.25)' : accent,
+        animation: !dimmed ? 'cc-count-in 0.4s ease' : 'none',
+        textShadow: !dimmed && isAlert ? `0 0 20px ${accent}60` : 'none',
+      }}>{value}</div>
+      {clickable && !dimmed && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10,
+          color: accent, fontWeight: 700, letterSpacing: '0.06em',
+          opacity: hovered ? 1 : 0.6, transition: 'opacity 0.15s',
+          textTransform: 'uppercase',
+        }}>
+          VIEW <span style={{ fontSize: 12 }}>→</span>
+        </div>
+      )}
+      {dimmed && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 600, letterSpacing: '0.05em' }}>All Clear ✓</div>
+      )}
     </div>
   );
 }
@@ -927,107 +1001,124 @@ export function CommandCenterView() {
 
   return (
     <>
+    <style>{CC_STYLES}</style>
     <Panel title="D1 Command Center">
       {/* ── Premium Header ─────────────────────────────────── */}
       <div style={{
-        background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
-        borderRadius: 16,
-        padding: '22px 26px',
+        background: `linear-gradient(135deg,#1a0404 0%,#0d0d14 60%,#0a0010 100%)`,
+        borderRadius: 20,
+        padding: '24px 28px',
         marginBottom: 24,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14,
-        boxShadow: `0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
+        boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 40px rgba(0,0,0,0.5)`,
+        border: '1px solid rgba(220,38,38,0.2)',
         position: 'relative', overflow: 'hidden',
+        animation: 'cc-slide-up 0.35s ease',
       }}>
-        {/* subtle grid pattern overlay */}
+        {/* Grid texture */}
         <div style={{
-          position: 'absolute', inset: 0, opacity: 0.04,
-          backgroundImage: 'linear-gradient(rgba(255,255,255,.3) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.3) 1px,transparent 1px)',
-          backgroundSize: '24px 24px',
+          position: 'absolute', inset: 0, opacity: 0.025,
+          backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px)',
+          backgroundSize: '32px 32px', pointerEvents: 'none',
+        }} />
+        {/* Red glow orb */}
+        <div style={{
+          position: 'absolute', right: -60, top: -60, width: 220, height: 220,
+          borderRadius: '50%', background: 'radial-gradient(circle,rgba(220,38,38,0.18) 0%,transparent 70%)',
           pointerEvents: 'none',
         }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <span style={{ fontSize: 22 }}>⚡</span>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18 }}>
+          {/* Health ring inline in header */}
+          <HealthRing score={score} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.3)',
+                borderRadius: 999, padding: '3px 10px',
+              }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#dc2626', animation: 'cc-dot-blink 1.5s ease-in-out infinite' }} />
+                <span style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Live</span>
+              </div>
+            </div>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1 }}>
               D1 Command Center
             </h2>
-          </div>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>
-            Intelligence Dashboard · Owner &amp; Manager View
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Intelligence Dashboard · Owner &amp; Manager View
+            </div>
           </div>
         </div>
         <button
           onClick={handleGenerate}
           disabled={generating}
-          onMouseEnter={e => { if (!generating) { e.currentTarget.style.background = 'linear-gradient(135deg,#e74c3c,#c0392b)'; e.currentTarget.style.color = '#fff'; } }}
-          onMouseLeave={e => { if (!generating) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#c0392b'; } }}
           style={{
-            position: 'relative',
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '11px 22px',
-            borderRadius: 999,
-            background: generating
-              ? 'rgba(255,255,255,0.08)'
-              : 'transparent',
-            color: generating ? '#fff' : '#c0392b',
-            border: generating ? 'none' : '2px solid #c0392b',
+            position: 'relative', display: 'flex', alignItems: 'center', gap: 9,
+            padding: '12px 24px', borderRadius: 999,
+            background: generating ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#dc2626,#991b1b)',
+            color: '#fff', border: generating ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(220,38,38,0.6)',
             fontWeight: 800, fontSize: 13, cursor: generating ? 'not-allowed' : 'pointer',
-            opacity: generating ? 0.7 : 1,
-            boxShadow: generating ? 'none' : '0 4px 16px rgba(192,57,43,0.25)',
-            letterSpacing: '0.02em',
-            transition: 'all 0.2s',
-          }}>
-          <span style={{ fontSize: 15 }}>{generating ? '⟳' : '⚡'}</span>
-          {generating ? 'Refreshing…' : 'Refresh Intelligence'}
+            opacity: generating ? 0.65 : 1,
+            boxShadow: generating ? 'none' : '0 4px 20px rgba(220,38,38,0.4), 0 1px 0 rgba(255,255,255,0.1) inset',
+            letterSpacing: '0.025em', transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { if (!generating) e.currentTarget.style.boxShadow = '0 6px 28px rgba(220,38,38,0.55), 0 1px 0 rgba(255,255,255,0.1) inset'; }}
+          onMouseLeave={e => { if (!generating) e.currentTarget.style.boxShadow = '0 4px 20px rgba(220,38,38,0.4), 0 1px 0 rgba(255,255,255,0.1) inset'; }}
+        >
+          <span style={{ fontSize: 16, animation: generating ? 'cc-spin 1s linear infinite' : 'none', display: 'inline-block' }}>
+            {generating ? '⟳' : '⚡'}
+          </span>
+          {generating ? 'Refreshing Intelligence…' : 'Refresh Intelligence'}
         </button>
       </div>
 
       {isLoading ? (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          minHeight: 240, gap: 14, color: 'var(--muted)',
+          minHeight: 260, gap: 16, color: 'var(--muted)',
         }}>
-          <div style={{ fontSize: 32, animation: 'spin 1s linear infinite' }}>⟳</div>
-          <div style={{ fontSize: 13 }}>Loading intelligence data…</div>
-          <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+          <div style={{ fontSize: 36, animation: 'cc-spin 1s linear infinite' }}>⟳</div>
+          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.05em' }}>Loading intelligence data…</div>
         </div>
       ) : (
         <>
-          {/* ── Section 1: Health Score + Summary Pills ──────── */}
+          {/* ── Section 1: KPI Summary Pills ─────────────────── */}
           <div style={{
-            display: 'flex', gap: 20, alignItems: 'stretch', marginBottom: 24, flexWrap: 'wrap',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))',
+            gap: 12, marginBottom: 24,
+            animation: 'cc-slide-up 0.4s ease 0.1s both',
           }}>
-            {/* Health ring card */}
-            <div style={{
-              background: `linear-gradient(135deg, #7a1414 0%, #1a0505 100%)`,
-              border: `2px solid ${hCfg.color}60`,
-              borderRadius: D.radius,
-              padding: '20px 24px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 8, minWidth: 140,
-              boxShadow: `0 2px 14px rgba(0,0,0,0.25)`,
-            }}>
-              <HealthRing score={score} />
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.68)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Shop Health
-              </div>
-            </div>
-
-            {/* Summary pills */}
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12 }}>
-              <SummaryPill icon="🚨" label="Critical" value={criticalCount}
-                accent="#dc2626" dimmed={criticalCount === 0}
-                onClick={criticalCount > 0 ? () => nav('repair-orders') : undefined} />
-              <SummaryPill icon="⚠️" label="High Priority" value={highCount}
-                accent="#ea580c" dimmed={highCount === 0}
-                onClick={highCount > 0 ? () => nav('job-cards') : undefined} />
-              <SummaryPill icon="📋" label="Open Recs" value={recList.length}
-                accent="#2563eb" dimmed={recList.length === 0}
-                onClick={recList.length > 0 ? () => nav('estimates') : undefined} />
-              <SummaryPill icon="🔴" label="Overdue Invoices" value={overdueCount}
-                accent="#dc2626" dimmed={overdueCount === 0}
-                onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
-            </div>
+            <SummaryPill icon="🚨" label="Critical" value={criticalCount}
+              accent="#dc2626"
+              dimmed={criticalCount === 0}
+              urgency={criticalCount > 0 ? 'critical' : 'none'}
+              onClick={criticalCount > 0 ? () => nav('repair-orders') : undefined} />
+            <SummaryPill icon="⚠️" label="High Priority" value={highCount}
+              accent="#ea580c"
+              dimmed={highCount === 0}
+              urgency={highCount > 0 ? 'high' : 'none'}
+              onClick={highCount > 0 ? () => nav('job-cards') : undefined} />
+            <SummaryPill icon="📋" label="Open Recs" value={recList.length}
+              accent="#60a5fa"
+              dimmed={recList.length === 0}
+              urgency="none"
+              onClick={recList.length > 0 ? () => nav('estimates') : undefined} />
+            <SummaryPill icon="🔴" label="Overdue Invoices" value={overdueCount}
+              accent="#dc2626"
+              dimmed={overdueCount === 0}
+              urgency={overdueCount > 0 ? 'high' : 'none'}
+              onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
+            <SummaryPill icon="💵" label="Revenue Today" value={fmtMoney(revenueToday)}
+              accent="#22d3a0"
+              dimmed={revenueToday === 0}
+              urgency="none"
+              onClick={() => nav('payments')} />
+            <SummaryPill icon="🔧" label="Open Jobs" value={openJobs}
+              accent={openJobs > 5 ? '#f59e0b' : '#60a5fa'}
+              dimmed={openJobs === 0}
+              urgency={openJobs > 8 ? 'high' : 'none'}
+              onClick={() => nav('job-cards')} />
           </div>
 
           {/* ── Operational Metrics (flagged) ─────────────────── */}
@@ -1317,18 +1408,18 @@ export function CommandCenterView() {
           <div style={{ marginBottom: 8 }}>
             <SectionHeading icon="📡" label="Live Signals" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
-              <SignalTile icon="💵" label="Revenue Today"      value={fmtMoney(revenueToday)}
-                accent={revenueToday > 0 ? D.green : 'var(--muted)'} onClick={() => nav('payments')} />
               <SignalTile icon="💳" label="Payments Today"     value={fmtNum(paymentsToday)}
                 accent={paymentsToday > 0 ? D.blue : undefined} onClick={() => nav('payments')} />
-              <SignalTile icon="🔧" label="Open Jobs"          value={fmtNum(openJobs)}
-                accent={openJobs > 5 ? D.gold : undefined} onClick={() => nav('job-cards')} />
               <SignalTile icon="📋" label="Stale Estimates"    value={fmtNum(staleEst)}
                 accent={staleEst > 0 ? '#ea580c' : undefined} onClick={() => nav('estimates')} />
               <SignalTile icon="📦" label="Low Inventory"      value={fmtNum(lowInv)}
                 accent={lowInv > 0 ? '#ea580c' : undefined} onClick={() => nav('parts')} />
               <SignalTile icon="🗂️" label="Repair Cases Today" value={fmtNum(repairCases)}
                 accent={repairCases > 0 ? D.green : undefined} onClick={() => nav('repair-intelligence')} />
+              <SignalTile icon="🏦" label="Unpaid Invoices"    value={fmtNum(unpaidCount)}
+                accent={unpaidCount > 0 ? '#ea580c' : undefined} onClick={() => nav('invoices')} />
+              <SignalTile icon="⛽" label="Jobs Stuck"         value={fmtNum(stuckJobs)}
+                accent={stuckJobs > 0 ? D.red : undefined} onClick={() => nav('repair-orders')} />
             </div>
           </div>
 

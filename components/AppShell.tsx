@@ -44,6 +44,7 @@ import { EnvBanner } from '@/components/EnvBanner';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
 import { CommandCenterView } from '@/features/command-center/CommandCenterView';
 import { useEffect, useRef, useState } from 'react';
+import { useAppDispatch } from '@/lib/store';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, needsWatermark } from '@/lib/planGate';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -89,9 +90,11 @@ const views: Record<string, React.ComponentType> = {
 
 function Shell() {
   const { activeModule, toast } = useAppState();
+  const dispatch = useAppDispatch();
   const { role, loading: roleLoading } = useShop();
   const { status: planStatus, daysLeft, loading: planLoading, profileLoaded } = usePlan();
   const checkoutFired = useRef(false);
+  const defaulted = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rolePermissions, setRolePermissions] = useState<RolePermissions | null>(null);
   const [permLoaded, setPermLoaded] = useState(false);
@@ -102,6 +105,18 @@ function Shell() {
       .catch(() => {})
       .finally(() => setPermLoaded(true));
   }, []);
+
+  // Owners and managers land on Command Center instead of Dashboard
+  useEffect(() => {
+    if (defaulted.current) return;
+    if (roleLoading) return;
+    if (role === 'owner' || role === 'manager') {
+      defaulted.current = true;
+      if (activeModule === 'dashboard') {
+        dispatch({ type: 'SET_MODULE', module: 'command-center' });
+      }
+    }
+  }, [roleLoading, role, activeModule, dispatch]);
 
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
