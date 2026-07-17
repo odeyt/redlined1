@@ -1,0 +1,1455 @@
+<title>RedlineD1 — Technician Role Test Plan</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* ── Tokens ─────────────────────────────────────────── */
+:root {
+  --bg:      #0a0a12;
+  --bg2:     #0f0f18;
+  --surface: #14141e;
+  --s2:      #1a1a26;
+  --line:    rgba(255,255,255,0.07);
+  --line2:   rgba(255,255,255,0.13);
+  --text:    #dde0ed;
+  --muted:   #6e7082;
+  --subtle:  #3a3c4e;
+  --acc:     #dc2626;
+  --acc-lo:  rgba(220,38,38,0.1);
+  --acc-md:  rgba(220,38,38,0.25);
+  --pass:    #16a34a;
+  --pass-lo: rgba(22,163,74,0.1);
+  --fail:    #dc2626;
+  --warn:    #d97706;
+  --warn-lo: rgba(217,119,6,0.1);
+  --r:       8px;
+  --r-sm:    5px;
+}
+/* ── Reset ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;line-height:1.6;min-height:100vh}
+
+/* ── Top bar ─────────────────────────────────────────── */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--line);padding:0 24px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 8px var(--acc)}
+.brand-name{font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:var(--text)}
+.brand-sep{width:1px;height:16px;background:var(--line2)}
+.brand-doc{font-size:11px;color:var(--muted);font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.tc-count{font-size:11px;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.print-btn{background:var(--acc);border:none;color:#fff;font-size:11px;font-weight:800;padding:6px 14px;border-radius:var(--r-sm);cursor:pointer;letter-spacing:.04em;text-transform:uppercase;transition:opacity .15s}
+.print-btn:hover{opacity:.85}
+
+/* ── Layout ──────────────────────────────────────────── */
+.wrap{max-width:900px;margin:0 auto;padding:32px 24px 80px}
+
+/* ── Doc header ──────────────────────────────────────── */
+.doc-eyebrow{font-size:9px;font-weight:800;color:var(--acc);letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px}
+.doc-title{font-size:clamp(22px,3.5vw,32px);font-weight:900;letter-spacing:-.025em;color:var(--text);line-height:1.1;text-wrap:balance}
+.doc-meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-block;font-size:10px;font-weight:600;border-radius:99px;padding:3px 10px;background:var(--surface);border:1px solid var(--line2);color:var(--muted)}
+.doc-rule{height:1px;background:linear-gradient(90deg,var(--acc) 0%,transparent 55%);margin:20px 0 28px}
+
+/* ── Coverage summary ────────────────────────────────── */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:32px}
+.summary-cell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.summary-cell .num{font-size:24px;font-weight:900;color:var(--acc);font-variant-numeric:tabular-nums;line-height:1}
+.summary-cell .lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ── Legend ──────────────────────────────────────────── */
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:28px;align-items:center}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.legend-box{width:14px;height:14px;border-radius:3px;border:1px solid;flex-shrink:0}
+.legend-box.pass{background:var(--pass-lo);border-color:rgba(22,163,74,.4)}
+.legend-box.fail{background:var(--acc-lo);border-color:var(--acc-md)}
+.legend-box.skip{background:var(--surface);border-color:var(--line2)}
+
+/* ── Section ─────────────────────────────────────────── */
+.section{margin-bottom:36px;scroll-margin-top:62px}
+.section-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.section-num{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 10px var(--acc-md)}
+.section-title{font-size:14px;font-weight:800;color:var(--text);letter-spacing:-.01em}
+.tc-range{margin-left:auto;font-size:10px;color:var(--subtle);font-weight:700;font-family:'SF Mono','Fira Code',monospace;white-space:nowrap}
+
+/* ── Test case card ──────────────────────────────────── */
+.tc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden;page-break-inside:avoid}
+.tc-head{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;cursor:pointer;user-select:none}
+.tc-id{font-family:'SF Mono','Fira Code',monospace;font-size:10px;font-weight:700;color:var(--acc);background:var(--acc-lo);border:1px solid var(--acc-md);border-radius:var(--r-sm);padding:2px 8px;white-space:nowrap;flex-shrink:0;margin-top:1px}
+.tc-title-wrap{flex:1;min-width:0}
+.tc-name{font-size:12.5px;font-weight:700;color:var(--text);line-height:1.35}
+.tc-pre{font-size:11px;color:var(--muted);margin-top:3px}
+.tc-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{display:inline-block;font-size:9px;font-weight:800;border-radius:99px;padding:2px 7px;letter-spacing:.05em;text-transform:uppercase}
+.tag.access{background:var(--acc-lo);color:var(--acc);border:1px solid var(--acc-md)}
+.tag.block{background:rgba(220,38,38,.07);color:#f87171;border:1px solid rgba(248,113,113,.25)}
+.tag.ui{background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(129,140,248,.25)}
+.tag.perm{background:var(--warn-lo);color:var(--warn);border:1px solid rgba(217,119,6,.3)}
+.tag.edge{background:rgba(34,211,238,.07);color:#67e8f9;border:1px solid rgba(103,232,249,.2)}
+.tc-check-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.tc-check{width:20px;height:20px;border:1.5px solid var(--line2);border-radius:4px;cursor:pointer;appearance:none;-webkit-appearance:none;background:var(--s2);position:relative;flex-shrink:0}
+.tc-check:checked{background:var(--pass);border-color:var(--pass)}
+.tc-check:checked::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:900}
+.tc-result-label{font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:center}
+.tc-body{padding:0 14px 14px;display:none}
+.tc.open .tc-body{display:block}
+.tc.open .tc-head{border-bottom:1px solid var(--line)}
+
+/* ── Steps table ─────────────────────────────────────── */
+.steps-table{width:100%;border-collapse:collapse;margin-top:10px}
+.steps-table th{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--subtle);padding:6px 10px;text-align:left;border-bottom:1px solid var(--line2);background:var(--s2)}
+.steps-table th:first-child{width:36px}
+.steps-table td{padding:8px 10px;font-size:11.5px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--text);line-height:1.5}
+.steps-table td:first-child{font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--subtle);font-weight:700;width:36px}
+.steps-table td.action{color:var(--text)}
+.steps-table td.expected{color:#86efac;font-size:11px}
+.steps-table tr:last-child td{border-bottom:none}
+
+/* ── Preconditions box ───────────────────────────────── */
+.pre-box{background:var(--s2);border:1px solid var(--line2);border-radius:var(--r-sm);padding:8px 12px;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.55}
+.pre-box strong{color:var(--text);font-weight:700}
+
+/* ── Expected result box ─────────────────────────────── */
+.exp-box{background:var(--pass-lo);border:1px solid rgba(22,163,74,.25);border-radius:var(--r-sm);padding:8px 12px;margin-top:10px;font-size:11px;color:#86efac;line-height:1.55}
+.exp-box.fail-exp{background:var(--acc-lo);border-color:var(--acc-md);color:#fca5a5}
+.exp-box strong{font-weight:700}
+
+/* ── Expand toggle indicator ─────────────────────────── */
+.expand-arrow{margin-left:auto;font-size:11px;color:var(--subtle);flex-shrink:0;transition:transform .2s;align-self:flex-start;margin-top:3px}
+.tc.open .expand-arrow{transform:rotate(180deg)}
+
+/* ── Print ───────────────────────────────────────────── */
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#fff!important;color:#111!important;font-size:9pt}
+  .topbar{display:none!important}
+  .wrap{padding:0;max-width:100%}
+  .doc-title{font-size:18pt!important;color:#111!important}
+  .doc-eyebrow,.doc-rule{display:none}
+  .summary-cell{background:#f5f5f5!important;border-color:#ccc!important}
+  .summary-cell .num{color:#dc2626!important}
+  .summary-cell .lbl{color:#555!important}
+  .section-num{background:#dc2626!important;color:#fff!important;print-color-adjust:exact}
+  .section-title{color:#111!important}
+  .section-hd{border-bottom:1.5px solid #ccc!important}
+  .tc{border-color:#ccc!important;background:#fff!important;page-break-inside:avoid;margin-bottom:10px!important}
+  .tc-head{border-bottom:1px solid #eee!important}
+  .tc-body{display:block!important}
+  .tc-id{background:#fef2f2!important;border-color:#fca5a5!important;color:#dc2626!important}
+  .tc-name{color:#111!important}
+  .tc-pre{color:#555!important}
+  .steps-table th{background:#f5f5f5!important;color:#666!important;border-bottom:1px solid #ccc!important}
+  .steps-table td{color:#111!important;border-bottom:1px solid #e5e5e5!important}
+  .steps-table td.expected{color:#15803d!important}
+  .pre-box{background:#f9f9f9!important;border-color:#ddd!important;color:#444!important}
+  .pre-box strong{color:#111!important}
+  .exp-box{background:#f0fdf4!important;border-color:#bbf7d0!important;color:#15803d!important}
+  .exp-box.fail-exp{background:#fef2f2!important;border-color:#fca5a5!important;color:#dc2626!important}
+  .legend-box.pass{background:#f0fdf4!important;border-color:#86efac!important}
+  .legend-box.fail{background:#fef2f2!important;border-color:#fca5a5!important}
+  .tag.access{background:#fef2f2!important;color:#dc2626!important;border-color:#fca5a5!important}
+  .tag.block{background:#fff5f5!important;color:#f87171!important;border-color:#fca5a5!important}
+  .tag.ui{background:#eef2ff!important;color:#4f46e5!important;border-color:#a5b4fc!important}
+  .tag.perm{background:#fffbeb!important;color:#d97706!important;border-color:#fcd34d!important}
+  .tag.edge{background:#ecfeff!important;color:#0891b2!important;border-color:#a5f3fc!important}
+  .tc-check{border:1.5px solid #999!important;background:#fff!important}
+  .tc-check:checked{background:#16a34a!important;border-color:#16a34a!important}
+  .expand-arrow{display:none}
+  .chip{background:#f5f5f5!important;border-color:#ccc!important;color:#555!important}
+  .legend-item{color:#555!important}
+}
+</style>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="dot"></div>
+    <span class="brand-name">RedlineD1</span>
+    <div class="brand-sep"></div>
+    <span class="brand-doc">Technician Role — Test Plan</span>
+  </div>
+  <div class="topbar-right">
+    <span class="tc-count">55 test cases · 10 sections</span>
+    <button class="print-btn" onclick="window.print()">⬇ Export PDF</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="doc-eyebrow">QA Test Plan · Role-Based Access Control</div>
+  <h1 class="doc-title">Technician Role — Top-Down Test Coverage</h1>
+  <div class="doc-meta">
+    <span class="chip">redlined1.com</span>
+    <span class="chip">Role: technician</span>
+    <span class="chip">Default modules: dashboard · job-cards · inspections · repair-orders · parts</span>
+    <span class="chip">Rev 2026-07-17</span>
+  </div>
+  <div class="doc-rule"></div>
+
+  <div class="summary-grid">
+    <div class="summary-cell"><div class="num">55</div><div class="lbl">Test Cases</div></div>
+    <div class="summary-cell"><div class="num">10</div><div class="lbl">Sections</div></div>
+    <div class="summary-cell"><div class="num">5</div><div class="lbl">Allowed Modules</div></div>
+    <div class="summary-cell"><div class="num">24</div><div class="lbl">Blocked Modules</div></div>
+    <div class="summary-cell"><div class="num">4</div><div class="lbl">Edge Cases</div></div>
+    <div class="summary-cell"><div class="num">0</div><div class="lbl">Passed</div></div>
+  </div>
+
+  <div class="legend">
+    <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Legend:</span>
+    <span class="legend-item"><span class="legend-box pass"></span>Expected pass</span>
+    <span class="legend-item"><span class="legend-box fail"></span>Expected block / deny</span>
+    <span class="legend-item"><span class="legend-box skip"></span>Checkbox = pass/fail during testing</span>
+    <span class="legend-item" style="margin-left:8px"><span class="tag access">access</span> = positive access test</span>
+    <span class="legend-item"><span class="tag block">block</span> = should be denied</span>
+    <span class="legend-item"><span class="tag ui">ui</span> = UI visibility</span>
+    <span class="legend-item"><span class="tag perm">perm</span> = permission config</span>
+    <span class="legend-item"><span class="tag edge">edge</span> = edge / race condition</span>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 1 — Authentication & Initial State
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s1">
+    <div class="section-hd">
+      <div class="section-num">1</div>
+      <div class="section-title">Authentication &amp; Initial State</div>
+      <span class="tc-range">TC-001 – TC-005</span>
+    </div>
+
+    <!-- TC-001 -->
+    <div class="tc" id="tc001">
+      <div class="tc-head" onclick="toggle('tc001')">
+        <span class="tc-id">TC-001</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Technician logs in successfully</div>
+          <div class="tc-pre">Verify login completes and session is established</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap">
+          <input type="checkbox" class="tc-check">
+          <span class="tc-result-label">Pass</span>
+        </div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> A user account exists in Supabase with role = 'technician' in shop_users. Shop has valid plan. profiles_read RLS policy exists.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Navigate to redlined1.com</td><td class="expected">Login page renders with email + password fields</td></tr>
+          <tr><td>2</td><td class="action">Enter technician email and password, click Sign In</td><td class="expected">Auth succeeds; no error toast; redirect begins</td></tr>
+          <tr><td>3</td><td class="action">Wait for app shell to load</td><td class="expected">App shell renders; sidebar appears; URL changes away from /login</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- TC-002 -->
+    <div class="tc" id="tc002">
+      <div class="tc-head" onclick="toggle('tc002')">
+        <span class="tc-id">TC-002</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Initial landing page is Dashboard (not Command Center)</div>
+          <div class="tc-pre">Technicians must land on Dashboard; Command Center is owner/manager only</div>
+          <div class="tc-tags"><span class="tag access">access</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> TC-001 completed. User is logged in as technician.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Observe the active module immediately after login completes</td><td class="expected">Dashboard module is active — NOT Command Center</td></tr>
+          <tr><td>2</td><td class="action">Check the page header / breadcrumb</td><td class="expected">Title reads "Dashboard" or equivalent — no "Command Center" or "Intelligence" heading</td></tr>
+          <tr><td>3</td><td class="action">Check the URL / active nav item highlight in the sidebar</td><td class="expected">Dashboard is highlighted. Command Center is not visible in the sidebar at all.</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key assertion:</strong> AppShell's defaulted ref only redirects owners/managers to command-center. Technician role is not in that condition, so it stays on dashboard.</div>
+      </div>
+    </div>
+
+    <!-- TC-003 -->
+    <div class="tc" id="tc003">
+      <div class="tc-head" onclick="toggle('tc003')">
+        <span class="tc-id">TC-003</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Home / logo click returns to Dashboard (not Command Center)</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Logged in as technician. Currently on Job Cards or another allowed module.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click the RedlineD1 logo or home icon in the sidebar</td><td class="expected">Active module changes to Dashboard, NOT to Command Center</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key assertion:</strong> Sidebar.tsx logo-click routes owner/manager to command-center; all other roles to dashboard.</div>
+      </div>
+    </div>
+
+    <!-- TC-004 -->
+    <div class="tc" id="tc004">
+      <div class="tc-head" onclick="toggle('tc004')">
+        <span class="tc-id">TC-004</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Billing lock screen does not appear on login</div>
+          <div class="tc-pre">Verifies 3-layer lockout prevention; technician should never see "Trial Ended"</div>
+          <div class="tc-tags"><span class="tag access">access</span><span class="tag edge">edge</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Shop plan is 'pro'. profiles_read RLS policy exists. Technician account is in the shop.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Log in as technician and observe for 5 seconds</td><td class="expected">No "Free Trial Has Ended" modal or overlay appears</td></tr>
+          <tr><td>2</td><td class="action">Navigate between allowed modules</td><td class="expected">No billing lock screen on any module</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key assertion:</strong> profileLoaded flag in usePlan.ts must be true (DB read succeeded) AND plan must resolve to 'pro' before the hard lock can fire. Internal shop IDs always bypass to 'pro'.</div>
+      </div>
+    </div>
+
+    <!-- TC-005 -->
+    <div class="tc" id="tc005">
+      <div class="tc-head" onclick="toggle('tc005')">
+        <span class="tc-id">TC-005</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">User display name and role shown in sidebar / header</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Logged in as technician with a display name set on the account.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Inspect sidebar bottom / user section</td><td class="expected">Technician's name and "Technician" role badge visible</td></tr>
+          <tr><td>2</td><td class="action">Check if owner-only options (Settings, Billing, Plans) appear in the user menu</td><td class="expected">These options are absent or not clickable for the technician</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 2 — Sidebar Visibility
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s2">
+    <div class="section-hd">
+      <div class="section-num">2</div>
+      <div class="section-title">Sidebar Navigation Visibility</div>
+      <span class="tc-range">TC-006 – TC-011</span>
+    </div>
+
+    <!-- TC-006 -->
+    <div class="tc" id="tc006">
+      <div class="tc-head" onclick="toggle('tc006')">
+        <span class="tc-id">TC-006</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Default allowed modules appear in sidebar</div>
+          <div class="tc-pre">dashboard, job-cards, inspections, repair-orders, parts must all be visible</div>
+          <div class="tc-tags"><span class="tag ui">ui</span><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Shop has default role permissions saved (technician: ['dashboard','job-cards','inspections','repair-orders','parts']). Logged in as technician.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Scan the sidebar nav items visible to the technician</td><td class="expected">Dashboard, Job Cards, Inspections, Repair Orders, Parts Inventory — all 5 are present</td></tr>
+          <tr><td>2</td><td class="action">Confirm each item is clickable (not greyed out or absent)</td><td class="expected">Each of the 5 items navigates successfully when clicked</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- TC-007 -->
+    <div class="tc" id="tc007">
+      <div class="tc-head" onclick="toggle('tc007')">
+        <span class="tc-id">TC-007</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Command Center is NOT visible in sidebar</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Look for "Command Center" or "Intelligence" in the sidebar nav list</td><td class="expected">No such item exists — sidebar does not render it for the technician role</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> command-center is in TECHNICIAN_BLOCKED and not in default DB allowlist.</div>
+      </div>
+    </div>
+
+    <!-- TC-008 -->
+    <div class="tc" id="tc008">
+      <div class="tc-head" onclick="toggle('tc008')">
+        <span class="tc-id">TC-008</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Financial modules (Invoices, Payments, Estimates) are NOT in sidebar</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Scan sidebar for "Invoicing", "Payments", "Estimates"</td><td class="expected">None of these items appear in the sidebar for the technician</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> invoices, payments, estimates all in TECHNICIAN_BLOCKED and excluded from default DB allowlist.</div>
+      </div>
+    </div>
+
+    <!-- TC-009 -->
+    <div class="tc" id="tc009">
+      <div class="tc-head" onclick="toggle('tc009')">
+        <span class="tc-id">TC-009</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Admin modules (Settings, Billing, Access, System Health) are NOT in sidebar</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Look for Settings, Billing, Plans, Login &amp; Roles, System Health, Disaster Recovery in the sidebar</td><td class="expected">None of these appear for the technician</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> settings, billing, subscriptions, access, system-health, disaster-recovery all blocked.</div>
+      </div>
+    </div>
+
+    <!-- TC-010 -->
+    <div class="tc" id="tc010">
+      <div class="tc-head" onclick="toggle('tc010')">
+        <span class="tc-id">TC-010</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Customers, Vehicles, Appointments NOT visible in sidebar by default</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Look for Customers, Vehicles, Appointments, Communication, VIN Decode, DTC Lookup, Reports in the sidebar</td><td class="expected">None of these appear in the default technician sidebar</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> All excluded from DEFAULT_ROLE_PERMISSIONS.technician. Owner can add them if desired.</div>
+      </div>
+    </div>
+
+    <!-- TC-011 -->
+    <div class="tc" id="tc011">
+      <div class="tc-head" onclick="toggle('tc011')">
+        <span class="tc-id">TC-011</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Plan lock icons (🔒) do not appear for technician nav items</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Shop plan is 'pro'. Logged in as technician.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Inspect all visible sidebar items for lock icons</td><td class="expected">No 🔒 icons appear on any sidebar item for the technician — lock icons apply to owner on free plan only</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 3 — Dashboard Module
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s3">
+    <div class="section-hd">
+      <div class="section-num">3</div>
+      <div class="section-title">Dashboard Module</div>
+      <span class="tc-range">TC-012 – TC-013</span>
+    </div>
+
+    <div class="tc" id="tc012">
+      <div class="tc-head" onclick="toggle('tc012')">
+        <span class="tc-id">TC-012</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Dashboard loads and displays shop-relevant summary data</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click Dashboard in the sidebar</td><td class="expected">Dashboard view renders without error</td></tr>
+          <tr><td>2</td><td class="action">Check for loading errors or empty state</td><td class="expected">No "Access denied", no blank white screen, no console error indicating permission failure</td></tr>
+          <tr><td>3</td><td class="action">Observe summary tiles / KPIs</td><td class="expected">Data displays — at minimum open jobs, job cards, or similar counts relevant to shop operations</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc013">
+      <div class="tc-head" onclick="toggle('tc013')">
+        <span class="tc-id">TC-013</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Dashboard does not show owner-only financial KPIs (revenue, invoices) as actionable links</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Scan the Dashboard for links or buttons that navigate to Invoices, Payments, Estimates, Reports, or Settings</td><td class="expected">Any such widgets are either absent or do not navigate to blocked modules when clicked</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 4 — Job Cards Module
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s4">
+    <div class="section-hd">
+      <div class="section-num">4</div>
+      <div class="section-title">Job Cards Module</div>
+      <span class="tc-range">TC-014 – TC-021</span>
+    </div>
+
+    <div class="tc" id="tc014">
+      <div class="tc-head" onclick="toggle('tc014')">
+        <span class="tc-id">TC-014</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Job Cards list loads successfully</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click Job Cards in the sidebar</td><td class="expected">Job Cards view renders; list of job cards (or empty state) visible</td></tr>
+          <tr><td>2</td><td class="action">Observe existing job cards</td><td class="expected">Cards show status, vehicle info, assigned tech pills (TechPills component), priority</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc015">
+      <div class="tc-head" onclick="toggle('tc015')">
+        <span class="tc-id">TC-015</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Technician assignment shows on job cards (TechPills rendered)</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> At least one job card exists with a technician assigned.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">View a job card that has a technician assigned</td><td class="expected">Colored TechPill badge renders with the technician's name</td></tr>
+          <tr><td>2</td><td class="action">View a job card with no technician assigned</td><td class="expected">"Unassigned" text or chip renders</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc016">
+      <div class="tc-head" onclick="toggle('tc016')">
+        <span class="tc-id">TC-016</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Open a job card — detail view renders</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click on any job card in the list</td><td class="expected">Job card detail drawer / panel opens without error</td></tr>
+          <tr><td>2</td><td class="action">Review visible fields</td><td class="expected">Vehicle info, job description, status, assigned technicians, and notes are all readable</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc017">
+      <div class="tc-head" onclick="toggle('tc017')">
+        <span class="tc-id">TC-017</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Create a new job card</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click the "New Job Card" or "+" button</td><td class="expected">Create job card form / drawer opens</td></tr>
+          <tr><td>2</td><td class="action">Fill in vehicle, job description, status</td><td class="expected">All fields accept input</td></tr>
+          <tr><td>3</td><td class="action">In the "Assign Technicians" multi-select, check a technician name</td><td class="expected">Technician checkbox is selectable; name appears in selection</td></tr>
+          <tr><td>4</td><td class="action">Save the job card</td><td class="expected">Job card saved to DB; appears in list; TechPill renders the assigned name</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc018">
+      <div class="tc-head" onclick="toggle('tc018')">
+        <span class="tc-id">TC-018</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Update job card status</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open an existing job card</td><td class="expected">Detail view opens</td></tr>
+          <tr><td>2</td><td class="action">Change the status (e.g. from "In Progress" to "Completed")</td><td class="expected">Status dropdown/buttons are enabled and clickable</td></tr>
+          <tr><td>3</td><td class="action">Save or confirm</td><td class="expected">Status update persists; card refreshes with new status badge</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc019">
+      <div class="tc-head" onclick="toggle('tc019')">
+        <span class="tc-id">TC-019</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Manage Technicians tab within Job Cards is accessible</div>
+          <div class="tc-tags"><span class="tag access">access</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Job Cards view has a "Manage Technicians" or "Technicians" sub-tab.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click the "Manage Technicians" tab within the Job Cards module</td><td class="expected">Tab renders the technician roster for job assignment purposes</td></tr>
+          <tr><td>2</td><td class="action">Check if "Add New Technician" quick-add panel is present</td><td class="expected">Add-tech inline form is accessible (note: whether a technician can add records here depends on shop config)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc020">
+      <div class="tc-head" onclick="toggle('tc020')">
+        <span class="tc-id">TC-020</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Job Archive is NOT accessible from Job Cards</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Look for "Job Archive" tab or button within the Job Cards module or sidebar</td><td class="expected">Job Archive is not visible; job-archive is in TECHNICIAN_BLOCKED</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> job-archive explicitly in TECHNICIAN_BLOCKED.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc021">
+      <div class="tc-head" onclick="toggle('tc021')">
+        <span class="tc-id">TC-021</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Filter and search job cards by assigned technician name</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Use the search/filter in the Job Cards list to search for a technician name</td><td class="expected">Results filter to job cards assigned to that technician</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 5 — Inspections Module
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s5">
+    <div class="section-hd">
+      <div class="section-num">5</div>
+      <div class="section-title">Inspections Module</div>
+      <span class="tc-range">TC-022 – TC-026</span>
+    </div>
+
+    <div class="tc" id="tc022">
+      <div class="tc-head" onclick="toggle('tc022')">
+        <span class="tc-id">TC-022</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Inspections list loads</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click Inspections in the sidebar</td><td class="expected">Inspections view loads with list of inspection records or empty state</td></tr>
+          <tr><td>2</td><td class="action">Confirm technician pills appear on inspection cards</td><td class="expected">Each inspection card shows assigned technician name(s) in colored pills</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc023">
+      <div class="tc-head" onclick="toggle('tc023')">
+        <span class="tc-id">TC-023</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Create a new inspection and assign a technician</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click "New Inspection" or "+"</td><td class="expected">Inspection create form opens</td></tr>
+          <tr><td>2</td><td class="action">Fill in vehicle, inspection type, and notes</td><td class="expected">All fields accept input</td></tr>
+          <tr><td>3</td><td class="action">In the technician multi-select, select a technician from the dropdown (sourced from DB technicians table + shop members with tech/advisor/manager roles)</td><td class="expected">Technician options appear and are selectable</td></tr>
+          <tr><td>4</td><td class="action">Save the inspection</td><td class="expected">Inspection saved; technician pill appears on the card</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc024">
+      <div class="tc-head" onclick="toggle('tc024')">
+        <span class="tc-id">TC-024</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Edit an existing inspection</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open an existing inspection</td><td class="expected">Detail / edit view opens</td></tr>
+          <tr><td>2</td><td class="action">Change the inspection status or add a note</td><td class="expected">Fields are editable</td></tr>
+          <tr><td>3</td><td class="action">Save changes</td><td class="expected">Changes persist; inspection card reflects updated state</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc025">
+      <div class="tc-head" onclick="toggle('tc025')">
+        <span class="tc-id">TC-025</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">"Add New Technician" quick-add panel inside Inspections</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">In the technician multi-select on the inspection form, look for an "Add New Technician" option or link</td><td class="expected">Quick-add panel is accessible inline — allows adding a technician without leaving the Inspections module</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc026">
+      <div class="tc-head" onclick="toggle('tc026')">
+        <span class="tc-id">TC-026</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Inspection is linked to correct shop (getShopIds scope)</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Shop has both locations configured as mirrors. Inspections exist in both shops.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">View the Inspections list</td><td class="expected">Inspections from both shop locations are visible (getShopIds() returns both mirror shop IDs for SELECT queries)</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 6 — Repair Orders Module
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s6">
+    <div class="section-hd">
+      <div class="section-num">6</div>
+      <div class="section-title">Repair Orders Module</div>
+      <span class="tc-range">TC-027 – TC-034</span>
+    </div>
+
+    <div class="tc" id="tc027">
+      <div class="tc-head" onclick="toggle('tc027')">
+        <span class="tc-id">TC-027</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Repair Orders list loads</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click Repair Orders in the sidebar</td><td class="expected">Repair Orders view renders; list of ROs or empty state visible</td></tr>
+          <tr><td>2</td><td class="action">Search by technician name in the RO list</td><td class="expected">Search filters results to ROs assigned to that technician</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc028">
+      <div class="tc-head" onclick="toggle('tc028')">
+        <span class="tc-id">TC-028</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Labor and Parts charges section is HIDDEN for technician</div>
+          <div class="tc-pre">Critical data protection — technicians must not see financial charge breakdowns</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open any Repair Order detail</td><td class="expected">RO detail opens</td></tr>
+          <tr><td>2</td><td class="action">Look for "Labor Charges", "Parts Charges", line item prices, totals, or invoice amounts</td><td class="expected"><strong>None of these are visible.</strong> The charges section is conditionally hidden: <code>const isTech = role === 'technician'; {!isTech &amp;&amp; (&lt;charges&gt;)}</code></td></tr>
+          <tr><td>3</td><td class="action">Click "Print RO" if available</td><td class="expected">Print view also omits the charges section — same isTech gate applies</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Must be blocked:</strong> RepairOrdersView.tsx explicitly hides Labor+Parts charges for technician role. Any visibility of pricing = a regression.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc029">
+      <div class="tc-head" onclick="toggle('tc029')">
+        <span class="tc-id">TC-029</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Cause field is labeled "Cause (Technician Finding)" and is editable</div>
+          <div class="tc-tags"><span class="tag ui">ui</span><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open or create a Repair Order and locate the Cause field</td><td class="expected">Field is labeled "Cause (Technician Finding)" — confirming the RO is designed for tech input</td></tr>
+          <tr><td>2</td><td class="action">Type a value in the Cause field</td><td class="expected">Field accepts text input and saves correctly</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc030">
+      <div class="tc-head" onclick="toggle('tc030')">
+        <span class="tc-id">TC-030</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Assigned Technician field is visible and editable on RO create/edit form</div>
+          <div class="tc-tags"><span class="tag ui">ui</span><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open RO create form or edit an existing RO</td><td class="expected">"Assigned Technician" multi-select checkbox field is present</td></tr>
+          <tr><td>2</td><td class="action">Select one or more technician names from the list</td><td class="expected">Technicians can be checked; selection saves to the RO record</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc031">
+      <div class="tc-head" onclick="toggle('tc031')">
+        <span class="tc-id">TC-031</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Vehicle auto-fill from Repair Orders and Job Cards in vehicle form</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> An existing RO or Job Card has Damage at Intake, Parts Needed, Parts Exchanged, Flat Rate LAK, or Assigned Tech populated. Vehicles module must be in technician's allowed list (it is NOT by default — this test applies if the owner has added it).</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">If Vehicles is enabled for tech: open a vehicle record and use "Pull from RO"</td><td class="expected">pullFromRO() fetches from both Repair Orders and Job Cards as fallback; fields auto-populate without overwriting existing data</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc032">
+      <div class="tc-head" onclick="toggle('tc032')">
+        <span class="tc-id">TC-032</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">"Send Back to Technician" status workflow button is visible (SA QA workflow)</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> An RO in the "Awaiting QA" or similar state that can be sent back to tech.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open the RO that has been sent for QA review</td><td class="expected">RO detail shows current status indicating it is with an advisor</td></tr>
+          <tr><td>2</td><td class="action">Confirm the technician can see the "Sent Back to Technician" state transition on the RO they are assigned to</td><td class="expected">Status change is visible on the RO card/detail when it is returned to them</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc033">
+      <div class="tc-head" onclick="toggle('tc033')">
+        <span class="tc-id">TC-033</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">RO notification bell fires on status change</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">With the technician logged in, have another user change the status of an RO assigned to the technician</td><td class="expected">Notification bell in the sidebar shows a new notification badge</td></tr>
+          <tr><td>2</td><td class="action">Click the notification</td><td class="expected">"Open RO →" link in the notification navigates to that Repair Order</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc034">
+      <div class="tc-head" onclick="toggle('tc034')">
+        <span class="tc-id">TC-034</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Invoice / financial totals are absent from the RO print view</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open an RO and trigger the print view (Ctrl+P or a Print button)</td><td class="expected">Print layout renders without any dollar amounts, labor charges, parts charges, subtotals, tax, or grand total visible</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Critical:</strong> The same isTech gate applies in the print view. Prices leaking into a print-out is a regression.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 7 — Parts Inventory Module
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s7">
+    <div class="section-hd">
+      <div class="section-num">7</div>
+      <div class="section-title">Parts Inventory Module</div>
+      <span class="tc-range">TC-035 – TC-038</span>
+    </div>
+
+    <div class="tc" id="tc035">
+      <div class="tc-head" onclick="toggle('tc035')">
+        <span class="tc-id">TC-035</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Parts Inventory list loads</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click Parts Inventory in the sidebar</td><td class="expected">Parts list renders with inventory items or empty state</td></tr>
+          <tr><td>2</td><td class="action">Search for a part by name or number</td><td class="expected">Search filters the list correctly</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc036">
+      <div class="tc-head" onclick="toggle('tc036')">
+        <span class="tc-id">TC-036</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">View a part detail record</div>
+          <div class="tc-tags"><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Click on a part in the inventory list</td><td class="expected">Part detail opens with name, part number, quantity, location</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc037">
+      <div class="tc-head" onclick="toggle('tc037')">
+        <span class="tc-id">TC-037</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Parts Quotations, Parts Ordered, Parts Received — NOT visible by default</div>
+          <div class="tc-pre">These are in the hardcoded allowed list but NOT in DEFAULT_ROLE_PERMISSIONS.technician</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Note:</strong> parts-estimates, parts-orders, parts-received are in the TECHNICIAN hardcoded fallback list but NOT in DEFAULT_ROLE_PERMISSIONS.technician. When the owner saves default permissions, DB is authoritative — these sub-modules will be hidden unless the owner explicitly adds them.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Look for "Parts Quotations", "Parts Ordered", "Parts Received" in the sidebar</td><td class="expected">These sub-modules are absent from the sidebar (DB allowlist only includes 'parts' for technician by default)</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Verify:</strong> If the shop has never saved role permissions, the hardcoded fallback applies and these ARE visible. This test assumes saved DB permissions.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc038">
+      <div class="tc-head" onclick="toggle('tc038')">
+        <span class="tc-id">TC-038</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Part pricing — confirm whether cost/price fields are visible or hidden</div>
+          <div class="tc-tags"><span class="tag ui">ui</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Note:</strong> Parts Inventory does not have an explicit isTech price-hide gate in the codebase summary — verify actual behavior and document the result.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Open a part detail and note whether Cost, Sell Price, or Margin are shown</td><td class="expected">Document result — if pricing IS visible, flag to owner to decide if this is intended</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 8 — Blocked Module Direct URL Access
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s8">
+    <div class="section-hd">
+      <div class="section-num">8</div>
+      <div class="section-title">Blocked Module Direct URL / Navigation Attempts</div>
+      <span class="tc-range">TC-039 – TC-046</span>
+    </div>
+
+    <div class="callout-note" style="background:var(--acc-lo);border:1px solid var(--acc-md);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:#fca5a5;line-height:1.5">
+      <strong style="color:var(--text)">Test methodology:</strong> For each blocked module, attempt navigation via the sidebar (should not appear), and also by directly switching to that module if the app supports URL-based routing. Expected outcome for all: redirect to Dashboard, no content rendered for the blocked module.
+    </div>
+
+    <div class="tc" id="tc039">
+      <div class="tc-head" onclick="toggle('tc039')">
+        <span class="tc-id">TC-039</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Command Center — access denied via direct navigation</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to command-center module directly</td><td class="expected">AppShell detects command-center is in the block list; silently redirects to dashboard. No Command Center content rendered.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> command-center in TECHNICIAN_BLOCKED and excluded from DEFAULT_ROLE_PERMISSIONS.technician.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc040">
+      <div class="tc-head" onclick="toggle('tc040')">
+        <span class="tc-id">TC-040</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Customers — access denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to access Customers module</td><td class="expected">Redirect to dashboard. Customer PII (name, phone, email, address) never exposed to technician.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Critical PII protection:</strong> customers in TECHNICIAN_BLOCKED.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc041">
+      <div class="tc-head" onclick="toggle('tc041')">
+        <span class="tc-id">TC-041</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Invoicing — access denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to invoices module</td><td class="expected">Redirect to dashboard. No invoice data visible.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> invoices in TECHNICIAN_BLOCKED.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc042">
+      <div class="tc-head" onclick="toggle('tc042')">
+        <span class="tc-id">TC-042</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Settings — access denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to settings module</td><td class="expected">Redirect to dashboard. Shop settings, role config, feature flags never accessible to technician.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> settings in TECHNICIAN_BLOCKED.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc043">
+      <div class="tc-head" onclick="toggle('tc043')">
+        <span class="tc-id">TC-043</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Reports — access denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to reports module</td><td class="expected">Redirect to dashboard. Revenue reports, technician productivity data, and financial summaries not accessible.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> reports in TECHNICIAN_BLOCKED.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc044">
+      <div class="tc-head" onclick="toggle('tc044')">
+        <span class="tc-id">TC-044</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Billing &amp; Subscription — access denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to billing and subscriptions modules</td><td class="expected">Redirect to dashboard. No Stripe billing data or plan management visible.</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> billing, subscriptions both in TECHNICIAN_BLOCKED. ALWAYS_SHOW applies only to owners.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc045">
+      <div class="tc-head" onclick="toggle('tc045')">
+        <span class="tc-id">TC-045</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">AI Copilot, Diagnostics, VIN Decode, DTC Lookup — all denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to navigate to ai, diagnostics, vin, and dtc modules</td><td class="expected">All 4 redirect to dashboard — none are in DEFAULT_ROLE_PERMISSIONS.technician and all are in TECHNICIAN_BLOCKED</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Blocked:</strong> ai, diagnostics, vin, dtc all in TECHNICIAN_BLOCKED. These are advanced modules gated to higher roles by default.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc046">
+      <div class="tc-head" onclick="toggle('tc046')">
+        <span class="tc-id">TC-046</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Login &amp; Roles (Access), System Health, Disaster Recovery, Testing Dashboard — all denied</div>
+          <div class="tc-tags"><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Attempt to access access, system-health, disaster-recovery, and testing-dashboard modules</td><td class="expected">All 4 redirect to dashboard — internal admin and diagnostic tools must never be reachable by technicians</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Critical:</strong> These are infrastructure and admin modules. Access by a technician = security incident.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 9 — Role Permissions Customization
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s9">
+    <div class="section-hd">
+      <div class="section-num">9</div>
+      <div class="section-title">Owner-Configured Role Permissions</div>
+      <span class="tc-range">TC-047 – TC-051</span>
+    </div>
+
+    <div class="tc" id="tc047">
+      <div class="tc-head" onclick="toggle('tc047')">
+        <span class="tc-id">TC-047</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Owner adds Vehicles to technician allowlist — module appears in technician sidebar</div>
+          <div class="tc-tags"><span class="tag perm">perm</span><span class="tag access">access</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Logged in as owner. Go to Settings → Role Permissions. Add 'vehicles' to the technician column and save.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Owner saves role permissions with vehicles added to technician</td><td class="expected">Success toast. shop_settings.role_permissions updated to include 'vehicles' in technician array. Saved to ALL shop locations.</td></tr>
+          <tr><td>2</td><td class="action">Log in as the technician (or refresh their session)</td><td class="expected">Vehicles module appears in the sidebar for the technician</td></tr>
+          <tr><td>3</td><td class="action">Click Vehicles</td><td class="expected">Vehicles view loads successfully — AppShell routing guard now allows it</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc048">
+      <div class="tc-head" onclick="toggle('tc048')">
+        <span class="tc-id">TC-048</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Owner removes Job Cards from technician — module disappears from sidebar</div>
+          <div class="tc-tags"><span class="tag perm">perm</span><span class="tag block">block</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Owner removes 'job-cards' from technician allowlist in Settings → Role Permissions and saves.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Owner saves updated permissions (job-cards removed from technician)</td><td class="expected">DB record updated. shop_settings.role_permissions.technician no longer includes 'job-cards'.</td></tr>
+          <tr><td>2</td><td class="action">Log in as technician (or refresh session)</td><td class="expected">Job Cards no longer appears in the sidebar</td></tr>
+          <tr><td>3</td><td class="action">Attempt to navigate to job-cards directly</td><td class="expected">AppShell redirects to dashboard — DB allowlist is authoritative</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc049">
+      <div class="tc-head" onclick="toggle('tc049')">
+        <span class="tc-id">TC-049</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">DB allowlist overrides hardcoded TECHNICIAN_BLOCKED defaults</div>
+          <div class="tc-tags"><span class="tag perm">perm</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Scenario:</strong> Owner adds 'communication' (which is in TECHNICIAN_BLOCKED hardcoded list) to the DB allowlist for technician.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Owner adds communication to technician allowlist and saves</td><td class="expected">Saved to DB successfully</td></tr>
+          <tr><td>2</td><td class="action">Technician refreshes session</td><td class="expected">Communication appears in sidebar — DB allowlist wins over hardcoded defaults when rolePermissions[role].length > 0</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key assertion:</strong> AppShell logic: if <code>rolePermissions[role].length > 0</code> → DB is authoritative; falls back to <code>getBlockedModules(role)</code> only if no saved permissions exist.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc050">
+      <div class="tc-head" onclick="toggle('tc050')">
+        <span class="tc-id">TC-050</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Permissions save propagates to both shop locations</div>
+          <div class="tc-tags"><span class="tag perm">perm</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Two shop locations are configured. Owner is at Location 1.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Owner saves role permissions from Location 1</td><td class="expected">shopSettingsService writes permissions to ALL shops the owner controls (both 38d55fae... and 90b72748...) — not just the active shop</td></tr>
+          <tr><td>2</td><td class="action">Technician logs in at Location 2</td><td class="expected">Same role permissions apply — no discrepancy between locations</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="tc" id="tc051">
+      <div class="tc-head" onclick="toggle('tc051')">
+        <span class="tc-id">TC-051</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Technician cannot access Settings → Role Permissions to modify their own access</div>
+          <div class="tc-tags"><span class="tag block">block</span><span class="tag perm">perm</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Logged in as technician, attempt to access Settings module</td><td class="expected">Redirected to dashboard — settings module is blocked; technician cannot modify their own role permissions</td></tr>
+        </table>
+        <div class="exp-box fail-exp"><strong>Critical:</strong> Privilege escalation must be impossible. Technician role is never able to reach Settings.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────────────────────────────────────────
+       SECTION 10 — Edge Cases & Race Conditions
+  ─────────────────────────────────────────────────── -->
+  <div class="section" id="s10">
+    <div class="section-hd">
+      <div class="section-num">10</div>
+      <div class="section-title">Edge Cases &amp; Race Conditions</div>
+      <span class="tc-range">TC-052 – TC-055</span>
+    </div>
+
+    <div class="tc" id="tc052">
+      <div class="tc-head" onclick="toggle('tc052')">
+        <span class="tc-id">TC-052</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">No redirect-to-dashboard while role permissions are loading (!permLoaded)</div>
+          <div class="tc-pre">Race condition fixed 2026-07-17 — verify regression has not returned</div>
+          <div class="tc-tags"><span class="tag edge">edge</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Background:</strong> useShop() resolves faster than fetchShopSettings(). During the async window, if AppShell applied getBlockedModules('') (block-all) it would permanently redirect to dashboard. Fix: return [] while !permLoaded.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Log in as technician on a slow network (throttle to Slow 3G in DevTools)</td><td class="expected">During the async gap between role load and permissions load, the technician stays on their allowed module (dashboard) — not redirected to dashboard from dashboard (no loop)</td></tr>
+          <tr><td>2</td><td class="action">Navigate to Job Cards immediately after login before permissions finish loading</td><td class="expected">Job Cards remains visible — no redirect-to-dashboard fires during the loading window. Once permLoaded=true, the allowlist applies correctly.</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key fix (c22b8e5):</strong> While !permLoaded, roleBlocked = [] (allow all). The redirect only fires once DB permissions are confirmed.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc053">
+      <div class="tc-head" onclick="toggle('tc053')">
+        <span class="tc-id">TC-053</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Billing lock screen never appears if profile DB read fails (profileLoaded = false)</div>
+          <div class="tc-pre">Grace fallback: any DB/network error gives 14-day trial status</div>
+          <div class="tc-tags"><span class="tag edge">edge</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Background:</strong> usePlan.ts sets profileLoaded=false on DB error. AppShell only shows hard lock screen when profileLoaded=true AND plan='free'.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Temporarily break the Supabase RLS policy (or simulate offline) and log in as technician</td><td class="expected">profileLoaded stays false; grace trial activates; no hard lock screen appears; technician can still use the app</td></tr>
+          <tr><td>2</td><td class="action">Restore the RLS policy and refresh</td><td class="expected">Normal plan resolution resumes; technician's plan shows correctly</td></tr>
+        </table>
+        <div class="exp-box"><strong>Key assertion:</strong> A billing infrastructure failure must NEVER lock out users. Grace = 14-day trial on any error.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc054">
+      <div class="tc-head" onclick="toggle('tc054')">
+        <span class="tc-id">TC-054</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">D1 internal shop IDs always resolve as plan='pro' regardless of DB value</div>
+          <div class="tc-tags"><span class="tag edge">edge</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Technician account belongs to shop_id = 38d55fae... or 90b72748...</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Temporarily set the technician's profile.plan to 'free' in Supabase</td><td class="expected">App still shows full access — planGate.ts overrides to 'pro' for internal shop IDs regardless of the DB column value</td></tr>
+          <tr><td>2</td><td class="action">Restore plan to 'pro' in DB</td><td class="expected">No change in behavior — was already 'pro' effective</td></tr>
+        </table>
+        <div class="exp-box"><strong>Hard constraint:</strong> Internal D1 shops can never be locked out by a billing DB error. This is unconditional in planGate.ts.</div>
+      </div>
+    </div>
+
+    <div class="tc" id="tc055">
+      <div class="tc-head" onclick="toggle('tc055')">
+        <span class="tc-id">TC-055</span>
+        <div class="tc-title-wrap">
+          <div class="tc-name">Role change from technician to advisor takes effect on next login</div>
+          <div class="tc-tags"><span class="tag edge">edge</span><span class="tag perm">perm</span></div>
+        </div>
+        <div class="tc-check-wrap"><input type="checkbox" class="tc-check"><span class="tc-result-label">Pass</span></div>
+        <span class="expand-arrow">▼</span>
+      </div>
+      <div class="tc-body">
+        <div class="pre-box"><strong>Preconditions:</strong> Owner changes the technician's role to 'advisor' in Settings → Login &amp; Roles.</div>
+        <table class="steps-table">
+          <tr><th>#</th><th>Action</th><th>Expected Result</th></tr>
+          <tr><td>1</td><td class="action">Owner changes the role in the Access view and saves</td><td class="expected">shop_users.role updated to 'advisor' for that user</td></tr>
+          <tr><td>2</td><td class="action">User logs out and logs back in</td><td class="expected">useShop() resolves role='advisor'; advisor allowlist now applies; additional modules (VIN, DTC, Customers, Vehicles, etc.) now appear in sidebar</td></tr>
+          <tr><td>3</td><td class="action">Confirm old technician-only restrictions (e.g. charges hidden on ROs) are lifted</td><td class="expected">isTech = false; labor and parts charges are now visible on Repair Orders</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="background:var(--bg2);border-top:1px solid var(--line);padding:16px 24px;text-align:center;font-size:11px;color:var(--subtle)">
+  RedlineD1 Technician Role Test Plan · 55 test cases · Rev 2026-07-17 · odeyt/redlined1
+</div>
+
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+// Keyboard: press Enter on card header to expand
+document.querySelectorAll('.tc-head').forEach(h => {
+  h.setAttribute('tabindex', '0');
+  h.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); h.click(); } });
+});
+
+// Update passed count
+document.querySelectorAll('.tc-check').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const count = document.querySelectorAll('.tc-check:checked').length;
+    const el = document.querySelector('.summary-cell:last-child .num');
+    if (el) el.textContent = count;
+  });
+  // stop click from toggling accordion
+  cb.addEventListener('click', e => e.stopPropagation());
+});
+
+// Expand all on print
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('.tc').forEach(tc => tc.classList.add('open'));
+});
+</script>
