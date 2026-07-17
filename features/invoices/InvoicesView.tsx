@@ -101,6 +101,7 @@ export function InvoicesView() {
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
   const [ratesFetching, setRatesFetching] = useState(false);
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
@@ -385,6 +386,7 @@ export function InvoicesView() {
     setEditingId(null);
     setShowForm(true);
     setSelected(null);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   function openEditForm(inv: InvoiceFull) {
@@ -417,6 +419,7 @@ export function InvoicesView() {
     });
     setEditingId(inv.id);
     setShowForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     // Load vehicles for the existing customer
     setCustVehicles([]);
     if (inv.customerId) {
@@ -830,8 +833,8 @@ export function InvoicesView() {
 
         {/* ── Left: Invoice List ── */}
         <Panel title="Invoices" hint="Click an invoice to view details">
-          {/* Most Recent banner */}
-          {invoices.length > 0 && (
+          {/* Most Recent banner — hidden when form is open */}
+          {!showForm && invoices.length > 0 && (
             <div
               onClick={() => { setSelected(invoices[0]); setShowForm(false); }}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: 'rgba(204,0,0,0.07)', border: '1px solid rgba(204,0,0,0.25)', marginBottom: 12, cursor: 'pointer' }}
@@ -858,7 +861,7 @@ export function InvoicesView() {
           </div>
 
           {showForm && (
-            <form onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
+            <form ref={formRef} onSubmit={handleSave} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 18, marginBottom: 14 }}>
               <h3 style={{ margin: '0 0 14px', fontSize: 15 }}>{editingId ? `✏️ Edit ${form.invoiceNumber}` : 'New Invoice'}</h3>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
