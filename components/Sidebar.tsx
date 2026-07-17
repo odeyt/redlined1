@@ -553,7 +553,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       </a>
       {currentUserEmail && (
         <div
-          title={currentUserEmail}
+          title={`${currentUserEmail}${role ? ` · ${role}` : ''}`}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 12px', marginBottom: 8,
@@ -572,9 +572,20 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
             {currentUserEmail[0]}
           </div>
           {!collapsed && (
-            <span style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {currentUserEmail}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+              <span style={{ fontSize: 12, color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUserEmail}
+              </span>
+              {role && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
+                  color: role === 'owner' ? '#dc2626' : role === 'manager' ? '#d97706' : role === 'advisor' ? '#2196f3' : '#6b7280',
+                  marginTop: 2,
+                }}>
+                  {role}
+                </span>
+              )}
+            </div>
           )}
         </div>
       )}
