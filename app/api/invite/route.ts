@@ -1,9 +1,33 @@
-﻿import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { requireShopRole, isLastOwner } from '@/lib/serverAuth';
+import { createServerSupabase } from '@/lib/supabase-server';
+import { parseJsonBody, sanitizeError, escapeHtml, isRateLimited, getTrustedSiteUrl } from '@/lib/apiHelpers';
+import { InviteCreateSchema, InviteRoleChangeSchema } from '@/lib/schemas';
 
-function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
-
+/**
+ * POST /api/invite — add a staff member to a shop. If the email has no
+ *   existing account, a new one is created via Supabase's invite-link
+ *   workflow (one-time, expiring link — the user sets their own password).
+ *   If the email already has an account, no auth changes are made at all —
+ *   they're just added to shop_users and notified.
+ * PATCH /api/invite — change an existing member's role within a shop.
+ *
+ * Caller: must be authenticated via a valid Supabase bearer token AND hold
+ *   role 'owner' in the target shop (`shopId`).
+ * Resource authorized: the `shopId` in the request body — resolved to the
+ *   caller's own shop_users membership row, never trusted from the body.
+ *   The operation applies ONLY to that explicit shopId — an owner of shop A
+ *   is never authorized to touch shop B, even if they co-own both (no
+ *   cross-shop propagation; see CRITICAL 2 in the security review this
+ *   fixes).
+ * Required role: owner.
+ * Treated only as resource identifiers (never as proof of caller identity
+ *   or permission): `shopId`, `email`, `role` (the role being *assigned* to
+ *   the invitee), `userId`.
+ * Cross-shop access prevention: requireShopRole() checks the caller's own
+ *   shop_users row for exactly this shopId.
+ */
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Owner',
   manager: 'Manager',
@@ -11,174 +35,221 @@ const ROLE_LABELS: Record<string, string> = {
   technician: 'Technician',
 };
 
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let pw = 'D1-';
-  for (let i = 0; i < 8; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-  return pw;
+function isAlreadyRegisteredError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === 'email_exists' || error.code === 'user_already_exists') return true;
+  return /already (been )?registered|already exists/i.test(error.message ?? '');
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const { email, role, shopId } = await req.json();
-    if (!email || !shopId) return NextResponse.json({ error: 'Missing email or shopId' }, { status: 400 });
+  const parsed = await parseJsonBody(req, InviteCreateSchema);
+  if (!parsed.ok) return parsed.response;
+  const { email, role, shopId } = parsed.data;
 
-    const tempPassword = generateTempPassword();
-    const siteUrl = 'https://www.redlined1.com';
-    const loginUrl = `${siteUrl}/login`;
-    const roleLabel = ROLE_LABELS[role] ?? role;
+  const auth = await requireShopRole(req, shopId, ['owner']);
+  if (!auth.ok) return auth.response;
 
-    // Get shop name for the email
-    const { data: shop } = await getAdmin().from('shops').select('name').eq('id', shopId).single();
-    const shopName = shop?.name ?? 'D1 Imports';
+  if (isRateLimited(`invite:shop:${shopId}`, 20, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many invitations sent. Please try again later.' }, { status: 429 });
+  }
+  if (isRateLimited(`invite:target:${shopId}:${email}`, 3, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many invitations sent to this address. Please try again later.' }, { status: 429 });
+  }
 
-    // Check if user already exists
-    const { data: existingList } = await getAdmin().auth.admin.listUsers();
-    const existing = existingList?.users?.find(u => u.email === email);
+  const admin = createServerSupabase();
+  const siteUrl = getTrustedSiteUrl();
+  if (!siteUrl) {
+    return NextResponse.json(
+      { error: sanitizeError(new Error('NEXT_PUBLIC_SITE_URL is not a valid trusted URL'), 'invite:POST site-url', 'Server misconfiguration — please contact support') },
+      { status: 500 },
+    );
+  }
+  const roleLabel = ROLE_LABELS[role] ?? role;
 
-    let userId: string;
+  const { data: shop, error: shopError } = await admin.from('shops').select('name').eq('id', shopId).maybeSingle();
+  if (shopError) {
+    return NextResponse.json({ error: sanitizeError(shopError, 'invite:POST shop lookup', 'Unable to process invitation') }, { status: 500 });
+  }
+  const shopName = escapeHtml(shop?.name ?? 'your shop');
 
-    if (existing) {
-      // Update their password to the new temp one
-      await getAdmin().auth.admin.updateUserById(existing.id, {
-        password: tempPassword,
-        email_confirm: true,
-      });
-      userId = existing.id;
-    } else {
-      // Create new user with temp password — no magic link needed
-      const { data, error } = await getAdmin().auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-      });
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-      userId = data.user.id;
-    }
+  // Bounded lookup — replaces the previous listUsers({ perPage: 1000 })
+  // whole-project scan. profiles.email is kept in sync by the
+  // on_auth_user_created trigger (supabase/rls_phase7.sql) and by the
+  // upsert below for every account this route creates.
+  const { data: existingProfile, error: profileLookupError } = await admin
+    .from('profiles')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+  if (profileLookupError) {
+    return NextResponse.json({ error: sanitizeError(profileLookupError, 'invite:POST profile lookup', 'Unable to process invitation') }, { status: 500 });
+  }
 
-    // Find all shops owned by the same owners as the target shop
-    // so the new user is added to every location automatically
-    const { data: coOwners } = await getAdmin()
-      .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
-    const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
+  let userId: string;
+  let inviteActionLink: string | null = null;
+  const isNewAccount = !existingProfile;
 
-    let allShopIds: string[] = [shopId];
-    if (ownerIds.length > 0) {
-      const { data: ownerShops } = await getAdmin()
-        .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
-      allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
-      if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
-    }
-
-    // Add user to all locations
-    for (const sid of allShopIds) {
-      await getAdmin().from('shop_users').upsert({
-        shop_id: sid,
-        user_id: userId,
-        role: role ?? 'manager',
-      }, { onConflict: 'shop_id,user_id' });
-    }
-
-    // Create/update profile
-    await getAdmin().from('profiles').upsert({
-      id: userId,
+  if (existingProfile) {
+    userId = existingProfile.id;
+  } else {
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'invite',
       email,
-    }, { onConflict: 'id' });
-
-    // Send welcome email with temp password via Resend
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    await resend.emails.send({
-      from: 'D1 Imports <noreply@redlined1.com>',
-      to: email,
-      subject: `You've been added to ${shopName} — Your login details`,
-      html: `
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
-          <div style="background:#cc0000;padding:20px 28px">
-            <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">D1 IMPORTS <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
-          </div>
-          <div style="padding:28px">
-            <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">Welcome to ${shopName}</h2>
-            <p style="font-size:14px;color:#aaa;margin:0 0 24px">You've been added as <strong style="color:#fff">${roleLabel}</strong>. Use the credentials below to log in.</p>
-
-            <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:20px 24px;margin-bottom:24px">
-              <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">Your Login Details</div>
-              <table style="width:100%;border-collapse:collapse">
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888;width:110px">Portal URL</td>
-                  <td style="padding:8px 0;font-size:14px;font-weight:700">
-                    <a href="${loginUrl}" style="color:#cc0000">${loginUrl}</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888">Email</td>
-                  <td style="padding:8px 0;font-size:14px;font-weight:700;color:#fff">${email}</td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888">Temp Password</td>
-                  <td style="padding:8px 0">
-                    <span style="font-size:18px;font-weight:900;color:#fff;background:rgba(204,0,0,0.2);padding:6px 14px;border-radius:6px;letter-spacing:1px;font-family:monospace">${tempPassword}</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0;font-size:13px;color:#888">Role</td>
-                  <td style="padding:8px 0;font-size:14px;font-weight:700;color:#4caf50">${roleLabel}</td>
-                </tr>
-              </table>
-            </div>
-
-            <div style="background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.25);border-radius:8px;padding:14px 18px;margin-bottom:24px">
-              <p style="font-size:13px;color:#ffc107;margin:0;font-weight:600">⚠️ Change your password after first login</p>
-              <p style="font-size:12px;color:#aaa;margin:6px 0 0">Go to Settings → Change Password once you're logged in.</p>
-            </div>
-
-            <a href="${loginUrl}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
-              Log In Now →
-            </a>
-          </div>
-          <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-            D1 Imports · ${shopName} · Powered by Redlined1
-          </div>
-        </div>
-      `,
+      options: { redirectTo: `${siteUrl}/auth/callback?next=/reset-password` },
     });
 
-    return NextResponse.json({ success: true, tempPassword, email });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
+    if (linkError || !linkData?.user) {
+      if (isAlreadyRegisteredError(linkError)) {
+        // Supabase itself confirms the email is registered even though our
+        // profiles lookup missed it (e.g. pre-dates the auto-create
+        // trigger). We have no safe, bounded way to resolve their user id
+        // without an unbounded scan, so fail closed rather than guess.
+        return NextResponse.json(
+          { error: 'This email is already registered. Please contact support to add them to this shop.' },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { error: sanitizeError(linkError, 'invite:POST generateLink', 'Unable to send invitation') },
+        { status: 502 },
+      );
+    }
+
+    userId = linkData.user.id;
+    inviteActionLink = linkData.properties.action_link;
   }
+
+  // Applies ONLY to the explicitly authorized shopId — no propagation to
+  // other shops the caller or the invitee may co-own.
+  const { error: membershipError } = await admin
+    .from('shop_users')
+    .upsert({ shop_id: shopId, user_id: userId, role }, { onConflict: 'shop_id,user_id' });
+  if (membershipError) {
+    return NextResponse.json(
+      { error: sanitizeError(membershipError, 'invite:POST shop_users upsert', 'Unable to add member to shop') },
+      { status: 500 },
+    );
+  }
+
+  const { error: profileUpsertError } = await admin.from('profiles').upsert({ id: userId, email }, { onConflict: 'id' });
+  if (profileUpsertError) {
+    // Non-fatal — membership already succeeded, which is the operation that
+    // matters. Still observed, not swallowed.
+    sanitizeError(profileUpsertError, 'invite:POST profile upsert');
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const loginUrl = `${siteUrl}/login`;
+  let emailWarning: string | undefined;
+
+  try {
+    if (isNewAccount && inviteActionLink) {
+      await resend.emails.send({
+        from: 'D1 Imports <noreply@redlined1.com>',
+        to: email,
+        subject: `You've been invited to ${shopName}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
+            <div style="background:#cc0000;padding:20px 28px">
+              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">D1 IMPORTS <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
+            </div>
+            <div style="padding:28px">
+              <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">Welcome to ${shopName}</h2>
+              <p style="font-size:14px;color:#aaa;margin:0 0 24px">You've been invited as <strong style="color:#fff">${escapeHtml(roleLabel)}</strong>. Click below to set up your account and choose your own password.</p>
+              <a href="${escapeHtml(inviteActionLink)}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
+                Accept Invitation →
+              </a>
+              <p style="font-size:12px;color:#666;margin-top:20px">This link is one-time use and expires soon. If you didn't expect this invitation, you can ignore this email.</p>
+            </div>
+            <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
+              D1 Imports · ${shopName} · Powered by Redlined1
+            </div>
+          </div>
+        `,
+      });
+    } else {
+      await resend.emails.send({
+        from: 'D1 Imports <noreply@redlined1.com>',
+        to: email,
+        subject: `You've been added to ${shopName}`,
+        html: `
+          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
+            <div style="background:#cc0000;padding:20px 28px">
+              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">D1 IMPORTS <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
+            </div>
+            <div style="padding:28px">
+              <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">You've been added to ${shopName}</h2>
+              <p style="font-size:14px;color:#aaa;margin:0 0 24px">You've been added as <strong style="color:#fff">${escapeHtml(roleLabel)}</strong>. Sign in with your existing Redlined1 account to get started.</p>
+              <a href="${loginUrl}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
+                Sign In →
+              </a>
+            </div>
+            <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
+              D1 Imports · ${shopName} · Powered by Redlined1
+            </div>
+          </div>
+        `,
+      });
+    }
+  } catch (e) {
+    // Membership was already granted — email delivery failing shouldn't
+    // undo that. Observed via server logs, surfaced to the caller as a
+    // non-fatal warning, never with the raw exception.
+    emailWarning = sanitizeError(e, 'invite:POST resend.send', 'Notification email failed to send');
+  }
+
+  // If the email didn't go out, don't leave the workflow in an unclear
+  // state: membership already exists in the DB regardless, so give the
+  // (already-authorized owner) caller something actionable to hand the
+  // invitee directly — the one-time invite link for a new account, or just
+  // the login URL for an existing one (they already have credentials).
+  const actionLink = emailWarning ? (isNewAccount ? inviteActionLink : loginUrl) : undefined;
+
+  return NextResponse.json({
+    success: true,
+    email,
+    accountStatus: isNewAccount ? 'invited' : 'added_existing',
+    ...(emailWarning ? { warning: emailWarning } : {}),
+    ...(actionLink ? { actionLink } : {}),
+  });
 }
 
 export async function PATCH(req: NextRequest) {
-  try {
-    const { userId, shopId, role } = await req.json();
-    if (!userId || !shopId || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
-    const validRoles = ['owner', 'manager', 'advisor', 'technician'];
-    if (!validRoles.includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  const parsed = await parseJsonBody(req, InviteRoleChangeSchema);
+  if (!parsed.ok) return parsed.response;
+  const { userId, shopId, role } = parsed.data;
 
-    // Find all shops owned by the same owner(s) as the target shop, then update
-    // the member's role in every one of those shops so it stays in sync.
-    const { data: coOwners } = await getAdmin()
-      .from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
-    const ownerIds = (coOwners ?? []).map((r: Record<string, unknown>) => r.user_id as string);
+  const auth = await requireShopRole(req, shopId, ['owner']);
+  if (!auth.ok) return auth.response;
 
-    let allShopIds: string[] = [shopId];
-    if (ownerIds.length > 0) {
-      const { data: ownerShops } = await getAdmin()
-        .from('shop_users').select('shop_id').in('user_id', ownerIds).eq('role', 'owner');
-      allShopIds = [...new Set((ownerShops ?? []).map((r: Record<string, unknown>) => r.shop_id as string))];
-      if (!allShopIds.includes(shopId)) allShopIds.push(shopId);
-    }
+  const admin = createServerSupabase();
 
-    for (const sid of allShopIds) {
-      const { error } = await getAdmin().from('shop_users')
-        .update({ role })
-        .eq('shop_id', sid)
-        .eq('user_id', userId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, updatedShops: allShopIds.length });
-  } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
+  const { data: currentRow, error: lookupError } = await admin
+    .from('shop_users')
+    .select('role')
+    .eq('shop_id', shopId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (lookupError) {
+    return NextResponse.json({ error: sanitizeError(lookupError, 'invite:PATCH lookup', 'Unable to update role') }, { status: 500 });
   }
+  if (!currentRow) {
+    return NextResponse.json({ error: 'Member not found in this shop' }, { status: 404 });
+  }
+
+  if (currentRow.role === 'owner' && role !== 'owner' && (await isLastOwner(shopId, userId))) {
+    return NextResponse.json({ error: 'Cannot demote the last owner of a shop' }, { status: 409 });
+  }
+
+  // Applies ONLY to this explicit shopId — no cross-shop propagation.
+  const { error: updateError } = await admin
+    .from('shop_users')
+    .update({ role })
+    .eq('shop_id', shopId)
+    .eq('user_id', userId);
+  if (updateError) {
+    return NextResponse.json({ error: sanitizeError(updateError, 'invite:PATCH update', 'Unable to update role') }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }
