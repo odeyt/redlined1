@@ -2,13 +2,26 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+// Reviewed, scoped compatibility fix for the invite-link flow added in
+// app/api/invite/route.ts: `next` is redirected to unauthenticated (right
+// after establishing a real session from `code`), so it must be restricted
+// to a same-origin local path — never an absolute URL or protocol-relative
+// URL (`//evil.com`) that could redirect a freshly-authenticated user off-site.
+function isSafeLocalPath(path: string): boolean {
+  if (!path.startsWith('/')) return false;
+  if (path.startsWith('//')) return false;
+  if (path.includes('://')) return false;
+  return true;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
 
   const error = searchParams.get('error');
   const errorCode = searchParams.get('error_code');
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
+  const rawNext = searchParams.get('next') ?? '/';
+  const next = isSafeLocalPath(rawNext) ? rawNext : '/';
 
   if (error || errorCode) {
     const type = errorCode === 'otp_expired' ? 'expired' : 'error';

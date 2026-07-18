@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { useShop } from '@/lib/useShop';
 import { StatCard } from '@/components/StatCard';
 import { Panel } from '@/components/Panel';
@@ -22,7 +23,7 @@ export function AccessView() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('manager');
   const [inviteStatus, setInviteStatus] = useState('');
-  const [lastCredentials, setLastCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [inviteFallback, setInviteFallback] = useState<{ email: string; actionLink: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [memberError, setMemberError] = useState('');
@@ -38,17 +39,13 @@ export function AccessView() {
     setLoading(true);
     setMemberError('');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-      const res = await fetch(`/api/members?shopId=${shopId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      const res = await authedFetch(`/api/members?shopId=${shopId}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       setMembers(json.members ?? []);
     } catch (e: unknown) {
       setMembers([]);
-      setMemberError(e instanceof Error ? e.message : 'Failed to load members');
+      setMemberError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Failed to load members');
     } finally {
       setLoading(false);
     }
@@ -59,39 +56,55 @@ export function AccessView() {
   async function handleInvite() {
     if (!inviteEmail || !shopId) return;
     setInviteStatus('Sending…');
-    setLastCredentials(null);
+    setInviteFallback(null);
     try {
-      const res = await fetch('/api/invite', {
+      const res = await authedFetch('/api/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: inviteEmail, role: inviteRole, shopId }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
-      setInviteStatus(`Invite sent to ${json.email}`);
-      setLastCredentials({ email: json.email, password: json.tempPassword });
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      setInviteStatus(
+        json.accountStatus === 'invited'
+          ? `Invite sent to ${json.email} — they'll set their own password.`
+          : `${json.email} already has an account and has been added to this shop.`
+      );
+      // Membership was already granted server-side even if the notification
+      // email failed — surface the invite link so the owner can share it
+      // manually rather than leaving the invitee stuck with no way in.
+      if (json.warning) {
+        setInviteFallback({ email: json.email, actionLink: json.actionLink ?? null });
+      }
       setInviteEmail('');
       setCopied(false);
       loadMembers();
     } catch (e: unknown) {
-      setInviteStatus(`Error: ${e instanceof Error ? e.message : 'Failed'}`);
+      setInviteStatus(`Error: ${e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Failed'}`);
     }
   }
 
-  function copyPassword() {
-    if (!lastCredentials) return;
-    navigator.clipboard.writeText(lastCredentials.password);
+  function copyActionLink() {
+    if (!inviteFallback?.actionLink) return;
+    navigator.clipboard.writeText(inviteFallback.actionLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   }
 
   async function handleRoleChange(userId: string, newRole: string) {
-    await fetch('/api/invite', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, shopId, role: newRole }),
-    });
-    loadMembers();
+    setMemberError('');
+    try {
+      const res = await authedFetch('/api/invite', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, shopId, role: newRole }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      loadMembers();
+    } catch (e: unknown) {
+      setMemberError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Role change failed');
+    }
   }
 
   async function handleRemove(userId: string, email: string) {
@@ -99,19 +112,16 @@ export function AccessView() {
     setMemberError('');
     if (!shopId) { setMemberError('No shop selected'); return; }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-      if (!token) { setMemberError('Session expired — please refresh and log in again'); return; }
-      const res = await fetch('/api/members', {
+      const res = await authedFetch('/api/members', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, shopId }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       loadMembers();
     } catch (e: unknown) {
-      setMemberError(e instanceof Error ? e.message : 'Remove failed');
+      setMemberError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Remove failed');
     }
   }
 
@@ -160,32 +170,27 @@ export function AccessView() {
               {inviteStatus}
             </p>
           )}
-          {lastCredentials && (
-            <div style={{ marginTop: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10 }}>
+          {inviteFallback && (
+            <div style={{ marginTop: 12, padding: '14px 18px', background: 'rgba(255,193,7,0.08)', border: '1px solid rgba(255,193,7,0.25)', borderRadius: 10 }}>
               <div className="section-label">
-                Credentials to share
+                ⚠️ Notification email failed to send
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>
+                {inviteFallback.email} was added, but we couldn't email them. {inviteFallback.actionLink ? 'Share this one-time sign-up link with them directly:' : 'Ask them to sign in — an account already existed for them.'}
+              </p>
+              {inviteFallback.actionLink && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ color: 'var(--muted)', width: 70 }}>Email</span>
-                  <span style={{ fontWeight: 600 }}>{lastCredentials.email}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ color: 'var(--muted)', width: 70 }}>Password</span>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, background: 'rgba(204,0,0,0.15)', padding: '3px 10px', borderRadius: 6, letterSpacing: 1 }}>
-                    {lastCredentials.password}
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all', background: 'rgba(255,255,255,0.06)', padding: '6px 10px', borderRadius: 6, flex: 1 }}>
+                    {inviteFallback.actionLink}
                   </span>
                   <button
-                    onClick={copyPassword}
+                    onClick={copyActionLink}
                     style={{ padding: '4px 12px', background: copied ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.08)', border: `1px solid ${copied ? '#4caf50' : 'var(--line)'}`, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: copied ? '#4caf50' : 'var(--text)', transition: 'all 0.2s' }}
                   >
                     {copied ? '✓ Copied' : 'Copy'}
                   </button>
                 </div>
-              </div>
-              <p style={{ fontSize: 11, color: 'var(--muted)', margin: '10px 0 0' }}>
-                Share these with the staff member. They can change their password in Settings after logging in.
-              </p>
+              )}
             </div>
           )}
         </Panel>

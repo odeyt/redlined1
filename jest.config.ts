@@ -3,7 +3,7 @@ import type { Config } from 'jest';
 const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/lib'],
+  roots: ['<rootDir>/lib', '<rootDir>/app', '<rootDir>/features'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', {
@@ -18,6 +18,7 @@ const config: Config = {
     }],
   },
   moduleNameMapper: {
+    '^server-only$': '<rootDir>/lib/__mocks__/server-only.js',
     '^@/(.*)$': '<rootDir>/$1',
   },
   coverageDirectory: 'coverage',

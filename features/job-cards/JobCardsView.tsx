@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
+import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { TechPill, TechPills } from '@/components/TechPill';
@@ -236,12 +237,13 @@ export function JobCardsView() {
       setStatusUrl(`${window.location.origin}/status/${job.statusToken}`);
     } else {
       try {
-        const res = await fetch('/api/job-status', {
+        const res = await authedFetch('/api/job-status', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jobId: job.id, shopId }),
         });
         const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
         if (json.token) {
           setStatusToken(json.token);
           setStatusUrl(`${window.location.origin}/status/${json.token}`);
@@ -250,7 +252,7 @@ export function JobCardsView() {
           setJobs(prev => prev.map(j => j.id === job.id ? { ...j, statusToken: json.token, repairStage: json.stage, stageHistory: json.history ?? [] } : j));
         }
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Failed to initialize status tracker');
+        setError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Failed to initialize status tracker');
       }
     }
   }
@@ -259,10 +261,10 @@ export function JobCardsView() {
     if (!trackerJob) return;
     setAdvancingStage(true); setNotifyResult('');
     try {
-      const res = await fetch('/api/job-status', {
+      const res = await authedFetch('/api/job-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: trackerJob.id, shopId, stage: nextStage, notifiedSms: notifySms && !!notifyPhone, notifiedEmail: notifyEmail && !!notifyEmailAddr }),
+        body: JSON.stringify({ jobId: trackerJob.id, shopId, stage: nextStage }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -270,21 +272,30 @@ export function JobCardsView() {
       setStageHistory(json.history);
       setJobs(prev => prev.map(j => j.id === trackerJob!.id ? { ...j, repairStage: json.stage, stageHistory: json.history } : j));
 
-      if ((notifySms && notifyPhone) || (notifyEmail && notifyEmailAddr)) {
-        const nRes = await fetch('/api/job-notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jobId: trackerJob.id, shopId, stage: nextStage, statusUrl, customerPhone: notifySms ? notifyPhone : null, customerEmail: notifyEmail ? notifyEmailAddr : null }),
-        });
-        const nJson = await nRes.json();
-        const parts = [];
-        if (nJson.sms) parts.push('SMS sent ✓');
-        if (nJson.smsError) parts.push(`SMS: ${nJson.smsError}`);
-        if (nJson.email) parts.push('Email sent ✓');
-        if (nJson.emailError) parts.push(`Email: ${nJson.emailError}`);
-        setNotifyResult(parts.join(' · '));
+      // notifySms/notifyEmail are channel toggles only — the actual
+      // recipient (phone/email) and tracking URL are always resolved
+      // server-side from the job's own record, never sent from here.
+      if (notifySms || notifyEmail) {
+        try {
+          const nRes = await authedFetch('/api/job-notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId: trackerJob.id, shopId, notifySms, notifyEmail }),
+          });
+          const nJson = await nRes.json();
+          if (!nRes.ok) throw new Error(nJson.error ?? `HTTP ${nRes.status}`);
+          const parts = [];
+          if (nJson.deduped) parts.push('Already notified for this stage ✓');
+          if (nJson.sms) parts.push('SMS sent ✓');
+          if (nJson.smsError) parts.push(`SMS: ${nJson.smsError}`);
+          if (nJson.email) parts.push('Email sent ✓');
+          if (nJson.emailError) parts.push(`Email: ${nJson.emailError}`);
+          setNotifyResult(parts.join(' · '));
+        } catch (e: unknown) {
+          setNotifyResult(e instanceof AuthSessionError ? e.message : e instanceof Error ? `Notify failed: ${e.message}` : 'Notify failed');
+        }
       }
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed'); }
+    } catch (e: unknown) { setError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Failed'); }
     finally { setAdvancingStage(false); }
   }
   const [tab, setTab] = useState<'active' | 'closed' | 'techs'>('active');
