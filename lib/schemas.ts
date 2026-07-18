@@ -2,16 +2,29 @@
  * lib/schemas.ts
  *
  * Shared zod schemas for validating request bodies at the app/api/** boundary.
- * shopId/userId/jobId are Postgres UUID columns throughout this schema
- * (shops.id, auth.users.id, job_cards.id) — rejecting non-UUID values here
- * is a defense-in-depth input check, not the authorization boundary itself
- * (that's requireShopRole in lib/serverAuth.ts).
+ * shopId/userId are Postgres UUID columns (shops.id, auth.users.id) —
+ * rejecting non-UUID values here is a defense-in-depth input check, not the
+ * authorization boundary itself (that's requireShopRole in lib/serverAuth.ts).
  */
 import { z } from 'zod';
 
 export const ShopIdSchema = z.string().trim().uuid('Invalid shopId');
 export const UserIdSchema = z.string().trim().uuid('Invalid userId');
-export const JobIdSchema = z.string().trim().uuid('Invalid jobId');
+
+// job_cards.id is `text primary key`, populated by the app as `JC-${Date.now()}`
+// (services/jobCardService.ts createJobCard) — NOT a UUID. This schema
+// previously required UUID format here, which rejected every real job id
+// with a 400 in production. Confirmed by reading supabase-schema.sql
+// (job_cards.id text primary key, no uuid default) and the actual insert
+// call. Bounded to a safe charset (alphanumeric, dash, underscore) as
+// defense-in-depth against path traversal / injection-shaped input, while
+// still accepting the real `JC-<epoch-ms>` id format.
+export const JobIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'Invalid jobId')
+  .max(200)
+  .regex(/^[A-Za-z0-9_-]+$/, 'Invalid jobId');
 
 export const EmailSchema = z
   .string()
