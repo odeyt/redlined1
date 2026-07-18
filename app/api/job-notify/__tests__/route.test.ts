@@ -99,10 +99,17 @@ beforeEach(() => {
 });
 
 describe('POST /api/job-notify', () => {
-  it('returns 400 for a non-UUID jobId, without checking authorization', async () => {
-    const res = await POST(makeReq({ jobId: 'not-a-uuid', shopId: SHOP_A }));
+  it('returns 400 for an empty jobId, without checking authorization', async () => {
+    const res = await POST(makeReq({ jobId: '', shopId: SHOP_A }));
     expect(res.status).toBe(400);
     expect(mockRequireShopRole).not.toHaveBeenCalled();
+  });
+
+  it('accepts a real job_cards.id shape (job_cards.id is text, not a UUID — e.g. "JC-<timestamp>")', async () => {
+    mockRequireShopRole.mockResolvedValue(advisorOk());
+    jobResult = { ...jobResult, data: { ...(jobResult.data as Record<string, unknown>), id: 'JC-1737158234567' } };
+    const res = await POST(makeReq({ jobId: 'JC-1737158234567', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
   });
 
   it('rejects an unauthenticated caller with 401 and sends no notification', async () => {
