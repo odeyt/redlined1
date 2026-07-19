@@ -76,8 +76,8 @@ beforeEach(() => {
     customers: { data: { name: 'Jane Doe', phone: '+15551230000', email: 'jane@example.com' }, error: null },
     estimates: { data: { customer_id: 'cust-1', customer_name: 'Jane Doe' }, error: null },
     invoices: { data: { customer_id: 'cust-1', customer: 'Jane Doe' }, error: null },
-    // Credentials now live in shop_messaging_secrets (server-only, no anon/
-    // authenticated grants) — never shop_settings.messaging_settings.
+    // Credentials live in shop_messaging_secrets (server-only, no anon/
+    // authenticated grants) — this route never reads from shop_settings.
     shop_messaging_secrets: {
       data: { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: '+15550000000', sms_enabled: true, whatsapp_enabled: true, line_token: null, line_enabled: false, telegram_bot_token: null, telegram_enabled: false },
       error: null,

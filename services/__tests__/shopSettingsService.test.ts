@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 
 describe('fetchShopSettings — column allowlist', () => {
-  it('never selects messaging_settings — the removed secret-bearing jsonb column', async () => {
+  it('never selects messaging_settings — a column that does not exist in production and must never be assumed present again', async () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
     await fetchShopSettings();
     expect(mockSelect).toHaveBeenCalledTimes(1);
@@ -55,13 +55,17 @@ describe('fetchShopSettings — column allowlist', () => {
     }
   });
 
-  it('the returned ShopSettings object carries no messaging field, even if the row has stale messaging_settings data', async () => {
+  it('the returned ShopSettings object carries no messaging field, even if a mock/future row happens to include unexpected extra keys', async () => {
+    // Defensive case: this table has no messaging_settings column in
+    // production, but the code must not surface one even if a future
+    // schema change (or a test double) ever added a similarly-named field
+    // to what select() returns.
     mockMaybeSingle.mockResolvedValue({
-      data: { company_name: 'Test Shop', messaging_settings: { twilioToken: 'still-in-the-db-but-must-not-surface' } },
+      data: { company_name: 'Test Shop', messaging_settings: { twilioToken: 'unexpected-field-must-not-surface' } },
       error: null,
     });
     const settings = await fetchShopSettings();
     expect(settings).not.toHaveProperty('messaging');
-    expect(JSON.stringify(settings)).not.toContain('still-in-the-db-but-must-not-surface');
+    expect(JSON.stringify(settings)).not.toContain('unexpected-field-must-not-surface');
   });
 });

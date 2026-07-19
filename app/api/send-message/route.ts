@@ -44,9 +44,13 @@ import { SendMessageSchema } from '@/lib/schemas';
  *   public.shop_messaging_secrets (see docs/MESSAGING_SECRETS_MIGRATION.sql)
  *   — a server-only table with no anon/authenticated grants and no RLS
  *   policies at all. This route's service-role client is the only path to
- *   it; the old shop_settings.messaging_settings jsonb column is never read
- *   here, and its secret keys are removed entirely once Phase B of that
- *   migration runs (see the migration doc for the exact sequence).
+ *   it. Note: production schema inspection found no
+ *   shop_settings.messaging_settings column and no other database-stored
+ *   provider credential anywhere — the earlier code this route replaces
+ *   referenced a column that never existed in production, so this change
+ *   establishes the first real credential storage for these channels
+ *   rather than relocating a previously-exposed one (see the header note
+ *   in docs/MESSAGING_SECRETS_MIGRATION.sql for the full finding).
  * Cross-shop / not-found: a resourceId that doesn't resolve within the
  *   caller's shopId returns the same generic 404 whether it belongs to
  *   another shop or doesn't exist at all — no enumeration signal either way.

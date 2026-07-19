@@ -48,14 +48,26 @@ any point in this flow.
 `getMessagingSettings()` reads Twilio SID/token/from and the per-channel
 `*_enabled` flags from `public.shop_messaging_secrets` — a server-only table
 with no anon/authenticated grants and no RLS policies at all (default deny;
-see `docs/MESSAGING_SECRETS_MIGRATION.sql`). The old
-`shop_settings.messaging_settings` jsonb column, which was readable by the
-browser anon-key client via a shared `select('*')` in multiple screens, is
-never read by this route. This closes the credential-storage exposure
-described in the (now superseded) `docs/MESSAGING_SECRETS_AUDIT.md` — see
-`docs/MESSAGING_SECRETS_MIGRATION.sql` and
-`docs/MESSAGING_SECURITY_DEPLOYMENT_SEQUENCE.md` for the exact two-phase
-migration and deployment order this depended on.
+see `docs/MESSAGING_SECRETS_MIGRATION.sql`).
+
+**Corrected finding**: an earlier pass of this work assumed a
+`shop_settings.messaging_settings` jsonb column existed in production and
+was readable by the browser anon-key client, and treated this as a
+credential-exposure fix that relocated live secrets out of it. Direct
+production schema inspection disproved that: `shop_settings` has no
+`messaging_settings` column, no Twilio/LINE/Telegram/WhatsApp credential
+column exists anywhere in the database, and a database-wide search for
+messaging-related column names found only ordinary message/log columns.
+The repository code that referenced `shop_settings.messaging_settings`
+(both in `send-message` and in `services/shopSettingsService.ts`) was
+therefore always operating against a nonexistent column — messaging
+configuration was nonfunctional / schema-drifted, not exposed. No
+database-stored provider token was found, and no credential rotation is
+required on that basis. `shop_messaging_secrets` is the first real,
+correctly-secured storage location for these credentials, not a
+relocation of a previously-leaking one — see the header note in
+`docs/MESSAGING_SECRETS_MIGRATION.sql` for the full finding and
+`docs/MESSAGING_SECURITY_DEPLOYMENT_SEQUENCE.md` for the deployment order.
 
 Two related, narrower read surfaces exist for the client side:
 - `GET /api/shop-messaging-secrets` (owner only) — redacted `configured`/

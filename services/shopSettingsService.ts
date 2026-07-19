@@ -22,13 +22,18 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
 };
 
-// Messaging provider credentials (Twilio/LINE/Telegram) moved to
-// server-only storage — see services/messagingSecretsService.ts and
-// docs/MESSAGING_SECRETS_MIGRATION.sql. This service no longer reads or
-// writes them at all: fetchShopSettings() below deliberately selects an
-// explicit column list that excludes shop_settings.messaging_settings, so
-// the old jsonb secret blob can never reach the browser via this path
-// again, regardless of whether that column still holds stale data.
+// Messaging provider credentials (Twilio/LINE/Telegram) live in the
+// server-only shop_messaging_secrets table — see
+// services/messagingSecretsService.ts and
+// docs/MESSAGING_SECRETS_MIGRATION.sql. This service never reads or writes
+// them at all. Note: an earlier version of this code assumed a
+// shop_settings.messaging_settings jsonb column existed and read a
+// `messaging` field from it — production schema inspection found no such
+// column ever existed, so that code path was always silently returning
+// empty/default values, not actually exposing live credentials. The
+// explicit column allowlist below (replacing a prior `select('*')`) is
+// kept as a defensive, going-forward practice — not because it removed a
+// column that was ever genuinely leaking secret data.
 
 export interface ShopSettings {
   companyName: string;
