@@ -145,6 +145,16 @@ export const ShopMessagingSecretsQuerySchema = z.object({
 // the schema alone — see the route handler. `.strict()` so an unexpected
 // field (e.g. a stray `to`/`token` mistakenly copied from another form)
 // fails loudly instead of being silently accepted or ignored.
+//
+// LINE and Telegram fields are deliberately ABSENT from this schema —
+// send-message refuses both channels unconditionally (no verified
+// per-customer contact mapping exists yet), so the application-layer API
+// must not accept or activate them either, even though the underlying
+// shop_messaging_secrets table still reserves line_token/line_enabled/
+// telegram_bot_token/telegram_enabled columns for a future migration. A
+// caller that submits `lineToken`, `lineEnabled`, `telegramBotToken`, or
+// `telegramEnabled` gets the same `.strict()` 400 as any other unrecognized
+// field — rejected, not silently accepted or ignored.
 export const ShopMessagingSecretsUpdateSchema = z
   .object({
     shopId: ShopIdSchema,
@@ -153,10 +163,6 @@ export const ShopMessagingSecretsUpdateSchema = z
     twilioFrom: z.string().trim().max(50).optional(),
     smsEnabled: z.boolean().optional(),
     whatsappEnabled: z.boolean().optional(),
-    lineToken: z.string().trim().max(500).optional(),
-    lineEnabled: z.boolean().optional(),
-    telegramBotToken: z.string().trim().max(500).optional(),
-    telegramEnabled: z.boolean().optional(),
   })
   .strict();
 

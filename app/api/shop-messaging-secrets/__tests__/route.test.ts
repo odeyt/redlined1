@@ -57,6 +57,14 @@ function ownerOk() {
   return { ok: true as const, context: { userId: OWNER_USER, role: 'owner' as const } };
 }
 
+const COMPLETE_ROW = {
+  twilio_sid: 'ACxxxxxxxxxxxxxxxx',
+  twilio_token: 'auth-token-value',
+  twilio_from: '+15550000000',
+  sms_enabled: true,
+  whatsapp_enabled: true,
+};
+
 beforeEach(() => {
   mockRequireShopRole.mockReset();
   mockFrom.mockClear();
@@ -94,33 +102,18 @@ describe('GET /api/shop-messaging-secrets', () => {
 
   it('never returns a secret value, even when every channel is configured', async () => {
     mockRequireShopRole.mockResolvedValue(ownerOk());
-    secretsRowResult = {
-      data: {
-        twilio_sid: 'ACxxxxSECRETxxxx',
-        twilio_token: 'super-secret-auth-token',
-        twilio_from: '+15551234567',
-        sms_enabled: true,
-        whatsapp_enabled: true,
-        line_token: 'line-notify-secret-token',
-        line_enabled: true,
-        telegram_bot_token: '123456:secret-bot-token',
-        telegram_enabled: true,
-      },
-      error: null,
-    };
+    secretsRowResult = { data: COMPLETE_ROW, error: null };
     const res = await GET(makeGetReq(SHOP_A));
     expect(res.status).toBe(200);
     const body = await res.json();
     const serialized = JSON.stringify(body);
-    expect(serialized).not.toContain('SECRET');
-    expect(serialized).not.toContain('super-secret-auth-token');
-    expect(serialized).not.toContain('line-notify-secret-token');
-    expect(serialized).not.toContain('secret-bot-token');
+    expect(serialized).not.toContain('ACxxxxxxxxxxxxxxxx');
+    expect(serialized).not.toContain('auth-token-value');
     expect(body).toEqual({
-      sms: { configured: true, enabled: true, fromNumber: '+15551234567' },
-      whatsapp: { configured: true, enabled: true },
-      line: { configured: true, enabled: true },
-      telegram: { configured: true, enabled: true },
+      sms: { configured: true, enabled: true, fromNumber: '+15550000000', complete: true },
+      whatsapp: { configured: true, enabled: true, complete: true },
+      line: { configured: false, enabled: false },
+      telegram: { configured: false, enabled: false },
     });
   });
 
@@ -130,11 +123,42 @@ describe('GET /api/shop-messaging-secrets', () => {
     const res = await GET(makeGetReq(SHOP_A));
     const body = await res.json();
     expect(body).toEqual({
-      sms: { configured: false, enabled: false, fromNumber: null },
-      whatsapp: { configured: false, enabled: false },
+      sms: { configured: false, enabled: false, fromNumber: null, complete: false },
+      whatsapp: { configured: false, enabled: false, complete: false },
       line: { configured: false, enabled: false },
       telegram: { configured: false, enabled: false },
     });
+  });
+
+  it('reports complete: false when only some Twilio fields are present', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    secretsRowResult = { data: { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: null, sms_enabled: false, whatsapp_enabled: false }, error: null };
+    const res = await GET(makeGetReq(SHOP_A));
+    const body = await res.json();
+    expect(body.sms.configured).toBe(true); // token present
+    expect(body.sms.complete).toBe(false); // from missing
+  });
+
+  it('always reports LINE and Telegram as unconfigured/disabled, even if the reserved columns somehow held data', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    secretsRowResult = {
+      data: {
+        ...COMPLETE_ROW,
+        // These columns are reserved for a future migration and are no
+        // longer written by this API, but simulate stale/manually-inserted
+        // data to prove the response never surfaces it as active.
+        line_token: 'stale-line-token', line_enabled: true,
+        telegram_bot_token: 'stale-bot-token', telegram_enabled: true,
+      },
+      error: null,
+    };
+    const res = await GET(makeGetReq(SHOP_A));
+    const body = await res.json();
+    expect(body.line).toEqual({ configured: false, enabled: false });
+    expect(body.telegram).toEqual({ configured: false, enabled: false });
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain('stale-line-token');
+    expect(serialized).not.toContain('stale-bot-token');
   });
 
   it('returns a sanitized 500 on a database error, not raw error detail', async () => {
@@ -160,6 +184,26 @@ describe('PUT /api/shop-messaging-secrets', () => {
     expect(res.status).toBe(400);
   });
 
+  describe('LINE/Telegram fields are rejected outright — the schema does not accept them', () => {
+    it.each([
+      ['lineToken', 'some-line-token'],
+      ['lineEnabled', true],
+      ['telegramBotToken', 'some-bot-token'],
+      ['telegramEnabled', true],
+    ])('rejects a request containing %s with 400, before any authorization or DB call', async (field, value) => {
+      const res = await PUT(makePutReq({ shopId: SHOP_A, [field]: value }));
+      expect(res.status).toBe(400);
+      expect(mockRequireShopRole).not.toHaveBeenCalled();
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('rejects a request combining a valid Twilio field with a LINE field', async () => {
+      const res = await PUT(makePutReq({ shopId: SHOP_A, twilioSid: 'AC1', lineEnabled: true }));
+      expect(res.status).toBe(400);
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns 401 when unauthenticated', async () => {
     mockRequireShopRole.mockResolvedValue(unauthorized());
     const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
@@ -182,40 +226,124 @@ describe('PUT /api/shop-messaging-secrets', () => {
 
   it('never echoes a submitted secret value back in the response', async () => {
     mockRequireShopRole.mockResolvedValue(ownerOk());
+    secretsRowResult = { data: null, error: null };
     const res = await PUT(makePutReq({
       shopId: SHOP_A,
       twilioSid: 'ACsubmittedSID',
       twilioToken: 'submitted-token-value',
-      lineToken: 'submitted-line-token',
     }));
     expect(res.status).toBe(200);
     const body = await res.json();
     const serialized = JSON.stringify(body);
     expect(body).toEqual({ success: true });
     expect(serialized).not.toContain('submitted-token-value');
-    expect(serialized).not.toContain('submitted-line-token');
+  });
+
+  describe('Twilio completeness invariant', () => {
+    it('cannot enable SMS without any Twilio credentials configured', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: null, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/incomplete Twilio configuration/i);
+      expect(capturedUpsertRow).toBeNull(); // never reached the upsert
+    });
+
+    it('cannot enable WhatsApp without complete credentials (partial: sid+token but no from)', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: null, sms_enabled: false, whatsapp_enabled: false }, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, whatsappEnabled: true }));
+      expect(res.status).toBe(400);
+      expect(capturedUpsertRow).toBeNull();
+    });
+
+    it('cannot enable SMS in the SAME request as submitting incomplete credentials', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: null, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true, twilioSid: 'AC1', twilioToken: 'tok' /* no from */ }));
+      expect(res.status).toBe(400);
+      expect(capturedUpsertRow).toBeNull();
+    });
+
+    it('cannot clear a required field (twilioToken) while SMS remains enabled from the existing stored state', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: COMPLETE_ROW, error: null };
+      // smsEnabled not sent at all — it remains true from the existing row.
+      const res = await PUT(makePutReq({ shopId: SHOP_A, twilioToken: '' }));
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toMatch(/incomplete Twilio configuration/i);
+      expect(capturedUpsertRow).toBeNull();
+    });
+
+    it('cannot clear a required field (twilioFrom) while WhatsApp remains enabled', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: COMPLETE_ROW, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, twilioFrom: '' }));
+      expect(res.status).toBe(400);
+      expect(capturedUpsertRow).toBeNull();
+    });
+
+    it('allows clearing a field while simultaneously disabling the channel', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: COMPLETE_ROW, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, twilioToken: '', smsEnabled: false, whatsappEnabled: false }));
+      expect(res.status).toBe(200);
+      expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, twilio_token: null, sms_enabled: false, whatsapp_enabled: false });
+    });
+
+    it('can store credentials while channels remain disabled', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: null, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, twilioSid: 'AC1', twilioToken: 'tok', twilioFrom: '+15550000000' }));
+      expect(res.status).toBe(200);
+      expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: '+15550000000' });
+      expect(capturedUpsertRow).not.toHaveProperty('sms_enabled');
+      expect(capturedUpsertRow).not.toHaveProperty('whatsapp_enabled');
+    });
+
+    it('can enable SMS after credentials already exist and are complete', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: '+15550000000', sms_enabled: false, whatsapp_enabled: false }, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
+      expect(res.status).toBe(200);
+      expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, sms_enabled: true });
+    });
+
+    it('can enable SMS in the same request that completes the configuration', async () => {
+      mockRequireShopRole.mockResolvedValue(ownerOk());
+      secretsRowResult = { data: null, error: null };
+      const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true, twilioSid: 'AC1', twilioToken: 'tok', twilioFrom: '+15550000000' }));
+      expect(res.status).toBe(200);
+      expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, sms_enabled: true, twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: '+15550000000' });
+    });
   });
 
   it('omitted fields leave existing values unchanged (partial update), only touches provided keys', async () => {
     mockRequireShopRole.mockResolvedValue(ownerOk());
+    secretsRowResult = { data: COMPLETE_ROW, error: null };
     await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
     expect(capturedUpsertRow).not.toBeNull();
     expect(capturedUpsertRow).not.toHaveProperty('twilio_sid');
     expect(capturedUpsertRow).not.toHaveProperty('twilio_token');
-    expect(capturedUpsertRow).not.toHaveProperty('line_token');
     expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, sms_enabled: true });
   });
 
-  it('an empty string clears a credential (sets column to null)', async () => {
+  it('the fetch-existing-row lookup error is sanitized, not raw error detail', async () => {
     mockRequireShopRole.mockResolvedValue(ownerOk());
-    await PUT(makePutReq({ shopId: SHOP_A, twilioToken: '' }));
-    expect(capturedUpsertRow).toMatchObject({ shop_id: SHOP_A, twilio_token: null });
+    secretsRowResult = { data: null, error: { message: 'internal db host xyz unreachable' } };
+    const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).not.toMatch(/internal db host xyz/);
   });
 
-  it('returns a sanitized 500 on a database error, not raw error detail', async () => {
+  it('returns a sanitized 500 on an upsert database error, not raw error detail', async () => {
     mockRequireShopRole.mockResolvedValue(ownerOk());
+    secretsRowResult = { data: null, error: null };
     upsertResult = { data: null, error: { message: 'duplicate key value violates unique constraint "shop_messaging_secrets_pkey"' } };
-    const res = await PUT(makePutReq({ shopId: SHOP_A, smsEnabled: true }));
+    const res = await PUT(makePutReq({ shopId: SHOP_A, twilioSid: 'AC1', twilioToken: 'tok', twilioFrom: '+15550000000' }));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).not.toContain('constraint');

@@ -42,6 +42,8 @@ function roleOk(role: 'owner' | 'manager' | 'advisor') {
   return { ok: true as const, context: { userId: 'u1', role } };
 }
 
+const COMPLETE_TWILIO = { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: '+15550000000' };
+
 beforeEach(() => {
   mockRequireShopRole.mockReset();
   mockFrom.mockClear();
@@ -77,28 +79,56 @@ describe('GET /api/messaging-channels-status', () => {
 
   it.each(['owner', 'manager', 'advisor'] as const)('allows an authorized %s to check status', async (role) => {
     mockRequireShopRole.mockResolvedValue(roleOk(role));
-    secretsRowResult = { data: { sms_enabled: true, whatsapp_enabled: false }, error: null };
+    secretsRowResult = { data: { ...COMPLETE_TWILIO, sms_enabled: true, whatsapp_enabled: false }, error: null };
     const res = await GET(makeReq(SHOP_A));
     expect(res.status).toBe(200);
   });
 
+  it('reports sms/whatsapp true only when BOTH enabled AND the Twilio configuration is complete', async () => {
+    mockRequireShopRole.mockResolvedValue(roleOk('advisor'));
+    secretsRowResult = { data: { ...COMPLETE_TWILIO, sms_enabled: true, whatsapp_enabled: true }, error: null };
+    const res = await GET(makeReq(SHOP_A));
+    const body = await res.json();
+    expect(body).toEqual({ enabled: { sms: true, whatsapp: true, line: false, telegram: false } });
+  });
+
+  it('reports sms/whatsapp false when enabled but the Twilio configuration is incomplete (e.g. from-number missing)', async () => {
+    mockRequireShopRole.mockResolvedValue(roleOk('advisor'));
+    secretsRowResult = { data: { twilio_sid: 'AC1', twilio_token: 'tok', twilio_from: null, sms_enabled: true, whatsapp_enabled: true }, error: null };
+    const res = await GET(makeReq(SHOP_A));
+    const body = await res.json();
+    expect(body.enabled.sms).toBe(false);
+    expect(body.enabled.whatsapp).toBe(false);
+  });
+
+  it('reports sms/whatsapp false when fully configured but not enabled', async () => {
+    mockRequireShopRole.mockResolvedValue(roleOk('advisor'));
+    secretsRowResult = { data: { ...COMPLETE_TWILIO, sms_enabled: false, whatsapp_enabled: false }, error: null };
+    const res = await GET(makeReq(SHOP_A));
+    const body = await res.json();
+    expect(body.enabled.sms).toBe(false);
+    expect(body.enabled.whatsapp).toBe(false);
+  });
+
   it('returns enabled flags only — no configured, fromNumber, sid, token, or bot id in the response, ever', async () => {
     mockRequireShopRole.mockResolvedValue(roleOk('advisor'));
-    secretsRowResult = { data: { sms_enabled: true, whatsapp_enabled: true }, error: null };
+    secretsRowResult = { data: { ...COMPLETE_TWILIO, sms_enabled: true, whatsapp_enabled: true }, error: null };
     const res = await GET(makeReq(SHOP_A));
     const body = await res.json();
     expect(body).toEqual({ enabled: { sms: true, whatsapp: true, line: false, telegram: false } });
     expect(body).not.toHaveProperty('configured');
     expect(body.enabled).not.toHaveProperty('configured');
     const serialized = JSON.stringify(body);
-    expect(serialized).not.toMatch(/sid|token|bot|from/i);
+    expect(serialized).not.toContain('AC1');
+    expect(serialized).not.toContain('tok');
   });
 
   it('LINE and Telegram are always reported as disabled, regardless of any stored flag', async () => {
     mockRequireShopRole.mockResolvedValue(roleOk('owner'));
     // Even if line/telegram were somehow enabled at the storage layer, the
     // status endpoint must not report them enabled — sending is refused
-    // unconditionally by send-message.
+    // unconditionally by send-message, and the credential API no longer
+    // accepts writes to these columns at all.
     secretsRowResult = { data: { sms_enabled: false, whatsapp_enabled: false, line_enabled: true, telegram_enabled: true }, error: null };
     const res = await GET(makeReq(SHOP_A));
     const body = await res.json();

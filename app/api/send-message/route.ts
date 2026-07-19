@@ -165,13 +165,18 @@ async function resolveRecipient(
 // Reads from public.shop_messaging_secrets — a server-only table with no
 // anon/authenticated grants and no RLS policies at all (default deny for
 // every role except service_role). See docs/MESSAGING_SECRETS_MIGRATION.sql.
+// Deliberately does NOT select the reserved line_*/telegram_* columns:
+// this route already rejects `channel === 'line' | 'telegram'`
+// unconditionally before this function is ever called, so those columns
+// have no live code path here — not selecting them keeps this route's
+// touch surface limited to exactly the credentials it can actually use.
 async function getMessagingSettings(
   admin: ReturnType<typeof createServerSupabase>,
   shopId: string,
 ): Promise<{ ok: true; settings: Record<string, string | boolean> } | { ok: false; error: unknown }> {
   const { data, error } = await admin
     .from('shop_messaging_secrets')
-    .select('twilio_sid, twilio_token, twilio_from, sms_enabled, whatsapp_enabled, line_token, line_enabled, telegram_bot_token, telegram_enabled')
+    .select('twilio_sid, twilio_token, twilio_from, sms_enabled, whatsapp_enabled')
     .eq('shop_id', shopId)
     .maybeSingle();
   if (error) return { ok: false, error };
@@ -184,10 +189,6 @@ async function getMessagingSettings(
       twilioFrom: data.twilio_from ?? '',
       smsEnabled: !!data.sms_enabled,
       whatsappEnabled: !!data.whatsapp_enabled,
-      lineToken: data.line_token ?? '',
-      lineEnabled: !!data.line_enabled,
-      telegramBotToken: data.telegram_bot_token ?? '',
-      telegramEnabled: !!data.telegram_enabled,
     },
   };
 }
