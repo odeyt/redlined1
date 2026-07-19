@@ -22,24 +22,13 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
 };
 
-export interface MessagingSettings {
-  twilioSid: string;
-  twilioToken: string;
-  twilioFrom: string;
-  smsEnabled: boolean;
-  whatsappEnabled: boolean;
-  lineEnabled: boolean;
-  lineToken: string;
-  telegramEnabled: boolean;
-  telegramBotToken: string;
-}
-
-export const DEFAULT_MESSAGING: MessagingSettings = {
-  twilioSid: '', twilioToken: '', twilioFrom: '',
-  smsEnabled: false, whatsappEnabled: false,
-  lineEnabled: false, lineToken: '',
-  telegramEnabled: false, telegramBotToken: '',
-};
+// Messaging provider credentials (Twilio/LINE/Telegram) moved to
+// server-only storage — see services/messagingSecretsService.ts and
+// docs/MESSAGING_SECRETS_MIGRATION.sql. This service no longer reads or
+// writes them at all: fetchShopSettings() below deliberately selects an
+// explicit column list that excludes shop_settings.messaging_settings, so
+// the old jsonb secret blob can never reach the browser via this path
+// again, regardless of whether that column still holds stale data.
 
 export interface ShopSettings {
   companyName: string;
@@ -73,7 +62,6 @@ export interface ShopSettings {
   enableJobCardApprovalCode: boolean;
   enableJobCardSubType: boolean;
   serviceSubTypes: Record<string, string[]>;
-  messaging: MessagingSettings;
 }
 
 export const DEFAULT_PAYMENT_METHODS = [
@@ -85,9 +73,14 @@ export const DEFAULT_PAYMENT_METHODS = [
 export async function fetchShopSettings(): Promise<ShopSettings> {
   // Use the single active shop — .in() with mirror IDs + .single() throws when both shops
   // have settings rows (PGRST116 "multiple rows returned"). Settings are always per-shop.
+  // Explicit column list — deliberately excludes messaging_settings, which
+  // held raw Twilio/LINE/Telegram credentials. Never widen this back to
+  // select('*'); see the comment above ShopSettings.
   const { data, error } = await supabase
     .from('shop_settings')
-    .select('*')
+    .select(
+      'company_name, tagline, logo_url, address, phone, email, website, hidden_modules, role_permissions, labor_rate, default_tax_rate, invoice_prefix, estimate_prefix, business_type, service_types, enabled_payment_methods, inspection_template, enable_time_tracking, enable_job_archive, enable_vehicle_photos, enable_vehicle_edit, enable_technician_report, enable_job_completion_report, enable_appointment_bay, appointment_bays, enable_job_card_priority, enable_job_card_branch_route, enable_job_card_service_location, enable_job_card_approval_code, enable_job_card_sub_type, service_sub_types'
+    )
     .eq('shop_id', getShopId())
     .maybeSingle();
   if (error && error.code !== 'PGRST116') throw error;
@@ -124,7 +117,6 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableJobCardServiceLocation: data?.enable_job_card_service_location ?? true,
     enableJobCardApprovalCode: data?.enable_job_card_approval_code ?? true,
     enableJobCardSubType: data?.enable_job_card_sub_type ?? true,
-    messaging: { ...DEFAULT_MESSAGING, ...(data?.messaging_settings as Partial<MessagingSettings> | null ?? {}) },
     serviceSubTypes: (data?.service_sub_types as Record<string, string[]> | null) ?? {
       'Oil Change': ['5W-30', '0W-20', '5W-40', '10W-30', '10W-40', 'Synthetic', 'Semi-Synthetic', 'Conventional'],
       'Brakes': ['Front Passenger (FP)', 'Driver Side (D)', 'Passenger Rear (PR)', 'Driver Rear (DR)', 'All Four', 'Front Axle', 'Rear Axle'],
@@ -173,7 +165,8 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.enableJobCardApprovalCode !== undefined) update.enable_job_card_approval_code = settings.enableJobCardApprovalCode;
   if (settings.enableJobCardSubType !== undefined) update.enable_job_card_sub_type = settings.enableJobCardSubType;
   if (settings.serviceSubTypes !== undefined) update.service_sub_types = settings.serviceSubTypes;
-  if (settings.messaging !== undefined) update.messaging_settings = settings.messaging;
+  // Messaging credentials are no longer written through this path at all —
+  // see services/messagingSecretsService.ts (server-only, owner-gated).
 
   // Role permissions must be consistent across all shops the owner controls —
   // save to every shop the current user has access to, not just mirror-active ones.
