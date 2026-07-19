@@ -11,13 +11,29 @@ This release closes three related gaps in one coordinated change:
    channels are usable without any credential-management privilege.
 
 Branch: `feat/coordinated-messaging-security`, built from `origin/main` with
-`fix/job-id-hotfix` folded in (see step 1). **Not committed, pushed, or
-deployed as part of producing this branch** — this document is the plan for
-doing so, to be executed after your review.
+`fix/job-id-hotfix` folded in (see step 1). **Committed (`efb94f5`) and
+pushed to origin. Not merged, not deployed, no SQL executed, no credentials
+rotated.**
 
-Do not skip steps or reorder them. Steps 2 and 5 in particular are
+Do not skip steps or reorder them. Steps 3 and 7 in particular are
 irreversible-in-spirit (Phase A/B of the SQL migration) and are gated on the
 step before them succeeding.
+
+## Note on ordering: Vercel preview vs. Phase A
+
+A Vercel preview deployment for the PR can build and go live at any time —
+it doesn't require Phase A to have run first, and building it early is
+useful for code review. But the messaging routes in that preview
+(`send-message`, `/api/shop-messaging-secrets`,
+`/api/messaging-channels-status`) will not actually **function** until
+`shop_messaging_secrets` exists — they all query that table, and a missing
+table means every call fails at the database layer, not silently. This is
+expected and safe: it means Phase A is additive and non-destructive enough
+to run at any point relative to the preview build, but functional testing
+of the messaging routes (step 4 below) can only happen after Phase A has
+run. Settings, dashboard, and every other unrelated screen work normally in
+the preview with or without Phase A having run, since nothing else in this
+change touches unrelated tables.
 
 ---
 
@@ -29,29 +45,53 @@ identifiers") into `main` and deploy. This branch already has that fix's
 there is no merge-order dependency for the code itself — but deploying the
 hotfix first keeps production job-status/job-notify working correctly
 throughout the rest of this sequence, independent of when the messaging
-work ships.
+work ships. **Status: not yet merged as of this writing** — confirmed via
+`git merge-base --is-ancestor 95a3988 origin/main` returning false.
 
-## 2. Run the Phase A migration
+## 2. Review the coordinated PR
+
+Review `feat/coordinated-messaging-security` (PR to be opened from
+https://github.com/odeyt/redlined1/compare/main...feat/coordinated-messaging-security?expand=1).
+A Vercel preview can build for this PR at this point — see the ordering
+note above for what will and won't work in it before Phase A runs.
+
+## 3. Run the Phase A migration
 
 Run **Phase A only** of `docs/MESSAGING_SECRETS_MIGRATION.sql` in the
-Supabase SQL editor against production:
+Supabase SQL editor against production. Safe to run before this branch is
+merged/deployed — it only creates a new table and backfills into it; it
+never touches `shop_settings.messaging_settings` and nothing in the
+currently-deployed `main` reads the new table, so this step has no effect
+on production traffic until step 5 ships.
 - Creates `shop_messaging_secrets` (RLS enabled + forced, zero policies,
   `REVOKE ALL ... FROM PUBLIC, anon, authenticated`, `GRANT ALL ... TO
   service_role`).
 - Backfills existing credentials from `shop_settings.messaging_settings`,
-  using `COALESCE(existing, new)` per secret column — never an
-  unconditional overwrite, safe to re-run.
+  using `COALESCE(existing, new)` per secret/string column and leaving the
+  four `*_enabled` flags untouched on any rerun — never an unconditional
+  overwrite, safe to re-run.
 - Does **not** touch `shop_settings.messaging_settings` in any way.
 
 Run every query in the "A5. Post-apply verification" block. In particular:
-run the **coverage-check query** and confirm it returns zero rows — any row
-returned there means a credential did not migrate and must be investigated
-before continuing.
+run the **coverage-check query** (compares all 9 operational fields —
+`twilioSid`, `twilioToken`, `twilioFrom`, `smsEnabled`, `whatsappEnabled`,
+`lineToken`, `lineEnabled`, `telegramBotToken`, `telegramEnabled` — and
+returns only `shop_id` + boolean `*_mismatch` columns, never a secret value)
+and confirm it returns zero rows before continuing.
 
-## 3. Deploy the coordinated messaging integration branch
+## 4. Test the preview
 
-Deploy `feat/coordinated-messaging-security` (after code review and your
-approval). This is the branch that:
+With Phase A run and the PR's Vercel preview live, exercise the messaging
+routes specifically against the preview deployment: Settings status
+load/save, an SMS/WhatsApp send, cross-shop denial, and role denial (same
+checks as step 6, run early against the preview instead of production).
+This is the point where the messaging routes first become testable — before
+Phase A, they'd fail at the DB layer regardless of code correctness.
+
+## 5. Merge/deploy the coordinated code
+
+Merge `feat/coordinated-messaging-security` to `main` and deploy to
+production. This is the branch that:
 - Stops reading/writing `shop_settings.messaging_settings` anywhere
   (`services/shopSettingsService.ts` now selects an explicit column
   allowlist).
@@ -66,15 +106,13 @@ approval). This is the branch that:
   the Invoices/Estimates send modals to use the new channel-status
   endpoint.
 
-At this point in the sequence, `shop_settings.messaging_settings` still
-holds the old (now-unused) data — that's expected and safe; nothing reads
-it anymore, and Phase B (step 5) removes it once this deployment is
-verified.
+At this point, `shop_settings.messaging_settings` still holds the old
+(now-unused) data in production — expected and safe; nothing reads it
+anymore, and Phase B (step 7) removes it once this deployment is verified.
 
-## 4. Verify in production
+## 6. Test production
 
-Before proceeding to Phase B, confirm all of the following against the live
-deployment:
+Repeat the step 4 checks against production itself, plus the full set:
 - **Settings**: an owner can load the Messaging panel (status loads,
   `configured`/`fromNumber` display correctly), set/update/clear a
   credential, and the value is never visible again in the browser
@@ -95,11 +133,14 @@ deployment:
   (channel-status always reports them `false`) and that a direct API call
   with `channel: 'line'|'telegram'` returns `400` regardless of role.
 
-Do not proceed to step 5 until every item above passes.
+Do not proceed to step 7 until every item above passes.
 
-## 5. Run the Phase B migration
+## 7. Run the Phase B migration immediately
 
-Run **Phase B only** of `docs/MESSAGING_SECRETS_MIGRATION.sql`:
+As soon as step 6 passes, run **Phase B** of
+`docs/MESSAGING_SECRETS_MIGRATION.sql` — don't leave a verified-working
+deployment sitting on top of still-exposed source secrets any longer than
+necessary:
 - Strips the secret/config keys (`twilioSid`, `twilioToken`, `twilioFrom`,
   `smsEnabled`, `whatsappEnabled`, `lineToken`, `lineEnabled`,
   `telegramBotToken`, `telegramEnabled`) from `shop_settings.messaging_settings`,
@@ -112,15 +153,19 @@ Before running the `UPDATE`, complete the manual pre-check in "B1" of the
 migration doc — confirm (via a code search of the deployed commit) that no
 running code path still reads or writes `messaging_settings`.
 
-## 6. Verify direct anon/authenticated reads cannot expose credentials
+## 8. Verify old secrets are gone
 
-Run the "B6" read-only checks from the migration doc: as `anon` and as
-`authenticated` (via `SET LOCAL ROLE`), attempt `SELECT * FROM
-shop_messaging_secrets` — both must fail with a permission-denied error, not
-return a row. Also run "B4" and confirm zero `shop_settings` rows still
-carry any of the removed keys.
+Run the "B4" query and confirm zero `shop_settings` rows still carry any of
+the removed keys. Then run the "B6" catalog checks (`has_table_privilege`
+for `anon`/`authenticated`, `pg_policies`, `information_schema.role_table_grants`)
+and confirm the combined `fully_locked_down` result is `true` — `anon`
+SELECT = false, `authenticated` SELECT = false, zero RLS policies, and
+`service_role` is the only non-owner grantee. The REST-probe checks
+documented alongside B6 are optional, for a real over-the-wire confirmation
+on top of the catalog-level proof — not required to consider this step
+complete.
 
-## 7. Rotate all previously exposed provider credentials
+## 9. Rotate all previously exposed provider credentials
 
 The Twilio auth token, LINE Notify token(s), and Telegram bot token(s) that
 were live in `shop_settings.messaging_settings` before this release were
@@ -137,9 +182,9 @@ This step is a real operational task across every configured shop — budget
 time for it and confirm with each shop owner once done, rather than
 treating storage relocation as equivalent to rotation.
 
-## 8. Verify messaging again, post-rotation
+## 10. Verify messaging again, post-rotation
 
-Re-run the send checks from step 4 (SMS/WhatsApp to a real recipient) using
+Re-run the send checks from step 6 (SMS/WhatsApp to a real recipient) using
 the newly rotated credentials, to confirm the rotation didn't silently
 break delivery. This closes the loop: credentials are stored server-only,
 the old exposure surface is removed, previously-exposed values are rotated,
