@@ -114,6 +114,11 @@ export function PricingCards({ currentPlanId, onSelectPlan, loading }: PricingCa
               <div style={{ marginBottom: 18 }}>
                 {isEnterprise ? (
                   <div style={{ fontSize: 20, fontWeight: 900 }}>Custom</div>
+                ) : plan.id === 'free' ? (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <span style={{ fontSize: 28, fontWeight: 900, color: '#22d3a0' }}>Free</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>forever</span>
+                  </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                     <span style={{ fontSize: 28, fontWeight: 900 }}>${price}</span>
@@ -144,6 +149,18 @@ export function PricingCards({ currentPlanId, onSelectPlan, loading }: PricingCa
                 <div style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#22c55e', padding: '10px 0' }}>
                   Active Plan
                 </div>
+              ) : plan.id === 'free' ? (
+                <a
+                  href="/signup"
+                  style={{
+                    display: 'block', textAlign: 'center', background: 'rgba(34,211,160,0.12)',
+                    border: '1px solid rgba(34,211,160,0.4)', borderRadius: 8,
+                    padding: '10px 0', fontWeight: 700, fontSize: 13,
+                    color: '#22d3a0', textDecoration: 'none',
+                  }}
+                >
+                  Get Started Free
+                </a>
               ) : isEnterprise ? (
                 <a
                   href="mailto:admin@redlined1.com"
