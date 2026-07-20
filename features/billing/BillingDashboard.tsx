@@ -2,15 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import type { CommercialDashboardData } from '@/commercial/shared/types';
+import { FREE_LIMITS, FREE_LIMIT_LABELS } from '@/lib/freeLimits';
+import type { FreeLimitKey } from '@/lib/freeLimits';
+
+interface FreeUsageData {
+  plan: string;
+  resetDate: string;
+  limits: typeof FREE_LIMITS | null;
+  usage: Record<string, number>;
+}
 
 const BILLING_ENABLED = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
 
 export function BillingDashboard() {
   const [data, setData] = useState<CommercialDashboardData | null>(null);
+  const [freeUsage, setFreeUsage] = useState<FreeUsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Always fetch free usage data (shows plan info even on free plan)
+    fetch('/api/billing/usage')
+      .then(r => r.json())
+      .then(d => setFreeUsage(d))
+      .catch(() => {});
+
     if (!BILLING_ENABLED) { setLoading(false); return; }
     fetch('/api/billing/status')
       .then(r => r.json())
@@ -18,15 +34,84 @@ export function BillingDashboard() {
       .catch(() => { setError('Failed to load billing status'); setLoading(false); });
   }, []);
 
-  if (!BILLING_ENABLED) {
+  const isFreePlan = freeUsage?.plan === 'free' && !data?.subscription;
+
+  // Free Forever plan — don't need Creem portal, just show usage + upgrade CTA
+  if (!BILLING_ENABLED || isFreePlan) {
     return (
-      <div className="card" style={{ padding: 32, textAlign: 'center', maxWidth: 560, margin: '40px auto' }}>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>💳</div>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Billing &amp; Subscription</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-          Billing is not enabled in this environment.<br />
-          Set <code style={{ background: 'var(--surface-soft)', padding: '2px 6px', borderRadius: 4 }}>NEXT_PUBLIC_BILLING_ENABLED=true</code> and configure Creem to activate.
-        </p>
+      <div style={{ maxWidth: 780, margin: '0 auto' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Billing &amp; Subscription</h1>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 24 }}>Manage your plan and usage.</p>
+
+        {/* Free plan card */}
+        <div className="card" style={{ padding: 24, marginBottom: 16, border: '1px solid rgba(34,211,160,0.3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div className="section-label" style={{ marginBottom: 4 }}>Current Plan</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#22d3a0' }}>Free Forever</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>No credit card required — upgrade anytime</div>
+            </div>
+            <span style={{ background: 'rgba(34,211,160,0.12)', color: '#22d3a0', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+              FREE
+            </span>
+          </div>
+          <div style={{ borderTop: '1px solid var(--line)', marginTop: 20, paddingTop: 16 }}>
+            <a
+              href="/subscriptions"
+              style={{
+                display: 'inline-block', padding: '9px 20px',
+                background: 'linear-gradient(135deg, #cc0000, #ff2222)',
+                color: '#fff', borderRadius: 999, textDecoration: 'none',
+                fontWeight: 700, fontSize: 13,
+              }}
+            >
+              ↑ Upgrade Plan
+            </a>
+          </div>
+        </div>
+
+        {/* Usage vs limits */}
+        {freeUsage?.usage && freeUsage.limits && (
+          <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+            <div className="section-label" style={{ marginBottom: 14 }}>
+              Free Plan Usage
+              {freeUsage.resetDate && (
+                <span style={{ fontSize: 11, fontWeight: 400, marginLeft: 8, color: 'var(--muted)' }}>
+                  monthly resets {new Date(freeUsage.resetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {(Object.keys(freeUsage.limits) as FreeLimitKey[]).map(key => {
+                const limit = freeUsage.limits![key];
+                const used = freeUsage.usage[key] ?? 0;
+                const pct = Math.min(100, Math.round((used / limit) * 100));
+                const color = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22d3a0';
+                return (
+                  <div key={key} style={{ padding: '10px 12px', background: 'var(--surface-soft)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                      {FREE_LIMIT_LABELS[key]}
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color }}>{used}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>of {limit === 0.25 ? '250 MB' : limit}</div>
+                    <div style={{ height: 3, background: 'var(--line)', borderRadius: 2, marginTop: 6, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!BILLING_ENABLED && (
+          <div className="card" style={{ padding: 16, textAlign: 'center' }}>
+            <p style={{ color: 'var(--muted)', fontSize: 12, margin: 0 }}>
+              Paid billing is not active in this environment.
+              Set <code style={{ background: 'var(--surface-soft)', padding: '1px 4px', borderRadius: 3 }}>NEXT_PUBLIC_BILLING_ENABLED=true</code> to enable Creem.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -99,12 +184,14 @@ export function BillingDashboard() {
               ↑ Upgrade Plan
             </button>
           )}
-          <button
-            onClick={() => fetch('/api/billing/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnUrl: window.location.href }) }).then(r => r.json()).then(d => { if (d.portalUrl) window.location.href = d.portalUrl; else alert('Billing portal not configured'); })}
-            style={{ padding: '9px 20px', background: 'transparent', color: 'var(--text)', border: '1px solid var(--line)', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-          >
-            Manage Billing
-          </button>
+          {sub && (
+            <button
+              onClick={() => fetch('/api/billing/portal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnUrl: window.location.href }) }).then(r => r.json()).then(d => { if (d.portalUrl) window.location.href = d.portalUrl; else alert('Billing portal not configured'); })}
+              style={{ padding: '9px 20px', background: 'transparent', color: 'var(--text)', border: '1px solid var(--line)', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+            >
+              Manage Billing
+            </button>
+          )}
         </div>
       </div>
 
