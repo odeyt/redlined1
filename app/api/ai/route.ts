@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { aiRequestSchema } from '@/lib/validation/schemas';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { logger } from '@/lib/logger';
+import { checkUsageAccess, recordUsage } from '@/lib/entitlements';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const AI_MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5-20251001';
@@ -185,6 +186,25 @@ export async function POST(req: NextRequest) {
     const { type, context, shopId } = parsed.data;
     const resolvedShopId = shopId ?? context.shopId as string ?? '';
 
+    // Free plan usage enforcement — checked before any AI call or mock
+    if (resolvedShopId) {
+      const entitlement = await checkUsageAccess(resolvedShopId, 'ai_cases', 1);
+      if (!entitlement.allowed) {
+        return NextResponse.json(
+          {
+            error: 'AI limit reached',
+            userMessage: entitlement.userMessage,
+            upgradeRequired: true,
+            recommendedPlanKey: entitlement.recommendedPlanKey,
+            limit: entitlement.limit,
+            used: entitlement.used,
+            resetAt: entitlement.resetAt,
+          },
+          { status: 402 },
+        );
+      }
+    }
+
     // Get prompt template
     const prompt = PROMPT_REGISTRY[type as keyof typeof PROMPT_REGISTRY];
     if (!prompt) {
@@ -210,7 +230,12 @@ export async function POST(req: NextRequest) {
       (inputTokens / 1_000_000) * 0.25 +
       (outputTokens / 1_000_000) * 1.25;
 
-    // Log usage async (don't await — don't block response)
+    // Record AI case usage against free plan monthly counter (fire-and-forget)
+    if (resolvedShopId) {
+      recordUsage(resolvedShopId, 'ai_cases', 1).catch(() => {});
+    }
+
+    // Log cost usage async (don't await — don't block response)
     if (resolvedShopId && user.id) {
       logUsage({
         shopId: resolvedShopId,
