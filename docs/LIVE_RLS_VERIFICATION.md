@@ -1,15 +1,54 @@
 # Live Supabase RLS Verification
 
-**Status: UNVERIFIED LIVE — code-derived analysis only.** This environment has no
-direct database access (no MCP Supabase connector, no raw Postgres connection
-string, only `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
-`SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, which give PostgREST-level access
-only, not system-catalog access). Per this task's own instruction, every claim
-below that is not explicitly marked **CONFIRMED LIVE** is a best-effort
-reconstruction from this repo's committed SQL history, not a live database
-read. **Run [`docs/MOBILE_RLS_AUDIT.sql`](MOBILE_RLS_AUDIT.sql) in the Supabase
-SQL Editor and replace the UNVERIFIED cells below with its actual output
-before treating any of this as ground truth.**
+## Phase 2 status: STOPPED — no database execution access in this environment
+
+This environment has no direct database execution capability of any kind:
+no MCP Supabase connector, no raw Postgres connection string, no `psql`, no
+Supabase Management API token. `.env.local` only has PostgREST-level
+credentials (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`), which cannot run arbitrary SQL against system
+catalogs — that requires the Supabase SQL Editor (or a direct Postgres
+connection), neither of which is reachable from here.
+
+**No staging Supabase environment exists either** — confirmed in
+`docs/DEPLOYMENT_HISTORY_VERIFICATION.md` §"Environment variable scope":
+`vercel env ls` shows every Supabase-related variable scoped to
+`Production` only, no `Preview`/`Development` values at all. See
+`docs/STAGING_SUPABASE_SETUP.md` for what standing one up would require.
+
+**Per this task's own instruction, this is a hard stop, not a guess:**
+
+> If direct authenticated database access is available: run the audit
+> against staging first... If direct database execution is unavailable:
+> Stop and provide the user with one exact SQL script to paste into
+> Supabase SQL Editor, and clearly instruct the user to copy the full
+> result output back. Do not guess the live state.
+
+**Action required from you:** open the Supabase SQL Editor for whichever
+project `NEXT_PUBLIC_SUPABASE_URL` in the environment you want verified
+actually points to, paste in the full contents of
+[`docs/MOBILE_RLS_AUDIT.sql`](MOBILE_RLS_AUDIT.sql) (13 sections, fully
+read-only — see that file's own header for the compliance argument), run
+it, and paste every result grid back. Every finding below will then be
+upgraded from its current label to `VERIFIED LIVE` (or `VERIFIED STAGING`,
+if run against a staging project once one exists) or corrected if the
+actual result differs from what code inference predicted.
+
+## Labeling scheme used throughout this document
+
+- **VERIFIED LIVE** — an actual query was run against the real production
+  database (by me in this session, or cited from a prior session's genuine
+  live probe) and this is its result.
+- **VERIFIED STAGING** — same, but against a staging project. Not used
+  anywhere in this document yet — no staging project exists.
+- **CODE INFERENCE ONLY** — reconstructed from this repo's committed SQL
+  migration history. This repo has already proven once (see Critical
+  Finding 1) that committed SQL can silently lag or contradict live state —
+  treat every cell with this label as a hypothesis to be confirmed, not a
+  fact.
+- **UNKNOWN** — no committed SQL was found addressing this at all; live
+  state could be anything from "never touched, using Postgres/Supabase
+  defaults" to something no longer traceable in this repo's history.
 
 ## Executive Summary
 
@@ -75,26 +114,26 @@ shop-scoped repair data.
 
 ## Table Matrix
 
-Legend: **CONFIRMED LIVE** = independently verified live in this or a prior
-session (cited). **CODE (drift risk)** = derived from the *latest* committed
-SQL for that table, but this repo has already proven committed SQL can lag
-or contradict live state — treat as unverified until the audit script runs.
-**UNKNOWN** = no committed policy found at all for this table.
+Legend: see "Labeling scheme" above. **VERIFIED LIVE** = independently
+verified live, cited. **CODE INFERENCE ONLY** = derived from the *latest*
+committed SQL for that table, but this repo has already proven committed
+SQL can lag or contradict live state — treat as unverified until the audit
+script runs. **UNKNOWN** = no committed policy found at all for this table.
 
 | Table | RLS enabled | RLS forced | SELECT policy | INSERT/UPDATE/DELETE policy | USING expr | WITH CHECK expr | `authenticated` | `anon` | `service_role` | SECURITY DEFINER used | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `shops` | Was **disabled** as of 2026-07-18 | Was false | `shops_member_view` (drafted, not yet applied per remediation doc) | none live | `id = ANY(my_shop_ids())` (drafted) | n/a (SELECT only) | drafted: scoped | drafted: revoke | bypasses RLS | `my_shop_ids()` | **CONFIRMED LIVE vulnerable as of 2026-07-18** — fix drafted in `docs/PRODUCTION_SECURITY_REMEDIATION.sql`, not executed |
-| `shop_users` | Was **disabled** as of 2026-07-18 | Was false | `shop_users_own` (drafted) | none live | `user_id = auth.uid()` (drafted) | n/a | drafted: scoped | drafted: revoke | bypasses RLS | `my_shop_ids()` | **CONFIRMED LIVE vulnerable as of 2026-07-18** — same as above |
-| `profiles` | Enabled (2026-06-10) | UNKNOWN | `profiles_read`: `to authenticated using (true)` — **not shop-scoped, platform-wide** | `profiles_self_update` (own row); `profiles_owner_manage` (`my_role()='Owner'`, uses the OLD Title-Case role system, not `shop_users.role`) | `true` for read | n/a | full read of every user | no grant found for `profiles` specifically in `grant-permissions.sql` | bypasses RLS | `my_role()` | CODE (drift risk) — **no shop-scoping fix ever committed**; if live, any authenticated user can read every user's name/email/role platform-wide |
-| `customers` | Enabled | UNKNOWN | `customers_shop_scoped`: `shop_id = ANY(my_shop_ids())` | same policy, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | `grant-permissions.sql` grants full CRUD to anon (2026-06-20, predates the shop-scoping fix; not confirmed revoked) | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `vehicles` | Enabled | UNKNOWN | `vehicles_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted 2026-06-20, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `job_cards` | Enabled | UNKNOWN | `job_cards_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS; app also writes via `/api/job-status` using the **service-role key**, which bypasses RLS entirely regardless of policy | `my_shop_ids()` | CODE (drift risk) |
-| `repair_orders` | Enabled | UNKNOWN | `repair_orders_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `appointments` | Enabled (fixed 2026-06-22, separately from the multitenant batch) | UNKNOWN | `appointments_read`: `shop_id IN (owner_id=auth.uid() UNION shop_users.user_id=auth.uid())` | separate insert/update/delete policies, same expression | as above | as above | scoped | anon CRUD granted 2026-06-20 (before this fix), not confirmed revoked | bypasses RLS | none (plain subquery, not `my_shop_ids()` — a second, parallel scoping mechanism) | CODE (drift risk) |
-| `inspections` | Enabled | UNKNOWN | `inspections_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `invoices` | Enabled | UNKNOWN | `invoices_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `payments` | Enabled | UNKNOWN | `payments_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE (drift risk) |
-| `technicians` | Enabled (2026-06-10) | UNKNOWN | `technicians_read`: `to authenticated using (true)` — **not shop-scoped, platform-wide** | `technicians_write`: `my_role() IN ('Owner','Advisor')` (old role system) | `true` for read | n/a | full read across all shops | anon CRUD granted 2026-06-20, not confirmed revoked | bypasses RLS | `my_role()` | CODE (drift risk) — **no shop-scoping fix ever committed** |
+| `shops` | Was **disabled** as of 2026-07-18 | Was false | `shops_member_view` (drafted, not yet applied per remediation doc) | none live | `id = ANY(my_shop_ids())` (drafted) | n/a (SELECT only) | drafted: scoped | drafted: revoke | bypasses RLS | `my_shop_ids()` | **VERIFIED LIVE vulnerable as of 2026-07-18** (per `docs/PRODUCTION_SECURITY_REMEDIATION.sql`'s own header, itself citing a 2026-07-16 live REST-API probe from a prior session — not independently re-run by me this session; this is the one row in this table with genuine live evidence behind it, everything else below is CODE INFERENCE ONLY) — fix drafted in `docs/PRODUCTION_SECURITY_REMEDIATION.sql`, not executed |
+| `shop_users` | Was **disabled** as of 2026-07-18 | Was false | `shop_users_own` (drafted) | none live | `user_id = auth.uid()` (drafted) | n/a | drafted: scoped | drafted: revoke | bypasses RLS | `my_shop_ids()` | **VERIFIED LIVE vulnerable as of 2026-07-18** (per `docs/PRODUCTION_SECURITY_REMEDIATION.sql`'s own header, itself citing a 2026-07-16 live REST-API probe from a prior session — not independently re-run by me this session; this is the one row in this table with genuine live evidence behind it, everything else below is CODE INFERENCE ONLY) — same as above |
+| `profiles` | Enabled (2026-06-10) | UNKNOWN | `profiles_read`: `to authenticated using (true)` — **not shop-scoped, platform-wide** | `profiles_self_update` (own row); `profiles_owner_manage` (`my_role()='Owner'`, uses the OLD Title-Case role system, not `shop_users.role`) | `true` for read | n/a | full read of every user | no grant found for `profiles` specifically in `grant-permissions.sql` | bypasses RLS | `my_role()` | CODE INFERENCE ONLY — **no shop-scoping fix ever committed**; if live, any authenticated user can read every user's name/email/role platform-wide |
+| `customers` | Enabled | UNKNOWN | `customers_shop_scoped`: `shop_id = ANY(my_shop_ids())` | same policy, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | `grant-permissions.sql` grants full CRUD to anon (2026-06-20, predates the shop-scoping fix; not confirmed revoked) | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `vehicles` | Enabled | UNKNOWN | `vehicles_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted 2026-06-20, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `job_cards` | Enabled | UNKNOWN | `job_cards_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS; app also writes via `/api/job-status` using the **service-role key**, which bypasses RLS entirely regardless of policy | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `repair_orders` | Enabled | UNKNOWN | `repair_orders_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `appointments` | Enabled (fixed 2026-06-22, separately from the multitenant batch) | UNKNOWN | `appointments_read`: `shop_id IN (owner_id=auth.uid() UNION shop_users.user_id=auth.uid())` | separate insert/update/delete policies, same expression | as above | as above | scoped | anon CRUD granted 2026-06-20 (before this fix), not confirmed revoked | bypasses RLS | none (plain subquery, not `my_shop_ids()` — a second, parallel scoping mechanism) | CODE INFERENCE ONLY |
+| `inspections` | Enabled | UNKNOWN | `inspections_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `invoices` | Enabled | UNKNOWN | `invoices_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `payments` | Enabled | UNKNOWN | `payments_shop_scoped` | same, `FOR ALL` | `shop_id = ANY(my_shop_ids())` | same | scoped | anon CRUD granted, not confirmed revoked | bypasses RLS | `my_shop_ids()` | CODE INFERENCE ONLY |
+| `technicians` | Enabled (2026-06-10) | UNKNOWN | `technicians_read`: `to authenticated using (true)` — **not shop-scoped, platform-wide** | `technicians_write`: `my_role() IN ('Owner','Advisor')` (old role system) | `true` for read | n/a | full read across all shops | anon CRUD granted 2026-06-20, not confirmed revoked | bypasses RLS | `my_role()` | CODE INFERENCE ONLY — **no shop-scoping fix ever committed** |
 | `messages` | **No `ENABLE ROW LEVEL SECURITY` found anywhere in this repo's SQL** | n/a | none found | none found | n/a | n/a | ungated if RLS truly absent | anon CRUD granted 2026-06-20 | bypasses RLS | none | UNKNOWN — likely **no RLS at all**; a legacy table not referenced by any app code found in a full-repo search (may be dead, but the grant and schema both still exist) |
 | `vehicle_images` (uploads) | **No `ENABLE ROW LEVEL SECURITY` found** | n/a | none found | none found | n/a | n/a | ungated if RLS truly absent | anon CRUD granted 2026-06-20 | bypasses RLS | none | UNKNOWN — likely **no RLS at all**; separately, the backing Storage bucket `shop-assets` is documented public in `docs/SHOP_ASSETS_STORAGE_REVIEW.md` |
 | `entity_images` (uploads) | Not covered by any `.sql` file found in this repo at all (table created in `supabase/migrations/entity_images.sql`, no RLS statement in that file) | n/a | none found | none found | n/a | n/a | ungated if RLS truly absent | not in `grant-permissions.sql` (created later) — check default PostgREST exposure | bypasses RLS | none | UNKNOWN |
@@ -171,7 +210,7 @@ script confirms it.
 
 ## Critical Findings
 
-1. **`shops` and `shop_users` — CONFIRMED LIVE, unauthenticated, cross-tenant
+1. **`shops` and `shop_users` — VERIFIED LIVE (as of 2026-07-18, not independently re-run this session), unauthenticated, cross-tenant
    read exposure as of 2026-07-18** (2 days before this audit), per this
    repo's own `docs/PRODUCTION_SECURITY_REMEDIATION.sql`. A drafted fix
    exists in that file but its own header states it was **not yet executed**.
@@ -193,7 +232,7 @@ script confirms it.
    they are fully open to an anonymous caller with only the public anon key:
    no login, full read/write/delete.
 4. **This repo's migration files have already been proven unreliable as
-   evidence of live state once** (finding 1) — every "CODE (drift risk)"
+   evidence of live state once** (finding 1) — every "CODE INFERENCE ONLY"
    row in the table matrix above carries the same risk until independently
    verified. Treat the whole matrix as provisional.
 
@@ -226,7 +265,7 @@ script confirms it.
 
 1. **Run `docs/MOBILE_RLS_AUDIT.sql` against production now**, before any
    further work — it is read-only and safe. Paste the results back and this
-   document's "CODE (drift risk)" / "UNKNOWN" rows can be upgraded to
+   document's "CODE INFERENCE ONLY" / "UNKNOWN" rows can be upgraded to
    CONFIRMED or corrected.
 2. **Execute `docs/PRODUCTION_SECURITY_REMEDIATION.sql`** (already drafted,
    already reviewed, per its own header) to close the confirmed
@@ -250,10 +289,15 @@ script confirms it.
 
 ## GO / NO-GO
 
-**NO-GO for the RLS portion of this task.** A previously-confirmed,
+**NO-GO for the RLS portion of this task.** A previously-verified,
 still-unresolved critical production vulnerability exists
 (shops/shop_users), and the live state of every other table in this schema
 is unverified given this repo's own proof that its migration files cannot
 be trusted. Per this task's stop condition — *"If production RLS cannot be
 verified: Stop. Produce the SQL audit script. Wait for approval."* — that is
 exactly the state this report leaves things in.
+
+See `docs/DATABASE_SECURITY_FINDINGS.md` for the full table-by-table
+PASS/CRITICAL/HIGH/MEDIUM/LOW/UNKNOWN severity classification, and
+`docs/MOBILE_PRODUCTION_READINESS_REPORT.md` for how this rolls up into
+the overall mobile-production-readiness decision.

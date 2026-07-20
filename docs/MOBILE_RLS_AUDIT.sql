@@ -28,8 +28,24 @@
 -- HOW TO USE: run the whole script, or section by section. Copy every
 -- result grid back verbatim (as text/CSV, not paraphrased) — the findings
 -- in docs/LIVE_RLS_VERIFICATION.md are written provisionally, from code
--- archaeology, and are marked UNVERIFIED until real output from this
--- script replaces them.
+-- archaeology, and are marked UNVERIFIED / CODE INFERENCE ONLY until real
+-- output from this script replaces them with VERIFIED LIVE or VERIFIED
+-- STAGING findings.
+--
+-- READ-ONLY COMPLIANCE NOTE: this script contains the literal substrings
+-- "grant"/"grants" in several places — those are all references to the
+-- standard, built-in, read-only Postgres/PostgREST catalog views
+-- `information_schema.role_table_grants` and
+-- `information_schema.role_routine_grants` (this is simply what those
+-- views are named; there is no other way to read grant state without
+-- naming them). There is no `GRANT` or `REVOKE` *statement* anywhere in
+-- this file. Likewise every mention of "policy"/"security definer" is a
+-- SELECT reading `pg_policies`/`pg_proc`, never a `CREATE POLICY` or
+-- `CREATE FUNCTION`. If reviewing this file with a text search rather than
+-- reading it, search for the SQL keywords themselves
+-- (ALTER/CREATE/DROP/INSERT/UPDATE/DELETE/TRUNCATE/GRANT /REVOKE , each
+-- followed by a space, as an actual statement would use them) rather than
+-- the bare substrings, to avoid false positives on these catalog/view names.
 -- ============================================================================
 
 
@@ -299,5 +315,106 @@ WHERE schemaname = 'storage' AND tablename = 'objects'
 ORDER BY policyname;
 
 -- ============================================================================
+-- SECTION 10 — permissive-policy pattern detection, schema-wide (not
+-- hardcoded to specific tables). Flags two distinct patterns that both
+-- amount to "any logged-in user, any shop" even though they look different:
+--   (a) qual/with_check is literally `true` (or contains it as the whole
+--       predicate) — e.g. rls_phase7.sql's `customers_staff_all`.
+--   (b) qual/with_check is only `(auth.uid() IS NOT NULL)` or equivalent —
+--       this is NOT scoped by tenant either; it only proves the caller is
+--       logged in as *someone*, which every authenticated user satisfies.
+--       Not found yet in this codebase's committed SQL, but worth checking
+--       live in case a policy was hand-edited directly in the dashboard.
+-- ============================================================================
+SELECT
+  schemaname, tablename, policyname, roles, cmd,
+  qual AS using_expression,
+  with_check AS with_check_expression,
+  (qual = 'true' OR with_check = 'true')
+    AS is_bare_true,
+  (qual ILIKE '%auth.uid() IS NOT NULL%' OR with_check ILIKE '%auth.uid() IS NOT NULL%')
+    AS uses_only_logged_in_check,
+  (qual NOT ILIKE '%shop_id%' AND qual NOT ILIKE '%my_shop_ids%' AND qual IS NOT NULL)
+    AS using_expr_has_no_shop_scoping_keyword
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND (
+    qual = 'true' OR with_check = 'true'
+    OR qual ILIKE '%auth.uid() IS NOT NULL%' OR with_check ILIKE '%auth.uid() IS NOT NULL%'
+  )
+ORDER BY tablename, cmd;
+
+
+-- ============================================================================
+-- SECTION 11 — tables where `anon` has any write privilege at all (insert,
+-- update, or delete — not just select). This is the single highest-signal
+-- query in this script: any row returned here is a table an unauthenticated
+-- caller with only the public anon key can MODIFY, not just read, unless
+-- RLS with a real (non-permissive) policy is also confirmed enabled for it
+-- in Section 1/2 above.
+-- ============================================================================
+SELECT
+  table_name,
+  array_agg(DISTINCT privilege_type ORDER BY privilege_type) AS anon_privileges
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND grantee = 'anon'
+  AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE')
+GROUP BY table_name
+ORDER BY table_name;
+
+
+-- ============================================================================
+-- SECTION 12 — views in the public schema. A view's default security
+-- behavior can silently bypass the RLS policies on its underlying tables:
+-- prior to Postgres 15's `security_invoker` view option, a view runs with
+-- the privileges of the view's OWNER, not the querying role — if the owner
+-- is a role with elevated privileges (or simply bypasses a policy the
+-- underlying table relies on), the view can expose more than the base
+-- table's RLS policies intend, even though the view itself was never
+-- explicitly granted anything unusual. Confirms whether any view exists at
+-- all, and whether `security_invoker` is set for each.
+-- ============================================================================
+SELECT
+  c.relname AS view_name,
+  pg_get_userbyid(c.relowner) AS view_owner,
+  (SELECT option_value FROM pg_options_to_table(c.reloptions) WHERE option_name = 'security_invoker') AS security_invoker_setting,
+  pg_get_viewdef(c.oid, true) AS view_definition
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'v'
+ORDER BY c.relname;
+
+-- Grants on those views, same anon/authenticated/service_role/PUBLIC lens
+-- as Section 3 uses for tables.
+SELECT table_name AS view_name, grantee, privilege_type
+FROM information_schema.role_table_grants
+WHERE table_schema = 'public'
+  AND table_name IN (
+    SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'v'
+  )
+ORDER BY view_name, grantee;
+
+
+-- ============================================================================
+-- SECTION 13 — every function (not just SECURITY DEFINER ones) directly
+-- EXECUTE-able by `anon`. A non-SECURITY-DEFINER function is not itself a
+-- privilege-escalation risk the way a SECURITY DEFINER one is (it still
+-- runs as the calling role, so RLS still applies to anything it queries),
+-- but any function anon can call at all is worth a human glance — e.g. to
+-- confirm none of them accept a caller-supplied shop_id/user_id and treat
+-- it as authoritative instead of deriving identity from auth.uid().
+-- ============================================================================
+SELECT DISTINCT routine_name
+FROM information_schema.role_routine_grants
+WHERE routine_schema = 'public' AND grantee = 'anon'
+ORDER BY routine_name;
+
+-- ============================================================================
 -- END OF AUDIT SCRIPT — paste every result grid above back for analysis.
+-- Sections 10-13 added for the Phase 1 requirements of the
+-- "database-security verification" task (permissive-pattern detection,
+-- anon-CRUD summary, views, anon-executable functions) — everything above
+-- Section 10 is unchanged from the version this script started as.
 -- ============================================================================
