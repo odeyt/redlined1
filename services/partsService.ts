@@ -135,9 +135,26 @@ export async function updatePartQty(partNumber: string, qty: number): Promise<vo
   await updatePart(partNumber, { quantity: qty });
 }
 
-export async function uploadPartPhoto(partNumber: string, file: File): Promise<string> {
+export async function uploadPartPhoto(partNumber: string, file: File, currentPhotoCount = 0): Promise<string> {
+  const shopId = getShopId();
+
+  // Enforce photo limit before uploading (pass partNumber as entityId — count resolved from currentPhotoCount)
+  if (shopId) {
+    const res = await fetch(
+      `/api/photos/limit?shopId=${encodeURIComponent(shopId)}&type=part&entityId=${encodeURIComponent(partNumber)}`,
+    );
+    if (res.ok) {
+      const limitData = await res.json();
+      // Part photo count comes from the caller since photos[] is stored on the row, not a separate table
+      const effectiveLimit = limitData.limit;
+      if (effectiveLimit !== null && currentPhotoCount >= effectiveLimit) {
+        throw new Error(`Photo limit reached (${effectiveLimit}-photo limit on your plan). Upgrade to upload more part photos.`);
+      }
+    }
+  }
+
   const ext  = file.name.split('.').pop() ?? 'jpg';
-  const path = `parts/${getShopId()}/${partNumber}/${Date.now()}.${ext}`;
+  const path = `parts/${shopId}/${partNumber}/${Date.now()}.${ext}`;
   const { error: upErr } = await supabase.storage
     .from('shop-assets')
     .upload(path, file, { upsert: false, contentType: file.type });

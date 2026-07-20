@@ -8,6 +8,13 @@ export interface GalleryImage {
   label: string;
 }
 
+export interface PhotoLimitInfo {
+  limit: number | null;
+  remaining: number | null;
+  nearLimit: boolean;
+  canUpload: boolean;
+}
+
 interface Props {
   title: string;
   subtitle?: string;
@@ -16,17 +23,19 @@ interface Props {
   deleteImage: (id: string, url: string) => Promise<void>;
   saveOrder?: (ids: string[]) => Promise<void>;
   initialOrder?: string[];
+  fetchLimit?: () => Promise<PhotoLimitInfo | null>;
   onClose: () => void;
 }
 
 export function PhotoGalleryModal({
-  title, subtitle, fetchImages, uploadImage, deleteImage, saveOrder, initialOrder, onClose,
+  title, subtitle, fetchImages, uploadImage, deleteImage, saveOrder, initialOrder, fetchLimit, onClose,
 }: Props) {
   const [images, setImages]           = useState<GalleryImage[]>([]);
   const [loading, setLoading]         = useState(true);
   const [uploading, setUploading]     = useState(false);
   const [saving, setSaving]           = useState(false);
   const [error, setError]             = useState('');
+  const [limitInfo, setLimitInfo]     = useState<PhotoLimitInfo | null>(null);
   const [camMode, setCamMode]         = useState<'off' | 'webcam'>('off');
   const [camReady, setCamReady]       = useState(false);
   const [activeIdx, setActiveIdx]     = useState(0);
@@ -62,6 +71,7 @@ export function PhotoGalleryModal({
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
+    if (fetchLimit) fetchLimit().then(info => setLimitInfo(info)).catch(() => {});
     return () => stopStream();
   }, []);
 
@@ -267,13 +277,32 @@ export function PhotoGalleryModal({
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 17 }}>📷 {title}</h2>
+            <h2 style={{ margin: 0, fontSize: 17 }}>
+              📷 {title}
+              {limitInfo?.limit != null && (
+                <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 400, color: limitInfo.canUpload ? (limitInfo.nearLimit ? '#b45309' : 'var(--muted)') : 'var(--danger)' }}>
+                  {images.length} / {limitInfo.limit}
+                </span>
+              )}
+            </h2>
             {subtitle && <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: 12 }}>{subtitle}</p>}
           </div>
           <button onClick={() => { stopStream(); onClose(); }} style={{ background: 'var(--surface-soft)', border: 'none', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
         </div>
 
         {error && <p style={{ color: 'var(--danger)', margin: '8px 20px 0', padding: '8px 12px', background: 'rgba(220,38,38,0.08)', borderRadius: 6, fontSize: 13 }}>{error}</p>}
+
+        {/* Photo limit banners */}
+        {limitInfo && !limitInfo.canUpload && (
+          <div style={{ margin: '8px 20px 0', padding: '8px 12px', background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, fontSize: 13, color: 'var(--danger)', fontWeight: 600 }}>
+            📵 Photo limit reached ({limitInfo.limit} photo{limitInfo.limit !== 1 ? 's' : ''} max on your plan). Upgrade to upload more.
+          </div>
+        )}
+        {limitInfo && limitInfo.canUpload && limitInfo.nearLimit && (
+          <div style={{ margin: '8px 20px 0', padding: '8px 12px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.4)', borderRadius: 6, fontSize: 13, color: '#92400e', fontWeight: 600 }}>
+            ⚠️ Almost at limit — {limitInfo.remaining} photo slot remaining on your plan.
+          </div>
+        )}
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -286,7 +315,7 @@ export function PhotoGalleryModal({
               <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', maxHeight: 320, display: 'block', objectFit: 'cover' }} />
               <canvas ref={canvasRef} style={{ display: 'none' }} />
               <div style={{ display: 'flex', gap: 10, padding: 12, justifyContent: 'center' }}>
-                <button className="btn btn-primary" onClick={captureWebcam} disabled={!camReady || uploading}>📸 {uploading ? 'Saving…' : 'Capture'}</button>
+                <button className="btn btn-primary" onClick={captureWebcam} disabled={!camReady || uploading || (limitInfo != null && !limitInfo.canUpload)}>📸 {uploading ? 'Saving…' : 'Capture'}</button>
                 <button className="btn" onClick={stopStream}>Cancel</button>
               </div>
             </div>
@@ -382,22 +411,30 @@ export function PhotoGalleryModal({
           {/* Upload buttons */}
           {camMode === 'off' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-              <button onClick={() => fileRef.current?.click()} disabled={uploading} style={btn}>
-                <span style={{ fontSize: 22 }}>🖼️</span>
-                <span>{uploading ? 'Uploading…' : 'Add Photos'}</span>
-              </button>
-              <button onClick={() => cameraRef.current?.click()} disabled={uploading} style={btn}>
-                <span style={{ fontSize: 22 }}>📷</span>
-                <span>Take Photo</span>
-              </button>
-              <button onClick={startWebcam} disabled={uploading} style={btn}>
-                <span style={{ fontSize: 22 }}>🎥</span>
-                <span>Use Webcam</span>
-              </button>
-              <button onClick={() => htmlRef.current?.click()} disabled={uploading} style={btn}>
-                <span style={{ fontSize: 22 }}>📄</span>
-                <span>Import HTML</span>
-              </button>
+              {(() => {
+                const blocked = uploading || (limitInfo != null && !limitInfo.canUpload);
+                const blockedStyle: React.CSSProperties = blocked ? { opacity: 0.45, cursor: 'not-allowed' } : {};
+                return (
+                  <>
+                    <button onClick={() => !blocked && fileRef.current?.click()} disabled={blocked} style={{ ...btn, ...blockedStyle }}>
+                      <span style={{ fontSize: 22 }}>🖼️</span>
+                      <span>{uploading ? 'Uploading…' : 'Add Photos'}</span>
+                    </button>
+                    <button onClick={() => !blocked && cameraRef.current?.click()} disabled={blocked} style={{ ...btn, ...blockedStyle }}>
+                      <span style={{ fontSize: 22 }}>📷</span>
+                      <span>Take Photo</span>
+                    </button>
+                    <button onClick={() => !blocked && startWebcam()} disabled={blocked} style={{ ...btn, ...blockedStyle }}>
+                      <span style={{ fontSize: 22 }}>🎥</span>
+                      <span>Use Webcam</span>
+                    </button>
+                    <button onClick={() => !blocked && htmlRef.current?.click()} disabled={blocked} style={{ ...btn, ...blockedStyle }}>
+                      <span style={{ fontSize: 22 }}>📄</span>
+                      <span>Import HTML</span>
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

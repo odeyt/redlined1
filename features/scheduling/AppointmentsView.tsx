@@ -11,6 +11,7 @@ import { fetchVehicles } from '@/services/vehicleService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
+import { getShopId } from '@/lib/shopStore';
 
 const SERVICE_SUGGESTIONS = [
   'Oil Change – Conventional',
@@ -460,6 +461,12 @@ export function AppointmentsView() {
           uploadImage={(file, label) => uploadEntityImage('appointment', photoAppt.id, file, label)}
           deleteImage={deleteEntityImage}
           saveOrder={(ids) => saveEntityImageOrder('appointment', photoAppt.id, ids)}
+          fetchLimit={async () => {
+            const sid = getShopId();
+            if (!sid) return null;
+            const res = await fetch(`/api/photos/limit?shopId=${encodeURIComponent(sid)}&type=entity&entityId=${encodeURIComponent(photoAppt.id)}`);
+            return res.ok ? res.json() : null;
+          }}
           onClose={() => setPhotoAppt(null)}
         />
       )}

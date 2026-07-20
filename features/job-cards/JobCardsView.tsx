@@ -22,6 +22,7 @@ import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
+import { getShopId } from '@/lib/shopStore';
 import { SmartIntakePanel } from './SmartIntakePanel';
 import { urgencyToPriority, categoryToServiceHint, type SmartIntakeOutput } from '@/lib/triage/jobCardTriageAdapter';
 
@@ -1331,6 +1332,12 @@ export function JobCardsView() {
           uploadImage={(file, label) => uploadEntityImage('job_card', photoJob.id, file, label)}
           deleteImage={deleteEntityImage}
           saveOrder={(ids) => saveEntityImageOrder('job_card', photoJob.id, ids)}
+          fetchLimit={async () => {
+            const sid = getShopId();
+            if (!sid) return null;
+            const res = await fetch(`/api/photos/limit?shopId=${encodeURIComponent(sid)}&type=entity&entityId=${encodeURIComponent(photoJob.id)}`);
+            return res.ok ? res.json() : null;
+          }}
           onClose={() => setPhotoJob(null)}
         />
       )}

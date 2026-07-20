@@ -17,6 +17,7 @@ import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/services/vehicleImageService';
+import { getShopId } from '@/lib/shopStore';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -1902,6 +1903,12 @@ export function VehiclesView() {
           deleteImage={(id, url) => deleteVehicleImage(id, url)}
           saveOrder={async (ids) => { await updateVehicleServiceRecord(galleryVehicle.id, { imageIds: ids }); }}
           initialOrder={galleryVehicle.imageIds}
+          fetchLimit={async () => {
+            const sid = getShopId();
+            if (!sid) return null;
+            const res = await fetch(`/api/photos/limit?shopId=${encodeURIComponent(sid)}&type=vehicle&entityId=${encodeURIComponent(galleryVehicle.id)}`);
+            return res.ok ? res.json() : null;
+          }}
           onClose={() => setGalleryVehicle(null)}
         />
       )}

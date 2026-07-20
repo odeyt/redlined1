@@ -26,6 +26,7 @@ import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
+import { getShopId } from '@/lib/shopStore';
 import { RepairCaseWizard } from '@/components/RepairCaseWizard';
 import type { RepairCase } from '@/services/repairCaseService';
 
@@ -1326,6 +1327,12 @@ export function RepairOrdersView() {
           uploadImage={(file, label) => uploadEntityImage('repair_order', photoRO.id, file, label)}
           deleteImage={deleteEntityImage}
           saveOrder={(ids) => saveEntityImageOrder('repair_order', photoRO.id, ids)}
+          fetchLimit={async () => {
+            const sid = getShopId();
+            if (!sid) return null;
+            const res = await fetch(`/api/photos/limit?shopId=${encodeURIComponent(sid)}&type=entity&entityId=${encodeURIComponent(photoRO.id)}`);
+            return res.ok ? res.json() : null;
+          }}
           onClose={() => setPhotoRO(null)}
         />
       )}

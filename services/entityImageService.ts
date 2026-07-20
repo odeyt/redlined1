@@ -36,6 +36,22 @@ export async function uploadEntityImage(
   file: File,
   label = 'Photo',
 ): Promise<EntityImage> {
+  const shopId = getShopId();
+
+  // Enforce photo limit before uploading
+  if (shopId) {
+    const res = await fetch(
+      `/api/photos/limit?shopId=${encodeURIComponent(shopId)}&type=entity&entityId=${encodeURIComponent(entityId)}`,
+    );
+    if (res.ok) {
+      const limitData = await res.json();
+      if (!limitData.canUpload) {
+        const cap = limitData.limit != null ? ` (${limitData.limit}-photo limit on your plan)` : '';
+        throw new Error(`Photo limit reached${cap}. Upgrade your plan to upload more photos.`);
+      }
+    }
+  }
+
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `${entityType}s/${entityId}/${Date.now()}.${ext}`;
 
@@ -47,10 +63,9 @@ export async function uploadEntityImage(
   const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path);
   const url = urlData.publicUrl;
 
-  const shopId = getShopId() || null;
   const { data, error } = await supabase
     .from('entity_images')
-    .insert({ entity_type: entityType, entity_id: entityId, shop_id: shopId, url, label, sort_order: 0 })
+    .insert({ entity_type: entityType, entity_id: entityId, shop_id: shopId ?? null, url, label, sort_order: 0 })
     .select()
     .single();
   if (error) throw error;

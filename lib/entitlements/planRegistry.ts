@@ -40,6 +40,11 @@ export interface PlanUsageLimits {
   appointmentsPerMonth: number | null;
   dviPerMonth: number | null;
   smsPerMonth: number | null;
+
+  /** Photo upload limits — per vehicle / per entity (job card, RO, appt) / per part */
+  vehiclePhotosMax: number | null;
+  entityPhotosMax: number | null;
+  partPhotosMax: number | null;
 }
 
 export interface PlanFeatures {
@@ -108,6 +113,9 @@ const FREE_LIMITS: PlanUsageLimits = {
   appointmentsPerMonth:   5,
   dviPerMonth:            2,
   smsPerMonth:            0,
+  vehiclePhotosMax:       1,
+  entityPhotosMax:        2,
+  partPhotosMax:          1,
 };
 
 const NULL_LIMITS: PlanUsageLimits = {
@@ -123,6 +131,9 @@ const NULL_LIMITS: PlanUsageLimits = {
   appointmentsPerMonth:  null,
   dviPerMonth:           null,
   smsPerMonth:           null,
+  vehiclePhotosMax:      null,
+  entityPhotosMax:       null,
+  partPhotosMax:         null,
 };
 
 const NO_FEATURES: PlanFeatures = {
@@ -195,6 +206,9 @@ export const PLAN_REGISTRY: Record<PlanKey, PlanDefinition> = {
       appointmentsPerMonth:  null,
       dviPerMonth:            20,
       smsPerMonth:             0,
+      vehiclePhotosMax:        5,
+      entityPhotosMax:        10,
+      partPhotosMax:           5,
     },
     features: {
       ...NO_FEATURES,
@@ -233,6 +247,9 @@ export const PLAN_REGISTRY: Record<PlanKey, PlanDefinition> = {
       appointmentsPerMonth:  null,
       dviPerMonth:           null,
       smsPerMonth:              0,
+      vehiclePhotosMax:        10,
+      entityPhotosMax:         20,
+      partPhotosMax:           10,
     },
     features: {
       ...NO_FEATURES,
@@ -270,6 +287,9 @@ export const PLAN_REGISTRY: Record<PlanKey, PlanDefinition> = {
       appointmentsPerMonth:  null,
       dviPerMonth:           null,
       smsPerMonth:            500,
+      vehiclePhotosMax:        25,
+      entityPhotosMax:         50,
+      partPhotosMax:           25,
     },
     features: {
       ...NO_FEATURES,
@@ -302,11 +322,14 @@ export const PLAN_REGISTRY: Record<PlanKey, PlanDefinition> = {
     creemProductKeyAnnual: 'CREEM_BUSINESS_ANNUAL_PRODUCT_ID',
     limits: {
       ...NULL_LIMITS,
-      usersTotal:      25,
-      techniciansTotal: null,
-      locationsTotal:  10,
-      storageMb:    102400,  // 100 GB
-      smsPerMonth:    2000,
+      usersTotal:        25,
+      techniciansTotal:  null,
+      locationsTotal:    10,
+      storageMb:      102400,  // 100 GB
+      smsPerMonth:      2000,
+      vehiclePhotosMax:  100,
+      entityPhotosMax:   200,
+      partPhotosMax:     100,
     },
     features: {
       ...ALL_FEATURES,
