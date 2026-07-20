@@ -32,6 +32,27 @@ export interface PlanConfig {
 }
 
 export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
+  free: {
+    id: 'free',
+    name: 'Free Forever',
+    description: 'For shops just getting started — no credit card required',
+    monthlyPrice: 0,
+    annualPrice: 0,
+    features: {
+      unlimitedInvoices: false,
+      maxTechnicians: 1,
+      aiAdvisor: false,   // 2 AI cases/mo via usage limits
+      smsCredits: 0,
+      digitalInspections: false,  // 2 DVI/mo via usage limits
+      smartIntake: false,
+      multiLocation: false,
+      reports: false,
+      repairIntelligence: false,
+      triage: false,
+      prioritySupport: false,
+    },
+  },
+
   solo: {
     id: 'solo',
     name: 'Solo',
@@ -139,7 +160,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
   },
 };
 
-export const PLAN_ORDER: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
+export const PLAN_ORDER: RedlinedPlanId[] = ['free', 'solo', 'starter', 'professional', 'business', 'enterprise'];
 
 /**
  * Resolves the provider-specific product or price ID for a given plan + interval.
@@ -155,6 +176,7 @@ export function getProductId(
   planId: RedlinedPlanId,
   interval: BillingInterval,
 ): string {
+  if (planId === 'free') throw new Error('Free Forever has no payment product — no checkout needed.');
   const suffix = provider === 'creem' ? 'PRODUCT_ID' : 'PRICE_ID';
   const key = `${provider.toUpperCase()}_${planId.toUpperCase()}_${interval.toUpperCase()}_${suffix}`;
   const id = process.env[key];

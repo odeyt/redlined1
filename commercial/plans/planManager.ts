@@ -10,6 +10,25 @@ import type { BillingPlan, PlanKey, PlanLimits } from '@/commercial/shared/types
 
 export const COMMERCIAL_PLANS: BillingPlan[] = [
   {
+    id: 'free',
+    planKey: 'free',
+    name: 'Free Forever',
+    description: 'For shops just getting started — no credit card required',
+    monthlyPrice: 0,
+    annualPrice: 0,
+    currency: 'USD',
+    limits: {
+      maxUsers: 1,
+      maxLocations: 1,
+      maxVehicles: 10,
+      maxJobCardsPerMonth: 5,
+      aiCreditsPerMonth: 2,
+      storageGb: 0.25,
+    },
+    isActive: true,
+    metadata: { noCheckout: true },
+  },
+  {
     id: 'starter',
     planKey: 'starter',
     name: 'Starter',
@@ -59,7 +78,7 @@ export const COMMERCIAL_PLANS: BillingPlan[] = [
   },
 ];
 
-const PLAN_ORDER: PlanKey[] = ['starter', 'professional', 'business', 'enterprise'];
+const PLAN_ORDER: PlanKey[] = ['free', 'starter', 'professional', 'business', 'enterprise'];
 
 // ─── Functions ────────────────────────────────────────────────────────────────
 

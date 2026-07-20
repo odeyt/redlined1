@@ -19,7 +19,7 @@ export type SubscriptionStatus =
   | 'suspended'
   | 'manual';
 
-export type PlanKey = 'starter' | 'professional' | 'business' | 'enterprise';
+export type PlanKey = 'free' | 'starter' | 'professional' | 'business' | 'enterprise';
 
 // ─── Plan ─────────────────────────────────────────────────────────────────────
 

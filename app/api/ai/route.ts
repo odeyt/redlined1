@@ -28,6 +28,26 @@ async function getAuthUser(req: NextRequest) {
 
 // ─── Usage logging ───────────────────────────────────────────────────────────
 
+/**
+ * Confirms the authenticated caller is actually a member of shopId before
+ * any usage/cost gets attributed to it. Previously `shopId` was taken
+ * straight from the request body/context with no check at all, so a valid
+ * user from any shop could misattribute AI usage costs to a shop they don't
+ * belong to. This route doesn't otherwise use shopId to scope data reads
+ * (the AI call itself only uses caller-supplied `context`), so billing
+ * misattribution was the actual exposure here, not a data leak.
+ */
+async function isShopMember(shopId: string, userId: string): Promise<boolean> {
+  const supabase = getAdminClient();
+  const { data } = await supabase
+    .from('shop_users')
+    .select('user_id')
+    .eq('shop_id', shopId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !!data;
+}
+
 async function logUsage(params: {
   shopId: string;
   userId: string;
@@ -38,6 +58,10 @@ async function logUsage(params: {
   estimatedCost: number;
 }) {
   try {
+    if (!(await isShopMember(params.shopId, params.userId))) {
+      logger.warn('Skipped AI usage log — caller is not a member of the claimed shopId', { module: 'api/ai', shopId: params.shopId, userId: params.userId });
+      return;
+    }
     const supabase = getAdminClient();
     await supabase.from('ai_usage_logs').insert({
       shop_id: params.shopId,

@@ -1,12 +1,157 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/supabaseServer';
+import { createServerSupabase } from '@/lib/supabase-server';
+import { requireShopRole } from '@/lib/serverAuth';
+import { parseJsonBody, sanitizeError, isRateLimited } from '@/lib/apiHelpers';
+import { SendMessageSchema } from '@/lib/schemas';
 
+/**
+ * POST /api/send-message — send an invoice/estimate notification via
+ *   SMS, WhatsApp, LINE, or Telegram, using the shop's own configured
+ *   channel credentials (Settings → Messaging).
+ *
+ * Caller: must be authenticated via a valid Supabase bearer token AND a
+ *   member of the target shop (`shopId`) with role owner, manager, or
+ *   advisor — same population as job-notify.
+ * Resource authorized: `shopId` in the body, resolved to the caller's own
+ *   shop_users membership.
+ * Recipient is NEVER taken from the request body. The client sends only
+ *   `resourceType` ('job' | 'customer' | 'estimate' | 'invoice') and
+ *   `resourceId` — pure resource identifiers, scoped to `shopId` on every
+ *   query. `SendMessageSchema` is `.strict()`, so a caller that still sends
+ *   a `to` field (or any other unrecognized field) gets an explicit 400 —
+ *   it is REJECTED, not silently stripped. The server resolves the
+ *   phone/email server-side:
+ *     - job      → job_cards.customer_phone / customer_email (row scoped by
+ *                  id + shop_id)
+ *     - customer → customers.phone / email (row scoped by id + shop_id)
+ *     - estimate → estimates.customer_id → customers.phone/email (both hops
+ *                  scoped to shop_id; customer_id can be null for
+ *                  never-linked estimates, which is treated as "no trusted
+ *                  recipient", not an error to fall back from)
+ *     - invoice  → invoices.customer_id → customers.phone/email, same as
+ *                  estimate
+ *   If resolution comes back empty for the requested channel, the request
+ *   is rejected — there is no fallback to any caller-supplied value, ever.
+ * LINE and Telegram are DISABLED (400) regardless of caller/role: no table
+ *   anywhere in this schema maps a customer to a LINE Notify token or a
+ *   Telegram chat ID (confirmed by a repo-wide grep — see
+ *   docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md for the migration this needs
+ *   before those channels can ship). Shipping them today would mean either
+ *   trusting a caller-supplied destination (the vulnerability this route
+ *   fixes) or silently failing — neither is acceptable, so they're refused
+ *   with a clear error instead.
+ * Cross-shop / not-found: a resourceId that doesn't resolve within the
+ *   caller's shopId returns the same generic 404 whether it belongs to
+ *   another shop or doesn't exist at all — no enumeration signal either way.
+ * Rate limiting: capped per shop per minute. This is a BEST-EFFORT,
+ *   in-process mitigation (see lib/apiHelpers.ts) — NOT a security control
+ *   and not a hard guarantee against abuse. A durable, globally-consistent
+ *   limit (Upstash Redis / Vercel KV, keyed per shop and per destination)
+ *   is a real prerequisite before this endpoint sees production message
+ *   volume at scale; tracked in docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md.
+ * Message CONTENT (`doc.*`: type, number, vehicle, total, status, shopName,
+ *   shopPhone) is still ENTIRELY caller-supplied — only the RECIPIENT is
+ *   server-resolved. `doc` values come from data the client already loaded
+ *   through its own RLS-protected reads, so this isn't a cross-tenant leak,
+ *   but it does mean a stale or buggy client screen could send a customer a
+ *   message with an incorrect `total`/`status` (e.g. showing "Paid" when
+ *   the invoice was since reopened). `total` and `status` are the two
+ *   fields most worth moving to a server-side lookup by resourceId in a
+ *   follow-up — `type`/`vehicle`/`shopName`/`shopPhone` are lower-risk
+ *   descriptive fields. Not done in this pass; tracked in
+ *   docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md.
+ */
 type Channel = 'sms' | 'whatsapp' | 'line' | 'telegram';
+type ResourceType = 'job' | 'customer' | 'estimate' | 'invoice';
 
-async function getMessagingSettings(shopId: string) {
-  const adminDb = getAdminDb();
-  const { data } = await adminDb.from('shop_settings').select('messaging_settings').eq('shop_id', shopId).single();
-  return (data?.messaging_settings ?? {}) as Record<string, string | boolean>;
+type ResolvedRecipient = { phone: string | null; email: string | null; customerName: string | null };
+
+// Distinguishes "the query itself failed" (network/DB error — a 500, and
+// worth logging) from "the query succeeded and found nothing" (a genuine
+// 404 — the resourceId doesn't exist in this shop). Collapsing these into
+// one case would silently mask real DB errors as ordinary not-found
+// responses, which is exactly the kind of failure that's invisible until a
+// customer complains a message never arrived.
+type RecipientLookup =
+  | { ok: true; recipient: ResolvedRecipient }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'db_error'; error: unknown };
+
+async function resolveRecipient(
+  admin: ReturnType<typeof createServerSupabase>,
+  shopId: string,
+  resourceType: ResourceType,
+  resourceId: string,
+): Promise<RecipientLookup> {
+  if (resourceType === 'job') {
+    const { data, error } = await admin
+      .from('job_cards')
+      .select('customer, customer_phone, customer_email')
+      .eq('id', resourceId)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+    if (error) return { ok: false, reason: 'db_error', error };
+    if (!data) return { ok: false, reason: 'not_found' };
+    return { ok: true, recipient: { phone: data.customer_phone ?? null, email: data.customer_email ?? null, customerName: data.customer ?? null } };
+  }
+
+  if (resourceType === 'customer') {
+    const { data, error } = await admin
+      .from('customers')
+      .select('name, phone, email')
+      .eq('id', resourceId)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+    if (error) return { ok: false, reason: 'db_error', error };
+    if (!data) return { ok: false, reason: 'not_found' };
+    return { ok: true, recipient: { phone: data.phone ?? null, email: data.email ?? null, customerName: data.name ?? null } };
+  }
+
+  if (resourceType === 'estimate' || resourceType === 'invoice') {
+    const table = resourceType === 'estimate' ? 'estimates' : 'invoices';
+    const idColumn = resourceType === 'estimate' ? 'id' : 'number';
+    const nameColumn = resourceType === 'estimate' ? 'customer_name' : 'customer';
+
+    const { data: doc, error: docError } = await admin
+      .from(table)
+      .select(`customer_id, ${nameColumn}`)
+      .eq(idColumn, resourceId)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+    if (docError) return { ok: false, reason: 'db_error', error: docError };
+    if (!doc) return { ok: false, reason: 'not_found' };
+
+    const docRecord = doc as Record<string, unknown>;
+    const denormalizedName = (docRecord[nameColumn] as string | null) ?? null;
+
+    // Never linked to a customer record — no trusted recipient to resolve.
+    // Not a fallback opportunity, not an error about the resource itself.
+    if (!docRecord.customer_id) {
+      return { ok: true, recipient: { phone: null, email: null, customerName: denormalizedName } };
+    }
+
+    const { data: customer, error: customerError } = await admin
+      .from('customers')
+      .select('name, phone, email')
+      .eq('id', docRecord.customer_id as string)
+      .eq('shop_id', shopId)
+      .maybeSingle();
+    if (customerError) return { ok: false, reason: 'db_error', error: customerError };
+    if (!customer) return { ok: true, recipient: { phone: null, email: null, customerName: denormalizedName } };
+
+    return { ok: true, recipient: { phone: customer.phone ?? null, email: customer.email ?? null, customerName: customer.name ?? denormalizedName } };
+  }
+
+  return { ok: false, reason: 'not_found' };
+}
+
+async function getMessagingSettings(
+  admin: ReturnType<typeof createServerSupabase>,
+  shopId: string,
+): Promise<{ ok: true; settings: Record<string, string | boolean> } | { ok: false; error: unknown }> {
+  const { data, error } = await admin.from('shop_settings').select('messaging_settings').eq('shop_id', shopId).maybeSingle();
+  if (error) return { ok: false, error };
+  return { ok: true, settings: (data?.messaging_settings ?? {}) as Record<string, string | boolean> };
 }
 
 async function sendSms(to: string, body: string, cfg: Record<string, string | boolean>, whatsapp = false): Promise<string | null> {
@@ -26,55 +171,19 @@ async function sendSms(to: string, body: string, cfg: Record<string, string | bo
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { message?: string };
-    return err.message ?? `Twilio error ${res.status}`;
-  }
-  return null;
-}
-
-async function sendLine(to: string, body: string, cfg: Record<string, string | boolean>): Promise<string | null> {
-  // to = customer's LINE Notify token
-  const token = to || (cfg.lineToken as string);
-  if (!token) return 'LINE Notify token is required.';
-  const res = await fetch('https://notify-api.line.me/api/notify', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({ message: body }).toString(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { message?: string };
-    return err.message ?? `LINE error ${res.status}`;
-  }
-  return null;
-}
-
-async function sendTelegram(to: string, body: string, cfg: Record<string, string | boolean>): Promise<string | null> {
-  const botToken = cfg.telegramBotToken as string;
-  if (!botToken) return 'Telegram Bot Token not configured in Settings → Messaging.';
-  if (!to) return 'Telegram Chat ID is required.';
-  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: to, text: body, parse_mode: 'HTML' }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { description?: string };
-    return err.description ?? `Telegram error ${res.status}`;
+    return sanitizeError(err.message ?? `Twilio error ${res.status}`, 'send-message:twilio', 'SMS failed to send');
   }
   return null;
 }
 
 function buildMessage(doc: {
-  type: string; number: string; customerName: string; vehicle: string;
+  type: string; number: string; customerName?: string; vehicle: string;
   total: string; status: string; shopName: string; shopPhone?: string;
 }): string {
   const label = doc.type === 'estimate' ? 'Estimate' : 'Invoice';
   return [
     `📋 ${label} ${doc.number} from ${doc.shopName}`,
-    `Customer: ${doc.customerName}`,
+    doc.customerName ? `Customer: ${doc.customerName}` : '',
     `Vehicle: ${doc.vehicle}`,
     `Total: ${doc.total}`,
     `Status: ${doc.status}`,
@@ -84,42 +193,74 @@ function buildMessage(doc: {
 }
 
 export async function POST(req: NextRequest) {
+  const parsed = await parseJsonBody(req, SendMessageSchema);
+  if (!parsed.ok) return parsed.response;
+  const { channel, shopId, resourceType, resourceId, doc } = parsed.data;
+  const ch: Channel = channel;
+
+  const auth = await requireShopRole(req, shopId, ['owner', 'manager', 'advisor']);
+  if (!auth.ok) return auth.response;
+
+  // LINE/Telegram refused unconditionally — no trusted per-customer mapping
+  // exists for either channel in this schema. See docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md.
+  if (ch === 'line' || ch === 'telegram') {
+    return NextResponse.json(
+      { error: `${ch === 'line' ? 'LINE' : 'Telegram'} sending is not available yet — no verified per-customer contact channel exists for this channel.` },
+      { status: 400 },
+    );
+  }
+
+  if (isRateLimited(`send-message:shop:${shopId}`, 30, 60_000)) {
+    return NextResponse.json({ error: 'Too many messages sent. Please try again shortly.' }, { status: 429 });
+  }
+
+  const admin = createServerSupabase();
+
   try {
-    const body = await req.json() as {
-      channel: Channel;
-      to: string;
-      shopId: string;
-      doc: {
-        type: string; number: string; customerName: string; vehicle: string;
-        total: string; status: string; shopName: string; shopPhone?: string;
-      };
-    };
-    const { channel, to, shopId, doc } = body;
+    const lookup = await resolveRecipient(admin, shopId, resourceType, resourceId);
+    if (!lookup.ok) {
+      if (lookup.reason === 'db_error') {
+        return NextResponse.json(
+          { error: sanitizeError(lookup.error, 'send-message:POST resolveRecipient', 'Unable to look up recipient') },
+          { status: 500 },
+        );
+      }
+      // Genuine not-found — same response whether resourceId belongs to
+      // another shop or doesn't exist at all, no enumeration signal either way.
+      return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
+    }
+    const { recipient } = lookup;
 
-    if (!channel || !to || !shopId || !doc) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!recipient.phone) {
+      return NextResponse.json(
+        { error: 'No phone number on file for this customer. Add one before sending SMS/WhatsApp.' },
+        { status: 400 },
+      );
     }
 
-    const cfg = await getMessagingSettings(shopId);
-
-    const enabledKey = `${channel}Enabled` as keyof typeof cfg;
+    const settingsLookup = await getMessagingSettings(admin, shopId);
+    if (!settingsLookup.ok) {
+      return NextResponse.json(
+        { error: sanitizeError(settingsLookup.error, 'send-message:POST getMessagingSettings', 'Unable to load messaging settings') },
+        { status: 500 },
+      );
+    }
+    const cfg = settingsLookup.settings;
+    const enabledKey = `${ch}Enabled` as keyof typeof cfg;
     if (!cfg[enabledKey]) {
-      return NextResponse.json({ error: `${channel.toUpperCase()} is not enabled. Enable it in Settings → Messaging.` }, { status: 400 });
+      return NextResponse.json({ error: `${ch.toUpperCase()} is not enabled. Enable it in Settings → Messaging.` }, { status: 400 });
     }
 
-    const message = buildMessage(doc);
-    let err: string | null = null;
-
-    if (channel === 'sms')       err = await sendSms(to, message, cfg, false);
-    else if (channel === 'whatsapp') err = await sendSms(to, message, cfg, true);
-    else if (channel === 'line')     err = await sendLine(to, message, cfg);
-    else if (channel === 'telegram') err = await sendTelegram(to, message, cfg);
-    else return NextResponse.json({ error: 'Unknown channel' }, { status: 400 });
+    // Message CONTENT (doc.*) is still caller-supplied — see the doc block
+    // above the route for exactly what's trusted vs. not, and
+    // docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md for which fields should
+    // eventually move to server-derived values.
+    const message = buildMessage({ ...doc, customerName: doc.customerName ?? recipient.customerName ?? undefined });
+    const err = await sendSms(recipient.phone, message, cfg, ch === 'whatsapp');
 
     if (err) return NextResponse.json({ error: err }, { status: 502 });
-    return NextResponse.json({ success: true, channel, sentTo: to });
+    return NextResponse.json({ success: true, channel: ch });
   } catch (e: unknown) {
-    console.error('[send-message]', e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Unknown error' }, { status: 500 });
+    return NextResponse.json({ error: sanitizeError(e, 'send-message:POST', 'Unable to send message') }, { status: 500 });
   }
 }

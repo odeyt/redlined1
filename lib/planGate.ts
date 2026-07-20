@@ -13,15 +13,37 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
   return Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400000));
 }
 
-// Modules available after trial expires — just enough to see the value, not enough to run the shop
+// Modules accessible on the Free Forever plan.
+// Core operational modules are open (with usage limits enforced server-side).
+// Premium analytics / AI / team features remain locked until upgrade.
 const FREE_MODULES = new Set([
-  'dashboard',          // can see their data is there, just locked
-  'settings',           // must be able to manage their account / upgrade
-  'subscriptions',      // upgrade path
-  'system-health',      // internal tooling — never plan-locked
-  'disaster-recovery',  // internal tooling — never plan-locked
-  'testing-dashboard',  // internal tooling — never plan-locked
+  // Core operations — free users can manage their data
+  'dashboard',
+  'customers',
+  'vehicles',
+  'estimates',
+  'repair-orders',
+  'invoices',
+  'job-cards',
+  'scheduling',
+  'appointments',
+  'digital-inspections',
+  'ai-advisor',        // limited to 2/mo — usage enforced server-side
+  'vin-decoder',       // limited to 2/mo — usage enforced server-side
+
+  // Account management — always accessible
+  'settings',
+  'subscriptions',
+
+  // Internal tooling — never plan-locked
+  'system-health',
+  'disaster-recovery',
+  'testing-dashboard',
 ]);
+
+// Premium-only modules (not in FREE_MODULES):
+//   command-center, reports, repair-intelligence, triage,
+//   communication, time-tracking, labor-guide, parts, diagnostics, technicians
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
   if (status === 'pro' || status === 'trial') return true;
