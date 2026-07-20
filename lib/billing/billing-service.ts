@@ -71,11 +71,11 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
   return sub !== null && ['active', 'trialing'].includes(sub.status);
 }
 
-/** Returns the user's current plan config, defaulting to starter. */
+/** Returns the user's current plan config, defaulting to free (not starter). */
 export async function getUserPlan(userId: string): Promise<PlanConfig> {
   const sub = await getCurrentSubscription(userId);
-  const planId = (sub?.plan_id ?? 'starter') as RedlinedPlanId;
-  return PLANS[planId] ?? PLANS.starter;
+  const planId = (sub?.plan_id ?? 'free') as RedlinedPlanId;
+  return PLANS[planId] ?? PLANS.free;
 }
 
 /** Returns true if the user's plan grants access to a specific feature key. */

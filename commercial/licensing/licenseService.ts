@@ -28,10 +28,15 @@ export async function checkLicense(shopId: string, checkKey: string): Promise<Li
     if (!BILLING_ENABLED) return allow('billing_disabled');
 
     const sub = await getShopSubscription(shopId);
-    if (!sub) return allow('no_subscription_found');
+
+    // Free plan: no subscription row expected — always allowed (limit checks done separately)
+    if (!sub) return allow('free_plan');
 
     const active = ['active', 'trialing'].includes(sub.status);
-    if (!active) return deny('subscription_not_active', sub.planKey, null, null);
+    // Cancelled subscription falls back to free, not blocked
+    if (!active && sub.planKey !== 'free') {
+      return deny('subscription_not_active', sub.planKey, null, null);
+    }
 
     return allow('subscription_active');
   } catch {

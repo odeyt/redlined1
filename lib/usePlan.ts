@@ -42,16 +42,13 @@ export function usePlan() {
           if (s === 'trial') setDaysLeft(trialDaysLeft(data.trial_ends_at));
         } else {
           // Profile row missing or DB read failed (e.g. RLS policy misconfiguration).
-          // Never hard-lock the user — give a grace trial so they can still access
-          // their data and reach billing/support. AppShell checks profileLoaded
-          // before showing the full lock screen.
-          setStatus('trial');
-          setDaysLeft(14);
+          // Fall back to Free — never grant more access than the user purchased.
+          // AppShell checks profileLoaded before showing the hard lock screen.
+          setStatus('free');
         }
       } catch {
-        // Network / unexpected error — same grace fallback
-        setStatus('trial');
-        setDaysLeft(14);
+        // Network / unexpected error — same free fallback
+        setStatus('free');
       }
       setLoading(false);
     }

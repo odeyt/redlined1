@@ -31,6 +31,30 @@ export interface PublicPlan {
 
 export const PUBLIC_PRICING: PublicPlan[] = [
   {
+    key:         'free',
+    name:        'Free Forever',
+    description: 'For shops just getting started — no credit card required',
+    monthlyPrice: 0,
+    annualPrice:  0,
+    currency:    'USD',
+    annualSavingsPct: null,
+    highlighted: false,
+    ctaLabel:    'Start free',
+    limits: { users: '1 user', locations: '1 location', vehicles: '10 vehicles', aiCredits: '2 AI cases/mo', storage: '250 MB' },
+    features: [
+      { label: 'Customer Management',   included: true },
+      { label: 'Vehicle Management',    included: true },
+      { label: 'Job Cards & Estimates', included: true },
+      { label: 'Invoicing',             included: true },
+      { label: 'Appointments',          included: true },
+      { label: 'Digital Inspections',   included: '2/mo' },
+      { label: 'AI Diagnostics',        included: '2/mo' },
+      { label: 'Repair Intelligence',   included: false },
+      { label: 'Reports',               included: false },
+      { label: 'Multi-Location',        included: false },
+    ],
+  },
+  {
     key:         'starter',
     name:        'Starter',
     description: 'Perfect for solo mechanics and small shops',
@@ -39,7 +63,7 @@ export const PUBLIC_PRICING: PublicPlan[] = [
     currency:    'USD',
     annualSavingsPct: 17,
     highlighted: false,
-    ctaLabel:    'Start free trial',
+    ctaLabel:    'Get started',
     limits: { users: '2 users', locations: '1 location', vehicles: '500 vehicles', aiCredits: '100 AI credits/mo', storage: '5 GB' },
     features: [
       { label: 'Invoicing & Estimates',  included: true },
@@ -61,7 +85,7 @@ export const PUBLIC_PRICING: PublicPlan[] = [
     currency:    'USD',
     annualSavingsPct: 17,
     highlighted: true,
-    ctaLabel:    'Start free trial',
+    ctaLabel:    'Get started',
     limits: { users: '10 users', locations: '3 locations', vehicles: '2,000 vehicles', aiCredits: '500 AI credits/mo', storage: '20 GB' },
     features: [
       { label: 'Everything in Starter',  included: true },
@@ -82,7 +106,7 @@ export const PUBLIC_PRICING: PublicPlan[] = [
     currency:    'USD',
     annualSavingsPct: 17,
     highlighted: false,
-    ctaLabel:    'Start free trial',
+    ctaLabel:    'Get started',
     limits: { users: '25 users', locations: '10 locations', vehicles: 'Unlimited', aiCredits: '2,000 AI credits/mo', storage: '100 GB' },
     features: [
       { label: 'Everything in Professional', included: true },
