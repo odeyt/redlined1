@@ -51,7 +51,7 @@ const PLANS = [
     badge: null,
     featured: false,
     features: [
-      'Up to 3 technician seats',
+      '1 technician seat',
       'Everything in Solo',
       'Team job assignments',
       'Priority support',

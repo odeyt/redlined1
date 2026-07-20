@@ -238,7 +238,7 @@ export const PLAN_REGISTRY: Record<PlanKey, PlanDefinition> = {
       customersTotal:        null,
       vehiclesTotal:          500,
       usersTotal:               2,
-      techniciansTotal:         3,
+      techniciansTotal:         1,
       locationsTotal:           1,
       storageMb:             5120,  // 5 GB
       completedJobsPerMonth:  200,

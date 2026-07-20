@@ -13,8 +13,8 @@ export const SITE_CONFIG = {
     'RedlineD1 is the all-in-one automotive business operating system for independent repair shops, solo mechanics, and mobile mechanics. Manage repair orders, estimates, invoices, digital vehicle inspections, inventory, and AI-powered shop intelligence from one connected platform.',
   shortDescription:
     'All-in-one shop management software for independent auto repair shops and mobile mechanics.',
-  domain: 'redlined1.com',
-  origin: 'https://redlined1.com',
+  domain: 'www.redlined1.com',
+  origin: 'https://www.redlined1.com',
   locale: 'en_US',
   twitterHandle: null, // Add when account exists
   facebookUrl: null,
@@ -30,12 +30,12 @@ export const SITE_CONFIG = {
   /** Used in Organization / LocalBusiness schema */
   organizationType: 'SoftwareApplication',
   category: 'BusinessApplication',
-  supportUrl: 'https://redlined1.com/help',
-  privacyUrl: 'https://redlined1.com/privacy',
-  termsUrl: 'https://redlined1.com/terms',
-  pricingUrl: 'https://redlined1.com/pricing',
-  signupUrl: 'https://redlined1.com/signup',
-  loginUrl: 'https://redlined1.com/login',
+  supportUrl: 'https://www.redlined1.com/help',
+  privacyUrl: 'https://www.redlined1.com/privacy',
+  termsUrl: 'https://www.redlined1.com/terms',
+  pricingUrl: 'https://www.redlined1.com/pricing',
+  signupUrl: 'https://www.redlined1.com/signup',
+  loginUrl: 'https://www.redlined1.com/login',
   /** Founder info — used in About schema when available */
   founder: {
     name: 'D1 Imports',

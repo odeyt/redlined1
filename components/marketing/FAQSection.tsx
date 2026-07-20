@@ -51,7 +51,7 @@ const FAQS = [
   {
     cat: 'Billing & Plans',
     q: 'What plan do I need for a small shop with a team?',
-    a: 'The Starter plan at $49/month supports up to 3 technician seats and adds team assignments and priority support. For AI intelligence and advanced analytics, Professional at $99/month is the most popular choice.',
+    a: 'The Starter plan at $49/month includes 1 technician seat and adds team assignments and priority support on top of the Solo plan. For AI intelligence and advanced analytics, Professional at $99/month supports up to 8 technicians and is the most popular choice.',
     cta: { label: 'Choose Starter — $49/mo', planId: 'starter', type: 'checkout' },
   },
   {

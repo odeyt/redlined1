@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
+import { ROOT_METADATA } from '@/lib/seo/metadata';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -10,21 +11,11 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Redlined1',
-  description: 'Automotive CRM and shop operations',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Redlined1',
-  },
-  verification: {
-    google: 'XXXXXXXXX',
-  },
-  other: {
-    'mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-capable': 'yes',
-  },
+  ...ROOT_METADATA,
+  // Google Search Console verification — set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION in Vercel env
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 const GA_ID = 'G-9QY4K8MZ1X';

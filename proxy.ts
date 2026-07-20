@@ -35,9 +35,17 @@ export async function proxy(request: NextRequest) {
   // If Supabase env vars are not yet available, redirect unauthenticated
   // users to login rather than crashing the handler.
   if (!supabaseUrl || !supabaseKey) {
-    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/api/billing/webhook', '/api/ping'];
-    const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
-    if (!isPublic) {
+    const fallbackPublic = [
+      '/login', '/signup', '/help', '/forgot-password', '/reset-password',
+      '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy',
+      '/billing/success', '/billing/canceled', '/api/billing/webhook', '/api/ping',
+      '/robots.txt', '/sitemap.xml',
+      '/mobile-mechanic-software', '/digital-vehicle-inspection-software',
+      '/auto-repair-invoicing-software', '/repair-order-software',
+      '/ai-auto-repair-shop-software', '/pricing', '/tools', '/resources', '/compare',
+    ];
+    const isPublicFallback = fallbackPublic.some(p => request.nextUrl.pathname.startsWith(p));
+    if (!isPublicFallback) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
     return response;
@@ -58,7 +66,32 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/api/billing/webhook', '/api/ping'];
+  // Public paths: authentication-free access required.
+  // Marketing routes and static SEO files MUST be here — auth proxy must not block them.
+  const publicPaths = [
+    // Auth flows
+    '/login', '/signup', '/help', '/forgot-password', '/reset-password',
+    '/auth/callback',
+    // Legal / billing
+    '/privacy', '/terms', '/refund-policy',
+    '/billing/success', '/billing/canceled',
+    // API endpoints that don't need auth
+    '/api/billing/webhook', '/api/ping',
+    // Internal preview (noindex)
+    '/landing-preview',
+    // SEO / crawler files
+    '/robots.txt', '/sitemap.xml',
+    // ── Marketing pages (all public) ──────────────────────────────────────
+    '/mobile-mechanic-software',
+    '/digital-vehicle-inspection-software',
+    '/auto-repair-invoicing-software',
+    '/repair-order-software',
+    '/ai-auto-repair-shop-software',
+    '/pricing',
+    '/tools',
+    '/resources',
+    '/compare',
+  ];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
