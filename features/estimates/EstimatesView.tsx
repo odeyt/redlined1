@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { authedFetch, AuthSessionError } from '@/lib/apiClient';
+import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { FilterPills } from '@/components/FilterPills';
 import { Panel } from '@/components/Panel';
@@ -148,7 +150,8 @@ export function EstimatesView() {
   const [printLang, setPrintLang] = useState<'en' | 'lo' | 'both'>('both');
   const { status: planStatus } = usePlan();
   const [fullCustomers, setFullCustomers] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean; channel: 'email' | 'sms' | 'whatsapp' | 'line' | 'telegram'; msgTo: string } | null>(null);
+  const [emailModal, setEmailModal] = useState<{ estimate: EstimateFull; email: string; originalEmail: string; customerId: string; saveEmail: boolean; sending: boolean; channel: 'email' | 'sms' | 'whatsapp' | 'line' | 'telegram' } | null>(null);
+  const [channelsEnabled, setChannelsEnabled] = useState<MessagingChannelsEnabled | null>(null);
   const [lakRate, setLakRate] = useState<number>(() => {
     if (typeof window === 'undefined') return 0;
     return Number(localStorage.getItem('d1_lak_thb_rate') ?? 0) || 0;
@@ -430,7 +433,11 @@ export function EstimatesView() {
       c.name.toLowerCase() === est.customerName?.toLowerCase()
     );
     const existingEmail = match?.email ?? '';
-    setEmailModal({ estimate: est, email: existingEmail, originalEmail: existingEmail, customerId: match?.id ?? est.customerId ?? '', saveEmail: false, sending: false, channel: 'email', msgTo: '' });
+    setEmailModal({ estimate: est, email: existingEmail, originalEmail: existingEmail, customerId: match?.id ?? est.customerId ?? '', saveEmail: false, sending: false, channel: 'email' });
+    // Enabled-only channel status (owner/manager/advisor) — never secrets or
+    // configured flags. LINE/Telegram always come back false; see
+    // app/api/messaging-channels-status.
+    fetchMessagingChannelsStatus(getShopId()).then(setChannelsEnabled).catch(() => setChannelsEnabled(null));
   }
 
   async function handleSendEmail() {
@@ -486,13 +493,16 @@ export function EstimatesView() {
       const shopId = getShopId();
       const est = emailModal.estimate;
       const t = calculateEstimateTotals(est);
-      const res = await fetch('/api/send-message', {
+      const res = await authedFetch('/api/send-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channel: emailModal.channel,
-          to: emailModal.msgTo,
           shopId,
+          // The recipient is resolved server-side from this resource — the
+          // API no longer accepts a caller-supplied destination at all.
+          resourceType: 'estimate',
+          resourceId: est.id,
           doc: {
             type: 'estimate',
             number: est.estimateNumber,
@@ -505,12 +515,12 @@ export function EstimatesView() {
           },
         }),
       });
-      const json = await res.json() as { success?: boolean; error?: string; sentTo?: string };
-      if (!res.ok) throw new Error(json.error);
-      notify(`Estimate sent via ${emailModal.channel.toUpperCase()} to ${json.sentTo}`);
+      const json = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      notify(`Estimate sent via ${emailModal.channel.toUpperCase()}`);
       setEmailModal(null);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to send message');
+      setError(e instanceof AuthSessionError ? e.message : e instanceof Error ? e.message : 'Failed to send message');
       setEmailModal(m => m ? { ...m, sending: false } : null);
     }
   }
@@ -1361,22 +1371,24 @@ export function EstimatesView() {
 
       {/* Send Modal — Email / SMS / WhatsApp / LINE / Telegram */}
       {emailModal && (() => {
-        const msg = shopSettings?.messaging;
-        const channels: Array<{ id: 'email'|'sms'|'whatsapp'|'line'|'telegram'; icon: string; label: string; enabled: boolean }> = (
+        // Channel availability comes from the enabled-only, non-owner-safe
+        // /api/messaging-channels-status endpoint (channelsEnabled state,
+        // fetched when the modal opens) — never from shopSettings, which no
+        // longer carries messaging data at all. LINE/Telegram are never
+        // offered: send-message refuses both unconditionally (no verified
+        // per-customer contact mapping exists yet; see
+        // docs/SEND_MESSAGE_RECIPIENT_RESOLUTION.md).
+        const channels: Array<{ id: 'email'|'sms'|'whatsapp'; icon: string; label: string; enabled: boolean }> = (
           [
             { id: 'email'    as const, icon: '✉️',  label: 'Email',     enabled: true },
-            { id: 'sms'      as const, icon: '📱',  label: 'SMS',       enabled: !!(msg?.smsEnabled) },
-            { id: 'whatsapp' as const, icon: '💬',  label: 'WhatsApp',  enabled: !!(msg?.whatsappEnabled) },
-            { id: 'line'     as const, icon: '🟢',  label: 'LINE',      enabled: !!(msg?.lineEnabled) },
-            { id: 'telegram' as const, icon: '✈️',  label: 'Telegram',  enabled: !!(msg?.telegramEnabled) },
+            { id: 'sms'      as const, icon: '📱',  label: 'SMS',       enabled: !!channelsEnabled?.sms },
+            { id: 'whatsapp' as const, icon: '💬',  label: 'WhatsApp',  enabled: !!channelsEnabled?.whatsapp },
           ] as const
-        ).filter(c => c.enabled) as Array<{ id: 'email'|'sms'|'whatsapp'|'line'|'telegram'; icon: string; label: string; enabled: boolean }>;
+        ).filter(c => c.enabled) as Array<{ id: 'email'|'sms'|'whatsapp'; icon: string; label: string; enabled: boolean }>;
         const ch = emailModal.channel;
         const isEmail = ch === 'email';
-        const contactLabel: Record<string, string> = { sms: 'Phone Number (+1…)', whatsapp: 'Phone Number (+1…)', line: 'LINE Notify Token', telegram: 'Telegram Chat ID' };
-        const contactPH:    Record<string, string> = { sms: '+15551234567', whatsapp: '+15551234567', line: 'line-notify-token', telegram: '123456789' };
         const sendLabel: Record<string, string> = { email: '✉️ Send PDF', sms: '📱 Send SMS', whatsapp: '💬 Send WhatsApp', line: '🟢 Send LINE', telegram: '✈️ Send Telegram' };
-        const canSend = isEmail ? !!emailModal.email : !!emailModal.msgTo;
+        const canSend = isEmail ? !!emailModal.email : true;
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ background: 'var(--card)', borderRadius: 14, padding: 28, width: 460, maxWidth: '95vw', boxShadow: '0 8px 40px rgba(0,0,0,0.35)' }}>
@@ -1421,14 +1433,10 @@ export function EstimatesView() {
               {/* Messaging channels */}
               {!isEmail && <>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
-                  A text summary of the estimate details will be sent. Configure channel credentials in <strong>Settings → Messaging</strong>.
+                  A text summary of the estimate details will be sent to the phone number on file for this
+                  customer. Configure channel credentials in <strong>Settings → Messaging</strong>. If no
+                  phone number is on file, add one to the customer record first.
                 </div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>{contactLabel[ch] ?? 'Contact'}</label>
-                <input type="text" value={emailModal.msgTo} onChange={e => setEmailModal(m => m ? { ...m, msgTo: e.target.value } : null)}
-                  placeholder={contactPH[ch] ?? ''}
-                  autoFocus
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1.5px solid ${emailModal.msgTo ? 'var(--line)' : '#ef4444'}`, background: 'var(--surface)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }} />
-                {!emailModal.msgTo && <div style={{ fontSize: 12, color: '#ef4444', marginTop: 8 }}>⚠️ Enter the customer&apos;s {contactLabel[ch]?.toLowerCase() ?? 'contact'} to send.</div>}
               </>}
 
               {/* Actions */}

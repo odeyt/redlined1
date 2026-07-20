@@ -21,6 +21,36 @@ function withAuthHeader(init: RequestInit, token: string): RequestInit {
 }
 
 /**
+ * Reads a Response body as JSON WITHOUT assuming it is JSON — an empty
+ * body (e.g. a 204, or an infra-level failure that returns nothing) or a
+ * non-JSON body (an HTML error page from a proxy/edge layer, a plaintext
+ * 502 from the platform) makes a bare `res.json()` throw a raw
+ * SyntaxError that most callers don't expect and don't handle, surfacing
+ * as an unhelpful "Unexpected token < in JSON" instead of a usable error.
+ * Returns `null` for an empty or unparseable body instead of throwing.
+ */
+export async function readJsonBody<T = unknown>(res: Response): Promise<T | null> {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Standard failure-message extraction for a non-ok Response from one of
+ * our own API routes: prefers the route's own `{ error: string }` body,
+ * and falls back to the HTTP status when the body is empty or not JSON
+ * (see readJsonBody) rather than throwing or returning an empty message.
+ */
+export async function apiErrorMessage(res: Response, fallback = 'Request failed'): Promise<string> {
+  const body = await readJsonBody<{ error?: string }>(res);
+  return body?.error || `${fallback} (HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''})`;
+}
+
+/**
  * fetch() wrapper for calls to our own bearer-token-authenticated API
  * routes (app/api/invite, /members, /job-status, /job-notify, etc.).
  * Attaches the current Supabase session's access token, and — since an

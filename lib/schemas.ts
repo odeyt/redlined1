@@ -82,3 +82,95 @@ export const JobNotifySchema = z.object({
   notifySms: z.boolean().optional().default(true),
   notifyEmail: z.boolean().optional().default(true),
 });
+
+// Generic identifier for any of the app's text-PK domain tables
+// (job_cards.id, customers.id, estimates.id, invoices.number) — same
+// permissive-but-bounded shape as JobIdSchema, since none of these are UUIDs.
+export const ResourceIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'Invalid resource id')
+  .max(200)
+  .regex(/^[A-Za-z0-9_-]+$/, 'Invalid resource id');
+
+// ── send-message ─────────────────────────────────────────────────────────
+
+export const SendMessageChannelSchema = z.enum(['sms', 'whatsapp', 'line', 'telegram']);
+
+// The recipient is NEVER accepted from the client — see app/api/send-message.
+// resourceType + resourceId identify which trusted DB record to resolve the
+// phone/email from. `to` is intentionally absent from this schema, and
+// SendMessageSchema is `.strict()` (below) so a caller that still sends a
+// `to` (or any other unrecognized field) gets an explicit 400, not a silent
+// strip — a caller sending a recipient field at all is worth surfacing as a
+// hard error, not swallowing quietly.
+export const SendMessageResourceTypeSchema = z.enum(['job', 'customer', 'estimate', 'invoice']);
+
+// Display-only content for the message body. Sourced from data the client
+// already loaded through its own RLS-protected reads, validated for
+// shape/length, not treated as a recipient-resolution trust boundary (that's
+// resourceType/resourceId, resolved server-side).
+export const SendMessageDocSchema = z.object({
+  type: z.string().trim().min(1).max(50),
+  number: z.string().trim().min(1).max(100),
+  customerName: z.string().trim().max(200).optional(),
+  vehicle: z.string().trim().max(200),
+  total: z.string().trim().max(50),
+  status: z.string().trim().max(100),
+  shopName: z.string().trim().max(200),
+  shopPhone: z.string().trim().max(50).optional(),
+});
+
+export const SendMessageSchema = z
+  .object({
+    channel: SendMessageChannelSchema,
+    shopId: ShopIdSchema,
+    resourceType: SendMessageResourceTypeSchema,
+    resourceId: ResourceIdSchema,
+    doc: SendMessageDocSchema,
+  })
+  .strict();
+
+// ── shop_messaging_secrets ───────────────────────────────────────────────
+// Server-only credential storage (Twilio/LINE/Telegram). See
+// docs/MESSAGING_SECRETS_MIGRATION.sql and app/api/shop-messaging-secrets.
+
+export const ShopMessagingSecretsQuerySchema = z.object({
+  shopId: ShopIdSchema,
+});
+
+// Partial update: a field OMITTED entirely means "leave unchanged"; a field
+// present as an empty string means "clear this credential". This
+// distinction is made by checking key presence in the parsed object, not by
+// the schema alone — see the route handler. `.strict()` so an unexpected
+// field (e.g. a stray `to`/`token` mistakenly copied from another form)
+// fails loudly instead of being silently accepted or ignored.
+//
+// LINE and Telegram fields are deliberately ABSENT from this schema —
+// send-message refuses both channels unconditionally (no verified
+// per-customer contact mapping exists yet), so the application-layer API
+// must not accept or activate them either, even though the underlying
+// shop_messaging_secrets table still reserves line_token/line_enabled/
+// telegram_bot_token/telegram_enabled columns for a future migration. A
+// caller that submits `lineToken`, `lineEnabled`, `telegramBotToken`, or
+// `telegramEnabled` gets the same `.strict()` 400 as any other unrecognized
+// field — rejected, not silently accepted or ignored.
+export const ShopMessagingSecretsUpdateSchema = z
+  .object({
+    shopId: ShopIdSchema,
+    twilioSid: z.string().trim().max(200).optional(),
+    twilioToken: z.string().trim().max(500).optional(),
+    twilioFrom: z.string().trim().max(50).optional(),
+    smsEnabled: z.boolean().optional(),
+    whatsappEnabled: z.boolean().optional(),
+  })
+  .strict();
+
+// Read-only channel-availability check for roles permitted to send messages
+// (owner/manager/advisor) — deliberately separate from
+// ShopMessagingSecretsQuerySchema (owner-only, returns `configured` +
+// `fromNumber`). This one returns booleans only, nothing that reveals
+// whether/how a channel is configured beyond "can I send on it right now".
+export const MessagingChannelsStatusQuerySchema = z.object({
+  shopId: ShopIdSchema,
+});

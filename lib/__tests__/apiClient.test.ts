@@ -9,7 +9,7 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { authedFetch, AuthSessionError } from '../apiClient';
+import { authedFetch, AuthSessionError, readJsonBody, apiErrorMessage } from '../apiClient';
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
@@ -97,5 +97,50 @@ describe('authedFetch', () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe('Forbidden');
+  });
+});
+
+describe('readJsonBody', () => {
+  it('parses a normal JSON body', async () => {
+    const res = new Response(JSON.stringify({ error: 'Bad request' }), { status: 400 });
+    await expect(readJsonBody(res)).resolves.toEqual({ error: 'Bad request' });
+  });
+
+  it('returns null for an empty body, instead of throwing', async () => {
+    const res = new Response(null, { status: 204 });
+    await expect(readJsonBody(res)).resolves.toBeNull();
+  });
+
+  it('returns null for a non-JSON body (e.g. an HTML error page from a proxy), instead of throwing', async () => {
+    const res = new Response('<html><body>502 Bad Gateway</body></html>', { status: 502 });
+    await expect(readJsonBody(res)).resolves.toBeNull();
+  });
+});
+
+describe('apiErrorMessage', () => {
+  it('prefers the route\'s own { error } message when present', async () => {
+    const res = new Response(JSON.stringify({ error: 'Not enabled' }), { status: 400 });
+    await expect(apiErrorMessage(res)).resolves.toBe('Not enabled');
+  });
+
+  it('falls back to the HTTP status when the body is empty', async () => {
+    const res = new Response('', { status: 502, statusText: 'Bad Gateway' });
+    const message = await apiErrorMessage(res, 'Unable to save');
+    expect(message).toContain('Unable to save');
+    expect(message).toContain('502');
+  });
+
+  it('falls back to the HTTP status when the body is non-JSON (e.g. an HTML error page)', async () => {
+    const res = new Response('<html>Internal Server Error</html>', { status: 500 });
+    const message = await apiErrorMessage(res, 'Unable to load status');
+    expect(message).toContain('Unable to load status');
+    expect(message).toContain('500');
+    expect(message).not.toContain('<html>');
+  });
+
+  it('falls back to the HTTP status when the body is valid JSON but has no error field', async () => {
+    const res = new Response(JSON.stringify({ unexpected: 'shape' }), { status: 400 });
+    const message = await apiErrorMessage(res, 'Request failed');
+    expect(message).toContain('400');
   });
 });

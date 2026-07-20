@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
-import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, DEFAULT_MESSAGING, MessagingSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { fetchMessagingStatus, updateMessagingSecrets, AuthSessionError, type MessagingStatus } from '@/services/messagingSecretsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
 import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
+import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
 
 // Modules that can never be hidden
@@ -69,7 +71,21 @@ export function SettingsView() {
   const [enableJobCardApprovalCode, setEnableJobCardApprovalCode] = useState(true);
   const [newBayName, setNewBayName] = useState('');
 
-  const [messaging, setMessaging] = useState<MessagingSettings>(DEFAULT_MESSAGING);
+  const { shopId, role } = useShop();
+  const isMessagingOwner = role === 'owner';
+  const [messagingStatus, setMessagingStatus] = useState<MessagingStatus | null>(null);
+  const [messagingLoadError, setMessagingLoadError] = useState('');
+  const [smsEnabledDraft, setSmsEnabledDraft] = useState(false);
+  const [whatsappEnabledDraft, setWhatsappEnabledDraft] = useState(false);
+  const [twilioSidInput, setTwilioSidInput] = useState('');
+  const [twilioTokenInput, setTwilioTokenInput] = useState('');
+  const [twilioFromInput, setTwilioFromInput] = useState('');
+  // Deliberate clear/remove action per field — distinct from an accidental
+  // blank input, which means "preserve existing value" (see the save
+  // handler below). Only set true by clicking the field's "Clear" button.
+  const [twilioSidCleared, setTwilioSidCleared] = useState(false);
+  const [twilioTokenCleared, setTwilioTokenCleared] = useState(false);
+  const [twilioFromCleared, setTwilioFromCleared] = useState(false);
   const [savingMsg, setSavingMsg] = useState(false);
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
@@ -126,13 +142,24 @@ export function SettingsView() {
       setEnableJobCardBranchRoute(s.enableJobCardBranchRoute ?? true);
       setEnableJobCardServiceLocation(s.enableJobCardServiceLocation ?? true);
       setEnableJobCardApprovalCode(s.enableJobCardApprovalCode ?? true);
-      setMessaging({ ...DEFAULT_MESSAGING, ...s.messaging });
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
       }
     }).catch(err => setError('Could not load settings: ' + err.message));
   }, []);
+
+  useEffect(() => {
+    if (!isMessagingOwner || !shopId) { setMessagingStatus(null); return; }
+    setMessagingLoadError('');
+    fetchMessagingStatus(shopId)
+      .then(status => {
+        setMessagingStatus(status);
+        setSmsEnabledDraft(status.sms.enabled);
+        setWhatsappEnabledDraft(status.whatsapp.enabled);
+      })
+      .catch(err => setMessagingLoadError(err instanceof AuthSessionError ? err.message : (err instanceof Error ? err.message : 'Could not load messaging status')));
+  }, [isMessagingOwner, shopId]);
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
@@ -849,104 +876,190 @@ export function SettingsView() {
 
       {/* ── Messaging Channels ── */}
       <Panel title="Messaging Channels" hint="Send estimates and invoices via SMS, WhatsApp, LINE, or Telegram — configure credentials and enable channels below">
-        {/* Twilio (SMS + WhatsApp) */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 18 }}>📱</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>SMS &amp; WhatsApp <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Twilio</span></div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Requires a Twilio account. Get credentials at twilio.com</div>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 14 }}>
-              {(['smsEnabled', 'whatsappEnabled'] as const).map(key => {
-                const label = key === 'smsEnabled' ? 'SMS' : 'WhatsApp';
-                return (
-                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                    <input type="checkbox" checked={messaging[key]} onChange={e => setMessaging(m => ({ ...m, [key]: e.target.checked }))} />
-                    {label}
-                  </label>
-                );
-              })}
-            </div>
+        {!isMessagingOwner ? (
+          <div style={{ fontSize: 13, color: 'var(--muted)', padding: '8px 0' }}>
+            Only the shop owner can view or change messaging credentials.
           </div>
-          {(messaging.smsEnabled || messaging.whatsappEnabled) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              {([
-                { key: 'twilioSid',   label: 'Account SID',  placeholder: 'ACxxxxxxxxxxxxxxxx' },
-                { key: 'twilioToken', label: 'Auth Token',    placeholder: '••••••••••••••••' },
-                { key: 'twilioFrom',  label: 'From Number',   placeholder: '+15551234567' },
-              ] as const).map(f => (
-                <div key={f.key} className="login-field">
-                  <label>{f.label}</label>
-                  <input
-                    type={f.key === 'twilioToken' ? 'password' : 'text'}
-                    value={messaging[f.key]}
-                    onChange={e => setMessaging(m => ({ ...m, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                  />
+        ) : messagingLoadError ? (
+          <div style={{ fontSize: 13, color: '#ef4444', padding: '8px 0' }}>
+            Could not load messaging status: {messagingLoadError}
+          </div>
+        ) : !messagingStatus ? (
+          <div style={{ fontSize: 13, color: 'var(--muted)', padding: '8px 0' }}>Loading…</div>
+        ) : (() => {
+          // Conservative client-side prediction of post-save Twilio
+          // completeness — NOT the source of truth (the server enforces the
+          // real invariant in PUT /api/shop-messaging-secrets regardless of
+          // what this UI does). The status API only exposes a combined
+          // `configured` flag (SID+token both present) and the real
+          // `fromNumber` value, not per-field detail for SID alone, so
+          // `oldSidPresent` below is a deliberately conservative guess: if
+          // token+from were already both present, `complete` tells us
+          // whether SID was too; otherwise we assume SID absent. This can
+          // only make the UI warn when the save would actually be fine, not
+          // the reverse.
+          const oldTokenPresent = messagingStatus.sms.configured;
+          const oldFromPresent = !!messagingStatus.sms.fromNumber;
+          const oldSidPresent = oldTokenPresent && oldFromPresent ? messagingStatus.sms.complete : false;
+          const newSidPresent = twilioSidCleared ? false : (twilioSidInput.trim() !== '' ? true : oldSidPresent);
+          const newTokenPresent = twilioTokenCleared ? false : (twilioTokenInput.trim() !== '' ? true : oldTokenPresent);
+          const newFromPresent = twilioFromCleared ? false : (twilioFromInput.trim() !== '' ? true : oldFromPresent);
+          const willBeComplete = newSidPresent && newTokenPresent && newFromPresent;
+          const willBeIncomplete = (smsEnabledDraft || whatsappEnabledDraft) && !willBeComplete;
+
+          return (
+          <>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 18, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
+              🔒 Credentials are write-only here — existing values are never displayed, even to the shop
+              owner. Leave a field blank to keep the current value; use Clear to remove it deliberately.
+            </div>
+
+            {/* Twilio (SMS + WhatsApp) */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 18 }}>📱</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>SMS &amp; WhatsApp <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Twilio</span></div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Requires a Twilio account. Get credentials at twilio.com ·{' '}
+                    {messagingStatus.sms.complete ? '✅ Configured' : messagingStatus.sms.configured ? '⚠️ Incomplete' : 'Not configured'}
+                  </div>
                 </div>
-              ))}
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    <input type="checkbox" checked={smsEnabledDraft} onChange={e => setSmsEnabledDraft(e.target.checked)} />
+                    SMS
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    <input type="checkbox" checked={whatsappEnabledDraft} onChange={e => setWhatsappEnabledDraft(e.target.checked)} />
+                    WhatsApp
+                  </label>
+                </div>
+              </div>
+              {(smsEnabledDraft || whatsappEnabledDraft) && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                    <div className="login-field">
+                      <label>Account SID {messagingStatus.sms.configured && !twilioSidCleared && <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(configured — blank keeps it)</span>}</label>
+                      {twilioSidCleared ? (
+                        <div style={{ fontSize: 12, color: '#d97706', padding: '8px 0' }}>
+                          Will be cleared on save. <button type="button" onClick={() => setTwilioSidCleared(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>Undo</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="password" value={twilioSidInput} onChange={e => setTwilioSidInput(e.target.value)} placeholder="ACxxxxxxxxxxxxxxxx" autoComplete="off" />
+                          {messagingStatus.sms.configured && (
+                            <button type="button" onClick={() => { setTwilioSidCleared(true); setTwilioSidInput(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>Clear</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="login-field">
+                      <label>Auth Token {messagingStatus.sms.configured && !twilioTokenCleared && <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(configured — blank keeps it)</span>}</label>
+                      {twilioTokenCleared ? (
+                        <div style={{ fontSize: 12, color: '#d97706', padding: '8px 0' }}>
+                          Will be cleared on save. <button type="button" onClick={() => setTwilioTokenCleared(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>Undo</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="password" value={twilioTokenInput} onChange={e => setTwilioTokenInput(e.target.value)} placeholder="••••••••••••••••" autoComplete="off" />
+                          {messagingStatus.sms.configured && (
+                            <button type="button" onClick={() => { setTwilioTokenCleared(true); setTwilioTokenInput(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>Clear</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="login-field">
+                      <label>From Number {messagingStatus.sms.fromNumber && !twilioFromCleared && <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(current: {messagingStatus.sms.fromNumber})</span>}</label>
+                      {twilioFromCleared ? (
+                        <div style={{ fontSize: 12, color: '#d97706', padding: '8px 0' }}>
+                          Will be cleared on save. <button type="button" onClick={() => setTwilioFromCleared(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontSize: 12 }}>Undo</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="text" value={twilioFromInput} onChange={e => setTwilioFromInput(e.target.value)} placeholder="+15551234567" autoComplete="off" />
+                          {!!messagingStatus.sms.fromNumber && (
+                            <button type="button" onClick={() => { setTwilioFromCleared(true); setTwilioFromInput(''); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>Clear</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {willBeIncomplete && (
+                    <div style={{ fontSize: 12, color: '#ef4444', marginTop: 10 }}>
+                      ⚠️ SMS/WhatsApp requires a complete Twilio configuration — Account SID, Auth Token, and
+                      From Number must all be set before it can be enabled.
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* LINE */}
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 18 }}>🟢</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>LINE <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via LINE Notify</span></div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Each customer provides their own LINE Notify token. Get one at notify-bot.line.me</div>
+            {/* LINE — not yet activatable through this API; see below */}
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 24, opacity: 0.7 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>🟢</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>LINE <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via LINE Notify</span></div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Coming soon — trusted customer mapping required.
+                  </div>
+                </div>
+              </div>
             </div>
-            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              <input type="checkbox" checked={messaging.lineEnabled} onChange={e => setMessaging(m => ({ ...m, lineEnabled: e.target.checked }))} />
-              Enable LINE
-            </label>
-          </div>
-          {messaging.lineEnabled && (
-            <div className="login-field" style={{ maxWidth: 420 }}>
-              <label>Default Shop LINE Notify Token <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(optional fallback)</span></label>
-              <input type="password" value={messaging.lineToken} onChange={e => setMessaging(m => ({ ...m, lineToken: e.target.value }))} placeholder="LINE Notify token" />
-            </div>
-          )}
-        </div>
 
-        {/* Telegram */}
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 18 }}>✈️</span>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Telegram <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Bot API</span></div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Create a bot with @BotFather. Customer chat IDs are obtained when they message your bot.</div>
+            {/* Telegram — not yet activatable through this API; see below */}
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 20, opacity: 0.7 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>✈️</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Telegram <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>via Bot API</span></div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    Coming soon — trusted customer mapping required.
+                  </div>
+                </div>
+              </div>
             </div>
-            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              <input type="checkbox" checked={messaging.telegramEnabled} onChange={e => setMessaging(m => ({ ...m, telegramEnabled: e.target.checked }))} />
-              Enable Telegram
-            </label>
-          </div>
-          {messaging.telegramEnabled && (
-            <div className="login-field" style={{ maxWidth: 420 }}>
-              <label>Bot Token</label>
-              <input type="password" value={messaging.telegramBotToken} onChange={e => setMessaging(m => ({ ...m, telegramBotToken: e.target.value }))} placeholder="1234567890:ABCDefGhIjKlmNoPQrStUvWxYz" />
-            </div>
-          )}
-        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
-          {savingMsg && <span style={{ color: 'var(--muted)', fontSize: 13 }}>Saving…</span>}
-          <button
-            className="btn btn-primary"
-            disabled={savingMsg}
-            onClick={async () => {
-              setSavingMsg(true);
-              try { await saveShopSettings({ messaging }); notify('Messaging settings saved'); }
-              catch (e: unknown) { setError(e instanceof Error ? e.message : 'Save failed'); }
-              finally { setSavingMsg(false); }
-            }}
-          >
-            Save Messaging Settings
-          </button>
-        </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center' }}>
+              {savingMsg && <span style={{ color: 'var(--muted)', fontSize: 13 }}>Saving…</span>}
+              <button
+                className="btn btn-primary"
+                disabled={savingMsg || willBeIncomplete}
+                title={willBeIncomplete ? 'Complete the Twilio configuration before enabling SMS/WhatsApp' : undefined}
+                onClick={async () => {
+                  if (!shopId) return;
+                  setSavingMsg(true);
+                  try {
+                    await updateMessagingSecrets(shopId, {
+                      smsEnabled: smsEnabledDraft,
+                      whatsappEnabled: whatsappEnabledDraft,
+                      // A field is included only when the owner deliberately
+                      // typed something (replace) or clicked Clear (remove,
+                      // sent as ''). Omitted entirely = unchanged — an
+                      // accidental blank field never clears a credential.
+                      ...(twilioSidCleared ? { twilioSid: '' } : twilioSidInput ? { twilioSid: twilioSidInput } : {}),
+                      ...(twilioTokenCleared ? { twilioToken: '' } : twilioTokenInput ? { twilioToken: twilioTokenInput } : {}),
+                      ...(twilioFromCleared ? { twilioFrom: '' } : twilioFromInput ? { twilioFrom: twilioFromInput } : {}),
+                    });
+                    // Clear the input/cleared state — never keep a
+                    // just-submitted secret sitting in component state.
+                    setTwilioSidInput(''); setTwilioTokenInput(''); setTwilioFromInput('');
+                    setTwilioSidCleared(false); setTwilioTokenCleared(false); setTwilioFromCleared(false);
+                    const refreshed = await fetchMessagingStatus(shopId);
+                    setMessagingStatus(refreshed);
+                    notify('Messaging settings saved');
+                  } catch (e: unknown) {
+                    setError(e instanceof AuthSessionError ? e.message : (e instanceof Error ? e.message : 'Save failed'));
+                  } finally { setSavingMsg(false); }
+                }}
+              >
+                Save Messaging Settings
+              </button>
+            </div>
+          </>
+          );
+        })()}
       </Panel>
 
       <FeatureFlagsPanel />
