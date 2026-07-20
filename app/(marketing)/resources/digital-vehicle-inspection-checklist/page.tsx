@@ -1,9 +1,8 @@
-'use client';
-
 import { webPageSchema } from '@/lib/seo/schema';
 import { absoluteUrl } from '@/lib/seo/urls';
 import { Breadcrumb } from '@/components/seo/Breadcrumb';
 import { PageCTA } from '@/components/seo/PageCTA';
+import { PrintButton } from '@/components/seo/PrintButton';
 
 export { metadata } from './metadata';
 
@@ -155,12 +154,7 @@ export default function DVIChecklistPage() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0, alignItems: 'flex-start' }}>
-            <button
-              onClick={() => window.print()}
-              style={{ background: 'var(--surface-soft, #f1f5f9)', border: '1px solid var(--line, #d1d5db)', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
-            >
-              🖨 Print
-            </button>
+            <PrintButton />
             <a
               href="/digital-vehicle-inspection-software"
               style={{ background: 'var(--accent, #dc2626)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 14, textDecoration: 'none' }}
