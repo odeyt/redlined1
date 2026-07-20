@@ -162,7 +162,7 @@ export function HeroSection() {
           >
             {/* Shimmer overlay */}
             <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%)', backgroundSize: '400px 100%', animation: 'hero-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-            Start Free — No Credit Card Required
+            Get Your Shop Running — Free
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
               <path d="M3 9h12M10 4l5 5-5 5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
