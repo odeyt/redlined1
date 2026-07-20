@@ -24,12 +24,13 @@ import {
   type PlanKey,
   type PlanDefinition,
 } from './planRegistry';
-import type { FeatureKey, UsageMetricKey } from './featureRegistry';
-import { MONTHLY_METRIC_KEYS } from './featureRegistry';
+import { FEATURE_REGISTRY, MONTHLY_METRIC_KEYS, type FeatureKey, type UsageMetricKey } from './featureRegistry';
+import { logger } from '@/lib/logger';
 import type {
   EntitlementResult,
   WorkspaceUsageSnapshot,
   WorkspaceEntitlements,
+  UsageReservation,
 } from './types';
 
 // ─── Internal constants ───────────────────────────────────────────────────────
@@ -93,6 +94,34 @@ function denied(
   };
 }
 
+/**
+ * Returns a fail-closed result for infrastructure failures.
+ * upgradeRequired=false: this is NOT a plan issue; retryable=true: caller may retry.
+ * Never misrepresent an infra failure as a plan limit.
+ */
+function unavailable(
+  workspaceId: string,
+  context: string,
+  overrides: Partial<EntitlementResult> = {},
+): EntitlementResult {
+  logger.warn('Entitlement check unavailable', { module: 'entitlementEngine', context });
+  return {
+    allowed: false,
+    workspaceId,
+    effectivePlanKey: 'free',
+    limit: null,
+    used: null,
+    remaining: null,
+    resetAt: null,
+    reasonCode: 'ENTITLEMENT_CHECK_UNAVAILABLE',
+    userMessage: 'Service temporarily unavailable. Please try again in a moment.',
+    upgradeRequired: false,
+    recommendedPlanKey: null,
+    retryable: true,
+    ...overrides,
+  };
+}
+
 // ─── Effective plan resolution ─────────────────────────────────────────────────
 
 /**
@@ -100,25 +129,46 @@ function denied(
  * Internal D1 shops always get 'enterprise' (full access).
  * Otherwise reads profiles.plan (set by auth callback + webhooks).
  */
+/**
+ * Returns the effective plan key for a workspace.
+ * Internal D1 shops always get 'enterprise' (full access).
+ * Throws EntitlementUnavailableError on DB failure — callers must handle it
+ * and return unavailable() rather than swallowing the error.
+ */
+export class EntitlementUnavailableError extends Error {
+  readonly context: string;
+  constructor(context: string, cause?: unknown) {
+    super(`Entitlement check unavailable: ${context}`);
+    this.context = context;
+    if (cause) this.cause = cause;
+  }
+}
+
 export async function getEffectivePlanKey(workspaceId: string): Promise<PlanKey> {
   if (INTERNAL_SHOP_IDS.has(workspaceId)) return 'enterprise';
 
+  let data: { profiles?: { plan?: string } } | null;
   try {
     const db = getAdminDb();
-    // workspaceId is the shop_id; find the owner's profile
-    const { data } = await db
+    const result = await db
       .from('shop_users')
       .select('profiles:user_id(plan)')
       .eq('shop_id', workspaceId)
       .eq('role', 'owner')
       .maybeSingle();
-
-    const plan = (data as { profiles?: { plan?: string } } | null)?.profiles?.plan;
-    if (plan && PLAN_REGISTRY[plan as PlanKey]) return plan as PlanKey;
-    return 'free';
-  } catch {
-    return 'free';
+    if (result.error) {
+      throw new EntitlementUnavailableError('getEffectivePlanKey DB error', result.error);
+    }
+    data = result.data as typeof data;
+  } catch (err) {
+    if (err instanceof EntitlementUnavailableError) throw err;
+    throw new EntitlementUnavailableError('getEffectivePlanKey unexpected error', err);
   }
+
+  const plan = (data as { profiles?: { plan?: string } } | null)?.profiles?.plan;
+  if (plan && PLAN_REGISTRY[plan as PlanKey]) return plan as PlanKey;
+  // No plan row found = new user; treat as free (not an error)
+  return 'free';
 }
 
 // ─── Usage snapshot ────────────────────────────────────────────────────────────
@@ -213,48 +263,69 @@ function planLimit(plan: PlanDefinition, metricKey: UsageMetricKey): number | nu
 
 /**
  * Check whether a workspace can use a boolean feature.
- * Reads the canonical plan registry — no DB call for feature check itself.
+ *
+ * Uses FeatureDefinition.planFeatureKey for the authoritative mapping from
+ * snake_case FeatureKey to camelCase PlanFeatures key — no unsafe casts.
+ *
+ * Fails closed (ENTITLEMENT_CHECK_UNAVAILABLE) on DB errors so creation and
+ * paid-feature paths cannot succeed when entitlement state is unknown.
  */
 export async function checkFeatureAccess(
   workspaceId: string,
   featureKey: FeatureKey,
 ): Promise<EntitlementResult> {
   if (INTERNAL_SHOP_IDS.has(workspaceId)) {
+    logger.info('Entitlement: internal override', { module: 'entitlementEngine', workspaceId, featureKey });
     const plan = getPlanOrFree('enterprise');
-    return allowed(workspaceId, plan, 'INTERNAL_OVERRIDE', 'D1 internal shop — full access', {
-      featureKey,
-    });
+    return allowed(workspaceId, plan, 'INTERNAL_OVERRIDE', 'D1 internal shop — full access', { featureKey });
   }
 
   if (!BILLING_ENABLED) {
     const plan = getPlanOrFree('free');
-    return allowed(workspaceId, plan, 'BILLING_DISABLED', 'Billing enforcement is off', {
-      featureKey,
-    });
+    return allowed(workspaceId, plan, 'BILLING_DISABLED', 'Billing enforcement is off', { featureKey });
   }
 
-  const planKey = await getEffectivePlanKey(workspaceId);
+  const featureDef = FEATURE_REGISTRY[featureKey];
+  if (!featureDef) {
+    // Unknown feature key — fail closed
+    return unavailable(workspaceId, `unknown featureKey: ${featureKey}`);
+  }
+
+  let planKey: PlanKey;
+  try {
+    planKey = await getEffectivePlanKey(workspaceId);
+  } catch (err) {
+    return unavailable(workspaceId, `getEffectivePlanKey failed for ${workspaceId}`, { featureKey });
+  }
   const plan = getPlanOrFree(planKey);
 
-  const hasFeature = plan.features[featureKey as keyof typeof plan.features] === true;
-  if (hasFeature) {
-    return allowed(workspaceId, plan, 'FEATURE_INCLUDED', `${featureKey} included in ${plan.name}`, {
-      featureKey,
-    });
+  // Features with no planFeatureKey are structurally included (usage-only gating)
+  if (featureDef.planFeatureKey === null) {
+    return allowed(workspaceId, plan, 'FEATURE_INCLUDED',
+      `${featureDef.name} is included on all plans`, { featureKey });
   }
 
-  const recommendedPlanKey = minimumPlanForFeature(featureKey as keyof typeof plan.features) ?? null;
+  // Resolve boolean flag using the authoritative typed mapping
+  const hasFeature = plan.features[featureDef.planFeatureKey] === true;
+  if (hasFeature) {
+    return allowed(workspaceId, plan, 'FEATURE_INCLUDED',
+      `${featureDef.name} included in ${plan.name}`, { featureKey });
+  }
+
+  const recommendedPlanKey = minimumPlanForFeature(featureDef.planFeatureKey) ?? null;
   const recommendedPlan = recommendedPlanKey ? getPlanOrFree(recommendedPlanKey) : null;
 
   return denied(workspaceId, plan, 'FEATURE_NOT_INCLUDED',
-    `${plan.name} does not include this feature. Upgrade to ${recommendedPlan?.name ?? 'a higher plan'}.`,
+    `${plan.name} does not include ${featureDef.name}. Upgrade to ${recommendedPlan?.name ?? 'a higher plan'}.`,
     { featureKey, recommendedPlanKey },
   );
 }
 
 /**
  * Check whether a workspace can consume quantity more units of a usage metric.
- * Does NOT increment the counter — call recordUsage separately after the action.
+ * Does NOT increment the counter — use reserveUsage() for atomic consumption.
+ *
+ * Fails closed (ENTITLEMENT_CHECK_UNAVAILABLE) on DB errors.
  */
 export async function checkUsageAccess(
   workspaceId: string,
@@ -263,19 +334,20 @@ export async function checkUsageAccess(
 ): Promise<EntitlementResult> {
   if (INTERNAL_SHOP_IDS.has(workspaceId)) {
     const plan = getPlanOrFree('enterprise');
-    return allowed(workspaceId, plan, 'INTERNAL_OVERRIDE', 'D1 internal shop — full access', {
-      metricKey,
-    });
+    return allowed(workspaceId, plan, 'INTERNAL_OVERRIDE', 'D1 internal shop — full access', { metricKey });
   }
 
   if (!BILLING_ENABLED) {
     const plan = getPlanOrFree('free');
-    return allowed(workspaceId, plan, 'BILLING_DISABLED', 'Billing enforcement is off', {
-      metricKey,
-    });
+    return allowed(workspaceId, plan, 'BILLING_DISABLED', 'Billing enforcement is off', { metricKey });
   }
 
-  const planKey = await getEffectivePlanKey(workspaceId);
+  let planKey: PlanKey;
+  try {
+    planKey = await getEffectivePlanKey(workspaceId);
+  } catch {
+    return unavailable(workspaceId, `getEffectivePlanKey failed for ${workspaceId}`, { metricKey });
+  }
   const plan = getPlanOrFree(planKey);
   const limit = planLimit(plan, metricKey);
 
@@ -294,7 +366,13 @@ export async function checkUsageAccess(
     );
   }
 
-  const snapshot = await getWorkspaceUsageSnapshot(workspaceId);
+  let snapshot: WorkspaceUsageSnapshot;
+  try {
+    snapshot = await getWorkspaceUsageSnapshot(workspaceId);
+  } catch {
+    return unavailable(workspaceId, `getWorkspaceUsageSnapshot failed for ${workspaceId}`, { metricKey });
+  }
+
   const used = snapshotValue(snapshot, metricKey);
   const remaining = Math.max(0, limit - used);
 
@@ -305,22 +383,13 @@ export async function checkUsageAccess(
     const nextPlan = findNextPlanWithMoreCapacity(plan.key, metricKey, used + requestedQuantity);
     return denied(workspaceId, plan, 'PLAN_LIMIT_REACHED',
       `You've used ${used} of ${limit} ${isMonthly ? 'this month' : 'total'}.${resetAt ? ` Resets on ${new Date(resetAt).toLocaleDateString()}.` : ''}`,
-      {
-        metricKey,
-        limit,
-        used,
-        remaining,
-        resetAt,
-        recommendedPlanKey: nextPlan,
-      },
+      { metricKey, limit, used, remaining, resetAt, recommendedPlanKey: nextPlan },
     );
   }
 
   return allowed(workspaceId, plan, 'LIMIT_AVAILABLE',
     `${remaining} remaining of ${limit}${isMonthly ? '/mo' : ''}`,
-    {
-      metricKey, limit, used, remaining, resetAt,
-    },
+    { metricKey, limit, used, remaining, resetAt },
   );
 }
 
@@ -363,12 +432,28 @@ export async function assertFeatureAccess(
 export async function getWorkspaceEntitlements(
   workspaceId: string,
 ): Promise<WorkspaceEntitlements> {
-  const planKey = INTERNAL_SHOP_IDS.has(workspaceId)
-    ? 'enterprise'
-    : await getEffectivePlanKey(workspaceId);
+  let planKey: PlanKey;
+  try {
+    planKey = INTERNAL_SHOP_IDS.has(workspaceId)
+      ? 'enterprise'
+      : await getEffectivePlanKey(workspaceId);
+  } catch {
+    planKey = 'free';
+  }
 
   const plan = getPlanOrFree(planKey);
-  const snapshot = await getWorkspaceUsageSnapshot(workspaceId);
+  let snapshot: WorkspaceUsageSnapshot;
+  try {
+    snapshot = await getWorkspaceUsageSnapshot(workspaceId);
+  } catch {
+    // Return entitlements without live usage on DB error
+    snapshot = {
+      workspaceId, yearMonth: currentYearMonth(), resetAt: nextMonthFirst(),
+      customersTotal: 0, vehiclesTotal: 0, usersTotal: 0, techniciansTotal: 0,
+      locationsTotal: 1, storageMb: 0,
+      completedJobs: 0, aiCases: 0, vinLookups: 0, appointments: 0, dvi: 0, sms: 0,
+    };
+  }
 
   const limits: Record<UsageMetricKey, number | null> = {} as Record<UsageMetricKey, number | null>;
   const usageKeys: UsageMetricKey[] = [
@@ -407,8 +492,11 @@ export async function getWorkspaceEntitlements(
     'dedicated_account_manager', 'white_label', 'api_access',
   ];
   for (const fk of featureKeys) {
+    const planFeatureKey = FEATURE_REGISTRY[fk]?.planFeatureKey;
+    // null planFeatureKey = structurally included on all plans
     features[fk] = INTERNAL_SHOP_IDS.has(workspaceId) ||
-      (plan.features[fk as keyof typeof plan.features] === true);
+      planFeatureKey === null ||
+      (planFeatureKey !== undefined && plan.features[planFeatureKey] === true);
   }
 
   return {
@@ -466,6 +554,138 @@ export async function recordUsage(
     return (data as number) ?? 0;
   } catch {
     return 0;
+  }
+}
+
+// ─── Atomic usage reservation ─────────────────────────────────────────────────
+
+/**
+ * Reserves usage atomically before an action begins.
+ *
+ * Pattern:
+ *   const reservation = await reserveUsage(shopId, 'ai_cases', 1, idempotencyKey);
+ *   if (!reservation.allowed) return 402;      // fail closed
+ *   try {
+ *     await doWork();
+ *     await completeReservation(reservation.reservationId);
+ *   } catch {
+ *     await releaseReservation(reservation.reservationId);
+ *     throw;
+ *   }
+ *
+ * Two simultaneous requests at the limit cannot both succeed — the Postgres
+ * advisory lock inside reserve_usage() serializes them.
+ *
+ * Returns null on DB error (fail closed: caller must treat as denied).
+ */
+export async function reserveUsage(
+  workspaceId: string,
+  metricKey: UsageMetricKey,
+  quantity = 1,
+  idempotencyKey: string,
+): Promise<(UsageReservation & { allowed: boolean }) | null> {
+  if (INTERNAL_SHOP_IDS.has(workspaceId)) {
+    // Internal shops: always allow, skip DB reservation
+    return {
+      reservationId: crypto.randomUUID(),
+      workspaceId,
+      metricKey,
+      quantity,
+      idempotencyKey,
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      idempotent: false,
+      allowed: true,
+    };
+  }
+
+  if (!BILLING_ENABLED) {
+    return {
+      reservationId: crypto.randomUUID(),
+      workspaceId,
+      metricKey,
+      quantity,
+      idempotencyKey,
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      idempotent: false,
+      allowed: true,
+    };
+  }
+
+  try {
+    let planKey: PlanKey;
+    try {
+      planKey = await getEffectivePlanKey(workspaceId);
+    } catch {
+      return null;
+    }
+    const plan = getPlanOrFree(planKey);
+    const limit = planLimit(plan, metricKey);
+
+    const db = getAdminDb();
+    const { data, error } = await db.rpc('reserve_usage', {
+      p_shop_id: workspaceId,
+      p_metric: metricKey,
+      p_quantity: quantity,
+      p_limit: limit,
+      p_idempotency_key: idempotencyKey,
+      p_year_month: currentYearMonth(),
+    });
+
+    if (error || !data || !data[0]) return null;
+
+    const row = data[0] as {
+      reservation_id: string;
+      idempotent: boolean;
+      allowed: boolean;
+    };
+
+    if (!row.allowed) {
+      return {
+        reservationId: '',
+        workspaceId,
+        metricKey,
+        quantity,
+        idempotencyKey,
+        expiresAt: '',
+        idempotent: row.idempotent,
+        allowed: false,
+      };
+    }
+
+    return {
+      reservationId: row.reservation_id,
+      workspaceId,
+      metricKey,
+      quantity,
+      idempotencyKey,
+      expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      idempotent: row.idempotent,
+      allowed: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Marks a reservation complete and increments usage_monthly. Fire-and-forget safe. */
+export async function completeReservation(reservationId: string): Promise<void> {
+  if (!reservationId) return;
+  try {
+    const db = getAdminDb();
+    await db.rpc('complete_reservation', { p_reservation_id: reservationId });
+  } catch {
+    logger.warn('completeReservation failed', { module: 'entitlementEngine', reservationId });
+  }
+}
+
+/** Releases an in-flight reservation (action failed). Fire-and-forget safe. */
+export async function releaseReservation(reservationId: string): Promise<void> {
+  if (!reservationId) return;
+  try {
+    const db = getAdminDb();
+    await db.rpc('release_reservation', { p_reservation_id: reservationId });
+  } catch {
+    logger.warn('releaseReservation failed', { module: 'entitlementEngine', reservationId });
   }
 }
 

@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { aiRequestSchema } from '@/lib/validation/schemas';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { logger } from '@/lib/logger';
-import { checkUsageAccess, recordUsage } from '@/lib/entitlements';
+import { reserveUsage, completeReservation, releaseReservation } from '@/lib/entitlements';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const AI_MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5-20251001';
@@ -186,34 +186,39 @@ export async function POST(req: NextRequest) {
     const { type, context, shopId } = parsed.data;
     const resolvedShopId = shopId ?? context.shopId as string ?? '';
 
-    // Free plan usage enforcement — checked before any AI call or mock
+    // Atomically reserve usage before beginning the AI call.
+    // Two simultaneous requests at the limit cannot both succeed.
+    // If reservation returns null, entitlement state is unknown — fail closed.
+    const requestId = `ai-${resolvedShopId}-${Date.now()}`;
+    let reservationId = '';
     if (resolvedShopId) {
-      const entitlement = await checkUsageAccess(resolvedShopId, 'ai_cases', 1);
-      if (!entitlement.allowed) {
+      const reservation = await reserveUsage(resolvedShopId, 'ai_cases', 1, requestId);
+      if (!reservation) {
         return NextResponse.json(
-          {
-            error: 'AI limit reached',
-            userMessage: entitlement.userMessage,
-            upgradeRequired: true,
-            recommendedPlanKey: entitlement.recommendedPlanKey,
-            limit: entitlement.limit,
-            used: entitlement.used,
-            resetAt: entitlement.resetAt,
-          },
+          { error: 'Service temporarily unavailable. Please try again.', retryable: true },
+          { status: 503 },
+        );
+      }
+      if (!reservation.allowed) {
+        return NextResponse.json(
+          { error: 'AI limit reached', upgradeRequired: true },
           { status: 402 },
         );
       }
+      reservationId = reservation.idempotent ? '' : reservation.reservationId;
     }
 
     // Get prompt template
     const prompt = PROMPT_REGISTRY[type as keyof typeof PROMPT_REGISTRY];
     if (!prompt) {
+      if (reservationId) await releaseReservation(reservationId);
       return NextResponse.json({ error: `Unknown task type: ${type}` }, { status: 400 });
     }
 
     // Mock mode if no API key or mock provider
     if (!ANTHROPIC_API_KEY || AI_PROVIDER === 'mock') {
       logger.info('AI running in mock mode', { module: 'api/ai', type });
+      if (reservationId) await completeReservation(reservationId);
       return NextResponse.json({
         result: mockResponse(type, context),
         mock: true,
@@ -221,19 +226,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Call AI
-    const userMessage = prompt.buildUserMessage(context);
-    const { result, inputTokens, outputTokens } = await callAnthropic(prompt.system, userMessage);
+    // Call AI — usage is already reserved; complete on success, release on failure
+    let result: unknown;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    try {
+      const aiResult = await callAnthropic(prompt.system, prompt.buildUserMessage(context));
+      result = aiResult.result;
+      inputTokens = aiResult.inputTokens;
+      outputTokens = aiResult.outputTokens;
+    } catch (aiErr) {
+      if (reservationId) releaseReservation(reservationId).catch(() => {});
+      throw aiErr;
+    }
+
+    if (reservationId) completeReservation(reservationId).catch(() => {});
 
     // Estimate cost (Haiku: $0.25/M input, $1.25/M output)
     const estimatedCost =
       (inputTokens / 1_000_000) * 0.25 +
       (outputTokens / 1_000_000) * 1.25;
-
-    // Record AI case usage against free plan monthly counter (fire-and-forget)
-    if (resolvedShopId) {
-      recordUsage(resolvedShopId, 'ai_cases', 1).catch(() => {});
-    }
 
     // Log cost usage async (don't await — don't block response)
     if (resolvedShopId && user.id) {

@@ -4,6 +4,7 @@ import { requireShopRole, isLastOwner } from '@/lib/serverAuth';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { parseJsonBody, sanitizeError, escapeHtml, isRateLimited, getTrustedSiteUrl } from '@/lib/apiHelpers';
 import { InviteCreateSchema, InviteRoleChangeSchema } from '@/lib/schemas';
+import { checkUsageAccess } from '@/lib/entitlements';
 
 /**
  * POST /api/invite — add a staff member to a shop. If the email has no
@@ -54,6 +55,18 @@ export async function POST(req: NextRequest) {
   }
   if (isRateLimited(`invite:target:${shopId}:${email}`, 3, 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Too many invitations sent to this address. Please try again later.' }, { status: 429 });
+  }
+
+  // Enforce users_total plan limit before creating or adding any user
+  const userLimitCheck = await checkUsageAccess(shopId, 'users_total', 1);
+  if (!userLimitCheck.allowed) {
+    if (userLimitCheck.reasonCode === 'ENTITLEMENT_CHECK_UNAVAILABLE') {
+      return NextResponse.json({ error: 'Service temporarily unavailable. Please try again.' }, { status: 503 });
+    }
+    return NextResponse.json(
+      { error: userLimitCheck.userMessage, upgradeRequired: true, recommendedPlanKey: userLimitCheck.recommendedPlanKey },
+      { status: 402 },
+    );
   }
 
   const admin = createServerSupabase();

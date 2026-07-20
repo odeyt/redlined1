@@ -94,10 +94,16 @@ describe('entitlementEngine -- INTERNAL_SHOP_IDS', () => {
 // ─── Tests: DB error handling ─────────────────────────────────────────────────
 
 describe('entitlementEngine -- DB error fallback', () => {
-  test('getEffectivePlanKey falls back to free on DB error', async () => {
+  test('getEffectivePlanKey throws EntitlementUnavailableError on DB error', async () => {
     mockFrom.mockImplementation(() => { throw new Error('DB connection error'); });
-    const plan = await getEffectivePlanKey(FREE_SHOP);
-    expect(plan).toBe('free');
+    await expect(getEffectivePlanKey(FREE_SHOP)).rejects.toThrow('Entitlement check unavailable');
+  });
+
+  test('checkFeatureAccess returns ENTITLEMENT_CHECK_UNAVAILABLE on DB error', async () => {
+    mockFrom.mockImplementation(() => { throw new Error('DB connection error'); });
+    // Need billing enabled for the DB path to be reached; use isolated engine
+    // In the default BILLING_DISABLED env, this path is short-circuited.
+    // The BILLING_ENABLED=true test suite below covers this more thoroughly.
   });
 });
 
@@ -269,5 +275,23 @@ describe('entitlementEngine -- BILLING_ENABLED=true (isolated)', () => {
     const result = await engine.checkUsageAccess(FREE_SHOP, 'appointments', 999);
     expect(result.allowed).toBe(true);
     expect(result.limit).toBeNull();
+  });
+
+  test('checkFeatureAccess returns ENTITLEMENT_CHECK_UNAVAILABLE on DB error (fail closed)', async () => {
+    mockFrom.mockImplementation(() => { throw new Error('DB down'); });
+    const result = await engine.checkFeatureAccess(FREE_SHOP, 'repair_intelligence');
+    expect(result.allowed).toBe(false);
+    expect(result.reasonCode).toBe('ENTITLEMENT_CHECK_UNAVAILABLE');
+    expect(result.upgradeRequired).toBe(false);
+    expect(result.retryable).toBe(true);
+  });
+
+  test('checkUsageAccess returns ENTITLEMENT_CHECK_UNAVAILABLE on plan DB error (fail closed)', async () => {
+    mockFrom.mockImplementation(() => { throw new Error('DB down'); });
+    const result = await engine.checkUsageAccess(FREE_SHOP, 'ai_cases', 1);
+    expect(result.allowed).toBe(false);
+    expect(result.reasonCode).toBe('ENTITLEMENT_CHECK_UNAVAILABLE');
+    expect(result.upgradeRequired).toBe(false);
+    expect(result.retryable).toBe(true);
   });
 });

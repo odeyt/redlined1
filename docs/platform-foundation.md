@@ -29,9 +29,9 @@ lib/entitlements/
 
 3. **`BILLING_ENABLED=false` allows everything.** The env var `NEXT_PUBLIC_BILLING_ENABLED` defaults to `false`. Set to `true` in production Vercel environment to activate enforcement.
 
-4. **Fail open.** All DB errors in the engine return `allow('..._error')` — never block production due to a transient DB failure.
+4. **Fail closed on infrastructure errors.** DB failures in the engine return `ENTITLEMENT_CHECK_UNAVAILABLE` with `allowed=false`, `upgradeRequired=false`, `retryable=true`. Creation and paid-feature paths are blocked until entitlement state can be verified. Never misrepresent an infra failure as a plan limit.
 
-5. **Fire-and-forget usage recording.** `recordUsage()` calls must be wrapped in `.catch(() => {})`. Never `await` usage recording in the response path.
+5. **Atomic usage reservation.** Use `reserveUsage()` before an action, `completeReservation()` on success, `releaseReservation()` on failure. Two simultaneous requests at the limit cannot both succeed. `recordUsage()` (fire-and-forget) is available for non-critical counters only.
 
 ## Plans
 
@@ -66,28 +66,27 @@ if (!result.allowed) {
 }
 ```
 
-### Check and record usage
+### Atomic usage reservation (preferred for billable actions)
 
 ```typescript
-import { checkUsageAccess, recordUsage } from '@/lib/entitlements';
+import { reserveUsage, completeReservation, releaseReservation } from '@/lib/entitlements';
 
-const entitlement = await checkUsageAccess(shopId, 'ai_cases', 1);
-if (!entitlement.allowed) {
-  return NextResponse.json({
-    error: 'Limit reached',
-    userMessage: entitlement.userMessage,
-    upgradeRequired: true,
-    recommendedPlanKey: entitlement.recommendedPlanKey,
-    limit: entitlement.limit,
-    used: entitlement.used,
-    resetAt: entitlement.resetAt,
-  }, { status: 402 });
+// idempotencyKey deduplicates retries (e.g. request ID, job ID)
+const reservation = await reserveUsage(shopId, 'ai_cases', 1, idempotencyKey);
+if (!reservation) {
+  return NextResponse.json({ error: 'Service temporarily unavailable', retryable: true }, { status: 503 });
+}
+if (!reservation.allowed) {
+  return NextResponse.json({ error: 'Limit reached', upgradeRequired: true }, { status: 402 });
 }
 
-// ... perform the action ...
-
-// Record usage fire-and-forget
-recordUsage(shopId, 'ai_cases', 1).catch(() => {});
+try {
+  await doWork();
+  completeReservation(reservation.reservationId).catch(() => {}); // fire-and-forget
+} catch (err) {
+  releaseReservation(reservation.reservationId).catch(() => {});
+  throw err;
+}
 ```
 
 ### Get upgrade recommendation

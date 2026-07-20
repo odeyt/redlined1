@@ -49,6 +49,10 @@ export {
   assertFeatureAccess,
   assertUsageAccess,
   recordUsage,
+  reserveUsage,
+  completeReservation,
+  releaseReservation,
+  EntitlementUnavailableError,
 } from './entitlementEngine';
 
 // Upgrade Engine
@@ -76,4 +80,5 @@ export type {
   WorkspaceUsageSnapshot,
   WorkspaceEntitlements,
   UpgradeRecommendation,
+  UsageReservation,
 } from './types';

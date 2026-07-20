@@ -97,8 +97,37 @@ export type FeatureKey =
 
 // ─── Feature definitions ──────────────────────────────────────────────────────
 
+/**
+ * Mirrors keyof PlanFeatures without importing from planRegistry (avoids circular dep).
+ * Must stay in sync with PlanFeatures in planRegistry.ts.
+ * When PlanFeatures gains or loses fields, update this union too.
+ */
+export type PlanFeatureFlagKey =
+  | 'unlimitedInvoices'
+  | 'aiAdvisor'
+  | 'smsCredits'
+  | 'digitalInspections'
+  | 'smartIntake'
+  | 'multiLocation'
+  | 'reports'
+  | 'repairIntelligence'
+  | 'triage'
+  | 'prioritySupport'
+  | 'dedicatedAccountManager'
+  | 'whiteLabel'
+  | 'apiAccess';
+
 export interface FeatureDefinition {
   key: FeatureKey;
+  /**
+   * Maps to the camelCase key in PlanFeatures, or null if this feature has
+   * no boolean plan flag (it is either universally included or usage-only).
+   *
+   * The entitlement engine uses this field — never runtime key-casting — to
+   * look up boolean plan flags. A null value means the feature is structurally
+   * available on all plans; access is gated solely by usageMetric (if set).
+   */
+  planFeatureKey: PlanFeatureFlagKey | null;
   name: string;
   description: string;
   category: FeatureCategory;
@@ -113,6 +142,7 @@ export interface FeatureDefinition {
 export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   customer_management: {
     key: 'customer_management',
+    planFeatureKey: null, // structurally included; gated by customers_total limit
     name: 'Customer Management',
     description: 'Create and manage customer profiles',
     category: 'CUSTOMERS',
@@ -122,6 +152,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   vehicle_management: {
     key: 'vehicle_management',
+    planFeatureKey: null, // structurally included; gated by vehicles_total limit
     name: 'Vehicle Management',
     description: 'Track vehicle history and records',
     category: 'VEHICLES',
@@ -131,6 +162,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   job_management: {
     key: 'job_management',
+    planFeatureKey: null, // structurally included; gated by completed_jobs limit
     name: 'Job Cards & Repair Orders',
     description: 'Create estimates, repair orders, and track completed jobs',
     category: 'JOBS',
@@ -140,6 +172,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   estimate_management: {
     key: 'estimate_management',
+    planFeatureKey: null, // structurally included on all plans
     name: 'Estimates',
     description: 'Create and send repair estimates',
     category: 'JOBS',
@@ -149,6 +182,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   invoice_management: {
     key: 'invoice_management',
+    planFeatureKey: null, // structurally included on all plans
     name: 'Invoicing',
     description: 'Create and send invoices',
     category: 'INVOICING',
@@ -158,6 +192,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   unlimited_invoices: {
     key: 'unlimited_invoices',
+    planFeatureKey: 'unlimitedInvoices',
     name: 'Unlimited Invoices',
     description: 'No monthly cap on invoices created',
     category: 'INVOICING',
@@ -167,6 +202,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   calendar: {
     key: 'calendar',
+    planFeatureKey: null, // structurally included; gated by appointments limit
     name: 'Appointments & Scheduling',
     description: 'Schedule and manage service appointments',
     category: 'CALENDAR',
@@ -176,6 +212,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   digital_vehicle_inspections: {
     key: 'digital_vehicle_inspections',
+    planFeatureKey: 'digitalInspections',
     name: 'Digital Vehicle Inspections',
     description: 'Conduct and share digital inspection reports',
     category: 'DVI',
@@ -185,6 +222,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   ai_diagnostics: {
     key: 'ai_diagnostics',
+    planFeatureKey: 'aiAdvisor', // both ai_diagnostics and ai_service_advisor share this flag
     name: 'AI Diagnostics',
     description: 'AI-powered DTC explanations and repair guidance',
     category: 'AI',
@@ -194,6 +232,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   ai_service_advisor: {
     key: 'ai_service_advisor',
+    planFeatureKey: 'aiAdvisor',
     name: 'AI Service Advisor',
     description: 'AI-generated estimates and customer communications',
     category: 'AI',
@@ -203,6 +242,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   vin_lookup: {
     key: 'vin_lookup',
+    planFeatureKey: null, // structurally included; gated by vin_lookups limit
     name: 'VIN Decoder',
     description: 'Decode VINs to auto-fill vehicle information',
     category: 'VEHICLES',
@@ -212,6 +252,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   sms_notifications: {
     key: 'sms_notifications',
+    planFeatureKey: 'smsCredits',
     name: 'SMS Notifications',
     description: 'Send SMS updates to customers',
     category: 'COMMUNICATION',
@@ -221,6 +262,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   basic_reports: {
     key: 'basic_reports',
+    planFeatureKey: 'reports',
     name: 'Basic Reports',
     description: 'Revenue and job summary reports',
     category: 'REPORTING',
@@ -230,6 +272,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   advanced_reports: {
     key: 'advanced_reports',
+    planFeatureKey: 'reports',
     name: 'Advanced Reports',
     description: 'Detailed analytics and custom reports',
     category: 'REPORTING',
@@ -239,6 +282,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   repair_intelligence: {
     key: 'repair_intelligence',
+    planFeatureKey: 'repairIntelligence',
     name: 'Repair Intelligence',
     description: 'AI-powered repair history and predictive recommendations',
     category: 'AI',
@@ -248,6 +292,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   smart_intake: {
     key: 'smart_intake',
+    planFeatureKey: 'smartIntake',
     name: 'Smart Intake',
     description: 'AI-powered service intake and pre-diagnosis',
     category: 'AI',
@@ -257,6 +302,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   triage: {
     key: 'triage',
+    planFeatureKey: 'triage',
     name: 'AI Triage',
     description: 'Guided diagnostic question flow',
     category: 'AI',
@@ -266,6 +312,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   multi_location: {
     key: 'multi_location',
+    planFeatureKey: 'multiLocation',
     name: 'Multi-Location',
     description: 'Manage multiple shop locations',
     category: 'LOCATIONS',
@@ -275,6 +322,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   multi_user: {
     key: 'multi_user',
+    planFeatureKey: null, // no boolean plan flag; gated by users_total limit
     name: 'Team Members',
     description: 'Invite and manage multiple team members',
     category: 'USERS',
@@ -284,6 +332,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   technician_management: {
     key: 'technician_management',
+    planFeatureKey: null, // no boolean plan flag; gated by technicians_total limit
     name: 'Technician Management',
     description: 'Assign and track technician work',
     category: 'TECHNICIANS',
@@ -293,6 +342,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   priority_support: {
     key: 'priority_support',
+    planFeatureKey: 'prioritySupport',
     name: 'Priority Support',
     description: 'Faster response times and dedicated support queue',
     category: 'SUPPORT',
@@ -302,6 +352,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   dedicated_account_manager: {
     key: 'dedicated_account_manager',
+    planFeatureKey: 'dedicatedAccountManager',
     name: 'Dedicated Account Manager',
     description: 'Personal account manager for onboarding and growth',
     category: 'SUPPORT',
@@ -311,6 +362,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   white_label: {
     key: 'white_label',
+    planFeatureKey: 'whiteLabel',
     name: 'White Label',
     description: 'Custom branding on customer-facing documents',
     category: 'ADMIN',
@@ -320,6 +372,7 @@ export const FEATURE_REGISTRY: Record<FeatureKey, FeatureDefinition> = {
   },
   api_access: {
     key: 'api_access',
+    planFeatureKey: 'apiAccess',
     name: 'API Access',
     description: 'Developer API for custom integrations',
     category: 'ADMIN',

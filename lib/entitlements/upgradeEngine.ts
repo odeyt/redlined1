@@ -66,9 +66,12 @@ export function buildUpgradeRecommendation(
  */
 export function recommendPlanForFeature(featureKey: FeatureKey): UpgradeRecommendation {
   const featureDef = FEATURE_REGISTRY[featureKey];
+  const planFeatureKey = FEATURE_REGISTRY[featureKey]?.planFeatureKey;
   for (const key of PLAN_ORDER) {
     const plan = PLAN_REGISTRY[key];
-    if (plan.features[featureKey as keyof typeof plan.features]) {
+    const hasFeature = planFeatureKey === null || // structurally included
+      (planFeatureKey !== undefined && plan.features[planFeatureKey] === true);
+    if (hasFeature) {
       return {
         upgradeRequired: true,
         currentPlanKey: 'free',
@@ -106,7 +109,8 @@ function findMinimumUpgrade(denial: EntitlementResult): PlanKey | null {
     const plan = PLAN_REGISTRY[key];
 
     if (denial.featureKey) {
-      const has = plan.features[denial.featureKey as keyof typeof plan.features];
+      const pfk = FEATURE_REGISTRY[denial.featureKey]?.planFeatureKey;
+      const has = pfk === null || (pfk !== undefined && plan.features[pfk] === true);
       if (has) return key;
     } else if (denial.metricKey) {
       const needed = (denial.used ?? 0) + 1;
