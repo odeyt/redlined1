@@ -1,6 +1,52 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getAdminDb } from '@/lib/supabaseServer';
+
+const INTERNAL_SHOP_IDS = new Set([
+  '38d55fae-741b-4bac-b520-f96eed65bf38',
+  '90b72748-bf01-4456-999f-f4ba48091606',
+]);
+
+// Ensure a new user lands on Free Forever.
+// Safe to call repeatedly — only patches if plan is still the bad default or unset.
+async function ensureFreeProfile(userId: string) {
+  try {
+    const db = getAdminDb();
+    const { data: profile } = await db
+      .from('profiles')
+      .select('plan, shop_id, billing_status')
+      .eq('id', userId)
+      .maybeSingle();
+
+    // Skip internal D1 shops — always pro in app logic
+    if (profile?.shop_id && INTERNAL_SHOP_IDS.has(profile.shop_id)) return;
+
+    // Skip if already on a paid or free plan set deliberately
+    if (profile?.billing_status === 'active' || profile?.billing_status === 'paid') return;
+    if (profile?.plan === 'free' && profile?.billing_status === 'free') return;
+
+    // Patch: no profile, or still on bad column default ('starter'), or legacy 'trial' without a date
+    const needsPatch =
+      !profile ||
+      profile.plan === 'starter' ||
+      profile.plan === 'trial' ||
+      !profile.plan;
+
+    if (!needsPatch) return;
+
+    await db
+      .from('profiles')
+      .upsert({
+        id: userId,
+        plan: 'free',
+        trial_ends_at: null,
+        billing_status: 'free',
+      }, { onConflict: 'id' });
+  } catch (e) {
+    console.error('[auth/callback] ensureFreeProfile failed:', e);
+  }
+}
 
 // Reviewed, scoped compatibility fix for the invite-link flow added in
 // app/api/invite/route.ts: `next` is redirected to unauthenticated (right
@@ -31,9 +77,6 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies();
 
-    // Collect cookies set during the code exchange so we can attach them to
-    // the redirect response — cookies() in GET route handlers must be explicitly
-    // forwarded onto the NextResponse, otherwise the browser never receives them.
     const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
     const supabase = createServerClient(
@@ -51,11 +94,15 @@ export async function GET(request: Request) {
       }
     );
 
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
+      // Ensure new users land on Free Forever before redirecting
+      if (sessionData?.user?.id) {
+        await ensureFreeProfile(sessionData.user.id);
+      }
+
       const response = NextResponse.redirect(`${origin}${next}`);
-      // Forward session cookies onto the redirect response
       cookiesToSet.forEach(({ name, value, options }) => {
         response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
       });
