@@ -1,9 +1,33 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { PRIVATE_ROUTE_PREFIXES } from '@/lib/seo/config';
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Non-production: noindex everything ────────────────────────────────
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv === 'preview' || vercelEnv === 'development') {
+    const r = NextResponse.next();
+    r.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return r;
+  }
+
+  // ── Trailing slash redirect ────────────────────────────────────────────
+  if (pathname.endsWith('/') && pathname.length > 1) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/\/$/, '');
+    return NextResponse.redirect(url, { status: 301 });
+  }
+
   const response = NextResponse.next();
+
+  // ── Private routes: add noindex header ────────────────────────────────
+  const isPrivate = PRIVATE_ROUTE_PREFIXES.some(p => pathname.startsWith(p));
+  if (isPrivate) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
