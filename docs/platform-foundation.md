@@ -82,9 +82,9 @@ if (!reservation.allowed) {
 
 try {
   await doWork();
-  completeReservation(reservation.reservationId).catch(() => {}); // fire-and-forget
+  await completeReservation(reservation.reservationId);
 } catch (err) {
-  releaseReservation(reservation.reservationId).catch(() => {});
+  try { await releaseReservation(reservation.reservationId); } catch {}
   throw err;
 }
 ```

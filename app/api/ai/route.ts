@@ -236,11 +236,31 @@ export async function POST(req: NextRequest) {
       inputTokens = aiResult.inputTokens;
       outputTokens = aiResult.outputTokens;
     } catch (aiErr) {
-      if (reservationId) releaseReservation(reservationId).catch(() => {});
+      if (reservationId) {
+        try {
+          await releaseReservation(reservationId);
+        } catch (releaseErr) {
+          logger.warn('Failed to release reservation after AI error', {
+            module: 'api/ai',
+            reservationId,
+            error: String(releaseErr),
+          });
+        }
+      }
       throw aiErr;
     }
 
-    if (reservationId) completeReservation(reservationId).catch(() => {});
+    if (reservationId) {
+      try {
+        await completeReservation(reservationId);
+      } catch (completeErr) {
+        logger.warn('Failed to complete reservation after AI success', {
+          module: 'api/ai',
+          reservationId,
+          error: String(completeErr),
+        });
+      }
+    }
 
     // Estimate cost (Haiku: $0.25/M input, $1.25/M output)
     const estimatedCost =

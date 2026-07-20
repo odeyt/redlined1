@@ -333,6 +333,7 @@ export async function checkUsageAccess(
   requestedQuantity = 1,
 ): Promise<EntitlementResult> {
   if (INTERNAL_SHOP_IDS.has(workspaceId)) {
+    logger.info('Entitlement: internal override', { module: 'entitlementEngine', workspaceId, metricKey });
     const plan = getPlanOrFree('enterprise');
     return allowed(workspaceId, plan, 'INTERNAL_OVERRIDE', 'D1 internal shop — full access', { metricKey });
   }
@@ -585,6 +586,7 @@ export async function reserveUsage(
   idempotencyKey: string,
 ): Promise<(UsageReservation & { allowed: boolean }) | null> {
   if (INTERNAL_SHOP_IDS.has(workspaceId)) {
+    logger.info('Entitlement: internal override (reservation)', { module: 'entitlementEngine', workspaceId, metricKey });
     // Internal shops: always allow, skip DB reservation
     return {
       reservationId: crypto.randomUUID(),
