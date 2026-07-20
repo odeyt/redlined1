@@ -211,6 +211,18 @@ is momentarily missing would be a worse outcome than one missing log row).
 Covered by test: *"an audit-log insert failure never blocks or reverses an
 already-successful transition."*
 
+**Phase 10 re-review (mobile-production-readiness task):** re-read the
+migration against that task's more detailed audit-log checklist. One gap
+found and fixed: `request_id` had no uniqueness constraint. Added
+`UNIQUE (request_id)` — `request_id` is always server-generated via
+`crypto.randomUUID()` per request, never client-supplied, so this is a
+data-integrity guarantee (one HTTP request can produce at most one audit
+row) rather than a defense against a hostile client. Every other item on
+that checklist (schema correctness, RLS enabled, clients cannot insert
+directly, protected route can insert, read access restricted, no
+unnecessary PII, all required fields present, fail-open documented) was
+already satisfied by the original design and is unchanged.
+
 ## Error contract
 
 Every response from this route — success or failure — is JSON. Every

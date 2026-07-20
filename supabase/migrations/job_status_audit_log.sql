@@ -20,9 +20,16 @@ CREATE TABLE IF NOT EXISTS public.job_status_transitions (
   from_stage text        NOT NULL,
   to_stage   text        NOT NULL,
   request_id text        NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT job_status_transitions_request_id_key UNIQUE (request_id)
 );
 
+-- request_id is server-generated via crypto.randomUUID() per request
+-- (app/api/job-status/route.ts), never client-supplied, so a genuine
+-- collision is not expected — the UNIQUE constraint (and its implicit
+-- index, used for the lookups below) is a data-integrity guarantee that
+-- one HTTP request can never produce two audit rows, not a defense
+-- against an adversarial client.
 CREATE INDEX IF NOT EXISTS job_status_transitions_job_idx
   ON public.job_status_transitions (job_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS job_status_transitions_shop_idx

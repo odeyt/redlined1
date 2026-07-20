@@ -1,0 +1,135 @@
+-- ============================================================================
+-- REDLINED1 — RLS REMEDIATION ROLLBACK
+-- Companion to the 6 forward migrations in supabase/migrations/20260720_*.sql
+--
+-- READ THIS FIRST: almost every statement in the forward migrations makes
+-- the database MORE restrictive (enables RLS where it was missing, narrows
+-- a permissive policy to a shop-scoped one, revokes an anon grant). A
+-- "rollback" of a security-hardening change is, definitionally, a security
+-- downgrade. Per this task's own instruction:
+--
+--   "Rollback must be carefully scoped. Do not provide a rollback that
+--    leaves private data openly accessible. Where rollback would reduce
+--    security, document that application rollback is preferred over
+--    policy rollback."
+--
+-- **Preferred rollback path: revert the deployed application code/commit,
+-- not the database policies.** If a new policy breaks a legitimate feature
+-- (e.g. a client-side query that assumed unrestricted access), the correct
+-- fix is almost always to add a *new, still-secure* policy that permits
+-- the legitimate access pattern — not to remove the security boundary that
+-- exposed the bug. Every one of these tables was working under a real
+-- authorization gap before this remediation; reopening that gap to fix an
+-- application bug trades a confirmed security hole for a UI inconvenience.
+--
+-- Sections below are ordered by how safe they are to actually run, safest
+-- first. Sections marked ⚠ REDUCES SECURITY are commented out by default —
+-- uncommenting and running them is a deliberate decision to reopen a known
+-- gap, and should only be done as a temporary last resort to restore a
+-- broken production app while a proper forward fix is prepared, with a
+-- ticket/tracked follow-up to re-apply the real fix immediately after.
+-- ============================================================================
+
+
+-- ============================================================================
+-- SAFE — genuinely reduces to a neutral (not insecure) prior state.
+-- ============================================================================
+
+-- Drop the shop_users.role CHECK constraint (20260720_02). Safe to remove:
+-- it only rejects invalid inserts/updates, it does not gate any read/write
+-- access. Removing it returns to "no constraint", not to any exposure.
+ALTER TABLE public.shop_users DROP CONSTRAINT IF EXISTS shop_users_role_check;
+
+
+-- ============================================================================
+-- ⚠ REDUCES SECURITY — commented out by default. Only for emergency,
+-- temporary restoration of a specific broken feature, with a tracked
+-- follow-up to re-apply the real fix. Prefer reverting the application
+-- deployment instead (see header).
+-- ============================================================================
+
+-- ── Storage (20260720_06) — reopens anon upload/delete on shop-assets ──────
+-- DROP POLICY IF EXISTS "shop_assets_authenticated_write" ON storage.objects;
+-- DROP POLICY IF EXISTS "shop_assets_authenticated_update" ON storage.objects;
+-- DROP POLICY IF EXISTS "shop_assets_authenticated_delete" ON storage.objects;
+-- -- Restores the exact pre-remediation state: anon can upload/update/delete
+-- -- in a bucket that is ALSO public for reads. Only ever do this if the new
+-- -- policy is confirmed to be blocking a legitimate authenticated upload
+-- -- flow (it should not — it only blocks `anon`) — investigate that bug
+-- -- directly rather than reopening anonymous write access to fix it.
+
+-- ── Financial tables (20260720_05) — reopens payments/subscriptions to
+--    every shop role including technician, and to anon ─────────────────────
+-- DROP POLICY IF EXISTS "payments_financial_read" ON public.payments;
+-- DROP POLICY IF EXISTS "payments_financial_insert" ON public.payments;
+-- DROP POLICY IF EXISTS "payments_financial_update" ON public.payments;
+-- DROP POLICY IF EXISTS "payments_owner_manager_delete" ON public.payments;
+-- CREATE POLICY "payments_shop_scoped" ON public.payments
+--   FOR ALL TO authenticated
+--   USING (shop_id = ANY (public.my_shop_ids()))
+--   WITH CHECK (shop_id = ANY (public.my_shop_ids()));
+-- -- ^ This restores shop-scoping (still safe re: tenant isolation) but
+-- -- DROPS the technician-exclusion role gate — this task explicitly
+-- -- requires technicians be denied payments access, so this specific
+-- -- rollback reintroduces a requirement violation, not just a "nice to
+-- -- have". Only use if the role gate itself is confirmed to be the bug,
+-- -- not as a generic "payments policy is causing errors" fallback.
+-- ALTER TABLE public.subscriptions DISABLE ROW LEVEL SECURITY;
+-- -- ^ Do not run this line under any circumstance without also removing
+-- -- the anon grant separately — disabling RLS on a table with any
+-- -- remaining anon grant is exactly the shops/shop_users incident this
+-- -- whole remediation exists to fix. If subscriptions RLS must be
+-- -- temporarily lifted, at minimum leave `REVOKE ALL ... FROM anon` in
+-- -- place from the forward migration.
+
+-- ── Unprotected-table closure (20260720_04) — reopens ~18 tables that had
+--    NO RLS at all before this remediation, including audit_logs and
+--    messages ──────────────────────────────────────────────────────────────
+-- -- Deliberately NOT provided as a ready-to-run block. These tables were
+-- -- fully open (anon CRUD, no RLS) before 20260720_04 — there is no
+-- -- "neutral" rollback for them, only "fully open" or "closed". If
+-- -- 20260720_04 is suspected of breaking something, the almost-certain
+-- -- explanation is that a legitimate feature was quietly depending on one
+-- -- of these tables being unrestricted (e.g. a client-side read of
+-- -- `technician_tasks` or `time_entries` that this session found no
+-- -- evidence of, but may exist in a code path not covered by this
+-- -- session's search). Diagnose which specific table and command is
+-- -- failing, then add a real, scoped policy for exactly that access
+-- -- pattern — do not blanket `ALTER TABLE ... DISABLE ROW LEVEL SECURITY`
+-- -- across all of them to "make the error go away".
+
+-- ── Business-table policies (20260720_03) — reopens profiles/technicians/
+--    campaigns/estimate_followups to platform-wide or unscoped access ──────
+-- DROP POLICY IF EXISTS "profiles_shop_scoped_read" ON public.profiles;
+-- CREATE POLICY "profiles_read" ON public.profiles FOR SELECT TO authenticated USING (true);
+-- -- ^ Restores platform-wide profile visibility for every authenticated
+-- -- user, at every shop. This is the exact permissive pattern flagged as a
+-- -- HIGH finding in docs/DATABASE_SECURITY_FINDINGS.md.
+-- DROP POLICY IF EXISTS "technicians_shop_scoped" ON public.technicians;
+-- CREATE POLICY "technicians_read" ON public.technicians FOR SELECT TO authenticated USING (true);
+-- -- ^ Same pattern, technicians table.
+-- DROP POLICY IF EXISTS "campaigns_shop_scoped" ON public.campaigns;
+-- CREATE POLICY "campaigns_staff_all" ON public.campaigns FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ALTER TABLE public.estimate_followups DISABLE ROW LEVEL SECURITY;
+-- -- ^ estimate_followups had NO RLS before this remediation — same "no
+-- -- neutral rollback" caveat as the 20260720_04 group above applies here.
+
+-- ── Helper functions (20260720_01) — only drop these if EVERY policy that
+--    references them has already been rolled back above; Postgres will
+--    refuse to drop a function still referenced by a live policy, which is
+--    a useful safety check, not an obstacle to work around. ─────────────────
+-- DROP FUNCTION IF EXISTS public.current_user_can_manage_staff(uuid);
+-- DROP FUNCTION IF EXISTS public.current_user_can_read_financials(uuid);
+-- DROP FUNCTION IF EXISTS public.current_user_has_shop_role(uuid, text[]);
+-- DROP FUNCTION IF EXISTS public.current_user_is_shop_member(uuid);
+
+
+-- ============================================================================
+-- NOT INCLUDED HERE: shops/shop_users (docs/PRODUCTION_SECURITY_REMEDIATION.sql)
+-- That script has its own rollback block, already scoped by whoever
+-- authored it, at its own bottom — use that one for those two tables, not
+-- this file. Its rollback is equally an ⚠ REDUCES SECURITY action
+-- (restores the VERIFIED LIVE anonymous-read exposure this whole
+-- remediation started from) and carries the same "prefer application
+-- rollback" guidance.
+-- ============================================================================
