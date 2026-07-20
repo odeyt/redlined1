@@ -138,6 +138,7 @@ export default function AISoftwarePage() {
           <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Related tools</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
+              { href: '/automotive-business-operating-system', label: 'Automotive Business Operating System', desc: 'How AI fits into the full RedlineD1 platform.' },
               { href: '/tools/missed-revenue-calculator', label: 'Missed Revenue Calculator', desc: 'Estimate the revenue impact of lapsed customers at your shop.' },
               { href: '/tools/labor-rate-calculator', label: 'Labor Rate Calculator', desc: 'Make sure your labor rate covers your actual costs.' },
               { href: '/repair-order-software', label: 'Repair Order Software', desc: 'The operational data the intelligence engine runs on.' },

@@ -43,6 +43,9 @@ export async function proxy(request: NextRequest) {
       '/mobile-mechanic-software', '/digital-vehicle-inspection-software',
       '/auto-repair-invoicing-software', '/repair-order-software',
       '/ai-auto-repair-shop-software', '/pricing', '/tools', '/resources', '/compare',
+      '/auto-repair-estimate-software', '/multi-location-auto-repair-software',
+      '/solo-mechanic-shop-software', '/auto-repair-crm',
+      '/technician-time-tracking', '/automotive-business-operating-system',
     ];
     const isPublicFallback = fallbackPublic.some(p => request.nextUrl.pathname.startsWith(p));
     if (!isPublicFallback) {
@@ -91,6 +94,12 @@ export async function proxy(request: NextRequest) {
     '/tools',
     '/resources',
     '/compare',
+    '/auto-repair-estimate-software',
+    '/multi-location-auto-repair-software',
+    '/solo-mechanic-shop-software',
+    '/auto-repair-crm',
+    '/technician-time-tracking',
+    '/automotive-business-operating-system',
   ];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';

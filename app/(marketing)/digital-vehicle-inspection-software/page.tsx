@@ -139,6 +139,7 @@ export default function DVISoftwarePage() {
           <p style={{ fontSize: 14, color: 'var(--muted, #666)', marginBottom: 28 }}>Build a complete inspection workflow with these resources.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
+              { href: '/auto-repair-estimate-software', label: 'Auto Repair Estimate Software', desc: 'Convert inspection findings into customer estimates in one step.' },
               { href: '/resources/digital-vehicle-inspection-checklist', label: 'Free DVI Checklist', desc: 'A printable multi-point inspection checklist to use as a starting point or handoff guide.' },
               { href: '/auto-repair-invoicing-software', label: 'Auto Repair Invoicing Software', desc: 'Close the loop from inspection approval to invoice in one connected workflow.' },
               { href: '/mobile-mechanic-software', label: 'Mobile Mechanic Software', desc: 'Run DVIs in the field from a phone or tablet.' },

@@ -197,6 +197,7 @@ export default function MobileMechanicSoftwarePage() {
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Related resources</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
+            { href: '/solo-mechanic-shop-software', label: 'Solo Mechanic Shop Software', desc: 'Full workflow for one-person operations — not just mobile jobs.' },
             { href: '/digital-vehicle-inspection-software', label: 'Digital Vehicle Inspection Software', desc: 'How photo-based DVIs increase customer approvals.' },
             { href: '/auto-repair-invoicing-software', label: 'Auto Repair Invoicing Software', desc: 'Estimate to invoice in one connected workflow.' },
             { href: '/tools/labor-rate-calculator', label: 'Labor Rate Calculator', desc: 'Calculate your break-even and target labor rate.' },

@@ -104,7 +104,7 @@ export const INTERNAL_LINKS: InternalLink[] = [
     pageType: 'feature',
     topics: ['estimates', 'quoting', 'labor guide', 'parts markup'],
     priority: 'medium',
-    status: 'planned',
+    status: 'published',
   },
   {
     key: 'multi-location-auto-repair-software',
@@ -114,7 +114,7 @@ export const INTERNAL_LINKS: InternalLink[] = [
     pageType: 'feature',
     topics: ['multi-location', 'chain shops', 'automotive franchise'],
     priority: 'medium',
-    status: 'planned',
+    status: 'published',
   },
   {
     key: 'solo-mechanic-shop-software',
@@ -124,7 +124,37 @@ export const INTERNAL_LINKS: InternalLink[] = [
     pageType: 'feature',
     topics: ['solo mechanic', 'one-person shop', 'small shop software'],
     priority: 'medium',
-    status: 'planned',
+    status: 'published',
+  },
+  {
+    key: 'auto-repair-crm',
+    href: '/auto-repair-crm',
+    label: 'Auto Repair CRM',
+    description: 'Customer profiles, vehicle history, and service relationship management.',
+    pageType: 'feature',
+    topics: ['CRM', 'customer management', 'vehicle history', 'customer retention'],
+    priority: 'medium',
+    status: 'published',
+  },
+  {
+    key: 'technician-time-tracking',
+    href: '/technician-time-tracking',
+    label: 'Technician Time Tracking',
+    description: 'Clock-in/clock-out, job assignments, and technician efficiency tracking.',
+    pageType: 'feature',
+    topics: ['time tracking', 'technician productivity', 'clock in clock out', 'billable hours'],
+    priority: 'medium',
+    status: 'published',
+  },
+  {
+    key: 'automotive-business-operating-system',
+    href: '/automotive-business-operating-system',
+    label: 'Automotive Business Operating System',
+    description: 'RedlineD1 as a complete operating system for automotive repair businesses.',
+    pageType: 'feature',
+    topics: ['shop management', 'automotive OS', 'business operating system', 'all-in-one shop software'],
+    priority: 'medium',
+    status: 'published',
   },
 
   // ── Calculator tools ─────────────────────────────────────────────────────
@@ -156,7 +186,7 @@ export const INTERNAL_LINKS: InternalLink[] = [
     pageType: 'tool',
     topics: ['technician efficiency', 'labor productivity', 'billed hours'],
     priority: 'medium',
-    status: 'planned',
+    status: 'published',
   },
 
   // ── Resources ────────────────────────────────────────────────────────────
@@ -210,7 +240,7 @@ export const INTERNAL_LINKS: InternalLink[] = [
     pageType: 'comparison',
     topics: ['Shopmonkey alternative', 'Shopmonkey vs RedlineD1'],
     priority: 'medium',
-    status: 'planned',
+    status: 'published',
   },
 
   // ── Legal ────────────────────────────────────────────────────────────────

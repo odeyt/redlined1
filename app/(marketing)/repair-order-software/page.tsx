@@ -132,6 +132,7 @@ export default function RepairOrderSoftwarePage() {
           <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Related pages</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
+              { href: '/auto-repair-estimate-software', label: 'Auto Repair Estimate Software', desc: 'How estimates convert into repair orders in one click.' },
               { href: '/auto-repair-invoicing-software', label: 'Auto Repair Invoicing Software', desc: 'Close the billing loop from RO to paid invoice.' },
               { href: '/digital-vehicle-inspection-software', label: 'Digital Vehicle Inspection Software', desc: 'DVI that flows into your RO workflow.' },
               { href: '/ai-auto-repair-shop-software', label: 'AI Shop Intelligence', desc: 'Revenue intelligence built on your RO data.' },

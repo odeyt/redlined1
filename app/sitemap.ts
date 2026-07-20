@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-const ORIGIN = 'https://redlined1.com';
+const ORIGIN = 'https://www.redlined1.com';
 
 type SitemapEntry = MetadataRoute.Sitemap[number];
 
@@ -33,6 +33,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url('/auto-repair-estimate-software', { priority: 0.8 }),
     url('/multi-location-auto-repair-software', { priority: 0.8 }),
     url('/solo-mechanic-shop-software', { priority: 0.8 }),
+    url('/auto-repair-crm', { priority: 0.8 }),
+    url('/technician-time-tracking', { priority: 0.8 }),
+    url('/automotive-business-operating-system', { priority: 0.8 }),
 
     // ── Tools ─────────────────────────────────────────────────────────
     url('/tools/labor-rate-calculator', { priority: 0.8 }),
@@ -47,7 +50,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url('/compare', { priority: 0.7 }),
     url('/compare/redlined1-vs-tekmetric', { priority: 0.7 }),
     url('/compare/redlined1-vs-shopmonkey', { priority: 0.7 }),
-    url('/compare/redlined1-vs-autoleap', { priority: 0.7 }),
+
 
     // ── Legal ─────────────────────────────────────────────────────────
     url('/privacy', { changeFrequency: 'yearly', priority: 0.3 }),

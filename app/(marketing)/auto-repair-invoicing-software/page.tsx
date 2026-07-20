@@ -132,6 +132,7 @@ export default function InvoicingSoftwarePage() {
           <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Related pages</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
+              { href: '/auto-repair-estimate-software', label: 'Auto Repair Estimate Software', desc: 'Estimates that turn into repair orders that turn into invoices.' },
               { href: '/repair-order-software', label: 'Repair Order Software', desc: 'Manage the full repair workflow from intake to close.' },
               { href: '/digital-vehicle-inspection-software', label: 'Digital Vehicle Inspection Software', desc: 'Inspections that connect to your invoicing workflow.' },
               { href: '/tools/missed-revenue-calculator', label: 'Missed Revenue Calculator', desc: 'See how much revenue lapsed customers represent.' },
