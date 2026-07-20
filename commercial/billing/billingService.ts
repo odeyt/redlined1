@@ -113,6 +113,26 @@ export async function processWebhook(
           pastDueAt:        update.pastDueAt ?? undefined,
           cancelAtPeriodEnd: update.cancelAtPeriodEnd,
         });
+
+        // On cancellation or expiry — downgrade profiles.plan to 'free' (no lockout, no data loss)
+        if (update.status === 'cancelled' || update.status === 'expired') {
+          try {
+            const { data: shopUsers } = await db
+              .from('shop_users')
+              .select('user_id')
+              .eq('shop_id', result.shopId);
+            if (shopUsers?.length) {
+              const userIds = shopUsers.map((u: { user_id: string }) => u.user_id);
+              await db
+                .from('profiles')
+                .update({ plan: 'free', billing_status: 'free', trial_ends_at: null })
+                .in('id', userIds)
+                .not('billing_status', 'in', '("active","paid")');
+            }
+          } catch (downgradeErr) {
+            console.error('[billingService] free downgrade failed:', downgradeErr);
+          }
+        }
       }
     }
 
