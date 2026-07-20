@@ -162,7 +162,7 @@ export function HeroSection() {
           >
             {/* Shimmer overlay */}
             <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%)', backgroundSize: '400px 100%', animation: 'hero-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-            Start Free Trial — 7 Days
+            Start Free — No Credit Card Required
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
               <path d="M3 9h12M10 4l5 5-5 5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -280,8 +280,8 @@ export function HeroSection() {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
             <Link href="/signup" className="hero-plan-btn" style={{ padding: '12px 22px', borderRadius: 10, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: 13, transition: 'all 0.2s', display: 'block' }}>
-              <div>Free Trial</div>
-              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>7 days free</div>
+              <div>Free Forever</div>
+              <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>$0 · no card</div>
             </Link>
             {QUICK_PLANS.map(plan => (
               <button

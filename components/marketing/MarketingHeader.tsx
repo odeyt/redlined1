@@ -41,14 +41,14 @@ const NAV_ITEMS = [
       { label: 'Solo — $24/mo', href: '#pricing', desc: 'For independent and mobile mechanics' },
       { label: 'Starter — $49/mo', href: '#pricing', desc: 'For small shops building a team' },
       { label: 'Professional — $99/mo', href: '#pricing', desc: 'Most popular — AI intelligence included' },
-      { label: 'Business — $179/mo', href: '#pricing', desc: 'Multi-location, unlimited seats' },
+      { label: 'Business — $179/mo', href: '#pricing', desc: 'Multi-location, unlimited technician seats' },
     ],
   },
   {
     label: 'FAQ',
     href: '#faq',
     dropdown: [
-      { label: 'Free trial details', href: '#faq', desc: '7 days full access, no card required' },
+      { label: 'Free Forever plan', href: '#faq', desc: 'Start free, no credit card required' },
       { label: 'Data import options', href: '#faq', desc: 'CSV and full migration supported' },
       { label: 'Mobile app', href: '#faq', desc: 'Installable PWA, works on any device' },
       { label: 'Support', href: '#faq', desc: 'Email admin@redlined1.com anytime' },
@@ -213,7 +213,7 @@ export function MarketingHeader() {
               position: 'relative', overflow: 'hidden', display: 'inline-block',
             }}>
               <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '200px 100%', animation: 'nav-btn-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-              Start Free Trial
+              Start Free
             </Link>
           </>
         </div>
@@ -298,7 +298,7 @@ export function MarketingHeader() {
               background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',
               animation: 'nav-btn-pulse 2.5s ease-in-out infinite',
             }}>
-              Start Free Trial
+              Start Free
             </Link>
           </div>
         </div>

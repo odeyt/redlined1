@@ -194,7 +194,7 @@ export function MobileMechanicSection() {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 28 }}>
               <Link href="/signup" style={{ padding: '13px 28px', borderRadius: 12, fontWeight: 700, fontSize: 14, textDecoration: 'none', background: 'linear-gradient(135deg,#e52020,#aa0000)', color: '#fff', boxShadow: '0 4px 20px rgba(204,0,0,0.4)', display: 'inline-block' }}>
-                Start Free Trial
+                Start Free
               </Link>
               <a href="#mm-features" style={{ padding: '13px 24px', borderRadius: 12, fontWeight: 600, fontSize: 14, textDecoration: 'none', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)', display: 'inline-block' }}>
                 See All Features
@@ -361,11 +361,11 @@ export function MobileMechanicSection() {
             Run your mobile mechanic business<br />from the road — starting today.
           </h2>
           <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.4)', maxWidth: 480, margin: 0, lineHeight: 1.8 }}>
-            7-day free trial. No credit card required. Works on any phone, tablet, or laptop.
+            Free to start — no credit card required. Works on any phone, tablet, or laptop.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
             <Link href="/signup" style={{ padding: '14px 32px', borderRadius: 12, fontWeight: 700, fontSize: 15, textDecoration: 'none', background: 'linear-gradient(135deg,#e52020,#aa0000)', color: '#fff', boxShadow: '0 4px 24px rgba(204,0,0,0.4)', display: 'inline-block' }}>
-              Start Your Free Trial
+              Start Free
             </Link>
             <a href="#faq" style={{ padding: '14px 24px', borderRadius: 12, fontWeight: 600, fontSize: 15, textDecoration: 'none', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', display: 'inline-block' }}>
               Common Questions

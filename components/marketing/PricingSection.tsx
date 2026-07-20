@@ -5,21 +5,22 @@ import Link from 'next/link';
 
 const PLANS = [
   {
-    key: 'trial',
-    name: 'Trial',
+    key: 'free',
+    name: 'Free Forever',
     monthly: 0,
     annual: 0,
-    tagline: 'Try everything free for 7 days.',
+    tagline: 'Start managing jobs at no cost, no expiry.',
     badge: null,
     featured: false,
     features: [
-      'Full platform access',
-      'Up to 10 jobs',
-      'Digital inspections',
+      'Up to 10 customers & vehicles',
+      'Up to 5 completed jobs/month',
+      'Digital inspections (2/month)',
       'Customer share links',
-      'Email reports',
+      'Estimates & invoices',
+      '1 technician seat',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Start Free',
     ctaStyle: 'outline',
   },
   {
@@ -38,7 +39,7 @@ const PLANS = [
       'Estimates & invoices',
       'Vehicle history',
     ],
-    cta: 'Get Solo',
+    cta: 'Choose Solo',
     ctaStyle: 'outline',
   },
   {
@@ -53,11 +54,9 @@ const PLANS = [
       'Up to 3 technician seats',
       'Everything in Solo',
       'Team job assignments',
-      'Multi-bay scheduling',
-      'Inventory tracking',
       'Priority support',
     ],
-    cta: 'Get Starter',
+    cta: 'Choose Starter',
     ctaStyle: 'outline',
   },
   {
@@ -77,7 +76,7 @@ const PLANS = [
       'Performance analytics',
       'AI estimate assistant',
     ],
-    cta: 'Get Professional',
+    cta: 'Choose Professional',
     ctaStyle: 'primary',
   },
   {
@@ -92,11 +91,10 @@ const PLANS = [
       'Unlimited technician seats',
       'Everything in Professional',
       'Multi-location dashboard',
-      'Fleet management',
       'Custom inspection templates',
       'Dedicated onboarding',
     ],
-    cta: 'Get Business',
+    cta: 'Choose Business',
     ctaStyle: 'outline',
   },
   {
@@ -124,7 +122,6 @@ export function PricingSection() {
   const [annual, setAnnual] = useState(false);
 
   function handlePlanClick(planKey: string) {
-    if (planKey === 'trial') return; // handled by Link
     if (planKey === 'enterprise') {
       window.location.href = 'mailto:admin@redlined1.com?subject=Enterprise%20plan%20inquiry';
       return;
@@ -180,7 +177,7 @@ export function PricingSection() {
             Simple pricing.<br />No surprises.
           </h2>
           <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.5)', maxWidth: '480px', margin: '0 auto 28px', lineHeight: 1.6 }}>
-            Every plan includes the full platform. Pay for the seats and scale you need.
+            Each plan unlocks more capacity, intelligence, and locations. Start free — upgrade when you grow.
           </p>
 
           {/* Toggle */}
@@ -216,7 +213,7 @@ export function PricingSection() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', alignItems: 'start' }}>
           {PLANS.map((plan) => {
             const price = annual ? plan.annual : plan.monthly;
-            const isTrial = plan.key === 'trial';
+            const isFree = plan.key === 'free';
             const isEnterprise = plan.key === 'enterprise';
 
             return (
@@ -296,9 +293,9 @@ export function PricingSection() {
                 </div>
 
                 {/* CTA */}
-                {isTrial ? (
+                {isFree ? (
                   <Link
-                    href="/signup?intent=trial"
+                    href="/signup"
                     className="price-btn-red"
                     style={{
                       display: 'block', textAlign: 'center', padding: '13px 0',
@@ -312,7 +309,7 @@ export function PricingSection() {
                     }}
                   >
                     <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '300px 100%', animation: 'price-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-                    Start Free Trial
+                    Start Free
                   </Link>
                 ) : (
                   <button
@@ -366,7 +363,7 @@ export function PricingSection() {
         {/* Bottom note */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.25)', lineHeight: 1.7 }}>
-            All plans include a 7-day free trial. No credit card required to start.<br />
+            Free Forever requires no credit card. Paid plans billed monthly or annually.<br />
             Cancel anytime. Prices in USD.
           </p>
         </div>

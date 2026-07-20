@@ -38,21 +38,21 @@ const FAQS = [
   },
   {
     cat: 'Billing & Plans',
-    q: 'Do I need a credit card to start my trial?',
-    a: 'No. The 7-day free trial gives you full platform access with no credit card required. You can start right now.',
-    cta: { label: 'Start Free Trial', href: '/signup', type: 'link' },
+    q: 'Do I need a credit card to get started?',
+    a: 'No. The Free Forever plan requires no credit card. Create an account and start managing jobs immediately at no cost.',
+    cta: { label: 'Start Free — No Card Required', href: '/signup', type: 'link' },
   },
   {
     cat: 'Billing & Plans',
     q: 'Which plan is right for a solo mechanic or mobile mechanic?',
     a: 'The Solo plan at $24/month is purpose-built for independent and mobile mechanics. It includes all core job management, estimates, invoices, digital inspections, and customer history with no seat minimums.',
-    cta: { label: 'Get Solo — $24/mo', planId: 'solo', type: 'checkout' },
+    cta: { label: 'Choose Solo — $24/mo', planId: 'solo', type: 'checkout' },
   },
   {
     cat: 'Billing & Plans',
     q: 'What plan do I need for a small shop with a team?',
-    a: 'The Starter plan at $49/month supports up to 3 technician seats and adds team assignments, multi-bay scheduling, and inventory tracking. For AI intelligence and advanced analytics, Professional at $99/month is the most popular choice.',
-    cta: { label: 'Get Starter — $49/mo', planId: 'starter', type: 'checkout' },
+    a: 'The Starter plan at $49/month supports up to 3 technician seats and adds team assignments and priority support. For AI intelligence and advanced analytics, Professional at $99/month is the most popular choice.',
+    cta: { label: 'Choose Starter — $49/mo', planId: 'starter', type: 'checkout' },
   },
   {
     cat: 'Billing & Plans',
@@ -123,6 +123,7 @@ const FAQS = [
 ];
 
 const PLAN_CTАС = [
+  { label: 'Free Forever', price: '$0', planId: 'free', color: '#6b7280' },
   { label: 'Solo', price: '$24/mo', planId: 'solo', color: '#6366f1' },
   { label: 'Starter', price: '$49/mo', planId: 'starter', color: '#0ea5e9' },
   { label: 'Professional', price: '$99/mo', planId: 'professional', color: '#cc0000', featured: true },
@@ -223,6 +224,10 @@ export function FAQSection() {
   const catColor = activeCat === 'All' ? '#cc0000' : (CAT_COLORS[activeCat] ?? '#cc0000');
 
   function handlePlanCheckout(planId: string) {
+    if (planId === 'free') {
+      window.location.href = '/signup';
+      return;
+    }
     window.location.href = `/signup?plan=${planId}&billing=monthly`;
   }
 
@@ -306,7 +311,7 @@ export function FAQSection() {
               Ready to get started?
             </div>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-              7-day free trial included. No credit card required.
+              Free Forever requires no credit card. Paid plans billed monthly or annually.
             </p>
           </div>
 
@@ -341,7 +346,7 @@ export function FAQSection() {
                 fontSize: '13px', fontWeight: 600,
               }}
             >
-              Start with Free Trial
+              Start Free — No Card Required
             </Link>
             <a
               href="mailto:admin@redlined1.com?subject=Enterprise%20inquiry"
