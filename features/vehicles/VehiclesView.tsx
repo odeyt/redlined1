@@ -12,6 +12,7 @@ const VehicleIntelligencePanel = dynamic(
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
+import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { useShop } from '@/lib/useShop';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
@@ -1767,7 +1768,12 @@ export function VehiclesView() {
       setShowForm(false);
       setEditingId(null);
     } catch (err: unknown) {
-      notify('Save failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err)));
+      const limitInfo = parseFreeTierLimitError(err);
+      if (limitInfo) {
+        notify(freeTierLimitMessage(limitInfo));
+      } else {
+        notify('Save failed: ' + (err instanceof Error ? err.message : (err as {message?: string})?.message ?? String(err)));
+      }
     } finally { setSaving(false); }
   }
 

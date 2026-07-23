@@ -16,6 +16,7 @@ import {
 } from '@/services/jobCardService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
+import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import type { Vehicle, Customer } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
@@ -551,9 +552,10 @@ export function JobCardsView() {
       notify(`${job.id} created${smartIntake ? ' with Smart Intake' : ''}.`);
       return true;
     } catch (err: unknown) {
+      const limitInfo = parseFreeTierLimitError(err);
       const msg = err instanceof Error ? err.message : JSON.stringify(err);
       console.error('[JobCards] createJobCard failed:', msg);
-      setError('Create failed: ' + msg);
+      setError(limitInfo ? freeTierLimitMessage(limitInfo) : 'Create failed: ' + msg);
       return false;
     }
     finally { setCreating(false); }

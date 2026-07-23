@@ -12,6 +12,7 @@ import { useAppDispatch } from '@/lib/store';
 import { getShopId } from '@/lib/shopStore';
 import { useShop } from '@/lib/useShop';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
+import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
@@ -142,9 +143,10 @@ export function CustomersView() {
       }
       setForm(EMPTY_FORM); setShowForm(false); setEditingId(null); setDrawerEditing(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      notify('Save failed: ' + msg);
-      setError('Save failed: ' + msg);
+      const limitInfo = parseFreeTierLimitError(err);
+      const msg = limitInfo ? freeTierLimitMessage(limitInfo) : (err instanceof Error ? err.message : JSON.stringify(err));
+      notify(limitInfo ? msg : 'Save failed: ' + msg);
+      setError(limitInfo ? msg : 'Save failed: ' + msg);
     }
     finally { setSaving(false); }
   }
