@@ -35,7 +35,7 @@ export function MarketingFooter() {
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li><Link href="/login" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Sign In</Link></li>
               <li><Link href="/signup" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Start Free Trial</Link></li>
-              <li><a href="mailto:admin@redlined1.com" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Contact Sales</a></li>
+              <li><Link href="/contact-sales?context=general" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Contact Sales</Link></li>
             </ul>
           </nav>
         </div>

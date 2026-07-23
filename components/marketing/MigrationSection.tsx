@@ -58,8 +58,8 @@ const TIERS = [
     desc: 'Full-service migration handled end to end by our team. We extract, clean, map, validate, and import — you just review and go live.',
     features: ['Full extraction & mapping', 'Data cleaning included', 'Multi-source consolidation', 'Dedicated migration manager'],
     cta: 'Contact Sales',
-    ctaHref: 'mailto:admin@redlined1.com?subject=White-Glove%20Migration%20inquiry',
-    ctaType: 'mailto',
+    ctaHref: '/contact-sales?context=migration',
+    ctaType: 'link',
     color: '#8b5cf6',
   },
 ];

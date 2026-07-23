@@ -126,7 +126,7 @@ export function PricingSection() {
   function handlePlanClick(planKey: string) {
     if (planKey === 'trial') return; // handled by Link
     if (planKey === 'enterprise') {
-      window.location.href = 'mailto:admin@redlined1.com?subject=Enterprise%20plan%20inquiry';
+      window.location.href = '/contact-sales?context=enterprise';
       return;
     }
     const period = annual ? 'annual' : 'monthly';

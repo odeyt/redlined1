@@ -343,8 +343,8 @@ export function FAQSection() {
             >
               Start with Free Trial
             </Link>
-            <a
-              href="mailto:admin@redlined1.com?subject=Enterprise%20inquiry"
+            <Link
+              href="/contact-sales?context=enterprise"
               style={{
                 padding: '10px 24px', borderRadius: '9999px',
                 background: 'transparent', color: 'rgba(255,255,255,0.4)',
@@ -353,7 +353,7 @@ export function FAQSection() {
               }}
             >
               Contact Sales
-            </a>
+            </Link>
           </div>
         </div>
       </div>

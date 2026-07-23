@@ -303,10 +303,10 @@ export function HeroSection() {
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{plan.price}/mo</div>
               </button>
             ))}
-            <a href="mailto:admin@redlined1.com?subject=Enterprise%20inquiry" style={{ padding: '12px 22px', borderRadius: 10, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.06)', background: 'transparent', color: 'rgba(255,255,255,0.28)', fontWeight: 600, fontSize: 13, display: 'block' }}>
+            <Link href="/contact-sales?context=enterprise" style={{ padding: '12px 22px', borderRadius: 10, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.06)', background: 'transparent', color: 'rgba(255,255,255,0.28)', fontWeight: 600, fontSize: 13, display: 'block' }}>
               <div>Enterprise</div>
               <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>Custom</div>
-            </a>
+            </Link>
           </div>
         </div>
       </div>
