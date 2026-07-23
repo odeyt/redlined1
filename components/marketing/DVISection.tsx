@@ -468,7 +468,7 @@ export function DVISection() {
 
               <div style={{ display: 'flex', gap: 12, marginTop: 32, flexWrap: 'wrap' }}>
                 <Link href="/signup" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 28px', borderRadius: 9, background: D.red, color: '#fff', fontWeight: 700, fontSize: 15, textDecoration: 'none', boxShadow: '0 4px 20px rgba(204,0,0,0.4)', border: 'none', minHeight: 44 }}>
-                  Start Free Trial
+                  Start Free
                 </Link>
                 <a href="#dvi-features" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 24px', borderRadius: 9, background: 'rgba(255,255,255,0.06)', color: '#fff', fontWeight: 600, fontSize: 15, textDecoration: 'none', border: `1px solid ${D.border}`, minHeight: 44 }}>
                   See all features

@@ -38,9 +38,9 @@ const FAQS = [
   },
   {
     cat: 'Billing & Plans',
-    q: 'Do I need a credit card to start my trial?',
-    a: 'No. The 7-day free trial gives you full platform access with no credit card required. You can start right now.',
-    cta: { label: 'Start Free Trial', href: '/signup', type: 'link' },
+    q: 'Do I need a credit card to get started?',
+    a: 'No. The Free Forever plan requires no credit card — start managing jobs right now, upgrade whenever you need more.',
+    cta: { label: 'Start Free', href: '/signup', type: 'link' },
   },
   {
     cat: 'Billing & Plans',
@@ -311,7 +311,7 @@ export function FAQSection() {
               Ready to get started?
             </div>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-              7-day free trial included. No credit card required.
+              Free Forever included. No credit card required.
             </p>
           </div>
 
@@ -346,7 +346,7 @@ export function FAQSection() {
                 fontSize: '13px', fontWeight: 600,
               }}
             >
-              Start with Free Trial
+              Start with Free Forever
             </Link>
             <Link
               href="/contact-sales?context=enterprise"

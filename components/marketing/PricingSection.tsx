@@ -5,11 +5,11 @@ import Link from 'next/link';
 
 const PLANS = [
   {
-    key: 'trial',
-    name: 'Trial',
+    key: 'free',
+    name: 'Free Forever',
     monthly: 0,
     annual: 0,
-    tagline: 'Try everything free for 7 days.',
+    tagline: 'Start managing jobs at no cost, no expiry.',
     badge: null,
     featured: false,
     features: [
@@ -19,7 +19,7 @@ const PLANS = [
       'Customer share links',
       'Email reports',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Start Free',
     ctaStyle: 'outline',
   },
   {
@@ -124,7 +124,7 @@ export function PricingSection() {
   const [annual, setAnnual] = useState(false);
 
   function handlePlanClick(planKey: string) {
-    if (planKey === 'trial') return; // handled by Link
+    if (planKey === 'free') return; // handled by Link
     if (planKey === 'enterprise') {
       window.location.href = '/contact-sales?context=enterprise';
       return;
@@ -216,7 +216,7 @@ export function PricingSection() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', alignItems: 'start' }}>
           {PLANS.map((plan) => {
             const price = annual ? plan.annual : plan.monthly;
-            const isTrial = plan.key === 'trial';
+            const isFree = plan.key === 'free';
             const isEnterprise = plan.key === 'enterprise';
 
             return (
@@ -296,9 +296,9 @@ export function PricingSection() {
                 </div>
 
                 {/* CTA */}
-                {isTrial ? (
+                {isFree ? (
                   <Link
-                    href="/signup?intent=trial"
+                    href="/signup?intent=free"
                     className="price-btn-red"
                     style={{
                       display: 'block', textAlign: 'center', padding: '13px 0',
@@ -312,7 +312,7 @@ export function PricingSection() {
                     }}
                   >
                     <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.12) 50%,transparent 60%)', backgroundSize: '300px 100%', animation: 'price-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-                    Start Free Trial
+                    Start Free
                   </Link>
                 ) : (
                   <button
@@ -366,7 +366,7 @@ export function PricingSection() {
         {/* Bottom note */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.25)', lineHeight: 1.7 }}>
-            All plans include a 7-day free trial. No credit card required to start.<br />
+            Free Forever requires no credit card. Paid plans billed monthly or annually.<br />
             Cancel anytime. Prices in USD.
           </p>
         </div>
