@@ -229,9 +229,9 @@ export function FAQSection() {
   return (
     <section id="faq" style={{ paddingBlock: 'clamp(56px, 8vw, 120px)', background: '#0a0a0a', position: 'relative', overflow: 'hidden' }}>
       <style>{`
-        .faq-plan-pill { transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease; }
-        .faq-plan-pill:hover { transform: translateY(-2px); filter: brightness(1.2); border-color: rgba(255,255,255,0.3); }
-        .faq-plan-pill:active { transform: translateY(0) scale(0.96); filter: brightness(0.95); }
+        .faq-plan-pill { transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease; }
+        .faq-plan-pill:hover { transform: translateY(-2px); border-color: var(--plan-c, rgba(255,255,255,0.3)); background-color: var(--plan-c-bg, rgba(255,255,255,0.08)); box-shadow: 0 4px 18px var(--plan-c-glow, rgba(255,255,255,0.12)); }
+        .faq-plan-pill:active { transform: translateY(0) scale(0.96); filter: brightness(0.9); }
       `}</style>
 
       {/* Background */}
@@ -328,7 +328,10 @@ export function FAQSection() {
                   background: plan.featured ? plan.color : 'rgba(255,255,255,0.04)',
                   color: '#fff', fontWeight: 700, fontSize: '14px',
                   boxShadow: plan.featured ? `0 4px 20px ${plan.color}44` : 'none',
-                }}
+                  ['--plan-c' as string]: plan.color,
+                  ['--plan-c-bg' as string]: `${plan.color}22`,
+                  ['--plan-c-glow' as string]: `${plan.color}55`,
+                } as React.CSSProperties}
               >
                 <div>{plan.label}</div>
                 <div style={{ fontSize: '11px', fontWeight: 500, color: plan.featured ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)', marginTop: '3px' }}>{plan.price}</div>
