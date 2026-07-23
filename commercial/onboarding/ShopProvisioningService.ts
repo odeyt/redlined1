@@ -181,6 +181,14 @@ export async function ensureTrialSubscription(
 
   if (error) throw new Error(`Failed to create trial: ${error.message}`);
 
+  // usePlan() (lib/usePlan.ts) reads trial status from profiles.plan /
+  // profiles.trial_ends_at, not from this subscriptions row — keep both in
+  // sync or the trial silently grants no module access.
+  await db
+    .from('profiles')
+    .update({ plan: 'trial', trial_ends_at: ends.toISOString() })
+    .eq('id', userId);
+
   // Update onboarding session status
   await db
     .from('onboarding_sessions')
