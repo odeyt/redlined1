@@ -228,6 +228,11 @@ export function FAQSection() {
 
   return (
     <section id="faq" style={{ paddingBlock: 'clamp(56px, 8vw, 120px)', background: '#0a0a0a', position: 'relative', overflow: 'hidden' }}>
+      <style>{`
+        .faq-plan-pill { transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease; }
+        .faq-plan-pill:hover { transform: translateY(-2px); filter: brightness(1.2); border-color: rgba(255,255,255,0.3); }
+        .faq-plan-pill:active { transform: translateY(0) scale(0.96); filter: brightness(0.95); }
+      `}</style>
 
       {/* Background */}
       <div aria-hidden="true" style={{
@@ -315,6 +320,7 @@ export function FAQSection() {
               <button
                 key={plan.planId}
                 type="button"
+                className="faq-plan-pill"
                 onClick={() => handlePlanCheckout(plan.planId)}
                 style={{
                   padding: '14px 12px', borderRadius: '12px', cursor: 'pointer',
@@ -322,7 +328,6 @@ export function FAQSection() {
                   background: plan.featured ? plan.color : 'rgba(255,255,255,0.04)',
                   color: '#fff', fontWeight: 700, fontSize: '14px',
                   boxShadow: plan.featured ? `0 4px 20px ${plan.color}44` : 'none',
-                  transition: 'all 0.2s',
                 }}
               >
                 <div>{plan.label}</div>
