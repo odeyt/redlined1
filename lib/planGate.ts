@@ -13,10 +13,19 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
   return Math.max(0, Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / 86400000));
 }
 
-// Modules available after trial expires — just enough to see the value, not enough to run the shop
+// Free Forever plan modules — permanent, not a post-trial downgrade. Matches
+// the feature set promised on the pricing page (customers/vehicles, job
+// cards, inspections, estimates, invoices); volume caps (job count, etc.)
+// are enforced separately, not by module gating.
 const FREE_MODULES = new Set([
-  'dashboard',          // can see their data is there, just locked
-  'settings',           // must be able to manage their account / upgrade
+  'dashboard',
+  'customers',
+  'vehicles',
+  'job-cards',
+  'inspections',
+  'estimates',
+  'invoices',
+  'settings',
   'subscriptions',      // upgrade path
   'system-health',      // internal tooling — never plan-locked
   'disaster-recovery',  // internal tooling — never plan-locked

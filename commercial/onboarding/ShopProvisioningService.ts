@@ -139,18 +139,19 @@ export async function ensureOwnerMembership(userId: string, shopId: string): Pro
   );
 }
 
-// ─── Trial provisioning ───────────────────────────────────────────────────────
+// ─── Free plan provisioning ────────────────────────────────────────────────────
 
 /**
- * Creates a 7-day trial subscription for the given shop.
- * Idempotent — returns existing trial if one already exists.
- * Server time authoritative — no client override possible.
+ * Grants the given shop a permanent Free Forever plan — no expiry, no
+ * time-based lockout. Usage limits (job count, customer count, etc.) are
+ * enforced separately, not by this function.
+ * Idempotent — returns the existing subscription if one already exists.
  */
-export async function ensureTrialSubscription(
+export async function ensureFreeSubscription(
   userId:   string,
   shopId:   string,
   intentPlanKey: CommercialPlanKey = null,
-): Promise<{ trialId: string; created: boolean }> {
+): Promise<{ subscriptionId: string; created: boolean }> {
   const db = getAdminDb();
 
   const { data: existing } = await db
@@ -159,34 +160,32 @@ export async function ensureTrialSubscription(
     .eq('shop_id', shopId)
     .maybeSingle();
 
-  if (existing?.id) return { trialId: existing.id, created: false };
-
-  const now  = new Date();
-  const ends  = new Date(now.getTime() + 7 * 86_400_000);
+  if (existing?.id) return { subscriptionId: existing.id, created: false };
 
   const { data, error } = await db
     .from('subscriptions')
     .insert({
       shop_id:          shopId,
       user_id:          userId,
-      plan_key:         'trial',
-      status:           'trialing',
-      trial_started_at: now.toISOString(),
-      trial_ends_at:    ends.toISOString(),
+      plan_key:         'free',
+      status:           'active',
+      trial_started_at: null,
+      trial_ends_at:    null,
       converted_at:     null,
       selected_paid_plan: intentPlanKey,
     })
     .select('id')
     .single();
 
-  if (error) throw new Error(`Failed to create trial: ${error.message}`);
+  if (error) throw new Error(`Failed to create free subscription: ${error.message}`);
 
-  // usePlan() (lib/usePlan.ts) reads trial status from profiles.plan /
+  // usePlan() (lib/usePlan.ts) reads plan status from profiles.plan /
   // profiles.trial_ends_at, not from this subscriptions row — keep both in
-  // sync or the trial silently grants no module access.
+  // sync or the free plan silently grants no module access. No trial_ends_at
+  // here: Free Forever never expires, it's not a trial.
   await db
     .from('profiles')
-    .update({ plan: 'trial', trial_ends_at: ends.toISOString() })
+    .update({ plan: 'free', trial_ends_at: null })
     .eq('id', userId);
 
   // Update onboarding session status
@@ -196,7 +195,7 @@ export async function ensureTrialSubscription(
     .eq('user_id', userId)
     .in('status', ['pending', 'shop_created']);
 
-  return { trialId: data.id, created: true };
+  return { subscriptionId: data.id, created: true };
 }
 
 // ─── Onboarding completion ────────────────────────────────────────────────────

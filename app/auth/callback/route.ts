@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getOrCreatePrimaryShop, ensureTrialSubscription } from '@/commercial/onboarding/ShopProvisioningService';
+import { getOrCreatePrimaryShop, ensureFreeSubscription } from '@/commercial/onboarding/ShopProvisioningService';
 import { VALID_PLAN_KEYS, type CommercialPlanKey } from '@/commercial/onboarding/types';
 
 // Reviewed, scoped compatibility fix for the invite-link flow added in
@@ -67,9 +67,11 @@ export async function GET(request: Request) {
     const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
-      // Provision the shop + start the 7-day trial on first confirmed login.
-      // Idempotent (see ShopProvisioningService) — safe to call on every
-      // callback, including password-recovery round trips for existing users.
+      // Provision the shop + a permanent Free Forever plan on first confirmed
+      // login. Idempotent (see ShopProvisioningService) — safe to call on
+      // every callback, including password-recovery round trips for existing
+      // users. Paid-plan upgrades happen separately via the Creem checkout
+      // webhook (app/api/billing/webhook/creem/route.ts), not here.
       const user = exchangeData?.user;
       if (user) {
         try {
@@ -78,7 +80,7 @@ export async function GET(request: Request) {
             ownerName: metadata?.full_name,
             shopName: metadata?.shop_name || 'My Shop',
           });
-          await ensureTrialSubscription(user.id, shopId, parsePlanFromNext(next));
+          await ensureFreeSubscription(user.id, shopId, parsePlanFromNext(next));
         } catch (provisionError) {
           // Never block login on provisioning failure — surfaces as a locked
           // dashboard (recoverable) rather than a broken auth flow (not).

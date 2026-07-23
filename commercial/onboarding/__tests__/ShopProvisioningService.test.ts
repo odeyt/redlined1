@@ -3,7 +3,7 @@ jest.mock('@/lib/supabaseServer', () => ({
 }));
 
 import { getAdminDb } from '@/lib/supabaseServer';
-import { ensureTrialSubscription } from '../ShopProvisioningService';
+import { ensureFreeSubscription } from '../ShopProvisioningService';
 
 type Result = { data: unknown; error: unknown };
 
@@ -25,18 +25,18 @@ function makeBuilder(result: Result) {
   return builder;
 }
 
-describe('ensureTrialSubscription', () => {
+describe('ensureFreeSubscription', () => {
   const userId = 'user-1';
   const shopId = 'shop-1';
 
-  it('creates the trial subscription AND syncs profiles.plan/trial_ends_at (the bug: usePlan() only reads profiles)', async () => {
+  it('creates a permanent free subscription (no trial_ends_at) AND syncs profiles.plan (the bug: usePlan() only reads profiles)', async () => {
     const updateCalls: Array<{ table: string; payload: unknown }> = [];
     const fromMock = jest.fn((table: string) => {
       const builder = makeBuilder(
         table === 'subscriptions'
           ? (fromMock.mock.calls.filter(c => c[0] === 'subscriptions').length === 1
-              ? { data: null, error: null } // existing-trial check: none found
-              : { data: { id: 'trial-123' }, error: null }) // insert result
+              ? { data: null, error: null } // existing-subscription check: none found
+              : { data: { id: 'sub-123' }, error: null }) // insert result
           : { data: null, error: null },
       );
       const originalUpdate = builder.update as jest.Mock;
@@ -49,30 +49,22 @@ describe('ensureTrialSubscription', () => {
 
     (getAdminDb as jest.Mock).mockReturnValue({ from: fromMock });
 
-    const result = await ensureTrialSubscription(userId, shopId, null);
+    const result = await ensureFreeSubscription(userId, shopId, null);
 
-    expect(result).toEqual({ trialId: 'trial-123', created: true });
+    expect(result).toEqual({ subscriptionId: 'sub-123', created: true });
 
     const profilesUpdate = updateCalls.find(c => c.table === 'profiles');
     expect(profilesUpdate).toBeDefined();
-    expect(profilesUpdate?.payload).toMatchObject({ plan: 'trial' });
-    expect((profilesUpdate?.payload as { trial_ends_at: string }).trial_ends_at).toEqual(expect.any(String));
-
-    // Sanity: the synced trial_ends_at should be ~7 days out, matching the
-    // subscriptions row so the two tables never silently disagree.
-    const trialEndsAt = new Date((profilesUpdate?.payload as { trial_ends_at: string }).trial_ends_at);
-    const daysOut = (trialEndsAt.getTime() - Date.now()) / 86_400_000;
-    expect(daysOut).toBeGreaterThan(6.9);
-    expect(daysOut).toBeLessThan(7.1);
+    expect(profilesUpdate?.payload).toEqual({ plan: 'free', trial_ends_at: null });
   });
 
   it('is idempotent — does not touch profiles when a subscription already exists', async () => {
-    const fromMock = jest.fn(() => makeBuilder({ data: { id: 'existing-trial' }, error: null }));
+    const fromMock = jest.fn(() => makeBuilder({ data: { id: 'existing-sub' }, error: null }));
     (getAdminDb as jest.Mock).mockReturnValue({ from: fromMock });
 
-    const result = await ensureTrialSubscription(userId, shopId, null);
+    const result = await ensureFreeSubscription(userId, shopId, null);
 
-    expect(result).toEqual({ trialId: 'existing-trial', created: false });
+    expect(result).toEqual({ subscriptionId: 'existing-sub', created: false });
     expect(fromMock).toHaveBeenCalledWith('subscriptions');
     expect(fromMock).not.toHaveBeenCalledWith('profiles');
   });
