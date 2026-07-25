@@ -55,7 +55,6 @@ const EMPTY_FORM = {
   status: 'Draft',
   lines: [{ ...EMPTY_LINE }] as FormLine[],
   discount: 0,
-  discountPct: 0,
   shopSupplies: 0,
   taxRate: 0,
   taxPct: 0,
@@ -417,11 +416,6 @@ export function InvoicesView() {
           })
         : [{ ...EMPTY_LINE }],
       discount: inv.discount,
-      discountPct: (() => {
-        const editLines = inv.lines.map(l => ({ note: '', description: '', laoDescription: '', cost: '', markup: '', currency: l.currency || '', qty: String(l.qty), rate: String(l.rate) }));
-        const { amount: eff } = calcFormEffectiveTotal(editLines, inv.currency);
-        return eff > 0 ? Math.round((inv.discount / eff) * 100) : 0;
-      })(),
       shopSupplies: inv.shopSupplies,
       taxRate: inv.taxRate,
       taxPct: Math.round((inv.taxRate ?? 0) * 100),
@@ -510,9 +504,9 @@ export function InvoicesView() {
       };
     });
     try {
-      // Compute flat discount and tax rate from percentage inputs
+      // Discount is entered directly as a currency amount now; tax stays percentage-based.
       const { amount: effLineTotal } = calcFormEffectiveTotal(form.lines, form.currency);
-      const computedDiscount = Math.round(effLineTotal * ((form.discountPct ?? 0) / 100));
+      const computedDiscount = Math.min(Number(form.discount) || 0, effLineTotal);
       const computedTaxRate = (form.taxPct ?? 0) / 100;
       if (editingId) {
         // Update existing invoice
@@ -1169,9 +1163,8 @@ export function InvoicesView() {
               {/* Adjustments */}
               {(() => {
                 const { amount: adjEff, currency: adjCur } = calcFormEffectiveTotal(form.lines, form.currency);
-                const discPct = Number(form.discountPct) || 0;
+                const discAmt = Math.min(Number(form.discount) || 0, adjEff);
                 const taxPct  = Number(form.taxPct) || 0;
-                const discAmt = Math.round(adjEff * (discPct / 100));
                 const shopSup = Number(form.shopSupplies) || 0;
                 const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
                 const taxAmt  = Math.round(taxable * (taxPct / 100));
@@ -1180,19 +1173,18 @@ export function InvoicesView() {
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                       <div className="login-field">
-                        <label>Discount (%)</label>
+                        <label>Discount ({adjCur})</label>
                         <input
                           type="text" inputMode="decimal"
-                          value={form.discountPct === 0 || form.discountPct === undefined ? '' : String(form.discountPct)}
+                          value={form.discount === 0 || form.discount === undefined ? '' : String(form.discount)}
                           onChange={e => {
                             const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.min(100, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, discountPct: raw === '' ? 0 : n }));
+                            const n = Math.max(0, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, discount: raw === '' ? 0 : n }));
                           }}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
-                        {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
                       </div>
                       <div className="login-field">
                         <label>Tax / VAT (%)</label>
@@ -1217,7 +1209,7 @@ export function InvoicesView() {
                         </div>
                         {discAmt > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4caf50', marginBottom: 4 }}>
-                            <span>Discount ({discPct}%)</span><span>-{formatMoney(discAmt, adjCur)}</span>
+                            <span>Discount</span><span>-{formatMoney(discAmt, adjCur)}</span>
                           </div>
                         )}
                         {shopSup > 0 && (
@@ -1533,9 +1525,8 @@ export function InvoicesView() {
               {/* Adjustments */}
               {(() => {
                 const { amount: adjEff, currency: adjCur } = calcFormEffectiveTotal(form.lines, form.currency);
-                const discPct = Number(form.discountPct) || 0;
+                const discAmt = Math.min(Number(form.discount) || 0, adjEff);
                 const taxPct  = Number(form.taxPct) || 0;
-                const discAmt = Math.round(adjEff * (discPct / 100));
                 const shopSup = Number(form.shopSupplies) || 0;
                 const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
                 const taxAmt  = Math.round(taxable * (taxPct / 100));
@@ -1544,19 +1535,18 @@ export function InvoicesView() {
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                       <div className="login-field">
-                        <label>Discount (%)</label>
+                        <label>Discount ({adjCur})</label>
                         <input
                           type="text" inputMode="decimal"
-                          value={form.discountPct === 0 || form.discountPct === undefined ? '' : String(form.discountPct)}
+                          value={form.discount === 0 || form.discount === undefined ? '' : String(form.discount)}
                           onChange={e => {
                             const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.min(100, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, discountPct: raw === '' ? 0 : n }));
+                            const n = Math.max(0, parseFloat(raw) || 0);
+                            setForm(f => ({ ...f, discount: raw === '' ? 0 : n }));
                           }}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
-                        {discPct > 0 && <div style={{ fontSize: 11, color: '#4caf50', marginTop: 3 }}>= -{formatMoney(discAmt, adjCur)}</div>}
                       </div>
                       <div className="login-field">
                         <label>Tax / VAT (%)</label>
@@ -1582,7 +1572,7 @@ export function InvoicesView() {
                         </div>
                         {discAmt > 0 && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4caf50', marginBottom: 4 }}>
-                            <span>Discount ({discPct}%)</span><span>-{formatMoney(discAmt, adjCur)}</span>
+                            <span>Discount</span><span>-{formatMoney(discAmt, adjCur)}</span>
                           </div>
                         )}
                         {shopSup > 0 && (
