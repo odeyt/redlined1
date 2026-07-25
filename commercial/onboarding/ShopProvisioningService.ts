@@ -142,51 +142,46 @@ export async function ensureOwnerMembership(userId: string, shopId: string): Pro
 // ─── Free plan provisioning ────────────────────────────────────────────────────
 
 /**
- * Grants the given shop a permanent Free Forever plan — no expiry, no
+ * Grants the given user a permanent Free Forever plan — no expiry, no
  * time-based lockout. Usage limits (job count, customer count, etc.) are
- * enforced separately, not by this function.
- * Idempotent — returns the existing subscription if one already exists.
+ * enforced separately (see supabase/migrations/free_tier_usage_limits.sql),
+ * not by this function.
+ *
+ * Deliberately does NOT touch the `subscriptions` table: that table is a
+ * payment-provider-linked record (provider, provider_customer_id,
+ * provider_subscription_id, billing_interval are all NOT NULL columns in
+ * production) — it exists for real Stripe/Creem subscriptions, not for
+ * tracking free-tier status. A prior version of this function tried to
+ * insert a shop_id/plan_key/trial_started_at row there; those columns
+ * don't exist on the real table, so every call failed, was silently
+ * swallowed by auth/callback's try/catch, and profiles.plan was never
+ * actually set — confirmed via information_schema against production.
+ *
+ * usePlan() (lib/usePlan.ts) reads plan status from profiles.plan /
+ * profiles.trial_ends_at only, so that's the sole source of truth here.
+ * Idempotent — a no-op if the user already has a non-null plan.
  */
 export async function ensureFreeSubscription(
   userId:   string,
-  shopId:   string,
-  intentPlanKey: CommercialPlanKey = null,
-): Promise<{ subscriptionId: string; created: boolean }> {
+  _shopId:   string,
+  _intentPlanKey: CommercialPlanKey = null,
+): Promise<{ created: boolean }> {
   const db = getAdminDb();
 
   const { data: existing } = await db
-    .from('subscriptions')
-    .select('id')
-    .eq('shop_id', shopId)
+    .from('profiles')
+    .select('plan')
+    .eq('id', userId)
     .maybeSingle();
 
-  if (existing?.id) return { subscriptionId: existing.id, created: false };
+  if (existing?.plan) return { created: false };
 
-  const { data, error } = await db
-    .from('subscriptions')
-    .insert({
-      shop_id:          shopId,
-      user_id:          userId,
-      plan_key:         'free',
-      status:           'active',
-      trial_started_at: null,
-      trial_ends_at:    null,
-      converted_at:     null,
-      selected_paid_plan: intentPlanKey,
-    })
-    .select('id')
-    .single();
-
-  if (error) throw new Error(`Failed to create free subscription: ${error.message}`);
-
-  // usePlan() (lib/usePlan.ts) reads plan status from profiles.plan /
-  // profiles.trial_ends_at, not from this subscriptions row — keep both in
-  // sync or the free plan silently grants no module access. No trial_ends_at
-  // here: Free Forever never expires, it's not a trial.
-  await db
+  const { error } = await db
     .from('profiles')
     .update({ plan: 'free', trial_ends_at: null })
     .eq('id', userId);
+
+  if (error) throw new Error(`Failed to grant free plan: ${error.message}`);
 
   // Update onboarding session status
   await db
@@ -195,7 +190,7 @@ export async function ensureFreeSubscription(
     .eq('user_id', userId)
     .in('status', ['pending', 'shop_created']);
 
-  return { subscriptionId: data.id, created: true };
+  return { created: true };
 }
 
 // ─── Onboarding completion ────────────────────────────────────────────────────

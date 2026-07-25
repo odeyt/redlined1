@@ -17,10 +17,16 @@
 -- including any future call site, without relying on every caller
 -- remembering to check first.
 --
--- Only shops with subscriptions.plan_key = 'free' are limited. Shops
--- with a paid plan_key, or with no subscriptions row at all (should
--- not happen post-onboarding-fix, but fail open rather than blocking
--- legitimate paid shops on a missing row) are never limited by this.
+-- Only shops whose owner's profiles.plan = 'free' are limited. Shops with
+-- a paid plan, or where no owner profile is found, are never limited by
+-- this. Deliberately reads profiles, not a subscriptions-style table:
+-- production has a `subscriptions` table, but it's a payment-provider
+-- record (provider/provider_customer_id/provider_subscription_id are all
+-- NOT NULL — it's for real Stripe/Creem subscriptions, confirmed via
+-- information_schema against production) with no shop_id or plan_key
+-- column at all. profiles.plan is the same source of truth usePlan()
+-- (lib/usePlan.ts) and ensureFreeSubscription (ShopProvisioningService.ts)
+-- already use — one source of truth, not two that can disagree.
 --
 -- On limit, raises a Postgres exception with a machine-parseable
 -- message ('FREE_TIER_LIMIT:<table>:<limit>') that
@@ -38,11 +44,17 @@ DECLARE
   v_count    integer;
   v_limit    integer;
 BEGIN
-  SELECT plan_key INTO v_plan_key
-  FROM public.subscriptions
-  WHERE shop_id = NEW.shop_id;
+  -- Joins through shop_users (confirmed-correct role data, verified live
+  -- against production) rather than trusting profiles.role directly —
+  -- profiles.role and shop_users.role are two separate columns and
+  -- nothing guarantees they're kept in sync.
+  SELECT p.plan INTO v_plan_key
+  FROM public.shop_users su
+  JOIN public.profiles p ON p.id = su.user_id
+  WHERE su.shop_id = NEW.shop_id AND su.role = 'owner'
+  LIMIT 1;
 
-  -- Not on the free plan (paid, or no subscription row yet) — never limited here.
+  -- Not on the free plan (paid, or no owner profile found) — never limited here.
   IF v_plan_key IS DISTINCT FROM 'free' THEN
     RETURN NEW;
   END IF;
