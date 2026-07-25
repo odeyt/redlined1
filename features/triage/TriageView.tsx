@@ -26,6 +26,7 @@ import { QuestionEngine } from '@/lib/triage/QuestionEngine';
 import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/services/triageService';
 import { createInspection, createInspectionFromTriage, nextInspectionNumber } from '@/services/inspectionService';
 import { saveVehicle } from '@/services/vehicleService';
+import { saveCustomer } from '@/services/customerService';
 import { getShopId } from '@/lib/shopStore';
 
 import { VehicleStep }    from './steps/VehicleStep';
@@ -33,6 +34,25 @@ import { CategoryStep }   from './steps/CategoryStep';
 import { QuestionsStep }  from './steps/QuestionsStep';
 import { TechNotesStep }  from './steps/TechNotesStep';
 import { SummaryStep }    from './steps/SummaryStep';
+
+// ─── Ensure a typed-but-unlinked customer name becomes a real record ────────
+// The customer search box lets a tech type a name without ever clicking
+// "+ Add as new customer" — completing intake used to silently drop that
+// name, saving the vehicle with no linked customer at all. Called right
+// before saveVehicle() in both completion paths below.
+async function ensureCustomerId(vehicle: TriageVehicle): Promise<string> {
+  if (vehicle.customerId) return vehicle.customerId;
+  const name = vehicle.customerName?.trim();
+  if (!name) return '';
+  try {
+    const created = await saveCustomer({
+      name, type: 'Retail', phone: '', email: '', address: '', tags: [], followUp: '', portalToken: null,
+    });
+    return created.id;
+  } catch {
+    return ''; // non-fatal — vehicle still saves, just unlinked
+  }
+}
 
 // ─── Knowledge Graph insight lookup (no AI) ──────────────────────────────────
 
@@ -175,11 +195,16 @@ export function TriageView() {
     // Save as complete
     await saveTriageSession({ ...session, status: 'complete' });
 
+    // If a customer name was typed but never explicitly linked (the
+    // "+ Add as new customer" step is easy to skip), create the record now
+    // rather than silently dropping it.
+    const resolvedCustomerId = await ensureCustomerId(session.vehicle);
+
     // Register vehicle in Vehicle Management if it has make/model
     if (session.vehicle.make && session.vehicle.model) {
       try {
         await saveVehicle({
-          customerId:   session.vehicle.customerId ?? '',
+          customerId:   resolvedCustomerId,
           vin:          '',
           label:        `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
           make:         session.vehicle.make,
@@ -203,7 +228,7 @@ export function TriageView() {
       type: 'OPEN_NEW_JOB_CARD',
       prefill: {
         customerName: session.vehicle.customerName ?? '',
-        customerId:   session.vehicle.customerId,
+        customerId:   resolvedCustomerId,
         vehicle:      `${session.vehicle.year} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
         notes:        session.complaintSummary,
       },
@@ -223,7 +248,7 @@ export function TriageView() {
       if (session.vehicle.make && session.vehicle.model) {
         try {
           await saveVehicle({
-            customerId:   session.vehicle.customerId ?? '',
+            customerId:   await ensureCustomerId(session.vehicle),
             vin:          '',
             label:        `${session.vehicle.make} ${session.vehicle.model}${session.vehicle.year ? ' ' + session.vehicle.year : ''}`.trim(),
             trim:         '',
