@@ -27,7 +27,7 @@ const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: '#888', Sent: '#2196f3', Approved: '#4caf50',
-  Declined: '#f44336', Converted: '#9c27b0',
+  Declined: '#f44336', Converted: '#9c27b0', Void: '#616161',
 };
 
 // Form uses strings so the user can type freely (decimals, clearing)
@@ -45,7 +45,7 @@ async function translateToLao(text: string): Promise<string> {
 
 const LAO: Record<string, string> = {
   'Estimate': 'ໃບປະເມີນລາຄາ',
-  'Draft': 'ຮ່າງ', 'Sent': 'ສົ່ງແລ້ວ', 'Approved': 'ອະນຸມັດ', 'Declined': 'ປະຕິເສດ', 'Converted': 'ປ່ຽນແລ້ວ',
+  'Draft': 'ຮ່າງ', 'Sent': 'ສົ່ງແລ້ວ', 'Approved': 'ອະນຸມັດ', 'Declined': 'ປະຕິເສດ', 'Converted': 'ປ່ຽນແລ້ວ', 'Void': 'ຍົກເລີກ',
   'Prepared For': 'ກຽມໃຫ້',
   'Reference': 'ອ້າງອີງ',
   'Description / ລາຍລະອຽດ': 'Description / ລາຍລະອຽດ',
@@ -385,6 +385,17 @@ export function EstimatesView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
+  async function handleVoid(est: EstimateFull) {
+    if (!confirm(`Void ${est.estimateNumber}? This cancels the estimate.`)) return;
+    try {
+      await updateEstimate(est.id, { status: 'Void' });
+      const updated = { ...est, status: 'Void' };
+      setEstimates(prev => prev.map(e => e.id === est.id ? updated : e));
+      setSelected(updated);
+      notify(`${est.estimateNumber} voided.`);
+    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+  }
+
   async function handleConvertToInvoice(est: EstimateFull) {
     // Guard: already converted
     if (est.status === 'Converted') {
@@ -612,7 +623,7 @@ export function EstimatesView() {
             <button className="btn btn-primary" onClick={openNewForm}>+ New</button>
           </div>
           <div style={{ marginBottom: 14 }}>
-            <FilterPills statuses={['All', 'Draft', 'Sent', 'Approved', 'Declined', 'Converted']} active={filterStatus} onChange={setFilterStatus} />
+            <FilterPills statuses={['All', 'Draft', 'Sent', 'Approved', 'Declined', 'Converted', 'Void']} active={filterStatus} onChange={setFilterStatus} />
           </div>
 
           {showForm && (
@@ -627,7 +638,7 @@ export function EstimatesView() {
                 <div className="login-field">
                   <label>Status</label>
                   <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
-                    {['Draft', 'Sent', 'Approved', 'Declined', 'Converted'].map(s => <option key={s}>{s}</option>)}
+                    {['Draft', 'Sent', 'Approved', 'Declined', 'Converted', 'Void'].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 {/* Customer autocomplete */}
@@ -999,11 +1010,14 @@ export function EstimatesView() {
                 ⚡ Clone
               </button>
               <button className="btn" onClick={() => setShowPreview(true)}>👁 Preview</button>
-              {selected.status !== 'Approved' && selected.status !== 'Converted' && selected.status !== 'Declined' && (
+              {selected.status !== 'Approved' && selected.status !== 'Converted' && selected.status !== 'Declined' && selected.status !== 'Void' && (
                 <button className="btn" style={{ background: 'rgba(76,175,80,0.12)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleApprove(selected)}>✓ Approve</button>
               )}
-              {selected.status !== 'Declined' && selected.status !== 'Converted' && (
+              {selected.status !== 'Declined' && selected.status !== 'Converted' && selected.status !== 'Void' && (
                 <button className="btn" style={{ background: 'rgba(244,67,54,0.08)', color: '#f44336', border: '1px solid #f4433633' }} onClick={() => handleDecline(selected)}>✕ Decline</button>
+              )}
+              {selected.status !== 'Void' && selected.status !== 'Converted' && (
+                <button className="btn" style={{ background: 'rgba(97,97,97,0.1)', color: '#616161', border: '1px solid #61616144' }} onClick={() => handleVoid(selected)}>🚫 Void</button>
               )}
               {(selected.status === 'Approved') && (() => {
                 const busy = convertingToInvoice.current.has(selected.id);

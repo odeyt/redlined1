@@ -763,6 +763,11 @@ export function InvoicesView() {
     }
   }
 
+  async function handleVoid(inv: InvoiceFull) {
+    if (!confirm(`Void ${inv.invoiceNumber}? This cancels the invoice.`)) return;
+    await handleStatusChange(inv, 'Void');
+  }
+
   async function handleDelete(inv: InvoiceFull) {
     if (!confirm(`Delete ${inv.invoiceNumber}? This cannot be undone.`)) return;
     try {
@@ -1647,6 +1652,9 @@ export function InvoicesView() {
               )}
               <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>🖨 Print / PDF</button>
               <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }} onClick={() => openEmailModal(selected)}>✉️ Email Customer</button>
+              {selected.status !== 'Void' && (
+                <button className="btn" style={{ background: 'rgba(97,97,97,0.1)', color: '#616161', border: '1px solid #61616144' }} onClick={() => handleVoid(selected)}>🚫 Void</button>
+              )}
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 
