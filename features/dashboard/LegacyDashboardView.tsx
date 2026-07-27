@@ -195,15 +195,20 @@ export function LegacyDashboardView() {
   const { stats, recentInvoices, recentROs, revenue7, monthlyRevenue, loading } = useOperationalStats();
   const [companyName, setCompanyName] = useState('Redlined1');
   const [userEmail, setUserEmail] = useState<string>('');
-  const [allowedModules, setAllowedModules] = useState<string[]>([]);
+  const [allowedModules, setAllowedModules] = useState<string[]>(() =>
+    // Owners and managers see all tiles immediately — no async wait needed.
+    // Staff roles are set after fetchShopSettings resolves with saved permissions.
+    (role === 'owner' || role === 'manager') ? navItems.map(([id]) => id) : []
+  );
 
   useEffect(() => {
+    // Owners/managers: set tiles immediately without waiting for DB
+    if (role === 'owner' || role === 'manager') {
+      setAllowedModules(navItems.map(([id]) => id));
+    }
     fetchShopSettings().then(s => {
       setCompanyName(s.companyName);
-      if (role === 'owner' || role === 'manager') {
-        // Owners/managers get all modules as tiles
-        setAllowedModules(navItems.map(([id]) => id));
-      } else if (role) {
+      if (role !== 'owner' && role !== 'manager' && role) {
         const saved = s.rolePermissions?.[role as RoleKey];
         setAllowedModules(saved?.length ? saved : DEFAULT_ROLE_PERMISSIONS[role as RoleKey] ?? []);
       }
