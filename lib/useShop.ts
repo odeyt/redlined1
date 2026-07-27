@@ -122,6 +122,15 @@ export function useShop() {
         // Never default to owner — if no row found, role stays '' (blocked)
         const resolvedRole = (activeRow as Record<string, unknown>)?.role as string ?? '';
         setRole(resolvedRole);
+      } else {
+        // No shop memberships — new free/trial user.
+        // Clear any stale shopId from a previous session so branding doesn't leak.
+        setShopId('');
+        setLocalShopId('');
+        setMirrorShopIds([]);
+        setLocalMirrorIds([]);
+        // Treat as owner so plan-gating (not role-blocking) controls module visibility.
+        setRole('owner');
       }
       setLoading(false);
     }
