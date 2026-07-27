@@ -97,7 +97,7 @@ Message type: ${ctx.messageType ?? 'status update'}
 Current status: ${ctx.status ?? 'In Progress'}
 Repair stage: ${ctx.repairStage ?? 'Unknown'}
 Key details: ${ctx.details ?? 'None provided'}
-Shop name: ${ctx.shopName ?? 'D1 Imports'}
+Shop name: ${ctx.shopName ?? 'My Shop'}
 Channel: ${ctx.channel ?? 'SMS'}
 
 Respond with JSON matching this schema:

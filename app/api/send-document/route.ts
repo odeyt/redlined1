@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     // Fetch shop settings
     const { data: shop } = await db.from('shops').select('name').eq('id', shopId).single();
     const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', shopId).single();
-    const shopName: string = (shop as { name?: string } | null)?.name ?? 'D1 Imports';
+    const shopName: string = (shop as { name?: string } | null)?.name ?? 'My Shop';
     const shopAddress: string = (settings as Record<string, unknown> | null)?.address as string ?? '';
     const shopPhone: string   = (settings as Record<string, unknown> | null)?.phone as string ?? '';
     const shopEmail: string   = (settings as Record<string, unknown> | null)?.email as string ?? '';

@@ -69,7 +69,7 @@ import type { Customer } from '@/lib/types';
 import type { Technician } from '@/services/technicianService';
 import type { Vehicle } from '@/lib/types';
 
-const DEFAULT_BAYS = ['D1 Shop 1', 'D1 Shop 2'];
+const DEFAULT_BAYS = ['Bay 1', 'Bay 2'];
 const REMINDER_OPTIONS = ['None', 'Confirmed', 'Reminder sent', 'Awaiting tow', 'Checked in'];
 
 const today = new Date().toISOString().slice(0, 10);

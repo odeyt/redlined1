@@ -100,7 +100,7 @@ function mockResponse(type: string, context: Record<string, unknown>) {
     customer_message: {
       smsMessage: `[MOCK] Hi ${context.customerName ?? 'Customer'}, your vehicle is ${context.status ?? 'being serviced'}. We will update you shortly.`,
       emailSubject: `[MOCK] Vehicle Update — ${context.vehicle ?? 'Your Vehicle'}`,
-      emailBody: `[MOCK] Dear ${context.customerName ?? 'Customer'},\n\nYour vehicle (${context.vehicle ?? 'on file'}) is currently ${context.status ?? 'being serviced'}.\n\nThank you for choosing ${context.shopName ?? 'D1 Imports'}.`,
+      emailBody: `[MOCK] Dear ${context.customerName ?? 'Customer'},\n\nYour vehicle (${context.vehicle ?? 'on file'}) is currently ${context.status ?? 'being serviced'}.\n\nThank you for choosing ${context.shopName ?? 'My Shop'}.`,
       tone: 'professional',
     },
     invoice_summary: {

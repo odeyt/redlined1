@@ -76,8 +76,8 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
     setTooltip(null);
   }
   const [realCounts, setRealCounts] = useState<Record<string, number>>({});
-  const [companyName, setCompanyName] = useState('D1 Imports');
-  const [tagline, setTagline] = useState('Service, fleet, mobile, parts');
+  const [companyName, setCompanyName] = useState('My Shop');
+  const [tagline, setTagline] = useState('Auto repair & services');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });

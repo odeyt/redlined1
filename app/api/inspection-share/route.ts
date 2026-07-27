@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       inspection: { ...ins, items },
-      shopName:     shop?.name         ?? 'D1 Imports',
+      shopName:     shop?.name         ?? 'My Shop',
       shopPhone:    settings?.phone    ?? '',
       shopAddress:  settings?.address  ?? '',
       shopLogoUrl:  settings?.logo_url ?? '',

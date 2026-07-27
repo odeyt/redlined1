@@ -747,7 +747,7 @@ export function InvoicesView() {
             vehicle: inv.vehicle,
             total: `${eff.currency} ${eff.amount.toFixed(2)}`,
             status: inv.status,
-            shopName: shopSettings?.companyName ?? 'D1 Imports',
+            shopName: shopSettings?.companyName ?? 'My Shop',
             shopPhone: shopSettings?.phone,
           },
         }),

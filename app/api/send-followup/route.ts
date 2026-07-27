@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     const { data: shop } = await db.from('shops').select('name').eq('id', shopId).single();
     const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', shopId).single();
-    const shopName: string = shop?.name ?? 'D1 Imports';
+    const shopName: string = shop?.name ?? 'My Shop';
     const shopPhone: string = settings?.phone ?? '';
     const shopAddress: string = settings?.address ?? '';
     const shopEmail: string = settings?.email ?? '';

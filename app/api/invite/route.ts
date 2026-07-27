@@ -145,13 +145,13 @@ export async function POST(req: NextRequest) {
   try {
     if (isNewAccount && inviteActionLink) {
       await resend.emails.send({
-        from: 'D1 Imports <noreply@redlined1.com>',
+        from: 'RedlineD1 <noreply@redlined1.com>',
         to: email,
         subject: `You've been invited to ${shopName}`,
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
             <div style="background:#cc0000;padding:20px 28px">
-              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">D1 IMPORTS <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
+              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">REDLINED1 <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
             </div>
             <div style="padding:28px">
               <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">Welcome to ${shopName}</h2>
@@ -162,20 +162,20 @@ export async function POST(req: NextRequest) {
               <p style="font-size:12px;color:#666;margin-top:20px">This link is one-time use and expires soon. If you didn't expect this invitation, you can ignore this email.</p>
             </div>
             <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-              D1 Imports · ${shopName} · Powered by Redlined1
+              ${shopName} · Powered by Redlined1
             </div>
           </div>
         `,
       });
     } else {
       await resend.emails.send({
-        from: 'D1 Imports <noreply@redlined1.com>',
+        from: 'RedlineD1 <noreply@redlined1.com>',
         to: email,
         subject: `You've been added to ${shopName}`,
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
             <div style="background:#cc0000;padding:20px 28px">
-              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">D1 IMPORTS <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
+              <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:-0.5px">REDLINED1 <span style="font-size:13px;font-weight:400;opacity:0.8">Staff Portal</span></div>
             </div>
             <div style="padding:28px">
               <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">You've been added to ${shopName}</h2>
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
               </a>
             </div>
             <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-              D1 Imports · ${shopName} · Powered by Redlined1
+              ${shopName} · Powered by Redlined1
             </div>
           </div>
         `,

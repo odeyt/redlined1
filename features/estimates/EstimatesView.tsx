@@ -521,7 +521,7 @@ export function EstimatesView() {
             vehicle: est.vehicle,
             total: `${est.currency || 'USD'} ${t.total.toFixed(2)}`,
             status: est.status,
-            shopName: shopSettings?.companyName ?? 'D1 Imports',
+            shopName: shopSettings?.companyName ?? 'My Shop',
             shopPhone: shopSettings?.phone,
           },
         }),

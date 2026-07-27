@@ -90,8 +90,8 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     .maybeSingle();
   if (error && error.code !== 'PGRST116') throw error;
   return {
-    companyName: data?.company_name ?? 'D1 Imports',
-    tagline: data?.tagline ?? 'Service, fleet, mobile, parts',
+    companyName: data?.company_name ?? 'My Shop',
+    tagline: data?.tagline ?? 'Auto repair & services',
     logoUrl: data?.logo_url ?? null,
     address: data?.address ?? '',
     phone: data?.phone ?? '',
@@ -116,7 +116,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     enableTechnicianReport: data?.enable_technician_report ?? true,
     enableJobCompletionReport: data?.enable_job_completion_report ?? true,
     enableAppointmentBay: data?.enable_appointment_bay ?? true,
-    appointmentBays: (data?.appointment_bays as string[] | null) ?? ['D1 Shop 1', 'D1 Shop 2'],
+    appointmentBays: (data?.appointment_bays as string[] | null) ?? ['Bay 1', 'Bay 2'],
     enableJobCardPriority: data?.enable_job_card_priority ?? true,
     enableJobCardBranchRoute: data?.enable_job_card_branch_route ?? true,
     enableJobCardServiceLocation: data?.enable_job_card_service_location ?? true,

@@ -62,7 +62,7 @@ const EXAMPLE_CONTEXTS: Record<TaskType, string> = {
     status: 'In Progress',
     repairStage: 'in_repair',
     details: 'Brake pads replaced, waiting for rotors to arrive.',
-    shopName: 'D1 Imports',
+    shopName: 'My Shop',
     channel: 'SMS',
   }, null, 2),
   invoice_summary: JSON.stringify({

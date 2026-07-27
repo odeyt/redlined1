@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     // Fetch shop settings for branding
     const { data: shop } = await admin.from('shops').select('name').eq('id', shopId).single();
     const { data: settings } = await admin.from('shop_settings').select('*').eq('shop_id', shopId).single();
-    const shopName = shop?.name ?? 'D1 Imports';
+    const shopName = shop?.name ?? 'My Shop';
     const phone = settings?.phone ?? '';
     const address = settings?.address ?? '';
     const logoUrl = settings?.logo_url ?? '';
