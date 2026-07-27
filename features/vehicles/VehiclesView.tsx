@@ -740,7 +740,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
         issues: f.issues, damageIntake: f.damageIntake, issuesResolved: f.issuesResolved,
         partsExchanged: f.partsExchanged, partsNeeded: f.partsNeeded,
         flatRateLak: f.flatRateLak, assignedTech: f.assignedTech,
-        dateReceived: f.dateReceived, techPayEntries: f.techPayEntries,
+        dateReceived: f.dateReceived || new Date().toISOString().slice(0, 10), techPayEntries: f.techPayEntries,
       });
       notify('Saved!');
       onSaved(f as VehicleRecord);
@@ -1342,6 +1342,13 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                   if (v.length === 17) { setVinDecodeMsg(''); decodeVin(v); }
                 }}
                 placeholder="1FTFW1E85PFA24680" />
+              {f.vin && (
+                <button type="button" title="Copy VIN"
+                  onClick={() => { navigator.clipboard.writeText(f.vin); notify('VIN copied!'); }}
+                  style={{ padding: '0 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}>
+                  ⎘
+                </button>
+              )}
               <button type="button" title="Scan VIN barcode with camera"
                 onClick={startVinScan}
                 style={{ padding: '0 12px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>

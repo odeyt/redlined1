@@ -5,11 +5,11 @@ import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const VALID_PLANS = new Set(['trial', 'solo', 'starter', 'professional', 'business']);
+const VALID_PLANS = new Set(['free', 'solo', 'starter', 'professional', 'business']);
 const VALID_PERIODS = new Set(['monthly', 'annual']);
 
 const PLAN_META: Record<string, { name: string; price: string; annualPrice: string; color: string }> = {
-  trial:        { name: 'Free Trial',    price: 'Free for 7 days', annualPrice: 'Free for 7 days', color: '#22d3a0' },
+  free:         { name: 'Free',          price: 'Free forever',    annualPrice: 'Free forever',    color: '#22d3a0' },
   solo:         { name: 'Solo',          price: '$24/mo',          annualPrice: '$240/yr',          color: '#60a5fa' },
   starter:      { name: 'Starter',       price: '$49/mo',          annualPrice: '$490/yr',          color: '#a78bfa' },
   professional: { name: 'Professional',  price: '$99/mo',          annualPrice: '$990/yr',          color: '#cc0000' },
@@ -25,7 +25,7 @@ export default function SignupPage() {
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [success, setSuccess]     = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<string>('trial');
+  const [selectedPlan, setSelectedPlan] = useState<string>('free');
   const [period, setPeriod]       = useState<string>('monthly');
   const [consented, setConsented] = useState(false);
 
@@ -49,9 +49,8 @@ export default function SignupPage() {
     const periodParam = params.get('period') ?? params.get('billing');
     if (periodParam && VALID_PERIODS.has(periodParam)) setPeriod(periodParam);
 
-    // ?intent=trial is handled by defaulting to trial if no plan given
     const intent = params.get('intent');
-    if (intent === 'trial' && !planParam) setSelectedPlan('trial');
+    if (intent === 'trial' && !planParam) setSelectedPlan('free');
   }, []);
 
   // Cooldown ticker
@@ -70,7 +69,7 @@ export default function SignupPage() {
         password,
         options: {
           data: { full_name: name, shop_name: shopName },
-          emailRedirectTo: selectedPlan !== 'trial'
+          emailRedirectTo: selectedPlan !== 'free'
           ? `${window.location.origin}/auth/callback?next=/?plan=${selectedPlan}&period=${period}`
           : `${window.location.origin}/auth/callback`,
         },
@@ -79,7 +78,7 @@ export default function SignupPage() {
       if (data.user) {
         // Store commercial signup intent in localStorage for recovery after email verification
         const intent: Record<string, string> = {
-          intent:    selectedPlan === 'trial' ? 'trial' : 'paid',
+          intent:    selectedPlan === 'free' ? 'free' : 'paid',
           plan:      selectedPlan,
           period,
           createdAt: new Date().toISOString(),
@@ -90,7 +89,7 @@ export default function SignupPage() {
         } catch { /* unavailable */ }
 
         // For paid plans: also store pending checkout key (picked up by auth/callback and AppShell)
-        if (selectedPlan !== 'trial') {
+        if (selectedPlan !== 'free') {
           try {
             localStorage.setItem(
               'rd1_pending_checkout',
@@ -135,8 +134,8 @@ export default function SignupPage() {
     }
   }
 
-  const isPaidPlan  = selectedPlan && selectedPlan !== 'trial' && PLAN_META[selectedPlan];
-  const planMeta    = PLAN_META[selectedPlan] ?? PLAN_META['trial'];
+  const isPaidPlan  = selectedPlan && selectedPlan !== 'free' && PLAN_META[selectedPlan];
+  const planMeta    = PLAN_META[selectedPlan] ?? PLAN_META['free'];
   const displayPrice = period === 'annual' ? planMeta.annualPrice : planMeta.price;
 
   // ── Confirmation screen ──────────────────────────────────────────────────────
@@ -214,7 +213,7 @@ export default function SignupPage() {
               label: isPaidPlan ? 'Complete payment' : 'Sign in and explore',
               sub: isPaidPlan
                 ? `You'll be redirected to pay for the ${planMeta.name} plan (${displayPrice})`
-                : 'Full 7-day access — no credit card required',
+                : 'Free forever — no credit card required',
             },
           ].map((step, i) => (
             <div key={i} style={{
@@ -295,7 +294,7 @@ export default function SignupPage() {
           <span className="login-logo-sub">
             {isPaidPlan
               ? `Get ${planMeta.name} — ${displayPrice}`
-              : 'Start Your Free 7-Day Trial'}
+              : 'Create Free Account'}
           </span>
         </div>
 
@@ -368,13 +367,13 @@ export default function SignupPage() {
               ? 'Creating account…'
               : isPaidPlan
                 ? `Get ${planMeta.name} — ${displayPrice}`
-                : 'Start Free Trial'}
+                : 'Create Free Account'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
             {isPaidPlan
               ? 'After creating your account, confirm your email to proceed to payment.'
-              : 'After 7 days, free plan continues with core features. No credit card required.'}
+              : 'Free forever with core features. No credit card required.'}
           </p>
         </form>
 
