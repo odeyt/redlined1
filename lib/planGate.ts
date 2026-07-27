@@ -18,18 +18,27 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
 // cards, inspections, estimates, invoices); volume caps (job count, etc.)
 // are enforced separately, not by module gating.
 const FREE_MODULES = new Set([
+  // Core operations
   'dashboard',
   'customers',
   'vehicles',
   'job-cards',
   'inspections',
   'estimates',
+  'repair-orders',
   'invoices',
+  'scheduling',
+  'appointments',
+  // Utilities (usage limits enforced server-side)
+  'vin',
+  'dtc',
+  // Account management
   'settings',
-  'subscriptions',      // upgrade path
-  'system-health',      // internal tooling — never plan-locked
-  'disaster-recovery',  // internal tooling — never plan-locked
-  'testing-dashboard',  // internal tooling — never plan-locked
+  'subscriptions',
+  // Internal tooling — never plan-locked
+  'system-health',
+  'disaster-recovery',
+  'testing-dashboard',
 ]);
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
