@@ -534,26 +534,29 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
       // Job card techs as semicolon string
       const jcTech = jc?.technicians?.length ? jc.technicians.join('; ') : '';
 
+      // silent (auto-pull on open): saved values win — only fill blanks, so a
+      // user's saved edits are never clobbered when reopening the vehicle.
+      // manual (Pull from RO button): RO values win — explicit refresh intent.
+      const pick = (roVal: string, prevVal: string) =>
+        silent ? (prevVal || roVal) : (roVal || prevVal);
+
+      const roRecommendation = ro
+        ? ((ro.cause ? `Cause: ${ro.cause}` : '') +
+           (ro.cause && ro.correction ? '\n' : '') +
+           (ro.correction ? `Correction: ${ro.correction}` : ''))
+        : '';
+
       setF(prev => ({
         ...prev,
-        // Issues / Work Needed: RO concern → JC notes → keep existing
-        issues:         ro?.concern      || jc?.notes      || prev.issues,
-        // Damage at Intake: RO notes → keep existing
-        damageIntake:   ro?.notes        || prev.damageIntake,
-        // Parts Needed: RO parts list → keep existing
-        partsNeeded:    partsList        || prev.partsNeeded,
-        // Parts Exchanged: RO correction → keep existing
-        partsExchanged: ro?.correction   || prev.partsExchanged,
-        // Flat Rate: RO flat rate cost → keep existing
-        flatRateLak:    ro?.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak,
-        // Assigned Tech: RO technician → JC technicians → keep existing
-        assignedTech:   ro?.technician   || jcTech         || prev.assignedTech,
-        // Recommendation: built from RO cause + correction
-        recommendation: ro
-          ? ((ro.cause ? `Cause: ${ro.cause}` : '') +
-             (ro.cause && ro.correction ? '\n' : '') +
-             (ro.correction ? `Correction: ${ro.correction}` : '')) || prev.recommendation
-          : prev.recommendation,
+        issues:         pick(ro?.concern    || jc?.notes || '', prev.issues),
+        damageIntake:   pick(ro?.notes      || '',              prev.damageIntake),
+        partsNeeded:    pick(partsList,                         prev.partsNeeded),
+        partsExchanged: pick(ro?.correction || '',              prev.partsExchanged),
+        flatRateLak:    silent
+          ? (prev.flatRateLak || (ro?.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak))
+          : (ro?.flatRateCost != null ? ro.flatRateCost : prev.flatRateLak),
+        assignedTech:   pick(ro?.technician || jcTech,          prev.assignedTech),
+        recommendation: pick(roRecommendation,                  prev.recommendation),
       }));
 
       const source = ro ? ro.roNumber : (jc ? jc.id : '');
