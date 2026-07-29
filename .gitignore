@@ -47,3 +47,4 @@ tests/reports/
 tests/screenshots/
 playwright-report/
 test-results/
+.env.e2e.local

@@ -92,7 +92,8 @@ function Shell() {
   const { activeModule, toast } = useAppState();
   const dispatch = useAppDispatch();
   const { role, loading: roleLoading } = useShop();
-  const { status: planStatus, daysLeft, loading: planLoading, profileLoaded } = usePlan();
+  const { status: planStatus, daysLeft, loading: planLoading, profileLoaded, isFreeForever } = usePlan();
+  const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
   const checkoutFired = useRef(false);
   const defaulted = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -232,24 +233,29 @@ function Shell() {
 
   // Plan-based module blocking — only block if profile was actually read AND plan is free.
   // If profileLoaded is false the DB read failed; don't restrict modules in that case.
+  // Free Forever users (isFreeForever=true) are never hard-blocked — they have permanent
+  // access to FREE_MODULES. Only expired-trial downgrades (plan was 'trial', now 'free')
+  // or billing-enabled scenarios show the lock screen.
   const planReady = !planLoading;
-  const planBlocked = (planReady && planStatus === 'free' && profileLoaded)
+  const planBlocked = (planReady && planStatus === 'free' && profileLoaded && !isFreeForever)
     ? Object.keys(views).filter(m => !canAccess(m, planStatus))
     : [];
 
   const allBlocked = [...new Set([...roleBlocked, ...planBlocked])];
   const safeModule = allBlocked.includes(activeModule) ? 'dashboard' : activeModule;
   const ActiveView = views[safeModule] || DashboardView;
-  const showWatermark = planReady && needsWatermark(planStatus) && safeModule === 'invoices';
+  // Watermark on invoices only for expired-trial/paid-lapsed, never for Free Forever.
+  const showWatermark = planReady && needsWatermark(planStatus) && safeModule === 'invoices'
+    && billingEnabled && !isFreeForever;
 
   return (
     <>
       <EnvBanner />
 
-      {/* Trial expiry banner — only shown when profile was successfully read AND plan is free.
-          If the DB read failed (RLS issue, network error) profileLoaded is false and we
-          never show the hard lock, so a billing infrastructure problem can't lock out users. */}
-      {planReady && planStatus === 'free' && profileLoaded && (
+      {/* Trial expiry lock — only for expired-trial downgrades when billing is enabled.
+          Free Forever users (plan='free') never see this. If profileLoaded is false
+          (DB read failed) we also skip — a billing infra problem must not lock users out. */}
+      {planReady && planStatus === 'free' && profileLoaded && billingEnabled && !isFreeForever && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)',
@@ -270,13 +276,13 @@ function Shell() {
               background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.3)',
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#cc0000' }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#ff6666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trial Ended</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#ff6666', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Subscription Required</span>
             </div>
             <h2 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.02em' }}>
-              Your free trial has ended
+              Your subscription has ended
             </h2>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, margin: '0 0 28px' }}>
-              Your 7-day trial is complete. Subscribe to keep full access to job cards, estimates, invoices, inspections, and everything else you explored.
+              Subscribe to restore full access to job cards, estimates, invoices, inspections, and everything else in Redlined1.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <a

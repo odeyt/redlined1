@@ -57,6 +57,21 @@ export default defineConfig({
       // No setup dependency — smoke tests must work without auth
     },
 
+    // ── Audit: trial/free account E2E audit ─────────────────────────────────
+    {
+      name: 'audit-setup',
+      testMatch: /tests\/audit\/auth\.setup\.ts/,
+    },
+    {
+      name: 'audit',
+      testMatch: /tests\/audit\/(?!auth\.setup).*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/.auth/audit-user.json',
+      },
+      dependencies: ['audit-setup'],
+    },
+
     // ── Full regression suite ────────────────────────────────────────────────
     {
       name: 'chromium',
