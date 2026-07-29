@@ -2,8 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 import { config as loadDotenv } from 'dotenv';
 import path from 'path';
 
-// Load audit credentials so TEST_MODE=local picks them up in audit project
-loadDotenv({ path: path.resolve(__dirname, '.env.e2e.local') });
+// Load Supabase keys (needed by audit auth setup for API-based session injection)
+loadDotenv({ path: path.resolve(__dirname, '.env.local') });
+// Load audit credentials — overrides take precedence, gitignored
+loadDotenv({ path: path.resolve(__dirname, '.env.e2e.local'), override: true });
 
 /**
  * TEST_MODE controls which URL the suite targets:
