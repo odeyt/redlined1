@@ -40,3 +40,10 @@ Thumbs.db
 next-env.d.ts
 
 .vercel
+
+# Playwright
+tests/.auth/
+tests/reports/
+tests/screenshots/
+playwright-report/
+test-results/

@@ -1,6 +1,19 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE_URL = process.env.TEST_BASE_URL ?? 'http://localhost:3000';
+/**
+ * TEST_MODE controls which URL the suite targets:
+ *   local      → http://localhost:3000          (default)
+ *   preview    → $VERCEL_PREVIEW_URL            (GitHub Actions on PR)
+ *   production → https://www.redlined1.com      (manually triggered smoke)
+ */
+const MODE = (process.env.TEST_MODE ?? 'local') as 'local' | 'preview' | 'production';
+
+const BASE_URL =
+  MODE === 'production'
+    ? 'https://www.redlined1.com'
+    : MODE === 'preview'
+    ? (process.env.VERCEL_PREVIEW_URL ?? process.env.TEST_BASE_URL ?? 'http://localhost:3000')
+    : (process.env.TEST_BASE_URL ?? 'http://localhost:3000');
 
 export default defineConfig({
   testDir: './tests',
@@ -36,12 +49,12 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
-    // ── Smoke: Chromium only, fastest ────────────────────────────────────────
+    // ── Smoke: public pages only, no auth — runs against preview & production ─
     {
       name: 'smoke-chromium',
       grep: /@smoke/,
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
+      // No setup dependency — smoke tests must work without auth
     },
 
     // ── Full regression suite ────────────────────────────────────────────────

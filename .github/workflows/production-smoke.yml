@@ -1,0 +1,52 @@
+name: Production Smoke
+
+on:
+  # Manually triggered only — run after confirming a production deploy
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for running production smoke (e.g. post-deploy check)'
+        required: false
+        default: 'Manual post-deploy verification'
+
+jobs:
+  smoke:
+    name: Playwright Smoke (Production)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run smoke tests against Production
+        run: npx playwright test --project=smoke-chromium
+        env:
+          TEST_MODE: production
+          CI: true
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-production-${{ github.run_number }}
+          path: tests/reports/
+          retention-days: 30
+
+      - name: Upload Screenshots on Failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-screenshots-production-${{ github.run_number }}
+          path: tests/screenshots/
+          retention-days: 14

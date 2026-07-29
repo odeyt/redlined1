@@ -1,0 +1,64 @@
+name: Preview Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs on the same PR
+concurrency:
+  group: preview-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Playwright Smoke (Preview)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      # Wait for Vercel preview deployment to be ready
+      - name: Wait for Vercel Preview
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+        id: vercel_preview
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          max_timeout: 300
+          check_interval: 15
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Run public smoke tests against Preview
+        run: npx playwright test --project=smoke-chromium
+        env:
+          TEST_MODE: preview
+          VERCEL_PREVIEW_URL: ${{ steps.vercel_preview.outputs.url }}
+          CI: true
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-preview-${{ github.run_number }}
+          path: tests/reports/
+          retention-days: 14
+
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-screenshots-${{ github.run_number }}
+          path: tests/screenshots/
+          retention-days: 7
