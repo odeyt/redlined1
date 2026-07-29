@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
+import path from 'path';
+
+// Load audit credentials so TEST_MODE=local picks them up in audit project
+loadDotenv({ path: path.resolve(__dirname, '.env.e2e.local') });
 
 /**
  * TEST_MODE controls which URL the suite targets:
@@ -12,8 +17,8 @@ const BASE_URL =
   MODE === 'production'
     ? 'https://www.redlined1.com'
     : MODE === 'preview'
-    ? (process.env.VERCEL_PREVIEW_URL ?? process.env.TEST_BASE_URL ?? 'http://localhost:3000')
-    : (process.env.TEST_BASE_URL ?? 'http://localhost:3000');
+    ? (process.env.VERCEL_PREVIEW_URL ?? process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000')
+    : (process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000');
 
 export default defineConfig({
   testDir: './tests',

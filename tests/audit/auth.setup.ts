@@ -5,11 +5,13 @@
  */
 import { test as setup, expect } from '@playwright/test';
 import path from 'path';
-import dotenv from 'dotenv';
+import fs from 'fs';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env.e2e.local') });
-
+// Credentials loaded from .env.e2e.local by playwright.config.ts at startup
 export const auditAuthFile = path.join(__dirname, '../.auth/audit-user.json');
+
+// Ensure .auth dir exists
+fs.mkdirSync(path.dirname(auditAuthFile), { recursive: true });
 
 setup('authenticate as audit user', async ({ page }) => {
   const email    = process.env.E2E_TRIAL_USER_EMAIL;
