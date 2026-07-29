@@ -1,6 +1,24 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config as loadDotenv } from 'dotenv';
+import path from 'path';
 
-const BASE_URL = process.env.TEST_BASE_URL ?? 'http://localhost:3000';
+// Load audit credentials so TEST_MODE=local picks them up in audit project
+loadDotenv({ path: path.resolve(__dirname, '.env.e2e.local') });
+
+/**
+ * TEST_MODE controls which URL the suite targets:
+ *   local      → http://localhost:3000          (default)
+ *   preview    → $VERCEL_PREVIEW_URL            (GitHub Actions on PR)
+ *   production → https://www.redlined1.com      (manually triggered smoke)
+ */
+const MODE = (process.env.TEST_MODE ?? 'local') as 'local' | 'preview' | 'production';
+
+const BASE_URL =
+  MODE === 'production'
+    ? 'https://www.redlined1.com'
+    : MODE === 'preview'
+    ? (process.env.VERCEL_PREVIEW_URL ?? process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000')
+    : (process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000');
 
 export default defineConfig({
   testDir: './tests',
@@ -36,12 +54,27 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
-    // ── Smoke: Chromium only, fastest ────────────────────────────────────────
+    // ── Smoke: public pages only, no auth — runs against preview & production ─
     {
       name: 'smoke-chromium',
       grep: /@smoke/,
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
+      // No setup dependency — smoke tests must work without auth
+    },
+
+    // ── Audit: trial/free account E2E audit ─────────────────────────────────
+    {
+      name: 'audit-setup',
+      testMatch: /tests\/audit\/auth\.setup\.ts/,
+    },
+    {
+      name: 'audit',
+      testMatch: /tests\/audit\/(?!auth\.setup).*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/.auth/audit-user.json',
+      },
+      dependencies: ['audit-setup'],
     },
 
     // ── Full regression suite ────────────────────────────────────────────────

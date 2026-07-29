@@ -16,6 +16,9 @@ export function usePlan() {
   // Tracks whether we got a real profile row vs a fallback — used by AppShell
   // to avoid showing the hard lock screen when the DB read simply failed.
   const [profileLoaded, setProfileLoaded] = useState(false);
+  // True when the DB row explicitly has plan='free' (Free Forever), meaning
+  // the 'free' status is intentional — not an expired trial downgrade.
+  const [isFreeForever, setIsFreeForever] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -40,6 +43,9 @@ export function usePlan() {
           const s = getPlanStatus(data.plan, data.trial_ends_at);
           setStatus(s);
           if (s === 'trial') setDaysLeft(trialDaysLeft(data.trial_ends_at));
+          // plan='free' means the user was explicitly provisioned as Free Forever,
+          // not an expired trial. The hard lock and watermark must not show for them.
+          if (data.plan === 'free') setIsFreeForever(true);
         } else {
           // Profile row missing or DB read failed (e.g. RLS policy misconfiguration).
           // Never hard-lock the user — give a grace trial so they can still access
@@ -58,5 +64,5 @@ export function usePlan() {
     void load();
   }, []);
 
-  return { status, daysLeft, loading, profileLoaded };
+  return { status, daysLeft, loading, profileLoaded, isFreeForever };
 }

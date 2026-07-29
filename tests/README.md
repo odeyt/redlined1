@@ -1,0 +1,167 @@
+# Redlined1 — Playwright Test Suite
+
+## Overview
+
+Release-validation workflow:
+
+```
+feature branch → Vercel Preview → Playwright smoke → pull request → production
+```
+
+Phase 1 covers the foundation: public-page smoke, login/protected-route tests,
+dashboard load, and responsive checks across desktop/tablet/mobile.
+
+---
+
+## Quick start
+
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install chromium
+
+# Set credentials
+export TEST_OWNER_EMAIL=your@email.com
+export TEST_OWNER_PASSWORD=yourpassword
+
+# Run smoke tests against local dev server
+npm run dev &
+npx playwright test --project=smoke-chromium
+
+# Run full suite (chromium) against local
+npx playwright test --project=chromium
+
+# Run responsive smoke
+npx playwright test tests/smoke/responsive.spec.ts --project=smoke-chromium
+
+# Open HTML report
+npx playwright show-report tests/reports/html
+```
+
+---
+
+## Test modes
+
+Set `TEST_MODE` to choose the target URL:
+
+| Mode | URL | When |
+|------|-----|------|
+| `local` (default) | `http://localhost:3000` | Local dev |
+| `preview` | `$VERCEL_PREVIEW_URL` | GitHub Actions on PR |
+| `production` | `https://www.redlined1.com` | Manual smoke post-deploy |
+
+```bash
+# Preview mode
+TEST_MODE=preview VERCEL_PREVIEW_URL=https://redlined1-abc123.vercel.app \
+  npx playwright test --project=smoke-chromium
+
+# Production smoke
+TEST_MODE=production npx playwright test --project=smoke-chromium
+```
+
+---
+
+## NPM scripts
+
+| Script | What it runs |
+|--------|-------------|
+| `npm run test:e2e` | Full suite, Chromium |
+| `npm run test:smoke` | @smoke tests only, no auth required |
+| `npm run test:visual` | Visual regression |
+| `npm run test:headed` | Full suite with browser visible |
+| `npm run test:ci` | CI mode (list + junit + html reporters) |
+
+---
+
+## Project structure
+
+```
+tests/
+  smoke/
+    public-pages.spec.ts   ← public routes, no auth, @smoke
+    dashboard.spec.ts      ← dashboard + Command Center load, @smoke
+    responsive.spec.ts     ← desktop/tablet/mobile viewport checks, @smoke
+  auth/
+    auth.setup.ts          ← saves owner session to .auth/owner.json
+    login.spec.ts          ← auth flows
+  responsive/
+    responsive.spec.ts     ← full mobile suite, @mobile
+  marketing/
+    landing-preview.spec.ts
+  helpers/
+    auth.ts                ← login/logout/navigateTo helpers
+    api.ts                 ← API test helpers
+    cleanup.ts             ← test data cleanup
+  fixtures/
+    index.ts               ← ownerPage, technicianPage fixtures
+  .auth/                   ← gitignored, created by auth.setup.ts
+  reports/                 ← gitignored, HTML + JSON + JUnit output
+  screenshots/             ← gitignored, failure screenshots
+```
+
+---
+
+## GitHub Actions
+
+### Preview validation (automatic)
+
+`.github/workflows/preview-validation.yml`
+
+Triggers on every PR targeting `main`. Waits for the Vercel preview deployment,
+then runs `@smoke` tests against the preview URL.
+
+**Secrets required in GitHub repo settings:**
+- `VERCEL_TOKEN` — Vercel personal access token
+
+### Production smoke (manual)
+
+`.github/workflows/production-smoke.yml`
+
+Triggered manually via GitHub Actions → "Run workflow". Run after confirming
+a production deploy is live.
+
+No secrets required beyond `GITHUB_TOKEN` (automatic).
+
+---
+
+## Auth state
+
+The `setup` project runs `tests/auth/auth.setup.ts` first, which logs in as
+the owner and saves cookies to `tests/.auth/owner.json`. All authenticated
+projects depend on `setup`.
+
+Smoke tests (`smoke-chromium` project) do **not** depend on `setup` — they must
+work against any deployment without credentials.
+
+Set credentials via env vars:
+
+```bash
+export TEST_OWNER_EMAIL=info@redlined1.com
+export TEST_OWNER_PASSWORD=yourpassword
+```
+
+Or create a `.env.test` file (gitignored):
+
+```
+TEST_OWNER_EMAIL=info@redlined1.com
+TEST_OWNER_PASSWORD=yourpassword
+```
+
+---
+
+## Artifacts
+
+| Path | Contents |
+|------|----------|
+| `tests/reports/html/` | Interactive HTML report |
+| `tests/reports/results.json` | JSON results |
+| `tests/reports/results.xml` | JUnit XML (CI integration) |
+| `tests/screenshots/` | Failure screenshots, traces, videos |
+
+---
+
+## Adding tests
+
+- Tag tests with `@smoke` if they must work without authentication.
+- Tag with `@mobile` for mobile-only tests.
+- Tag with `@cross-browser` for Firefox/WebKit runs.
+- All smoke tests must tolerate being run against production (no writes, no deletes).
