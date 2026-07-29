@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAppState } from '@/lib/store';
+import { usePlan } from '@/lib/usePlan';
 import { Panel } from '@/components/Panel';
 import { PricingCards } from '@/components/billing/PricingCards';
 import { SubscriptionStatus } from '@/components/billing/SubscriptionStatus';
@@ -10,6 +11,7 @@ import type { BillingInterval, RedlinedPlanId } from '@/lib/payments/types';
 
 export function SubscriptionsView() {
   const { customers, vehicles, jobCards, invoices } = useAppState();
+  const { status: planStatus, isFreeForever } = usePlan();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
@@ -48,8 +50,12 @@ export function SubscriptionsView() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 260 }}>
             <SubscriptionStatus
-              status={null}
-              planName="No active subscription"
+              status={planStatus === 'pro' ? 'active' : null}
+              planName={
+                planStatus === 'pro' ? 'Pro'
+                : isFreeForever ? 'Free Forever'
+                : 'Free'
+              }
             />
           </div>
           <div style={{ paddingTop: 4 }}>

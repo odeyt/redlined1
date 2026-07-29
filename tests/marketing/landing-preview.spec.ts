@@ -12,8 +12,9 @@ import { test, expect } from '@playwright/test';
 test.describe('landing-preview route', () => {
   test('loads and renders the hero headline', async ({ page }) => {
     await page.goto('/landing-preview');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'The operating system that helps repair shops think.'
+    // h1 contains a rotating audience word — assert the stable prefix only
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'The operating system'
     );
   });
 
@@ -54,7 +55,7 @@ test.describe('header navigation', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/landing-preview');
     await expect(page.getByRole('link', { name: 'Sign In' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Start Free Trial' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Start Free', exact: true }).first()).toBeVisible();
   });
 
   test('mobile: menu toggle opens an accessible disclosure panel', async ({ page }) => {
@@ -71,9 +72,9 @@ test.describe('header navigation', () => {
 });
 
 test.describe('CTA destinations', () => {
-  test('primary trial CTA points to /signup', async ({ page }) => {
+  test('primary free-signup CTA points to /signup', async ({ page }) => {
     await page.goto('/landing-preview');
-    const cta = page.getByRole('link', { name: 'Start Your 7-Day Free Trial' }).first();
+    const cta = page.getByRole('link', { name: /Get Your Shop Running — Free/ }).first();
     await expect(cta).toHaveAttribute('href', '/signup');
   });
 
@@ -224,7 +225,7 @@ test.describe('reduced motion', () => {
 test.describe('keyboard use', () => {
   test('can tab to the primary CTA and activate it with the keyboard', async ({ page }) => {
     await page.goto('/landing-preview');
-    const cta = page.getByRole('link', { name: 'Start Your 7-Day Free Trial' }).first();
+    const cta = page.getByRole('link', { name: /Get Your Shop Running — Free/ }).first();
     await cta.focus();
     await expect(cta).toBeFocused();
   });
