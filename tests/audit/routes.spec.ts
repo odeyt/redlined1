@@ -31,11 +31,16 @@ test.describe('Protected routes redirect when unauthenticated', () => {
 
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('/ redirects to /login when unauthenticated', async ({ page }) => {
+  test('/ shows public marketing page (not the app shell) when unauthenticated', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL(/login/, { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+    // Unauthenticated visitors get the marketing page with a Sign In link —
+    // never the authenticated app shell (sidebar/topbar).
+    const signIn = await page.getByRole('link', { name: /sign in/i }).first().isVisible().catch(() => false);
     const hasLoginForm = await page.locator('input[type="email"]').isVisible().catch(() => false);
-    expect(page.url().includes('login') || hasLoginForm).toBeTruthy();
+    expect(signIn || hasLoginForm || page.url().includes('login')).toBeTruthy();
+    const appShell = await page.locator('.sidebar, .topbar').first().isVisible().catch(() => false);
+    expect(appShell).toBeFalsy();
   });
 
 });
