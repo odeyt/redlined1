@@ -549,7 +549,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
       setF(prev => ({
         ...prev,
         issues:         pick(ro?.concern    || jc?.notes || '', prev.issues),
-        damageIntake:   pick(ro?.notes      || '',              prev.damageIntake),
+        // damageIntake is deliberately NOT pulled from the RO: the RO has no
+        // damage field — its `notes` are internal shop notes, and mapping them
+        // here kept refilling Damage at Intake with work-needed text after the
+        // user cleared or moved it. Damage at intake is owned by this form only.
         partsNeeded:    pick(partsList,                         prev.partsNeeded),
         partsExchanged: pick(ro?.correction || '',              prev.partsExchanged),
         flatRateLak:    silent
