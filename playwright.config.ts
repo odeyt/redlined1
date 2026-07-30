@@ -59,6 +59,12 @@ export default defineConfig({
     // ── Smoke: public pages only, no auth — runs against preview & production ─
     {
       name: 'smoke-chromium',
+      // Scoped to tests/smoke: several files under tests/intelligence/ are named
+      // *.spec.ts but are plain scripts that assert at import time and print
+      // their own results. Without this they load into every unscoped project,
+      // and one of them fails on a source-code check that has nothing to do with
+      // the deployed site — which would break the production-smoke workflow.
+      testMatch: /tests[/\\]smoke[/\\].*\.spec\.ts/,
       grep: /@smoke/,
       use: { ...devices['Desktop Chrome'] },
       // No setup dependency — smoke tests must work without auth

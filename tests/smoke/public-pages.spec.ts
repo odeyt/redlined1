@@ -39,12 +39,19 @@ test.describe('Public pages @smoke', () => {
     expect(bodyText.toLowerCase()).not.toContain('7-day');
   });
 
-  test('unauthenticated / redirects to login', async ({ page }) => {
+  test('unauthenticated / serves the marketing page, not the app shell', async ({ page }) => {
     await page.goto('/');
-    await page.waitForURL(/login/, { timeout: 10_000 }).catch(() => {});
-    const url = page.url();
-    const hasLoginInput = await page.locator('input[type="email"]').isVisible().catch(() => false);
-    expect(url.includes('login') || hasLoginInput).toBeTruthy();
+    await page.waitForTimeout(2000);
+    // By design / is the public marketing page with a Sign In link — it does
+    // not redirect to /login. What matters is that the authenticated app shell
+    // is never served to an anonymous visitor.
+    const signIn = await page.getByRole('link', { name: /sign in/i }).first()
+      .isVisible().catch(() => false);
+    const hasLoginForm = await page.locator('input[type="email"]').isVisible().catch(() => false);
+    expect(signIn || hasLoginForm || page.url().includes('login')).toBeTruthy();
+
+    const appShell = await page.locator('.sidebar, .topbar').first().isVisible().catch(() => false);
+    expect(appShell, 'app shell must not render for an unauthenticated visitor').toBeFalsy();
   });
 
   test('forgot-password page loads', async ({ page }) => {
