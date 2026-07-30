@@ -174,7 +174,18 @@ export async function ensureFreeSubscription(
     .eq('id', userId)
     .maybeSingle();
 
-  if (existing?.plan) return { created: false };
+  // A database trigger creates the profile row with the legacy plan='trial'
+  // before this runs, so an "is plan set?" check here would always be true and
+  // Free Forever would never be granted — that is exactly what happened to
+  // every account created up to 2026-07-30. Treat null and the legacy 'trial'
+  // value as unset; never downgrade a real paid plan.
+  const PAID = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
+  if (existing?.plan && existing.plan !== 'trial' && !PAID.has(existing.plan)) {
+    return { created: false };   // already 'free' or another terminal state
+  }
+  if (existing?.plan && PAID.has(existing.plan)) {
+    return { created: false };   // paid subscriber — leave untouched
+  }
 
   const { error } = await db
     .from('profiles')
