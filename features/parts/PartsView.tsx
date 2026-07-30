@@ -259,9 +259,37 @@ export function PartsView() {
   const filtered = parts.filter(p => {
     const matchCat    = filterCat === 'All' || p.category === filterCat;
     const q           = search.toLowerCase();
-    const matchSearch = !q || [p.partNumber, p.brand, p.description, p.supplier, p.barcode, p.compatibility].some(v => v.toLowerCase().includes(q));
+    const matchSearch = !q || [p.partNumber, p.brand, p.description, p.supplier, p.barcode, p.compatibility, p.location].some(v => v.toLowerCase().includes(q));
     return matchCat && matchSearch;
   });
+
+  // All locations already used across inventory — quick-pick suggestions
+  // (e.g. Shop 1, Shop 2). Typing a new one in the form adds it to this list.
+  const knownLocations = [...new Set(
+    parts.flatMap(p => (p.location ?? '').split(',').map(l => l.trim()).filter(Boolean))
+  )].sort();
+
+  /* ── Export current (filtered) list as CSV ── */
+  function exportCsv() {
+    const esc = (v: string | number) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ['part_number','brand','description','category','cost','retail','quantity','location','barcode','supplier','supplier_phone','supplier_email','low_stock_threshold','reorder_qty','compatibility','notes'];
+    const rows = filtered.map(p => [
+      p.partNumber, p.brand, p.description, p.category, p.cost, p.retail, p.quantity,
+      p.location, p.barcode, p.supplier, p.supplierPhone, p.supplierEmail,
+      p.lowStockThreshold, p.reorderQty, p.compatibility, p.notes,
+    ].map(esc).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `parts-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify(`Exported ${filtered.length} part${filtered.length === 1 ? '' : 's'} to CSV`);
+  }
 
   const partsPage = usePagination(filtered, { pageSize: 25 });
 
@@ -664,6 +692,9 @@ export function PartsView() {
           </div>
           <button className="btn" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => setShowBulkImport(true)}>
             📤 Bulk Import CSV
+          </button>
+          <button className="btn" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={exportCsv} title="Exports the currently filtered list">
+            📥 Export CSV
           </button>
           <button className="btn primary" onClick={startAdd}>+ Add Part</button>
         </div>
@@ -1082,6 +1113,22 @@ export function PartsView() {
                     ))}
                   </div>
                 )}
+                {/* quick-pick from locations already used in inventory (Shop 1, Shop 2, …) */}
+                {(() => {
+                  const current = form.location ? form.location.split(',').map(l => l.trim()).filter(Boolean) : [];
+                  const suggestions = knownLocations.filter(l => !current.includes(l));
+                  return suggestions.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      {suggestions.map(loc => (
+                        <button key={loc} type="button"
+                          onClick={() => setForm(f => ({ ...f, location: [...current, loc].join(', ') }))}
+                          style={{ padding: '4px 10px', background: 'var(--surface-soft)', border: '1px dashed var(--line)', borderRadius: 20, fontSize: 12, color: 'var(--muted)', cursor: 'pointer' }}>
+                          + {loc}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
                 {/* add new location row */}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input className="input" value={locationInput} onChange={e => setLocationInput(e.target.value)}
@@ -1095,7 +1142,7 @@ export function PartsView() {
                         setLocationInput('');
                       }
                     }}
-                    placeholder="e.g. Shelf A-3, Bay 2, Bin 7…" style={{ flex: 1 }} />
+                    placeholder="e.g. Shop 1, Shop 2, Shelf A-3, Bin 7…" style={{ flex: 1 }} />
                   <button type="button" onClick={() => {
                     const v = locationInput.trim();
                     if (!v) return;
