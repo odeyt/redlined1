@@ -195,6 +195,24 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   }
 
   if (Object.keys(update).length > 0) {
+    // A freshly provisioned shop has no shop_settings row yet. A bare UPDATE
+    // matches zero rows and still reports success, so settings appeared to save
+    // and then silently reverted. Create the row on first save instead.
+    const shopId = getShopId();
+    const { data: existing } = await supabase
+      .from('shop_settings')
+      .select('shop_id')
+      .eq('shop_id', shopId)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error } = await supabase
+        .from('shop_settings')
+        .insert({ ...update, shop_id: shopId });
+      if (error) throw error;
+      return;
+    }
+
     const { error } = await supabase
       .from('shop_settings')
       .update(update)
