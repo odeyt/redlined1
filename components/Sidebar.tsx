@@ -23,7 +23,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   const { notifications, unreadCount, markAllRead, dismiss, clearAll, STATUS_EMOJI } = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-  const { status: planStatus, daysLeft } = usePlan();
+  const { status: planStatus, daysLeft, loading: planLoading, profileLoaded } = usePlan();
   const { shops, currentShop, switchShop, role, loading: roleLoading, mirrorShopIds } = useShop();
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const shopMenuRef = useRef<HTMLDivElement>(null);
@@ -281,9 +281,20 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   ];
   // billing and subscriptions always visible for owners only
   const ALWAYS_SHOW = role === 'owner' ? new Set(['billing', 'subscriptions']) : new Set<string>();
+  // Plan gating — mirrors AppShell, which bounces plan-blocked modules to the
+  // dashboard. Without this the sidebar advertised paid modules (Parts
+  // Inventory, AI Copilot, Reports) to free accounts as dead links.
+  // Only applied once the plan is resolved from a real profile row: if the read
+  // failed (profileLoaded false) nothing is hidden, so a billing/RLS problem
+  // can never strip a paying shop's navigation.
+  const planGated = (!planLoading && profileLoaded)
+    ? navItems.map(([id]) => id).filter(id => !canAccess(id, planStatus))
+    : [];
+
   const visibleNav = navItems.filter(([id]) => {
     if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
+    if (planGated.includes(id)) return false;
     if (featureHidden.includes(id)) return false;
     if (role === 'owner' && hiddenModules.includes(id)) return false;
     return true;

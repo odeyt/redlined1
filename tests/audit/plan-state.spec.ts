@@ -87,6 +87,29 @@ test.describe('Free module access', () => {
 
 });
 
+test.describe('Paid-module gate', () => {
+
+  // The inverse of the Free module access block above: modules outside
+  // FREE_MODULES (lib/planGate.ts) must NOT be reachable on Free Forever.
+  // Match exact nav labels — a substring regex is unusable here because
+  // "ai" occurs inside "Repair Orders"/"Maintenance" and "Parts" inside
+  // "Parts Quotations".
+  const paidNavLabels = ['Parts Inventory', 'AI Copilot', 'Reports'];
+
+  for (const label of paidNavLabels) {
+    test(`paid module is not offered on free plan: ${label}`, async ({ page }) => {
+      await page.goto('/');
+      await expect(page.locator('.sidebar, aside').first()).toBeVisible({ timeout: 20_000 });
+      await page.waitForTimeout(2000);
+
+      const sidebar = page.locator('.sidebar, aside').first();
+      const entry = sidebar.getByText(label, { exact: true });
+      expect(await entry.count(), `"${label}" should be hidden for a Free Forever account`).toBe(0);
+    });
+  }
+
+});
+
 test.describe('Responsive layout audit', () => {
 
   const viewports = [
