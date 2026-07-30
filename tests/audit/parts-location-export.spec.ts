@@ -1,12 +1,49 @@
 /**
  * Verifies the Parts Inventory location quick-pick chips and Export CSV.
- * Seed data: E2E-BRK-001 (Shop 1) and E2E-FLT-002 (Shop 2) in E2E Audit Shop.
+ *
+ * Seeds its own parts (E2E-BRK-001 @ Shop 1, E2E-FLT-002 @ Shop 2) via the API
+ * and removes them afterwards, so the suite does not depend on data left behind
+ * by a previous run.
  */
 import { test, expect } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
 
 test.use({ storageState: path.join(__dirname, '../.auth/audit-user.json') });
+
+const SHOP_ID = '22686099-9931-43a2-82b4-a12fe2d164cf'; // E2E Audit Shop
+const SEED = ['E2E-BRK-001', 'E2E-FLT-002'];
+
+function db() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+}
+
+async function signedInDb() {
+  const c = db();
+  const { error } = await c.auth.signInWithPassword({
+    email:    process.env.E2E_TRIAL_USER_EMAIL!,
+    password: process.env.E2E_TRIAL_USER_PASSWORD!,
+  });
+  if (error) throw new Error(`seed sign-in failed: ${error.message}`);
+  return c;
+}
+
+test.beforeAll(async () => {
+  const c = await signedInDb();
+  const { data: { user } } = await c.auth.getUser();
+  await c.from('parts').delete().eq('shop_id', SHOP_ID).in('part_number', SEED);
+  const { error } = await c.from('parts').insert([
+    { part_number: 'E2E-BRK-001', description: 'E2E Brake Pad', category: 'Brakes', cost: 10, retail: 20, quantity: 4, location: 'Shop 1', shop_id: SHOP_ID, owner_id: user!.id },
+    { part_number: 'E2E-FLT-002', description: 'E2E Oil Filter', category: 'Other',  cost: 3,  retail: 8,  quantity: 9, location: 'Shop 2', shop_id: SHOP_ID, owner_id: user!.id },
+  ]);
+  if (error) throw new Error(`seeding parts failed: ${error.message}`);
+});
+
+test.afterAll(async () => {
+  const c = await signedInDb();
+  await c.from('parts').delete().eq('shop_id', SHOP_ID).in('part_number', SEED);
+});
 
 async function openParts(page: import('@playwright/test').Page) {
   await page.goto('/');
