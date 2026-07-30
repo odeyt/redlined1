@@ -170,21 +170,30 @@ export async function ensureFreeSubscription(
 
   const { data: existing } = await db
     .from('profiles')
-    .select('plan')
+    .select('plan, trial_ends_at')
     .eq('id', userId)
     .maybeSingle();
 
   // A database trigger creates the profile row with the legacy plan='trial'
   // before this runs, so an "is plan set?" check here would always be true and
-  // Free Forever would never be granted — that is exactly what happened to
-  // every account created up to 2026-07-30. Treat null and the legacy 'trial'
-  // value as unset; never downgrade a real paid plan.
+  // Free Forever would never be granted — that is what happened to every
+  // account created up to 2026-07-30. Treat null and a *lapsed* legacy trial as
+  // unset, while leaving these alone:
+  //   - real paid plans (never downgrade a subscriber)
+  //   - an ACTIVE trial (a deliberately granted evaluation period; converting
+  //     it to free here would cancel the trial on any later auth callback,
+  //     e.g. a password reset)
   const PAID = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
-  if (existing?.plan && existing.plan !== 'trial' && !PAID.has(existing.plan)) {
-    return { created: false };   // already 'free' or another terminal state
-  }
-  if (existing?.plan && PAID.has(existing.plan)) {
-    return { created: false };   // paid subscriber — leave untouched
+  const plan = existing?.plan;
+
+  if (plan && PAID.has(plan)) return { created: false };
+
+  if (plan === 'trial') {
+    const endsAt = existing?.trial_ends_at ? new Date(existing.trial_ends_at as string) : null;
+    if (endsAt && endsAt > new Date()) return { created: false }; // active trial
+    // lapsed or open-ended legacy trial → fall through to Free Forever
+  } else if (plan) {
+    return { created: false }; // already 'free' or another terminal state
   }
 
   const { error } = await db
