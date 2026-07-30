@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds } from './shopStore';
+import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds, assertShopOwner } from './shopStore';
 
 export interface Shop {
   id: string;
@@ -81,6 +81,10 @@ export function useShop() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
+      // Discard a shop id cached by a different account on this browser before
+      // any shop-scoped query can run with it.
+      if (assertShopOwner(user.id)) setLocalShopId('');
+
       const { data: suRows } = await supabase
         .from('shop_users')
         .select('shop_id, role')
@@ -101,10 +105,11 @@ export function useShop() {
         const current = getShopId();
         const isValid = list.some(s => s.id === current);
         if (!isValid) {
-          setShopId(list[0].id);
+          setShopId(list[0].id, user.id);
           window.location.reload();
           return;
         }
+        setShopId(current, user.id);
         setLocalShopId(current);
 
         // Load mirror shop links for the active shop
