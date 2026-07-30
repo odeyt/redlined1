@@ -129,6 +129,19 @@ CREATE TRIGGER profiles_default_free
 UPDATE profiles SET trial_ends_at = NULL WHERE plan = 'free';
 
 
+-- ── 8. Removed one unused account ────────────────────────────────────────────
+-- info@d1autozone.com (4ba1d01c-26af-4381-a0ff-936c9bfa0f49) was deleted via
+-- the Supabase admin API, not SQL, so there is no statement to rerun here.
+--
+-- Verified safe before deleting: created 2026-06-15, last_sign_in_at NULL
+-- (never signed in), zero shop_users rows, no user_metadata beyond
+-- email_verified. It could not have authored any records without signing in.
+-- It had been left on plan='trial' expiring 2026-08-16, which is what surfaced
+-- it during the audit.
+--
+-- Auth user count after removal: 11.
+
+
 -- ── Verification ─────────────────────────────────────────────────────────────
 
 SELECT u.email, p.plan, p.trial_ends_at::date AS trial_ends,
