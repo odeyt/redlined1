@@ -371,6 +371,11 @@ export function PartsView() {
     setLocationInput('');
     setPendingPhotos([]);
     setPendingPhotoUrls([]);
+    // handleSave() branches on `selected && editing` to choose update vs
+    // create, so editing alone is not enough. This used to work only because
+    // the table's row click set `selected` before its Edit button ran; any
+    // other caller landed in add mode and tried to insert a duplicate.
+    setSelected(p);
     setEditing(true);
     setTab('add');
   }
