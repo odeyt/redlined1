@@ -338,7 +338,15 @@ function Shell() {
           <div className="content" style={{ position: 'relative' }}>
             <Toast message={toast} />
             <ErrorBoundary>
-              <ActiveView />
+              {/* Views are mounted only once useShop has resolved the active
+                  shop AND its mirror links. Nearly every view fetches on mount
+                  via getShopIds(); mounting earlier meant that fetch saw the
+                  active shop alone, so a multi-location shop showed just one
+                  location's records and never re-fetched. Gating here fixes it
+                  for every view at once rather than per-view. */}
+              {roleLoading
+                ? <div style={{ padding: '40px 24px', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
+                : <ActiveView />}
             </ErrorBoundary>
             {/* Invoice watermark when trial expired and user managed to reach invoices */}
             {showWatermark && (

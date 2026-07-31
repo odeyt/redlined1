@@ -186,7 +186,11 @@ function errMsg(e: unknown): string {
 
 /* ─────────────────────────────── */
 export function PartsView() {
-  const { role } = useShop();
+  // mirrorShopIds/loading are needed, not just role: useShop resolves the
+  // active shop and its mirror links asynchronously, so a fetch issued on mount
+  // sees only the active shop. Without re-running once mirrors arrive, a
+  // multi-location shop shows just one location's stock forever.
+  const { role, mirrorShopIds, loading: shopLoading } = useShop();
   const isTech = role === 'technician';
   const [tab, setTab]         = useState<ActiveTab>('inventory');
   const [parts, setParts]     = useState<Part[]>([]);
@@ -239,7 +243,13 @@ export function PartsView() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Re-fetch once shop resolution finishes and whenever the mirror set changes,
+  // so parts from every mirrored location are included.
+  const mirrorKey = mirrorShopIds.join(',');
+  useEffect(() => {
+    if (shopLoading) return;
+    load();
+  }, [load, shopLoading, mirrorKey]);
 
   /* Global barcode scanner listener */
   useEffect(() => {
