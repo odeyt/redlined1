@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { syntheticEmail, syntheticName, syntheticPassword } from './synthetic-data';
 import { cleanupSyntheticRun } from './e2e-cleanup';
+import { assertSafeToSeed, describeTarget } from './db-target';
 
 export interface SyntheticShop {
   /** True when shop_settings was seeded, so the shell shows shopName not "My Shop". */
@@ -32,6 +33,10 @@ function requireEnv(name: string): string {
  * Uses the admin API so no email round-trip is needed.
  */
 export async function createSyntheticShop(label = 'owner'): Promise<SyntheticShop> {
+  // Fail loudly before writing anything if this run is aimed at production.
+  assertSafeToSeed();
+  console.log(`[synthetic-shop] target database: ${describeTarget()}`);
+
   const url = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
   const serviceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
   const anonKey = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');

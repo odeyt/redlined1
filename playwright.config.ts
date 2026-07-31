@@ -2,8 +2,22 @@ import { defineConfig, devices } from '@playwright/test';
 import { config as loadDotenv } from 'dotenv';
 import path from 'path';
 
+// Read before any dotenv call — shell vars are already present.
+const EARLY_MODE = process.env.TEST_MODE ?? 'local';
+
 // Load Supabase keys (needed by audit auth setup for API-based session injection)
 loadDotenv({ path: path.resolve(__dirname, '.env.local') });
+
+// Local runs only: mirror Next.js precedence, where .env.development.local
+// overrides .env.local for `next dev`. This is how local runs get pointed at
+// the staging database — the harness must resolve the same project as the dev
+// server it starts, or it would seed one database and assert against another.
+// Deliberately NOT loaded for preview/production runs: the audit suite targets
+// production and authenticates as an account that exists only there.
+if (EARLY_MODE === 'local') {
+  loadDotenv({ path: path.resolve(__dirname, '.env.development.local'), override: true });
+}
+
 // Load audit credentials — overrides take precedence, gitignored
 loadDotenv({ path: path.resolve(__dirname, '.env.e2e.local'), override: true });
 

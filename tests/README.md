@@ -13,6 +13,41 @@ dashboard load, and responsive checks across desktop/tablet/mobile.
 
 ---
 
+## Local dev points at the STAGING database
+
+`next dev` and the E2E harness both read `.env.development.local`, which
+Next.js ranks above `.env.local`:
+
+```
+.env.development.local  >  .env.local  >  .env.development  >  .env
+```
+
+Copy `.env.development.local.example` to `.env.development.local` and fill in
+your `redlined1-staging` Supabase values. Your production values in `.env.local`
+are untouched and still used by builds and scripts. Delete the file to point
+local dev back at production.
+
+**Guard rail:** `tests/helpers/db-target.ts` refuses to create synthetic test
+data when the target is the production project ref (`ldjrlvjkmzrcdqhetqoh`).
+`npm run test:local` fails fast with instructions rather than writing to
+production. Override deliberately with `ALLOW_PROD_E2E=true` — which
+`npm run test:audit` sets, because that suite is read-only against production
+by design.
+
+Keep the staging schema in sync with production, or local tests validate
+against a schema you no longer run:
+
+```bash
+npx supabase db dump --db-url "<PRODUCTION_URI>" --schema public -f /tmp/prod-schema.sql
+npx supabase db reset --db-url "<STAGING_URI>"      # optional: start clean
+psql "<STAGING_URI>" -f /tmp/prod-schema.sql
+```
+
+Both connection strings come from Supabase → Settings → Database → Connection
+string → URI. Paste passwords into your own terminal, never into chat.
+
+---
+
 ## Quick start — local, self-contained
 
 ```bash

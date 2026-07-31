@@ -25,7 +25,7 @@
     "test:local:headed": "cross-env TEST_MODE=local PLAYWRIGHT_BASE_URL=http://localhost:3000 TEST_BASE_URL=http://localhost:3000 playwright test --project=local --headed",
     "test:local:ui": "cross-env TEST_MODE=local PLAYWRIGHT_BASE_URL=http://localhost:3000 TEST_BASE_URL=http://localhost:3000 playwright test --project=local --ui",
     "test:smoke:prod": "cross-env TEST_MODE=production playwright test --project=smoke-chromium",
-    "test:audit": "playwright test --project=audit",
+    "test:audit": "cross-env TEST_MODE=production ALLOW_PROD_E2E=true playwright test --project=audit",
     "test:unit": "jest",
     "test:report": "playwright show-report tests/reports/html",
     "test:sweep": "npx tsx scripts/sweep-e2e-data.ts"
