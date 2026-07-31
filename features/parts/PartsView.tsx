@@ -1192,6 +1192,24 @@ export function PartsView() {
             </div>
           </div>
 
+          {/* Save errors must appear next to the Save button. The page-level
+              error banner sits above the tabs, so when the form is scrolled a
+              failed save reported itself off-screen and looked like nothing
+              happened at all. */}
+          {error && (
+            <div style={{
+              position: 'sticky', top: 56, zIndex: 19,
+              background: 'rgba(239,68,68,.14)', border: '1px solid rgba(239,68,68,.45)',
+              color: 'var(--red,#ef4444)', padding: '10px 14px', borderRadius: 8,
+              marginBottom: 16, fontSize: 13,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+            }}>
+              <span><strong>Save failed.</strong> {error}</span>
+              <button type="button" onClick={() => setError('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }}>✕</button>
+            </div>
+          )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
 
               <div>

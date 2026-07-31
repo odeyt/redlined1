@@ -10,7 +10,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
-import { getShopId } from '@/lib/shopStore';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
@@ -171,9 +170,12 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
 
   useEffect(() => {
     async function loadCounts() {
-      const { getShopId } = await import('@/lib/shopStore');
-      const sid = getShopId();
-      if (!sid) return;
+      // Counts must span the same shops the pages query — the active shop plus
+      // any mirrored locations. Using the active shop alone made the badge
+      // disagree with the page it links to (8 vs 175 on a two-location account).
+      const { getShopIds } = await import('@/lib/shopStore');
+      const sids = getShopIds().filter(Boolean);
+      if (sids.length === 0) return;
 
       // Count rows for a table — catches records saved with the correct shop_id,
       // with an empty-string shop_id (inserted before shop was configured),
@@ -181,7 +183,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       async function count(table: string): Promise<number> {
         // Primary: correct shop
         const r1 = await supabase
-          .from(table).select('*', { count: 'exact', head: true }).eq('shop_id', sid);
+          .from(table).select('*', { count: 'exact', head: true }).in('shop_id', sids);
         const c1 = (!r1.error && r1.count != null) ? r1.count : 0;
 
         // Legacy: rows saved with no shop_id (null or empty string)
@@ -204,14 +206,14 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       async function countVehicles(): Promise<number> {
         const r = await supabase
           .from('vehicles').select('*', { count: 'exact', head: true })
-          .eq('shop_id', sid).neq('status', 'Archived');
+          .in('shop_id', sids).neq('status', 'Archived');
         return (!r.error && r.count != null) ? r.count : 0;
       }
 
       async function countReceived(): Promise<number> {
         const r = await supabase
           .from('parts_orders').select('*', { count: 'exact', head: true })
-          .eq('shop_id', sid).eq('status', 'Received');
+          .in('shop_id', sids).eq('status', 'Received');
         return (!r.error && r.count != null) ? r.count : 0;
       }
 
