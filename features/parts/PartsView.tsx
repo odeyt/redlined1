@@ -10,6 +10,7 @@ import {
   Part, PART_CATEGORIES,
 } from '@/services/partsService';
 import { formatMoney, DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/currencies';
+import { getShopId } from '@/lib/shopStore';
 import { CurrencySelect } from './CurrencySelect';
 import { VehicleCompatibilityEditor, CompatibilityChips } from './VehicleCompatibilityEditor';
 
@@ -418,7 +419,22 @@ export function PartsView() {
       setTab('inventory');
       setSelected(null);
     } catch (err: unknown) {
-      setError('Save failed: ' + errMsg(err));
+      const raw = errMsg(err);
+      // parts_pkey is on part_number alone, so a part number must be unique
+      // across every shop — adding one that already exists in another location
+      // fails with a bare Postgres message that gives the user nothing to act
+      // on. Name the conflicting part and where it lives instead.
+      if (/duplicate key|parts_pkey/i.test(raw)) {
+        const clash = parts.find(p => p.partNumber.trim().toLowerCase() === form.partNumber.trim().toLowerCase());
+        setError(
+          clash
+            ? `Part number "${form.partNumber}" already exists${clash.shopId && clash.shopId !== getShopId() ? ' in your other location' : ''}` +
+              ` — "${clash.description || 'no description'}". Open it from the Inventory tab to edit it, or use a different part number.`
+            : `Part number "${form.partNumber}" is already used by another part. Part numbers must be unique, so choose a different one.`,
+        );
+      } else {
+        setError(raw);
+      }
     } finally { setSaving(false); }
   }
 
