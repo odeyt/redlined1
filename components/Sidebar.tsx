@@ -255,7 +255,11 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       });
     }
     loadCounts();
-  }, [currentShop]);
+    // Re-count when the mirror set arrives. useShop resolves mirrors after the
+    // active shop, so a run keyed only on currentShop called getShopIds()
+    // before the mirrored location was in it — the badge showed the active
+    // shop's 9 parts beside a page listing 176 from both locations.
+  }, [currentShop, mirrorShopIds.join(',')]);
 
   async function handleSignOut() {
     await signOut();
