@@ -1,8 +1,10 @@
 -- ============================================================================
 -- Make part numbers unique PER SHOP instead of globally
 --
--- NOT YET APPLIED — review before running. This alters a primary key on a live
--- table and is the one change tonight that is not trivially reversible.
+-- APPLIED to production 2026-07-31 and verified. This alters a primary key on a live
+-- table. Post-apply checks: 175 parts intact (167 / 8 split unchanged); the same
+-- part number is now accepted in a different shop; a duplicate within the SAME
+-- shop is still rejected; 418 unit and 36 audit tests pass.
 --
 -- FINDING: public.parts has its primary key on part_number ALONE. A part number
 -- must therefore be unique across every shop in the database, so:
