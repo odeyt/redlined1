@@ -1,6 +1,14 @@
 -- ============================================================================
 -- SECURITY: close self-escalation via public.profiles
 --
+-- STATUS: APPLIED to production 2026-07-31 and verified.
+--   information_schema.column_privileges now lists exactly (email, shop_name)
+--   as UPDATE-able by `authenticated`; the table-level UPDATE grant is gone.
+--   All four escalation paths reject writes from a normal user, confirmed by
+--   tests/audit/profile-escalation.spec.ts (was failing, now passes) and by a
+--   direct per-column probe. Plan distribution unchanged before/after:
+--   6 pro, 3 free, 2 trial — permissions only, no data touched.
+--
 -- FINDING (confirmed exploitable in production 2026-07-31, not theoretical):
 -- the profiles RLS policy lets a user update their OWN row, and no column
 -- restriction exists, so any signed-in customer can run this from the browser

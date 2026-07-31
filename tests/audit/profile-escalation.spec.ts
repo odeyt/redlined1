@@ -3,8 +3,13 @@
  * paid plan, a privileged role, or another shop by updating their own profile.
  *
  * Confirmed exploitable in production on 2026-07-31 — plan, trial_ends_at, role
- * and shop_id were all writable by a plain authenticated user. Closed by
- * supabase/migrations/2026-07-31_close_profile_self_escalation.sql.
+ * and shop_id were all writable by a plain authenticated user. Closed the same
+ * day by supabase/migrations/2026-07-31_close_profile_self_escalation.sql,
+ * after which this suite passes.
+ *
+ * If this ever fails again, someone has re-granted table-level UPDATE on
+ * profiles — a column-level GRANT cannot be carved out of one, so the fix is to
+ * revoke the table grant and re-grant only (email, shop_name).
  *
  * This test writes to its own account only, and restores the original values
  * afterwards even when an assertion fails.
