@@ -1243,7 +1243,10 @@ export function PartsView() {
               marginBottom: 16, fontSize: 13,
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
             }}>
-              <span><strong>Save failed.</strong> {error}</span>
+              {/* A duplicate part number is not a failure — the app knows the
+                  part exists and can open it. Labelling it "Save failed" made a
+                  solvable situation read as something broken. */}
+              <span><strong>{duplicateOf ? 'This part already exists.' : 'Save failed.'}</strong> {error}</span>
               <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                 {duplicateOf && (
                   <button
