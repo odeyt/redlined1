@@ -22,6 +22,12 @@ const BASE_URL =
     ? (process.env.VERCEL_PREVIEW_URL ?? process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000')
     : (process.env.TEST_BASE_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000');
 
+// Start a dev server only when the resolved target actually IS localhost.
+// Keying this off MODE alone was wrong: .env.e2e.local can set
+// PLAYWRIGHT_BASE_URL to production while MODE still defaults to 'local',
+// which would boot a needless dev server for a production run.
+const NEEDS_DEV_SERVER = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(BASE_URL);
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,          // Sequential — shared Supabase state
@@ -68,6 +74,15 @@ export default defineConfig({
       grep: /@smoke/,
       use: { ...devices['Desktop Chrome'] },
       // No setup dependency — smoke tests must work without auth
+    },
+
+    // ── Local: self-provisioning tenant, safe against any database ──────────
+    // Creates its own throwaway shop + owner, works inside it, deletes it after.
+    // Never reads or writes an existing tenant's data.
+    {
+      name: 'local',
+      testMatch: /tests[/\\]local[/\\].*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
     },
 
     // ── Audit: trial/free account E2E audit ─────────────────────────────────
@@ -144,4 +159,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+
+  // Local runs manage their own dev server; preview/production target a
+  // deployment that already exists. reuseExistingServer means an already-running
+  // `npm run dev` is reused instead of failing on the port.
+  webServer: NEEDS_DEV_SERVER
+    ? {
+        command: 'npm run dev',
+        url: 'http://localhost:3000',
+        reuseExistingServer: !process.env.CI,
+        timeout: 180_000,
+      }
+    : undefined,
 });

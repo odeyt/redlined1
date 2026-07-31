@@ -13,29 +13,48 @@ dashboard load, and responsive checks across desktop/tablet/mobile.
 
 ---
 
-## Quick start
+## Quick start — local, self-contained
 
 ```bash
-# Install Playwright browsers (first time only)
-npx playwright install chromium
-
-# Set credentials
-export TEST_OWNER_EMAIL=your@email.com
-export TEST_OWNER_PASSWORD=yourpassword
-
-# Run smoke tests against local dev server
-npm run dev &
-npx playwright test --project=smoke-chromium
-
-# Run full suite (chromium) against local
-npx playwright test --project=chromium
-
-# Run responsive smoke
-npx playwright test tests/smoke/responsive.spec.ts --project=smoke-chromium
-
-# Open HTML report
-npx playwright show-report tests/reports/html
+npx playwright install chromium   # first time only
+npm run test:local
 ```
+
+That is the whole setup. Playwright starts `next dev` itself (an already
+running one is reused), so no second terminal is needed.
+
+**What makes it safe to run against a real Supabase project:** each run
+provisions its **own throwaway tenant** — a new owner account and a new shop —
+does its work inside it, and deletes it afterwards. It never reads or writes an
+existing shop's data. Synthetic accounts use the reserved
+`@redlined1-e2e-test.invalid` domain (RFC 2606, guaranteed non-resolvable), so a
+stray invite or notification can never reach a real person, and cleanup can
+identify synthetic rows with no ambiguity.
+
+If a run crashes before teardown, remove the leftovers with:
+
+```bash
+npm run test:sweep
+```
+
+The sweep matches only the `.invalid` domain and refuses to delete any account
+that is not synthetic.
+
+---
+
+## Scripts
+
+| Script | What it does |
+|---|---|
+| `npm run test:local` | Local suite, auto-starts dev server, own tenant |
+| `npm run test:local:headed` | Same, with a visible browser |
+| `npm run test:local:ui` | Playwright UI mode for debugging |
+| `npm run test:sweep` | Delete synthetic data left by crashed runs |
+| `npm run test:audit` | Authenticated audit suite (uses `.env.e2e.local`) |
+| `npm run test:smoke` | Public `@smoke` tests |
+| `npm run test:smoke:prod` | Public smoke against `https://www.redlined1.com` |
+| `npm run test:unit` | Jest unit tests |
+| `npm run test:report` | Open the last HTML report |
 
 ---
 

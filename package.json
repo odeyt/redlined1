@@ -20,7 +20,15 @@
     "test:smoke": "playwright test --grep @smoke --project=smoke-chromium",
     "test:visual": "playwright test --project=visual",
     "test:headed": "playwright test --project=chromium --headed",
-    "test:ci": "playwright test --reporter=list,junit,html"
+    "test:ci": "playwright test --reporter=list,junit,html",
+    "test:local": "cross-env TEST_MODE=local PLAYWRIGHT_BASE_URL=http://localhost:3000 TEST_BASE_URL=http://localhost:3000 playwright test --project=local",
+    "test:local:headed": "cross-env TEST_MODE=local PLAYWRIGHT_BASE_URL=http://localhost:3000 TEST_BASE_URL=http://localhost:3000 playwright test --project=local --headed",
+    "test:local:ui": "cross-env TEST_MODE=local PLAYWRIGHT_BASE_URL=http://localhost:3000 TEST_BASE_URL=http://localhost:3000 playwright test --project=local --ui",
+    "test:smoke:prod": "cross-env TEST_MODE=production playwright test --project=smoke-chromium",
+    "test:audit": "playwright test --project=audit",
+    "test:unit": "jest",
+    "test:report": "playwright show-report tests/reports/html",
+    "test:sweep": "npx tsx scripts/sweep-e2e-data.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
@@ -48,6 +56,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "^16.2.9",
