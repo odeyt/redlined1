@@ -48,3 +48,8 @@ tests/screenshots/
 playwright-report/
 test-results/
 .env.e2e.local
+
+# Database dumps — production data, must never be committed
+redlined1-backup-*.sql
+*-backup-*.sql
+*.dump
