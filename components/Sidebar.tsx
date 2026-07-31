@@ -186,10 +186,16 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
           .from(table).select('*', { count: 'exact', head: true }).in('shop_id', sids);
         const c1 = (!r1.error && r1.count != null) ? r1.count : 0;
 
-        // Legacy: rows saved with no shop_id (null or empty string)
+        // Legacy: rows saved before a shop was configured, i.e. shop_id IS NULL.
+        //
+        // This previously used .or('shop_id.is.null,shop_id.eq.'). The second
+        // term has no value after "eq.", which PostgREST rejects — every one of
+        // these counts returned HTTP 400, flooding the console with one error
+        // per table on every sidebar render. An empty-string shop_id is not a
+        // real case either: the column is a uuid, so '' could never be stored.
         const r2 = await supabase
           .from(table).select('*', { count: 'exact', head: true })
-          .or('shop_id.is.null,shop_id.eq.');
+          .is('shop_id', null);
         const c2 = (!r2.error && r2.count != null) ? r2.count : 0;
 
         return c1 + c2;
