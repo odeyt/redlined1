@@ -112,11 +112,20 @@ export function useShop() {
         setShopId(current, user.id);
         setLocalShopId(current);
 
-        // Load mirror shop links for the active shop
-        const { data: mirrorRows } = await supabase
+        // Load mirror shop links for the active shop.
+        // The error was previously discarded, so a permissions failure on
+        // shop_mirrors was indistinguishable from "this shop has no mirrors" —
+        // mirroring appeared simply not to work, with nothing logged anywhere.
+        const { data: mirrorRows, error: mirrorErr } = await supabase
           .from('shop_mirrors')
           .select('mirror_shop_id')
           .eq('shop_id', current);
+        if (mirrorErr) {
+          console.error(
+            '[useShop] could not read shop_mirrors — multi-shop visibility is disabled:',
+            mirrorErr.message,
+          );
+        }
         const mirrors = (mirrorRows ?? []).map((r: Record<string, unknown>) => r.mirror_shop_id as string).filter(Boolean);
         setMirrorShopIds(mirrors);
         setLocalMirrorIds(mirrors);
