@@ -31,6 +31,8 @@ const EMPTY: Omit<Part, 'photos'> = {
   cost: 0, retail: 0, quantity: 0, supplier: '', supplierPhone: '',
   supplierEmail: '', location: '', lowStockThreshold: 5, reorderQty: 10,
   compatibility: '', barcode: '', notes: '', currency: DEFAULT_CURRENCY,
+  // Set by createPart() from the active shop; blank on a new form.
+  shopId: '',
 };
 
 /* ── CSV / Excel column alias helpers ── */
@@ -153,6 +155,8 @@ function rowToPart(r: Record<string, string>): Omit<Part, 'photos'> {
       return isSupportedCurrency(raw) ? raw : DEFAULT_CURRENCY;
     })(),
     notes:             g('notes', 'note', 'comments'),
+    // Imported rows are created in the active shop by createPart().
+    shopId:            '',
   };
 }
 
@@ -389,7 +393,9 @@ export function PartsView() {
     try {
       const savedCurrency = form.currency || DEFAULT_CURRENCY;
       if (selected && editing) {
-        await updatePart(selected.partNumber, form);
+        // selected.shopId targets the row's own location, so an edit to a
+        // mirrored shop saves regardless of whether the mirror list has loaded.
+        await updatePart(selected.partNumber, form, selected.shopId);
         notify(`${form.partNumber} updated.`);
         setSavedMessage(`${form.partNumber} saved — prices in ${savedCurrency}`);
       } else {

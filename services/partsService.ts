@@ -22,6 +22,12 @@ export interface Part {
   notes: string;
   /** ISO 4217 code the cost/retail figures are expressed in. */
   currency: string;
+  /**
+   * Shop the row belongs to. Needed so an update can target this exact row
+   * instead of relying on the client's current mirror list, which resolves
+   * asynchronously and may not yet include the part's location.
+   */
+  shopId: string;
 }
 
 export const PART_CATEGORIES = [
@@ -52,6 +58,7 @@ function mapRow(r: Record<string, unknown>): Part {
     // Rows created before the currency column existed read as USD, which is
     // what the module assumed when every amount was hardcoded to a "$" prefix.
     currency:      (r.currency as string)       || DEFAULT_CURRENCY,
+    shopId:        (r.shop_id as string)        || '',
   };
 }
 
@@ -115,21 +122,35 @@ export async function savePart(p: Partial<Part> & { partNumber: string }): Promi
     lowStockThreshold: p.lowStockThreshold ?? 5, reorderQty: p.reorderQty ?? 0,
     compatibility: p.compatibility ?? '', barcode: p.barcode ?? '',
     notes: p.notes ?? '', currency: p.currency ?? DEFAULT_CURRENCY,
+    // createPart() sets shop_id from the active shop; this is only here to
+    // satisfy the Part shape and is never written as a column.
+    shopId: p.shopId ?? '',
   });
 }
 
-export async function updatePart(partNumber: string, updates: Partial<Part>): Promise<void> {
+/**
+ * @param shopId  The shop the row lives in. Pass it whenever it is known (the
+ *   edit form always knows it). Scoping to the row's own shop makes the update
+ *   independent of getShopIds(), whose mirror list loads asynchronously — a
+ *   save issued before it resolved matched zero rows and silently did nothing,
+ *   which is what made edits to a second location appear not to save at all.
+ *   Falls back to the mirror-scoped list when not supplied. RLS enforces shop
+ *   membership either way, so this narrows the target, it does not widen access.
+ */
+export async function updatePart(partNumber: string, updates: Partial<Part>, shopId?: string): Promise<void> {
   // .select() so we can tell an update that matched nothing from one that
   // succeeded. PostgREST reports no error when a row-level policy filters every
   // candidate row, so without this a blocked save looks identical to a
   // successful one — the UI says "Saved" and the change silently disappears on
   // the next reload.
-  const { data, error } = await supabase
+  const q = supabase
     .from('parts')
     .update(toRow(updates))
-    .eq('part_number', partNumber)
-    .in('shop_id', getShopIds())
+    .eq('part_number', partNumber);
+
+  const { data, error } = await (shopId ? q.eq('shop_id', shopId) : q.in('shop_id', getShopIds()))
     .select('part_number');
+
   if (error) throw error;
   if (!data || data.length === 0) {
     throw new Error(
