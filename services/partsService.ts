@@ -119,12 +119,24 @@ export async function savePart(p: Partial<Part> & { partNumber: string }): Promi
 }
 
 export async function updatePart(partNumber: string, updates: Partial<Part>): Promise<void> {
-  const { error } = await supabase
+  // .select() so we can tell an update that matched nothing from one that
+  // succeeded. PostgREST reports no error when a row-level policy filters every
+  // candidate row, so without this a blocked save looks identical to a
+  // successful one — the UI says "Saved" and the change silently disappears on
+  // the next reload.
+  const { data, error } = await supabase
     .from('parts')
     .update(toRow(updates))
     .eq('part_number', partNumber)
-    .in('shop_id', getShopIds());
+    .in('shop_id', getShopIds())
+    .select('part_number');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(
+      `Save did not apply to "${partNumber}" — no matching row was updated. ` +
+      `This usually means a database permission rule rejected the change.`,
+    );
+  }
 }
 
 export async function deletePart(partNumber: string): Promise<void> {
