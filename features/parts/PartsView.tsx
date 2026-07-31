@@ -426,12 +426,25 @@ export function PartsView() {
       // on. Name the conflicting part and where it lives instead.
       if (/duplicate key|parts_pkey/i.test(raw)) {
         const clash = parts.find(p => p.partNumber.trim().toLowerCase() === form.partNumber.trim().toLowerCase());
+        const activeShop = getShopId();
+        const sameShop = clash?.shopId === activeShop;
+        // Since parts_pkey is (shop_id, part_number), a collision can only mean
+        // the number already exists in the shop being written to. Naming both
+        // shop ids makes a mismatch between the two obvious rather than hidden
+        // behind friendly wording.
         setError(
-          clash
-            ? `Part number "${form.partNumber}" already exists${clash.shopId && clash.shopId !== getShopId() ? ' in your other location' : ''}` +
+          (clash
+            ? `Part number "${form.partNumber}" already exists${sameShop ? ' in this location' : ' in your other location'}` +
               ` — "${clash.description || 'no description'}". Open it from the Inventory tab to edit it, or use a different part number.`
-            : `Part number "${form.partNumber}" is already used by another part. Part numbers must be unique, so choose a different one.`,
+            : `Part number "${form.partNumber}" is already used by another part in this location.`)
+          + `  [saving to shop ${activeShop || '(none)'}${clash?.shopId ? `, existing row in shop ${clash.shopId}` : ''}]`,
         );
+        console.error('[parts] duplicate-key save failed', {
+          partNumber: form.partNumber,
+          savingToShop: activeShop,
+          existingRowShop: clash?.shopId ?? null,
+          rawError: raw,
+        });
       } else {
         setError(raw);
       }
