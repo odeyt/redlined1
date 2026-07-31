@@ -34,15 +34,33 @@ export function setShopId(id: string, ownerUserId?: string): void {
  */
 export function assertShopOwner(userId: string): boolean {
   if (typeof window === 'undefined' || !userId) return false;
+  if (!_shopId) return false;
+
   const cachedOwner = localStorage.getItem(OWNER_KEY);
-  if (_shopId && cachedOwner !== userId) {
+
+  // A shop cached before ownership tracking existed has no owner recorded.
+  // Adopt it for the current user rather than discarding it: treating "unknown
+  // owner" as "wrong owner" wiped the active shop for every existing user on
+  // their first load after this was deployed, dropping multi-shop accounts onto
+  // shops[0] — a D1 user working in Location 2 (167 parts) landed in Location 1
+  // (8 parts) and their work appeared to have vanished.
+  //
+  // Adoption is safe because useShop() then validates the id against the user's
+  // actual shop_users rows and replaces it if they are not a member — and RLS
+  // would reject the queries regardless.
+  if (!cachedOwner) {
+    localStorage.setItem(OWNER_KEY, userId);
+    return false;
+  }
+
+  if (cachedOwner !== userId) {
     _shopId = '';
     _mirrorShopIds = [];
     localStorage.removeItem('activeShopId');
     localStorage.removeItem(OWNER_KEY);
     return true;
   }
-  if (_shopId && !cachedOwner) localStorage.setItem(OWNER_KEY, userId);
+
   return false;
 }
 
