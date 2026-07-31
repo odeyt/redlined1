@@ -213,6 +213,10 @@ export function PartsView() {
   // Explicit save confirmation. The existing notify() toast was easy to miss,
   // which is part of why a save could feel like it had not happened.
   const [savedMessage, setSavedMessage] = useState('');
+  // The existing part behind a duplicate-part-number failure, so the error can
+  // offer to open it for editing — which is what the user wanted in the first
+  // place when they typed a part number that already exists.
+  const [duplicateOf, setDuplicateOf] = useState<Part | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [locationInput, setLocationInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -432,12 +436,12 @@ export function PartsView() {
         // the number already exists in the shop being written to. Naming both
         // shop ids makes a mismatch between the two obvious rather than hidden
         // behind friendly wording.
+        setDuplicateOf(clash ?? null);
         setError(
-          (clash
-            ? `Part number "${form.partNumber}" already exists${sameShop ? ' in this location' : ' in your other location'}` +
-              ` — "${clash.description || 'no description'}". Open it from the Inventory tab to edit it, or use a different part number.`
-            : `Part number "${form.partNumber}" is already used by another part in this location.`)
-          + `  [saving to shop ${activeShop || '(none)'}${clash?.shopId ? `, existing row in shop ${clash.shopId}` : ''}]`,
+          clash
+            ? `Part number "${form.partNumber}" already exists${sameShop ? ' here' : ' in your other location'}` +
+              ` — "${clash.description || 'no description'}". To change its details, edit the existing part instead of adding a new one.`
+            : `Part number "${form.partNumber}" is already used by another part in this location.`,
         );
         console.error('[parts] duplicate-key save failed', {
           partNumber: form.partNumber,
@@ -1240,8 +1244,23 @@ export function PartsView() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
             }}>
               <span><strong>Save failed.</strong> {error}</span>
-              <button type="button" onClick={() => setError('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }}>✕</button>
+              <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                {duplicateOf && (
+                  <button
+                    type="button"
+                    onClick={() => { const p = duplicateOf; setDuplicateOf(null); setError(''); startEdit(p); }}
+                    style={{
+                      padding: '6px 12px', borderRadius: 7, whiteSpace: 'nowrap',
+                      border: '1px solid rgba(239,68,68,.6)', background: 'rgba(239,68,68,.18)',
+                      color: 'inherit', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                    }}
+                  >
+                    Edit the existing part →
+                  </button>
+                )}
+                <button type="button" onClick={() => { setError(''); setDuplicateOf(null); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16 }}>✕</button>
+              </span>
             </div>
           )}
 
@@ -1250,6 +1269,24 @@ export function PartsView() {
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Part Number *</label>
                 <input className="input" value={form.partNumber} onChange={e => setForm(f => ({ ...f, partNumber: e.target.value }))} placeholder="BRK-PAD-001" style={{ width: '100%' }} disabled={!!(selected && editing)} />
+                {/* Flag the clash while typing rather than after a full form is
+                    filled in and rejected — the common case is someone meaning
+                    to edit an existing part, not create a second one. */}
+                {!(selected && editing) && (() => {
+                  const typed = form.partNumber.trim().toLowerCase();
+                  if (!typed) return null;
+                  const existing = parts.find(p => p.partNumber.trim().toLowerCase() === typed);
+                  if (!existing) return null;
+                  return (
+                    <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--amber,#f59e0b)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span>Already in inventory — {existing.description || 'no description'}</span>
+                      <button type="button" onClick={() => startEdit(existing)}
+                        style={{ padding: '3px 9px', borderRadius: 6, border: '1px solid var(--amber,#f59e0b)', background: 'transparent', color: 'var(--amber,#f59e0b)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                        Edit it instead
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Brand</label>
