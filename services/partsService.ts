@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { DEFAULT_CURRENCY } from '@/lib/currencies';
 
 export interface Part {
   partNumber: string;
@@ -19,6 +20,8 @@ export interface Part {
   barcode: string;
   photos: string[];
   notes: string;
+  /** ISO 4217 code the cost/retail figures are expressed in. */
+  currency: string;
 }
 
 export const PART_CATEGORIES = [
@@ -46,6 +49,9 @@ function mapRow(r: Record<string, unknown>): Part {
     barcode:       (r.barcode as string)        || '',
     photos:        Array.isArray(r.photos) ? (r.photos as string[]) : [],
     notes:         (r.notes as string)          || '',
+    // Rows created before the currency column existed read as USD, which is
+    // what the module assumed when every amount was hardcoded to a "$" prefix.
+    currency:      (r.currency as string)       || DEFAULT_CURRENCY,
   };
 }
 
@@ -68,6 +74,7 @@ function toRow(p: Partial<Part>) {
   if (p.barcode       !== undefined) row.barcode            = p.barcode;
   if (p.photos        !== undefined) row.photos             = p.photos;
   if (p.notes         !== undefined) row.notes              = p.notes;
+  if (p.currency      !== undefined) row.currency           = p.currency;
   return row;
 }
 
@@ -107,7 +114,7 @@ export async function savePart(p: Partial<Part> & { partNumber: string }): Promi
     supplierEmail: p.supplierEmail ?? '', location: p.location ?? '',
     lowStockThreshold: p.lowStockThreshold ?? 5, reorderQty: p.reorderQty ?? 0,
     compatibility: p.compatibility ?? '', barcode: p.barcode ?? '',
-    notes: p.notes ?? '',
+    notes: p.notes ?? '', currency: p.currency ?? DEFAULT_CURRENCY,
   });
 }
 

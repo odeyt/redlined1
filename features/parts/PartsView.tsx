@@ -9,9 +9,16 @@ import {
   reservePart, uploadPartPhoto, deletePartPhoto,
   Part, PART_CATEGORIES,
 } from '@/services/partsService';
+import { formatMoney, DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/currencies';
+import { CurrencySelect } from './CurrencySelect';
+import { VehicleCompatibilityEditor, CompatibilityChips } from './VehicleCompatibilityEditor';
 
 /* ── helpers ── */
-const money = (v: number) => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+/**
+ * Formats in the currency the amount was actually entered in. Previously every
+ * figure was forced to USD, so a LAK price displayed as "$89,470,168.00".
+ */
+const money = (v: number, currency: string = DEFAULT_CURRENCY) => formatMoney(v, currency);
 
 function stockStatus(p: Part): { label: string; color: string } {
   if (p.quantity === 0)                  return { label: 'Out of Stock', color: 'var(--red,#ef4444)' };
@@ -23,7 +30,7 @@ const EMPTY: Omit<Part, 'photos'> = {
   partNumber: '', brand: '', description: '', category: 'Brakes',
   cost: 0, retail: 0, quantity: 0, supplier: '', supplierPhone: '',
   supplierEmail: '', location: '', lowStockThreshold: 5, reorderQty: 10,
-  compatibility: '', barcode: '', notes: '',
+  compatibility: '', barcode: '', notes: '', currency: DEFAULT_CURRENCY,
 };
 
 /* ── CSV / Excel column alias helpers ── */
@@ -53,6 +60,8 @@ const COL_ALIASES: Record<string, string> = {
   stock_quantity: 'quantity', current_stock: 'quantity', in_stock: 'quantity',
   initial_stock: 'quantity', stock_balance: 'quantity', balance: 'quantity',
   total_qty: 'quantity', available: 'quantity', available_qty: 'quantity',
+  // currency
+  currency: 'currency', curr: 'currency', ccy: 'currency', currency_code: 'currency',
   // location
   location: 'location', bin: 'location', bin_location: 'location', shelf: 'location',
   // barcode
@@ -81,7 +90,7 @@ function resolveColName(raw: string): string {
 const CSV_COLS = [
   'part_number','brand','description','category','cost','retail','quantity',
   'location','barcode','supplier','supplier_phone','supplier_email',
-  'low_stock_threshold','reorder_qty','compatibility','notes',
+  'low_stock_threshold','reorder_qty','compatibility','currency','notes',
 ] as const;
 
 function parseCSV(text: string): Record<string, string>[] {
@@ -139,6 +148,10 @@ function rowToPart(r: Record<string, string>): Omit<Part, 'photos'> {
     lowStockThreshold: parseInt(g('low_stock_threshold', 'min_stock', 'reorder_point')) || 5,
     reorderQty:        parseInt(g('reorder_qty', 'reorder_quantity', 'order_qty')) || 10,
     compatibility:     g('compatibility', 'compatible', 'fits'),
+    currency:          (() => {
+      const raw = g('currency', 'curr', 'ccy', 'currency_code').toUpperCase().trim();
+      return isSupportedCurrency(raw) ? raw : DEFAULT_CURRENCY;
+    })(),
     notes:             g('notes', 'note', 'comments'),
   };
 }
@@ -251,9 +264,32 @@ export function PartsView() {
   /* derived */
   const lowStock    = parts.filter(p => p.quantity <= p.lowStockThreshold);
   const outOfStock  = parts.filter(p => p.quantity === 0);
-  const totalQty    = parts.reduce((s, p) => s + p.quantity, 0);
-  const totalValue  = parts.reduce((s, p) => s + p.cost * p.quantity, 0);
-  const retailValue = parts.reduce((s, p) => s + p.retail * p.quantity, 0);
+  const totalQty = parts.reduce((s, p) => s + p.quantity, 0);
+
+  // Inventory value is totalled PER CURRENCY. Summing mixed currencies into one
+  // number would be arithmetic on incomparable units — 100 USD + 100 LAK is not
+  // 200 of anything — so each currency is reported separately and the largest
+  // holding is what the stat card leads with.
+  const valueByCurrency = parts.reduce<Record<string, { cost: number; retail: number; qty: number }>>(
+    (acc, p) => {
+      const code = p.currency || DEFAULT_CURRENCY;
+      const bucket = acc[code] ?? (acc[code] = { cost: 0, retail: 0, qty: 0 });
+      bucket.cost   += p.cost * p.quantity;
+      bucket.retail += p.retail * p.quantity;
+      bucket.qty    += p.quantity;
+      return acc;
+    },
+    {},
+  );
+
+  const currencyBuckets = Object.entries(valueByCurrency)
+    .sort((a, b) => b[1].retail - a[1].retail);
+  const primary = currencyBuckets[0] ?? [DEFAULT_CURRENCY, { cost: 0, retail: 0, qty: 0 }] as const;
+  const [primaryCode, primaryTotals] = primary;
+  const otherCurrencyCount = Math.max(0, currencyBuckets.length - 1);
+
+  const totalValue  = primaryTotals.cost;
+  const retailValue = primaryTotals.retail;
   const margin      = retailValue > 0 ? ((retailValue - totalValue) / retailValue * 100).toFixed(1) + '%' : '—';
 
   const filtered = parts.filter(p => {
@@ -275,9 +311,9 @@ export function PartsView() {
       const s = String(v ?? '');
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ['part_number','brand','description','category','cost','retail','quantity','location','barcode','supplier','supplier_phone','supplier_email','low_stock_threshold','reorder_qty','compatibility','notes'];
+    const header = ['part_number','brand','description','category','cost','retail','currency','quantity','location','barcode','supplier','supplier_phone','supplier_email','low_stock_threshold','reorder_qty','compatibility','notes'];
     const rows = filtered.map(p => [
-      p.partNumber, p.brand, p.description, p.category, p.cost, p.retail, p.quantity,
+      p.partNumber, p.brand, p.description, p.category, p.cost, p.retail, p.currency, p.quantity,
       p.location, p.barcode, p.supplier, p.supplierPhone, p.supplierEmail,
       p.lowStockThreshold, p.reorderQty, p.compatibility, p.notes,
     ].map(esc).join(','));
@@ -554,7 +590,7 @@ export function PartsView() {
                 </div>
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'var(--surface,#f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.7 }}>
                   <strong>Required column:</strong> <code>part_number</code> &nbsp;|&nbsp;
-                  <strong>Optional:</strong> brand, description, category, cost, retail, quantity, location, barcode, supplier, supplier_phone, supplier_email, low_stock_threshold, reorder_qty, compatibility, notes<br />
+                  <strong>Optional:</strong> brand, description, category, cost, retail, quantity, location, barcode, supplier, supplier_phone, supplier_email, low_stock_threshold, reorder_qty, compatibility, currency, notes<br />
                   <strong>Category values:</strong> {PART_CATEGORIES.join(', ')}
                 </div>
               </div>
@@ -625,8 +661,8 @@ export function PartsView() {
                             <td style={{ padding: '6px 10px' }}>{r.brand || '—'}</td>
                             <td style={{ padding: '6px 10px' }}>{r.description || '—'}</td>
                             <td style={{ padding: '6px 10px' }}>{r.category}</td>
-                            <td style={{ padding: '6px 10px' }}>{money(r.cost)}</td>
-                            <td style={{ padding: '6px 10px' }}>{money(r.retail)}</td>
+                            <td style={{ padding: '6px 10px' }}>{money(r.cost, r.currency)}</td>
+                            <td style={{ padding: '6px 10px' }}>{money(r.retail, r.currency)}</td>
                             <td style={{ padding: '6px 10px' }}>{r.quantity}</td>
                             <td style={{ padding: '6px 10px', color: 'var(--muted)' }}>{r.location || '—'}</td>
                           </tr>
@@ -706,9 +742,25 @@ export function PartsView() {
           { label: 'Total SKUs',   value: String(parts.length),    sub: 'unique part numbers' },
           { label: 'Low Stock',    value: String(lowStock.length), sub: `${outOfStock.length} out of stock`, alert: lowStock.length > 0 },
           ...(!isTech ? [
-            { label: 'Cost Value',   value: money(totalValue),  sub: totalQty > 0 ? `${totalQty} units × avg ${money(totalValue / totalQty)}` : '0 units in stock' },
-            { label: 'Retail Value', value: money(retailValue), sub: totalQty > 0 ? `${totalQty} units × avg ${money(retailValue / totalQty)}` : '0 units in stock' },
-            { label: 'Margin',       value: margin,             sub: 'avg gross margin' },
+            {
+              label: 'Cost Value',
+              value: money(totalValue, primaryCode),
+              sub: otherCurrencyCount > 0
+                ? `${primaryCode} · +${otherCurrencyCount} other ${otherCurrencyCount === 1 ? 'currency' : 'currencies'}`
+                : primaryTotals.qty > 0
+                  ? `${primaryTotals.qty} units × avg ${money(totalValue / primaryTotals.qty, primaryCode)}`
+                  : '0 units in stock',
+            },
+            {
+              label: 'Retail Value',
+              value: money(retailValue, primaryCode),
+              sub: otherCurrencyCount > 0
+                ? currencyBuckets.slice(1).map(([c, t]) => `${money(t.retail, c)}`).join(' · ')
+                : primaryTotals.qty > 0
+                  ? `${primaryTotals.qty} units × avg ${money(retailValue / primaryTotals.qty, primaryCode)}`
+                  : '0 units in stock',
+            },
+            { label: 'Margin', value: margin, sub: `avg gross margin · ${primaryCode}` },
           ] : []),
         ].map(c => (
           <div key={c.label} className="card-hero" style={{ borderRadius: 10, padding: '14px 16px', ...(c.alert ? { border: '2px solid var(--amber,#f59e0b)', boxShadow: '0 0 0 3px rgba(245,158,11,0.2), 0 8px 28px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)' } : {}) }}>
@@ -765,7 +817,7 @@ export function PartsView() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--table-head,var(--border))' }}>
-                      {['Part', 'Category', ...(!isTech ? ['Cost', 'Retail'] : []), 'On Hand', 'Location', 'Status', 'Actions'].map(h => (
+                      {['Part', 'Category', ...(!isTech ? ['Cost', 'Retail'] : []), 'Fits', 'On Hand', 'Location', 'Status', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -788,8 +840,11 @@ export function PartsView() {
                             {p.photos.length > 0 && <div style={{ fontSize: 10, color: 'var(--blue,#3b82f6)' }}>📷 {p.photos.length} photo{p.photos.length > 1 ? 's' : ''}</div>}
                           </td>
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{p.category}</td>
-                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost)}</td>}
-                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.retail)}</td>}
+                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost, p.currency)}</td>}
+                          {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.retail, p.currency)}</td>}
+                          <td style={{ padding: '10px 12px', maxWidth: 220 }}>
+                            <CompatibilityChips value={p.compatibility} max={2} />
+                          </td>
                           <td style={{ padding: '10px 12px' }}>
                             {editingQty === p.partNumber ? (
                               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
@@ -846,20 +901,26 @@ export function PartsView() {
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{selected.description}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>{selected.category}</div>
-                {selected.compatibility && <div style={{ fontSize: 11, color: 'var(--muted)' }}>Fits: {selected.compatibility}</div>}
+                {selected.compatibility && (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>Fits</div>
+                    <CompatibilityChips value={selected.compatibility} />
+                  </div>
+                )}
                 {selected.barcode && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>🔲 Barcode: <code style={{ fontSize: 11 }}>{selected.barcode}</code></div>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid var(--border)' }}>
                 {([
                   ...(!isTech ? [
-                    ['Cost',         money(selected.cost)],
-                    ['Retail',       money(selected.retail)],
+                    ['Cost',         money(selected.cost, selected.currency)],
+                    ['Retail',       money(selected.retail, selected.currency)],
                     ['Margin',       selected.retail > 0 ? ((selected.retail - selected.cost) / selected.retail * 100).toFixed(1) + '%' : '—'],
                   ] as [string, string][] : []),
                   ['On Hand',      String(selected.quantity)],
                   ['Low Stock At', String(selected.lowStockThreshold)],
                   ['Reorder Qty',  String(selected.reorderQty)],
+                  ...(!isTech ? [['Currency', selected.currency || DEFAULT_CURRENCY]] as [string, string][] : []),
                 ] as [string, string][]).map(([l, v]) => (
                   <div key={l} style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 2 }}>{l}</div>
@@ -973,7 +1034,27 @@ export function PartsView() {
               <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(245,158,11,.1)', border: '1px solid var(--amber,#f59e0b)', borderRadius: 10, display: 'flex', gap: 20, fontSize: 13 }}>
                 <span>⚠️ <strong>{outOfStock.length}</strong> out of stock</span>
                 <span>📉 <strong>{lowStock.length - outOfStock.length}</strong> below threshold</span>
-                {!isTech && <span>💰 Reorder value: <strong>{money(lowStock.reduce((s, p) => s + p.cost * p.reorderQty, 0))}</strong></span>}
+                {!isTech && (() => {
+                  // Per currency — a single total across mixed currencies would
+                  // be a meaningless number to reorder against.
+                  const byCurrency = lowStock.reduce<Record<string, number>>((acc, p) => {
+                    const code = p.currency || DEFAULT_CURRENCY;
+                    acc[code] = (acc[code] ?? 0) + p.cost * p.reorderQty;
+                    return acc;
+                  }, {});
+                  const totals = Object.entries(byCurrency)
+                    .filter(([, v]) => v > 0)
+                    .sort((a, b) => b[1] - a[1]);
+                  return (
+                    <span>💰 Reorder value:{' '}
+                      <strong>
+                        {totals.length === 0
+                          ? money(0, primaryCode)
+                          : totals.map(([c, v]) => money(v, c)).join(' · ')}
+                      </strong>
+                    </span>
+                  );
+                })()}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
@@ -1068,7 +1149,18 @@ export function PartsView() {
               </div>
 
               {!isTech && <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ($)</label>
+                <label htmlFor="part-currency" style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Currency</label>
+                <CurrencySelect
+                  id="part-currency"
+                  value={form.currency || DEFAULT_CURRENCY}
+                  onChange={code => setForm(f => ({ ...f, currency: code }))}
+                />
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  Cost and retail below are stored and displayed in this currency.
+                </div>
+              </div>}
+              {!isTech && <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Cost ({form.currency || DEFAULT_CURRENCY})</label>
                 <input
                   className="input" type="text" inputMode="decimal"
                   value={costStr}
@@ -1083,7 +1175,7 @@ export function PartsView() {
                 />
               </div>}
               {!isTech && <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Retail ($)</label>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Retail ({form.currency || DEFAULT_CURRENCY})</label>
                 <input
                   className="input" type="text" inputMode="decimal"
                   value={retailStr}
@@ -1183,8 +1275,11 @@ export function PartsView() {
               </div>
 
               <div style={{ gridColumn: '1/-1' }}>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Vehicle Compatibility</label>
-                <input className="input" value={form.compatibility} onChange={e => setForm(f => ({ ...f, compatibility: e.target.value }))} placeholder="Ford F-150, Chevy Silverado 2019+" style={{ width: '100%' }} />
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Vehicle Compatibility</label>
+                <VehicleCompatibilityEditor
+                  value={form.compatibility}
+                  onChange={next => setForm(f => ({ ...f, compatibility: next }))}
+                />
               </div>
               <div style={{ gridColumn: '1/-1' }}>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Notes</label>
@@ -1240,7 +1335,7 @@ export function PartsView() {
 
             {!isTech && form.cost > 0 && form.retail > 0 && (
               <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(34,197,94,.08)', border: '1px solid rgba(34,197,94,.3)', borderRadius: 8, fontSize: 12, color: 'var(--green,#22c55e)' }}>
-                Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> — Cost {money(form.cost)} · Retail {money(form.retail)} · Profit {money(form.retail - form.cost)} per unit
+                Margin preview: <strong>{((form.retail - form.cost) / form.retail * 100).toFixed(1)}%</strong> — Cost {money(form.cost, form.currency)} · Retail {money(form.retail, form.currency)} · Profit {money(form.retail - form.cost, form.currency)} per unit
               </div>
             )}
 
