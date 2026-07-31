@@ -201,6 +201,9 @@ export function PartsView() {
   const [costStr, setCostStr]     = useState('');
   const [retailStr, setRetailStr] = useState('');
   const [saving, setSaving]       = useState(false);
+  // Explicit save confirmation. The existing notify() toast was easy to miss,
+  // which is part of why a save could feel like it had not happened.
+  const [savedMessage, setSavedMessage] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [locationInput, setLocationInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -374,9 +377,11 @@ export function PartsView() {
     if (!form.description.trim()) { setError('Description is required.'); return; }
     setSaving(true); setError('');
     try {
+      const savedCurrency = form.currency || DEFAULT_CURRENCY;
       if (selected && editing) {
         await updatePart(selected.partNumber, form);
         notify(`${form.partNumber} updated.`);
+        setSavedMessage(`${form.partNumber} saved — prices in ${savedCurrency}`);
       } else {
         /* create first, then upload any pending photos */
         await createPart({ ...form, photos: [] });
@@ -389,6 +394,7 @@ export function PartsView() {
           await updatePart(form.partNumber, { photos: urls });
         }
         notify(`${form.partNumber} added to inventory.`);
+        setSavedMessage(`${form.partNumber} added — prices in ${savedCurrency}`);
       }
       setPendingPhotos([]); setPendingPhotoUrls([]);
       await load();
@@ -550,6 +556,47 @@ export function PartsView() {
   /* ────────────── render ────────────── */
   return (
     <div style={{ padding: '20px 24px' }}>
+
+      {/* Save confirmation — centred and dismissible so a successful save is
+          unmistakable, unlike the corner toast which was easy to miss. */}
+      {savedMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          onClick={() => setSavedMessage('')}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 10000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)',
+            padding: 24, cursor: 'pointer',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--card)', border: '1px solid rgba(34,197,94,0.5)',
+              borderRadius: 14, padding: '28px 32px', textAlign: 'center',
+              maxWidth: 420, width: '100%', cursor: 'default',
+              boxShadow: '0 12px 48px rgba(0,0,0,0.45)',
+            }}
+          >
+            <div style={{ fontSize: 40, lineHeight: 1, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>Saved</div>
+            <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 20 }}>
+              {savedMessage}
+            </div>
+            <button
+              type="button"
+              className="btn primary"
+              autoFocus
+              onClick={() => setSavedMessage('')}
+              style={{ minWidth: 120 }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, background: 'linear-gradient(135deg, #7a1414 0%, #1a0505 100%)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9999, boxShadow: '0 4px 20px rgba(0,0,0,.3)' }}>
@@ -1114,14 +1161,27 @@ export function PartsView() {
       {/* ═══ ADD / EDIT TAB ═══ */}
       {tab === 'add' && (
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <form onSubmit={handleSave}>
+          {/* Sticky header: the form is long enough that the submit button at the
+              bottom sat below the fold past the Photos section, so edits were
+              made and never saved. Save is now reachable from anywhere in the form. */}
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 20,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: 12, marginBottom: 20, padding: '4px 0 12px',
+            background: 'var(--card)', borderBottom: '1px solid var(--border)',
+          }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
               {selected && editing ? `Edit — ${selected.partNumber}` : 'Add New Part'}
             </h3>
-            <button className="btn" onClick={() => { setEditing(false); setTab('inventory'); }}>Cancel</button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button type="button" className="btn" onClick={() => { setEditing(false); setTab('inventory'); }}>Cancel</button>
+              <button type="submit" className="btn primary" disabled={saving}>
+                {saving ? 'Saving…' : selected && editing ? '💾 Save Changes' : '💾 Save Part'}
+              </button>
+            </div>
           </div>
 
-          <form onSubmit={handleSave}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
 
               <div>
