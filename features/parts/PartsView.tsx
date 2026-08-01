@@ -217,6 +217,8 @@ export function PartsView() {
   // offer to open it for editing — which is what the user wanted in the first
   // place when they typed a part number that already exists.
   const [duplicateOf, setDuplicateOf] = useState<Part | null>(null);
+  // Full-size photo viewer opened from a row thumbnail.
+  const [photoViewer, setPhotoViewer] = useState<{ part: Part; index: number } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [locationInput, setLocationInput] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -611,6 +613,71 @@ export function PartsView() {
   return (
     <div style={{ padding: '20px 24px' }}>
 
+      {/* Full-size photo viewer. Click the backdrop, press Escape or use the
+          close button to dismiss; arrows step through a part's photos. */}
+      {photoViewer && (() => {
+        const { part, index } = photoViewer;
+        const total = part.photos.length;
+        const step = (delta: number) =>
+          setPhotoViewer({ part, index: (index + delta + total) % total });
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Photos for ${part.partNumber}`}
+            onClick={() => setPhotoViewer(null)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') setPhotoViewer(null);
+              if (e.key === 'ArrowRight' && total > 1) step(1);
+              if (e.key === 'ArrowLeft' && total > 1) step(-1);
+            }}
+            tabIndex={-1}
+            ref={el => el?.focus()}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 10001,
+              background: 'rgba(0,0,0,0.85)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', padding: 24,
+              cursor: 'zoom-out',
+            }}
+          >
+            <div onClick={e => e.stopPropagation()} style={{ cursor: 'default', maxWidth: '92vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14 }}>{part.partNumber}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>{part.description}</div>
+                </div>
+                <button type="button" onClick={() => setPhotoViewer(null)} aria-label="Close"
+                  style={{ background: 'none', border: 'none', color: '#fff', fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {total > 1 && (
+                  <button type="button" onClick={() => step(-1)} aria-label="Previous photo"
+                    style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontSize: 24, padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>‹</button>
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={part.photos[index]}
+                  alt={`${part.partNumber} photo ${index + 1} of ${total}`}
+                  style={{ maxWidth: '80vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 10, background: '#000' }}
+                />
+                {total > 1 && (
+                  <button type="button" onClick={() => step(1)} aria-label="Next photo"
+                    style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontSize: 24, padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>›</button>
+                )}
+              </div>
+
+              {total > 1 && (
+                <div style={{ textAlign: 'center', color: '#fff', fontSize: 12, opacity: 0.75 }}>
+                  {index + 1} of {total}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+
       {/* Save confirmation — centred and dismissible so a successful save is
           unmistakable, unlike the corner toast which was easy to miss. */}
       {savedMessage && (
@@ -935,10 +1002,49 @@ export function PartsView() {
                           }}
                         >
                           <td style={{ padding: '10px 12px' }}>
-                            <div style={{ fontWeight: 700, fontSize: 12 }}>{p.partNumber}</div>
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} — {p.description}</div>
-                            {p.barcode && <div style={{ fontSize: 10, color: 'var(--muted)' }}>🔲 {p.barcode}</div>}
-                            {p.photos.length > 0 && <div style={{ fontSize: 10, color: 'var(--blue,#3b82f6)' }}>📷 {p.photos.length} photo{p.photos.length > 1 ? 's' : ''}</div>}
+                            {/* Show the part rather than describing it: a "📷 1 photo"
+                                label told you a picture existed without letting you
+                                see it, which is the opposite of useful when scanning
+                                a list to identify a part. */}
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                              <div
+                                onClick={ev => { ev.stopPropagation(); if (p.photos.length) setPhotoViewer({ part: p, index: 0 }); }}
+                                title={p.photos.length ? `View ${p.photos.length} photo${p.photos.length > 1 ? 's' : ''}` : 'No photo'}
+                                style={{
+                                  position: 'relative', width: 46, height: 46, flexShrink: 0,
+                                  borderRadius: 8, overflow: 'hidden',
+                                  border: '1px solid var(--border)',
+                                  background: 'var(--surface-soft)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  cursor: p.photos.length ? 'zoom-in' : 'default',
+                                }}
+                              >
+                                {p.photos.length > 0 ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={p.photos[0]}
+                                    alt={p.description || p.partNumber}
+                                    loading="lazy"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                ) : (
+                                  <span aria-hidden="true" style={{ fontSize: 16, opacity: 0.35 }}>📦</span>
+                                )}
+                                {p.photos.length > 1 && (
+                                  <span style={{
+                                    position: 'absolute', right: 0, bottom: 0,
+                                    background: 'rgba(0,0,0,0.72)', color: '#fff',
+                                    fontSize: 9, fontWeight: 700, padding: '1px 4px',
+                                    borderTopLeftRadius: 6,
+                                  }}>+{p.photos.length - 1}</span>
+                                )}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: 12 }}>{p.partNumber}</div>
+                                <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.brand} — {p.description}</div>
+                                {p.barcode && <div style={{ fontSize: 10, color: 'var(--muted)' }}>🔲 {p.barcode}</div>}
+                              </div>
+                            </div>
                           </td>
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{p.category}</td>
                           {!isTech && <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{money(p.cost, p.currency)}</td>}
