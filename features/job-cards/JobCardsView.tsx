@@ -332,6 +332,30 @@ export function JobCardsView() {
   const [customerVehicles, setCustomerVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
   const [techs, setTechs] = useState<Technician[]>([]);
+
+  /**
+   * One entry per person, even when both locations hold a row for them.
+   *
+   * Each shop keeps its own technician records, so with mirroring enabled the
+   * raw list contains every name twice — and since assignment is stored by NAME
+   * (fTechs holds names, not ids), ticking one box visibly ticked both.
+   *
+   * The active shop's row wins, so the role shown is the one that applies where
+   * the job card is being created — e.g. Wally is "Owner" in Location 1 and
+   * "Diagnostics Specialist" in Location 2.
+   */
+  const uniqueTechs = (() => {
+    const activeShop = shopId;
+    const byName = new Map<string, Technician>();
+    for (const t of techs) {
+      const key = t.name.trim().toLowerCase();
+      const existing = byName.get(key);
+      if (!existing || (t.shopId === activeShop && existing.shopId !== activeShop)) {
+        byName.set(key, t);
+      }
+    }
+    return [...byName.values()];
+  })();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -833,9 +857,9 @@ export function JobCardsView() {
         ))}
         <div style={{ marginBottom: 14 }}>
           <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Assign Technicians</label>
-          {techs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
+          {uniqueTechs.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>No technicians yet — add them in the Manage Technicians tab.</p>}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {techs.map(t => (
+            {uniqueTechs.map(t => (
               <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', padding: '6px 12px', borderRadius: 8, border: `1px solid ${fTechs.includes(t.name) ? 'var(--accent)' : 'var(--line)'}`, background: fTechs.includes(t.name) ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)' }}>
                 <input type="checkbox" checked={fTechs.includes(t.name)} onChange={() => toggleFTech(t.name)} style={{ accentColor: 'var(--accent)' }} />
                 {t.name} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({t.role})</span>

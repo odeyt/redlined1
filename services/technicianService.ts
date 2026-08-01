@@ -15,6 +15,12 @@ export interface Technician {
   status: string;
   notes: string;
   createdAt: string;
+  /**
+   * Shop this record belongs to. Each location keeps its own technician rows,
+   * so with mirroring on the same person appears once per shop — callers need
+   * this to show the record for the shop they are working in.
+   */
+  shopId: string;
 }
 
 export interface TechPerformance {
@@ -60,6 +66,7 @@ function mapRow(r: Record<string, unknown>): Technician {
     status:         (r.status as string) || 'Active',
     notes:          (r.notes as string) || '',
     createdAt:      (r.created_at as string) || '',
+    shopId:         (r.shop_id as string) || '',
   };
 }
 
@@ -75,7 +82,9 @@ export async function fetchTechnicians(activeOnly = false): Promise<Technician[]
   return (data ?? []).map(mapRow);
 }
 
-export async function createTechnician(t: Omit<Technician, 'id' | 'createdAt'>): Promise<Technician> {
+// shopId is omitted: the row is always created in the caller's active shop,
+// assigned below from getShopId() rather than passed in.
+export async function createTechnician(t: Omit<Technician, 'id' | 'createdAt' | 'shopId'>): Promise<Technician> {
   const { data, error } = await supabase
     .from('technicians')
     .insert({

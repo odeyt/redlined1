@@ -27,7 +27,7 @@ function initials(name: string) {
   return name.split(' ').map(w => w[0] ?? '').join('').toUpperCase().slice(0, 2);
 }
 
-const EMPTY: Omit<Technician, 'id' | 'createdAt'> = {
+const EMPTY: Omit<Technician, 'id' | 'createdAt' | 'shopId'> = {
   name: '', role: 'Technician', phone: '', email: '',
   specialty: 'General Repair', certifications: '',
   payType: 'Hourly', payRate: 25,
@@ -70,7 +70,7 @@ export function TechniciansView() {
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState(false);
   const [editing, setEditing]       = useState(false);
-  const [form, setForm]             = useState<Omit<Technician, 'id' | 'createdAt'>>(EMPTY);
+  const [form, setForm]             = useState<Omit<Technician, 'id' | 'createdAt' | 'shopId'>>(EMPTY);
   const [error, setError]           = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [boardPerf, setBoardPerf]   = useState<Record<string, TechRO[]>>({});
