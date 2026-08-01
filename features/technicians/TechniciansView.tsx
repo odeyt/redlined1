@@ -7,6 +7,7 @@ import {
   Technician, TechPerformance,
   TECH_ROLES, PAY_TYPES, SPECIALTIES,
 } from '@/services/technicianService';
+import { useShop } from '@/lib/useShop';
 
 /* ─────────────────── helpers ─────────────────── */
 function fmt(n: number) {
@@ -62,8 +63,16 @@ function ROCard({ r }: { r: TechRO }) {
 
 /* ─────────────────── main component ─────────────────── */
 export function TechniciansView() {
+  // Employees are per-location records: the same person can hold a row in each
+  // shop with a different role and pay rate. With mirroring on, fetching across
+  // shops listed every name twice. Unlike the job-card picker these are NOT
+  // display duplicates — collapsing them would hide a real record that could
+  // then never be edited or deleted. The roster is scoped to the location being
+  // managed instead, and the other location's staff are reached by switching
+  // shop, which also matches where a newly added employee is created.
+  const { shopId, shops } = useShop();
   const [tab, setTab]               = useState<ActiveTab>('roster');
-  const [techs, setTechs]           = useState<Technician[]>([]);
+  const [allTechs, setAllTechs]     = useState<Technician[]>([]);
   const [perf, setPerf]             = useState<TechPerformance[]>([]);
   const [selected, setSelected]     = useState<Technician | null>(null);
   const [techROs, setTechROs]       = useState<TechRO[]>([]);
@@ -76,6 +85,12 @@ export function TechniciansView() {
   const [boardPerf, setBoardPerf]   = useState<Record<string, TechRO[]>>({});
   const [boardLoading, setBoardLoading] = useState(false);
 
+  // Scope the roster to the location being managed. Rows saved before shop_id
+  // existed have a blank value — keep those visible so they remain editable
+  // rather than disappearing from every location at once.
+  const techs = allTechs.filter(t => !t.shopId || !shopId || t.shopId === shopId);
+  const hiddenFromOtherShops = allTechs.length - techs.length;
+
   /* derived totals */
   const activeTechs  = techs.filter(t => t.status === 'Active').length;
   const totalROs     = perf.reduce((s, p) => s + p.roCount, 0);
@@ -87,7 +102,7 @@ export function TechniciansView() {
     setLoading(true);
     try {
       const [t, p] = await Promise.all([fetchTechnicians(), fetchTechPerformance()]);
-      setTechs(t);
+      setAllTechs(t);
       setPerf(p);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -245,6 +260,21 @@ export function TechniciansView() {
       </div>
 
       {/* ═══ ROSTER ═══ */}
+      {/* Staff are per-location, so the roster shows only the shop being
+          managed. Say so explicitly — otherwise the other location's people
+          look as though they have been deleted. */}
+      {tab === 'roster' && hiddenFromOtherShops > 0 && (
+        <div style={{
+          marginBottom: 12, padding: '9px 14px', borderRadius: 8, fontSize: 12.5,
+          background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.28)',
+          color: 'var(--text)',
+        }}>
+          Showing staff for <strong>{shops.find(s => s.id === shopId)?.name ?? 'this location'}</strong>.
+          {' '}{hiddenFromOtherShops} more {hiddenFromOtherShops === 1 ? 'employee is' : 'employees are'} recorded
+          at your other location — switch location in the sidebar to manage them.
+        </div>
+      )}
+
       {tab === 'roster' && (
         <div style={{ display: 'grid', gridTemplateColumns: editing ? '1fr' : '300px 1fr', gap: 16 }}>
 
