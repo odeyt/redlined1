@@ -17,7 +17,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { supabase } from '@/lib/supabase';
-import { fetchTechnicians, createTechnician, TECH_ROLES } from '@/services/technicianService';
+import { fetchTechnicians, createTechnician, uniqueTechsByPerson, TECH_ROLES } from '@/services/technicianService';
 import { FilterPills } from '@/components/FilterPills';
 import { draftEstimateFromInspection } from '@/services/aiService';
 
@@ -266,7 +266,7 @@ export function InspectionsView() {
     fetchCustomers().then(setCustomers).catch(() => {});
     fetchVehicles().then(setAllVehicles).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
-    fetchTechnicians(true).then(ts => setDbTechs(ts.map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
+    fetchTechnicians(true).then(ts => setDbTechs(uniqueTechsByPerson(ts).map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
     if (shopId) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         const token = session?.access_token ?? '';

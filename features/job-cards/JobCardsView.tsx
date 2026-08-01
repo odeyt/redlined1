@@ -18,7 +18,7 @@ import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import type { Vehicle, Customer } from '@/lib/types';
-import { fetchTechnicians, createTechnician, deleteTechnician, type Technician } from '@/services/technicianService';
+import { fetchTechnicians, createTechnician, deleteTechnician, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
@@ -333,29 +333,8 @@ export function JobCardsView() {
   const [appointmentBays, setAppointmentBays] = useState<string[]>(['Bay 1', 'Bay 2', 'Bay 3', 'Bay 4', 'Mobile Route 1', 'Mobile Route 2', 'Depot Dispatch']);
   const [techs, setTechs] = useState<Technician[]>([]);
 
-  /**
-   * One entry per person, even when both locations hold a row for them.
-   *
-   * Each shop keeps its own technician records, so with mirroring enabled the
-   * raw list contains every name twice — and since assignment is stored by NAME
-   * (fTechs holds names, not ids), ticking one box visibly ticked both.
-   *
-   * The active shop's row wins, so the role shown is the one that applies where
-   * the job card is being created — e.g. Wally is "Owner" in Location 1 and
-   * "Diagnostics Specialist" in Location 2.
-   */
-  const uniqueTechs = (() => {
-    const activeShop = shopId;
-    const byName = new Map<string, Technician>();
-    for (const t of techs) {
-      const key = t.name.trim().toLowerCase();
-      const existing = byName.get(key);
-      if (!existing || (t.shopId === activeShop && existing.shopId !== activeShop)) {
-        byName.set(key, t);
-      }
-    }
-    return [...byName.values()];
-  })();
+  // One entry per person — see uniqueTechsByPerson for why duplicates occur.
+  const uniqueTechs = uniqueTechsByPerson(techs, shopId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');

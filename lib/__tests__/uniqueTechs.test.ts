@@ -8,20 +8,11 @@
  * that applies where the job card is being created.
  */
 
-interface Tech { id: string; name: string; role: string; shopId: string }
+import { uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 
-// Mirrors the logic in features/job-cards/JobCardsView.tsx.
-function uniqueTechs(techs: Tech[], activeShop: string): Tech[] {
-  const byName = new Map<string, Tech>();
-  for (const t of techs) {
-    const key = t.name.trim().toLowerCase();
-    const existing = byName.get(key);
-    if (!existing || (t.shopId === activeShop && existing.shopId !== activeShop)) {
-      byName.set(key, t);
-    }
-  }
-  return [...byName.values()];
-}
+// Only the fields the rule reads; the rest of Technician is irrelevant here.
+type Tech = Pick<Technician, 'id' | 'name' | 'role' | 'shopId'>;
+const uniqueTechs = (techs: Tech[], shop: string) => uniqueTechsByPerson(techs as Technician[], shop);
 
 const L1 = 'shop-location-1';
 const L2 = 'shop-location-2';

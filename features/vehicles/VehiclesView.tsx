@@ -21,7 +21,7 @@ import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/se
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
-import { fetchTechnicians, type Technician } from '@/services/technicianService';
+import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { getTechColor as _getTechColor } from '@/lib/techColors';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchRepairOrders, type RepairOrder } from '@/services/repairOrderService';
@@ -1462,7 +1462,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                   {technicians.length === 0 && (
                     <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)' }}>No technicians found — add them in the Employees module.</div>
                   )}
-                  {technicians.map(tech => {
+                  {uniqueTechsByPerson(technicians).map(tech => {
                     const selected = (f.assignedTech ?? '').split(';').map(s => s.trim()).filter(Boolean).includes(tech.name);
                     const c = techColor(tech.name);
                     return (

@@ -44,6 +44,33 @@ export const TECH_ROLES = [
 
 export const PAY_TYPES = ['Hourly', 'Flat Rate', 'Commission', 'Salary'];
 
+/**
+ * One entry per person for technician pickers.
+ *
+ * Each shop keeps its own technician rows, so with mirroring enabled the same
+ * person is returned once per location. Assignment is stored by NAME across the
+ * app (job cards, repair orders, appointments), so duplicates render as two
+ * boxes that tick together.
+ *
+ * The active shop's record wins, so the role shown is the one that applies
+ * where the work is being booked — e.g. Wally is "Owner" in one location and
+ * "Diagnostics Specialist" in the other.
+ *
+ * NOT for the Employees roster: those are real per-location records and must
+ * stay individually editable. See TechniciansView, which scopes by shop instead.
+ */
+export function uniqueTechsByPerson(techs: Technician[], activeShopId: string = getShopId()): Technician[] {
+  const byName = new Map<string, Technician>();
+  for (const t of techs) {
+    const key = t.name.trim().toLowerCase();
+    const existing = byName.get(key);
+    if (!existing || (t.shopId === activeShopId && existing.shopId !== activeShopId)) {
+      byName.set(key, t);
+    }
+  }
+  return [...byName.values()];
+}
+
 export const SPECIALTIES = [
   'General Repair', 'Engine & Drivetrain', 'Electrical / Electronics',
   'Brakes & Suspension', 'Tires & Alignment', 'Diagnostics / Scan Tool',

@@ -19,7 +19,7 @@ import { fetchPartsEstimates } from '@/services/partsEstimateService';
 import { fetchCustomerNames, fetchVehicles, saveVehicle } from '@/services/vehicleService';
 import { saveCustomer } from '@/services/customerService';
 import { addNotification } from '@/lib/useNotifications';
-import { fetchTechnicians, type Technician } from '@/services/technicianService';
+import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { OwnerInsights } from '@/components/OwnerInsights';
@@ -1472,7 +1472,7 @@ export function RepairOrdersView() {
                   </label>
                   {technicians.length > 0 ? (
                     <div style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {technicians.map(t => {
+                      {uniqueTechsByPerson(technicians).map(t => {
                         const isSel = form.technician.split(',').map(s => s.trim()).filter(Boolean).includes(t.name);
                         return (
                           <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, padding: '4px 10px', borderRadius: 6, background: isSel ? 'rgba(204,0,0,0.08)' : 'transparent', border: isSel ? '1px solid rgba(204,0,0,0.3)' : '1px solid transparent', userSelect: 'none' }}>

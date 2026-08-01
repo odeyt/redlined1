@@ -12,7 +12,7 @@ import {
   fetchTimeEntries, clockIn, clockOut, deleteTimeEntry,
   elapsedMinutes, formatDuration, type TimeEntry,
 } from '@/services/timeTrackingService';
-import { fetchTechnicians, type Technician } from '@/services/technicianService';
+import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 
 type DateFilter = 'today' | 'week' | 'all';
 
@@ -180,7 +180,7 @@ export function TimeTrackingView() {
               {technicians.length > 0 ? (
                 <select value={techName} onChange={e => setTechName(e.target.value)} style={inputStyle}>
                   <option value="">— Select technician —</option>
-                  {technicians.map(t => (
+                  {uniqueTechsByPerson(technicians).map(t => (
                     <option key={t.id} value={t.name}>{t.name}</option>
                   ))}
                 </select>
