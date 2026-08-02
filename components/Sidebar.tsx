@@ -434,7 +434,24 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
       )}
       {!collapsed && planStatus === 'free' && (
         <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(204,0,0,0.12)', border: '1px solid rgba(204,0,0,0.3)', borderRadius: 8, fontSize: 11, color: '#ff6b6b', textAlign: 'center' }}>
-          Free Plan · <a href="/signup" style={{ color: '#ff6b6b', fontWeight: 700 }}>Upgrade</a>
+          Free Plan ·{' '}
+          {/*
+            This linked to /signup, which asks a signed-in customer to create a
+            second account — the one thing they cannot do and do not want. The
+            plan picker already exists as the Subscriptions view; the banner
+            just never pointed at it. Anyone seeing this banner is authenticated
+            by definition, since the sidebar only renders inside the app.
+          */}
+          <button
+            type="button"
+            onClick={() => { dispatch({ type: 'SET_MODULE', module: 'subscriptions' }); onClose?.(); }}
+            style={{
+              color: '#ff6b6b', fontWeight: 700, background: 'none', border: 'none',
+              padding: 0, font: 'inherit', cursor: 'pointer', textDecoration: 'underline',
+            }}
+          >
+            Upgrade
+          </button>
         </div>
       )}
 
