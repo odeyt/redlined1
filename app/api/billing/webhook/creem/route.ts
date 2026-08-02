@@ -29,7 +29,15 @@ async function verifySignature(rawBody: string, signature: string, secret: strin
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
-    const signature = req.headers.get('x-creem-signature') ?? req.headers.get('x-webhook-signature') ?? '';
+    // Creem sends `creem-signature` — no `x-` prefix (docs.creem.io/code/webhooks).
+    // The `x-` spellings are kept only as a fallback in case of a proxy rewrite;
+    // reading them alone meant every genuine event fell into the "missing
+    // signature" branch below and was rejected with 401.
+    const signature =
+      req.headers.get('creem-signature') ??
+      req.headers.get('x-creem-signature') ??
+      req.headers.get('x-webhook-signature') ??
+      '';
     const secret = process.env.CREEM_WEBHOOK_SECRET;
 
     // This endpoint grants plans: a processed event writes profiles.plan for the

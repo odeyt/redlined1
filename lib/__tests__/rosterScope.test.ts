@@ -11,6 +11,12 @@
  * and making staff vanish from every location.
  */
 
+// This file has no imports, so without an export it would be a global script
+// and its Tech/L1/L2 would collide with the identically-named locals in
+// uniqueTechs.test.ts. Jest runs each file in isolation and never noticed;
+// tsc did.
+export {};
+
 interface Tech { id: string; name: string; shopId: string }
 
 // Mirrors the filter in features/technicians/TechniciansView.tsx.

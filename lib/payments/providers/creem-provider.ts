@@ -207,13 +207,19 @@ export class CreemPaymentProvider implements PaymentProvider {
       return { valid: false, error: 'CREEM_WEBHOOK_SECRET is not configured' };
     }
 
+    // Creem's header is `creem-signature`, no `x-` prefix. Header names are
+    // case-insensitive on the wire but this is a plain object, so normalise the
+    // keys rather than guessing at capitalisations.
+    const lower: Record<string, string> = {};
+    for (const [k, v] of Object.entries(headers)) lower[k.toLowerCase()] = v;
+
     const signature =
-      headers['x-creem-signature'] ??
-      headers['X-Creem-Signature'] ??
+      lower['creem-signature'] ??
+      lower['x-creem-signature'] ??
       '';
 
     if (!signature) {
-      return { valid: false, error: 'Missing x-creem-signature header' };
+      return { valid: false, error: 'Missing creem-signature header' };
     }
 
     try {

@@ -53,3 +53,5 @@ test-results/
 redlined1-backup-*.sql
 *-backup-*.sql
 *.dump
+
+.env*
