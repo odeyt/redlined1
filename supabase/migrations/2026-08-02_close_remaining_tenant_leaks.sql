@@ -1,7 +1,23 @@
 -- ============================================================================
 -- SECURITY: close the remaining cross-tenant read leaks
 --
--- NOT YET APPLIED — review before running.
+-- APPLIED to production 2026-08-02 and verified.
+--
+-- Two corrections were needed during application, both recorded here so the
+-- file matches what actually runs:
+--   1. appointments.shop_id is TEXT, not uuid. The first attempt failed with
+--      "operator does not exist: text = uuid" and rolled back cleanly.
+--   2. The replacement  still failed
+--      on INSERT — casting a SET-RETURNING function call does not yield a
+--      bare uuid string. Comparing against a plain column cast from
+--      shop_users works and is what is deployed.
+--
+-- ALSO REQUIRED, and the reason this leak outlived the others: appointments
+-- had relrowsecurity = false. Policies on a table with RLS disabled are inert,
+-- so the table looked protected in pg_policies while being wide open:
+--     ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
+-- A policy list alone never proves a table is protected — check
+-- pg_class.relrowsecurity too.
 --
 -- FINDING (verified 2026-08-02 in production): a signed-in customer belonging
 -- to none of D1's shops could read, as a plain authenticated user:
@@ -81,8 +97,8 @@ DROP POLICY IF EXISTS auth_all_technicians ON public.technicians;
 DROP POLICY IF EXISTS appointments_shop_scoped ON public.appointments;
 CREATE POLICY appointments_shop_scoped ON public.appointments
   FOR ALL TO authenticated
-  USING      (shop_id IN (SELECT my_shop_ids()::text))
-  WITH CHECK (shop_id IN (SELECT my_shop_ids()::text));
+  USING      (shop_id IN (SELECT shop_id::text FROM public.shop_users WHERE user_id = auth.uid()))
+  WITH CHECK (shop_id IN (SELECT shop_id::text FROM public.shop_users WHERE user_id = auth.uid()));
 
 DROP POLICY IF EXISTS "allow all for authenticated" ON public.appointments;
 DROP POLICY IF EXISTS appointments_all              ON public.appointments;
