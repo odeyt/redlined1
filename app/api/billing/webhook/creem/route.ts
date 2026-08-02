@@ -7,16 +7,20 @@ function getAdminDb() {
   return createClient(url, key);
 }
 
+/** HMAC-SHA256 of the raw body, hex encoded. */
+async function hmacHex(rawBody: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
+  return Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function verifySignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
   try {
     const expected = signature.replace(/^sha256=/, '');
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-    );
-    const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody));
-    const hex = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, '0')).join('');
-    return hex === expected;
+    return (await hmacHex(rawBody, secret)) === expected;
   } catch {
     return false;
   }
@@ -45,7 +49,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
     }
     if (!(await verifySignature(rawBody, signature, secret))) {
-      console.warn('[webhook/creem] signature verification failed — rejected');
+      // A rejected event means a customer may have paid without their plan
+      // activating, so leave enough behind to diagnose and repair it — but no
+      // PII. Signature values are not secret (the signing key is), while the
+      // body carries customer email and payment details, so the body is logged
+      // only as a length and the event type.
+      let eventType = '(unparseable)';
+      try { eventType = String((JSON.parse(rawBody) as Record<string, unknown>).type ?? '(none)'); } catch { /* keep placeholder */ }
+      console.error('[webhook/creem] REJECTED — signature did not verify.', JSON.stringify({
+        eventType,
+        bodyBytes: rawBody.length,
+        signatureHeaders: [...req.headers.keys()].filter(h => /sign|hmac|digest/i.test(h)),
+        received: signature.slice(0, 96),
+        expectedHmacSha256Hex: (await hmacHex(rawBody, secret)).slice(0, 96),
+        note: 'If a payment succeeded but the plan did not activate, compare these two. A mismatch in FORMAT (base64 vs hex, or a "t=...,v1=..." scheme) means verifySignature needs to match Creem\'s scheme.',
+      }));
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
