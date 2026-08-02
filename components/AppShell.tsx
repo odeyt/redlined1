@@ -93,7 +93,22 @@ function Shell() {
   const dispatch = useAppDispatch();
   const { role, loading: roleLoading } = useShop();
   const { status: planStatus, daysLeft, loading: planLoading, profileLoaded, isFreeForever } = usePlan();
-  const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
+  /**
+   * Whether a lapsed plan hard-locks the app.
+   *
+   * Deliberately INDEPENDENT of NEXT_PUBLIC_BILLING_ENABLED. Accepting payments
+   * and locking people out are separate decisions, and tying them together meant
+   * switching on checkout would also, as a side effect, start locking every
+   * lapsed trial out of the product.
+   *
+   * Default OFF, because the product is sold as "Free forever with core
+   * features" — a lapsed trial drops to the free tier and keeps working, which
+   * is what the signup page promises. It also means a fault in the payment path
+   * cannot leave a customer both locked out and unable to pay.
+   *
+   * Set NEXT_PUBLIC_ENFORCE_PLAN_LOCK=true to require a subscription instead.
+   */
+  const enforcePlanLock = process.env.NEXT_PUBLIC_ENFORCE_PLAN_LOCK === 'true';
   const checkoutFired = useRef(false);
   const defaulted = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -244,18 +259,23 @@ function Shell() {
   const allBlocked = [...new Set([...roleBlocked, ...planBlocked])];
   const safeModule = allBlocked.includes(activeModule) ? 'dashboard' : activeModule;
   const ActiveView = views[safeModule] || DashboardView;
-  // Watermark on invoices only for expired-trial/paid-lapsed, never for Free Forever.
+  // Watermark on invoices only for expired-trial/paid-lapsed, never for Free
+  // Forever. Tied to the lock policy, not to billing: if a lapsed trial keeps
+  // full free-tier use, stamping its invoices would be a hostile half-measure.
   const showWatermark = planReady && needsWatermark(planStatus) && safeModule === 'invoices'
-    && billingEnabled && !isFreeForever;
+    && enforcePlanLock && !isFreeForever;
 
   return (
     <>
       <EnvBanner />
 
-      {/* Trial expiry lock — only for expired-trial downgrades when billing is enabled.
-          Free Forever users (plan='free') never see this. If profileLoaded is false
-          (DB read failed) we also skip — a billing infra problem must not lock users out. */}
-      {planReady && planStatus === 'free' && profileLoaded && billingEnabled && !isFreeForever && (
+      {/* Hard lock for a lapsed plan. Shown only when the shop has deliberately
+          opted into requiring a subscription (NEXT_PUBLIC_ENFORCE_PLAN_LOCK),
+          NOT merely because billing is switched on — see enforcePlanLock above.
+          Free Forever users (plan='free') never see this, and if profileLoaded
+          is false the DB read failed, so a billing infrastructure problem can
+          never lock anyone out. */}
+      {planReady && planStatus === 'free' && profileLoaded && enforcePlanLock && !isFreeForever && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9000,
           background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)',
