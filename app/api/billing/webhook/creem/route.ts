@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Store event
-    const { data: eventRow } = await db
+    const { data: eventRow, error: eventErr } = await db
       .from('billing_events')
       .insert({
         shop_id:           shopId,
@@ -201,6 +201,10 @@ export async function POST(req: NextRequest) {
       })
       .select('id')
       .single();
+
+    if (eventErr) {
+      console.error('[webhook/creem] could not record the event:', eventErr.message);
+    }
 
     // Handle subscription updates
     try {
@@ -229,8 +233,21 @@ export async function POST(req: NextRequest) {
         // resolved. usePlan() reads profiles.plan, so this is what the customer
         // actually experiences — it must not depend on the subscription
         // bookkeeping below succeeding.
+        //
+        // The result is checked. supabase-js returns errors instead of
+        // throwing, so an unchecked write fails in complete silence: a
+        // restricted API key made every write here fail while the endpoint
+        // still answered 200, and Creem — correctly — never retried. The
+        // customer was charged, the logs were clean, and nothing happened.
         if (userId) {
-          await db.from('profiles').update({ plan: planKey }).eq('id', userId);
+          const { error, count } = await db
+            .from('profiles')
+            .update({ plan: planKey }, { count: 'exact' })
+            .eq('id', userId);
+          if (error) throw new Error(`profiles.plan update failed: ${error.message}`);
+          // Zero rows matched is not an error to PostgREST, but it means the
+          // customer is still on their old plan.
+          if (count === 0) throw new Error(`profiles.plan update matched no row for user ${userId}`);
         }
 
         const providerCustomerId      = String(data.customer_id ?? '');
@@ -249,7 +266,7 @@ export async function POST(req: NextRequest) {
           // Already logged above. The buyer has their plan; the subscription
           // row can be reconciled from billing_events, which holds the payload.
         } else if (existing?.id) {
-          await db.from('shop_subscriptions').update({
+          const { error } = await db.from('shop_subscriptions').update({
             plan_key:                planKey,
             status:                  'active',
             provider_customer_id:    providerCustomerId,
@@ -258,8 +275,9 @@ export async function POST(req: NextRequest) {
             current_period_end:      periodEnd.toISOString(),
             updated_at:              new Date().toISOString(),
           }).eq('id', existing.id);
+          if (error) throw new Error(`shop_subscriptions update failed: ${error.message}`);
         } else {
-          await db.from('shop_subscriptions').insert({
+          const { error } = await db.from('shop_subscriptions').insert({
             shop_id:                 shopId,
             plan_key:                planKey,
             status:                  'active',
@@ -269,21 +287,24 @@ export async function POST(req: NextRequest) {
             current_period_start:    periodStart.toISOString(),
             current_period_end:      periodEnd.toISOString(),
           });
+          if (error) throw new Error(`shop_subscriptions insert failed: ${error.message}`);
         }
 
       } else if (shopId && (eventType === 'subscription.cancelled' || eventType === 'subscription.canceled' || eventType === 'subscription.expired')) {
-        await db.from('shop_subscriptions').update({
+        const { error } = await db.from('shop_subscriptions').update({
           status:       'cancelled',
           cancelled_at: new Date().toISOString(),
           updated_at:   new Date().toISOString(),
         }).eq('shop_id', shopId);
+        if (error) throw new Error(`cancellation update failed: ${error.message}`);
 
       } else if (shopId && (eventType === 'subscription.past_due' || eventType === 'subscription.unpaid')) {
-        await db.from('shop_subscriptions').update({
+        const { error } = await db.from('shop_subscriptions').update({
           status:      'past_due',
           past_due_at: new Date().toISOString(),
           updated_at:  new Date().toISOString(),
         }).eq('shop_id', shopId);
+        if (error) throw new Error(`past_due update failed: ${error.message}`);
       }
 
       if (eventRow?.id) {
@@ -295,6 +316,11 @@ export async function POST(req: NextRequest) {
       if (eventRow?.id) {
         await db.from('billing_events').update({ error: msg }).eq('id', eventRow.id);
       }
+      // Answer non-2xx so Creem retries. This previously returned 200 on
+      // failure, which told Creem the event was handled and permanently
+      // discarded the only automatic chance to recover — the customer had paid
+      // and the sole record of it was a log line.
+      return NextResponse.json({ error: 'Activation failed', detail: msg }, { status: 500 });
     }
 
     return NextResponse.json({ received: true });
