@@ -26,6 +26,51 @@ async function verifySignature(rawBody: string, signature: string, secret: strin
   }
 }
 
+/**
+ * Diagnostic only — runs when verification has ALREADY failed, and never
+ * grants access. Creem's docs specify HMAC-SHA256 hex over the raw body, and
+ * the received signature is 64 hex characters, so the scheme is right and the
+ * disagreement is in how the key is derived from the displayed secret.
+ * Providers differ on whether the human-readable prefix is part of the key.
+ *
+ * This reports WHICH derivation matches so the correct one can be pinned,
+ * rather than broadening what the endpoint accepts — accepting several schemes
+ * would mean a weaker one stays reachable forever.
+ */
+async function identifySigningScheme(rawBody: string, received: string): Promise<string | null> {
+  const secret = process.env.CREEM_WEBHOOK_SECRET ?? '';
+  const stripped = secret.replace(/^whsec_/, '');
+
+  const candidates: Array<[string, Uint8Array]> = [
+    ['secret-as-shown', new TextEncoder().encode(secret)],
+    ['secret-without-whsec-prefix', new TextEncoder().encode(stripped)],
+  ];
+
+  // Some providers display a base64 or hex encoding of the raw key bytes.
+  try {
+    candidates.push(['base64-decoded-secret', Uint8Array.from(atob(stripped), c => c.charCodeAt(0))]);
+  } catch { /* not valid base64 */ }
+  if (/^[0-9a-f]+$/i.test(stripped) && stripped.length % 2 === 0) {
+    candidates.push(['hex-decoded-secret',
+      Uint8Array.from(stripped.match(/../g)!.map(h => parseInt(h, 16)))]);
+  }
+
+  for (const [name, keyBytes] of candidates) {
+    try {
+      const key = await crypto.subtle.importKey(
+        'raw', keyBytes as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+      );
+      const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+      const bytes = new Uint8Array(mac);
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const b64 = btoa(String.fromCharCode(...bytes));
+      if (hex === received) return `${name} / hex`;
+      if (b64 === received) return `${name} / base64`;
+    } catch { /* try the next candidate */ }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
@@ -63,13 +108,22 @@ export async function POST(req: NextRequest) {
       // body carries customer email and payment details, so the body is logged
       // only as a length and the event type.
       let eventType = '(unparseable)';
-      try { eventType = String((JSON.parse(rawBody) as Record<string, unknown>).type ?? '(none)'); } catch { /* keep placeholder */ }
+      let payloadKeys: string[] = [];
+      try {
+        const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+        eventType = String(parsed.type ?? '(none)');
+        // Field NAMES only, never values — the shape is what is needed to read
+        // the event correctly, and the values carry customer data.
+        payloadKeys = Object.keys(parsed);
+      } catch { /* keep placeholder */ }
       console.error('[webhook/creem] REJECTED — signature did not verify.', JSON.stringify({
         eventType,
         bodyBytes: rawBody.length,
         signatureHeaders: [...req.headers.keys()].filter(h => /sign|hmac|digest/i.test(h)),
+        payloadKeys,
         received: signature.slice(0, 96),
         expectedHmacSha256Hex: (await hmacHex(rawBody, secret)).slice(0, 96),
+        matchingScheme: await identifySigningScheme(rawBody, signature.replace(/^sha256=/, '')),
         note: 'If a payment succeeded but the plan did not activate, compare these two. A mismatch in FORMAT (base64 vs hex, or a "t=...,v1=..." scheme) means verifySignature needs to match Creem\'s scheme.',
       }));
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
