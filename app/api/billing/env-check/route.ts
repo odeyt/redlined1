@@ -66,6 +66,16 @@ export async function GET(req: NextRequest) {
     productMappingsConfigured: PAID_PLAN_VARS.length - missingVars.length,
     productMappingsMissing: missingVars,
     billingEnabled: process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true',
+    // Test mode and the key must agree. A live key against the sandbox host —
+    // or a test key against the live host — fails with an opaque 401, so
+    // surface the pair rather than each half separately.
+    testMode: process.env.CREEM_TEST_MODE === 'true',
+    apiBaseUrl: process.env.CREEM_BASE_URL
+      ?? (process.env.CREEM_TEST_MODE === 'true'
+        ? 'https://test-api.creem.io/v1'
+        : 'https://api.creem.io/v1'),
+    testModeMatchesKey:
+      (process.env.CREEM_TEST_MODE === 'true') === apiKey.startsWith('creem_test_'),
     paymentProvider: process.env.PAYMENT_PROVIDER ?? process.env.BILLING_PROVIDER ?? '(not set)',
     successUrlConfigured: !!process.env.CREEM_SUCCESS_URL,
     cancelUrlConfigured: !!process.env.CREEM_CANCEL_URL,
