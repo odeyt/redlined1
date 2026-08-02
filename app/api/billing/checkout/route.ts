@@ -7,6 +7,7 @@
  * Body: { planId: RedlinedPlanId, billingInterval: BillingInterval }
  */
 
+import { getOrCreatePrimaryShop } from '@/commercial/onboarding/ShopProvisioningService';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
@@ -101,6 +102,29 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     const provider = getPaymentProvider();
 
+    // Shops are provisioned in the auth callback, so any route into the app
+    // that bypasses that callback leaves a user with no shop at all. They can
+    // still use the app — the sidebar falls back to its "My Shop" defaults —
+    // but there is nothing for a subscription to attach to.
+    //
+    // A sandbox purchase hit exactly that: the payment succeeded, the webhook
+    // verified, and activation was skipped because neither the checkout
+    // metadata nor the shop_users fallback could name a shop. The customer is
+    // charged and nothing happens.
+    //
+    // Provisioning here closes that: it is idempotent, and this is the last
+    // point before money moves at which a shop can still be created.
+    let shopId = shopUser?.shop_id ?? '';
+    if (!shopId) {
+      const meta = user.user_metadata as { full_name?: string; shop_name?: string } | null;
+      const { shopId: provisioned } = await getOrCreatePrimaryShop(user.id, {
+        ownerName: meta?.full_name,
+        shopName:  meta?.shop_name || 'My Shop',
+      });
+      shopId = provisioned;
+      console.warn('[billing/checkout] buyer had no shop; provisioned one before checkout.');
+    }
+
     const result = await provider.createCheckoutSession({
       userId: user.id,
       email: user.email ?? '',
@@ -112,7 +136,7 @@ export async function POST(req: NextRequest) {
       // the handler's `if (shopId && ...)` guard skipped every branch and the
       // event was recorded as received but unprocessed.
       metadata: {
-        shop_id:  shopUser?.shop_id ?? '',
+        shop_id:  shopId,
         plan_key: planId,
       },
       successUrl: `${process.env.CREEM_SUCCESS_URL ?? `${siteUrl}/app?billing=success`}`,
