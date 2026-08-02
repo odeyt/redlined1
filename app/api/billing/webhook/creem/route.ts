@@ -260,8 +260,25 @@ export async function POST(req: NextRequest) {
           if (count === 0) throw new Error(`profiles.plan update matched no row for user ${userId}`);
         }
 
-        const providerCustomerId      = String(data.customer_id ?? '');
-        const providerSubscriptionId  = String(data.subscription_id ?? '');
+        // Creem nests these as objects, not flat *_id fields. Reading
+        // data.customer_id gave '' on every event, so provider_customer_id and
+        // provider_subscription_id were stored empty — and those are the
+        // handles needed to cancel, resume, change plan, or open the billing
+        // portal. Confirmed against a stored checkout.completed payload:
+        //   object.customer.id   cust_…
+        //   object.order.id      ord_…
+        //   object.product.id    prod_…
+        // checkout.completed carries NO subscription; that id first appears on
+        // the subscription.* events, which is why the write below must not
+        // overwrite a known id with an empty one.
+        const asId = (v: unknown): string =>
+          typeof v === 'string' ? v
+          : (v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string')
+            ? (v as { id: string }).id
+            : '';
+
+        const providerCustomerId     = asId(data.customer) || asId(data.customer_id);
+        const providerSubscriptionId = asId(data.subscription) || asId(data.subscription_id);
         const periodStart = data.current_period_start ? new Date(data.current_period_start as string) : new Date();
         const periodEnd   = data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000);
 
@@ -276,14 +293,19 @@ export async function POST(req: NextRequest) {
           // Already logged above. The buyer has their plan; the subscription
           // row can be reconciled from billing_events, which holds the payload.
         } else if (existing?.id) {
+          // Only write the provider ids and period when this event actually
+          // carries them. checkout.completed has no subscription and no period,
+          // so including them unconditionally would erase values a later
+          // subscription.* event had already supplied — losing the handle
+          // needed to cancel or manage the subscription.
           const { error } = await db.from('shop_subscriptions').update({
-            plan_key:                planKey,
-            status:                  'active',
-            provider_customer_id:    providerCustomerId,
-            provider_subscription_id: providerSubscriptionId,
-            current_period_start:    periodStart.toISOString(),
-            current_period_end:      periodEnd.toISOString(),
-            updated_at:              new Date().toISOString(),
+            plan_key:   planKey,
+            status:     'active',
+            updated_at: new Date().toISOString(),
+            ...(providerCustomerId     ? { provider_customer_id:     providerCustomerId }     : {}),
+            ...(providerSubscriptionId ? { provider_subscription_id: providerSubscriptionId } : {}),
+            ...(data.current_period_start ? { current_period_start: periodStart.toISOString() } : {}),
+            ...(data.current_period_end   ? { current_period_end:   periodEnd.toISOString() }   : {}),
           }).eq('id', existing.id);
           if (error) throw new Error(`shop_subscriptions update failed: ${error.message}`);
         } else {
