@@ -28,14 +28,25 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('x-creem-signature') ?? req.headers.get('x-webhook-signature') ?? '';
     const secret = process.env.CREEM_WEBHOOK_SECRET;
 
-    if (secret && signature) {
-      const valid = await verifySignature(rawBody, signature, secret);
-      if (!valid) {
-        // Log mismatch for debugging but accept the event — Creem test events
-        // may use a different signing scheme than live events.
-        // TODO: tighten this back to a hard reject once live event signatures are confirmed.
-        console.warn('[webhook/creem] signature mismatch — accepting anyway (test mode or unknown scheme)');
-      }
+    // This endpoint grants plans: a processed event writes profiles.plan for the
+    // user id carried in the payload. An unauthenticated caller who can reach it
+    // could therefore hand any account any plan, for free — so every request
+    // must be proven to come from the payment provider before it is parsed.
+    //
+    // It previously logged a signature mismatch and processed the event anyway,
+    // and skipped verification entirely when no secret was configured. Both are
+    // now hard rejections.
+    if (!secret) {
+      console.error('[webhook/creem] CREEM_WEBHOOK_SECRET is not set — rejecting. Billing webhooks cannot be trusted without it.');
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    }
+    if (!signature) {
+      console.warn('[webhook/creem] request carried no signature header — rejected');
+      return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
+    }
+    if (!(await verifySignature(rawBody, signature, secret))) {
+      console.warn('[webhook/creem] signature verification failed — rejected');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     let payload: Record<string, unknown>;
