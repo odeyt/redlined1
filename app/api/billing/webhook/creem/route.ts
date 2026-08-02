@@ -201,10 +201,16 @@ export async function POST(req: NextRequest) {
 
     // Handle subscription updates
     try {
+      // `subscription.paid` fires on every successful charge, including
+      // renewals — Creem sent one alongside checkout.completed in the sandbox.
+      // Without it a subscription activates on purchase and then never renews:
+      // current_period_end goes stale and the customer eventually looks lapsed
+      // despite paying every month.
       const isActivation =
         eventType === 'checkout.completed' ||
         eventType === 'subscription.created' ||
-        eventType === 'subscription.active';
+        eventType === 'subscription.active' ||
+        eventType === 'subscription.paid';
 
       if (isActivation) {
         // `plan_id` is what createCheckoutSession has always sent; `plan_key`
