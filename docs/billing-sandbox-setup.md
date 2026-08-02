@@ -58,6 +58,12 @@ not the per-commit URL — the per-commit one changes on every push.
 Subscribe to at least: `checkout.completed`, `subscription.created`,
 `subscription.active`.
 
+**Use the `www` host when you register the LIVE webhook.** `redlined1.com`
+308-redirects to `www.redlined1.com`. A 308 preserves method and body, so a
+sender that follows redirects is fine — but many webhook senders do not follow
+redirects at all and record the 308 as a failed delivery. Register the live
+endpoint as `https://www.redlined1.com/api/billing/webhook/creem`.
+
 **Deployment Protection must be off for this URL.** Vercel protects preview
 deployments behind an auth wall by default, and Creem's POST will be bounced
 with an HTML login page — which looks exactly like a broken webhook. Either
