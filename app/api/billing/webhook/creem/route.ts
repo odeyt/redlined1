@@ -136,9 +136,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const eventType       = String(payload.type ?? payload.event_type ?? '');
+    // Creem's envelope is { id, eventType, created_at, object } — confirmed from
+    // a sandbox event on 2026-08-02. This handler was written against `type`
+    // and `data`, which no Creem event carries, so every event would have been
+    // treated as an unknown type and silently ignored even once signatures
+    // verified. The other spellings are kept as fallbacks and cost nothing.
+    const eventType       = String(payload.eventType ?? payload.type ?? payload.event_type ?? '');
     const providerEventId = String(payload.id ?? payload.event_id ?? '');
-    const data            = (payload.data ?? payload) as Record<string, unknown>;
+    const data            = (payload.object ?? payload.data ?? payload) as Record<string, unknown>;
     const meta            = (data.metadata ?? {}) as Record<string, string>;
     const userId          = meta.user_id || null;
 
