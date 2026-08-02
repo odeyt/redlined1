@@ -83,7 +83,10 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-creem-signature') ??
       req.headers.get('x-webhook-signature') ??
       '';
-    const secret = process.env.CREEM_WEBHOOK_SECRET;
+    // Trimmed: a trailing newline changes the HMAC key entirely, and the
+    // resulting failure is indistinguishable from a wrong secret or a
+    // different signing scheme.
+    const secret = process.env.CREEM_WEBHOOK_SECRET?.trim();
 
     // This endpoint grants plans: a processed event writes profiles.plan for the
     // user id carried in the payload. An unauthenticated caller who can reach it

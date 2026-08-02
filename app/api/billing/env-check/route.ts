@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden — platform owner only' }, { status: 403 });
   }
 
-  const apiKey = process.env.CREEM_API_KEY ?? '';
+  const apiKey = process.env.CREEM_API_KEY?.trim() ?? '';
   const missingVars = PAID_PLAN_VARS.filter(v => !process.env[v]);
 
   const result = {
@@ -69,13 +69,13 @@ export async function GET(req: NextRequest) {
     // Test mode and the key must agree. A live key against the sandbox host —
     // or a test key against the live host — fails with an opaque 401, so
     // surface the pair rather than each half separately.
-    testMode: process.env.CREEM_TEST_MODE === 'true',
+    testMode: process.env.CREEM_TEST_MODE?.trim() === 'true',
     apiBaseUrl: process.env.CREEM_BASE_URL
-      ?? (process.env.CREEM_TEST_MODE === 'true'
+      ?? (process.env.CREEM_TEST_MODE?.trim() === 'true'
         ? 'https://test-api.creem.io/v1'
         : 'https://api.creem.io/v1'),
     testModeMatchesKey:
-      (process.env.CREEM_TEST_MODE === 'true') === apiKey.startsWith('creem_test_'),
+      (process.env.CREEM_TEST_MODE?.trim() === 'true') === apiKey.startsWith('creem_test_'),
     paymentProvider: process.env.PAYMENT_PROVIDER ?? process.env.BILLING_PROVIDER ?? '(not set)',
     successUrlConfigured: !!process.env.CREEM_SUCCESS_URL,
     cancelUrlConfigured: !!process.env.CREEM_CANCEL_URL,

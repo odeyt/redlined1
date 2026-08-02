@@ -19,7 +19,12 @@ let _cached: PaymentProvider | null = null;
 export function getPaymentProvider(): PaymentProvider {
   if (_cached) return _cached;
 
-  const name = process.env.PAYMENT_PROVIDER;
+  // Trimmed deliberately. Environment values pick up stray whitespace easily —
+  // a trailing newline from a piped CLI write, or a space from a dashboard
+  // paste — and an untrimmed compare then fails while the error message prints
+  // a value that looks exactly right, which is close to undebuggable from the
+  // message alone.
+  const name = process.env.PAYMENT_PROVIDER?.trim();
 
   switch (name) {
     case 'creem': {
