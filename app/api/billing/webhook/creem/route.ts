@@ -203,7 +203,17 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (eventErr) {
-      console.error('[webhook/creem] could not record the event:', eventErr.message);
+      // Name the key class alongside the failure. "permission denied for table"
+      // is a GRANT error, and the sb_secret_ restricted keys carry no grants on
+      // the billing tables — so the two most likely causes (wrong key vs
+      // missing grant) are told apart here rather than by redeploying and
+      // guessing. The value is never logged, only which kind it is.
+      const k = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
+      const keyClass = !k ? 'missing'
+        : k.startsWith('eyJ') ? 'legacy-service-role-jwt'
+        : k.startsWith('sb_secret_') ? 'sb_secret-restricted'
+        : 'unrecognised';
+      console.error(`[webhook/creem] could not record the event: ${eventErr.message} (service key: ${keyClass})`);
     }
 
     // Handle subscription updates
