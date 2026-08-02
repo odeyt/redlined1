@@ -86,9 +86,33 @@ export async function POST(req: NextRequest) {
     const providerEventId = String(payload.id ?? payload.event_id ?? '');
     const data            = (payload.data ?? payload) as Record<string, unknown>;
     const meta            = (data.metadata ?? {}) as Record<string, string>;
-    const shopId          = meta.shop_id ?? null;
+    const userId          = meta.user_id || null;
 
     const db = getAdminDb();
+
+    // Metadata is set by our own checkout route, but a subscription can also be
+    // created from Creem's dashboard, and older checkout sessions were sent
+    // without shop_id at all. Falling back to the membership table means those
+    // events still activate instead of being silently dropped — the customer
+    // has paid either way.
+    let shopId = meta.shop_id || null;
+    if (!shopId && userId) {
+      const { data: membership } = await db
+        .from('shop_users')
+        .select('shop_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+      shopId = membership?.shop_id ?? null;
+      if (shopId) {
+        console.warn('[webhook/creem] metadata carried no shop_id; resolved it from shop_users.');
+      }
+    }
+    if (!shopId) {
+      console.error('[webhook/creem] cannot resolve a shop for this event — subscription NOT activated.', JSON.stringify({
+        eventType, providerEventId, hasUserId: !!userId,
+      }));
+    }
 
     // Idempotency check
     if (providerEventId) {
@@ -118,21 +142,45 @@ export async function POST(req: NextRequest) {
 
     // Handle subscription updates
     try {
-      if (shopId && (eventType === 'checkout.completed' || eventType === 'subscription.created' || eventType === 'subscription.active')) {
-        const planKey = meta.plan_key ?? 'professional';
+      const isActivation =
+        eventType === 'checkout.completed' ||
+        eventType === 'subscription.created' ||
+        eventType === 'subscription.active';
+
+      if (isActivation) {
+        // `plan_id` is what createCheckoutSession has always sent; `plan_key`
+        // is what this handler was written to read. Accept either, and only
+        // fall back to a default when neither is present — defaulting to
+        // 'professional' silently upgraded anyone who bought a cheaper plan.
+        const planKey = meta.plan_key || meta.plan_id || 'professional';
+        if (!meta.plan_key && !meta.plan_id) {
+          console.warn('[webhook/creem] event carried no plan in metadata; defaulting to professional.');
+        }
+
+        // Unlock the app for the buyer even if the shop row could not be
+        // resolved. usePlan() reads profiles.plan, so this is what the customer
+        // actually experiences — it must not depend on the subscription
+        // bookkeeping below succeeding.
+        if (userId) {
+          await db.from('profiles').update({ plan: planKey }).eq('id', userId);
+        }
+
         const providerCustomerId      = String(data.customer_id ?? '');
         const providerSubscriptionId  = String(data.subscription_id ?? '');
         const periodStart = data.current_period_start ? new Date(data.current_period_start as string) : new Date();
         const periodEnd   = data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000);
 
         // Upsert subscription
-        const { data: existing } = await db
+        const { data: existing } = shopId ? await db
           .from('shop_subscriptions')
           .select('id')
           .eq('shop_id', shopId)
-          .maybeSingle();
+          .maybeSingle() : { data: null };
 
-        if (existing?.id) {
+        if (!shopId) {
+          // Already logged above. The buyer has their plan; the subscription
+          // row can be reconciled from billing_events, which holds the payload.
+        } else if (existing?.id) {
           await db.from('shop_subscriptions').update({
             plan_key:                planKey,
             status:                  'active',
@@ -153,12 +201,6 @@ export async function POST(req: NextRequest) {
             current_period_start:    periodStart.toISOString(),
             current_period_end:      periodEnd.toISOString(),
           });
-        }
-
-        // Update profiles.plan so usePlan() picks it up immediately
-        const userId = meta.user_id ?? null;
-        if (userId) {
-          await db.from('profiles').update({ plan: planKey }).eq('id', userId);
         }
 
       } else if (shopId && (eventType === 'subscription.cancelled' || eventType === 'subscription.canceled' || eventType === 'subscription.expired')) {

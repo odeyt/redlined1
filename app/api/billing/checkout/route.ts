@@ -106,6 +106,15 @@ export async function POST(req: NextRequest) {
       email: user.email ?? '',
       planId: planId as RedlinedPlanId,
       billingInterval: billingInterval as BillingInterval,
+      // The webhook keys the whole activation off metadata: it looks for
+      // `shop_id` to find the subscription row and `plan_key` to know what was
+      // bought. Neither was being sent, so a completed payment wrote nothing —
+      // the handler's `if (shopId && ...)` guard skipped every branch and the
+      // event was recorded as received but unprocessed.
+      metadata: {
+        shop_id:  shopUser?.shop_id ?? '',
+        plan_key: planId,
+      },
       successUrl: `${process.env.CREEM_SUCCESS_URL ?? `${siteUrl}/app?billing=success`}`,
       cancelUrl: `${process.env.CREEM_CANCEL_URL ?? `${siteUrl}/app?billing=canceled`}`,
     });
