@@ -267,9 +267,16 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
     router.refresh();
   }
 
-  function getCount(id: string, mockCount: string) {
-    if (id in realCounts) return String(realCounts[id]);
-    return mockCount;
+  // Real counts only. This used to fall back to a hardcoded number from
+  // navItems when a module had not loaded one — so a brand-new shop with no
+  // data showed 138 customers, 312 vehicles and 18 job cards, and an existing
+  // shop showed figures that contradicted the page it linked to.
+  //
+  // A badge that is sometimes real and sometimes invented is worse than no
+  // badge: there is no way for anyone to tell which they are looking at.
+  // Absent means "not counted yet"; zero is shown as zero.
+  function getCount(id: string) {
+    return id in realCounts ? String(realCounts[id]) : '';
   }
 
   // Use owner-configured permissions for non-owner roles; fallback to hardcoded defaults.
@@ -459,7 +466,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
         {roleLoading && (
           <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
         )}
-        {!roleLoading && visibleNav.map(([id, icon, label, count]) => {
+        {!roleLoading && visibleNav.map(([id, icon, label]) => {
           // Plan locks only apply to the shop owner.
           // Staff with a valid role (technician, advisor, manager, etc.) are never plan-locked —
           // they are covered by role-based access control instead.
@@ -477,7 +484,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
             >
               <Icon name={icon} style={{ color: locked ? '#555' : (iconColors[id] || '#9eb2c2') }} />
               {!collapsed && <span className="label">{label}</span>}
-              {!collapsed && (locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : (count || id in realCounts) ? <span className="count">{getCount(id, count)}</span> : null)}
+              {!collapsed && (locked ? <span className="count" style={{ background: '#333' }}>🔒</span> : id in realCounts ? <span className="count">{getCount(id)}</span> : null)}
             </button>
           );
         })}

@@ -139,55 +139,64 @@ export const aiInsights: AiInsight[] = [
   { area: 'Customer follow-up', recommendation: 'Send Maya Rodriguez a short approval message with mobile ETA, total estimate, and payment link.', impact: 'Improves approval conversion' },
 ];
 
+// The fourth element was a badge count. Every value was invented demo data —
+// '138' customers, '312' vehicles, '486' parts — and the sidebar fell back to
+// it whenever a module had no real count, so a brand-new shop with no records
+// displayed a busy workspace, and established shops saw totals that
+// contradicted the page behind the link.
+//
+// All are now empty and the sidebar ignores this slot entirely: it renders a
+// badge only for counts it actually loaded. The slot is kept so the tuple type
+// and every existing destructure stay valid.
 export const navItems: [string, string, string, string][] = [
   // ── Overview
-  ['dashboard',        'dashboard',  'Dashboard',        '12'],
+  ['dashboard',        'dashboard',  'Dashboard',        ''],
   ['command-center',   'activity',   'Command Center',   ''],
 
   // ── Intake
   ['triage',        'clipboard',  'Vehicle Intake', ''],
-  ['customers',     'customers',  'Customers',     '138'],
-  ['vehicles',      'vehicle',    'Vehicles',      '312'],
-  ['appointments',  'calendar',   'Appointments',  '9'],
+  ['customers',     'customers',  'Customers',     ''],
+  ['vehicles',      'vehicle',    'Vehicles',      ''],
+  ['appointments',  'calendar',   'Appointments',  ''],
 
   // ── Job & Dispatch
-  ['job-cards',     'clipboard',  'Job Cards',     '18'],
+  ['job-cards',     'clipboard',  'Job Cards',     ''],
   ['job-archive',   'clipboard',  'Job Archive',   ''],
   ['time-tracking', 'clock',      'Time Tracking', ''],
-  ['scheduling',    'calendar',   'Maintenance Schedules', '9'],
+  ['scheduling',    'calendar',   'Maintenance Schedules', ''],
 
   // ── Inspection & Estimate
-  ['inspections',   'inspection', 'Inspections',   '2'],
-  ['estimates',     'estimate',   'Estimates',     '2'],
+  ['inspections',   'inspection', 'Inspections',   ''],
+  ['estimates',     'estimate',   'Estimates',     ''],
 
   // ── Repair
-  ['repair-orders', 'wrench',     'Repair Orders', '21'],
-  ['technicians',   'technician', 'Employees',     '3'],
-  ['parts',         'parts',      'Parts Inventory', '486'],
+  ['repair-orders', 'wrench',     'Repair Orders', ''],
+  ['technicians',   'technician', 'Employees',     ''],
+  ['parts',         'parts',      'Parts Inventory', ''],
   ['parts-estimates', 'parts',    'Parts Quotations', ''],
   ['parts-orders',   'parts',      'Parts Ordered',  ''],
   ['parts-received', 'parts',      'Parts Received', ''],
 
   // ── Billing
-  ['invoices',      'invoice',    'Invoicing',     '14'],
-  ['payments',      'payment',    'Payments',      '1'],
+  ['invoices',      'invoice',    'Invoicing',     ''],
+  ['payments',      'payment',    'Payments',      ''],
 
   // ── Communication
-  ['communication', 'message',    'Communication', '3'],
+  ['communication', 'message',    'Communication', ''],
 
   // ── Diagnostics & Tools
   ['vin',           'vin',        'VIN Decode',    ''],
   ['dtc',           'warning',    'DTC Lookup',    ''],
-  ['diagnostics',   'scan',       'Diagnostics',   '3'],
-  ['ai',            'ai',         'AI Copilot',    '4'],
+  ['diagnostics',   'scan',       'Diagnostics',   ''],
+  ['ai',            'ai',         'AI Copilot',    ''],
   ['repair-intelligence', 'wrench', 'Repair Intelligence', ''],
 
   // ── Reports & Admin
   ['reports',       'chart',      'Reports',       ''],
   ['labor-guide',   'chart',      'Labor Guide',   ''],
-  ['access',        'userkey',    'Login & Roles', '4'],
+  ['access',        'userkey',    'Login & Roles', ''],
   ['billing',       'payment',    'Billing & Subscription', ''],
-  ['subscriptions', 'shield',     'Plans & Gates', 'Pro Trial'],
+  ['subscriptions', 'shield',     'Plans & Gates', ''],
   ['settings',      'settings',   'Settings',      ''],
   ['system-health',       'activity',  'System Health',     ''],
   ['disaster-recovery',   'lifeline',  'Disaster Recovery', ''],
