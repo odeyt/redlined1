@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { alertBillingFailure, alertBillingException } from '@/lib/observability/billingAlerts';
 
 function getAdminDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -129,6 +130,9 @@ export async function POST(req: NextRequest) {
         matchingScheme: await identifySigningScheme(rawBody, signature.replace(/^sha256=/, '')),
         note: 'If a payment succeeded but the plan did not activate, compare these two. A mismatch in FORMAT (base64 vs hex, or a "t=...,v1=..." scheme) means verifySignature needs to match Creem\'s scheme.',
       }));
+      alertBillingFailure('webhook signature did not verify — event rejected', {
+        eventType, bodyBytes: rawBody.length,
+      });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
@@ -171,9 +175,9 @@ export async function POST(req: NextRequest) {
       }
     }
     if (!shopId) {
-      console.error('[webhook/creem] cannot resolve a shop for this event — subscription NOT activated.', JSON.stringify({
+      alertBillingFailure('cannot resolve a shop — subscription NOT activated', {
         eventType, providerEventId, hasUserId: !!userId,
-      }));
+      });
     }
 
     // Idempotency check
@@ -213,7 +217,9 @@ export async function POST(req: NextRequest) {
         : k.startsWith('eyJ') ? 'legacy-service-role-jwt'
         : k.startsWith('sb_secret_') ? 'sb_secret-restricted'
         : 'unrecognised';
-      console.error(`[webhook/creem] could not record the event: ${eventErr.message} (service key: ${keyClass})`);
+      alertBillingFailure('could not record the event', {
+        reason: eventErr.message, serviceKeyClass: keyClass, eventType, providerEventId,
+      });
     }
 
     // Handle subscription updates
@@ -344,7 +350,9 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[webhook/creem] subscription update failed:', msg);
+      // The customer has been charged and has not received their plan. This is
+      // the single most important alert in the system.
+      alertBillingException(err, { stage: 'activation', eventType, providerEventId, shopId });
       if (eventRow?.id) {
         await db.from('billing_events').update({ error: msg }).eq('id', eventRow.id);
       }
