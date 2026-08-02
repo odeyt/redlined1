@@ -7,7 +7,7 @@
 -- file matches what actually runs:
 --   1. appointments.shop_id is TEXT, not uuid. The first attempt failed with
 --      "operator does not exist: text = uuid" and rolled back cleanly.
---   2. The replacement  still failed
+--   2. The replacement "shop_id IN (SELECT my_shop_ids()::text)" still failed
 --      on INSERT — casting a SET-RETURNING function call does not yield a
 --      bare uuid string. Comparing against a plain column cast from
 --      shop_users works and is what is deployed.
@@ -89,11 +89,18 @@ DROP POLICY IF EXISTS auth_all_technicians ON public.technicians;
 
 -- appointments.shop_id is TEXT while every other tenant table uses uuid, so the
 -- usual `shop_id = ANY(my_shop_ids())` fails with "operator does not exist:
--- text = uuid". The comparison casts the FUNCTION OUTPUT to text rather than
--- casting the column to uuid: a row holding a malformed value then simply fails
--- to match (access denied) instead of raising a query error for every user.
--- All 9 current rows hold valid UUIDs; the column type is the anomaly and is
--- worth normalising separately.
+-- text = uuid".
+--
+-- This reads membership straight from shop_users and casts that COLUMN to text.
+-- Two alternatives were rejected:
+--   * casting the column to uuid (`shop_id::uuid = ANY(...)`) would raise a
+--     query error for every user the moment a row held a malformed value
+--   * `shop_id IN (SELECT my_shop_ids()::text)` looked equivalent but silently
+--     matched nothing — casting a set-returning function call does not produce
+--     a bare uuid string, so INSERTs were rejected for legitimate members
+--
+-- All 9 current rows hold valid UUIDs. The TEXT column type is the underlying
+-- anomaly and is worth normalising to uuid in its own migration.
 DROP POLICY IF EXISTS appointments_shop_scoped ON public.appointments;
 CREATE POLICY appointments_shop_scoped ON public.appointments
   FOR ALL TO authenticated
