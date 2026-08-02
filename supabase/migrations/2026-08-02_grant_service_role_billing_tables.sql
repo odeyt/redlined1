@@ -28,7 +28,13 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles            TO service_ro
 -- Provisioning writes these on signup and at checkout.
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shops               TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shop_users          TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.onboarding_sessions TO service_role;
+
+-- NOT granted: public.onboarding_sessions does not exist. Attempting it fails
+-- the whole transaction with 42P01. ShopProvisioningService nevertheless reads
+-- and writes that table in getOrCreateOnboardingSession, called from the auth
+-- callback — those statements have always failed, silently, because their
+-- results are not checked. Either create the table or drop the code; the
+-- current state is neither.
 
 -- Sequences backing any of the above, so INSERT can obtain an id.
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
@@ -44,7 +50,7 @@ COMMIT;
 --   WHERE grantee = 'service_role'
 --     AND table_schema = 'public'
 --     AND table_name IN ('billing_events','shop_subscriptions','profiles',
---                        'shops','shop_users','onboarding_sessions')
+--                        'shops','shop_users')
 --   ORDER BY table_name, privilege_type;
 --
 -- And confirm nothing widened for customer-facing roles — this should return
