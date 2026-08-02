@@ -114,8 +114,10 @@ export async function getOrCreatePrimaryShop(
   // type for callers that pass them.
   const name = input.shopName || 'My Shop';
 
-  // slug is populated on the existing row, so treat it as required. The random
-  // suffix keeps it unique — two shops may legitimately share a name.
+  // slug is nullable — three existing rows have null — so this is not required.
+  // It is populated anyway because a shop with a readable slug is more useful
+  // than one without, and the random suffix keeps it unique: two shops may
+  // legitimately share a name.
   const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shop'}-${crypto.randomUUID().slice(0, 8)}`;
 
   const { data: shop, error: shopErr } = await db
