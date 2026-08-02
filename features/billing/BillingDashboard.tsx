@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAppDispatch } from '@/lib/store';
 import type { CommercialDashboardData } from '@/commercial/shared/types';
 
 const BILLING_ENABLED = process.env.NEXT_PUBLIC_BILLING_ENABLED === 'true';
 
 export function BillingDashboard() {
+  const dispatch = useAppDispatch();
   const [data, setData] = useState<CommercialDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,10 @@ export function BillingDashboard() {
         <div style={{ borderTop: '1px solid var(--line)', marginTop: 20, paddingTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {isActive && (
             <button
-              onClick={() => alert('Upgrade flow — configure Creem product IDs to enable')}
+              // Was an alert() placeholder from before the plan picker existed.
+              // It reached production and told paying-capable customers the
+              // feature was unconfigured.
+              onClick={() => dispatch({ type: 'SET_MODULE', module: 'subscriptions' })}
               onMouseEnter={e => { e.currentTarget.style.background = '#cc0000'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#cc0000'; }}
               style={{ padding: '9px 20px', background: 'transparent', color: '#cc0000', border: '2px solid #cc0000', borderRadius: 999, fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'background .15s, color .15s' }}

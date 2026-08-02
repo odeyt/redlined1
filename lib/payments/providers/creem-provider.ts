@@ -34,10 +34,14 @@ import { getProductId } from '@/config/plans';
  * live keys are rejected by the sandbox and vice versa. CREEM_BASE_URL can
  * override the host outright if Creem changes it.
  */
-const CREEM_TEST_MODE = process.env.CREEM_TEST_MODE === 'true';
+// Every env read here is trimmed. A trailing newline on CREEM_TEST_MODE fails
+// the === 'true' compare silently and sends sandbox traffic to the live host;
+// a trailing newline on the API key produces an opaque 401 from Creem. Neither
+// is visible in a dashboard, which displays the value without its whitespace.
+const CREEM_TEST_MODE = process.env.CREEM_TEST_MODE?.trim() === 'true';
 
 const CREEM_BASE_URL =
-  process.env.CREEM_BASE_URL ??
+  process.env.CREEM_BASE_URL?.trim() ||
   (CREEM_TEST_MODE ? 'https://test-api.creem.io/v1' : 'https://api.creem.io/v1');
 
 export function isCreemTestMode(): boolean {
@@ -45,7 +49,7 @@ export function isCreemTestMode(): boolean {
 }
 
 function requireApiKey(): string {
-  const key = process.env.CREEM_API_KEY;
+  const key = process.env.CREEM_API_KEY?.trim();
   if (!key) throw new Error('CREEM_API_KEY is not set. Add it to your environment variables.');
   // A live key against the sandbox (or the reverse) fails with an opaque 401,
   // so say plainly which combination is wrong.
@@ -202,7 +206,7 @@ export class CreemPaymentProvider implements PaymentProvider {
     rawBody: string,
     headers: Record<string, string>,
   ): Promise<WebhookVerificationResult> {
-    const secret = process.env.CREEM_WEBHOOK_SECRET;
+    const secret = process.env.CREEM_WEBHOOK_SECRET?.trim();
     if (!secret) {
       return { valid: false, error: 'CREEM_WEBHOOK_SECRET is not configured' };
     }

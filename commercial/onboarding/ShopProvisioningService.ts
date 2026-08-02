@@ -100,15 +100,29 @@ export async function getOrCreatePrimaryShop(
 
   if (existing?.shop_id) return { shopId: existing.shop_id, created: false };
 
-  // Create shop
+  // The shops table has exactly four columns: id, name, slug, created_at.
+  // This insert also sent currency, country and timezone, so PostgREST rejected
+  // it with "could not find the 'country' column of 'shops' in the schema
+  // cache" — meaning shop creation failed for EVERY new signup. It went
+  // unnoticed because the only caller is the auth callback, which catches
+  // provisioning errors so a failure cannot block login. The user lands in a
+  // working app whose sidebar shows its "My Shop" defaults, and nothing
+  // indicates the shop was never created until they try to pay.
+  //
+  // Nothing in the codebase reads currency, country or timezone from shops, so
+  // they are dropped rather than added to the schema. They stay on the input
+  // type for callers that pass them.
+  const name = input.shopName || 'My Shop';
+
+  // slug is nullable — three existing rows have null — so this is not required.
+  // It is populated anyway because a shop with a readable slug is more useful
+  // than one without, and the random suffix keeps it unique: two shops may
+  // legitimately share a name.
+  const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shop'}-${crypto.randomUUID().slice(0, 8)}`;
+
   const { data: shop, error: shopErr } = await db
     .from('shops')
-    .insert({
-      name:      input.shopName || 'My Shop',
-      currency:  input.currency ?? 'USD',
-      country:   input.country  ?? null,
-      timezone:  input.timezone ?? null,
-    })
+    .insert({ name, slug })
     .select('id')
     .single();
 

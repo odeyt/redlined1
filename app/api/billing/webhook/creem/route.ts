@@ -26,6 +26,51 @@ async function verifySignature(rawBody: string, signature: string, secret: strin
   }
 }
 
+/**
+ * Diagnostic only — runs when verification has ALREADY failed, and never
+ * grants access. Creem's docs specify HMAC-SHA256 hex over the raw body, and
+ * the received signature is 64 hex characters, so the scheme is right and the
+ * disagreement is in how the key is derived from the displayed secret.
+ * Providers differ on whether the human-readable prefix is part of the key.
+ *
+ * This reports WHICH derivation matches so the correct one can be pinned,
+ * rather than broadening what the endpoint accepts — accepting several schemes
+ * would mean a weaker one stays reachable forever.
+ */
+async function identifySigningScheme(rawBody: string, received: string): Promise<string | null> {
+  const secret = process.env.CREEM_WEBHOOK_SECRET ?? '';
+  const stripped = secret.replace(/^whsec_/, '');
+
+  const candidates: Array<[string, Uint8Array]> = [
+    ['secret-as-shown', new TextEncoder().encode(secret)],
+    ['secret-without-whsec-prefix', new TextEncoder().encode(stripped)],
+  ];
+
+  // Some providers display a base64 or hex encoding of the raw key bytes.
+  try {
+    candidates.push(['base64-decoded-secret', Uint8Array.from(atob(stripped), c => c.charCodeAt(0))]);
+  } catch { /* not valid base64 */ }
+  if (/^[0-9a-f]+$/i.test(stripped) && stripped.length % 2 === 0) {
+    candidates.push(['hex-decoded-secret',
+      Uint8Array.from(stripped.match(/../g)!.map(h => parseInt(h, 16)))]);
+  }
+
+  for (const [name, keyBytes] of candidates) {
+    try {
+      const key = await crypto.subtle.importKey(
+        'raw', keyBytes as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+      );
+      const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+      const bytes = new Uint8Array(mac);
+      const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      const b64 = btoa(String.fromCharCode(...bytes));
+      if (hex === received) return `${name} / hex`;
+      if (b64 === received) return `${name} / base64`;
+    } catch { /* try the next candidate */ }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
@@ -38,7 +83,10 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-creem-signature') ??
       req.headers.get('x-webhook-signature') ??
       '';
-    const secret = process.env.CREEM_WEBHOOK_SECRET;
+    // Trimmed: a trailing newline changes the HMAC key entirely, and the
+    // resulting failure is indistinguishable from a wrong secret or a
+    // different signing scheme.
+    const secret = process.env.CREEM_WEBHOOK_SECRET?.trim();
 
     // This endpoint grants plans: a processed event writes profiles.plan for the
     // user id carried in the payload. An unauthenticated caller who can reach it
@@ -63,13 +111,22 @@ export async function POST(req: NextRequest) {
       // body carries customer email and payment details, so the body is logged
       // only as a length and the event type.
       let eventType = '(unparseable)';
-      try { eventType = String((JSON.parse(rawBody) as Record<string, unknown>).type ?? '(none)'); } catch { /* keep placeholder */ }
+      let payloadKeys: string[] = [];
+      try {
+        const parsed = JSON.parse(rawBody) as Record<string, unknown>;
+        eventType = String(parsed.type ?? '(none)');
+        // Field NAMES only, never values — the shape is what is needed to read
+        // the event correctly, and the values carry customer data.
+        payloadKeys = Object.keys(parsed);
+      } catch { /* keep placeholder */ }
       console.error('[webhook/creem] REJECTED — signature did not verify.', JSON.stringify({
         eventType,
         bodyBytes: rawBody.length,
         signatureHeaders: [...req.headers.keys()].filter(h => /sign|hmac|digest/i.test(h)),
+        payloadKeys,
         received: signature.slice(0, 96),
         expectedHmacSha256Hex: (await hmacHex(rawBody, secret)).slice(0, 96),
+        matchingScheme: await identifySigningScheme(rawBody, signature.replace(/^sha256=/, '')),
         note: 'If a payment succeeded but the plan did not activate, compare these two. A mismatch in FORMAT (base64 vs hex, or a "t=...,v1=..." scheme) means verifySignature needs to match Creem\'s scheme.',
       }));
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
@@ -82,9 +139,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    const eventType       = String(payload.type ?? payload.event_type ?? '');
+    // Creem's envelope is { id, eventType, created_at, object } — confirmed from
+    // a sandbox event on 2026-08-02. This handler was written against `type`
+    // and `data`, which no Creem event carries, so every event would have been
+    // treated as an unknown type and silently ignored even once signatures
+    // verified. The other spellings are kept as fallbacks and cost nothing.
+    const eventType       = String(payload.eventType ?? payload.type ?? payload.event_type ?? '');
     const providerEventId = String(payload.id ?? payload.event_id ?? '');
-    const data            = (payload.data ?? payload) as Record<string, unknown>;
+    const data            = (payload.object ?? payload.data ?? payload) as Record<string, unknown>;
     const meta            = (data.metadata ?? {}) as Record<string, string>;
     const userId          = meta.user_id || null;
 
@@ -127,7 +189,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Store event
-    const { data: eventRow } = await db
+    const { data: eventRow, error: eventErr } = await db
       .from('billing_events')
       .insert({
         shop_id:           shopId,
@@ -140,12 +202,32 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single();
 
+    if (eventErr) {
+      // Name the key class alongside the failure. "permission denied for table"
+      // is a GRANT error, and the sb_secret_ restricted keys carry no grants on
+      // the billing tables — so the two most likely causes (wrong key vs
+      // missing grant) are told apart here rather than by redeploying and
+      // guessing. The value is never logged, only which kind it is.
+      const k = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
+      const keyClass = !k ? 'missing'
+        : k.startsWith('eyJ') ? 'legacy-service-role-jwt'
+        : k.startsWith('sb_secret_') ? 'sb_secret-restricted'
+        : 'unrecognised';
+      console.error(`[webhook/creem] could not record the event: ${eventErr.message} (service key: ${keyClass})`);
+    }
+
     // Handle subscription updates
     try {
+      // `subscription.paid` fires on every successful charge, including
+      // renewals — Creem sent one alongside checkout.completed in the sandbox.
+      // Without it a subscription activates on purchase and then never renews:
+      // current_period_end goes stale and the customer eventually looks lapsed
+      // despite paying every month.
       const isActivation =
         eventType === 'checkout.completed' ||
         eventType === 'subscription.created' ||
-        eventType === 'subscription.active';
+        eventType === 'subscription.active' ||
+        eventType === 'subscription.paid';
 
       if (isActivation) {
         // `plan_id` is what createCheckoutSession has always sent; `plan_key`
@@ -161,12 +243,42 @@ export async function POST(req: NextRequest) {
         // resolved. usePlan() reads profiles.plan, so this is what the customer
         // actually experiences — it must not depend on the subscription
         // bookkeeping below succeeding.
+        //
+        // The result is checked. supabase-js returns errors instead of
+        // throwing, so an unchecked write fails in complete silence: a
+        // restricted API key made every write here fail while the endpoint
+        // still answered 200, and Creem — correctly — never retried. The
+        // customer was charged, the logs were clean, and nothing happened.
         if (userId) {
-          await db.from('profiles').update({ plan: planKey }).eq('id', userId);
+          const { error, count } = await db
+            .from('profiles')
+            .update({ plan: planKey }, { count: 'exact' })
+            .eq('id', userId);
+          if (error) throw new Error(`profiles.plan update failed: ${error.message}`);
+          // Zero rows matched is not an error to PostgREST, but it means the
+          // customer is still on their old plan.
+          if (count === 0) throw new Error(`profiles.plan update matched no row for user ${userId}`);
         }
 
-        const providerCustomerId      = String(data.customer_id ?? '');
-        const providerSubscriptionId  = String(data.subscription_id ?? '');
+        // Creem nests these as objects, not flat *_id fields. Reading
+        // data.customer_id gave '' on every event, so provider_customer_id and
+        // provider_subscription_id were stored empty — and those are the
+        // handles needed to cancel, resume, change plan, or open the billing
+        // portal. Confirmed against a stored checkout.completed payload:
+        //   object.customer.id   cust_…
+        //   object.order.id      ord_…
+        //   object.product.id    prod_…
+        // checkout.completed carries NO subscription; that id first appears on
+        // the subscription.* events, which is why the write below must not
+        // overwrite a known id with an empty one.
+        const asId = (v: unknown): string =>
+          typeof v === 'string' ? v
+          : (v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string')
+            ? (v as { id: string }).id
+            : '';
+
+        const providerCustomerId     = asId(data.customer) || asId(data.customer_id);
+        const providerSubscriptionId = asId(data.subscription) || asId(data.subscription_id);
         const periodStart = data.current_period_start ? new Date(data.current_period_start as string) : new Date();
         const periodEnd   = data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000);
 
@@ -181,17 +293,23 @@ export async function POST(req: NextRequest) {
           // Already logged above. The buyer has their plan; the subscription
           // row can be reconciled from billing_events, which holds the payload.
         } else if (existing?.id) {
-          await db.from('shop_subscriptions').update({
-            plan_key:                planKey,
-            status:                  'active',
-            provider_customer_id:    providerCustomerId,
-            provider_subscription_id: providerSubscriptionId,
-            current_period_start:    periodStart.toISOString(),
-            current_period_end:      periodEnd.toISOString(),
-            updated_at:              new Date().toISOString(),
+          // Only write the provider ids and period when this event actually
+          // carries them. checkout.completed has no subscription and no period,
+          // so including them unconditionally would erase values a later
+          // subscription.* event had already supplied — losing the handle
+          // needed to cancel or manage the subscription.
+          const { error } = await db.from('shop_subscriptions').update({
+            plan_key:   planKey,
+            status:     'active',
+            updated_at: new Date().toISOString(),
+            ...(providerCustomerId     ? { provider_customer_id:     providerCustomerId }     : {}),
+            ...(providerSubscriptionId ? { provider_subscription_id: providerSubscriptionId } : {}),
+            ...(data.current_period_start ? { current_period_start: periodStart.toISOString() } : {}),
+            ...(data.current_period_end   ? { current_period_end:   periodEnd.toISOString() }   : {}),
           }).eq('id', existing.id);
+          if (error) throw new Error(`shop_subscriptions update failed: ${error.message}`);
         } else {
-          await db.from('shop_subscriptions').insert({
+          const { error } = await db.from('shop_subscriptions').insert({
             shop_id:                 shopId,
             plan_key:                planKey,
             status:                  'active',
@@ -201,21 +319,24 @@ export async function POST(req: NextRequest) {
             current_period_start:    periodStart.toISOString(),
             current_period_end:      periodEnd.toISOString(),
           });
+          if (error) throw new Error(`shop_subscriptions insert failed: ${error.message}`);
         }
 
       } else if (shopId && (eventType === 'subscription.cancelled' || eventType === 'subscription.canceled' || eventType === 'subscription.expired')) {
-        await db.from('shop_subscriptions').update({
+        const { error } = await db.from('shop_subscriptions').update({
           status:       'cancelled',
           cancelled_at: new Date().toISOString(),
           updated_at:   new Date().toISOString(),
         }).eq('shop_id', shopId);
+        if (error) throw new Error(`cancellation update failed: ${error.message}`);
 
       } else if (shopId && (eventType === 'subscription.past_due' || eventType === 'subscription.unpaid')) {
-        await db.from('shop_subscriptions').update({
+        const { error } = await db.from('shop_subscriptions').update({
           status:      'past_due',
           past_due_at: new Date().toISOString(),
           updated_at:  new Date().toISOString(),
         }).eq('shop_id', shopId);
+        if (error) throw new Error(`past_due update failed: ${error.message}`);
       }
 
       if (eventRow?.id) {
@@ -227,6 +348,11 @@ export async function POST(req: NextRequest) {
       if (eventRow?.id) {
         await db.from('billing_events').update({ error: msg }).eq('id', eventRow.id);
       }
+      // Answer non-2xx so Creem retries. This previously returned 200 on
+      // failure, which told Creem the event was handled and permanently
+      // discarded the only automatic chance to recover — the customer had paid
+      // and the sole record of it was a log line.
+      return NextResponse.json({ error: 'Activation failed', detail: msg }, { status: 500 });
     }
 
     return NextResponse.json({ received: true });

@@ -24,9 +24,26 @@ export function SubscriptionsView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, billingInterval: interval }),
       });
-      const data = await res.json() as { url?: string; error?: string; detail?: string };
+      // Not every failure answers with JSON. An expired Vercel Deployment
+      // Protection session redirects with an empty body, and a crashed route
+      // can return nothing at all — res.json() then throws "Unexpected end of
+      // JSON input", which tells the customer nothing and hides the status
+      // code that would have explained it.
+      const raw = await res.text();
+      let data: { url?: string; error?: string; detail?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) as typeof data : {};
+      } catch {
+        throw new Error(
+          `Checkout did not return a valid response (HTTP ${res.status}). ` +
+          (res.redirected || res.status === 307 || res.status === 401
+            ? 'The request was redirected to a login page — your session may have expired. Reload and try again.'
+            : 'Please try again, or contact support if this continues.'),
+        );
+      }
+
       if (!res.ok || !data.url) {
-        const msg = data.error ?? 'Failed to start checkout';
+        const msg = data.error ?? `Failed to start checkout (HTTP ${res.status})`;
         throw new Error(data.detail ? `${msg}: ${data.detail}` : msg);
       }
       window.location.href = data.url;
