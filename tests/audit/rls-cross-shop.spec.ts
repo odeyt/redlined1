@@ -12,7 +12,22 @@ const D1_SHOPS = [
   '90b72748-bf01-4456-999f-f4ba48091606',
 ];
 
-const TENANT_TABLES = ['parts', 'repair_orders', 'invoices', 'customers', 'vehicles', 'job_cards', 'shop_settings'];
+/**
+ * Every table holding tenant data. This list was seven tables long when the
+ * first auth_all_* leak was closed on 2026-07-31 — and a broader sweep on
+ * 2026-08-02 found six MORE leaking tables that simply were not on it
+ * (estimates, appointments, technicians, payments, maintenance_schedules,
+ * profiles). The gap was the list, not the test.
+ *
+ * ADD EVERY NEW TENANT TABLE HERE. A table absent from this list is a table
+ * nobody is checking.
+ */
+const TENANT_TABLES = [
+  'parts', 'repair_orders', 'invoices', 'customers', 'vehicles', 'job_cards',
+  'shop_settings', 'estimates', 'appointments', 'technicians', 'payments',
+  'maintenance_schedules', 'profiles', 'inspections', 'parts_orders',
+  'parts_estimates', 'conversations', 'triage_sessions', 'entity_images',
+];
 
 test('audit user cannot read any D1 shop rows via the API', async () => {
   const url     = process.env.NEXT_PUBLIC_SUPABASE_URL!;
