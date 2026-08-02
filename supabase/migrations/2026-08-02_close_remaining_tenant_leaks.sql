@@ -71,11 +71,18 @@ DROP POLICY IF EXISTS auth_all_technicians ON public.technicians;
 
 -- ── 3. appointments — had no scoped policy whatsoever ───────────────────────
 
+-- appointments.shop_id is TEXT while every other tenant table uses uuid, so the
+-- usual `shop_id = ANY(my_shop_ids())` fails with "operator does not exist:
+-- text = uuid". The comparison casts the FUNCTION OUTPUT to text rather than
+-- casting the column to uuid: a row holding a malformed value then simply fails
+-- to match (access denied) instead of raising a query error for every user.
+-- All 9 current rows hold valid UUIDs; the column type is the anomaly and is
+-- worth normalising separately.
 DROP POLICY IF EXISTS appointments_shop_scoped ON public.appointments;
 CREATE POLICY appointments_shop_scoped ON public.appointments
   FOR ALL TO authenticated
-  USING      (shop_id = ANY (my_shop_ids()))
-  WITH CHECK (shop_id = ANY (my_shop_ids()));
+  USING      (shop_id IN (SELECT my_shop_ids()::text))
+  WITH CHECK (shop_id IN (SELECT my_shop_ids()::text));
 
 DROP POLICY IF EXISTS "allow all for authenticated" ON public.appointments;
 DROP POLICY IF EXISTS appointments_all              ON public.appointments;
