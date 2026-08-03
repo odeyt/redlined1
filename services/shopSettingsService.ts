@@ -46,6 +46,17 @@ export interface ShopSettings {
   hiddenModules: string[];
   laborRate: number;
   defaultTaxRate: number;
+  /**
+   * The currency new quotes, estimates and parts default to.
+   *
+   * USD for every new shop, changeable in Settings. Chosen on 2026-08-03: the
+   * product sells worldwide, and USD is the safest starting point for a shop we
+   * know nothing about. A shop that works in baht or kip sets it once.
+   *
+   * Per-line currency is unaffected — a quote can still hold a foreign-supplier
+   * line, and changing this does not rewrite existing records.
+   */
+  defaultCurrency: string;
   invoicePrefix: string;
   estimatePrefix: string;
   businessType: string;
@@ -84,7 +95,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data, error } = await supabase
     .from('shop_settings')
     .select(
-      'company_name, tagline, logo_url, address, phone, email, website, hidden_modules, role_permissions, labor_rate, default_tax_rate, invoice_prefix, estimate_prefix, business_type, service_types, enabled_payment_methods, inspection_template, enable_time_tracking, enable_job_archive, enable_vehicle_photos, enable_vehicle_edit, enable_technician_report, enable_job_completion_report, enable_appointment_bay, appointment_bays, enable_job_card_priority, enable_job_card_branch_route, enable_job_card_service_location, enable_job_card_approval_code, enable_job_card_sub_type, service_sub_types'
+      'company_name, tagline, logo_url, address, phone, email, website, hidden_modules, role_permissions, labor_rate, default_tax_rate, default_currency, invoice_prefix, estimate_prefix, business_type, service_types, enabled_payment_methods, inspection_template, enable_time_tracking, enable_job_archive, enable_vehicle_photos, enable_vehicle_edit, enable_technician_report, enable_job_completion_report, enable_appointment_bay, appointment_bays, enable_job_card_priority, enable_job_card_branch_route, enable_job_card_service_location, enable_job_card_approval_code, enable_job_card_sub_type, service_sub_types'
     )
     .eq('shop_id', getShopId())
     .maybeSingle();
@@ -103,6 +114,9 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
       : DEFAULT_ROLE_PERMISSIONS,
     laborRate: Number(data?.labor_rate ?? 145),
     defaultTaxRate: Number(data?.default_tax_rate ?? 0.08),
+    // USD when the column is null — an existing shop that has never set one
+    // keeps behaving exactly as it did, since USD was the hardcoded default.
+    defaultCurrency: (data?.default_currency as string | null) || 'USD',
     invoicePrefix: data?.invoice_prefix ?? 'INV-',
     estimatePrefix: data?.estimate_prefix ?? 'EST-',
     businessType: data?.business_type ?? 'Single repair shop',
@@ -150,6 +164,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.hiddenModules !== undefined) update.hidden_modules = settings.hiddenModules;
   if (settings.laborRate !== undefined) update.labor_rate = settings.laborRate;
   if (settings.defaultTaxRate !== undefined) update.default_tax_rate = settings.defaultTaxRate;
+  if (settings.defaultCurrency !== undefined) update.default_currency = settings.defaultCurrency;
   if (settings.invoicePrefix !== undefined) update.invoice_prefix = settings.invoicePrefix;
   if (settings.estimatePrefix !== undefined) update.estimate_prefix = settings.estimatePrefix;
   if (settings.businessType !== undefined) update.business_type = settings.businessType;

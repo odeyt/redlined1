@@ -90,3 +90,41 @@ describe('line totals are plain multiplication', () => {
     expect(showsWorking(1)).toBe(false);
   });
 });
+
+/**
+ * The shop's default currency.
+ *
+ * USD for every new shop, changeable in Settings. Previously the default was
+ * hardcoded 'USD' in the quotation form and nowhere else, so a shop working in
+ * baht re-picked its currency on every quote — and when it forgot, the line was
+ * stored as USD while the screen showed THB.
+ */
+describe('shop default currency', () => {
+  /** Mirrors the mapping in services/shopSettingsService.fetchShopSettings. */
+  const readDefault = (row: { default_currency?: string | null } | null) =>
+    (row?.default_currency as string | null) || 'USD';
+
+  it('is USD for a shop that has never set one', () => {
+    expect(readDefault({ default_currency: null })).toBe('USD');
+  });
+
+  it('is USD when the settings row does not exist yet', () => {
+    expect(readDefault(null)).toBe('USD');
+  });
+
+  it('is USD when the column is blank rather than null', () => {
+    expect(readDefault({ default_currency: '' })).toBe('USD');
+  });
+
+  it.each(['THB', 'LAK', 'EUR', 'AUD'])('honours %s once chosen', cur => {
+    expect(readDefault({ default_currency: cur })).toBe(cur);
+  });
+
+  it('opens a new quote with its first line already in that currency', () => {
+    // The quote and its first line are built from one value, so they cannot
+    // disagree at creation — which is what produced USD lines under THB quotes.
+    const shopCurrency = 'THB';
+    const form = { currency: shopCurrency, lineItems: [emptyLine(shopCurrency)] };
+    expect(form.lineItems[0].currency).toBe(form.currency);
+  });
+});

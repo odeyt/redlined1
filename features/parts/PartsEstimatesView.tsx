@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
+import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useAppDispatch } from '@/lib/store';
 import {
   fetchPartsEstimates, createPartsEstimate, updatePartsEstimate, deletePartsEstimate,
@@ -172,6 +173,20 @@ export function PartsEstimatesView() {
   const [toast, setToast]         = useState('');
   const [error, setError]         = useState('');
 
+  // The shop's default currency, from Settings. Held in state rather than read
+  // inline so a new quote opens in the right currency without the user having
+  // to change it — forgetting to was how lines ended up stored as USD under a
+  // THB quote.
+  const [shopCurrency, setShopCurrency] = useState(DEFAULT_CURRENCY);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchShopSettings()
+      .then(s => { if (!cancelled && s.defaultCurrency) setShopCurrency(s.defaultCurrency); })
+      .catch(() => { /* keep DEFAULT_CURRENCY — a settings read failure must not block quoting */ });
+    return () => { cancelled = true; };
+  }, [shopId]);
+
   const [showForm, setShowForm]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm]           = useState<FormState>(EMPTY_ESTIMATE);
@@ -330,7 +345,13 @@ export function PartsEstimatesView() {
     });
   }
 
-  function openNew() { setEditingId(null); setForm(EMPTY_ESTIMATE); setShowForm(true); }
+  // A new quote opens in the shop's currency, and its first line with it — the
+  // two can never disagree at creation.
+  function openNew() {
+    setEditingId(null);
+    setForm({ ...EMPTY_ESTIMATE, currency: shopCurrency, lineItems: [emptyLine(shopCurrency)] });
+    setShowForm(true);
+  }
 
   function openEdit(e: PartsEstimate) {
     setEditingId(e.id);

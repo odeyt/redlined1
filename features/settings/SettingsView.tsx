@@ -6,6 +6,7 @@ import { navItems } from '@/lib/mock-data';
 import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { fetchMessagingStatus, updateMessagingSecrets, AuthSessionError, type MessagingStatus } from '@/services/messagingSecretsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
+import { ALL_CURRENCIES } from '@/lib/currencies';
 import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
@@ -48,6 +49,8 @@ export function SettingsView() {
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [laborRate, setLaborRate] = useState(145);
   const [defaultTaxRate, setDefaultTaxRate] = useState(8.25);
+  // USD for a shop that has never chosen — see the migration for why.
+  const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [invoicePrefix, setInvoicePrefix] = useState('INV-');
   const [estimatePrefix, setEstimatePrefix] = useState('EST-');
   const [businessType, setBusinessType] = useState('Single repair shop');
@@ -123,6 +126,7 @@ export function SettingsView() {
       setHiddenModules(s.hiddenModules ?? []);
       setLaborRate(s.laborRate ?? 145);
       setDefaultTaxRate((s.defaultTaxRate ?? 0.08) * 100);
+      setDefaultCurrency(s.defaultCurrency || 'USD');
       setInvoicePrefix(s.invoicePrefix ?? 'INV-');
       setEstimatePrefix(s.estimatePrefix ?? 'EST-');
       setBusinessType(s.businessType ?? 'Single repair shop');
@@ -229,6 +233,7 @@ export function SettingsView() {
         hiddenModules,
         laborRate,
         defaultTaxRate: defaultTaxRate / 100,
+        defaultCurrency,
         invoicePrefix,
         estimatePrefix,
         businessType,
@@ -490,6 +495,18 @@ export function SettingsView() {
             <div className="login-field">
               <label>Default Tax Rate (%)</label>
               <input type="number" value={defaultTaxRate} onChange={e => setDefaultTaxRate(Number(e.target.value))} min="0" max="30" step="0.25" />
+            </div>
+            <div className="login-field">
+              <label>Default Currency</label>
+              <select value={defaultCurrency} onChange={e => setDefaultCurrency(e.target.value)}>
+                {ALL_CURRENCIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'block' }}>
+                Used for new quotes, estimates and parts. Existing records keep the currency they were saved with,
+                and a single line can still be set to a supplier&rsquo;s currency.
+              </span>
             </div>
             <div className="login-field">
               <label>Invoice Prefix</label>
