@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
-import { canAccess } from '@/lib/planGate';
+import { canAccess, PLATFORM_MODULES } from '@/lib/planGate';
 import { useShop, getBlockedModules } from '@/lib/useShop';
 import { useNotifications } from '@/lib/useNotifications';
 
@@ -323,11 +323,11 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   //
   // LegacyDashboardView already excluded all three from its tiles; the sidebar
   // was simply never updated to match.
-  const PLATFORM_ONLY = new Set(['system-health', 'disaster-recovery', 'testing-dashboard']);
-
+  // PLATFORM_MODULES lives in planGate so this list and the plan-gating rule
+  // cannot drift apart.
   const visibleNav = navItems.filter(([id]) => {
     // Checked before ALWAYS_SHOW so no other rule can re-admit these.
-    if (PLATFORM_ONLY.has(id)) return isPlatformOwner;
+    if (PLATFORM_MODULES.has(id)) return isPlatformOwner;
     if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
     if (planGated.includes(id)) return false;

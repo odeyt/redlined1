@@ -17,6 +17,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { navItems } from '../mock-data';
+import { canAccess, PLATFORM_MODULES } from '../planGate';
 
 const PLATFORM_ONLY = ['system-health', 'disaster-recovery', 'testing-dashboard'];
 
@@ -55,17 +56,36 @@ describe('platform-only modules', () => {
 describe('the sidebar source enforces this', () => {
   const src = readFileSync(join(__dirname, '..', '..', 'components', 'Sidebar.tsx'), 'utf8');
 
-  it('gates the platform-only set on isPlatformOwner, not on role', () => {
-    expect(src).toMatch(/PLATFORM_ONLY\.has\(id\)\s*\)\s*return isPlatformOwner/);
+  it('gates on isPlatformOwner, not on role', () => {
+    expect(src).toMatch(/PLATFORM_MODULES\.has\(id\)\s*\)\s*return isPlatformOwner/);
   });
 
   it('checks it before ALWAYS_SHOW, so no later rule can re-admit them', () => {
-    expect(src.indexOf('PLATFORM_ONLY.has(id)')).toBeLessThan(src.indexOf('ALWAYS_SHOW.has(id)'));
+    expect(src.indexOf('PLATFORM_MODULES.has(id)')).toBeLessThan(src.indexOf('ALWAYS_SHOW.has(id)'));
   });
 
+  it('shares one definition with planGate rather than keeping its own list', () => {
+    expect(src).toMatch(/import \{[^}]*PLATFORM_MODULES[^}]*\} from '@\/lib\/planGate'/);
+  });
+});
+
+describe('the shared definition', () => {
   it('covers exactly the three operator modules', () => {
-    const declared = src.match(/const PLATFORM_ONLY = new Set\(\[([^\]]+)\]\)/);
-    expect(declared).not.toBeNull();
-    for (const id of PLATFORM_ONLY) expect(declared![1]).toContain(id);
+    expect([...PLATFORM_MODULES].sort()).toEqual([...PLATFORM_ONLY].sort());
+  });
+
+  it('is not plan-gated — a lapsed platform owner keeps the tools to diagnose that', () => {
+    for (const id of PLATFORM_ONLY) {
+      for (const status of ['free', 'trial', 'pro'] as const) {
+        expect(canAccess(id, status)).toBe(true);
+      }
+    }
+  });
+
+  it('does not accidentally exempt a customer module from plan gating', () => {
+    // Regression guard: the set must not grow to include anything a shop buys.
+    for (const id of ['parts', 'reports', 'ai', 'technicians', 'payments']) {
+      expect(canAccess(id, 'free')).toBe(false);
+    }
   });
 });

@@ -35,13 +35,32 @@ const FREE_MODULES = new Set([
   // Account management
   'settings',
   'subscriptions',
-  // Internal tooling — never plan-locked
+]);
+
+/**
+ * Modules belonging to whoever runs the platform, not to any shop: Playwright
+ * regression results, backup and restore, platform infrastructure health.
+ *
+ * These used to sit in FREE_MODULES as "internal tooling — never plan-locked".
+ * That was true but named the wrong axis, and implied any free shop could
+ * reach them. The real question is not which plan a shop is on; it is whether
+ * the viewer runs the platform at all.
+ *
+ * Plan gating therefore does not apply — canAccess() returns true for them —
+ * and visibility is decided by isPlatformOwner in Sidebar, with their APIs
+ * refusing everyone else regardless. Excluding them from plan gating outright
+ * also means a platform owner whose own plan reads as lapsed is never bounced
+ * out of the tools they need to diagnose exactly that.
+ */
+export const PLATFORM_MODULES = new Set([
   'system-health',
   'disaster-recovery',
   'testing-dashboard',
 ]);
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
+  // Plan is not the axis for platform tooling — see PLATFORM_MODULES.
+  if (PLATFORM_MODULES.has(moduleId)) return true;
   if (status === 'pro' || status === 'trial') return true;
   return FREE_MODULES.has(moduleId);
 }
