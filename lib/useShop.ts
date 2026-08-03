@@ -85,10 +85,42 @@ export function useShop() {
       // any shop-scoped query can run with it.
       if (assertShopOwner(user.id)) setLocalShopId('');
 
-      const { data: suRows } = await supabase
+      let { data: suRows } = await supabase
         .from('shop_users')
         .select('shop_id, role')
         .eq('user_id', user.id);
+
+      // No membership means no shop — the account cannot save a customer, a
+      // vehicle or a job, and cannot be billed.
+      //
+      // Provisioning used to happen only in the auth callback, so any route
+      // into the app that skipped it left the user in exactly this state. The
+      // callback also swallows provisioning errors so a failure cannot block
+      // login, which made a failed provision indistinguishable from a
+      // successful one: the app loaded, the sidebar showed its "My Shop"
+      // defaults, and nothing indicated the shop was missing.
+      //
+      // This is the point where the app first *knows*, so it is the right place
+      // to repair it. /api/provision is idempotent and reports its own
+      // failures, unlike the callback.
+      if (!suRows || suRows.length === 0) {
+        try {
+          const res = await fetch('/api/provision', { method: 'POST' });
+          if (res.ok) {
+            ({ data: suRows } = await supabase
+              .from('shop_users')
+              .select('shop_id, role')
+              .eq('user_id', user.id));
+          } else {
+            console.error('[useShop] provisioning failed', res.status);
+          }
+        } catch (err) {
+          // Offline or the route is unreachable. Falling through leaves the
+          // user shop-less for this session, the same as before; the next load
+          // retries.
+          console.error('[useShop] provisioning request failed', err);
+        }
+      }
 
       const shopIds = (suRows ?? []).map((r: Record<string, unknown>) => r.shop_id as string).filter(Boolean);
 

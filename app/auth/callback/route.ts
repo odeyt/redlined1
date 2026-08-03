@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getOrCreatePrimaryShop, ensureFreeSubscription } from '@/commercial/onboarding/ShopProvisioningService';
+import { alertException } from '@/lib/observability/alerts';
 import { VALID_PLAN_KEYS, type CommercialPlanKey } from '@/commercial/onboarding/types';
 
 // Reviewed, scoped compatibility fix for the invite-link flow added in
@@ -82,9 +83,20 @@ export async function GET(request: Request) {
           });
           await ensureFreeSubscription(user.id, shopId, parsePlanFromNext(next));
         } catch (provisionError) {
-          // Never block login on provisioning failure — surfaces as a locked
-          // dashboard (recoverable) rather than a broken auth flow (not).
-          console.error('[auth/callback] shop/trial provisioning failed:', provisionError);
+          // Still never block login on provisioning failure — a broken auth
+          // flow is worse than a shop that can be created on next load, and
+          // useShop now calls /api/provision when it finds no membership.
+          //
+          // But it is no longer silent. This catch hid a shops INSERT that
+          // failed for every signup: the user landed in a working app, the
+          // sidebar showed its "My Shop" defaults, and the only record was a
+          // log line nobody had reason to read. Reported, so a recurrence
+          // surfaces immediately.
+          alertException('provisioning', provisionError, {
+            userId: user.id,
+            route: 'GET /auth/callback',
+            note: 'login allowed to proceed; useShop will retry via /api/provision',
+          });
         }
       }
 
