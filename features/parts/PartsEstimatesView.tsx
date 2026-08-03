@@ -84,7 +84,21 @@ function extractLinkedEstimate(notes: string): string | null {
   return m ? m[1] : null;
 }
 
-const EMPTY_LINE: EstimateLineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', currency: 'USD' };
+// currency is intentionally absent: a line item inherits the quote's currency.
+//
+// This carried currency: 'USD'. addLineItem overrides it with the form's
+// currency, but the FIRST line item of every quote was created as a raw copy —
+// so it was stored as USD no matter what the user selected, while the cell
+// rendered `item.currency || form.currency` and showed the right one. Display
+// and data disagreed, silently.
+//
+// The consequence is monetary, not cosmetic: converting a quote to an order
+// runs fxRate(itemCurrency, mainCurrency), so a ฿3,000 part recorded as USD
+// becomes roughly ฿108,000.
+const EMPTY_LINE: Omit<EstimateLineItem, 'currency'> = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '' };
+
+/** A blank line for a quote in the given currency. Never defaults the currency. */
+const emptyLine = (currency: string): EstimateLineItem => ({ ...EMPTY_LINE, currency });
 const EMPTY_VENDOR = { name: '', phone: '', email: '', website: '', notes: '' };
 
 type FormState = {
@@ -100,8 +114,12 @@ type FormState = {
   currency: string;
 };
 
+const DEFAULT_CURRENCY = 'USD';
+
 const EMPTY_ESTIMATE: FormState = {
-  lineItems: [{ ...EMPTY_LINE }],
+  // Built from the same currency as the form below it, so the first line can
+  // never disagree with the quote it belongs to.
+  lineItems: [emptyLine(DEFAULT_CURRENCY)],
   vendorName: '', vendorPhone: '', vendorEmail: '',
   coreCharge: 0,
   totalCost: 0,
@@ -110,7 +128,7 @@ const EMPTY_ESTIMATE: FormState = {
   jobCardNumber: '', repairOrderNumber: '',
   vehicle: '', customerName: '',
   notes: '',
-  currency: 'USD',
+  currency: DEFAULT_CURRENCY,
 };
 
 function calcTotalByCurrency(items: EstimateLineItem[], coreCharge: number, mainCurrency = 'USD'): Record<string, number> {
@@ -1461,7 +1479,25 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           </select>
                         </td>
                         <td style={tdStyle}><input type="number" min={0} step="0.01" value={item.unitCost || ''} placeholder="0.00" onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)} style={cellInput} /></td>
-                        <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>{fmt(item.unitCost * item.quantity, item.currency || form.currency)}</td>
+                        {/*
+                          Shows the multiplication, not just the answer.
+
+                          This column is at the far right of a horizontally
+                          scrollable table, so QTY is often off-screen when the
+                          total is visible. A quantity of 4 then makes a correct
+                          ฿8,000 total look like a miscalculation of a ฿2,000
+                          part — reported as a bug on 2026-08-03, when the
+                          arithmetic was right and the quantity was simply not
+                          on screen.
+                        */}
+                        <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>
+                          {item.quantity > 1 && (
+                            <span style={{ fontWeight: 500, fontSize: 11, color: 'var(--muted)', marginRight: 6 }}>
+                              {item.quantity} × {fmt(item.unitCost, item.currency || form.currency)} =
+                            </span>
+                          )}
+                          {fmt(item.unitCost * item.quantity, item.currency || form.currency)}
+                        </td>
                         <td style={tdStyle}>
                           {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>✕</button>}
                         </td>
@@ -1523,7 +1559,25 @@ CREATE POLICY "Shop members can manage their parts estimates"
               <FormSection label="Pricing" />
               <div style={{ marginBottom: 10 }}>
                 {field('Currency', (
-                  <select value={form.currency} onChange={e => setF({ currency: e.target.value })} style={selStyle}>
+                  /*
+                   * Changing the quote's currency carries its lines with it.
+                   *
+                   * Without this, the common path still broke: open a quote (USD
+                   * by default), switch to THB, type a price. The line kept USD
+                   * while the cell displayed THB, because it renders
+                   * `item.currency || form.currency`. A line whose currency was
+                   * deliberately set to something else is left alone — only
+                   * lines still on the quote's previous currency follow it.
+                   */
+                  <select value={form.currency} onChange={e => {
+                    const next = e.target.value;
+                    setForm(prev => ({
+                      ...prev,
+                      currency: next,
+                      lineItems: prev.lineItems.map(li =>
+                        (li.currency ?? prev.currency) === prev.currency ? { ...li, currency: next } : li),
+                    }));
+                  }} style={selStyle}>
                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                   </select>
                 ))}
