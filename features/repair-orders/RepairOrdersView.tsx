@@ -18,7 +18,6 @@ import { fetchPartsOrders } from '@/services/partsOrderService';
 import { fetchPartsEstimates } from '@/services/partsEstimateService';
 import { fetchCustomerNames, fetchVehicles, saveVehicle } from '@/services/vehicleService';
 import { saveCustomer } from '@/services/customerService';
-import { addNotification } from '@/lib/useNotifications';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
@@ -571,14 +570,11 @@ export function RepairOrdersView() {
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`Status updated to ${status}.`);
-      addNotification({
-        roId:      ro.id,
-        roNumber:  ro.roNumber ?? ro.id,
-        customer:  ro.customerName ?? 'Unknown',
-        vehicle:   ro.vehicle ?? '',
-        oldStatus: ro.status,
-        newStatus: status,
-      });
+      // The notification is recorded by a trigger on repair_orders, not from
+      // here. Announcing it client-side only covered this one code path — the
+      // QA modal returns above without reaching it, so completing or closing an
+      // order never produced a notification at all. A trigger catches every
+      // route that changes a status, including ones written later.
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
