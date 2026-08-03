@@ -197,7 +197,27 @@ export async function POST(req: NextRequest) {
     }
 
     const { type, context, shopId } = parsed.data;
-    const resolvedShopId = shopId ?? context.shopId as string ?? '';
+
+    // Fall back to the caller's own shop when the client did not name one.
+    //
+    // Metering needs a shop to count against, and a request it cannot attribute
+    // is refused. Depending on the client to supply it made that a single point
+    // of failure: services/aiService.ts did not send shopId, so every AI
+    // request was refused the moment the daily limit shipped.
+    //
+    // Resolved server-side from the caller's own membership, so it cannot be
+    // forged — isShopMember() still verifies any shopId the client does send
+    // before usage is attributed to it.
+    let resolvedShopId = shopId ?? (context.shopId as string) ?? '';
+    if (!resolvedShopId) {
+      const { data: membership } = await getAdminClient()
+        .from('shop_users')
+        .select('shop_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+      resolvedShopId = membership?.shop_id ?? '';
+    }
 
     // Get prompt template
     const prompt = PROMPT_REGISTRY[type as keyof typeof PROMPT_REGISTRY];

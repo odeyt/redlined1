@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 import type { AiTaskType } from '@/lib/ai/prompts';
 
 export interface AiResponse<T = Record<string, unknown>> {
@@ -20,7 +21,11 @@ async function callAi<T>(type: AiTaskType, context: Record<string, unknown>): Pr
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ type, context }),
+    // shopId attributes the request for usage metering. Without it the server
+    // cannot count the call against anyone, and the daily-limit check refuses
+    // it — which is what broke every AI request when metering was introduced:
+    // this client had never sent one.
+    body: JSON.stringify({ type, context, shopId: getShopId() || undefined }),
   });
 
   if (!res.ok) {
