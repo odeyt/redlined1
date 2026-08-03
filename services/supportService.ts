@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
 
 /**
  * In-app support: threads between a shop and the platform operator, plus bug
@@ -77,6 +76,42 @@ function rowToTicket(r: Record<string, unknown>): SupportTicket {
   };
 }
 
+/**
+ * Sends a message to support, opening a thread if there isn't one.
+ *
+ * One request to one server route, which saves the message AND notifies the
+ * operator. It previously inserted directly through RLS and then called a
+ * notify endpoint separately; the first real test lost its notification
+ * because the page was running JavaScript from before the notify code shipped.
+ * The ticket saved, the email never fired, and nothing reported it.
+ *
+ * Anything the client must remember to do second, it eventually will not do.
+ */
+async function postToSupport(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('You need to be signed in to contact support.');
+
+  const res = await fetch('/api/support/message', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  // Read as text first — an error page is not JSON, and res.json() on one
+  // throws "Unexpected end of JSON input", which explains nothing.
+  const raw = await res.text();
+  let data: Record<string, unknown> = {};
+  try { data = raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { /* handled below */ }
+
+  if (!res.ok) {
+    throw new Error(String(data.error ?? `Your message could not be sent (HTTP ${res.status}).`));
+  }
+  return data;
+}
+
 /** Opens a thread and posts its first message. Returns the new ticket. */
 export async function createTicket(input: {
   kind: TicketKind;
@@ -85,101 +120,34 @@ export async function createTicket(input: {
   severity?: string;
   context?: Record<string, unknown>;
 }): Promise<SupportTicket> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('You need to be signed in to contact support.');
+  const data = await postToSupport({
+    kind:     input.kind,
+    subject:  input.subject.slice(0, 200),
+    body:     input.body,
+    severity: input.severity,
+    context:  input.context ?? captureContext(),
+  });
 
-  const shopId = getShopId();
-  if (!shopId) throw new Error('No active shop — reload the page and try again.');
-
-  const { data: ticket, error: tErr } = await supabase
-    .from('support_tickets')
-    .insert({
-      shop_id:    shopId,
-      created_by: user.id,
-      kind:       input.kind,
-      subject:    input.subject.slice(0, 200),
-      severity:   input.severity ?? null,
-      context:    input.context ?? captureContext(),
-    })
-    .select()
-    .single();
-
-  if (tErr) throw new Error(`Could not open the ticket: ${tErr.message}`);
-  if (!ticket) throw new Error('Could not open the ticket — no record was created.');
-
-  const { error: mErr } = await supabase
-    .from('support_messages')
-    .insert({
-      ticket_id:   ticket.id,
-      shop_id:     shopId,
-      author_id:   user.id,
-      author_role: 'customer',
-      body:        input.body,
-    });
-
-  // The thread exists but is empty. Say so rather than reporting success — an
-  // empty ticket reads as spam to whoever picks it up, and the customer would
-  // never know their words were lost.
-  if (mErr) throw new Error(`Your message was not saved: ${mErr.message}`);
-
-  // Notify the operator. Deliberately after the message is committed and
-  // deliberately not awaited into the failure path: the customer's words are
-  // already saved, so a mail outage must not surface to them as "not sent".
-  void notifyOperator(ticket.id as string);
-
-  return rowToTicket(ticket as Record<string, unknown>);
+  return {
+    id:        String(data.ticketId ?? ''),
+    kind:      input.kind,
+    subject:   input.subject,
+    status:    'open',
+    severity:  input.severity ?? null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 /**
- * Tells the operator a customer wrote in.
+ * Posts a reply from the customer onto an existing thread.
  *
- * Fire-and-forget by design. The message is already in the database before this
- * runs; the notification is how it gets read promptly, not whether it survives.
- * Failures are reported server-side rather than shown to the customer.
+ * Same single server operation as opening a thread, so a reply notifies too — a
+ * customer answering a follow-up is exactly when the thread must not go cold.
  */
-async function notifyOperator(ticketId: string): Promise<void> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    await fetch('/api/support/notify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      },
-      body: JSON.stringify({ ticketId }),
-    });
-  } catch {
-    // The operator still has the inbox; nothing here is worth interrupting the
-    // customer for.
-  }
-}
-
-/** Posts a reply from the customer onto an existing thread. */
 export async function postMessage(ticketId: string, body: string): Promise<SupportMessage> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('You need to be signed in to reply.');
-
-  const shopId = getShopId();
-  const { data, error } = await supabase
-    .from('support_messages')
-    .insert({
-      ticket_id:   ticketId,
-      shop_id:     shopId,
-      author_id:   user.id,
-      author_role: 'customer',
-      body,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(`Message not sent: ${error.message}`);
-  if (!data) throw new Error('Message not sent — no record was created.');
-
-  // A reply on an existing thread notifies too: a customer answering a
-  // follow-up question is exactly the moment the thread must not go cold.
-  void notifyOperator(ticketId);
-
-  return rowToMessage(data as Record<string, unknown>);
+  const data = await postToSupport({ ticketId, body });
+  return rowToMessage((data.message ?? {}) as Record<string, unknown>);
 }
 
 /** This shop's threads, newest first. */

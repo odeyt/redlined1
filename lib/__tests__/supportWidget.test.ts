@@ -18,6 +18,7 @@ const root = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 const service   = read('services/supportService.ts');
+const msgRoute  = read('app/api/support/message/route.ts');
 const widget    = read('components/support/SupportWidget.tsx');
 const assistant = read('app/api/support/assistant/route.ts');
 const migration = read('supabase/migrations/2026-08-03_support_tickets.sql');
@@ -25,21 +26,21 @@ const shell     = read('components/AppShell.tsx');
 
 describe('writes are verified', () => {
   it('opening a ticket raises when no row comes back', () => {
-    expect(service).toMatch(/if \(!ticket\) throw new Error/);
+    expect(msgRoute).toMatch(/if \(tErr \|\| !ticket\) throw new Error/);
   });
 
   it('a ticket whose first message failed is reported, not silently left empty', () => {
     // An empty ticket reads as spam to whoever picks it up, and the customer
     // would never learn their words were lost.
-    expect(service).toMatch(/if \(mErr\) throw new Error\(`Your message was not saved/);
+    expect(msgRoute).toMatch(/Your message was not saved/);
   });
 
   it('a reply raises when nothing was inserted', () => {
-    expect(service).toMatch(/if \(!data\) throw new Error\('Message not sent/);
+    expect(msgRoute).toMatch(/if \(mErr \|\| !message\) throw new Error/);
   });
 
   it('refuses to open a ticket with no shop rather than writing an orphan', () => {
-    expect(service).toMatch(/if \(!shopId\) throw new Error/);
+    expect(msgRoute).toMatch(/No shop is attached to your account yet/);
   });
 });
 

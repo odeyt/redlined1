@@ -119,70 +119,83 @@ describe('operator ergonomics', () => {
 });
 
 /**
- * Notification.
+ * Notification, and why it moved server-side.
  *
- * The inbox worked from the first commit, but nothing announced a new message:
- * the operator had to remember to open it. Asked "where is this message routed
- * to?", the honest answer was "somewhere you have to go and look" — which
- * during a beta is the same as having no support channel, since the first sign
- * of a problem becomes a customer asking why nobody replied.
+ * The first arrangement was: the client inserts through RLS, then the client
+ * calls /api/support/notify. The first real test lost its notification because
+ * the page was running JavaScript from before the notify code shipped — the
+ * ticket saved, the email never fired, and nothing anywhere reported it. The
+ * route was deployed and correct; it was simply never called.
+ *
+ * Anything the client must remember to do second, it eventually will not do: a
+ * stale bundle, a blocked request, a closed tab. Saving and notifying are now
+ * one server-side operation, so there is no second step to miss.
  */
-describe('a new message reaches the operator', () => {
-  const notify  = read('app/api/support/notify/route.ts');
-  const service = read('services/supportService.ts');
+describe('a message and its notification are one operation', () => {
+  const route    = read('app/api/support/message/route.ts');
+  const notifier = read('lib/support/notifyOperator.ts');
+  const service  = read('services/supportService.ts');
 
-  it('opening a ticket triggers a notification', () => {
-    expect(service).toMatch(/void notifyOperator\(ticket\.id as string\)/);
+  it('the client makes one call, not two', () => {
+    expect(service).toMatch(/'\/api\/support\/message'/);
+    expect(service).not.toMatch(/'\/api\/support\/notify'/);
   });
 
-  it('a reply on an existing thread notifies too', () => {
-    // A customer answering a follow-up is when the thread must not go cold.
-    expect(service).toMatch(/void notifyOperator\(ticketId\)/);
+  it('the client no longer writes to the tables directly', () => {
+    // Both halves must happen where they cannot be half-done.
+    expect(service).not.toMatch(/from\('support_tickets'\)\s*\.insert/);
+    expect(service).not.toMatch(/from\('support_messages'\)\s*\.insert/);
+  });
+
+  it('the server notifies in the same request that saves', () => {
+    expect(route).toMatch(/notifyOperatorOfSupportMessage\(ticketId\)/);
   });
 
   it('notifies only after the message is committed', () => {
-    const create = service.slice(service.indexOf('export async function createTicket'), service.indexOf('async function notifyOperator'));
-    expect(create.indexOf('void notifyOperator')).toBeGreaterThan(create.indexOf('if (mErr) throw'));
+    // Match the call, not the import at the top of the file.
+    expect(route.indexOf('Your message was not saved'))
+      .toBeLessThan(route.indexOf('notifyOperatorOfSupportMessage(ticketId).catch'));
   });
 
-  it('a mail failure never surfaces to the customer as "not sent"', () => {
-    // Their words are already saved; the notification is about promptness.
-    expect(service).toMatch(/Fire-and-forget by design/);
-    expect(notify).toMatch(/notified: false, reason: 'send_failed'/);
+  it('a mail failure does not tell the customer their message failed', () => {
+    // It is already saved; "not sent" would be false.
+    expect(route).toMatch(/telling the customer "not sent" would be false/);
+    expect(route).toMatch(/\.catch\(err => \{/);
   });
 
-  it('reports a send failure rather than swallowing it', () => {
-    expect(notify).toMatch(/alertException\('support'/);
+  it('reports a mail failure rather than swallowing it', () => {
+    expect(route).toMatch(/alertException\('support'/);
   });
 
-  it('refuses anonymous callers — an open mail endpoint is a spam relay', () => {
-    expect(notify).toMatch(/if \(!user\) return NextResponse\.json\(\{ error: 'Unauthorized' \}/);
+  it('checks Resend\'s response — it reports rejection in the payload, not by throwing', () => {
+    // An unchecked send looks successful while nothing is delivered.
+    expect(notifier).toMatch(/if \(error\) \{/);
+    expect(notifier).toMatch(/Resend rejected the notification/);
   });
 
-  it('re-reads the ticket server-side rather than trusting the request body', () => {
-    // Otherwise a caller dictates what the email says.
-    expect(notify).toMatch(/from\('support_tickets'\)[\s\S]{0,160}\.eq\('id', body\.ticketId\)/);
+  it('resolves the shop from the caller, never the request body', () => {
+    expect(route).toMatch(/\.eq\('user_id', user\.id\)/);
+    expect(route).toMatch(/never from the request/);
   });
 
-  it('checks the caller belongs to the ticket\'s shop', () => {
-    // One customer must not be able to trigger mail about another's thread.
-    expect(notify).toMatch(/\.eq\('shop_id', ticket\.shop_id\)/);
+  it('refuses to reply into another shop\'s thread', () => {
+    expect(route).toMatch(/existing\.shop_id !== shopId/);
   });
 
-  it('escapes message text into the email', () => {
-    expect(notify).toMatch(/const esc = /);
-    expect(notify).toMatch(/esc\(latest\?\.body/);
+  it('refuses anonymous callers', () => {
+    expect(route).toMatch(/status: 401/);
   });
 
-  it('carries the whole message, so a reply can be judged from a phone', () => {
-    expect(notify).toMatch(/white-space:pre-wrap/);
+  it('escapes customer text into the email', () => {
+    expect(notifier).toMatch(/const esc = /);
+    expect(notifier).toMatch(/esc\(latest\?\.body/);
   });
 
-  it('includes bug diagnostics in the email', () => {
-    expect(notify).toMatch(/'path', 'viewport', 'timezone', 'language', 'userAgent'/);
+  it('includes bug diagnostics', () => {
+    expect(notifier).toMatch(/'path', 'viewport', 'timezone', 'language', 'userAgent'/);
   });
 
-  it('degrades quietly when email is not configured', () => {
-    expect(notify).toMatch(/reason: 'not_configured'/);
+  it('degrades quietly when email is unconfigured', () => {
+    expect(notifier).toMatch(/RESEND_API_KEY not set/);
   });
 });
