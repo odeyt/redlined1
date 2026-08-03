@@ -122,7 +122,36 @@ export async function createTicket(input: {
   // never know their words were lost.
   if (mErr) throw new Error(`Your message was not saved: ${mErr.message}`);
 
+  // Notify the operator. Deliberately after the message is committed and
+  // deliberately not awaited into the failure path: the customer's words are
+  // already saved, so a mail outage must not surface to them as "not sent".
+  void notifyOperator(ticket.id as string);
+
   return rowToTicket(ticket as Record<string, unknown>);
+}
+
+/**
+ * Tells the operator a customer wrote in.
+ *
+ * Fire-and-forget by design. The message is already in the database before this
+ * runs; the notification is how it gets read promptly, not whether it survives.
+ * Failures are reported server-side rather than shown to the customer.
+ */
+async function notifyOperator(ticketId: string): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch('/api/support/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ ticketId }),
+    });
+  } catch {
+    // The operator still has the inbox; nothing here is worth interrupting the
+    // customer for.
+  }
 }
 
 /** Posts a reply from the customer onto an existing thread. */
@@ -145,6 +174,11 @@ export async function postMessage(ticketId: string, body: string): Promise<Suppo
 
   if (error) throw new Error(`Message not sent: ${error.message}`);
   if (!data) throw new Error('Message not sent — no record was created.');
+
+  // A reply on an existing thread notifies too: a customer answering a
+  // follow-up question is exactly the moment the thread must not go cold.
+  void notifyOperator(ticketId);
+
   return rowToMessage(data as Record<string, unknown>);
 }
 
