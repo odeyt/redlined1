@@ -41,6 +41,7 @@ import { DisasterRecoveryView } from '@/features/disaster-recovery/DisasterRecov
 import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashboardView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
+import { SupportWidget } from '@/components/support/SupportWidget';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
 import { CommandCenterView } from '@/features/command-center/CommandCenterView';
 import { useEffect, useRef, useState } from 'react';
@@ -275,6 +276,11 @@ function Shell() {
   return (
     <>
       <EnvBanner />
+
+      {/* Mounted at the shell so it is reachable from every module — a customer
+          who hits a problem on the Parts page should not have to navigate
+          somewhere else to report it. Renders nothing when signed out. */}
+      <SupportWidget />
 
       {/* Hard lock for a lapsed plan. Shown only when the shop has deliberately
           opted into requiring a subscription (NEXT_PUBLIC_ENFORCE_PLAN_LOCK),
