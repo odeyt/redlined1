@@ -604,14 +604,37 @@ export function RepairOrdersView() {
     const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\nRepair Verification:\n${repairText}\nVehicle Walk-Around:\n${miscText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
     try {
       const closedDate = ro.closedDate || new Date().toISOString();
-      await updateRepairOrder(ro.id, { status: 'Complete', notes: (ro.notes || '') + signOff, closedDate });
+      const notes = (ro.notes || '') + signOff;
+      await updateRepairOrder(ro.id, { status: 'Complete', notes, closedDate });
       if (ro.correction || ro.concern) {
         seedLaborGuide({ vehicle: ro.vehicle, jobDescription: ro.correction || ro.concern, laborHours: ro.laborHours, laborRate: ro.laborRate });
       }
-      const updated = { ...ro, status: 'Complete', notes: (ro.notes || '') + signOff, closedDate };
+
+      // Raise the Draft invoice here rather than leaving it to be remembered.
+      // Completed work that nobody billed for is the failure this prevents.
+      // It is a Draft: reviewed and sent by a human, never charged automatically.
+      let invNumber = ro.invoiceNumber;
+      let invoiceError = '';
+      if (!invNumber) {
+        try {
+          invNumber = await draftInvoiceFor({ ...ro, notes });
+          await updateRepairOrder(ro.id, { invoiceNumber: invNumber });
+        } catch (e: unknown) {
+          // The work is complete and signed off whatever happens here. Saying so
+          // and flagging the invoice separately beats losing the sign-off.
+          invNumber = ro.invoiceNumber;
+          invoiceError = e instanceof Error ? e.message : 'unknown error';
+        }
+      }
+
+      const updated = { ...ro, status: 'Complete', notes, closedDate, invoiceNumber: invNumber };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
-      notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — ready for invoicing.`);
+      if (invoiceError) {
+        setError(`${ro.roNumber} is signed off and Complete, but the draft invoice could not be created: ${invoiceError}. Use "Convert to invoice" to raise it.`);
+      } else {
+        notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — draft invoice ${invNumber} created.`);
+      }
       setWizardRO(updated as RepairOrder);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
@@ -728,31 +751,49 @@ export function RepairOrdersView() {
     }
   }
 
+  /**
+   * Creates a Draft invoice for a repair order and returns its number.
+   *
+   * Shared by the manual "Convert to invoice" action and the automatic draft
+   * raised at QA sign-off, so the two cannot produce different invoices from
+   * the same work.
+   */
+  async function draftInvoiceFor(ro: RepairOrder): Promise<string> {
+    const invNumber = await nextInvoiceNumber();
+    await createInvoice({
+      invoiceNumber: invNumber,
+      customerName: ro.customerName,
+      customerId: ro.customerId,
+      vehicle: ro.vehicle,
+      jobCardId: ro.jobCardId,
+      status: 'Draft',
+      lines: [
+        { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },
+        ...(ro.parts.length > 0
+          ? ro.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }))
+          : ro.partsTotal > 0 ? [{ note: '', description: 'Parts', qty: 1, rate: ro.partsTotal }] : []),
+      ],
+      discount: 0,
+      shopSupplies: 0,
+      taxRate: (shopSettings?.defaultTaxRate ?? 0),
+      notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(),
+      dueDate: '',
+      paidDate: null,
+      currency: ro.currency,
+    });
+    return invNumber;
+  }
+
   async function handleConvertToInvoice(ro: RepairOrder) {
+    // QA sign-off now drafts the invoice, so this button can land on an order
+    // that already has one. Billing the same job twice is the worse error.
+    if (ro.invoiceNumber) {
+      setError(`${ro.roNumber} is already invoiced as ${ro.invoiceNumber}. Open it under Invoices to edit or send it.`);
+      return;
+    }
     if (!confirm(`Convert ${ro.roNumber} to an invoice?`)) return;
     try {
-      const invNumber = await nextInvoiceNumber();
-      await createInvoice({
-        invoiceNumber: invNumber,
-        customerName: ro.customerName,
-        customerId: ro.customerId,
-        vehicle: ro.vehicle,
-        jobCardId: ro.jobCardId,
-        status: 'Draft',
-        lines: [
-          { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },
-          ...(ro.parts.length > 0
-            ? ro.parts.map(p => ({ note: p.partNumber || '', description: `${p.description}${p.partNumber ? ` (${p.partNumber})` : ''}`, qty: p.qty, rate: p.unitCost }))
-            : ro.partsTotal > 0 ? [{ note: '', description: 'Parts', qty: 1, rate: ro.partsTotal }] : []),
-        ],
-        discount: 0,
-        shopSupplies: 0,
-        taxRate: (shopSettings?.defaultTaxRate ?? 0),
-        notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(),
-        dueDate: '',
-        paidDate: null,
-        currency: ro.currency,
-      });
+      const invNumber = await draftInvoiceFor(ro);
       const closedDate = ro.closedDate || new Date().toISOString();
       await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber, closedDate });
       const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber, closedDate };
