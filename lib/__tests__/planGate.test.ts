@@ -21,8 +21,26 @@ describe('getPlanStatus', () => {
     expect(getPlanStatus(null, null)).toBe('free');
   });
 
-  it('treats an explicit free plan as free even with a future trial date', () => {
-    expect(getPlanStatus('free', future())).toBe('free');
+  // Changed on 2026-08-03, when new accounts began getting a trial.
+  //
+  // This previously asserted the opposite: plan 'free' with a future date read
+  // as free, so that a stale trial_ends_at could not re-open access. But that
+  // is exactly the row a signup trigger writes, so every new customer silently
+  // lost the paid modules their trial included, while older accounts kept them.
+  //
+  // The protection now comes from the date rather than the column: lapsing
+  // CLEARS trial_ends_at, so a spent trial has nothing left to re-open. The
+  // two tests below are the ones that hold that guarantee.
+  it('treats a future trial date as a trial, whatever the plan column says', () => {
+    expect(getPlanStatus('free', future())).toBe('trial');
+  });
+
+  it('treats a cleared trial date as free — this is what a spent trial looks like', () => {
+    expect(getPlanStatus('free', null)).toBe('free');
+  });
+
+  it('never re-opens a trial once the date has passed', () => {
+    expect(getPlanStatus('free', past())).toBe('free');
   });
 
   it.each(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise'])(

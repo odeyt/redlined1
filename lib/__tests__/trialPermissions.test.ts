@@ -133,8 +133,19 @@ describe('trial vs the other plans', () => {
     }
   });
 
-  it('is not granted by a trial date alone once a plan says free', () => {
-    // A stale trial_ends_at left on a Free Forever row must not re-open access.
-    expect(getPlanStatus('free', future())).toBe('free');
+  // Changed on 2026-08-03. This asserted that a trial date could not grant
+  // access "once a plan says free", to stop a stale trial_ends_at re-opening a
+  // Free Forever account. But plan 'free' with a future date is precisely what
+  // a signup writes, so the rule locked new customers out of the trial they had
+  // been promised.
+  //
+  // Access is now decided by the date, and a spent trial has none: lapsing
+  // clears it. The second assertion is the one carrying that weight.
+  it('is granted by an unexpired trial date, whatever the plan column says', () => {
+    expect(getPlanStatus('free', future())).toBe('trial');
+  });
+
+  it('is over for good once the date is cleared, so it cannot be re-opened', () => {
+    expect(getPlanStatus('free', null)).toBe('free');
   });
 });

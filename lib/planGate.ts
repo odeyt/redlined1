@@ -12,9 +12,36 @@ export const TRIAL_DAYS = 7;
 
 const PAID_PLANS = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
 
+/**
+ * What a shop is entitled to, from the two fields that record it.
+ *
+ * An unexpired trial date means a trial, whatever the `plan` column says.
+ *
+ * That tolerance is the point. Previously the trial only counted when `plan`
+ * was 'trial' or null, so the row a signup trigger writes — plan 'free' with a
+ * future trial date — read as an ordinary free account. New customers silently
+ * lost Vehicle Intake, Parts, Reports, Employees and AI Copilot, while accounts
+ * created before the trigger changed kept them. It took three attempts to fix
+ * because every attempt added another place that had to run a repair first:
+ * the auth callback (which password sign-in never reaches), /api/provision
+ * (only called when a user has no shop), then usePlan.
+ *
+ * Reading the fields honestly removes the need for any of that. A row that has
+ * not been settled yet still produces the right answer, so no ordering, no
+ * repair path and no migration can leave a customer short of what they were
+ * promised. ensureInitialPlan still normalises the columns, but nothing now
+ * depends on it having run.
+ *
+ * The date is what expires. When it passes, the shop is free — which is also
+ * what makes "no second trial" hold: a spent trial has a null date, and a null
+ * date is never a trial.
+ *
+ * Paid plans are checked first, so a stale trial date on a subscriber's row
+ * cannot demote them.
+ */
 export function getPlanStatus(plan: string | null, trialEndsAt: string | null): PlanStatus {
   if (plan && PAID_PLANS.has(plan)) return 'pro';
-  if ((plan === 'trial' || plan == null) && trialEndsAt && new Date(trialEndsAt) > new Date()) return 'trial';
+  if (trialEndsAt && new Date(trialEndsAt) > new Date()) return 'trial';
   return 'free';
 }
 
