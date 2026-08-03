@@ -1,29 +1,27 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { getAdminDb } from '@/lib/supabaseServer';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyPlatformOwner, forbidden } from '@/lib/adminAuth';
 import fs from 'fs';
 import path from 'path';
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const userClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } },
-  );
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const adminDb = getAdminDb();
-  const { data: profile } = await adminDb
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  if (profile?.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+export async function GET(req: NextRequest) {
+  // Playwright regression results belong to whoever runs the platform.
+  //
+  // This gated on profiles.role === 'owner', which is a SHOP role: it says a
+  // person owns their own garage, not that they operate this SaaS. Two
+  // consequences, both wrong in opposite directions:
+  //
+  //   - any customer whose profiles.role read 'owner' would have been served
+  //     our internal test output
+  //   - the actual platform owner is 'Technician' in that column (10 of 11
+  //     accounts are), so the person the page exists for got Forbidden
+  //
+  // verifyPlatformOwner is the established check for this — PLATFORM_OWNER_EMAIL,
+  // server-side only, comma-separated, accepting a bearer token or a cookie
+  // session. It is what /api/admin/me and the admin routes already use.
+  const auth = await verifyPlatformOwner(req);
+  if (!auth.authorized) {
+    return auth.email ? forbidden(auth.reason)
+      : NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

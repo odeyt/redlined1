@@ -1,39 +1,23 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { getAdminDb } from '@/lib/supabaseServer';
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyPlatformOwner, forbidden } from '@/lib/adminAuth';
 import { getBackupStatus, validateBackup, listRecoveryPoints } from '@/services/backupService';
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const userClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } },
-  );
-  const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // Allow owner or admin roles — disaster recovery is shop-management level
-  const adminDb = getAdminDb();
-  const { data: shopUser } = await adminDb
-    .from('shop_users')
-    .select('role')
-    .eq('user_id', user.id)
-    .in('role', ['owner', 'admin'])
-    .maybeSingle();
-
-  if (!shopUser) {
-    // Fallback: allow any authenticated shop member (role check may fail due to multi-location)
-    const { data: anyShopUser } = await adminDb
-      .from('shop_users')
-      .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!anyShopUser) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+export async function GET(req: NextRequest) {
+  // This reports deployment ids, git branch and commit, migration history and
+  // environment-variable checks — the platform's infrastructure, not any
+  // shop's data.
+  //
+  // It was commented "disaster recovery is shop-management level" and gated on
+  // shop_users role owner/admin, then fell back to allowing ANY authenticated
+  // shop member if that lookup missed. So every customer, technician included,
+  // could read our deployment internals.
+  //
+  // Backups and restores are the platform operator's concern; a shop cannot act
+  // on any of this. Same check as the other operator routes.
+  const auth = await verifyPlatformOwner(req);
+  if (!auth.authorized) {
+    return auth.email ? forbidden(auth.reason)
+      : NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const [status, validation, recoveryPoints] = await Promise.all([
