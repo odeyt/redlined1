@@ -200,10 +200,17 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
         .eq('user_id', user.id);
       const allShopIds = (suRows ?? []).map((r: Record<string, unknown>) => r.shop_id as string).filter(Boolean);
       if (allShopIds.length > 0) {
-        await supabase
+        // Checked for the same reason as the update below: this decides who can
+        // see which modules, so a save that quietly changed nothing would leave
+        // an owner believing they had restricted access when they had not.
+        const { error, count } = await supabase
           .from('shop_settings')
-          .update({ role_permissions: settings.rolePermissions })
+          .update({ role_permissions: settings.rolePermissions }, { count: 'exact' })
           .in('shop_id', allShopIds);
+        if (error) throw error;
+        if (count === 0) {
+          throw new Error('Role permissions were not saved — no matching shop record was found.');
+        }
       }
     }
     // If other settings are also being saved, don't re-save role_permissions below
@@ -228,11 +235,28 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
       return;
     }
 
-    const { error } = await supabase
+    // The row count is checked, not just the error.
+    //
+    // PostgREST reports no error when an UPDATE matches nothing — RLS filtering
+    // every row, a shop id that no longer exists, a mirror list that has gone
+    // stale. The call returns cleanly, the UI flashes "Saved", and the setting
+    // reverts on the next load with nothing to explain why.
+    //
+    // This is the most persistent fault in this codebase: it hid a billing
+    // webhook that wrote nothing while answering 200, a shops INSERT that
+    // failed for every signup, and writes to a table that did not exist. A
+    // write that changed nothing is a failed write.
+    const { error, count } = await supabase
       .from('shop_settings')
-      .update(update)
+      .update(update, { count: 'exact' })
       .in('shop_id', getShopIds());
     if (error) throw error;
+    if (count === 0) {
+      throw new Error(
+        'Settings were not saved — no matching shop record was found. ' +
+        'Reload the page and try again; if it persists, your account may have lost access to this shop.',
+      );
+    }
   }
 }
 
