@@ -100,11 +100,45 @@ export const PLATFORM_MODULES = new Set([
   'system-health',
   'disaster-recovery',
   'testing-dashboard',
+  // AI Copilot. Its own subtitle reads "Internal AI testing console — select a
+  // task, review the context, and run": it asks a shop owner to hand-edit a
+  // JSON blob pre-filled with a fictional 2019 Camry, and returns raw model
+  // output. A developer tool that shipped to customers.
+  //
+  // Hidden on 2026-08-03 rather than removed, because it is genuinely useful
+  // for exercising prompts.
+  //
+  // Customers lose nothing: the AI they were sold is woven into the workflows
+  // where it has context — DTC Lookup (explainDtc) and Inspections
+  // (draftEstimateFromInspection). Those are what "AI Advisor" on the
+  // Professional and Business cards refers to, and both are untouched.
+  //
+  // Reverse this once the page reads the shop's own vehicles and jobs instead
+  // of asking for JSON.
+  'ai',
+]);
+
+/**
+ * Platform modules for which plan gating is meaningless.
+ *
+ * A subset of PLATFORM_MODULES, not the whole of it. These three report on the
+ * platform's own infrastructure, so a plan cannot sensibly withhold them — and
+ * exempting them means a platform owner whose own plan reads as lapsed is never
+ * locked out of the tools for diagnosing exactly that.
+ *
+ * AI Copilot is deliberately absent. It is hidden from customers because it is
+ * a developer console, but it remains a customer-tier feature underneath, and
+ * blanket-exempting it would have quietly handed the free tier a paid module.
+ */
+const PLAN_EXEMPT_MODULES = new Set([
+  'system-health',
+  'disaster-recovery',
+  'testing-dashboard',
 ]);
 
 export function canAccess(moduleId: string, status: PlanStatus): boolean {
-  // Plan is not the axis for platform tooling — see PLATFORM_MODULES.
-  if (PLATFORM_MODULES.has(moduleId)) return true;
+  // Plan is not the axis for infrastructure tooling — see PLAN_EXEMPT_MODULES.
+  if (PLAN_EXEMPT_MODULES.has(moduleId)) return true;
   if (status === 'pro' || status === 'trial') return true;
   return FREE_MODULES.has(moduleId);
 }

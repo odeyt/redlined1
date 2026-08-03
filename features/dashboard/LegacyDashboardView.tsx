@@ -8,6 +8,7 @@ import { useShop } from '@/lib/useShop';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { navItems } from '@/lib/mock-data';
 import { isModuleAvailable } from '@/lib/moduleAvailability';
+import { PLATFORM_MODULES } from '@/lib/planGate';
 import { Icon, iconColors } from '@/components/Icon';
 import { useOperationalStats } from './shared/useOperationalStats';
 import { dashStyle } from './shared/styles';
@@ -19,9 +20,15 @@ import { RevenueByMonthTable } from './shared/RevenueByMonthTable';
 import { RecentInvoicesTable } from './shared/RecentInvoicesTable';
 import { RecentRepairOrdersTable } from './shared/RecentRepairOrdersTable';
 
-// Owners see billing/subscriptions/settings tiles; all other roles don't
-const OWNER_TILE_EXCLUDE   = new Set(['dashboard', 'system-health', 'disaster-recovery', 'testing-dashboard']);
-const STAFF_TILE_EXCLUDE   = new Set(['dashboard', 'billing', 'subscriptions', 'settings', 'system-health', 'disaster-recovery', 'testing-dashboard']);
+// Owners see billing/subscriptions/settings tiles; all other roles don't.
+//
+// Operator tooling comes from PLATFORM_MODULES rather than being listed again
+// here: these sets previously named system-health, disaster-recovery and
+// testing-dashboard by hand, so when AI Copilot joined that set the tile kept
+// appearing on the dashboard even though the sidebar had stopped showing it.
+// One definition, so a module hidden in one place is hidden in both.
+const OWNER_TILE_EXCLUDE = new Set(['dashboard', ...PLATFORM_MODULES]);
+const STAFF_TILE_EXCLUDE = new Set(['dashboard', 'billing', 'subscriptions', 'settings', ...PLATFORM_MODULES]);
 
 const CATEGORIES: { key: string; label: string; emoji: string; ids: string[] }[] = [
   { key: 'all',          label: 'All Modules',    emoji: '⚡', ids: [] },

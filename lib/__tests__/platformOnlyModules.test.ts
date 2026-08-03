@@ -70,11 +70,17 @@ describe('the sidebar source enforces this', () => {
 });
 
 describe('the shared definition', () => {
-  it('covers exactly the three operator modules', () => {
-    expect([...PLATFORM_MODULES].sort()).toEqual([...PLATFORM_ONLY].sort());
+  it('covers the operator modules', () => {
+    for (const id of PLATFORM_ONLY) expect(PLATFORM_MODULES.has(id)).toBe(true);
   });
 
-  it('is not plan-gated — a lapsed platform owner keeps the tools to diagnose that', () => {
+  it('also hides AI Copilot, a developer console that shipped to customers', () => {
+    // Its own subtitle: "Internal AI testing console". The AI customers were
+    // sold lives in DTC Lookup and Inspections, which are untouched.
+    expect(PLATFORM_MODULES.has('ai')).toBe(true);
+  });
+
+  it('infrastructure tooling is not plan-gated — a lapsed platform owner keeps the tools to diagnose that', () => {
     for (const id of PLATFORM_ONLY) {
       for (const status of ['free', 'trial', 'pro'] as const) {
         expect(canAccess(id, status)).toBe(true);
@@ -82,10 +88,36 @@ describe('the shared definition', () => {
     }
   });
 
-  it('does not accidentally exempt a customer module from plan gating', () => {
-    // Regression guard: the set must not grow to include anything a shop buys.
-    for (const id of ['parts', 'reports', 'ai', 'technicians', 'payments']) {
+  it('hiding AI Copilot did not exempt it from plan gating', () => {
+    // Visibility and entitlement are separate axes. Adding 'ai' to the
+    // visibility set must not hand the free tier a paid module, which is
+    // exactly what a single combined set did.
+    expect(canAccess('ai', 'free')).toBe(false);
+    expect(canAccess('ai', 'pro')).toBe(true);
+  });
+
+  it('does not accidentally exempt any other customer module from plan gating', () => {
+    for (const id of ['parts', 'reports', 'technicians', 'payments']) {
       expect(canAccess(id, 'free')).toBe(false);
     }
+  });
+});
+
+describe('AI Copilot is hidden everywhere, not just the sidebar', () => {
+  it('the dashboard tiles derive their exclusions from PLATFORM_MODULES', () => {
+    const src = readFileSync(join(__dirname, '..', '..', 'features', 'dashboard', 'LegacyDashboardView.tsx'), 'utf8');
+    // These sets used to name the operator modules by hand, so a module added
+    // to PLATFORM_MODULES kept appearing as a tile after the sidebar hid it.
+    expect(src).toMatch(/OWNER_TILE_EXCLUDE = new Set\(\['dashboard', \.\.\.PLATFORM_MODULES\]\)/);
+    expect(src).toMatch(/STAFF_TILE_EXCLUDE = new Set\(\[[^\]]*\.\.\.PLATFORM_MODULES\]\)/);
+  });
+
+  it('the AI features customers were sold are untouched', () => {
+    // "AI Advisor" on the plan cards means AI inside these workflows, not the
+    // console. Both still call the AI service.
+    const dtc = readFileSync(join(__dirname, '..', '..', 'features', 'dtc', 'DtcView.tsx'), 'utf8');
+    const insp = readFileSync(join(__dirname, '..', '..', 'features', 'inspections', 'InspectionsView.tsx'), 'utf8');
+    expect(dtc).toMatch(/explainDtc/);
+    expect(insp).toMatch(/draftEstimateFromInspection/);
   });
 });
