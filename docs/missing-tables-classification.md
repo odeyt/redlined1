@@ -5,45 +5,55 @@ database (`PGRST205`). Each is classified by whether a **visible production
 workflow** reaches it, traced from the table to its callers to the UI that
 mounts them.
 
-**Headline: the "no visible workflow depends on these" condition does NOT
-hold.** Command Center — the default landing page for every owner and manager,
-and free-tier since 3 August — reaches five of them.
+**Headline: the condition holds. Nothing visible depends on them.** All 28 are
+behind a disabled feature flag, an unmounted component, or a hidden module.
 
----
+## 1. Critical — none
 
-## 1. Critical — a visible workflow depends on them
+An earlier draft of this document put five tables here — `parts_order_items`
+and the four `recommendation_*` tables — on the grounds that Command Center
+reaches them, and claimed the dashboard was "reporting health it never
+measured". **That was wrong, and worth recording rather than quietly
+deleting.**
 
-| Table | Reached from |
-|---|---|
-| `parts_order_items` | Command Center → `/api/intelligence/memory` → BusinessMemoryEngine |
-| `recommendation_learning_events` | Command Center → LearningDashboardSection → `/api/intelligence/learning/summary` |
-| `recommendation_learning_profiles` | as above |
-| `recommendation_feedback` | as above |
-| `recommendation_value_attribution` | as above, plus `/api/intelligence/learning/outcome` |
+Two things were missed:
 
-`components/AppShell.tsx` redirects owners and managers from `dashboard` to
-`command-center` on load, so this is the first screen almost every customer
-sees.
+**The flags are off.** Both routes check a feature flag and return
+`{ disabled: true }` before touching any missing table:
 
-**These do not crash.** Both routes wrap their work in `try/catch`, and
-BusinessMemoryEngine holds sixteen catch blocks, so a missing table surfaces as
-an empty result. The panels render "ALL CLEAR ✓" and "NO MORNING BRIEF
-GENERATED".
+```
+intelligence_learning_dashboard   false
+business_memory_engine            false
+personal_dashboard                no row at all → false
+```
 
-That is the actual problem. **The dashboard reports health it has not
-measured.** A shop with genuine overdue invoices or stale jobs is told
-everything is clear, because the query failed rather than returned nothing. A
-customer cannot tell the difference, and neither can you.
+**The tiles are fed by tables that exist.** The "0 CRITICAL / ALL CLEAR"
+display comes from `shop_intelligence_metrics`, `recommendations`,
+`intelligence_signals` and `decision_rankings` — all present. The zeros
+observed on 3 August were accurate: that shop genuinely had no data. The claim
+that the dashboard was inventing a healthy status was not supported.
 
-### `dashboard_layouts` — critical only if a flag is on
+**And both panels degrade to absent, not to a false positive.**
+`LearningDashboardSection` returns `null` unless `learningEnabled` is true, and
+the business memory panel renders only when its counts exceed zero. Neither
+shows a reassuring figure derived from nothing.
 
-`features/dashboard/DashboardView.tsx` renders `NewDashboardView` when the
-`personal_dashboard` feature flag is enabled, and that view calls
-`dashboardLayoutService`, which reads this table. With the flag off, the legacy
-dashboard renders and nothing touches it.
+`dashboard_layouts` is reached only by `NewDashboardView`, which renders only
+when `personal_dashboard` is enabled. There is no such flag row, so
+`LegacyDashboardView` renders and the table is never touched.
 
-**Check the flag before launch.** If it is on for anyone, saving a dashboard
-layout fails silently.
+### What was still worth doing
+
+`/api/intelligence/memory` already tried to detect a missing table by matching
+`'does not exist'` and `'relation'` in the error text. PostgREST actually
+answers with `"Could not find the table 'public.x' in the schema cache"`, so
+that check never fired once. It now probes via
+`lib/intelligence/tableAvailability.ts` and returns `{ unavailable: true }`,
+as does the learning summary route.
+
+This changes nothing today, because the flags short-circuit first. It matters
+on the day someone enables one: the difference between a panel quietly showing
+nothing and an API stating plainly that the feature is not set up.
 
 ---
 
@@ -96,23 +106,23 @@ importers at all.
 
 ## Recommended order
 
-1. **Decide the five Critical tables** before taking payment. Either create them
-   with proper shop scoping and RLS, or make Command Center's panels show
-   "unavailable" rather than "all clear". The second is far cheaper and removes
-   the dishonesty, which is the real risk.
-2. **Check the `personal_dashboard` flag.** If off, `dashboard_layouts` drops to
-   deferrable.
-3. **Keep Diagnostics hidden** until its thirteen tables exist. The gate is one
+1. **Nothing blocks launch.** No visible workflow reaches a missing table.
+2. **Keep Diagnostics hidden** until its thirteen tables exist. The gate is one
    line in `lib/moduleAvailability.ts`.
+3. **Before enabling `business_memory_engine`, `intelligence_learning_dashboard`
+   or `personal_dashboard`,** create the tables that flag needs. Each is
+   currently the only thing standing between a customer and a dead feature.
 4. **Defer the rest.** Nothing mounted reaches them.
 
-## The pattern worth noting
+## The check to repeat
 
-Every table here fails the same way: a query errors, a catch swallows it, and
-the UI renders an empty state that reads as good news. It is the same fault
-that let a broken shop INSERT run unnoticed for weeks and a billing webhook
-return 200 while writing nothing. An empty result and a failed query must not
-look alike.
+The right question was never "which tables are missing" but "which missing
+table can a customer reach". Reachability runs table → engine → route → the
+component that mounts it, and it broke down at the last step here: routes exist
+and are correct, but the flags are off and two panels are never imported.
+
+Worth re-running whenever a feature flag is switched on, since that is exactly
+what converts a deferred table into a broken page.
 
 ## How to re-run this
 

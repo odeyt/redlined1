@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { featureTablesReady } from '@/lib/intelligence/tableAvailability';
 
 async function getAuthCtx(req: NextRequest) {
   const cookieStore = await cookies();
@@ -42,6 +43,22 @@ export async function GET(req: NextRequest) {
 
     const enabled = await isFlagEnabled('business_memory_engine');
     if (!enabled) return NextResponse.json({ disabled: true, data: null });
+
+    // business_memory and parts_order_items do not exist yet, and
+    // BusinessMemoryEngine catches its own errors — so without this the panel
+    // renders an empty summary indistinguishable from "nothing to report".
+    //
+    // The catch below already tried to detect this by matching 'does not
+    // exist' and 'relation' in the error text, but PostgREST answers a missing
+    // table with "Could not find the table 'public.x' in the schema cache", so
+    // it never fired. Probing up front does not depend on error wording.
+    if (!(await featureTablesReady('business_memory', 'parts_order_items'))) {
+      return NextResponse.json({
+        unavailable: true,
+        reason: 'Business memory is not set up for this deployment yet.',
+        data: null,
+      });
+    }
 
     const url = new URL(req.url);
     const entityType = url.searchParams.get('entity_type');

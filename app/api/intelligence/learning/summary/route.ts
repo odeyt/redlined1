@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getShopLearningSummary } from '@/intelligence/learning/IntelligenceLearningEngine';
+import { featureTablesReady } from '@/lib/intelligence/tableAvailability';
 
 async function getAuth() {
   const cookieStore = await cookies();
@@ -51,6 +52,23 @@ export async function GET() {
 
     const flagOn = await checkFlag('intelligence_learning_dashboard');
     if (!flagOn) return NextResponse.json({ disabled: true, learningEnabled: false, adjustmentsEnabled: false });
+
+    // The recommendation_* tables do not exist yet. The engine catches its own
+    // errors, so without this the panel would render a confident summary built
+    // from nothing. Say so instead.
+    const ready = await featureTablesReady(
+      'recommendation_learning_events',
+      'recommendation_learning_profiles',
+      'recommendation_feedback',
+    );
+    if (!ready) {
+      return NextResponse.json({
+        unavailable: true,
+        reason: 'Learning data is not set up for this deployment yet.',
+        learningEnabled: false,
+        adjustmentsEnabled: false,
+      });
+    }
 
     const summary = await getShopLearningSummary(shopId);
     if (!summary) return NextResponse.json({ disabled: false, learningEnabled: false, adjustmentsEnabled: false });
