@@ -8,8 +8,12 @@ export type CommercialPlanKey = 'solo' | 'starter' | 'professional' | 'business'
 export type BillingPeriod = 'monthly' | 'annual' | null;
 
 /**
- * CommercialSignupIntent — stored in localStorage and optionally in the
- * onboarding_sessions table to survive the email-verification round trip.
+ * CommercialSignupIntent — stored in localStorage to survive the
+ * email-verification round trip.
+ *
+ * It also mentioned an onboarding_sessions table, which does not exist in the
+ * database; the code that wrote to it was removed on 2026-08-02. localStorage
+ * is the only place this is kept.
  * Only the server may trust `userId` — the client-stored copy is advisory only.
  */
 export interface CommercialSignupIntent {
