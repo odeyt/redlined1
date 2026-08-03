@@ -15,6 +15,7 @@ import type {
   BillingPortalInput,
   BillingPortalResult,
   CommercialDashboardData,
+  BillingPlan,
 } from '@/commercial/shared/types';
 import {
   getShopSubscription,
@@ -23,6 +24,7 @@ import {
 } from '@/commercial/subscriptions/subscriptionService';
 import { getMonthlyUsage } from '@/commercial/usage/usageService';
 import { getPlan } from '@/commercial/plans/planManager';
+import { getPlanStatus, trialDaysLeft as computeTrialDaysLeft } from '@/lib/planGate';
 
 // ─── Provider registry ────────────────────────────────────────────────────────
 
@@ -134,13 +136,95 @@ export async function processWebhook(
   return { success: true };
 }
 
-export async function getBillingStatus(shopId: string) {
+// Display-only plans for shops with no `shop_subscriptions` row — i.e.
+// every shop on the in-house Free Forever / 7-day-trial system
+// (profiles.plan + profiles.trial_ends_at, see lib/planGate.ts), which is
+// what actually governs access for real customers today. The commercial/
+// module's own plan catalog (planManager.ts) only knows about
+// starter/professional/business/enterprise — it has no entry for 'free',
+// 'solo', or an active trial, so without this fallback the Billing page
+// showed "Unknown" for every Free Forever or trial shop even though the
+// sidebar (which reads the same profiles columns) displayed the real plan
+// and days-left correctly. Copy matches components/marketing/PricingSection.tsx.
+const FALLBACK_PLANS: Record<string, BillingPlan> = {
+  trial: {
+    id: 'trial', planKey: 'starter' as BillingPlan['planKey'], name: 'Free Trial',
+    description: '7-day trial — full platform access.',
+    monthlyPrice: 0, annualPrice: 0, currency: 'USD',
+    limits: { maxUsers: null, maxLocations: null, maxVehicles: null, maxJobCardsPerMonth: null, aiCreditsPerMonth: null, storageGb: null },
+    isActive: true, metadata: {},
+  },
+  free: {
+    id: 'free', planKey: 'starter' as BillingPlan['planKey'], name: 'Free Forever',
+    description: 'Full platform access, no credit card required.',
+    monthlyPrice: 0, annualPrice: 0, currency: 'USD',
+    limits: { maxUsers: 1, maxLocations: 1, maxVehicles: 10, maxJobCardsPerMonth: 5, aiCreditsPerMonth: 0, storageGb: null },
+    isActive: true, metadata: {},
+  },
+  solo: {
+    id: 'solo', planKey: 'starter' as BillingPlan['planKey'], name: 'Solo',
+    description: 'For independent and mobile mechanics.',
+    monthlyPrice: 24, annualPrice: 240, currency: 'USD',
+    limits: { maxUsers: 1, maxLocations: 1, maxVehicles: null, maxJobCardsPerMonth: null, aiCreditsPerMonth: null, storageGb: null },
+    isActive: true, metadata: {},
+  },
+};
+
+export async function getBillingStatus(shopId: string): Promise<CommercialDashboardData> {
   const subscription = await getShopSubscription(shopId);
+
+  if (subscription) {
+    const now = Date.now();
+    const isTrialing = subscription.status === 'trialing' && (subscription.trialEnd ? subscription.trialEnd.getTime() > now : false);
+    return {
+      billingEnabled: BILLING_ENABLED,
+      subscription,
+      plan: getPlan(subscription.planKey),
+      usage: await getMonthlyUsage(shopId),
+      trialDaysLeft: isTrialing && subscription.trialEnd
+        ? Math.max(0, Math.ceil((subscription.trialEnd.getTime() - now) / 86400000))
+        : null,
+      isActive: !BILLING_ENABLED || ['active', 'trialing'].includes(subscription.status),
+      isPastDue: subscription.status === 'past_due',
+    };
+  }
+
+  // No commercial subscription row — fall back to the in-house plan system.
+  const db = getAdminDb();
+  const { data: owner } = await db
+    .from('shop_users')
+    .select('user_id')
+    .eq('shop_id', shopId)
+    .eq('role', 'owner')
+    .limit(1)
+    .maybeSingle();
+
+  let ownerPlan: string | null = null;
+  let ownerTrialEndsAt: string | null = null;
+  if (owner?.user_id) {
+    const { data: profile } = await db
+      .from('profiles')
+      .select('plan, trial_ends_at')
+      .eq('id', owner.user_id)
+      .maybeSingle();
+    ownerPlan = profile?.plan ?? null;
+    ownerTrialEndsAt = profile?.trial_ends_at ?? null;
+  }
+
+  const status = getPlanStatus(ownerPlan, ownerTrialEndsAt);
+  const plan =
+    status === 'trial' ? FALLBACK_PLANS.trial
+    : status === 'free' ? FALLBACK_PLANS.free
+    : (ownerPlan && getPlan(ownerPlan)) || FALLBACK_PLANS[ownerPlan ?? ''] || null;
+
   return {
     billingEnabled: BILLING_ENABLED,
-    subscription,
-    plan: subscription ? getPlan(subscription.planKey) : null,
-    isActive: !BILLING_ENABLED || ['active', 'trialing'].includes(subscription?.status ?? ''),
+    subscription: null,
+    plan,
+    usage: await getMonthlyUsage(shopId),
+    trialDaysLeft: status === 'trial' ? computeTrialDaysLeft(ownerTrialEndsAt) : null,
+    isActive: status !== 'free' || !BILLING_ENABLED,
+    isPastDue: false,
   };
 }
 
