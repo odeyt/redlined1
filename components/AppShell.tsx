@@ -39,6 +39,7 @@ import { TriageView } from '@/features/triage/TriageView';
 import { SystemHealthView } from '@/features/system-health/SystemHealthView';
 import { DisasterRecoveryView } from '@/features/disaster-recovery/DisasterRecoveryView';
 import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashboardView';
+import { SupportInboxView } from '@/features/support-inbox/SupportInboxView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
 import { SupportWidget } from '@/components/support/SupportWidget';
@@ -87,6 +88,7 @@ const views: Record<string, React.ComponentType> = {
   'system-health':     SystemHealthView,
   'disaster-recovery': DisasterRecoveryView,
   'testing-dashboard': TestingDashboardView,
+  'support-inbox':     SupportInboxView,
   billing: BillingDashboard,
 };
 

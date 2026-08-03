@@ -201,6 +201,7 @@ export const navItems: [string, string, string, string][] = [
   ['system-health',       'activity',  'System Health',     ''],
   ['disaster-recovery',   'lifeline',  'Disaster Recovery', ''],
   ['testing-dashboard',   'flask',     'Testing Dashboard', ''],
+  ['support-inbox',       'message',   'Support Inbox',     ''],
 ];
 
 export const moduleTitles: Record<string, [string, string]> = {

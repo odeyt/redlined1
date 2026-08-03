@@ -116,6 +116,11 @@ export const PLATFORM_MODULES = new Set([
   // Reverse this once the page reads the shop's own vehicles and jobs instead
   // of asking for JSON.
   'ai',
+  // Operator support inbox — customer threads and bug reports across every
+  // shop. Reads with service_role, so it must never be reachable by a
+  // customer: this entry is what keeps it out of their sidebar, and
+  // verifyPlatformOwner on /api/support/inbox is what actually enforces it.
+  'support-inbox',
 ]);
 
 /**
