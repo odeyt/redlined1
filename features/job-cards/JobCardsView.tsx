@@ -1163,7 +1163,18 @@ export function JobCardsView() {
               </button>
               <button className="mini-btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }}
                 onClick={() => {
-                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer } });
+                  // Carries the job card's id and details, not just the customer
+                  // name. Of 34 repair orders in production, none had a
+                  // job_card_id: the column, the service mapping and the prefill
+                  // type all existed, but this hand-off never passed it — so
+                  // staff retyped the vehicle and complaint, and no report could
+                  // connect a repair order back to the job it came from.
+                  dispatch({ type: 'SET_PREFILL', prefill: {
+                    customerName: selectedJob.customer,
+                    vehicle:      selectedJob.vehicle,
+                    jobCardId:    selectedJob.id,
+                    notes:        selectedJob.serviceType ?? '',
+                  } });
                   dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
                   setSelectedJob(null);
                 }}>🔧 Repair Order →</button>

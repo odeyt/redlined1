@@ -428,7 +428,22 @@ export function RepairOrdersView() {
   useEffect(() => {
     if (!prefill?.customerName) return;
     nextRONumber().then(num => {
-      setForm(f => ({ ...f, roNumber: num, customerName: prefill.customerName ?? '', customerId: prefill.customerId ?? '', vehicle: prefill.vehicle ?? '' }));
+      // jobCardId is what links the repair order back to the job it came from.
+      // It was never carried, so all 34 repair orders in production had an empty
+      // job_card_id — the link existed only as a column nobody filled, which is
+      // why cycle time from job card to completion cannot be measured today.
+      //
+      // The concern is seeded from the job card's service type so the technician
+      // opens the form with the reason for the work already stated.
+      setForm(f => ({
+        ...f,
+        roNumber:     num,
+        customerName: prefill.customerName ?? '',
+        customerId:   prefill.customerId ?? '',
+        vehicle:      prefill.vehicle ?? '',
+        jobCardId:    prefill.jobCardId ?? '',
+        concern:      f.concern || (prefill.notes ?? ''),
+      }));
       setEditingId(null);
       setShowForm(true);
       setSelected(null);
