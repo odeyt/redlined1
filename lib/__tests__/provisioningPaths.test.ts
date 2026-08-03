@@ -32,7 +32,9 @@ describe('convergence points', () => {
 
   it('a dedicated route can provision on demand', () => {
     expect(provision).toMatch(/getOrCreatePrimaryShop/);
-    expect(provision).toMatch(/ensureFreeSubscription/);
+    // ensureFreeSubscription became ensureInitialPlan on 2026-08-03, when a
+    // new account started getting a trial rather than the free tier outright.
+    expect(provision).toMatch(/ensureInitialPlan/);
   });
 
   it('the app repairs itself when it finds no membership', () => {

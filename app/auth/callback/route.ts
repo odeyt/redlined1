@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getOrCreatePrimaryShop, ensureFreeSubscription } from '@/commercial/onboarding/ShopProvisioningService';
+import { getOrCreatePrimaryShop, ensureInitialPlan } from '@/commercial/onboarding/ShopProvisioningService';
 import { alertException } from '@/lib/observability/alerts';
 import { VALID_PLAN_KEYS, type CommercialPlanKey } from '@/commercial/onboarding/types';
 
@@ -68,11 +68,11 @@ export async function GET(request: Request) {
     const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
-      // Provision the shop + a permanent Free Forever plan on first confirmed
-      // login. Idempotent (see ShopProvisioningService) — safe to call on
-      // every callback, including password-recovery round trips for existing
-      // users. Paid-plan upgrades happen separately via the Creem checkout
-      // webhook (app/api/billing/webhook/creem/route.ts), not here.
+      // Provision the shop and settle the plan on first confirmed login: a new
+      // account gets a 7-day trial with every module unlocked, which lapses to
+      // Free Forever. Idempotent (see ShopProvisioningService) — safe on every
+      // callback, including password-recovery round trips, which must not reset
+      // the trial clock. Paid upgrades happen via the Creem webhook, not here.
       const user = exchangeData?.user;
       if (user) {
         try {
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
             ownerName: metadata?.full_name,
             shopName: metadata?.shop_name || 'My Shop',
           });
-          await ensureFreeSubscription(user.id, shopId, parsePlanFromNext(next));
+          await ensureInitialPlan(user.id, shopId, parsePlanFromNext(next));
         } catch (provisionError) {
           // Still never block login on provisioning failure — a broken auth
           // flow is worse than a shop that can be created on next load, and

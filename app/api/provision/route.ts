@@ -24,7 +24,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { getOrCreatePrimaryShop, ensureFreeSubscription } from '@/commercial/onboarding/ShopProvisioningService';
+import { getOrCreatePrimaryShop, ensureInitialPlan } from '@/commercial/onboarding/ShopProvisioningService';
 import { alertException } from '@/lib/observability/alerts';
 
 export async function POST(req: NextRequest) {
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       shopName:  meta?.shop_name || 'My Shop',
     });
 
-    await ensureFreeSubscription(user.id, shopId);
+    await ensureInitialPlan(user.id, shopId);
 
     if (created) {
       // Not an error, but worth seeing: it means this user reached the app

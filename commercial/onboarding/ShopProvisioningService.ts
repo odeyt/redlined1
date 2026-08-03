@@ -106,33 +106,50 @@ export async function ensureOwnerMembership(userId: string, shopId: string): Pro
   );
 }
 
-// ─── Free plan provisioning ────────────────────────────────────────────────────
+// ─── Plan provisioning ─────────────────────────────────────────────────────────
+
+/** Length of the evaluation period granted to a new account. */
+export const TRIAL_DAYS = 7;
 
 /**
- * Grants the given user a permanent Free Forever plan — no expiry, no
- * time-based lockout. Usage limits (job count, customer count, etc.) are
- * enforced separately (see supabase/migrations/free_tier_usage_limits.sql),
- * not by this function.
+ * Settles a user's plan: a new account gets a {@link TRIAL_DAYS}-day trial with
+ * every module unlocked; when that lapses it becomes Free Forever, keeping the
+ * core features and all their data.
  *
- * Deliberately does NOT touch the `subscriptions` table: that table is a
- * payment-provider-linked record (provider, provider_customer_id,
- * provider_subscription_id, billing_interval are all NOT NULL columns in
- * production) — it exists for real Stripe/Creem subscriptions, not for
- * tracking free-tier status. A prior version of this function tried to
- * insert a shop_id/plan_key/trial_started_at row there; those columns
- * don't exist on the real table, so every call failed, was silently
- * swallowed by auth/callback's try/catch, and profiles.plan was never
- * actually set — confirmed via information_schema against production.
+ * Chosen deliberately on 2026-08-03. Under free-from-signup, a customer never
+ * touched Vehicle Intake, Parts, Reports, Employees or AI Copilot, so the
+ * Upgrade button asked them to pay for things they had never seen. It also made
+ * accounts inconsistent: signups from July carried the legacy plan='trial' and
+ * had full access, while August signups got 'free' and did not.
  *
- * usePlan() (lib/usePlan.ts) reads plan status from profiles.plan /
- * profiles.trial_ends_at only, so that's the sole source of truth here.
- * Idempotent — a no-op if the user already has a non-null plan.
+ * The rules, in order. Each exists because the opposite has bitten:
+ *
+ *   paid              → untouched. Never downgrade a subscriber.
+ *   active trial      → untouched. Re-granting would reset the clock on every
+ *                       auth callback, including a password reset, so the trial
+ *                       would never end.
+ *   lapsed trial      → becomes Free Forever, trial_ends_at cleared. The
+ *                       cleared date is what stops a second trial below.
+ *   free + FUTURE end → promoted to trial. This is the contradictory state a
+ *                       database trigger writes on signup: plan 'free' with a
+ *                       trial date the app ignores. The date is honoured rather
+ *                       than invented, so the clock still starts at signup.
+ *   free + no end     → untouched. Their trial is over; they do not get another
+ *                       one by signing in again.
+ *   no plan at all    → fresh trial from now.
+ *
+ * usePlan() reads profiles.plan and profiles.trial_ends_at only, so this is the
+ * single source of truth. Deliberately does not touch `subscriptions`: that
+ * table is for real provider-linked subscriptions, and an earlier version
+ * writing columns it does not have failed silently on every call.
+ *
+ * Idempotent — safe on every auth callback and every /api/provision request.
  */
-export async function ensureFreeSubscription(
+export async function ensureInitialPlan(
   userId:   string,
   _shopId:   string,
   _intentPlanKey: CommercialPlanKey = null,
-): Promise<{ created: boolean }> {
+): Promise<{ plan: 'trial' | 'free' | 'unchanged' }> {
   const db = getAdminDb();
 
   const { data: existing } = await db
@@ -141,34 +158,32 @@ export async function ensureFreeSubscription(
     .eq('id', userId)
     .maybeSingle();
 
-  // A database trigger creates the profile row with the legacy plan='trial'
-  // before this runs, so an "is plan set?" check here would always be true and
-  // Free Forever would never be granted — that is what happened to every
-  // account created up to 2026-07-30. Treat null and a *lapsed* legacy trial as
-  // unset, while leaving these alone:
-  //   - real paid plans (never downgrade a subscriber)
-  //   - an ACTIVE trial (a deliberately granted evaluation period; converting
-  //     it to free here would cancel the trial on any later auth callback,
-  //     e.g. a password reset)
   const PAID = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
-  const plan = existing?.plan;
+  const plan   = existing?.plan as string | null | undefined;
+  const endsAt = existing?.trial_ends_at ? new Date(existing.trial_ends_at as string) : null;
+  const active = endsAt !== null && endsAt > new Date();
 
-  if (plan && PAID.has(plan)) return { created: false };
+  const apply = async (patch: { plan: string; trial_ends_at: string | null }) => {
+    const { error } = await db.from('profiles').update(patch).eq('id', userId);
+    if (error) throw new Error(`Failed to set plan: ${error.message}`);
+  };
+
+  if (plan && PAID.has(plan)) return { plan: 'unchanged' };
 
   if (plan === 'trial') {
-    const endsAt = existing?.trial_ends_at ? new Date(existing.trial_ends_at as string) : null;
-    if (endsAt && endsAt > new Date()) return { created: false }; // active trial
-    // lapsed or open-ended legacy trial → fall through to Free Forever
-  } else if (plan) {
-    return { created: false }; // already 'free' or another terminal state
+    if (active) return { plan: 'unchanged' };
+    await apply({ plan: 'free', trial_ends_at: null });   // lapsed → Free Forever
+    return { plan: 'free' };
   }
 
-  const { error } = await db
-    .from('profiles')
-    .update({ plan: 'free', trial_ends_at: null })
-    .eq('id', userId);
+  if (plan === 'free') {
+    if (!active) return { plan: 'unchanged' };            // trial already spent
+    await apply({ plan: 'trial', trial_ends_at: endsAt!.toISOString() });
+    return { plan: 'trial' };
+  }
 
-  if (error) throw new Error(`Failed to grant free plan: ${error.message}`);
-
-  return { created: true };
+  // No plan recorded — a genuinely new account.
+  const ends = new Date(Date.now() + TRIAL_DAYS * 86_400_000);
+  await apply({ plan: 'trial', trial_ends_at: ends.toISOString() });
+  return { plan: 'trial' };
 }
