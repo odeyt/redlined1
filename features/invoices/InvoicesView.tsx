@@ -211,6 +211,11 @@ export function InvoicesView() {
         customerName: (p?.customerName as string) ?? '',
         customerId: (p?.customerId as string) ?? '',
         vehicle: (p?.vehicle as string) ?? '',
+        // Carries the job card through, so an invoice raised straight from a
+        // job card is linked to it. The Repair Order and Estimate routes into
+        // invoicing already passed this; only the direct Job Card → Invoice
+        // button dropped it, which is why 0 of 28 invoices reference a job.
+        jobCardId: (p?.jobCardId as string) ?? '',
       }));
       setEditingId(null);
       setShowForm(true);

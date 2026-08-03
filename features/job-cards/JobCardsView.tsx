@@ -1180,7 +1180,14 @@ export function JobCardsView() {
                 }}>🔧 Repair Order →</button>
               <button className="mini-btn" style={{ background: 'rgba(156,39,176,0.1)', color: '#9c27b0', border: '1px solid #9c27b033' }}
                 onClick={() => {
-                  dispatch({ type: 'SET_PREFILL', prefill: { customerName: selectedJob.customer, vehicle: selectedJob.vehicle } });
+                  // Same omission as the Repair Order hand-off: the job card id
+                  // was never passed, so an invoice raised here referenced
+                  // nothing. 0 of 28 invoices carry a job card today.
+                  dispatch({ type: 'SET_PREFILL', prefill: {
+                    customerName: selectedJob.customer,
+                    vehicle:      selectedJob.vehicle,
+                    jobCardId:    selectedJob.id,
+                  } });
                   dispatch({ type: 'SET_MODULE', module: 'invoices' });
                   setSelectedJob(null);
                 }}>🧾 Invoice →</button>

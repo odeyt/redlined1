@@ -87,3 +87,70 @@ describe('the link reaches the database', () => {
     expect(roSvc).toMatch(/ro\.jobCardId \|\| null/);
   });
 });
+
+/**
+ * The invoice end of the same chain.
+ *
+ * 28 invoices in production, none referencing a job card, and 1 of 34 repair
+ * orders carrying an invoice number — while 19 of those repair orders are
+ * "Complete". So finished work could not be traced to what was billed for it.
+ *
+ * The cause was not one bug but a cascade. Two of the three routes into
+ * invoicing already passed the job card:
+ *
+ *   Repair Order → Invoice   passes ro.jobCardId
+ *   Estimate     → Invoice   passes est.jobCardId
+ *   Job Card     → Invoice   passed nothing
+ *
+ * The first two wrote null anyway, because no repair order had a job card to
+ * pass — the gap fixed in the commit before this one. So linking the repair
+ * order also repairs the invoice link on those two routes, and only the direct
+ * Job Card → Invoice button needed changing.
+ */
+describe('an invoice records the job it bills for', () => {
+  const invoices = read('features/invoices/InvoicesView.tsx');
+  const invSvc   = read('services/invoiceService.ts');
+  const estimates = read('features/estimates/EstimatesView.tsx');
+
+  it('the direct Job Card → Invoice hand-off passes the job card id', () => {
+    const handoff = jobCards.slice(
+      jobCards.indexOf("module: 'invoices'") - 700,
+      jobCards.indexOf("module: 'invoices'") + 120,
+    );
+    expect(handoff).toMatch(/jobCardId:\s+selectedJob\.id/);
+  });
+
+  it('the invoice form receives it', () => {
+    expect(invoices).toMatch(/jobCardId: \(p\?\.jobCardId as string\) \?\? ''/);
+  });
+
+  it('the Repair Order route already carried it', () => {
+    expect(roView).toMatch(/jobCardId: ro\.jobCardId/);
+  });
+
+  it('the Estimate route already carried it', () => {
+    expect(estimates).toMatch(/jobCardId: est\.jobCardId/);
+  });
+
+  it('and the service persists it', () => {
+    expect(invSvc).toMatch(/job_card: inv\.jobCardId \|\| null/);
+  });
+
+  it('storing null rather than an empty string when unlinked', () => {
+    // An empty string reads as "linked" to any report checking for a value.
+    expect(invSvc).toMatch(/inv\.jobCardId \|\| null/);
+  });
+});
+
+describe('the chain is complete end to end', () => {
+  it('job card → repair order → invoice all carry the same job card id', () => {
+    // The three hops that let a shop trace a finished job to what was billed.
+    expect(jobCards).toMatch(/jobCardId:\s+selectedJob\.id/);   // into the RO
+    expect(roView).toMatch(/jobCardId:\s+prefill\.jobCardId/);  // received by the RO
+    expect(roView).toMatch(/jobCardId: ro\.jobCardId/);         // on to the invoice
+  });
+
+  it('the repair order still records its invoice number, closing the loop back', () => {
+    expect(roView).toMatch(/updateRepairOrder\(ro\.id, \{ invoiceNumber: invNumber \}\)/);
+  });
+});
