@@ -141,3 +141,51 @@ describe('a paying customer', () => {
     expect(result).toEqual({ plan: 'unchanged' });
   });
 });
+
+/**
+ * Which memberships count as "this user already has a shop".
+ *
+ * getOrCreatePrimaryShop matched role = 'owner' exclusively, so a manager,
+ * advisor or technician looked shop-less and had a brand-new empty shop
+ * created for them. It produced one stray shop for the platform owner, whose
+ * role in the D1 shops is not 'owner'. The serious case is a customer's staff:
+ * they would land in an empty shop rather than their employer's, and conclude
+ * the product had lost their data.
+ */
+describe('getOrCreatePrimaryShop membership matching', () => {
+  /** Mirrors the selection in getOrCreatePrimaryShop. */
+  function pick(memberships: Array<{ shop_id: string; role: string }>) {
+    if (memberships.length === 0) return null;
+    const owned = memberships.find(m => m.role === 'owner');
+    return (owned ?? memberships[0]).shop_id;
+  }
+
+  it.each(['manager', 'advisor', 'technician'])(
+    'treats a %s as already having a shop', role => {
+      expect(pick([{ shop_id: 'shop-a', role }])).toBe('shop-a');
+    });
+
+  it('still returns the owned shop when the user owns one', () => {
+    expect(pick([{ shop_id: 'shop-a', role: 'owner' }])).toBe('shop-a');
+  });
+
+  it('prefers the owned shop when the user holds several memberships', () => {
+    const shops = [
+      { shop_id: 'staff-shop', role: 'technician' },
+      { shop_id: 'own-shop',   role: 'owner' },
+    ];
+    expect(pick(shops)).toBe('own-shop');
+  });
+
+  it('picks a shop deterministically when none is owned, rather than creating one', () => {
+    const shops = [
+      { shop_id: 'shop-a', role: 'manager' },
+      { shop_id: 'shop-b', role: 'advisor' },
+    ];
+    expect(pick(shops)).toBe('shop-a');
+  });
+
+  it('only a user with no membership at all gets a new shop', () => {
+    expect(pick([])).toBeNull();
+  });
+});

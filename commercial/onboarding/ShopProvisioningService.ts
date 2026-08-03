@@ -51,15 +51,27 @@ export async function getOrCreatePrimaryShop(
 ): Promise<{ shopId: string; created: boolean }> {
   const db = getAdminDb();
 
-  // Check for existing owner membership
-  const { data: existing } = await db
+  // ANY membership counts as having a shop, not only an 'owner' one.
+  //
+  // This matched role = 'owner' exclusively, so a manager, advisor or
+  // technician looked shop-less and had a brand-new empty shop created for
+  // them. Harmless-looking while only owners signed up — it produced one stray
+  // shop for the platform owner, whose role in the D1 shops is not 'owner' —
+  // but once a customer's staff sign in it is serious: they would land in an
+  // empty shop instead of their employer's, see none of the work, and conclude
+  // the product had lost their data.
+  //
+  // Ordered so a genuine ownership is preferred when someone holds several
+  // memberships; any membership is enough to mean "do not create another".
+  const { data: memberships } = await db
     .from('shop_users')
-    .select('shop_id')
-    .eq('user_id', userId)
-    .eq('role', 'owner')
-    .maybeSingle();
+    .select('shop_id, role')
+    .eq('user_id', userId);
 
-  if (existing?.shop_id) return { shopId: existing.shop_id, created: false };
+  if (memberships && memberships.length > 0) {
+    const owned = memberships.find(m => m.role === 'owner');
+    return { shopId: (owned ?? memberships[0]).shop_id, created: false };
+  }
 
   // The shops table has exactly four columns: id, name, slug, created_at.
   // This insert also sent currency, country and timezone, so PostgREST rejected

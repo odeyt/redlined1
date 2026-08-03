@@ -70,9 +70,17 @@ describe('failures are visible', () => {
 describe('safe to call repeatedly', () => {
   it('relies on getOrCreatePrimaryShop returning an existing shop', () => {
     const svc = read('commercial/onboarding/ShopProvisioningService.ts');
-    // The early return on an existing owner membership is what makes every
+    // The early return on an existing membership is what makes every
     // convergence point above idempotent.
-    expect(svc).toMatch(/if \(existing\?\.shop_id\) return \{ shopId: existing\.shop_id, created: false \}/);
+    expect(svc).toMatch(/if \(memberships && memberships\.length > 0\)[\s\S]{0,200}created: false/);
+  });
+
+  it('counts ANY membership, not only an owner one', () => {
+    const svc = read('commercial/onboarding/ShopProvisioningService.ts');
+    // Matching role = 'owner' exclusively meant a manager or technician looked
+    // shop-less and had an empty shop created for them, instead of landing in
+    // their employer's.
+    expect(svc).not.toMatch(/\.eq\('role', 'owner'\)\s*\n\s*\.maybeSingle\(\)/);
   });
 
   it('useShop only calls it when there is genuinely no membership', () => {
