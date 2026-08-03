@@ -26,11 +26,49 @@ export function usePlan() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('profiles')
           .select('plan, trial_ends_at, shop_id')
           .eq('id', user.id)
           .single();
+
+        // Settle an unsettled plan before reading it.
+        //
+        // ensureInitialPlan runs in /auth/callback and /api/provision. The
+        // callback fires on email-confirmation links but NOT on password
+        // sign-in, and /api/provision is only called when a user has no shop —
+        // so an existing account signing in normally hit neither, and its plan
+        // was never settled. That left accounts stuck as 'free' with a future
+        // trial date the app ignores, losing the paid modules a trial should
+        // include.
+        //
+        // Two states need settling, and only these two:
+        //   plan null            — no plan recorded at all
+        //   'free' + future end  — the contradictory row a signup trigger writes
+        //
+        // A spent trial is 'free' with a NULL end date and is deliberately not
+        // matched, so signing in again can never grant a second trial. Settled
+        // accounts make no extra request.
+        const needsSettling = !error && data
+          && (data.plan == null
+              || (data.plan === 'free'
+                  && data.trial_ends_at != null
+                  && new Date(data.trial_ends_at) > new Date()));
+
+        if (needsSettling) {
+          try {
+            const res = await fetch('/api/provision', { method: 'POST' });
+            if (res.ok) {
+              ({ data, error } = await supabase
+                .from('profiles')
+                .select('plan, trial_ends_at, shop_id')
+                .eq('id', user.id)
+                .single());
+            }
+          } catch {
+            // Leave the plan as read — the next load retries.
+          }
+        }
 
         if (data && !error) {
           setProfileLoaded(true);
