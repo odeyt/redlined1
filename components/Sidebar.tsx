@@ -12,6 +12,7 @@ import { LOGO_SRC } from '@/lib/logo';
 import { fetchShopSettings, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, PLATFORM_MODULES } from '@/lib/planGate';
+import { isModuleAvailable } from '@/lib/moduleAvailability';
 import { useShop, getBlockedModules } from '@/lib/useShop';
 import { useNotifications } from '@/lib/useNotifications';
 
@@ -328,6 +329,8 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   const visibleNav = navItems.filter(([id]) => {
     // Checked before ALWAYS_SHOW so no other rule can re-admit these.
     if (PLATFORM_MODULES.has(id)) return isPlatformOwner;
+    // A module whose tables do not exist cannot work for anyone, on any plan.
+    if (!isModuleAvailable(id)) return false;
     if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
     if (planGated.includes(id)) return false;

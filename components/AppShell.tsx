@@ -47,6 +47,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, needsWatermark } from '@/lib/planGate';
+import { isModuleAvailable } from '@/lib/moduleAvailability';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { RolePermissions, RoleKey } from '@/services/shopSettingsService';
 
@@ -256,7 +257,13 @@ function Shell() {
     ? Object.keys(views).filter(m => !canAccess(m, planStatus))
     : [];
 
-  const allBlocked = [...new Set([...roleBlocked, ...planBlocked])];
+  // Modules whose tables do not exist. Blocked for everyone including the
+  // platform owner: the page fails on first use regardless of who opens it, so
+  // there is nothing for anyone to see. Hiding it in the sidebar is not enough
+  // — SET_MODULE can still be dispatched from a tile or a saved state.
+  const unavailable = Object.keys(views).filter(m => !isModuleAvailable(m));
+
+  const allBlocked = [...new Set([...roleBlocked, ...planBlocked, ...unavailable])];
   const safeModule = allBlocked.includes(activeModule) ? 'dashboard' : activeModule;
   const ActiveView = views[safeModule] || DashboardView;
   // Watermark on invoices only for expired-trial/paid-lapsed, never for Free

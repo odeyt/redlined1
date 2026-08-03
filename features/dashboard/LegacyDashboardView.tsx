@@ -7,6 +7,7 @@ import type { RoleKey } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { navItems } from '@/lib/mock-data';
+import { isModuleAvailable } from '@/lib/moduleAvailability';
 import { Icon, iconColors } from '@/components/Icon';
 import { useOperationalStats } from './shared/useOperationalStats';
 import { dashStyle } from './shared/styles';
@@ -103,7 +104,11 @@ function RoleDashboard({ role, allowedModules, activeModule }: { role: string; a
   const [activeCategory, setActiveCategory] = useState('all');
 
   const excludeSet = (role === 'owner' || role === 'manager') ? OWNER_TILE_EXCLUDE : STAFF_TILE_EXCLUDE;
-  const allTiles = navItems.filter(([id]) => allowedModules.includes(id) && !excludeSet.has(id));
+  // isModuleAvailable is checked here as well as in the sidebar: these tiles are
+  // built from navItems directly, so a module hidden from the nav would still
+  // appear as a tile and dispatch straight into a page that cannot load.
+  const allTiles = navItems.filter(([id]) =>
+    allowedModules.includes(id) && !excludeSet.has(id) && isModuleAvailable(id));
   const visibleCategories = CATEGORIES.filter(c => c.key === 'all' || c.ids.some(id => allTiles.some(([tid]) => tid === id)));
   const tiles = activeCategory === 'all'
     ? allTiles
