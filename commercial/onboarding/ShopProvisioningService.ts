@@ -9,6 +9,7 @@
  */
 
 import { getAdminDb } from '@/lib/supabaseServer';
+import { TRIAL_DAYS } from '@/lib/planGate';
 import type { CommercialPlanKey } from './types';
 
 export interface ShopProvisioningInput {
@@ -108,8 +109,9 @@ export async function ensureOwnerMembership(userId: string, shopId: string): Pro
 
 // ─── Plan provisioning ─────────────────────────────────────────────────────────
 
-/** Length of the evaluation period granted to a new account. */
-export const TRIAL_DAYS = 7;
+// Defined in lib/planGate so the signup page — a client component — can quote
+// it without importing this server-only module. Re-exported for callers here.
+export { TRIAL_DAYS };
 
 /**
  * Settles a user's plan: a new account gets a {@link TRIAL_DAYS}-day trial with

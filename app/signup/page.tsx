@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { TRIAL_DAYS } from '@/lib/planGate';
 
 const VALID_PLANS = new Set(['free', 'solo', 'starter', 'professional', 'business']);
 const VALID_PERIODS = new Set(['monthly', 'annual']);
@@ -213,7 +214,7 @@ export default function SignupPage() {
               label: isPaidPlan ? 'Complete payment' : 'Sign in and explore',
               sub: isPaidPlan
                 ? `You'll be redirected to pay for the ${planMeta.name} plan (${displayPrice})`
-                : 'Free forever — no credit card required',
+                : `Your ${TRIAL_DAYS}-day trial starts — every feature unlocked, no credit card`,
             },
           ].map((step, i) => (
             <div key={i} style={{
@@ -294,7 +295,7 @@ export default function SignupPage() {
           <span className="login-logo-sub">
             {isPaidPlan
               ? `Get ${planMeta.name} — ${displayPrice}`
-              : 'Create Free Account'}
+              : `Start Your ${TRIAL_DAYS}-Day Free Trial`}
           </span>
         </div>
 
@@ -367,13 +368,13 @@ export default function SignupPage() {
               ? 'Creating account…'
               : isPaidPlan
                 ? `Get ${planMeta.name} — ${displayPrice}`
-                : 'Create Free Account'}
+                : 'Start Free Trial'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
             {isPaidPlan
               ? 'After creating your account, confirm your email to proceed to payment.'
-              : 'Free forever with core features. No credit card required.'}
+              : `${TRIAL_DAYS} days of every feature, then free forever with core features. No credit card required.`}
           </p>
         </form>
 

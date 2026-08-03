@@ -1,5 +1,15 @@
 export type PlanStatus = 'trial' | 'free' | 'pro';
 
+/**
+ * Length of the evaluation period granted to a new account.
+ *
+ * Lives here rather than in ShopProvisioningService because the signup page
+ * quotes it to customers, and that is a client component: importing it from
+ * the provisioning service would pull getAdminDb — and the service-role key —
+ * into the browser bundle. This module is client-safe by design.
+ */
+export const TRIAL_DAYS = 7;
+
 const PAID_PLANS = new Set(['pro', 'solo', 'starter', 'professional', 'business', 'enterprise']);
 
 export function getPlanStatus(plan: string | null, trialEndsAt: string | null): PlanStatus {
