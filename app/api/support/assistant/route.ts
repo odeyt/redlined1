@@ -99,7 +99,13 @@ export async function POST(req: NextRequest) {
   const shopId = membership?.shop_id ?? '';
 
   if (shopId) {
-    const used = await getUsage(shopId, 'ai_requests');
+    // Own usage key, deliberately distinct from /api/ai's 'ai_requests'. Both
+    // used to write the same key, so a long support conversation silently ate
+    // into the daily /api/ai allowance this route's own docs say it must
+    // never touch — a customer using support heavily would find themselves
+    // closer to (or over) their DTC Lookup / Inspections quota for reasons
+    // they never triggered themselves.
+    const used = await getUsage(shopId, 'support_ai_requests');
     if (used > DAILY_LIMIT * 30) {
       return NextResponse.json({
         answer: null,
@@ -143,7 +149,7 @@ export async function POST(req: NextRequest) {
     if (!answer) throw new Error('empty response');
 
     if (shopId) {
-      await recordUsage(shopId, 'ai_requests', 1, {
+      await recordUsage(shopId, 'support_ai_requests', 1, {
         feature: 'support_assistant',
         model: AI_MODEL,
         input_tokens: data.usage?.input_tokens ?? 0,

@@ -101,6 +101,7 @@ export type UsageKey =
   | 'job_cards'
   | 'invoices'
   | 'ai_requests'
+  | 'support_ai_requests'
   | 'sms_sent'
   | 'storage_mb';
 

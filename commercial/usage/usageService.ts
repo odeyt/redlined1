@@ -67,7 +67,7 @@ export async function getMonthlyUsage(shopId: string, date = new Date()): Promis
 
   const usageKeys: UsageKey[] = [
     'users', 'locations', 'vehicles', 'job_cards',
-    'invoices', 'ai_requests', 'sms_sent', 'storage_mb',
+    'invoices', 'ai_requests', 'support_ai_requests', 'sms_sent', 'storage_mb',
   ];
 
   const counts = await Promise.all(

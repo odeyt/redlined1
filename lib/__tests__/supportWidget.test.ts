@@ -75,6 +75,12 @@ describe('support is not rationed', () => {
   it('still works for an account with no shop — the likeliest person to need help', () => {
     expect(assistant).toMatch(/No shop simply means unmetered rather than refused/);
   });
+
+  it('meters under its own usage key, not /api/ai\'s — a long conversation must not eat AI credits someone paid for', () => {
+    expect(assistant).toMatch(/'support_ai_requests'/);
+    expect(assistant).not.toMatch(/getUsage\(shopId, 'ai_requests'\)/);
+    expect(assistant).not.toMatch(/recordUsage\(shopId, 'ai_requests'/);
+  });
 });
 
 describe('the assistant is bounded in what it may claim', () => {
