@@ -12,6 +12,9 @@ function makeChain(result: ChainResult) {
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
+    // The daily-quota check filters usage_records by created_at.
+    gte: () => chain,
+    limit: () => chain,
     insert: () => chain,
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (v: unknown) => unknown) => resolve(result),
@@ -25,8 +28,14 @@ const mockInsert = jest.fn();
 
 const mockFrom = jest.fn((table: string) => {
   if (table === 'shop_users') return makeChain(membershipResult);
-  if (table === 'ai_usage_logs') {
-    return { insert: (...args: unknown[]) => { mockInsert(...args); return Promise.resolve({ data: null, error: null }); } };
+  // Usage is recorded in usage_records, not ai_usage_logs — the latter does
+  // not exist in the database, which is why no AI limit was ever enforced.
+  // This table serves two callers: the quota check reads it, the recorder
+  // writes to it, so it must support both a select chain and an insert.
+  if (table === 'usage_records') {
+    const chain = makeChain({ data: [], error: null }) as Record<string, unknown>;
+    chain.insert = (...args: unknown[]) => { mockInsert(...args); return Promise.resolve({ data: null, error: null }); };
+    return chain;
   }
   return makeChain({ data: null, error: null });
 });
@@ -98,7 +107,13 @@ describe('POST /api/ai', () => {
     expect(res.status).toBe(200);
     await new Promise((r) => setTimeout(r, 0));
     expect(mockInsert).toHaveBeenCalledTimes(1);
-    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ shop_id: SHOP_A, user_id: USER_1 }));
+    // usage_records shape: the user id moved into metadata, since usage is
+    // metered per shop and billed to the shop.
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      shop_id:   SHOP_A,
+      usage_key: 'ai_requests',
+      metadata:  expect.objectContaining({ user_id: USER_1 }),
+    }));
   });
 
   it('never trusts a forged shopId into logging — membership is checked per-request, not cached', async () => {

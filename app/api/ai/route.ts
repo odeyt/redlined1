@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { aiRequestSchema } from '@/lib/validation/schemas';
 import { PROMPT_REGISTRY } from '@/lib/ai/prompts';
 import { logger } from '@/lib/logger';
+import { checkAiQuota } from '@/lib/ai/aiQuota';
+import { recordUsage } from '@/commercial/usage/usageService';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const AI_MODEL = process.env.AI_MODEL ?? 'claude-haiku-4-5-20251001';
@@ -62,16 +64,28 @@ async function logUsage(params: {
       logger.warn('Skipped AI usage log — caller is not a member of the claimed shopId', { module: 'api/ai', shopId: params.shopId, userId: params.userId });
       return;
     }
-    const supabase = getAdminClient();
-    await supabase.from('ai_usage_logs').insert({
-      shop_id: params.shopId,
-      user_id: params.userId,
-      feature: params.feature,
-      model: params.model,
-      input_tokens: params.inputTokens,
-      output_tokens: params.outputTokens,
-      estimated_cost: params.estimatedCost,
-    });
+    // Recorded in usage_records, not ai_usage_logs. The latter does not exist
+    // in the database, so this write always failed — silently, because the
+    // catch below logs a warning nobody reads and the call is not awaited.
+    // That is why no AI limit was ever enforced: nothing was ever counted.
+    //
+    // usage_records already carries an 'ai_requests' key and the per-shop,
+    // per-period shape the quota check reads. Token counts and cost go in
+    // metadata, so the detail is not lost.
+    await recordUsage(
+      params.shopId,
+      'ai_requests',
+      1,
+      {
+        feature:        params.feature,
+        model:          params.model,
+        input_tokens:   params.inputTokens,
+        output_tokens:  params.outputTokens,
+        estimated_cost: params.estimatedCost,
+        user_id:        params.userId,
+      },
+      'ai_request',
+    );
   } catch (err) {
     logger.warn('Failed to log AI usage', { module: 'api/ai', error: String(err) });
   }
@@ -201,6 +215,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Enforce the daily limit BEFORE spending money. Every AI call bills the
+    // platform's own Anthropic key, so an unbounded caller is a direct cost,
+    // not merely a fairness problem.
+    //
+    // Checked after the mock-mode branch above deliberately: mock responses
+    // cost nothing and should stay usable for development.
+    const quota = await checkAiQuota(resolvedShopId);
+    if (!quota.allowed) {
+      logger.warn('AI request refused — daily limit reached', {
+        module: 'api/ai', shopId: resolvedShopId, used: quota.used, limit: quota.limit, plan: quota.status,
+      });
+      return NextResponse.json(
+        {
+          error: 'Daily AI limit reached',
+          detail: quota.limit === 0
+            ? 'AI requests are not included in your plan.'
+            : `You have used all ${quota.limit} AI requests for today. The limit resets at midnight UTC.`,
+          used:  quota.used,
+          limit: quota.limit,
+          upgrade: quota.status !== 'pro',
+        },
+        { status: 429 },
+      );
+    }
+
     // Call AI
     const userMessage = prompt.buildUserMessage(context);
     const { result, inputTokens, outputTokens } = await callAnthropic(prompt.system, userMessage);
@@ -210,9 +249,13 @@ export async function POST(req: NextRequest) {
       (inputTokens / 1_000_000) * 0.25 +
       (outputTokens / 1_000_000) * 1.25;
 
-    // Log usage async (don't await — don't block response)
+    // Awaited deliberately. This used to be fire-and-forget "so as not to block
+    // the response", but on serverless an unawaited promise can be discarded
+    // once the response is returned — so the very write the daily limit counts
+    // might never land, leaving the counter permanently at zero. A few
+    // milliseconds is worth a limit that actually holds.
     if (resolvedShopId && user.id) {
-      logUsage({
+      await logUsage({
         shopId: resolvedShopId,
         userId: user.id,
         feature: type,
