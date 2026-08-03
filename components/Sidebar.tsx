@@ -451,9 +451,38 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
         </div>
       )}
       {/* Trial / free plan banner — hidden when collapsed */}
-      {!collapsed && planStatus === 'trial' && daysLeft !== null && daysLeft <= 3 && (
-        <div style={{ margin: '8px 10px', padding: '8px 10px', background: 'rgba(255,193,7,0.15)', border: '1px solid rgba(255,193,7,0.4)', borderRadius: 8, fontSize: 11, color: '#ffc107', textAlign: 'center' }}>
-          ⏳ {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in trial
+      {/*
+        Shown for the WHOLE trial, not only the last three days, and it carries
+        an Upgrade control.
+
+        Previously a trial banner appeared only at daysLeft <= 3 and had no link
+        in it. A customer four days into a seven-day trial therefore saw nothing
+        at all, and one on their final day saw a countdown with nothing to act
+        on — no upgrade affordance existed anywhere in the sidebar for a trial
+        account, at exactly the point of most intent.
+
+        Urgency styling still switches at three days; the call to action does
+        not depend on it.
+      */}
+      {!collapsed && planStatus === 'trial' && daysLeft !== null && (
+        <div style={{
+          margin: '8px 10px', padding: '8px 10px',
+          background: daysLeft <= 3 ? 'rgba(255,193,7,0.15)' : 'rgba(255,193,7,0.08)',
+          border: `1px solid rgba(255,193,7,${daysLeft <= 3 ? 0.4 : 0.2})`,
+          borderRadius: 8, fontSize: 11, color: '#ffc107', textAlign: 'center',
+        }}>
+          {daysLeft <= 3 ? '⏳ ' : ''}
+          {daysLeft} day{daysLeft !== 1 ? 's' : ''} left in trial ·{' '}
+          <button
+            type="button"
+            onClick={() => { dispatch({ type: 'SET_MODULE', module: 'subscriptions' }); onClose?.(); }}
+            style={{
+              color: '#ffc107', fontWeight: 700, background: 'none', border: 'none',
+              padding: 0, font: 'inherit', cursor: 'pointer', textDecoration: 'underline',
+            }}
+          >
+            Upgrade
+          </button>
         </div>
       )}
       {!collapsed && planStatus === 'free' && (
