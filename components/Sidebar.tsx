@@ -310,7 +310,24 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
     ? navItems.map(([id]) => id).filter(id => !canAccess(id, planStatus))
     : [];
 
+  // Operator tooling for whoever runs the SaaS — not features a shop bought.
+  // Testing Dashboard shows Playwright regression results; Disaster Recovery
+  // covers backups and restores; System Health reports platform infrastructure.
+  //
+  // These were visible to every shop owner, because "owner" in this sidebar
+  // means the owner of a SHOP, while these belong to the owner of the PLATFORM.
+  // The APIs behind them already refuse non-platform callers — the Testing
+  // Dashboard renders a bare "FORBIDDEN" — so nothing leaked, but customers
+  // were shown internal tools that could only fail, and their names disclose
+  // more about our internals than a customer should be told.
+  //
+  // LegacyDashboardView already excluded all three from its tiles; the sidebar
+  // was simply never updated to match.
+  const PLATFORM_ONLY = new Set(['system-health', 'disaster-recovery', 'testing-dashboard']);
+
   const visibleNav = navItems.filter(([id]) => {
+    // Checked before ALWAYS_SHOW so no other rule can re-admit these.
+    if (PLATFORM_ONLY.has(id)) return isPlatformOwner;
     if (ALWAYS_SHOW.has(id)) return true;
     if (blockedForRole.includes(id)) return false;
     if (planGated.includes(id)) return false;
