@@ -14,6 +14,7 @@ import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getInternalShopIds } from '@/lib/adminAuth';
 import type { RedlinedPlanId, BillingInterval } from '@/lib/payments/types';
+import { PLANS, PLAN_ORDER } from '@/config/plans';
 
 async function getAuthContext() {
   const cookieStore = await cookies();
@@ -89,11 +90,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const validPlans: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
+    // Derived from the plan catalogue rather than restated here, so adding a
+    // plan cannot leave this list stale.
+    const validPlans = PLAN_ORDER;
     const validIntervals: BillingInterval[] = ['monthly', 'annual'];
 
     if (!validPlans.includes(planId as RedlinedPlanId)) {
       return NextResponse.json({ error: `Invalid planId: ${planId}` }, { status: 400 });
+    }
+
+    // A plan with no price is sold by conversation, not self-service —
+    // Enterprise has no Creem product because the amount is negotiated. It was
+    // nonetheless accepted here, so the request reached getProductId() and threw
+    // "Missing environment variable: CREEM_ENTERPRISE_MONTHLY_PRODUCT_ID",
+    // surfacing to the customer as a 500 naming a variable only we can set.
+    //
+    // Refuse it up front, and say the thing the customer can act on.
+    const plan = PLANS[planId as RedlinedPlanId];
+    if (plan.monthlyPrice === null || plan.annualPrice === null) {
+      return NextResponse.json(
+        {
+          error: `The ${plan.name} plan is priced individually and cannot be bought online.`,
+          detail: 'Please contact sales to arrange it.',
+          contactUrl: '/contact-sales',
+        },
+        { status: 400 },
+      );
     }
     if (!validIntervals.includes(billingInterval as BillingInterval)) {
       return NextResponse.json({ error: `Invalid billingInterval: ${billingInterval}` }, { status: 400 });
