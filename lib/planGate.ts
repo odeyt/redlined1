@@ -20,6 +20,13 @@ export function trialDaysLeft(trialEndsAt: string | null): number {
 const FREE_MODULES = new Set([
   // Core operations
   'dashboard',
+  // AppShell sends every owner and manager to Command Center on load — it is
+  // the designated home, not a premium extra. Omitting it meant a free owner
+  // was redirected there and immediately bounced back to the legacy dashboard,
+  // so the free plan's landing experience was a module it could not open.
+  // The free dashboard already rendered the Command Center panel inline, so
+  // the feature was visible while its page stayed locked.
+  'command-center',
   'customers',
   'vehicles',
   'job-cards',
