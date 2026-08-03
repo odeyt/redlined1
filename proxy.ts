@@ -2,8 +2,26 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * An API route must answer with JSON, never a redirect.
+ *
+ * Redirecting /api/* to /login is meaningless to a caller that expected data:
+ * fetch() follows the 307, receives an HTML login page, and `res.json()` throws
+ * "Unexpected end of JSON input" — which says nothing about the actual problem.
+ * That error appeared twice on 2026-08-03, once in checkout and once when
+ * probing /api/ai, and cost real time to trace both times.
+ *
+ * A status code the client can act on, and a message it can show.
+ */
+function apiJson(status: number, error: string, detail: string) {
+  return NextResponse.json({ error, detail }, { status });
+}
+
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
+
+  // Route handlers only. Pages still redirect, which is right for a browser.
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/');
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -14,6 +32,12 @@ export async function proxy(request: NextRequest) {
     const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping'];
     const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
     if (!isPublic) {
+      // 503, not 401: the caller's credentials are not the problem — the server
+      // is misconfigured. Sending 401 here would have a client uselessly
+      // re-authenticating against an outage it cannot fix.
+      if (isApiRoute) {
+        return apiJson(503, 'Service unavailable', 'The server is not fully configured. Please try again shortly.');
+      }
       return NextResponse.redirect(new URL('/login', request.url));
     }
     return response;
@@ -53,6 +77,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!session && !isPublic) {
+    if (isApiRoute) {
+      return apiJson(401, 'Unauthorized', 'Your session has expired. Reload the page and sign in again.');
+    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
