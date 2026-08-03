@@ -1,4 +1,4 @@
-import { getPlanStatus, canAccess, needsWatermark } from '../planGate';
+import { getPlanStatus, canAccess, needsWatermark, seatLimitFor } from '../planGate';
 
 const future = () => new Date(Date.now() + 7 * 86_400_000).toISOString();
 const past   = () => new Date(Date.now() - 1 * 86_400_000).toISOString();
@@ -83,6 +83,38 @@ describe('canAccess', () => {
     const status = getPlanStatus('trial', past());
     expect(canAccess('parts', status)).toBe(false);
     expect(canAccess('customers', status)).toBe(true);
+  });
+});
+
+describe('seatLimitFor', () => {
+  it('caps Free at 1 seat', () => {
+    expect(seatLimitFor(null, null)).toBe(1);
+    expect(seatLimitFor('free', null)).toBe(1);
+  });
+
+  it('caps Solo at 1 seat, Starter at 3, Professional at 8', () => {
+    expect(seatLimitFor('solo', null)).toBe(1);
+    expect(seatLimitFor('starter', null)).toBe(3);
+    expect(seatLimitFor('professional', null)).toBe(8);
+  });
+
+  it('leaves Business, Enterprise, and the generic "pro" value unlimited', () => {
+    expect(seatLimitFor('business', null)).toBeNull();
+    expect(seatLimitFor('enterprise', null)).toBeNull();
+    expect(seatLimitFor('pro', null)).toBeNull();
+  });
+
+  it('does not cap an active trial that has not chosen a paid tier yet', () => {
+    expect(seatLimitFor(null, future())).toBeNull();
+  });
+
+  it('caps a lapsed trial at the Free limit', () => {
+    expect(seatLimitFor(null, past())).toBe(1);
+  });
+
+  it('a real paid plan value takes priority over a stale trial date either way', () => {
+    expect(seatLimitFor('starter', future())).toBe(3);
+    expect(seatLimitFor('starter', past())).toBe(3);
   });
 });
 

@@ -4,6 +4,7 @@ import { requireShopRole, isLastOwner } from '@/lib/serverAuth';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { parseJsonBody, sanitizeError, escapeHtml, isRateLimited, getTrustedSiteUrl } from '@/lib/apiHelpers';
 import { InviteCreateSchema, InviteRoleChangeSchema } from '@/lib/schemas';
+import { seatLimitFor } from '@/lib/planGate';
 
 /**
  * POST /api/invite — add a staff member to a shop. If the email has no
@@ -85,9 +86,71 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: sanitizeError(profileLookupError, 'invite:POST profile lookup', 'Unable to process invitation') }, { status: 500 });
   }
 
+  const isNewAccount = !existingProfile;
+
+  // Seat cap: only applies when this actually adds a NEW member to this shop
+  // — a role change for someone already on shop_users isn't a new seat. A
+  // brand-new account (isNewAccount) can never already have a shop_users
+  // row for any shop, so that case is unambiguously a new seat with no
+  // lookup needed.
+  //
+  // Checked here, BEFORE generateLink() below, deliberately: generateLink
+  // creates a real Supabase Auth user as a side effect, so resolving seat
+  // impact first avoids creating an orphaned account for an invite that's
+  // about to be rejected anyway.
+  //
+  // Previously this route had no seat check at all — every plan's
+  // advertised cap (Solo: 1, Starter: 3, Professional: 8 — see
+  // components/marketing/PricingSection.tsx) was purely marketing copy; a
+  // Solo shop could invite unlimited staff via this endpoint with zero
+  // pushback.
+  let isNewShopMember = true;
+  if (existingProfile) {
+    const { data: existingMembership } = await admin
+      .from('shop_users')
+      .select('user_id')
+      .eq('shop_id', shopId)
+      .eq('user_id', existingProfile.id)
+      .maybeSingle();
+    isNewShopMember = !existingMembership;
+  }
+
+  if (isNewShopMember) {
+    // The caller is already confirmed 'owner' of shopId by requireShopRole
+    // above — their own plan/trial_ends_at is the shop's plan.
+    const { data: ownerProfile } = await admin
+      .from('profiles')
+      .select('plan, trial_ends_at')
+      .eq('id', auth.context.userId)
+      .maybeSingle();
+    const seatLimit = seatLimitFor(ownerProfile?.plan ?? null, ownerProfile?.trial_ends_at ?? null);
+
+    if (seatLimit !== null) {
+      const { data: seatRows, error: seatCountError } = await admin
+        .from('shop_users')
+        .select('user_id')
+        .eq('shop_id', shopId);
+      if (seatCountError) {
+        return NextResponse.json(
+          { error: sanitizeError(seatCountError, 'invite:POST seat count', 'Unable to process invitation') },
+          { status: 500 },
+        );
+      }
+      if ((seatRows?.length ?? 0) >= seatLimit) {
+        return NextResponse.json(
+          {
+            error: 'Staff seat limit reached',
+            detail: `Your plan includes up to ${seatLimit} technician seat${seatLimit === 1 ? '' : 's'}. Upgrade to add more staff.`,
+            upgrade: true,
+          },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
   let userId: string;
   let inviteActionLink: string | null = null;
-  const isNewAccount = !existingProfile;
 
   if (existingProfile) {
     userId = existingProfile.id;

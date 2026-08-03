@@ -270,6 +270,135 @@ describe('POST /api/invite', () => {
   });
 });
 
+describe('POST /api/invite — seat limit enforcement', () => {
+  const defaultImpl = (table: string) => makeChain(tableResults[table] ?? { data: null, error: null });
+
+  afterEach(() => {
+    // These tests override mockFrom's implementation directly (the shared
+    // per-table `tableResults` mock can't represent two different shapes —
+    // a single membership row vs an array of seat rows — from the same
+    // `shop_users` table in one request). Restore the default afterward so
+    // it doesn't leak into other describe blocks.
+    mockFrom.mockImplementation(defaultImpl);
+  });
+
+  /**
+   * For a brand-new invitee email, `profiles` is queried twice with
+   * different intent — first "does this email already have an account"
+   * (must resolve null so the scenario stays a genuinely new account),
+   * then "what's the inviting owner's plan" (the value under test). This
+   * mock can't tell the two queries apart by filter, only by call order.
+   */
+  function mockNewAccountAtSeatCap(ownerPlan: { plan: string | null; trial_ends_at: string | null }, existingSeatUserIds: string[]) {
+    let profilesCalls = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'shops') return makeChain({ data: { name: 'Test Shop' }, error: null });
+      if (table === 'profiles') {
+        profilesCalls += 1;
+        return makeChain(profilesCalls === 1 ? { data: null, error: null } : { data: ownerPlan, error: null });
+      }
+      if (table === 'shop_users') {
+        return makeChain({ data: existingSeatUserIds.map((id) => ({ user_id: id })), error: null });
+      }
+      return makeChain({ data: null, error: null });
+    });
+  }
+
+  it('blocks a brand-new invite when the Free plan (1 seat) already has an owner', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    tableResults.profiles = { data: null, error: null }; // new account, and owner has no plan/trial on record
+    tableResults.shop_users = { data: [{ user_id: OWNER_USER }], error: null }; // already 1 seat used
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('Staff seat limit reached');
+    expect(body.upgrade).toBe(true);
+    expect(mockGenerateLink).not.toHaveBeenCalled();
+  });
+
+  it('allows a brand-new invite on the Free plan when no seat is used yet', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    tableResults.profiles = { data: null, error: null };
+    tableResults.shop_users = { data: [], error: null };
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+
+  it('blocks a brand-new invite once the Starter plan (3 seats) is full', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    mockNewAccountAtSeatCap({ plan: 'starter', trial_ends_at: null }, ['a', 'b', 'c']);
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.detail).toMatch(/up to 3 technician seats/);
+    expect(mockGenerateLink).not.toHaveBeenCalled();
+  });
+
+  it('allows a brand-new invite on the Professional plan (8 seats) with 3 existing members', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    mockNewAccountAtSeatCap({ plan: 'professional', trial_ends_at: null }, ['a', 'b', 'c']);
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never caps the Business plan (unlimited seats) no matter how many members already exist', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    mockNewAccountAtSeatCap({ plan: 'business', trial_ends_at: null }, Array.from({ length: 50 }, (_, i) => `u${i}`));
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never caps an active trial (no paid tier chosen yet) even at high seat counts', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    const futureTrial = new Date(Date.now() + 5 * 86400000).toISOString();
+    mockNewAccountAtSeatCap({ plan: null, trial_ends_at: futureTrial }, Array.from({ length: 20 }, (_, i) => `u${i}`));
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: NEW_USER }, properties: { action_link: 'https://redlined1.test/x' } },
+      error: null,
+    });
+
+    const res = await POST(makeReq('POST', { email: 'new@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+
+  it('does not count a role change for an already-existing member as a new seat, even at capacity', async () => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    // Existing platform account, AND already a member of this shop — the
+    // membership-check maybeSingle() call must see a row so the seat check
+    // is skipped entirely; the shop_users table is only touched once here.
+    tableResults.profiles = { data: { id: EXISTING_USER, plan: 'free', trial_ends_at: null }, error: null };
+    tableResults.shop_users = { data: { user_id: EXISTING_USER, role: 'technician' }, error: null };
+
+    const res = await POST(makeReq('POST', { email: 'existing@b.com', role: 'manager', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('PATCH /api/invite', () => {
   it('returns 400 for an invalid role', async () => {
     const res = await PATCH(makeReq('PATCH', { userId: EXISTING_USER, shopId: SHOP_A, role: 'superadmin' }));

@@ -242,6 +242,29 @@ export async function POST(req: NextRequest) {
     // Checked after the mock-mode branch above deliberately: mock responses
     // cost nothing and should stay usable for development.
     const quota = await checkAiQuota(resolvedShopId);
+
+    // AI features are sold as a Professional-tier differentiator ("AI repair
+    // intelligence", "AI estimate assistant" — components/marketing/PricingSection.tsx)
+    // but until now this route only throttled requests (10/day), it never
+    // actually checked whether the shop's plan includes AI at all — so a
+    // Free Forever shop could reach this same endpoint through DTC Lookup or
+    // Inspections, just at a lower daily cap. Blocked here, before the quota
+    // check, so a free shop gets a clear upgrade message instead of a
+    // "daily limit" message that implies they'd get more requests tomorrow.
+    if (quota.status === 'free') {
+      logger.warn('AI request refused — not included in the Free plan', {
+        module: 'api/ai', shopId: resolvedShopId,
+      });
+      return NextResponse.json(
+        {
+          error: 'AI features require a paid plan',
+          detail: 'AI-powered features (DTC explanations, estimate drafts, and more) are included starting on the Professional plan. Upgrade to unlock them.',
+          upgrade: true,
+        },
+        { status: 403 },
+      );
+    }
+
     if (!quota.allowed) {
       logger.warn('AI request refused — daily limit reached', {
         module: 'api/ai', shopId: resolvedShopId, used: quota.used, limit: quota.limit, plan: quota.status,

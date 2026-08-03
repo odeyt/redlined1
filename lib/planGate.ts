@@ -146,3 +146,30 @@ export function canAccess(moduleId: string, status: PlanStatus): boolean {
 export function needsWatermark(status: PlanStatus): boolean {
   return status === 'free';
 }
+
+/**
+ * Technician-seat cap per paid tier, from the pricing page (Solo: 1,
+ * Starter: 3, Professional: 8; Business/Enterprise and the generic legacy
+ * 'pro' value: unlimited, returned as null).
+ *
+ * Separate from PlanStatus deliberately: getPlanStatus() collapses every
+ * paid tier to 'pro', which loses exactly the distinction a seat cap needs
+ * (Solo's 1 seat vs Business's unlimited). This reads the raw `plan` column
+ * instead. An active trial with no paid tier chosen yet returns null
+ * (unlimited) — trials are time-boxed anyway, and blocking a shop from
+ * trying the team-invite feature they're evaluating defeats the trial's
+ * purpose.
+ */
+const SEAT_LIMITS: Record<string, number> = {
+  free: 1,
+  solo: 1,
+  starter: 3,
+  professional: 8,
+};
+
+export function seatLimitFor(plan: string | null, trialEndsAt: string | null): number | null {
+  if (plan && plan in SEAT_LIMITS) return SEAT_LIMITS[plan];
+  if (plan && PAID_PLANS.has(plan)) return null; // business / enterprise / generic 'pro'
+  if (trialEndsAt && new Date(trialEndsAt) > new Date()) return null;
+  return SEAT_LIMITS.free;
+}

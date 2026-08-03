@@ -23,11 +23,33 @@ function makeChain(result: ChainResult) {
 }
 
 let membershipResult: ChainResult;
+// checkAiQuota() (lib/ai/aiQuota.ts) reads the shop owner's plan from
+// `profiles` to resolve PlanStatus. Defaults to a paid plan here so the
+// membership/logging-focused tests below aren't incidentally blocked by
+// the free-tier AI gate added to the route — that gate gets its own
+// dedicated tests further down, which override this explicitly.
+let profilesResult: ChainResult = { data: { plan: 'professional', trial_ends_at: null }, error: null };
+// checkAiQuota's owner lookup and logUsage's isShopMember() check are two
+// DIFFERENT queries against `shop_users` (filtered by role='owner' vs by
+// the caller's own user_id) that happen in a fixed order within one
+// request: quota's owner lookup always runs first (if the route gets that
+// far), isShopMember always second. This mock can't distinguish queries by
+// filter, so it distinguishes by call order instead — the 1st call always
+// resolves to a generic owner (so plan resolution isn't accidentally
+// gated by membershipResult, which is about the CALLER's own membership),
+// the 2nd+ call returns membershipResult, matching isShopMember's real
+// question.
+let shopUsersCallCount = 0;
+const GENERIC_OWNER: ChainResult = { data: { user_id: 'generic-owner-id' }, error: null };
 const mockGetUser = jest.fn();
 const mockInsert = jest.fn();
 
 const mockFrom = jest.fn((table: string) => {
-  if (table === 'shop_users') return makeChain(membershipResult);
+  if (table === 'shop_users') {
+    shopUsersCallCount += 1;
+    return makeChain(shopUsersCallCount === 1 ? GENERIC_OWNER : membershipResult);
+  }
+  if (table === 'profiles') return makeChain(profilesResult);
   // Usage is recorded in usage_records, not ai_usage_logs — the latter does
   // not exist in the database, which is why no AI limit was ever enforced.
   // This table serves two callers: the quota check reads it, the recorder
@@ -72,6 +94,8 @@ beforeEach(() => {
   mockFetch.mockReset();
   mockFrom.mockClear();
   membershipResult = { data: null, error: null };
+  profilesResult = { data: { plan: 'professional', trial_ends_at: null }, error: null };
+  shopUsersCallCount = 0;
   mockFetch.mockResolvedValue({
     ok: true,
     json: () => Promise.resolve({
@@ -122,5 +146,50 @@ describe('POST /api/ai', () => {
     await POST(makeReq({ ...VALID_BODY, shopId: SHOP_B }));
     await new Promise((r) => setTimeout(r, 0));
     expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  describe('Free-plan AI gate', () => {
+    // AI is marketed as a Professional-tier differentiator (PricingSection.tsx)
+    // but previously this route only throttled requests (10/day) — a Free
+    // Forever shop could reach it through DTC Lookup/Inspections at the lower
+    // cap, never blocked outright. These confirm the fix: the gate gets checked
+    // before the AI provider is ever called.
+    beforeEach(() => {
+      mockGetUser.mockResolvedValue({ data: { user: { id: USER_1 } } });
+      membershipResult = { data: { user_id: USER_1 }, error: null }; // owner lookup resolves to USER_1
+    });
+
+    it('blocks a Free-plan shop with 403 and never calls the AI provider', async () => {
+      profilesResult = { data: { plan: null, trial_ends_at: null }, error: null };
+      const res = await POST(makeReq(VALID_BODY));
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body.error).toBe('AI features require a paid plan');
+      expect(body.upgrade).toBe(true);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('blocks a shop whose trial has already expired (reads as free)', async () => {
+      const pastTrial = new Date(Date.now() - 86400000).toISOString();
+      profilesResult = { data: { plan: null, trial_ends_at: pastTrial }, error: null };
+      const res = await POST(makeReq(VALID_BODY));
+      expect(res.status).toBe(403);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('allows an active trial shop through to the AI provider', async () => {
+      const futureTrial = new Date(Date.now() + 5 * 86400000).toISOString();
+      profilesResult = { data: { plan: null, trial_ends_at: futureTrial }, error: null };
+      const res = await POST(makeReq(VALID_BODY));
+      expect(res.status).toBe(200);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows a paid-plan shop through to the AI provider', async () => {
+      profilesResult = { data: { plan: 'solo', trial_ends_at: null }, error: null };
+      const res = await POST(makeReq(VALID_BODY));
+      expect(res.status).toBe(200);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 });
