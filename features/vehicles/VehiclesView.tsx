@@ -1615,6 +1615,11 @@ export function VehiclesView() {
   const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
+  // Both locations are mirrored into one list, so a report over "the shop"
+  // silently meant "both shops". '' = all locations, preserving the old default.
+  const [shopFilter, setShopFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState(0); // 0 = every month
+  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
   const [search, setSearch] = useState('');
   const [customerFilter, setCustomerFilter] = useState(''); // customer ID to filter by
   const [custFilterSearch, setCustFilterSearch] = useState('');
@@ -1802,7 +1807,37 @@ export function VehiclesView() {
   // Filtered + searched list
   const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
   const custNameMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
-  const filtered = vehicles.filter(v => {
+
+  const isCompleted = (v: VehicleRecord) => /complet/i.test(v.status);
+
+  /**
+   * The date a vehicle counts against for a monthly report.
+   *
+   * completedAt is the truth. date_received is a fallback for work finished
+   * before completedAt was recorded, and it is the wrong date — a car received
+   * in June and finished in July reports under June. The UI says so rather than
+   * presenting the two as equivalent.
+   */
+  const reportDate = (v: VehicleRecord) => (isCompleted(v) ? v.completedAt : null) ?? v.dateReceived;
+
+  const inSelectedMonth = (v: VehicleRecord) => {
+    if (!monthFilter) return true;
+    const raw = reportDate(v);
+    if (!raw) return false;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getFullYear() === yearFilter && d.getMonth() + 1 === monthFilter;
+  };
+
+  const scoped = vehicles.filter(v => {
+    if (shopFilter && v.shopId !== shopFilter) return false;
+    // The month filter is about when work finished, so it only narrows
+    // completed vehicles. Applying it to open jobs would hide live work.
+    if (monthFilter && isCompleted(v) && !inSelectedMonth(v)) return false;
+    return true;
+  });
+
+  const filtered = scoped.filter(v => {
     // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
     const matchStatus = statusFilter === 'All' || v.status === statusFilter;
@@ -1813,9 +1848,12 @@ export function VehiclesView() {
     return matchStatus && matchSearch;
   });
 
-  // Status counts for filter chips (All excludes archived)
-  const counts: Record<string, number> = { All: vehicles.filter(v => v.status !== 'Archived').length };
-  vehicles.forEach(v => { counts[v.status] = (counts[v.status] ?? 0) + 1; });
+  // Counts follow the same scope as the list. Chips that disagreed with the
+  // rows beneath them are what made the numbers untrustworthy in the first place.
+  const counts: Record<string, number> = { All: scoped.filter(v => v.status !== 'Archived').length };
+  scoped.forEach(v => { counts[v.status] = (counts[v.status] ?? 0) + 1; });
+
+  const completedMissingDate = scoped.filter(v => isCompleted(v) && !v.completedAt).length;
 
   return (
     <>
@@ -2057,6 +2095,52 @@ export function VehiclesView() {
               )}
             </div>
           </div>
+          {/* ── Location + completion month ──
+              Both locations are mirrored into one list, so every count and every
+              report silently spanned both. These two controls are what make
+              "completed at Location 1 in July" a question the page can answer. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+            {shops.length > 1 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+                LOCATION
+                <select value={shopFilter} onChange={e => setShopFilter(e.target.value)}
+                  style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
+                  <option value="">All locations</option>
+                  {shops.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+            )}
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+              COMPLETED IN
+              <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
+                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
+                <option value={0}>Any month</option>
+                {['January','February','March','April','May','June','July','August','September','October','November','December']
+                  .map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+              <select value={yearFilter} onChange={e => setYearFilter(Number(e.target.value))} disabled={!monthFilter}
+                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: monthFilter ? 1 : 0.5 }}>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+                  .map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </label>
+
+            {(shopFilter || monthFilter) && (
+              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); }}
+                style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
+                ✕ Clear filters
+              </button>
+            )}
+
+            {monthFilter > 0 && completedMissingDate > 0 && (
+              <span title="These were completed before a completion date was recorded, so they are dated by when the vehicle arrived — which may fall in a different month."
+                style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ {completedMissingDate} dated by arrival, not completion
+              </span>
+            )}
+          </div>
+
           <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
         </div>
       )}

@@ -29,6 +29,8 @@ type VehicleRow = {
   tech_pay_entries: string | null;
   assigned_tech: string | null;
   date_received: string | null;
+  shop_id: string | null;
+  completed_at: string | null;
 };
 
 export type VehicleRecord = Vehicle & {
@@ -47,6 +49,14 @@ export type VehicleRecord = Vehicle & {
   techPayEntries: string;
   assignedTech: string;
   dateReceived: string | null;
+  /** Which location the vehicle belongs to. Both are mirrored into one list. */
+  shopId: string;
+  /**
+   * When the vehicle's status last became a completed one. Null for work
+   * finished before this was recorded — those can only be dated by when they
+   * arrived, which is not the same thing.
+   */
+  completedAt: string | null;
 };
 
 function toVehicle(row: VehicleRow): VehicleRecord {
@@ -76,6 +86,8 @@ function toVehicle(row: VehicleRow): VehicleRecord {
     techPayEntries:  row.tech_pay_entries ?? '',
     assignedTech:    row.assigned_tech ?? '',
     dateReceived:    row.date_received ?? null,
+    shopId:          row.shop_id ?? '',
+    completedAt:     row.completed_at ?? null,
   };
 }
 
