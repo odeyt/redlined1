@@ -153,17 +153,32 @@ export async function updateRepairOrder(id: string, updates: Partial<RepairOrder
   if (updates.laborLookupAt !== undefined) payload.labor_lookup_at = updates.laborLookupAt;
   if (updates.parts !== undefined) payload.parts = updates.parts;
   if (updates.workLines !== undefined) payload.work_lines = updates.workLines;
-  const { error } = await supabase.from('repair_orders').update(payload).eq('id', id).in('shop_id', getShopIds());
-  if (error) throw error;
-}
-
-export async function closeRepairOrder(id: string): Promise<void> {
-  const { error } = await supabase
+  // count, not just error: an UPDATE matching zero rows — because RLS filtered
+  // it, or the order belongs to a shop not in scope — succeeds silently. That
+  // is how a QA sign-off could close cleanly and write nothing at all.
+  const { error, count } = await supabase
     .from('repair_orders')
-    .update({ status: 'Closed', closed_date: new Date().toISOString() })
+    .update(payload, { count: 'exact' })
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+  if (count === 0) {
+    throw new Error(
+      'The repair order was not saved — no matching record was found. It may belong to a different shop, or your account may not have permission to change it.',
+    );
+  }
+}
+
+export async function closeRepairOrder(id: string): Promise<void> {
+  const { error, count } = await supabase
+    .from('repair_orders')
+    .update({ status: 'Closed', closed_date: new Date().toISOString() }, { count: 'exact' })
+    .eq('id', id)
+    .in('shop_id', getShopIds());
+  if (error) throw error;
+  if (count === 0) {
+    throw new Error('The repair order was not closed — no matching record was found, or your account may not have permission to change it.');
+  }
 }
 
 export async function deleteRepairOrder(id: string): Promise<void> {
