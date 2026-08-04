@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { nextDocumentNumber } from './documentNumberService';
 
 export interface InvoiceLine {
   note: string;
@@ -173,14 +174,7 @@ export async function deleteInvoice(id: string): Promise<void> {
 }
 
 export async function nextInvoiceNumber(): Promise<string> {
-  const { data } = await supabase
-    .from('invoices')
-    .select('number')
-    .order('created_at', { ascending: false })
-    .limit(1000);
-  const nums = (data ?? []).map(r => Number(String(r.number ?? '').replace('INV-', '')) || 0);
-  const max = nums.length > 0 ? Math.max(...nums) : 0;
-  return `INV-${String(max + 1).padStart(4, '0')}`;
+  return nextDocumentNumber('invoice');
 }
 
 export async function cloneInvoice(inv: InvoiceFull): Promise<InvoiceFull> {

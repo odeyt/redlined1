@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { nextDocumentNumber } from './documentNumberService';
 
 export interface RoPart {
   description: string;
@@ -171,12 +172,7 @@ export async function deleteRepairOrder(id: string): Promise<void> {
 }
 
 export async function nextRONumber(): Promise<string> {
-  const { count } = await supabase
-    .from('repair_orders')
-    .select('*', { count: 'exact', head: true })
-    .in('shop_id', getShopIds());
-  const n = (count ?? 0) + 1;
-  return `RO-${String(n).padStart(5, '0')}`;
+  return nextDocumentNumber('repair_order');
 }
 
 export const RO_STATUSES = ['Open', 'In Progress', 'Pending Parts', 'Pending Approval', 'Complete', 'Closed', 'Void'];

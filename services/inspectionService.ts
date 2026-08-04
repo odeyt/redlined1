@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { nextDocumentNumber } from './documentNumberService';
 
 export interface InspectionItem {
   id: string;
@@ -248,14 +249,7 @@ export function createInspectionFromTriage(
 }
 
 export async function nextInspectionNumber(): Promise<string> {
-  const { data } = await supabase
-    .from('inspections')
-    .select('inspection_number')
-    .order('created_at', { ascending: false })
-    .limit(500);
-  const nums = (data ?? []).map(r => Number(String(r.inspection_number ?? '').replace('DVI-', '')) || 0);
-  const max = nums.length > 0 ? Math.max(...nums) : 0;
-  return `DVI-${String(max + 1).padStart(4, '0')}`;
+  return nextDocumentNumber('inspection');
 }
 
 export async function uploadInspectionPhoto(inspectionId: string, itemId: string, file: File): Promise<string> {

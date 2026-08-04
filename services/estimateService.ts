@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { nextDocumentNumber } from './documentNumberService';
 
 export interface EstimateLine {
   note: string;
@@ -146,12 +147,7 @@ export async function deleteEstimate(id: string): Promise<void> {
 }
 
 export async function nextEstimateNumber(): Promise<string> {
-  const { count } = await supabase
-    .from('estimates')
-    .select('*', { count: 'exact', head: true })
-    .in('shop_id', getShopIds());
-  const n = (count ?? 0) + 1;
-  return `EST-${String(n).padStart(4, '0')}`;
+  return nextDocumentNumber('estimate');
 }
 
 export async function cloneEstimate(est: EstimateFull): Promise<EstimateFull> {
