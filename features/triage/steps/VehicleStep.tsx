@@ -16,7 +16,7 @@ interface Props {
 }
 
 interface CustomerOption { id: string; name: string; phone?: string | null }
-interface VehicleOption  { id: string; label: string; make: string; model: string; year: string; engine: string; mileage: string; fuelType: string; transmission: string }
+interface VehicleOption  { id: string; label: string; make: string; model: string; year: string; engine: string; mileage: string; fuelType: string; transmission: string; vin: string; plate: string }
 
 const EMPTY_NEW = { name: '', phone: '', email: '', type: 'Retail' };
 
@@ -84,7 +84,7 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
     const shopId = await getShopId();
     const { data } = await supabase
       .from('vehicles')
-      .select('id, label, make, model, year, engine, mileage, fuel_type, transmission, plate')
+      .select('id, label, make, model, year, engine, mileage, fuel_type, transmission, plate, vin')
       .eq('shop_id', shopId)
       .eq('customer_id', c.id)
       .order('label')
@@ -92,6 +92,8 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
     setVehicleOptions((data ?? []).map(v => ({
       id:           v.id,
       label:        [`${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim(), v.plate ? `#${v.plate}` : ''].filter(Boolean).join(' '),
+      vin:          v.vin ?? '',
+      plate:        v.plate ?? '',
       make:         v.make ?? '',
       model:        v.model ?? '',
       year:         String(v.year ?? ''),
@@ -114,7 +116,7 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
   function handleVehicleSelect(vehicleId: string) {
     const v = vehicleOptions.find(o => o.id === vehicleId);
     if (!v) return;
-    onChange({ ...vehicle, vehicleId: v.id, make: v.make, model: v.model, year: v.year, engine: v.engine, mileage: v.mileage, fuelType: v.fuelType, transmission: v.transmission });
+    onChange({ ...vehicle, vehicleId: v.id, vin: v.vin, plate: v.plate, make: v.make, model: v.model, year: v.year, engine: v.engine, mileage: v.mileage, fuelType: v.fuelType, transmission: v.transmission });
   }
 
   async function handleSaveNewCustomer() {

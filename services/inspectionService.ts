@@ -200,7 +200,7 @@ export async function deleteInspection(id: string): Promise<void> {
 
 export function createInspectionFromTriage(
   session: {
-    vehicle: { year: string; make: string; model: string; mileage: string; customerName?: string; customerId?: string };
+    vehicle: { year: string; make: string; model: string; mileage: string; customerName?: string; customerId?: string; vin?: string };
     categoryId: string | null;
     complaintSummary: string;
     inspectionSuggestions: string[];
@@ -235,7 +235,7 @@ export function createInspectionFromTriage(
     customerName: session.vehicle.customerName ?? '',
     customerId: session.vehicle.customerId ?? '',
     vehicle,
-    vin: '',
+    vin: session.vehicle.vin ?? '',
     mileage: Number(session.vehicle.mileage) || 0,
     technician: '',
     status: 'In Progress',

@@ -82,6 +82,9 @@ export interface TriageVehicle {
   customerId?: string;
   customerName?: string;
   vehicleId?: string;
+  /** Carried from the selected vehicle so the inspection is not re-keyed. */
+  vin?: string;
+  plate?: string;
   make: string;
   model: string;
   year: string;

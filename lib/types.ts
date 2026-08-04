@@ -238,7 +238,7 @@ export interface AppState {
   auditLogs: AuditLog[];
   parts: Part[];
   openNewJobCard: boolean;
-  prefill: { customerName?: string; customerId?: string; vehicle?: string; inspectionId?: string; jobCardId?: string; notes?: string } | null;
+  prefill: { customerName?: string; customerId?: string; vehicle?: string; vin?: string; inspectionId?: string; jobCardId?: string; notes?: string } | null;
 }
 
 export type AppAction =

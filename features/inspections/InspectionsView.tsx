@@ -278,8 +278,21 @@ export function InspectionsView() {
     }
   }, [shopId]);
 
+  // Vehicle Intake creates the inspection itself, then sends its id. Open that
+  // record rather than starting a new form — building a second one here is how
+  // a single intake would end up as two DVIs.
   useEffect(() => {
-    if (!prefill || (!prefill.jobCardId && !prefill.customerName)) return;
+    if (!prefill?.inspectionId) return;
+    const found = inspections.find(i => i.id === prefill.inspectionId);
+    if (!found) return; // list not loaded yet; this reruns when it is
+    setSelected(found);
+    setShowForm(false);
+    dispatch({ type: 'SET_PREFILL', prefill: null });
+  }, [prefill, inspections, dispatch]);
+
+  useEffect(() => {
+    if (!prefill || prefill.inspectionId) return;
+    if (!prefill.jobCardId && !prefill.customerName) return;
     nextInspectionNumber().then(num => {
       setForm({
         ...EMPTY_FORM,
@@ -288,6 +301,7 @@ export function InspectionsView() {
         customerName: prefill.customerName ?? '',
         customerId: prefill.customerId ?? '',
         vehicle: prefill.vehicle ?? '',
+        vin: prefill.vin ?? '',
         jobCardId: prefill.jobCardId ?? '',
       });
       setEditingId(null);

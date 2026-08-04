@@ -44,14 +44,64 @@ async function ensureCustomerId(vehicle: TriageVehicle): Promise<string> {
   if (vehicle.customerId) return vehicle.customerId;
   const name = vehicle.customerName?.trim();
   if (!name) return '';
-  try {
-    const created = await saveCustomer({
-      name, type: 'Retail', phone: '', email: '', address: '', tags: [], followUp: '', portalToken: null,
-    });
-    return created.id;
-  } catch {
-    return ''; // non-fatal — vehicle still saves, just unlinked
+  const created = await saveCustomer({
+    name, type: 'Retail', phone: '', email: '', address: '', tags: [], followUp: '', portalToken: null,
+  });
+  return created.id;
+}
+
+/**
+ * Make the intake's customer and vehicle real records, and return their ids.
+ *
+ * Both completion paths used to call saveVehicle() unconditionally inside a
+ * bare catch. Two consequences:
+ *
+ *  - Picking an existing vehicle still created a second copy of it, every
+ *    time, because vehicleId was collected and then never read.
+ *  - When creation failed, the catch discarded the error. Customers and
+ *    Vehicles stayed at zero in the sidebar with nothing to explain why, which
+ *    is what a shop sees as "intake doesn't do anything".
+ *
+ * Reusing the selected vehicle also carries its VIN and plate forward, so the
+ * inspection opens identified instead of blank.
+ */
+async function ensureCustomerAndVehicle(vehicle: TriageVehicle): Promise<{
+  customerId: string; vehicleId: string; vin: string; plate: string;
+}> {
+  const customerId = await ensureCustomerId(vehicle);
+
+  // Already a real vehicle — reuse it rather than creating a duplicate.
+  if (vehicle.vehicleId) {
+    return { customerId, vehicleId: vehicle.vehicleId, vin: vehicle.vin ?? '', plate: vehicle.plate ?? '' };
   }
+
+  if (!vehicle.make || !vehicle.model) {
+    return { customerId, vehicleId: '', vin: vehicle.vin ?? '', plate: vehicle.plate ?? '' };
+  }
+
+  const saved = await saveVehicle({
+    customerId,
+    vin:          vehicle.vin ?? '',
+    label:        `${vehicle.year ?? ''} ${vehicle.make} ${vehicle.model}`.trim(),
+    make:         vehicle.make,
+    model:        vehicle.model,
+    year:         vehicle.year ?? '',
+    fuelType:     vehicle.fuelType ?? '',
+    trim:         '',
+    engine:       vehicle.engine ?? '',
+    transmission: vehicle.transmission ?? '',
+    mileage:      vehicle.mileage ?? '',
+    plate:        vehicle.plate ?? '',
+    status:       'Active',
+    recommendation: '',
+  });
+
+  return {
+    customerId,
+    vehicleId: (saved as { id?: string })?.id ?? '',
+    vin:   vehicle.vin ?? '',
+    plate: vehicle.plate ?? '',
+  };
 }
 
 // ─── Knowledge Graph insight lookup (no AI) ──────────────────────────────────
@@ -198,28 +248,13 @@ export function TriageView() {
     // If a customer name was typed but never explicitly linked (the
     // "+ Add as new customer" step is easy to skip), create the record now
     // rather than silently dropping it.
-    const resolvedCustomerId = await ensureCustomerId(session.vehicle);
-
-    // Register vehicle in Vehicle Management if it has make/model
-    if (session.vehicle.make && session.vehicle.model) {
-      try {
-        await saveVehicle({
-          customerId:   resolvedCustomerId,
-          vin:          '',
-          label:        `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
-          make:         session.vehicle.make,
-          model:        session.vehicle.model,
-          year:         session.vehicle.year ?? '',
-          fuelType:     session.vehicle.fuelType ?? '',
-          trim:         '',
-          engine:       session.vehicle.engine ?? '',
-          transmission: session.vehicle.transmission ?? '',
-          mileage:      session.vehicle.mileage ?? '',
-          plate:        '',
-          status:       'Active',
-          recommendation: '',
-        });
-      } catch { /* non-fatal — vehicle may already exist */ }
+    let resolvedCustomerId = '';
+    try {
+      ({ customerId: resolvedCustomerId } = await ensureCustomerAndVehicle(session.vehicle));
+    } catch (e) {
+      setSaving(false);
+      showToast(`Could not save the customer or vehicle: ${e instanceof Error ? e.message : 'unknown error'}`);
+      return;
     }
 
     setSaving(false);
@@ -239,33 +274,34 @@ export function TriageView() {
     if (!session) return;
     setSaving(true);
     try {
+      // Customer and vehicle first: the inspection is built from what they
+      // resolve to, so creating it beforehand would bake in the blanks.
+      const { customerId, vin } = await ensureCustomerAndVehicle(session.vehicle);
+
       const inspNumber = await nextInspectionNumber();
-      const draft = createInspectionFromTriage(session, inspNumber);
-      await createInspection(draft);
+      const draft = createInspectionFromTriage(
+        { ...session, vehicle: { ...session.vehicle, customerId, vin } },
+        inspNumber,
+      );
+      const created = await createInspection(draft);
       await saveTriageSession({ ...session, status: 'complete' });
 
-      // Register vehicle in Vehicle Management
-      if (session.vehicle.make && session.vehicle.model) {
-        try {
-          await saveVehicle({
-            customerId:   await ensureCustomerId(session.vehicle),
-            vin:          '',
-            label:        `${session.vehicle.make} ${session.vehicle.model}${session.vehicle.year ? ' ' + session.vehicle.year : ''}`.trim(),
-            trim:         '',
-            engine:       session.vehicle.engine ?? '',
-            transmission: session.vehicle.transmission ?? '',
-            mileage:      session.vehicle.mileage ?? '',
-            plate:        '',
-            status:       'Active',
-            recommendation: '',
-          });
-        } catch { /* non-fatal */ }
-      }
-
       showToast('Inspection created — opening Digital Inspections…');
+      // Carry the identity across. Without this the module opened on a blank
+      // editor and everything just captured had to be typed again.
+      dispatch({
+        type: 'SET_PREFILL',
+        prefill: {
+          inspectionId: (created as { id?: string })?.id ?? '',
+          customerId,
+          customerName: session.vehicle.customerName ?? '',
+          vehicle: `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
+          vin,
+        },
+      });
       dispatch({ type: 'SET_MODULE', module: 'inspections' });
     } catch (e) {
-      showToast('Failed to create inspection');
+      showToast(`Failed to create inspection: ${e instanceof Error ? e.message : 'unknown error'}`);
     } finally {
       setSaving(false);
     }
