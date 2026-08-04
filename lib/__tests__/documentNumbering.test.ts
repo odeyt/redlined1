@@ -189,4 +189,19 @@ describe('one shop cannot touch another shop\'s numbering', () => {
   it('grants anon nothing', () => {
     expect(migration).toMatch(/revoke execute on function public\.next_document_number\(uuid, text\) from anon/);
   });
+
+  it('revokes PUBLIC, which is what actually holds the default grant', () => {
+    // Postgres grants EXECUTE to PUBLIC on every new function, so revoking
+    // anon alone leaves it callable. Verified live: an anon call reached the
+    // function body and was stopped only by the membership check.
+    expect(selfSeed).toMatch(/revoke execute on function public\.next_document_number\(uuid, text\) from public/);
+  });
+
+  it('re-grants authenticated after the revoke, not before', () => {
+    // Revoking PUBLIC after granting authenticated would be fine, but the
+    // reverse order is what makes the intent readable and the result certain.
+    expect(selfSeed.indexOf('from public;')).toBeLessThan(
+      selfSeed.indexOf('grant  execute on function'),
+    );
+  });
 });

@@ -97,7 +97,12 @@ select shop_id, 'inspection',
   from public.inspections where shop_id is not null group by shop_id
 on conflict (shop_id, doc_type) do nothing;
 
-grant execute on function public.next_document_number(uuid, text) to authenticated;
+-- PUBLIC, not just anon. Postgres grants EXECUTE to PUBLIC on every new
+-- function, so revoking from anon alone leaves the function callable — anon
+-- reaches the body and is stopped only by the membership check. That check is
+-- the real defence, but it should not be the only one.
+revoke execute on function public.next_document_number(uuid, text) from public;
 revoke execute on function public.next_document_number(uuid, text) from anon;
+grant  execute on function public.next_document_number(uuid, text) to authenticated;
 
 notify pgrst, 'reload schema';
