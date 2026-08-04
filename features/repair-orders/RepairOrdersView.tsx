@@ -1031,6 +1031,18 @@ export function RepairOrdersView() {
                 </button>
               )}
 
+              {/* SA / MANAGER / OWNER: the same button, disabled, before the tech submits.
+                  Rendering nothing here is what made the workflow unreadable — an owner
+                  saw no way to finish the order and no reason why, which is
+                  indistinguishable from the feature being broken. */}
+              {!isTech && ['Open', 'In Progress', 'Pending Parts'].includes(selected.status) && (
+                <button className="btn" disabled
+                  title="The technician must submit this repair order for review before it can be signed off."
+                  style={{ background: 'var(--surface-soft)', color: 'var(--muted)', border: '1px dashed var(--line)', fontWeight: 700, fontSize: 13, cursor: 'not-allowed' }}>
+                  🔍 QA Sign-Off — awaiting technician submission
+                </button>
+              )}
+
               {/* SA / MANAGER / OWNER: re-open QA if Complete but no sign-off recorded */}
               {!isTech && selected.status === 'Complete' && !selected.notes?.includes('QA SIGN-OFF') && (
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.1)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)', fontWeight: 700 }}
