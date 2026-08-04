@@ -20,6 +20,7 @@ const root = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 const migration = read('supabase/migrations/2026-08-04_document_counters.sql');
+const selfSeed  = read('supabase/migrations/2026-08-04_document_counters_self_seed.sql');
 const helper    = read('services/documentNumberService.ts');
 const services  = {
   repairOrder: read('services/repairOrderService.ts'),
@@ -100,6 +101,46 @@ describe('existing numbers are not reissued', () => {
   it('is safe to run twice', () => {
     expect(migration).toMatch(/create table if not exists/);
     expect((migration.match(/on conflict \(shop_id, doc_type\) do nothing/g) ?? []).length).toBe(4);
+  });
+});
+
+/**
+ * The first seed covered 3 of the 9 rows the data needs. That mattered because
+ * the function inserted last_value=1 when it found no counter row — so the next
+ * invoice at a shop with 28 of them would have been allocated INV-0001.
+ *
+ * A fix for duplicates that issues duplicates is worse than no fix, so the
+ * function no longer trusts the seed.
+ */
+describe('a missing counter cannot restart numbering at one', () => {
+  it('derives the starting point from the source table', () => {
+    expect(selfSeed).toMatch(/if not exists \(\s*select 1 from public\.document_counters/);
+    expect(selfSeed).toMatch(/v_seed := case p_doc_type/);
+  });
+
+  it('seeds from every source table, by shop', () => {
+    for (const t of ['repair_orders', 'estimates', 'invoices', 'inspections']) {
+      expect(selfSeed).toMatch(new RegExp(`from public\\.${t} where shop_id = p_shop_id`));
+    }
+  });
+
+  it('seeds from the highest issued, not the row count', () => {
+    expect((selfSeed.match(/coalesce\(max\(/g) ?? []).length).toBeGreaterThanOrEqual(8);
+    expect(selfSeed).not.toMatch(/count\(\*\)/i);
+  });
+
+  it('a losing racer does not overwrite the seed already written', () => {
+    // DO UPDATE here would let a second caller rewind the counter.
+    expect(selfSeed).toMatch(/values \(p_shop_id, p_doc_type, coalesce\(v_seed, 0\)\)\s*\n\s*on conflict \(shop_id, doc_type\) do nothing/);
+  });
+
+  it('still checks membership before it can seed anything', () => {
+    expect(selfSeed.indexOf('not a member of shop')).toBeLessThan(selfSeed.indexOf('v_seed :='));
+  });
+
+  it('reloads the API schema cache, which DDL alone does not', () => {
+    // Without this the app gets 404 from PostgREST and every save fails.
+    expect(selfSeed).toMatch(/notify pgrst, 'reload schema'/);
   });
 });
 
