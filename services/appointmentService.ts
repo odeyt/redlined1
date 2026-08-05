@@ -99,7 +99,9 @@ export async function createAppointment(date: string, row: AppointmentRow): Prom
 
   if (!error) {
     if (technicianColumnExists === null) technicianColumnExists = true;
-    return toRow(data as DbRow);
+    const created = toRow(data as DbRow);
+    publishAppointmentBooked(created);
+    return created;
   }
 
   // Missing technician column — retry without it
@@ -108,7 +110,9 @@ export async function createAppointment(date: string, row: AppointmentRow): Prom
     const { data: d2, error: e2 } = await supabase
       .from('appointments').insert(base).select().single();
     if (e2) throw e2;
-    return toRow(d2 as DbRow);
+    const created = toRow(d2 as DbRow);
+    publishAppointmentBooked(created);
+    return created;
   }
 
   // shop_id column missing or bad UUID — retry without shop_id
@@ -119,10 +123,33 @@ export async function createAppointment(date: string, row: AppointmentRow): Prom
     const { data: d3, error: e3 } = await supabase
       .from('appointments').insert(clean).select().single();
     if (e3) throw e3;
-    return toRow(d3 as DbRow);
+    const created = toRow(d3 as DbRow);
+    publishAppointmentBooked(created);
+    return created;
   }
 
   throw error;
+}
+
+// Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws.
+// Shared by all three insert paths above (primary + two column-missing
+// retry fallbacks) so the event fires exactly once regardless of which
+// path actually succeeded.
+function publishAppointmentBooked(created: AppointmentRecord): void {
+  import('@/lib/sapelee/publish')
+    .then(({ publishSapeleeEvent }) =>
+      publishSapeleeEvent(supabase, {
+        eventType: 'appointment.booked',
+        payload: {
+          appointmentId: created.id,
+          scheduledFor: new Date(created.date).toISOString(),
+        },
+        shopId: getShopId(),
+        aggregateType: 'appointment',
+        aggregateId: created.id,
+      })
+    )
+    .catch(() => { /* sapelee integration must never affect production */ });
 }
 
 export async function updateAppointment(id: string, date: string, row: AppointmentRow): Promise<void> {

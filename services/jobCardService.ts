@@ -130,6 +130,17 @@ export async function createJobCard(fields: {
     const { publishEvent } = await import('@/intelligence/IntelligenceService');
     publishEvent('JobCardCreated', getShopId(), '', 'job_card', id);
   } catch { /* intelligence must never affect production */ }
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'job_card.created',
+      payload: { jobCardId: id },
+      shopId: getShopId(),
+      aggregateType: 'job_card',
+      aggregateId: id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
   return toJob(data);
 }
 
@@ -197,6 +208,17 @@ export async function closeJob(job: JobCardFull): Promise<void> {
     const { publishEvent } = await import('@/intelligence/IntelligenceService');
     publishEvent('RepairOrderCompleted', getShopId(), '', 'job_card', job.id);
   } catch { /* intelligence must never affect production */ }
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'repair.completed',
+      payload: { jobCardId: job.id, completedAt: closedDate },
+      shopId: getShopId(),
+      aggregateType: 'job_card',
+      aggregateId: job.id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
 }
 
 export async function deleteJobCard(id: string): Promise<void> {

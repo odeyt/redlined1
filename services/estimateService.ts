@@ -139,6 +139,17 @@ export async function approveEstimate(id: string): Promise<void> {
     const { publishEvent } = await import('@/intelligence/IntelligenceService');
     publishEvent('EstimateApproved', getShopId(), '', 'estimate', id);
   } catch { /* intelligence must never affect production */ }
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'estimate.accepted',
+      payload: { estimateId: id },
+      shopId: getShopId(),
+      aggregateType: 'estimate',
+      aggregateId: id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
 }
 
 export async function deleteEstimate(id: string): Promise<void> {
