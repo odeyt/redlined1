@@ -40,6 +40,20 @@ export async function saveCustomer(customer: Omit<Customer, 'id'>): Promise<Cust
     .select()
     .single();
   if (error) throw error;
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws.
+  // Payload is deliberately id-only: no name/phone/email/address — a
+  // privacy-scope decision (see lib/events/schemas/redlined1-events.ts on
+  // the Sapelee side), not an oversight.
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'customer.created',
+      payload: { customerId: data.id },
+      shopId: getShopId(),
+      aggregateType: 'customer',
+      aggregateId: data.id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
   return {
     id: data.id,
     name: data.name,

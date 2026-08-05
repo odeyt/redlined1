@@ -138,6 +138,25 @@ export async function saveVehicle(
     .select()
     .single();
   if (error) throw error;
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws.
+  // Deliberately no VIN in the payload — privacy scope decision, see
+  // lib/events/schemas/redlined1-events.ts on the Sapelee side.
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'vehicle.created',
+      payload: {
+        vehicleId: data.id,
+        customerId: vehicle.customerId || undefined,
+        year: vehicle.year && !Number.isNaN(Number(vehicle.year)) ? Number(vehicle.year) : undefined,
+        make: vehicle.make,
+        model: vehicle.model,
+      },
+      shopId: getShopId(),
+      aggregateType: 'vehicle',
+      aggregateId: data.id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
   return toVehicle(data);
 }
 

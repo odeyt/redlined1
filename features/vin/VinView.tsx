@@ -5,6 +5,7 @@ import { Panel } from '@/components/Panel';
 import { decodeVinAPI, vinChecksum, type VinDecodeResult } from '@/services/vinDecoderService';
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { supabase } from '@/lib/supabase';
+import { getShopId } from '@/lib/shopStore';
 
 type SaveTarget = 'none' | 'vehicle' | 'job-card';
 
@@ -73,6 +74,20 @@ export function VinView() {
       if (!customersLoaded) {
         fetchCustomerNames().then(c => { setCustomers(c); setCustomersLoaded(true); }).catch(() => {});
       }
+      // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws.
+      // No vehicleId yet (decode happens before any vehicle record exists) —
+      // the schema treats it as optional for exactly this reason.
+      import('@/lib/sapelee/publish').then(({ publishSapeleeEvent }) =>
+        publishSapeleeEvent(supabase, {
+          eventType: 'vin.decoded',
+          payload: {
+            year: data.year && !Number.isNaN(Number(data.year)) ? Number(data.year) : undefined,
+            make: data.make || undefined,
+            model: data.model || undefined,
+          },
+          shopId: getShopId(),
+        })
+      ).catch(() => { /* sapelee integration must never affect production */ });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Decode failed. Check your internet connection.');
     } finally { setLoading(false); }

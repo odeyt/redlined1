@@ -166,6 +166,20 @@ export async function markInvoicePaid(id: string): Promise<void> {
     const { publishEvent } = await import('@/intelligence/IntelligenceService');
     publishEvent('InvoicePaid', getShopId(), '', 'invoice', id);
   } catch { /* intelligence must never affect production */ }
+  // Non-blocking Sapelee Event Bus hook — fire-and-forget, never throws.
+  // No amount here: markInvoicePaid(id) only has the id in scope, and the
+  // paid total is a client-computed derivation from line items (no stored
+  // `total` column) — not re-derived here just to populate this event.
+  try {
+    const { publishSapeleeEvent } = await import('@/lib/sapelee/publish');
+    publishSapeleeEvent(supabase, {
+      eventType: 'payment.received',
+      payload: { invoiceId: id },
+      shopId: getShopId(),
+      aggregateType: 'invoice',
+      aggregateId: id,
+    });
+  } catch { /* sapelee integration must never affect production */ }
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
