@@ -29,22 +29,76 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      # Wait for Vercel preview deployment to be ready
-      - name: Wait for Vercel Preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+      # Resolves the preview URL by querying the GitHub Deployments API
+      # directly, rather than trusting a third-party action's first result.
+      #
+      # Why: this repo has TWO Vercel integrations posting deployment
+      # statuses for the same commits — the real one (team
+      # "redlined1-s-projects") and a stray legacy one (personal account
+      # "d1-imports", predating the team, still connected). Confirmed via
+      # the raw API that the SAME deployment id posts two different
+      # environment_url values ~29s apart, one per scope, under the SAME
+      # environment name — so no action input (environment name, "latest
+      # deployment", etc.) can disambiguate them; only filtering the URL
+      # string itself can. patrickedqvist/wait-for-vercel-preview has no
+      # such filter (verified against its actual v1.3.3 action.yml), so it
+      # was replaced here rather than reconfigured.
+      #
+      # d1-imports's integration should eventually be disconnected at the
+      # source (needs whichever separate Vercel login owns it, unknown at
+      # commit time) — this filter is the resilient-in-the-meantime fix,
+      # not a replacement for that.
+      # Narrowed twice, deliberately: filters by BOTH the exact "Preview –
+      # redlined1" environment name (this repo also has a second, legitimate
+      # project — "d1-redline" — auto-deploying from every push, whose
+      # bypass secret isn't configured; picking its URL would 401 even with
+      # a valid VERCEL_AUTOMATION_BYPASS_SECRET) AND the environment_url
+      # containing "redlined1-s-projects" (excludes the stray d1-imports
+      # legacy integration, which posts under this SAME environment name —
+      # confirmed via the raw API, see docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md).
+      # Only the "redlined1" project has a bypass secret provisioned today.
+      - name: Resolve Vercel Preview URL (redlined1 project, redlined1-s-projects scope only)
         id: vercel_preview
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 300
-          check_interval: 15
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          MAX_ATTEMPTS=20
+          SLEEP_SECONDS=15
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            URL=""
+            DEPLOYMENT_IDS=$(gh api "repos/${REPO}/deployments?sha=${SHA}&per_page=100" \
+              --jq '.[] | select(.environment == "Preview – redlined1") | .id')
+            for id in $DEPLOYMENT_IDS; do
+              MATCH=$(gh api "repos/${REPO}/deployments/${id}/statuses?per_page=100" \
+                --jq '.[] | select(.state=="success") | select(.environment_url | contains("redlined1-s-projects")) | .environment_url' \
+                | head -n 1)
+              if [ -n "$MATCH" ]; then
+                URL="$MATCH"
+                break
+              fi
+            done
+            if [ -n "$URL" ]; then
+              echo "Resolved redlined1 project preview URL: $URL"
+              echo "url=$URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS}: no matching redlined1 preview deployment ready yet, retrying in ${SLEEP_SECONDS}s..."
+            sleep "$SLEEP_SECONDS"
+          done
+          echo "::error::Timed out waiting for a redlined1-s-projects-scoped 'Preview – redlined1' deployment for ${SHA}"
+          exit 1
 
       - name: Run public smoke tests against Preview
         run: npx playwright test --project=smoke-chromium
         env:
           TEST_MODE: preview
           VERCEL_PREVIEW_URL: ${{ steps.vercel_preview.outputs.url }}
+          # Playwright's own browser requests hit the same protection wall —
+          # the wait step bypasses it just for the readiness check, this
+          # makes playwright.config.ts do the same for the actual test run.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           CI: true
 
       - name: Upload Playwright Report
