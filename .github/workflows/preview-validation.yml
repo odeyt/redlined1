@@ -29,23 +29,57 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      # Wait for Vercel preview deployment to be ready. v1.3.3+ adds
-      # vercel_protection_bypass_header support — needed because this
-      # project's preview deployments sit behind Vercel's deployment
-      # protection wall (returns 401 to plain requests, confirmed by the
-      # original failure: 20/20 polling attempts got 401, not a real app
-      # error). See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md
-      # for how to provision VERCEL_AUTOMATION_BYPASS_SECRET.
-      - name: Wait for Vercel Preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
+      # Resolves the preview URL by querying the GitHub Deployments API
+      # directly, rather than trusting a third-party action's first result.
+      #
+      # Why: this repo has TWO Vercel integrations posting deployment
+      # statuses for the same commits — the real one (team
+      # "redlined1-s-projects") and a stray legacy one (personal account
+      # "d1-imports", predating the team, still connected). Confirmed via
+      # the raw API that the SAME deployment id posts two different
+      # environment_url values ~29s apart, one per scope, under the SAME
+      # environment name — so no action input (environment name, "latest
+      # deployment", etc.) can disambiguate them; only filtering the URL
+      # string itself can. patrickedqvist/wait-for-vercel-preview has no
+      # such filter (verified against its actual v1.3.3 action.yml), so it
+      # was replaced here rather than reconfigured.
+      #
+      # d1-imports's integration should eventually be disconnected at the
+      # source (needs whichever separate Vercel login owns it, unknown at
+      # commit time) — this filter is the resilient-in-the-meantime fix,
+      # not a replacement for that.
+      - name: Resolve Vercel Preview URL (redlined1-s-projects only)
         id: vercel_preview
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          max_timeout: 300
-          check_interval: 15
-          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          MAX_ATTEMPTS=20
+          SLEEP_SECONDS=15
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            URL=""
+            DEPLOYMENT_IDS=$(gh api "repos/${REPO}/deployments?sha=${SHA}&per_page=100" \
+              --jq '.[] | select(.environment | startswith("Preview")) | .id')
+            for id in $DEPLOYMENT_IDS; do
+              MATCH=$(gh api "repos/${REPO}/deployments/${id}/statuses?per_page=100" \
+                --jq '.[] | select(.state=="success") | select(.environment_url | contains("redlined1-s-projects")) | .environment_url' \
+                | head -n 1)
+              if [ -n "$MATCH" ]; then
+                URL="$MATCH"
+                break
+              fi
+            done
+            if [ -n "$URL" ]; then
+              echo "Resolved redlined1-s-projects preview URL: $URL"
+              echo "url=$URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS}: no redlined1-s-projects preview deployment ready yet, retrying in ${SLEEP_SECONDS}s..."
+            sleep "$SLEEP_SECONDS"
+          done
+          echo "::error::Timed out waiting for a redlined1-s-projects-scoped preview deployment for ${SHA}"
+          exit 1
 
       - name: Run public smoke tests against Preview
         run: npx playwright test --project=smoke-chromium

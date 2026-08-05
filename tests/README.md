@@ -160,11 +160,15 @@ tests/
 
 `.github/workflows/preview-validation.yml`
 
-Triggers on every PR targeting `main`. Waits for the Vercel preview deployment,
-then runs `@smoke` tests against the preview URL.
+Triggers on every PR targeting `main`. Resolves the preview URL via the
+GitHub Deployments API (filtered to the `redlined1-s-projects` scope only —
+see the workflow file for why), then runs `@smoke` tests against it.
 
 **Secrets required in GitHub repo settings:**
-- `VERCEL_TOKEN` — Vercel personal access token
+- `VERCEL_AUTOMATION_BYPASS_SECRET` — from the `redlined1-s-projects` Vercel
+  team's Deployment Protection settings ("Protection Bypass for Automation").
+  Required for the check to pass at all — preview deployments sit behind
+  Vercel's protection wall. See `docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md`.
 
 ### Production smoke (manual)
 
