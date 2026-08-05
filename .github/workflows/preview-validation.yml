@@ -29,14 +29,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      # Wait for Vercel preview deployment to be ready
+      # Wait for Vercel preview deployment to be ready. v1.3.3+ adds
+      # vercel_protection_bypass_header support — needed because this
+      # project's preview deployments sit behind Vercel's deployment
+      # protection wall (returns 401 to plain requests, confirmed by the
+      # original failure: 20/20 polling attempts got 401, not a real app
+      # error). See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md
+      # for how to provision VERCEL_AUTOMATION_BYPASS_SECRET.
       - name: Wait for Vercel Preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.3.1
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         id: vercel_preview
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 300
           check_interval: 15
+          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
@@ -45,6 +52,10 @@ jobs:
         env:
           TEST_MODE: preview
           VERCEL_PREVIEW_URL: ${{ steps.vercel_preview.outputs.url }}
+          # Playwright's own browser requests hit the same protection wall —
+          # the wait step bypasses it just for the readiness check, this
+          # makes playwright.config.ts do the same for the actual test run.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           CI: true
 
       - name: Upload Playwright Report

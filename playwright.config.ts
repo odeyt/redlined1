@@ -65,6 +65,13 @@ export default defineConfig({
     video:      'retain-on-failure',
     actionTimeout:     15_000,
     navigationTimeout: 20_000,
+    // Preview deployments sit behind Vercel's deployment protection wall
+    // (401 to any request without this header) — only sent for preview
+    // runs, and only if the secret is actually configured, so local and
+    // production runs (neither protected) are never affected.
+    ...(MODE === 'preview' && process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } }
+      : {}),
   },
 
   outputDir: 'tests/screenshots',
