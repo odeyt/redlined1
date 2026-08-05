@@ -12,9 +12,9 @@ import type { PublishSapeleeEventInput } from './types'
  * Delivery to Sapelee happens later, out-of-band, in lib/sapelee/flush.ts —
  * server-only, holds the real secret, never imported here.
  *
- * Safe-by-default: SAPELEE_EVENTS_ENABLED must be explicitly 'true' or this
- * is a complete no-op — not even a queue write — matching "unconfigured
- * always means safe" on both sides of this integration.
+ * Safe-by-default: NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED must be explicitly
+ * 'true' or this is a complete no-op — not even a queue write — matching
+ * "unconfigured always means safe" on both sides of this integration.
  */
 export async function publishSapeleeEvent(
   supabase: SupabaseClient,
