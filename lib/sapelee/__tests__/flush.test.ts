@@ -3,7 +3,7 @@ import { flushSapeleeOutbox } from '../flush';
 const ORIGINAL_ENV = { ...process.env };
 
 function setConfigEnv() {
-  process.env.SAPELEE_EVENTS_ENABLED = 'true';
+  process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = 'true';
   process.env.SAPELEE_EVENTS_URL = 'https://sapelee.example.com';
   process.env.SAPELEE_KEY_ID = 'rlk_live_test';
   process.env.SAPELEE_API_SECRET = 'whsec_test_secret';
@@ -58,15 +58,15 @@ function fakeSupabase(rows: unknown[]) {
 }
 
 describe('flushSapeleeOutbox', () => {
-  it('is a no-op when SAPELEE_EVENTS_ENABLED is not set', async () => {
-    delete process.env.SAPELEE_EVENTS_ENABLED;
+  it('is a no-op when NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED is not set', async () => {
+    delete process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED;
     const { client } = fakeSupabase([row()]);
     const result = await flushSapeleeOutbox(client);
     expect(result.attempted).toBe(0);
   });
 
   it('is a no-op when enabled but not configured (missing url/key/secret)', async () => {
-    process.env.SAPELEE_EVENTS_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = 'true';
     const { client } = fakeSupabase([row()]);
     const result = await flushSapeleeOutbox(client);
     expect(result.attempted).toBe(0);

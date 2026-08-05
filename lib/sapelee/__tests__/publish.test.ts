@@ -1,10 +1,10 @@
 import { publishSapeleeEvent } from '../publish';
 import { SAPELEE_EVENT_TYPES } from '../types';
 
-const ORIGINAL_ENABLED = process.env.SAPELEE_EVENTS_ENABLED;
+const ORIGINAL_ENABLED = process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED;
 
 afterEach(() => {
-  process.env.SAPELEE_EVENTS_ENABLED = ORIGINAL_ENABLED;
+  process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = ORIGINAL_ENABLED;
 });
 
 function fakeSupabase(insertResult: { error: unknown }) {
@@ -14,8 +14,8 @@ function fakeSupabase(insertResult: { error: unknown }) {
 }
 
 describe('publishSapeleeEvent', () => {
-  it('is a complete no-op (no DB call at all) when SAPELEE_EVENTS_ENABLED is not "true"', async () => {
-    delete process.env.SAPELEE_EVENTS_ENABLED;
+  it('is a complete no-op (no DB call at all) when NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED is not "true"', async () => {
+    delete process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED;
     const { client, fromMock } = fakeSupabase({ error: null });
 
     const result = await publishSapeleeEvent(client, {
@@ -28,7 +28,7 @@ describe('publishSapeleeEvent', () => {
   });
 
   it('writes a row to sapelee_event_outbox when enabled', async () => {
-    process.env.SAPELEE_EVENTS_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = 'true';
     const { client, insertMock, fromMock } = fakeSupabase({ error: null });
 
     const result = await publishSapeleeEvent(client, {
@@ -45,7 +45,7 @@ describe('publishSapeleeEvent', () => {
   });
 
   it('returns queued:false without throwing when the insert fails', async () => {
-    process.env.SAPELEE_EVENTS_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = 'true';
     const { client } = fakeSupabase({ error: { message: 'db down' } });
 
     const result = await publishSapeleeEvent(client, {
@@ -57,7 +57,7 @@ describe('publishSapeleeEvent', () => {
   });
 
   it('returns queued:false without throwing when the client itself throws', async () => {
-    process.env.SAPELEE_EVENTS_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED = 'true';
     const client = { from: () => { throw new Error('boom'); } } as never;
 
     const result = await publishSapeleeEvent(client, {
