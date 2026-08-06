@@ -1,0 +1,48 @@
+name: Sapelee Outbox Flush
+
+# No cron infrastructure exists in this app (confirmed during the Phase E
+# Part 1 audit — only externally-triggered scripts, e.g. backfill:repair-graph).
+# This workflow is that external trigger for lib/sapelee/flush.ts, running the
+# same scripts/flush-sapelee-outbox.ts already built for exactly this —
+# calling it here instead of via HTTP (POST /api/sapelee/flush) sidesteps
+# that route's session-gated middleware entirely, since this connects to
+# Supabase directly rather than through the Next.js app.
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes — adjust if lower latency is needed
+  workflow_dispatch: # manual "Run workflow" button, for on-demand flush/debugging
+
+# Prevents two overlapping runs from both claiming the same pending outbox
+# row — flush.ts has no atomic claim step, so concurrent runs could
+# double-deliver. A scheduled run finishing late is a non-issue (the next
+# one just runs a bit later); a duplicate delivery would not be.
+concurrency:
+  group: sapelee-flush
+  cancel-in-progress: false
+
+jobs:
+  flush:
+    name: Flush Sapelee Event Outbox
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Flush outbox
+        run: npm run sapelee:flush
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED: 'true'
+          SAPELEE_EVENTS_URL: ${{ secrets.SAPELEE_EVENTS_URL }}
+          SAPELEE_KEY_ID: ${{ secrets.SAPELEE_KEY_ID }}
+          SAPELEE_API_SECRET: ${{ secrets.SAPELEE_API_SECRET }}
