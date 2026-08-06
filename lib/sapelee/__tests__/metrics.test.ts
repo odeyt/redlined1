@@ -1,4 +1,4 @@
-import { getOutboxMetrics } from '../metrics';
+import { getOutboxMetrics, listRecentOutboxRows } from '../metrics';
 
 function countChain(count: number) {
   return {
@@ -49,5 +49,36 @@ describe('getOutboxMetrics', () => {
     const result = await getOutboxMetrics({ from: fromMock } as never);
 
     expect(result.oldestPendingAgeSeconds).toBeGreaterThanOrEqual(89);
+  });
+});
+
+describe('listRecentOutboxRows', () => {
+  it('returns rows ordered newest-first, up to the given limit', async () => {
+    const rows = [{ id: 'row-1', event_type: 'repair.completed', status: 'delivered' }];
+    const orderMock = jest.fn().mockReturnThis();
+    const limitMock = jest.fn().mockResolvedValue({ data: rows, error: null });
+    const fromMock = jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      order: orderMock,
+      limit: limitMock,
+    }));
+
+    const result = await listRecentOutboxRows({ from: fromMock } as never, 10);
+
+    expect(result).toEqual(rows);
+    expect(orderMock).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(limitMock).toHaveBeenCalledWith(10);
+  });
+
+  it('returns an empty array on query failure rather than throwing', async () => {
+    const fromMock = jest.fn(() => ({
+      select: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue({ data: null, error: { message: 'db error' } }),
+    }));
+
+    const result = await listRecentOutboxRows({ from: fromMock } as never);
+
+    expect(result).toEqual([]);
   });
 });

@@ -39,3 +39,31 @@ export async function getOutboxMetrics(supabase: SupabaseClient): Promise<Sapele
     oldestPendingAgeSeconds,
   }
 }
+
+export interface SapeleeOutboxRow {
+  id: string
+  event_type: string
+  status: string
+  attempts: number
+  max_attempts: number
+  last_error: string | null
+  created_at: string
+  delivered_at: string | null
+}
+
+/** Most recent rows regardless of status — for a queue-depth admin view,
+ * not just counts. Ordered newest-first (display order, unrelated to
+ * flush.ts's own oldest-first delivery order). */
+export async function listRecentOutboxRows(
+  supabase: SupabaseClient,
+  limit = 25
+): Promise<SapeleeOutboxRow[]> {
+  const { data, error } = await supabase
+    .from('sapelee_event_outbox')
+    .select('id, event_type, status, attempts, max_attempts, last_error, created_at, delivered_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error || !data) return []
+  return data as SapeleeOutboxRow[]
+}
