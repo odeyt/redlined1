@@ -31,7 +31,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # 22+ required: @supabase/supabase-js's createClient() unconditionally
+          # initializes a realtime/WebSocket client during construction (even
+          # though this script only ever does plain REST calls), and Node 20
+          # has no native WebSocket support — confirmed via a real failed run:
+          # "Node.js 20 detected without native WebSocket support."
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
