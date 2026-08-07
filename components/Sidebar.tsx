@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { useAppState, useAppDispatch } from '@/lib/store';
-import { navItems } from '@/lib/mock-data';
+import { navItems, subscriptionsLabel } from '@/lib/mock-data';
 import { Icon, iconColors } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -515,11 +515,13 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
         {roleLoading && (
           <div style={{ padding: '20px 16px', color: '#444', fontSize: 12, textAlign: 'center' }}>Loading…</div>
         )}
-        {!roleLoading && visibleNav.map(([id, icon, label]) => {
+        {!roleLoading && visibleNav.map(([id, icon, rawLabel]) => {
           // Plan locks only apply to the shop owner.
           // Staff with a valid role (technician, advisor, manager, etc.) are never plan-locked —
           // they are covered by role-based access control instead.
           const locked = (role === 'owner' || !role) && !canAccess(id, planStatus);
+          // A paying shop should not be shown a plan-picker by name.
+          const label = id === 'subscriptions' ? subscriptionsLabel(planStatus) : rawLabel;
           const tipLabel = locked ? `${label} — Upgrade to unlock` : label;
           return (
             <button

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
-import { moduleTitles } from '@/lib/mock-data';
+import { moduleTitles, subscriptionsTitle } from '@/lib/mock-data';
+import { usePlan } from '@/lib/usePlan';
 import { Icon } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -54,7 +55,12 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { role } = useShop();
-  const [title, subtitle] = moduleTitles[activeModule] || ['Dashboard', ''];
+  // Same rule as the sidebar, from the same function: a paying shop sees
+  // "Account" rather than a plan picker, in the nav and on the page.
+  const { status: planStatus } = usePlan();
+  const [title, subtitle] = activeModule === 'subscriptions'
+    ? subscriptionsTitle(planStatus)
+    : moduleTitles[activeModule] || ['Dashboard', ''];
   const isTech = role === 'technician';
 
   const [query, setQuery] = useState('');

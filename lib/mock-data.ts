@@ -204,6 +204,28 @@ export const navItems: [string, string, string, string][] = [
   ['support-inbox',       'message',   'Support Inbox',     ''],
 ];
 
+/**
+ * What the Subscriptions module is called depends on whether the shop is
+ * paying.
+ *
+ * "Plans & Gates" describes what the screen does to a free or trial account:
+ * shows what is locked and how to unlock it. To a paying customer that reads
+ * as a sales page they have already bought from — the screen they actually
+ * want there is the one that manages what they pay for.
+ *
+ * One function, used by both the sidebar and the page header, so the two
+ * cannot drift into calling the same screen different things.
+ */
+export function subscriptionsLabel(planStatus: string): string {
+  return planStatus === 'pro' ? 'Account' : 'Plans & Gates';
+}
+
+export function subscriptionsTitle(planStatus: string): [string, string] {
+  return planStatus === 'pro'
+    ? ['Account', 'Your plan, billing details, and what is included']
+    : ['Subscriptions and Feature Gates', 'Free plan restrictions, paid subscriber controls, limits, and upgrade path'];
+}
+
 export const moduleTitles: Record<string, [string, string]> = {
   triage: ['Vehicle Intake', 'Capture high-quality customer complaints before creating a job card — structured intake with inspection suggestions'],
   dashboard: ['Operations Dashboard', 'Live view of job cards, repair orders, invoices, parts, and diagnostics'],
