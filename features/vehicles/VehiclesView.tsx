@@ -498,26 +498,35 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   async function pullFromRO(silent = false) {
     setPulling(true);
     try {
-      const vLabel = vehicle.label?.toLowerCase() ?? '';
+      const vLabel = vehicle.label?.trim().toLowerCase() ?? '';
       const vCustId = vehicle.customerId ?? '';
+
+      // Nothing to match on. A blank label previously matched every job card
+      // whose vehicle contained an empty string, i.e. all of them.
+      if (!vLabel) {
+        if (!silent) notify('Give the vehicle a label first — there is nothing to match a Repair Order against.');
+        return;
+      }
+
+      // Repair orders and job cards reference a vehicle by name, not by id, so
+      // the label is all there is to match on. That makes an exact match the
+      // only safe one: a vehicle labelled "Hyundai" once substring-matched
+      // every Hyundai in the shop and pulled a different car's technicians
+      // into a brand-new record.
+      const sameCustomer = (recordCustId: string | undefined) =>
+        !vCustId || !recordCustId || recordCustId === vCustId;
 
       // ── 1. Try Repair Orders first ────────────────────────────────
       const allROs = await fetchRepairOrders();
       const matchedROs = allROs
-        .filter(ro =>
-          (ro.vehicle?.toLowerCase() === vLabel) ||
-          (ro.customerId === vCustId && ro.vehicle?.toLowerCase() === vLabel)
-        )
+        .filter(ro => ro.vehicle?.trim().toLowerCase() === vLabel && sameCustomer(ro.customerId))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       const ro: RepairOrder | undefined = matchedROs[0];
 
       // ── 2. Try Job Cards as fallback (or supplement) ──────────────
       const allJCs = await fetchJobCards();
       const matchedJCs = allJCs
-        .filter(jc =>
-          jc.vehicle?.toLowerCase() === vLabel ||
-          (jc.vehicle?.toLowerCase().includes(vLabel) && vLabel.length > 4)
-        )
+        .filter(jc => jc.vehicle?.trim().toLowerCase() === vLabel)
         .sort((a, b) => new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime());
       const jc = matchedJCs[0];
 
@@ -569,8 +578,11 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
     finally { setPulling(false); }
   }
 
-  // Auto-pull on open — fills only empty fields (|| prev.x guards prevent overwrites)
-  useEffect(() => { pullFromRO(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-pull on open — fills only empty fields (|| prev.x guards prevent overwrites).
+  // Skipped for a record being created: there is no history for a vehicle that
+  // does not exist yet, so anything pulled in belongs to a different car. The
+  // "Pull from RO" button is still there if the operator decides otherwise.
+  useEffect(() => { if (vehicle.id) pullFromRO(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lifecycle: fetch all linked records for this vehicle
   useEffect(() => {

@@ -225,8 +225,17 @@ export async function updateVehicleServiceRecord(
   if (fields.flatRateLak   !== undefined) payload.flat_rate_lak   = fields.flatRateLak;
   if (fields.imageIds      !== undefined) payload.image_ids       = fields.imageIds;
   if (fields.techPayEntries!== undefined) payload.tech_pay_entries= fields.techPayEntries;
-  const { error } = await supabase.from('vehicles').update(payload).eq('id', id).in('shop_id', getShopIds());
+  // count, not just error: an update matching zero rows reports success, so a
+  // save that changed nothing would look identical to one that worked.
+  const { error, count } = await supabase
+    .from('vehicles')
+    .update(payload, { count: 'exact' })
+    .eq('id', id)
+    .in('shop_id', getShopIds());
   if (error) throw error;
+  if (count === 0) {
+    throw new Error('The vehicle was not saved — no matching record was found. It may belong to a different location, or your account may not have permission to change it.');
+  }
 }
 
 export async function transferVehicle(id: string, targetShopId: string): Promise<void> {
