@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { useAppState, useAppDispatch } from '@/lib/store';
-import { navItems, subscriptionsLabel } from '@/lib/mock-data';
+import { navItems, billingLabel } from '@/lib/mock-data';
 import { Icon, iconColors } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -520,8 +520,8 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
           // Staff with a valid role (technician, advisor, manager, etc.) are never plan-locked —
           // they are covered by role-based access control instead.
           const locked = (role === 'owner' || !role) && !canAccess(id, planStatus);
-          // A paying shop should not be shown a plan-picker by name.
-          const label = id === 'subscriptions' ? subscriptionsLabel(planStatus) : rawLabel;
+          // A paying shop manages an account, not a purchase still to be made.
+          const label = id === 'billing' ? billingLabel(planStatus) : rawLabel;
           const tipLabel = locked ? `${label} — Upgrade to unlock` : label;
           return (
             <button

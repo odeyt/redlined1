@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
-import { moduleTitles, subscriptionsTitle } from '@/lib/mock-data';
+import { moduleTitles, billingTitle } from '@/lib/mock-data';
 import { usePlan } from '@/lib/usePlan';
 import { Icon } from './Icon';
 import { signOut } from '@/lib/auth';
@@ -56,10 +56,12 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
   const router = useRouter();
   const { role } = useShop();
   // Same rule as the sidebar, from the same function: a paying shop sees
-  // "Account" rather than a plan picker, in the nav and on the page.
+  // "Account" rather than a purchase still to be made, in the nav and on the
+  // page. Billing has no moduleTitles entry, so without this the page header
+  // fell through to "Dashboard".
   const { status: planStatus } = usePlan();
-  const [title, subtitle] = activeModule === 'subscriptions'
-    ? subscriptionsTitle(planStatus)
+  const [title, subtitle] = activeModule === 'billing'
+    ? billingTitle(planStatus)
     : moduleTitles[activeModule] || ['Dashboard', ''];
   const isTech = role === 'technician';
 

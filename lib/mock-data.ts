@@ -205,25 +205,23 @@ export const navItems: [string, string, string, string][] = [
 ];
 
 /**
- * What the Subscriptions module is called depends on whether the shop is
- * paying.
+ * What the Billing module is called depends on whether the shop is paying.
  *
- * "Plans & Gates" describes what the screen does to a free or trial account:
- * shows what is locked and how to unlock it. To a paying customer that reads
- * as a sales page they have already bought from — the screen they actually
- * want there is the one that manages what they pay for.
+ * "Billing & Subscription" reads as something still to be arranged. Once a
+ * shop is subscribed the screen is where they manage what they already have —
+ * plan, payment method, invoices — so it is their account.
  *
- * One function, used by both the sidebar and the page header, so the two
- * cannot drift into calling the same screen different things.
+ * One function for both the sidebar and the page header, so the two cannot
+ * drift into calling the same screen different things.
  */
-export function subscriptionsLabel(planStatus: string): string {
-  return planStatus === 'pro' ? 'Account' : 'Plans & Gates';
+export function billingLabel(planStatus: string): string {
+  return planStatus === 'pro' ? 'Account' : 'Billing & Subscription';
 }
 
-export function subscriptionsTitle(planStatus: string): [string, string] {
+export function billingTitle(planStatus: string): [string, string] {
   return planStatus === 'pro'
-    ? ['Account', 'Your plan, billing details, and what is included']
-    : ['Subscriptions and Feature Gates', 'Free plan restrictions, paid subscriber controls, limits, and upgrade path'];
+    ? ['Account', 'Your plan, payment method, billing history, and what is included']
+    : ['Billing & Subscription', 'Choose a plan, add a payment method, and see what each plan includes'];
 }
 
 export const moduleTitles: Record<string, [string, string]> = {
