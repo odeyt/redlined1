@@ -139,9 +139,13 @@ describe('it works on a phone', () => {
 
 describe('it respects the theme and motion preferences', () => {
   it('uses the app\'s tokens rather than hardcoded colours', () => {
+    // Fields deliberately no longer use --surface-soft: it sits within a few
+    // values of the card in both themes, which is what made them invisible.
+    // Everything else still comes from the palette.
     expect(guided).toMatch(/var\(--accent\)/);
-    expect(guided).toMatch(/var\(--surface-soft\)/);
     expect(guided).toMatch(/var\(--muted\)/);
+    expect(guided).toMatch(/var\(--text\)/);
+    expect(guided).toMatch(/var\(--surface\)/);
   });
 
   it('honours prefers-reduced-motion', () => {
@@ -344,5 +348,130 @@ describe('the advisor can see what came from the VIN', () => {
 
   it('progress does not count questions that will never be shown', () => {
     expect(guided).toMatch(/const total = QUESTIONS\.length \+ 1 - autoFilled\.size/);
+  });
+});
+
+/**
+ * Scanning the VIN, and making the form legible in both themes.
+ *
+ * Typing 17 characters off a door jamb while holding a phone is where VINs get
+ * mistyped, so the barcode on the sticker is read directly. It is a barcode
+ * reader, not text OCR — the etched dash VIN cannot be scanned, and the UI says
+ * so rather than leaving someone aiming at a windscreen.
+ *
+ * The theme fix is a contrast problem, not a taste one. The global palette puts
+ * the card, the fields and the page within a few values of each other: in light
+ * mode #ffffff, #f7f7f7 and #f0f0f0, and in dark mode --line (#1e1e2a) is all
+ * but invisible against the card (#0d0d14). Fields stopped reading as fields.
+ */
+describe('the VIN can be scanned or photographed', () => {
+  it('offers both a live scan and a photo', () => {
+    expect(guided).toMatch(/📷 Scan barcode/);
+    expect(guided).toMatch(/🖼 Upload photo/);
+  });
+
+  it('the photo input opens the rear camera on a phone', () => {
+    expect(guided).toMatch(/accept="image\/\*" capture="environment"/);
+  });
+
+  it('the live scan asks for the rear camera too', () => {
+    expect(guided).toMatch(/facingMode: 'environment'/);
+  });
+
+  it('says which VIN it can actually read', () => {
+    // Pointing a barcode reader at an etched dash plate never works, and
+    // without this the advisor concludes the feature is broken.
+    expect(guided).toMatch(/the etched dash VIN cannot be scanned/);
+  });
+
+  it('decodes immediately on a successful scan', () => {
+    expect(guided).toMatch(/void decodeVin\(vin\)/);
+  });
+
+  it('passes the scanned VIN directly rather than reading state', () => {
+    // setDraft is asynchronous — reading draft here would decode the previous
+    // value, which is the kind of bug that only shows on the second scan.
+    expect(guided).toMatch(/const raw = \(override \?\? draft\)\.trim\(\)\.toUpperCase\(\)/);
+  });
+
+  it('releases the camera when the component goes away', () => {
+    // A live stream left running drains the battery and holds the torch on.
+    expect(guided).toMatch(/useEffect\(\(\) => \(\) => stopScan\(\), \[\]\)/);
+  });
+
+  it('falls back rather than dead-ending when the camera is refused', () => {
+    expect(guided).toMatch(/Could not open the camera/);
+  });
+
+  it('says so on a browser without barcode support', () => {
+    // iOS Safari has no BarcodeDetector; a button that silently does nothing
+    // is worse than one that explains itself.
+    expect(guided).toMatch(/isBarcodeScanSupported\(\)/);
+    expect(guided).toMatch(/This browser cannot scan barcodes/);
+  });
+
+  it('reports a photo with no readable barcode', () => {
+    expect(guided).toMatch(/No VIN barcode found in that photo/);
+  });
+
+  it('lets the same photo be picked twice', () => {
+    // Clearing the input is what makes a retry after a failed read possible.
+    expect(guided).toMatch(/e\.target\.value = ''; \/\/ so re-picking/);
+  });
+});
+
+describe('the scanner rejects a misread before it reaches the decoder', () => {
+  const scanner = read('lib/vin/scanVin.ts');
+
+  it('excludes I, O and Q, which a VIN never contains', () => {
+    // The standard omits them because they are confusable with 1 and 0, so
+    // their presence means the read is wrong.
+    expect(scanner).toMatch(/\[\^A-HJ-NPR-Z0-9\]/);
+  });
+
+  it('requires exactly 17 characters', () => {
+    expect(scanner).toMatch(/cleaned\.length === 17 \? cleaned : null/);
+  });
+
+  it('frees the decoded image', () => {
+    expect(scanner).toMatch(/bitmap\.close\?\.\(\)/);
+  });
+
+  it('is shared rather than a second copy of the logic', () => {
+    expect(guided).toMatch(/from '@\/lib\/vin\/scanVin'/);
+    expect(guided).not.toMatch(/new BD\(/);
+  });
+});
+
+describe('fields are legible in both themes', () => {
+  it('fields no longer borrow the near-invisible global tokens', () => {
+    expect(guided).not.toMatch(/border: '1px solid var\(--line\)'/);
+    expect(guided).not.toMatch(/background: 'var\(--surface-soft\)'/);
+  });
+
+  it('defines its own field and edge colours', () => {
+    expect(guided).toMatch(/--gi-field:/);
+    expect(guided).toMatch(/--gi-edge:/);
+  });
+
+  it('sets both themes explicitly, not just one', () => {
+    expect(guided).toMatch(/\.gi-scope \{/);
+    expect(guided).toMatch(/\[data-theme="light"\] \.gi-scope \{/);
+  });
+
+  it('the card edge is distinct from the field edge', () => {
+    // A card outlined in the same weight as its inputs reads as one flat
+    // block, which is the dark-mode complaint.
+    expect(guided).toMatch(/--gi-card-edge:/);
+    expect(guided).toMatch(/border: '1px solid var\(--gi-card-edge\)'/);
+  });
+
+  it('focus is visible without relying on colour alone', () => {
+    expect(guided).toMatch(/:focus-visible/);
+    expect(guided).toMatch(/box-shadow: 0 0 0 3px var\(--gi-focus\)/);
+  });
+
+  it('the scope class is actually applied', () => {
+    expect(guided).toMatch(/className="gi-scope"/);
   });
 });

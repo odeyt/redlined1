@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { TriageVehicle } from '@/lib/triage/QuestionTypes';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
+import { createVinDetector, isBarcodeScanSupported, scanVinFromFile, vinFromBarcodes } from '@/lib/vin/scanVin';
 
 /**
  * Guided vehicle intake — one question at a time.
@@ -76,6 +77,12 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [decoding, setDecoding] = useState(false);
   const [decodeError, setDecodeError] = useState('');
   const [decodedNote, setDecodedNote] = useState('');
+
+  const [scanning, setScanning] = useState(false);
+  const videoRef  = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef    = useRef<number>(0);
+  const fileRef   = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState('');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -207,8 +214,86 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     setIdx(nextIndex(idx));
   }
 
-  async function decodeVin() {
-    const raw = draft.trim().toUpperCase();
+  function stopScan() {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    cancelAnimationFrame(rafRef.current);
+    setScanning(false);
+  }
+
+  // The camera must be released if the advisor navigates away mid-scan;
+  // leaving it live drains the battery and holds the torch on some phones.
+  useEffect(() => () => stopScan(), []);
+
+  async function startScan() {
+    if (!isBarcodeScanSupported()) {
+      // iOS Safari has no BarcodeDetector. The photo path uses the same API, so
+      // offer the keyboard rather than a button that cannot work.
+      setDecodeError('This browser cannot scan barcodes. Type the VIN, or try Chrome on Android.');
+      return;
+    }
+    setDecodeError('');
+    setScanning(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      setTimeout(() => {
+        if (!videoRef.current) return;
+        videoRef.current.srcObject = stream;
+        void videoRef.current.play();
+        scanFrames();
+      }, 100);
+    } catch {
+      // Denied permission, or no camera. Falling back to the photo picker keeps
+      // a path open instead of dead-ending on a blank viewfinder.
+      setScanning(false);
+      setDecodeError('Could not open the camera. Upload a photo of the barcode instead, or type the VIN.');
+    }
+  }
+
+  function scanFrames() {
+    const detector = createVinDetector();
+    if (!detector) { stopScan(); return; }
+    const tick = async () => {
+      if (!videoRef.current || !streamRef.current) return;
+      try {
+        const vin = vinFromBarcodes(await detector.detect(videoRef.current));
+        if (vin) {
+          stopScan();
+          setDraft(vin);
+          onChange({ ...vehicle, vin });
+          void decodeVin(vin);
+          return;
+        }
+      } catch { /* a frame that will not decode is normal — keep looking */ }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  async function handleVinPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // so re-picking the same photo fires change again
+    if (!file) return;
+    setDecodeError('');
+    try {
+      const vin = await scanVinFromFile(file);
+      if (!vin) {
+        setDecodeError('No VIN barcode found in that photo. Get closer to the barcode on the door jamb sticker, or type it.');
+        return;
+      }
+      setDraft(vin);
+      onChange({ ...vehicle, vin });
+      await decodeVin(vin);
+    } catch {
+      setDecodeError('Could not read that photo.');
+    }
+  }
+
+  async function decodeVin(override?: string) {
+    // A scan passes the VIN directly: setDraft is async, so reading draft here
+    // would decode the previous value.
+    const raw = (override ?? draft).trim().toUpperCase();
     setDecodeError('');
     if (raw.length !== 17) { setDecodeError('A VIN is exactly 17 characters. Skip if you do not have it.'); return; }
     setDecoding(true);
@@ -273,14 +358,14 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const pct = Math.round((Math.min(position, total) / total) * 100);
 
   const card: React.CSSProperties = {
-    background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 18,
+    background: 'var(--surface)', border: '1px solid var(--gi-card-edge)', borderRadius: 18,
     padding: 'clamp(18px, 5vw, 30px)', boxShadow: 'var(--shadow)',
     maxWidth: 640, margin: '0 auto', width: '100%', boxSizing: 'border-box',
   };
   // 16px minimum: anything smaller makes iOS Safari zoom the page on focus.
   const input: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box', fontSize: 16, padding: '14px 16px',
-    borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface-soft)',
+    borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)',
     color: 'var(--text)', minHeight: 52, outline: 'none',
   };
   const primary: React.CSSProperties = {
@@ -295,13 +380,39 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   };
 
   return (
-    <div style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+    <div className="gi-scope" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
       <style>{`
+        /* The global tokens sit too close together for a form: in light mode
+           the card (#fff), the fields (#f7f7f7) and the page (#f0f0f0) are
+           within a few values of each other, and in dark mode --line (#1e1e2a)
+           is all but invisible against the card. These are the same palette,
+           pushed apart far enough that a field reads as a field. Default is
+           dark, matching :root. */
+        .gi-scope {
+          --gi-field: #191922;
+          --gi-edge: #3a3a4e;
+          --gi-card-edge: #2b2b3a;
+          --gi-focus: rgba(224, 48, 48, 0.35);
+        }
+        [data-theme="light"] .gi-scope {
+          --gi-field: #f1f2f6;
+          --gi-edge: #c2c6d2;
+          --gi-card-edge: #d6d9e2;
+          --gi-focus: rgba(204, 0, 0, 0.22);
+        }
         .gi-fade { animation: gi-in .28s cubic-bezier(.2,.7,.3,1) both; }
         @keyframes gi-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { .gi-fade { animation: none; } }
-        .gi-chip { transition: border-color .15s, background .15s; }
+        .gi-chip { transition: border-color .15s, background .15s, box-shadow .15s; }
         .gi-chip:hover { border-color: var(--accent); }
+        /* Focus has to be visible on its own, not only as a colour change —
+           a keyboard user and a colour-blind user need the same cue. */
+        .gi-scope input:focus-visible,
+        .gi-scope button:focus-visible {
+          outline: none;
+          border-color: var(--accent) !important;
+          box-shadow: 0 0 0 3px var(--gi-focus);
+        }
         .gi-row { display: flex; gap: 10px; flex-wrap: wrap; }
         @media (max-width: 420px) { .gi-row > button { flex: 1 1 100%; } }
       `}</style>
@@ -314,7 +425,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             Use full form
           </button>
         </div>
-        <div style={{ height: 5, borderRadius: 99, background: 'var(--surface-soft)', overflow: 'hidden' }}>
+        <div style={{ height: 5, borderRadius: 99, background: 'var(--gi-field)', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', transition: 'width .3s ease' }} />
         </div>
       </div>
@@ -338,7 +449,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
               <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
                 {matches.map(c => (
                   <button key={c.id} className="gi-chip" onClick={() => selectCustomer(c)}
-                    style={{ textAlign: 'left', minHeight: 52, padding: '12px 16px', borderRadius: 12, border: `1px solid ${vehicle.customerId === c.id ? 'var(--accent)' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
+                    style={{ textAlign: 'left', minHeight: 52, padding: '12px 16px', borderRadius: 12, border: `1px solid ${vehicle.customerId === c.id ? 'var(--accent)' : 'var(--gi-edge)'}`, background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
                     {c.name}
                     {c.phone && <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: 8, fontSize: 13 }}>{c.phone}</span>}
                   </button>
@@ -359,7 +470,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             )}
 
             {showNew && (
-              <div style={{ marginTop: 14, padding: 16, borderRadius: 14, border: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'grid', gap: 10 }}>
+              <div style={{ marginTop: 14, padding: 16, borderRadius: 14, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', display: 'grid', gap: 10 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase' }}>
                   New customer
                 </div>
@@ -403,7 +514,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                 <div style={{ display: 'grid', gap: 8 }}>
                   {vehicles.map(v => (
                     <button key={v.id} className="gi-chip" onClick={() => selectVehicle(v)}
-                      style={{ textAlign: 'left', minHeight: 52, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
+                      style={{ textAlign: 'left', minHeight: 52, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
                       🚗 {v.label}
                     </button>
                   ))}
@@ -438,7 +549,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
                 {q.options.map(opt => (
                   <button key={opt} className="gi-chip" onClick={() => commit(opt)}
-                    style={{ minHeight: 52, padding: '13px 14px', borderRadius: 12, border: `1px solid ${draft === opt ? 'var(--accent)' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
+                    style={{ minHeight: 52, padding: '13px 14px', borderRadius: 12, border: `1px solid ${draft === opt ? 'var(--accent)' : 'var(--gi-edge)'}`, background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 600 }}>
                     {opt}
                   </button>
                 ))}
@@ -465,9 +576,44 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             )}
 
             {q.kind === 'vin' && (
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
-                <span>{draft.trim().length}/17</span>
-                {vehicle.customerName && <span>for {vehicle.customerName}</span>}
+              <>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{draft.trim().length}/17</span>
+                  {vehicle.customerName && <span>for {vehicle.customerName}</span>}
+                </div>
+
+                {/* Reads the barcode on the door-jamb sticker, not the etched
+                    dash plate — the label says which so nobody aims at glass. */}
+                <div className="gi-row" style={{ marginTop: 12 }}>
+                  <button onClick={() => void startScan()} className="gi-chip"
+                    style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                    📷 Scan barcode
+                  </button>
+                  <button onClick={() => fileRef.current?.click()} className="gi-chip"
+                    style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                    🖼 Upload photo
+                  </button>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                  Point at the barcode on the door jamb sticker — the etched dash VIN cannot be scanned.
+                </p>
+                <input ref={fileRef} type="file" accept="image/*" capture="environment"
+                  onChange={handleVinPhoto} style={{ display: 'none' }} />
+              </>
+            )}
+
+            {scanning && (
+              <div role="dialog" aria-label="Scanning for a VIN barcode"
+                style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20, paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
+                <video ref={videoRef} playsInline muted
+                  style={{ width: '100%', maxWidth: 520, borderRadius: 16, background: '#000', aspectRatio: '4 / 3', objectFit: 'cover' }} />
+                <div style={{ width: '100%', maxWidth: 520, marginTop: 14, color: '#fff', fontSize: 14, textAlign: 'center', opacity: 0.85 }}>
+                  Hold steady over the barcode…
+                </div>
+                <button onClick={stopScan}
+                  style={{ marginTop: 16, minHeight: 52, padding: '14px 30px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                  Cancel
+                </button>
               </div>
             )}
 
@@ -516,7 +662,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             <div style={{ display: 'grid', gap: 8 }}>
               {vehicle.customerName && (
                 <button className="gi-chip" onClick={() => setIdx(-1)}
-                  style={{ textAlign: 'left', minHeight: 52, padding: '11px 15px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  style={{ textAlign: 'left', minHeight: 52, padding: '11px 15px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase' }}>Customer</span>
                   <span style={{ fontSize: 15, fontWeight: 600 }}>{vehicle.customerName}</span>
                 </button>
@@ -526,7 +672,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                 const wasSkipped = skipped.has(x.key as string);
                 return (
                   <button key={x.key} className="gi-chip" onClick={() => setIdx(i)}
-                    style={{ textAlign: 'left', minHeight: 52, padding: '11px 15px', borderRadius: 12, border: `1px solid ${!val && x.required ? 'var(--accent)' : 'var(--line)'}`, background: 'var(--surface-soft)', color: 'var(--text)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                    style={{ textAlign: 'left', minHeight: 52, padding: '11px 15px', borderRadius: 12, border: `1px solid ${!val && x.required ? 'var(--accent)' : 'var(--gi-edge)'}`, background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
                     <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase' }}>
                       {String(x.key).replace(/([A-Z])/g, ' $1')}
                       {x.required && <span style={{ color: 'var(--accent)' }}> *</span>}
