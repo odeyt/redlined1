@@ -1,0 +1,163 @@
+/**
+ * Guided vehicle intake.
+ *
+ * The intake form asks for eight things at once. At a counter with a customer
+ * waiting that reads as a wall and gets half-filled — production intake records
+ * routinely carry a make and model and nothing else, and the DVI that follows
+ * opens blank because there was nothing to carry.
+ *
+ * Asking one question at a time with an explicit Skip changes what an empty
+ * field means. On the form, blank is ambiguous: not asked, or not known? Here
+ * every field is put to the advisor, so the review screen can honestly
+ * distinguish "Skipped" from "Not captured".
+ *
+ * Phone first — advisors do this standing next to the car — which is a set of
+ * specific mechanics, not a layout opinion: 16px inputs or iOS zooms the page
+ * on focus, 52px targets, and safe-area padding so the buttons clear the home
+ * indicator.
+ */
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+const root = join(__dirname, '..', '..');
+const read = (p: string) => readFileSync(join(root, p), 'utf8');
+
+const guided = read('features/triage/steps/GuidedVehicleStep.tsx');
+const view   = read('features/triage/TriageView.tsx');
+
+describe('it asks one thing at a time', () => {
+  it('renders a single question from an ordered list', () => {
+    expect(guided).toMatch(/const QUESTIONS: Question\[\] = \[/);
+    expect(guided).toMatch(/const q = idx >= 0 && idx < QUESTIONS\.length \? QUESTIONS\[idx\] : null;/);
+  });
+
+  it('advances and goes back', () => {
+    expect(guided).toMatch(/setIdx\(i => i \+ 1\)/);
+    expect(guided).toMatch(/setIdx\(i => i - 1\)/);
+  });
+
+  it('shows progress against the real total', () => {
+    expect(guided).toMatch(/Question \$\{Math\.min\(position \+ 1, total\)\} of \$\{total\}/);
+  });
+
+  it('Enter advances on a text question', () => {
+    expect(guided).toMatch(/e\.key === 'Enter'/);
+  });
+});
+
+describe('anything can be skipped', () => {
+  it('every question has a skip', () => {
+    expect(guided).toMatch(/<button onClick=\{skip\}/);
+  });
+
+  it('a skip is recorded, not just left blank', () => {
+    // This is what lets the review screen tell "Skipped" from "Not captured".
+    expect(guided).toMatch(/setSkipped\(prev => new Set\(prev\)\.add\(q\.key as string\)\)/);
+  });
+
+  it('answering later clears the skip', () => {
+    expect(guided).toMatch(/n\.delete\(q\.key as string\)/);
+  });
+
+  it('the review screen distinguishes the two', () => {
+    expect(guided).toMatch(/wasSkipped \? 'Skipped' : 'Not captured'/);
+  });
+
+  it('a required field can be deferred but not lost', () => {
+    // "Not known yet" moves on; the review screen still blocks Continue and
+    // names what is outstanding, so it cannot quietly go missing.
+    expect(guided).toMatch(/q\.required \? 'Not known yet' : 'Skip'/);
+    expect(guided).toMatch(/Still needed before the next step/);
+    expect(guided).toMatch(/disabled=\{missingRequired\.length > 0\}/);
+  });
+});
+
+describe('it uses what the shop already knows', () => {
+  it('searches existing customers', () => {
+    expect(guided).toMatch(/from\('customers'\)/);
+  });
+
+  it('offers that customer\'s vehicles', () => {
+    expect(guided).toMatch(/Their vehicles — tap to fill everything/);
+  });
+
+  it('picking one fills everything and skips ahead to review', () => {
+    // Re-asking seven questions the record already answers is the friction
+    // this exists to remove.
+    expect(guided).toMatch(/setIdx\(QUESTIONS\.length\)/);
+    expect(guided).toMatch(/vehicleId: v\.id, vin: v\.vin, plate: v\.plate/);
+  });
+
+  it('carries VIN and plate, which the old form never captured', () => {
+    expect(guided).toMatch(/vin: v\.vin ?\?\? ''/);
+  });
+
+  it('a walk-in can proceed with no customer at all', () => {
+    expect(guided).toMatch(/Skip — walk-in/);
+  });
+});
+
+describe('it works on a phone', () => {
+  it('inputs are 16px, so iOS does not zoom the page on focus', () => {
+    expect(guided).toMatch(/fontSize: 16/);
+  });
+
+  it('touch targets clear the 44px minimum', () => {
+    const targets = guided.match(/minHeight: (\d+)/g) ?? [];
+    expect(targets.length).toBeGreaterThan(0);
+    targets.forEach(t => expect(Number(t.replace('minHeight: ', ''))).toBeGreaterThanOrEqual(44));
+  });
+
+  it('clears the home indicator', () => {
+    expect(guided).toMatch(/env\(safe-area-inset-bottom\)/);
+  });
+
+  it('scales type to the viewport rather than fixing it', () => {
+    expect(guided).toMatch(/clamp\(19px, 4\.5vw, 24px\)/);
+  });
+
+  it('stacks buttons on a narrow screen', () => {
+    expect(guided).toMatch(/@media \(max-width: 420px\)/);
+  });
+
+  it('choices reflow instead of overflowing', () => {
+    expect(guided).toMatch(/repeat\(auto-fit, minmax\(140px, 1fr\)\)/);
+  });
+
+  it('asks for the numeric keypad where the answer is a number', () => {
+    expect(guided).toMatch(/inputMode: 'numeric'/);
+    expect(guided).toMatch(/enterKeyHint/);
+  });
+
+  it('does not pop the keyboard over a list of choices', () => {
+    expect(guided).toMatch(/if \(q && !q\.options\)/);
+  });
+});
+
+describe('it respects the theme and motion preferences', () => {
+  it('uses the app\'s tokens rather than hardcoded colours', () => {
+    expect(guided).toMatch(/var\(--accent\)/);
+    expect(guided).toMatch(/var\(--surface-soft\)/);
+    expect(guided).toMatch(/var\(--muted\)/);
+  });
+
+  it('honours prefers-reduced-motion', () => {
+    expect(guided).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+  });
+});
+
+describe('it is integrated, not bolted on', () => {
+  it('the intake defaults to guided', () => {
+    expect(view).toMatch(/const \[guided, setGuided\] = useState\(true\)/);
+  });
+
+  it('the original form is one tap away', () => {
+    // Removing it would take away a workflow that suits some advisors.
+    expect(guided).toMatch(/Use full form/);
+    expect(view).toMatch(/onUseForm=\{\(\) => setGuided\(false\)\}/);
+  });
+
+  it('it hands off to the existing next step', () => {
+    expect(view).toMatch(/onNext=\{\(\) => go\('category'\)\}/);
+  });
+});

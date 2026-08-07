@@ -30,6 +30,7 @@ import { saveCustomer } from '@/services/customerService';
 import { getShopId } from '@/lib/shopStore';
 
 import { VehicleStep }    from './steps/VehicleStep';
+import { GuidedVehicleStep } from './steps/GuidedVehicleStep';
 import { CategoryStep }   from './steps/CategoryStep';
 import { QuestionsStep }  from './steps/QuestionsStep';
 import { TechNotesStep }  from './steps/TechNotesStep';
@@ -171,6 +172,9 @@ export function TriageView() {
   const dispatch = useAppDispatch();
 
   const [step,       setStep]       = useState<Step>('vehicle');
+  // Guided by default: the form asks eight things at once and gets half-filled.
+  // 'Use full form' switches back for anyone who prefers it.
+  const [guided, setGuided] = useState(true);
   const [vehicle,    setVehicle]    = useState<TriageVehicle>(defaultVehicle());
   const [categoryIds, setCategoryIds] = useState<CategoryId[]>([]);
   const categoryId = categoryIds[0] ?? null; // engine/questions use primary category
@@ -437,13 +441,20 @@ export function TriageView() {
         background: 'var(--surface)', border: '1px solid var(--line)',
         borderRadius: 12, padding: 24, marginBottom: 32,
       }}>
-        {step === 'vehicle' && (
+        {step === 'vehicle' && (guided ? (
+          <GuidedVehicleStep
+            vehicle={vehicle}
+            onChange={setVehicle}
+            onNext={() => go('category')}
+            onUseForm={() => setGuided(false)}
+          />
+        ) : (
           <VehicleStep
             vehicle={vehicle}
             onChange={setVehicle}
             onNext={() => go('category')}
           />
-        )}
+        ))}
 
         {step === 'category' && (
           <CategoryStep
