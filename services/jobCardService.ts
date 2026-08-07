@@ -177,7 +177,58 @@ export async function updateJobCard(id: string, fields: Partial<{
   if (error) throw error;
 }
 
-export async function closeJob(job: JobCardFull): Promise<void> {
+/**
+ * Raise the Draft invoice for a job being closed.
+ *
+ * Lives here rather than in the view because closing is where the money is
+ * decided, and a caller that forgets to invoice is exactly how eight jobs got
+ * closed across three days with `invoice = null` on every one.
+ *
+ * Draft, never Sent or Paid: a person still reviews and issues it.
+ */
+async function draftInvoiceForJob(job: JobCardFull): Promise<string> {
+  const [{ nextInvoiceNumber, createInvoice }, { fetchShopSettings }] = await Promise.all([
+    import('./invoiceService'),
+    import('./shopSettingsService'),
+  ]);
+
+  const settings = await fetchShopSettings().catch(() => null);
+  const laborRate = settings?.laborRate ?? 145;
+
+  const lines = [];
+  if (job.laborHours > 0) {
+    lines.push({
+      note: '', description: `Labor — ${job.serviceType || 'service'}`,
+      qty: job.laborHours, rate: laborRate,
+    });
+  }
+  if (job.partsTotal > 0) {
+    // Job cards carry a parts total, not itemised parts. Billing it as one
+    // line is honest about that rather than inventing line items.
+    lines.push({ note: '', description: 'Parts', qty: 1, rate: job.partsTotal });
+  }
+
+  const invNumber = await nextInvoiceNumber();
+  await createInvoice({
+    invoiceNumber: invNumber,
+    customerName:  job.customer,
+    customerId:    '',
+    vehicle:       job.vehicle,
+    jobCardId:     job.id,
+    status:        'Draft',
+    lines,
+    discount:      0,
+    shopSupplies:  0,
+    taxRate:       settings?.defaultTaxRate ?? 0,
+    notes:         `From ${job.id}. ${job.serviceType || ''} ${job.notes || ''}`.trim(),
+    dueDate:       '',
+    paidDate:      null,
+    currency:      settings?.defaultCurrency ?? 'USD',
+  });
+  return invNumber;
+}
+
+export async function closeJob(job: JobCardFull): Promise<{ invoiceNumber: string | null; invoiceError: string | null }> {
   const closedDate = new Date().toISOString();
   const { error: insertError } = await supabase.from('closed_jobs').insert({
     id: job.id,
@@ -203,6 +254,28 @@ export async function closeJob(job: JobCardFull): Promise<void> {
   if (insertError) throw insertError;
   const { error: deleteError } = await supabase.from('job_cards').delete().eq('id', job.id).in('shop_id', getShopIds());
   if (deleteError) throw deleteError;
+
+  // Invoice after the job is safely archived, never before. A failure here
+  // leaves a closed job that still needs billing — recoverable, and reported.
+  // Drafting first would risk an invoice for a job that never closed.
+  let invoiceNumber: string | null = job.invoice || null;
+  let invoiceError: string | null = null;
+  if (!invoiceNumber) {
+    try {
+      invoiceNumber = await draftInvoiceForJob(job);
+      // Link it back, so the archive row says what was billed for this job.
+      const { error: linkError } = await supabase
+        .from('closed_jobs')
+        .update({ invoice: invoiceNumber })
+        .eq('id', job.id)
+        .in('shop_id', getShopIds());
+      if (linkError) invoiceError = `Invoice ${invoiceNumber} was created but could not be linked: ${linkError.message}`;
+    } catch (e) {
+      invoiceNumber = null;
+      invoiceError = e instanceof Error ? e.message : 'unknown error';
+    }
+  }
+
   // Non-blocking intelligence hook — fire-and-forget, never throws
   try {
     const { publishEvent } = await import('@/intelligence/IntelligenceService');
@@ -219,6 +292,8 @@ export async function closeJob(job: JobCardFull): Promise<void> {
       aggregateId: job.id,
     });
   } catch { /* sapelee integration must never affect production */ }
+
+  return { invoiceNumber, invoiceError };
 }
 
 export async function deleteJobCard(id: string): Promise<void> {

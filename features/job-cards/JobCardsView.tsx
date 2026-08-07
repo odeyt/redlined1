@@ -597,9 +597,17 @@ export function JobCardsView() {
   async function handleClose(job: JobCardFull) {
     if (!confirm(`Close ${job.id} and move to closed archive?`)) return;
     try {
-      await closeJob(job);
+      const { invoiceNumber, invoiceError } = await closeJob(job);
       setJobs(prev => prev.filter(j => j.id !== job.id));
-      setClosedJobs(prev => [{ ...job, status: 'Closed', closedDate: new Date().toISOString() }, ...prev]);
+      setClosedJobs(prev => [{ ...job, status: 'Closed', invoice: invoiceNumber ?? job.invoice, closedDate: new Date().toISOString() }, ...prev]);
+      if (invoiceError) {
+        // The job is closed either way. Saying so, and naming the billing
+        // problem separately, beats a message that implies neither happened.
+        setError(`${job.id} is closed, but the draft invoice could not be created: ${invoiceError}. Raise it from Invoices.`);
+      }
+      // The invoice is named in the closing toasts below rather than its own,
+      // which the maintenance-schedule toast would immediately overwrite.
+      const invLine = invoiceNumber ? ` Draft invoice ${invoiceNumber} created.` : '';
 
       // Auto-create maintenance schedule based on OEM intervals
       const [intervalMiles, intervalDays] = getIntervals(job.serviceType);
@@ -624,9 +632,9 @@ export function JobCardsView() {
           status: 'Active',
         });
         const dueLine = nextDueDate ? ` Next due: ${nextDueDate}.` : '';
-        notify(`${job.id} closed. Maintenance schedule created for ${job.customer}.${dueLine}`);
+        notify(`${job.id} closed.${invLine} Maintenance schedule created for ${job.customer}.${dueLine}`);
       } catch {
-        notify(`${job.id} closed and archived. (Maintenance schedule skipped — check Supabase.)`);
+        notify(`${job.id} closed and archived.${invLine} (Maintenance schedule skipped — check Supabase.)`);
       }
     } catch (err: unknown) { setError('Close failed: ' + (err instanceof Error ? err.message : '')); }
   }
