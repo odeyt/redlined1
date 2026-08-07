@@ -70,6 +70,13 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
 
+  // Adding a customer without leaving intake. Sending an advisor to the
+  // Customers module mid-intake loses the vehicle details already entered.
+  const [showNew, setShowNew] = useState(false);
+  const [newCust, setNewCust] = useState({ name: '', phone: '', email: '' });
+  const [savingCust, setSavingCust] = useState(false);
+  const [custError, setCustError] = useState('');
+
   const inputRef = useRef<HTMLInputElement>(null);
   const q = idx >= 0 && idx < QUESTIONS.length ? QUESTIONS[idx] : null;
   const onReview = idx >= QUESTIONS.length;
@@ -116,6 +123,37 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
       vin: v.vin ?? '', plate: v.plate ?? '',
     })));
     setLoadingVehicles(false);
+  }
+
+  async function saveNewCustomer() {
+    const name = newCust.name.trim();
+    if (!name) { setCustError('A name is required.'); return; }
+    setSavingCust(true);
+    setCustError('');
+    try {
+      // saveCustomer, not a direct insert: it is the path that publishes
+      // customer.created, so a customer added here is not invisible to
+      // everything downstream of that event.
+      const { saveCustomer } = await import('@/services/customerService');
+      const created = await saveCustomer({
+        name,
+        type: 'Retail',
+        phone: newCust.phone.trim(),
+        email: newCust.email.trim(),
+        address: '', tags: [], followUp: '', portalToken: null,
+      });
+      const option: CustomerOption = { id: created.id, name: created.name, phone: created.phone };
+      setCustomers(prev => [...prev, option].sort((a, b) => a.name.localeCompare(b.name)));
+      setShowNew(false);
+      setNewCust({ name: '', phone: '', email: '' });
+      await selectCustomer(option);
+    } catch (e) {
+      // Surfaced, not swallowed — a customer that silently fails to save is
+      // how intake ends up linked to nothing.
+      setCustError(e instanceof Error ? e.message : 'Could not save the customer.');
+    } finally {
+      setSavingCust(false);
+    }
   }
 
   function selectVehicle(v: VehicleOption) {
@@ -220,6 +258,54 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                     {c.phone && <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: 8, fontSize: 13 }}>{c.phone}</span>}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* No match, or none exact — offer to create rather than dead-ending.
+                A search that returns nothing and gives no next step is what
+                sends advisors to another module and loses this intake. */}
+            {!showNew && !vehicle.customerId && (
+              <button
+                onClick={() => { setShowNew(true); setNewCust({ name: query.trim(), phone: '', email: '' }); setCustError(''); }}
+                className="gi-chip"
+                style={{ marginTop: 12, width: '100%', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px dashed var(--btn-border)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontSize: 15, fontWeight: 700, textAlign: 'left' }}>
+                + Add {query.trim() ? `“${query.trim()}”` : 'a new customer'}
+              </button>
+            )}
+
+            {showNew && (
+              <div style={{ marginTop: 14, padding: 16, borderRadius: 14, border: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'grid', gap: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  New customer
+                </div>
+                <input
+                  value={newCust.name} onChange={e => setNewCust(c => ({ ...c, name: e.target.value }))}
+                  placeholder="Full name *" style={input} autoCapitalize="words" enterKeyHint="next" autoFocus
+                />
+                <input
+                  value={newCust.phone} onChange={e => setNewCust(c => ({ ...c, phone: e.target.value }))}
+                  placeholder="Phone (optional)" style={input} inputMode="tel" autoComplete="tel" enterKeyHint="next"
+                />
+                <input
+                  value={newCust.email} onChange={e => setNewCust(c => ({ ...c, email: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter' && newCust.name.trim() && !savingCust) void saveNewCustomer(); }}
+                  placeholder="Email (optional)" style={input} inputMode="email" autoComplete="email"
+                  autoCapitalize="off" autoCorrect="off" enterKeyHint="done"
+                />
+                {custError && (
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--danger)', background: 'rgba(224,48,48,0.1)', border: '1px solid rgba(224,48,48,0.35)', borderRadius: 10, padding: '10px 12px' }}>
+                    {custError}
+                  </p>
+                )}
+                <div className="gi-row">
+                  <button onClick={() => void saveNewCustomer()} disabled={savingCust || !newCust.name.trim()}
+                    style={{ ...primary, opacity: savingCust || !newCust.name.trim() ? 0.45 : 1, cursor: savingCust || !newCust.name.trim() ? 'not-allowed' : 'pointer' }}>
+                    {savingCust ? 'Saving…' : 'Save customer'}
+                  </button>
+                  <button onClick={() => { setShowNew(false); setCustError(''); }} disabled={savingCust} style={ghost}>
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
 

@@ -161,3 +161,68 @@ describe('it is integrated, not bolted on', () => {
     expect(view).toMatch(/onNext=\{\(\) => go\('category'\)\}/);
   });
 });
+
+/**
+ * Adding a customer without leaving intake.
+ *
+ * The guided flow could search customers and skip for a walk-in, but a search
+ * that found nothing dead-ended: the only way forward was to skip, or leave for
+ * the Customers module and lose the vehicle details already entered. New
+ * customers are the common case at a shop taking on work.
+ */
+describe('a customer can be created during intake', () => {
+  it('offers to add when nothing matches', () => {
+    expect(guided).toMatch(/\+ Add \{query\.trim\(\) \? `“\$\{query\.trim\(\)\}”` : 'a new customer'\}/);
+  });
+
+  it('carries the typed search into the name, rather than asking twice', () => {
+    expect(guided).toMatch(/setNewCust\(\{ name: query\.trim\(\), phone: '', email: '' \}\)/);
+  });
+
+  it('only the name is required', () => {
+    expect(guided).toMatch(/placeholder="Full name \*"/);
+    expect(guided).toMatch(/placeholder="Phone \(optional\)"/);
+    expect(guided).toMatch(/placeholder="Email \(optional\)"/);
+  });
+
+  it('goes through saveCustomer, so customer.created still fires', () => {
+    // A direct insert would save the row and skip the event, making the
+    // customer invisible to everything downstream of it.
+    expect(guided).toMatch(/const \{ saveCustomer \} = await import\('@\/services\/customerService'\)/);
+    expect(guided).not.toMatch(/from\('customers'\)\s*\n?\s*\.insert/);
+  });
+
+  it('selects the new customer immediately', () => {
+    // Creating one and then making the advisor find it again is the friction
+    // this removes.
+    expect(guided).toMatch(/await selectCustomer\(option\)/);
+  });
+
+  it('adds them to the list in order', () => {
+    expect(guided).toMatch(/\.sort\(\(a, b\) => a\.name\.localeCompare\(b\.name\)\)/);
+  });
+
+  it('reports a failure instead of swallowing it', () => {
+    expect(guided).toMatch(/setCustError\(e instanceof Error \? e\.message/);
+    expect(guided).toMatch(/\{custError && \(/);
+  });
+
+  it('cannot be double-submitted', () => {
+    expect(guided).toMatch(/disabled=\{savingCust \|\| !newCust\.name\.trim\(\)\}/);
+    expect(guided).toMatch(/savingCust \? 'Saving…' : 'Save customer'/);
+  });
+
+  it('is dismissable without saving', () => {
+    expect(guided).toMatch(/onClick=\{\(\) => \{ setShowNew\(false\); setCustError\(''\); \}\}/);
+  });
+
+  it('hides the add option once a customer is chosen', () => {
+    expect(guided).toMatch(/\{!showNew && !vehicle\.customerId && \(/);
+  });
+
+  it('uses the right mobile keyboards for phone and email', () => {
+    expect(guided).toMatch(/inputMode="tel"/);
+    expect(guided).toMatch(/inputMode="email"/);
+    expect(guided).toMatch(/autoCapitalize="off" autoCorrect="off"/);
+  });
+});
