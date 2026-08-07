@@ -475,3 +475,54 @@ describe('fields are legible in both themes', () => {
     expect(guided).toMatch(/className="gi-scope"/);
   });
 });
+
+/**
+ * Not offering what the browser cannot do.
+ *
+ * BarcodeDetector ships in Chrome on Android, ChromeOS and macOS — not on
+ * Windows or Linux, and not in Safari. A shop owner on Chrome for Windows was
+ * shown both buttons, clicked Scan, and got told the browser could not do it.
+ *
+ * Worse, "Upload photo" used the same API and reported "No VIN barcode found
+ * in that photo" — blaming the photo for a missing browser feature, which
+ * sends someone off to retake pictures that were never going to work.
+ *
+ * Support is knowable on load, so the buttons appear only where they function.
+ */
+describe('scan controls appear only where they can work', () => {
+  it('support is resolved after mount, not during render', () => {
+    // Reading a browser API during render differs between server and client.
+    expect(guided).toMatch(/useEffect\(\(\) => \{ setCanScan\(isBarcodeScanSupported\(\)\); \}, \[\]\)/);
+  });
+
+  it('the buttons render only when scanning is supported', () => {
+    expect(guided).toMatch(/\{canScan === true && \(/);
+  });
+
+  it('an unsupported browser gets an explanation, not a broken button', () => {
+    expect(guided).toMatch(/\{canScan === false && \(/);
+    expect(guided).toMatch(/Barcode scanning is not available in this browser/);
+  });
+
+  it('nothing renders while support is still unknown', () => {
+    // Tri-state on purpose: `false` and "not yet checked" are different, and
+    // flashing the buttons then removing them looks like a fault.
+    expect(guided).toMatch(/useState<boolean \| null>\(null\)/);
+  });
+
+  it('the photo path blames the browser, not the photo', () => {
+    expect(guided).toMatch(/This browser cannot read barcodes from photos/);
+  });
+
+  it('and checks that before reading the file', () => {
+    const handler = guided.slice(guided.indexOf('async function handleVinPhoto'));
+    expect(handler.indexOf('isBarcodeScanSupported()'))
+      .toBeLessThan(handler.indexOf('await scanVinFromFile(file)'));
+  });
+
+  it('typing the VIN is always available', () => {
+    // The keyboard is the fallback on every platform, which is why the input
+    // is never gated on scanner support.
+    expect(guided).toMatch(/Type the VIN here/);
+  });
+});

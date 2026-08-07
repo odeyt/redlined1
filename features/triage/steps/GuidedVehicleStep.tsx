@@ -79,6 +79,10 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [decodedNote, setDecodedNote] = useState('');
 
   const [scanning, setScanning] = useState(false);
+  // Resolved after mount: BarcodeDetector is a browser capability, and reading
+  // it during render would differ between the server and the client.
+  const [canScan, setCanScan] = useState<boolean | null>(null);
+  useEffect(() => { setCanScan(isBarcodeScanSupported()); }, []);
   const videoRef  = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef    = useRef<number>(0);
@@ -277,6 +281,13 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     if (!file) return;
     setDecodeError('');
     try {
+      // Distinguish "this browser cannot read any photo" from "this photo has
+      // no barcode in it". Blaming the photo for a missing browser API sends
+      // someone off to retake pictures that were never going to work.
+      if (!isBarcodeScanSupported()) {
+        setDecodeError('This browser cannot read barcodes from photos. Type the VIN here, or open RedlineD1 on an Android phone to scan it.');
+        return;
+      }
       const vin = await scanVinFromFile(file);
       if (!vin) {
         setDecodeError('No VIN barcode found in that photo. Get closer to the barcode on the door jamb sticker, or type it.');
@@ -582,21 +593,34 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                   {vehicle.customerName && <span>for {vehicle.customerName}</span>}
                 </div>
 
-                {/* Reads the barcode on the door-jamb sticker, not the etched
-                    dash plate — the label says which so nobody aims at glass. */}
-                <div className="gi-row" style={{ marginTop: 12 }}>
-                  <button onClick={() => void startScan()} className="gi-chip"
-                    style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
-                    📷 Scan barcode
-                  </button>
-                  <button onClick={() => fileRef.current?.click()} className="gi-chip"
-                    style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
-                    🖼 Upload photo
-                  </button>
-                </div>
-                <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                  Point at the barcode on the door jamb sticker — the etched dash VIN cannot be scanned.
-                </p>
+                {/* Both paths use BarcodeDetector, which Chrome ships only on
+                    Android, ChromeOS and macOS — not on Windows or Linux, and
+                    not in Safari. Offering buttons that cannot work and failing
+                    on click is worse than not offering them: the advisor blames
+                    their photo, or the feature. */}
+                {canScan === true && (
+                  <>
+                    <div className="gi-row" style={{ marginTop: 12 }}>
+                      <button onClick={() => void startScan()} className="gi-chip"
+                        style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                        📷 Scan barcode
+                      </button>
+                      <button onClick={() => fileRef.current?.click()} className="gi-chip"
+                        style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                        🖼 Upload photo
+                      </button>
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                      Point at the barcode on the door jamb sticker — the etched dash VIN cannot be scanned.
+                    </p>
+                  </>
+                )}
+
+                {canScan === false && (
+                  <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                    Barcode scanning is not available in this browser. Type the VIN here, or open RedlineD1 on an Android phone to scan the door jamb sticker.
+                  </p>
+                )}
                 <input ref={fileRef} type="file" accept="image/*" capture="environment"
                   onChange={handleVinPhoto} style={{ display: 'none' }} />
               </>
