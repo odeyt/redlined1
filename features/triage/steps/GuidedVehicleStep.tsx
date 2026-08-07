@@ -37,11 +37,14 @@ type Question = {
   required?: boolean;
   options?: string[];
   inputMode?: 'text' | 'numeric';
+  /** The VIN question decodes rather than simply storing what is typed. */
+  kind?: 'vin';
   /** iOS shows this on the return key. */
   enterKeyHint?: 'next' | 'done';
 };
 
 const QUESTIONS: Question[] = [
+  { key: 'vin',          prompt: 'Do you have the VIN?',        hint: '17 characters — dashboard, door jamb, or the registration. Decoding it fills in the rest.', placeholder: 'e.g. 1HGBH41JXMN109186', kind: 'vin' },
   { key: 'make',         prompt: 'What make is the vehicle?',   hint: 'Toyota, Ford, BMW…',        placeholder: 'e.g. Toyota', required: true },
   { key: 'model',        prompt: 'And the model?',              hint: 'Hilux, Ranger, X5…',        placeholder: 'e.g. Hilux',  required: true },
   { key: 'year',         prompt: 'What year?',                  hint: 'Four digits',               placeholder: 'e.g. 2021',   required: true, inputMode: 'numeric' },
@@ -64,6 +67,15 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [idx, setIdx] = useState(-1);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState('');
+
+  // Fields the VIN answered. They are stepped over rather than asked, because
+  // re-typing what the VIN already established is the friction decoding exists
+  // to remove — and a typed answer that disagrees with the VIN is a worse
+  // record than the VIN alone.
+  const [autoFilled, setAutoFilled] = useState<Set<string>>(new Set());
+  const [decoding, setDecoding] = useState(false);
+  const [decodeError, setDecodeError] = useState('');
+  const [decodedNote, setDecodedNote] = useState('');
 
   const [query, setQuery] = useState('');
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -168,23 +180,96 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     setIdx(QUESTIONS.length);
   }
 
+  /** Next question the advisor still has to answer, or the review screen. */
+  function nextIndex(from: number, filled: Set<string> = autoFilled) {
+    let i = from + 1;
+    while (i < QUESTIONS.length && filled.has(QUESTIONS[i].key as string)) i++;
+    return i;
+  }
+
+  /** Back steps over decoded fields too, so Back never lands on a dead screen. */
+  function prevIndex(from: number) {
+    let i = from - 1;
+    while (i >= 0 && autoFilled.has(QUESTIONS[i].key as string)) i--;
+    return i;
+  }
+
   function commit(value: string) {
     if (!q) return;
     onChange({ ...vehicle, [q.key]: value });
     setSkipped(prev => { const n = new Set(prev); n.delete(q.key as string); return n; });
-    setIdx(i => i + 1);
+    setIdx(nextIndex(idx));
   }
 
   function skip() {
     if (!q) return;
     setSkipped(prev => new Set(prev).add(q.key as string));
-    setIdx(i => i + 1);
+    setIdx(nextIndex(idx));
+  }
+
+  async function decodeVin() {
+    const raw = draft.trim().toUpperCase();
+    setDecodeError('');
+    if (raw.length !== 17) { setDecodeError('A VIN is exactly 17 characters. Skip if you do not have it.'); return; }
+    setDecoding(true);
+    try {
+      const { decodeVinAPI } = await import('@/services/vinDecoderService');
+      const d = await decodeVinAPI(raw);
+
+      // NHTSA answers for most of the world's vehicles but not all of them —
+      // plenty of models sold in Laos return a make and nothing else. Only the
+      // fields that actually came back are treated as answered; the rest are
+      // still asked, rather than left silently blank.
+      const engine = [d.engineDisplacement && `${d.engineDisplacement}L`, d.engineCylinders && `${d.engineCylinders}-cyl`]
+        .filter(Boolean).join(' ');
+      const patch: Partial<TriageVehicle> = { vin: raw };
+      const filled = new Set<string>(['vin']);
+      const take = (key: keyof TriageVehicle, value: string) => {
+        if (!value) return;
+        (patch as Record<string, string>)[key as string] = value;
+        filled.add(key as string);
+      };
+      take('make', d.make);
+      take('model', d.model);
+      take('year', d.year);
+      take('engine', engine);
+      take('fuelType', d.fuelType);
+      take('transmission', d.transmission);
+
+      if (filled.size === 1) {
+        // Valid format, nothing known. Saying so beats "decoded" over a blank.
+        setDecodeError('That VIN did not return any vehicle details. It is saved — carry on and enter the rest.');
+        onChange({ ...vehicle, vin: raw });
+        setAutoFilled(new Set(['vin']));
+        setDecoding(false);
+        return;
+      }
+
+      onChange({ ...vehicle, ...patch });
+      setAutoFilled(filled);
+      setSkipped(prev => {
+        const n = new Set(prev);
+        filled.forEach(k => n.delete(k));
+        return n;
+      });
+      setDecodedNote(
+        [d.year, d.make, d.model].filter(Boolean).join(' ') ||
+        'Vehicle details found',
+      );
+      setIdx(nextIndex(0, filled));
+    } catch (e) {
+      setDecodeError(e instanceof Error ? e.message : 'Could not decode that VIN.');
+    } finally {
+      setDecoding(false);
+    }
   }
 
   const answered = QUESTIONS.filter(x => String(vehicle[x.key] ?? '').trim()).length;
   const missingRequired = QUESTIONS.filter(x => x.required && !String(vehicle[x.key] ?? '').trim());
-  const total = QUESTIONS.length + 1;
-  const position = idx + 1; // customer question is position 0
+  // Decoded questions are never shown, so counting them would make the
+  // progress bar promise steps that never arrive.
+  const total = QUESTIONS.length + 1 - autoFilled.size;
+  const position = idx + 1 - QUESTIONS.slice(0, Math.max(idx, 0)).filter(x => autoFilled.has(x.key as string)).length;
   const pct = Math.round((Math.min(position, total) / total) * 100);
 
   const card: React.CSSProperties = {
@@ -360,25 +445,54 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
               </div>
             ) : (
               <input
-                ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (draft.trim() || !q.required)) commit(draft.trim()); }}
-                placeholder={q.placeholder} style={input}
-                inputMode={q.inputMode ?? 'text'} enterKeyHint="next"
-                autoComplete="off" autoCorrect="off" autoCapitalize="words"
+                ref={inputRef} value={draft}
+                onChange={e => { setDraft(q.kind === 'vin' ? e.target.value.toUpperCase() : e.target.value); if (q.kind === 'vin') setDecodeError(''); }}
+                onKeyDown={e => {
+                  if (e.key !== 'Enter') return;
+                  if (q.kind === 'vin') { if (!decoding) void decodeVin(); return; }
+                  if (draft.trim() || !q.required) commit(draft.trim());
+                }}
+                placeholder={q.placeholder}
+                inputMode={q.inputMode ?? 'text'} enterKeyHint={q.kind === 'vin' ? 'done' : 'next'}
+                maxLength={q.kind === 'vin' ? 17 : undefined}
+                autoComplete="off" autoCorrect="off"
+                // A VIN is never a proper noun and must not be autocapitalised
+                // word-by-word or spell-corrected on a phone.
+                autoCapitalize={q.kind === 'vin' ? 'characters' : 'words'}
+                spellCheck={q.kind === 'vin' ? false : undefined}
+                style={q.kind === 'vin' ? { ...input, letterSpacing: '.08em', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' } : input}
               />
             )}
 
+            {q.kind === 'vin' && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{draft.trim().length}/17</span>
+                {vehicle.customerName && <span>for {vehicle.customerName}</span>}
+              </div>
+            )}
+
+            {q.kind === 'vin' && decodeError && (
+              <p style={{ marginTop: 12, marginBottom: 0, fontSize: 13, color: 'var(--warn)', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, padding: '11px 14px' }}>
+                {decodeError}
+              </p>
+            )}
+
             <div className="gi-row" style={{ marginTop: 22 }}>
-              {!q.options && (
+              {q.kind === 'vin' ? (
+                <button onClick={() => void decodeVin()} disabled={decoding || draft.trim().length !== 17}
+                  style={{ ...primary, opacity: decoding || draft.trim().length !== 17 ? 0.45 : 1, cursor: decoding || draft.trim().length !== 17 ? 'not-allowed' : 'pointer' }}>
+                  {decoding ? 'Decoding…' : 'Decode VIN'}
+                </button>
+              ) : !q.options && (
                 <button onClick={() => commit(draft.trim())} disabled={q.required && !draft.trim()}
                   style={{ ...primary, opacity: q.required && !draft.trim() ? 0.45 : 1, cursor: q.required && !draft.trim() ? 'not-allowed' : 'pointer' }}>
                   Continue
                 </button>
               )}
-              <button onClick={skip} style={ghost}>
-                {q.required ? 'Not known yet' : 'Skip'}
+              <button onClick={skip} disabled={decoding} style={ghost}>
+                {q.kind === 'vin' ? "Don't have it" : q.required ? 'Not known yet' : 'Skip'}
               </button>
-              <button onClick={() => setIdx(i => i - 1)} style={{ ...ghost, flex: '0 0 auto' }}>← Back</button>
+              <button onClick={() => setIdx(prevIndex(idx))} style={{ ...ghost, flex: '0 0 auto' }}>← Back</button>
             </div>
           </>
         )}
@@ -392,6 +506,12 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 18px' }}>
               {answered} of {QUESTIONS.length} captured. Tap anything to change it.
             </p>
+
+            {decodedNote && (
+              <p style={{ margin: '0 0 14px', fontSize: 13, color: '#22c55e', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 10, padding: '11px 14px' }}>
+                ✓ Decoded from VIN — {decodedNote}. Those fields were not asked.
+              </p>
+            )}
 
             <div style={{ display: 'grid', gap: 8 }}>
               {vehicle.customerName && (
@@ -411,8 +531,13 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                       {String(x.key).replace(/([A-Z])/g, ' $1')}
                       {x.required && <span style={{ color: 'var(--accent)' }}> *</span>}
                     </span>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: val ? 'var(--text)' : 'var(--muted)', fontStyle: val ? 'normal' : 'italic' }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: val ? 'var(--text)' : 'var(--muted)', fontStyle: val ? 'normal' : 'italic', textAlign: 'right' }}>
                       {val || (wasSkipped ? 'Skipped' : 'Not captured')}
+                      {val && autoFilled.has(x.key as string) && (
+                        <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#22c55e', letterSpacing: '.05em', textTransform: 'uppercase' }}>
+                          from VIN
+                        </span>
+                      )}
                     </span>
                   </button>
                 );
@@ -430,7 +555,7 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                 style={{ ...primary, opacity: missingRequired.length > 0 ? 0.45 : 1, cursor: missingRequired.length > 0 ? 'not-allowed' : 'pointer' }}>
                 Continue to symptoms →
               </button>
-              <button onClick={() => setIdx(QUESTIONS.length - 1)} style={ghost}>← Back</button>
+              <button onClick={() => setIdx(prevIndex(QUESTIONS.length))} style={ghost}>← Back</button>
             </div>
           </>
         )}

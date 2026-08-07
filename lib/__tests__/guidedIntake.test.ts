@@ -32,8 +32,11 @@ describe('it asks one thing at a time', () => {
   });
 
   it('advances and goes back', () => {
-    expect(guided).toMatch(/setIdx\(i => i \+ 1\)/);
-    expect(guided).toMatch(/setIdx\(i => i - 1\)/);
+    // Both directions go through the index helpers rather than ±1, so a
+    // question the VIN already answered is stepped over either way.
+    expect(guided).toMatch(/setIdx\(nextIndex\(idx\)\)/);
+    expect(guided).toMatch(/setIdx\(prevIndex\(idx\)\)/);
+    expect(guided).not.toMatch(/setIdx\(i => i [+-] 1\)/);
   });
 
   it('shows progress against the real total', () => {
@@ -224,5 +227,122 @@ describe('a customer can be created during intake', () => {
     expect(guided).toMatch(/inputMode="tel"/);
     expect(guided).toMatch(/inputMode="email"/);
     expect(guided).toMatch(/autoCapitalize="off" autoCorrect="off"/);
+  });
+});
+
+/**
+ * VIN first, then only what the VIN could not answer.
+ *
+ * A VIN establishes make, model, year, engine, fuel and transmission in one
+ * scan. Asking for them afterwards wastes the advisor's time and invites a
+ * typed answer that contradicts the VIN — a worse record than the VIN alone.
+ *
+ * NHTSA's database does not cover every vehicle sold in Laos, so a decode that
+ * returns a make and nothing else is normal. Only fields that actually came
+ * back are treated as answered; the rest are still asked.
+ */
+describe('the VIN is asked first and fills what it can', () => {
+  it('the VIN question comes before make, model and year', () => {
+    const order = ['vin', 'make', 'model', 'year'].map(k => guided.indexOf(`key: '${k}'`));
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order[0]).toBeGreaterThan(-1);
+  });
+
+  it('decodes rather than merely storing what was typed', () => {
+    expect(guided).toMatch(/const \{ decodeVinAPI \} = await import\('@\/services\/vinDecoderService'\)/);
+  });
+
+  it('reuses the existing decoder instead of a second one', () => {
+    expect(guided).not.toMatch(/vpic\.nhtsa/);
+  });
+
+  it('records which fields the VIN answered', () => {
+    expect(guided).toMatch(/setAutoFilled\(filled\)/);
+  });
+
+  it('steps over those questions instead of asking them', () => {
+    expect(guided).toMatch(/while \(i < QUESTIONS\.length && filled\.has\(QUESTIONS\[i\]\.key as string\)\) i\+\+/);
+    expect(guided).toMatch(/setIdx\(nextIndex\(0, filled\)\)/);
+  });
+
+  it('Back also steps over them, so it cannot land on a hidden question', () => {
+    expect(guided).toMatch(/function prevIndex/);
+    expect(guided).toMatch(/while \(i >= 0 && autoFilled\.has\(QUESTIONS\[i\]\.key as string\)\) i--/);
+  });
+
+  it('only takes fields that actually came back', () => {
+    // NHTSA returns partial data for many non-US vehicles; treating a blank as
+    // answered would skip a question and leave the field empty.
+    expect(guided).toMatch(/const take = \(key: keyof TriageVehicle, value: string\) => \{\s*\n\s*if \(!value\) return;/);
+  });
+
+  it('says so when a valid VIN returns nothing useful', () => {
+    expect(guided).toMatch(/did not return any vehicle details/);
+  });
+
+  it('still asks for mileage, which no VIN can answer', () => {
+    expect(guided).not.toMatch(/take\('mileage'/);
+  });
+});
+
+describe('the VIN can always be skipped', () => {
+  it('offers an explicit out', () => {
+    expect(guided).toMatch(/"Don't have it"/);
+  });
+
+  it('is not a required question', () => {
+    expect(guided).toMatch(/key: 'vin',[^\n]*kind: 'vin'/);
+    expect(guided).not.toMatch(/key: 'vin',[^\n]*required: true/);
+  });
+
+  it('skipping leads to the make question as normal', () => {
+    expect(guided).toMatch(/setIdx\(nextIndex\(idx\)\)/);
+  });
+});
+
+describe('the VIN field behaves like a VIN', () => {
+  it('is fixed at 17 characters and counts them', () => {
+    expect(guided).toMatch(/maxLength=\{q\.kind === 'vin' \? 17 : undefined\}/);
+    expect(guided).toMatch(/\{draft\.trim\(\)\.length\}\/17/);
+  });
+
+  it('refuses to decode the wrong length rather than calling the API', () => {
+    expect(guided).toMatch(/if \(raw\.length !== 17\)/);
+    expect(guided).toMatch(/disabled=\{decoding \|\| draft\.trim\(\)\.length !== 17\}/);
+  });
+
+  it('uppercases as typed', () => {
+    expect(guided).toMatch(/q\.kind === 'vin' \? e\.target\.value\.toUpperCase\(\)/);
+  });
+
+  it('is not autocapitalised word-by-word or spell-checked', () => {
+    // A phone would otherwise "correct" a VIN into something else.
+    expect(guided).toMatch(/autoCapitalize=\{q\.kind === 'vin' \? 'characters' : 'words'\}/);
+    expect(guided).toMatch(/spellCheck=\{q\.kind === 'vin' \? false : undefined\}/);
+  });
+
+  it('cannot be double-submitted while decoding', () => {
+    expect(guided).toMatch(/\{decoding \? 'Decoding…' : 'Decode VIN'\}/);
+  });
+
+  it('reports a decode failure instead of silently continuing', () => {
+    expect(guided).toMatch(/setDecodeError\(e instanceof Error \? e\.message/);
+  });
+});
+
+describe('the advisor can see what came from the VIN', () => {
+  it('the review names the decoded vehicle', () => {
+    expect(guided).toMatch(/Decoded from VIN — \{decodedNote\}\. Those fields were not asked\./);
+  });
+
+  it('each decoded field is labelled', () => {
+    // Otherwise a wrong decode is indistinguishable from something typed, and
+    // there is no reason to look twice at it.
+    expect(guided).toMatch(/from VIN/);
+    expect(guided).toMatch(/autoFilled\.has\(x\.key as string\)/);
+  });
+
+  it('progress does not count questions that will never be shown', () => {
+    expect(guided).toMatch(/const total = QUESTIONS\.length \+ 1 - autoFilled\.size/);
   });
 });
