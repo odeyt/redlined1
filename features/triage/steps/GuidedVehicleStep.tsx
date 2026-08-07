@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { TriageVehicle } from '@/lib/triage/QuestionTypes';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
-import { createVinDetector, isBarcodeScanSupported, scanVinFromFile, vinFromBarcodes } from '@/lib/vin/scanVin';
+import { isCameraAvailable, scanVinFromFile, startVinVideoScan } from '@/lib/vin/scanVin';
 
 /**
  * Guided vehicle intake — one question at a time.
@@ -79,13 +79,15 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [decodedNote, setDecodedNote] = useState('');
 
   const [scanning, setScanning] = useState(false);
-  // Resolved after mount: BarcodeDetector is a browser capability, and reading
-  // it during render would differ between the server and the client.
-  const [canScan, setCanScan] = useState<boolean | null>(null);
-  useEffect(() => { setCanScan(isBarcodeScanSupported()); }, []);
+  // Scanning itself works in every browser now — ZXing covers what the native
+  // API does not. Only the live camera is conditional, and on hardware rather
+  // than on the browser. Resolved after mount: reading a browser capability
+  // during render would differ between the server and the client.
+  const [canUseCamera, setCanUseCamera] = useState<boolean | null>(null);
+  useEffect(() => { setCanUseCamera(isCameraAvailable()); }, []);
   const videoRef  = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const rafRef    = useRef<number>(0);
+  const stopDecodeRef = useRef<(() => void) | null>(null);
   const fileRef   = useRef<HTMLInputElement>(null);
 
   const [query, setQuery] = useState('');
@@ -219,9 +221,12 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   }
 
   function stopScan() {
+    // Stop the decoder before the tracks: a ZXing loop reading from a video
+    // whose stream just ended throws on the next frame.
+    stopDecodeRef.current?.();
+    stopDecodeRef.current = null;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
-    cancelAnimationFrame(rafRef.current);
     setScanning(false);
   }
 
@@ -230,23 +235,23 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   useEffect(() => () => stopScan(), []);
 
   async function startScan() {
-    if (!isBarcodeScanSupported()) {
-      // iOS Safari has no BarcodeDetector. The photo path uses the same API, so
-      // offer the keyboard rather than a button that cannot work.
-      setDecodeError('This browser cannot scan barcodes. Type the VIN, or try Chrome on Android.');
-      return;
-    }
     setDecodeError('');
     setScanning(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       streamRef.current = stream;
-      setTimeout(() => {
-        if (!videoRef.current) return;
-        videoRef.current.srcObject = stream;
-        void videoRef.current.play();
-        scanFrames();
-      }, 100);
+      const video = await waitForVideo();
+      if (!video) { stopScan(); return; }
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+      // Native where available, ZXing everywhere else. The component does not
+      // need to know which answered.
+      stopDecodeRef.current = await startVinVideoScan(video, vin => {
+        stopScan();
+        setDraft(vin);
+        onChange({ ...vehicle, vin });
+        void decodeVin(vin);
+      });
     } catch {
       // Denied permission, or no camera. Falling back to the photo picker keeps
       // a path open instead of dead-ending on a blank viewfinder.
@@ -255,24 +260,18 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     }
   }
 
-  function scanFrames() {
-    const detector = createVinDetector();
-    if (!detector) { stopScan(); return; }
-    const tick = async () => {
-      if (!videoRef.current || !streamRef.current) return;
-      try {
-        const vin = vinFromBarcodes(await detector.detect(videoRef.current));
-        if (vin) {
-          stopScan();
-          setDraft(vin);
-          onChange({ ...vehicle, vin });
-          void decodeVin(vin);
-          return;
-        }
-      } catch { /* a frame that will not decode is normal — keep looking */ }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
+  /** The overlay mounts in the same commit that starts the scan, so the ref
+   *  is not populated yet on the first tick. */
+  function waitForVideo(): Promise<HTMLVideoElement | null> {
+    return new Promise(resolve => {
+      let tries = 0;
+      const check = () => {
+        if (videoRef.current) return resolve(videoRef.current);
+        if (++tries > 30) return resolve(null);
+        setTimeout(check, 20);
+      };
+      check();
+    });
   }
 
   async function handleVinPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -281,13 +280,6 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     if (!file) return;
     setDecodeError('');
     try {
-      // Distinguish "this browser cannot read any photo" from "this photo has
-      // no barcode in it". Blaming the photo for a missing browser API sends
-      // someone off to retake pictures that were never going to work.
-      if (!isBarcodeScanSupported()) {
-        setDecodeError('This browser cannot read barcodes from photos. Type the VIN here, or open RedlineD1 on an Android phone to scan it.');
-        return;
-      }
       const vin = await scanVinFromFile(file);
       if (!vin) {
         setDecodeError('No VIN barcode found in that photo. Get closer to the barcode on the door jamb sticker, or type it.');
@@ -598,29 +590,23 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                     not in Safari. Offering buttons that cannot work and failing
                     on click is worse than not offering them: the advisor blames
                     their photo, or the feature. */}
-                {canScan === true && (
-                  <>
-                    <div className="gi-row" style={{ marginTop: 12 }}>
-                      <button onClick={() => void startScan()} className="gi-chip"
-                        style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
-                        📷 Scan barcode
-                      </button>
-                      <button onClick={() => fileRef.current?.click()} className="gi-chip"
-                        style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
-                        🖼 Upload photo
-                      </button>
-                    </div>
-                    <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                      Point at the barcode on the door jamb sticker — the etched dash VIN cannot be scanned.
-                    </p>
-                  </>
-                )}
-
-                {canScan === false && (
-                  <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                    Barcode scanning is not available in this browser. Type the VIN here, or open RedlineD1 on an Android phone to scan the door jamb sticker.
-                  </p>
-                )}
+                <div className="gi-row" style={{ marginTop: 12 }}>
+                  {/* Only shown where a camera exists. A desktop with no webcam
+                      still gets Upload, which is the useful path there. */}
+                  {canUseCamera && (
+                    <button onClick={() => void startScan()} className="gi-chip"
+                      style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                      📷 Scan barcode
+                    </button>
+                  )}
+                  <button onClick={() => fileRef.current?.click()} className="gi-chip"
+                    style={{ flex: '1 1 160px', minHeight: 52, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)', color: 'var(--text)', cursor: 'pointer', fontSize: 15, fontWeight: 700 }}>
+                    🖼 Upload photo
+                  </button>
+                </div>
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                  Point at the barcode on the door jamb sticker — the etched dash VIN cannot be scanned.
+                </p>
                 <input ref={fileRef} type="file" accept="image/*" capture="environment"
                   onChange={handleVinPhoto} style={{ display: 'none' }} />
               </>

@@ -403,11 +403,10 @@ describe('the VIN can be scanned or photographed', () => {
     expect(guided).toMatch(/Could not open the camera/);
   });
 
-  it('says so on a browser without barcode support', () => {
-    // iOS Safari has no BarcodeDetector; a button that silently does nothing
-    // is worse than one that explains itself.
-    expect(guided).toMatch(/isBarcodeScanSupported\(\)/);
-    expect(guided).toMatch(/This browser cannot scan barcodes/);
+  it('does not depend on the browser having a native decoder', () => {
+    // ZXing covers Windows, Linux and iOS, where BarcodeDetector is absent.
+    expect(guided).toMatch(/startVinVideoScan\(video, vin =>/);
+    expect(guided).not.toMatch(/This browser cannot scan barcodes/);
   });
 
   it('reports a photo with no readable barcode', () => {
@@ -477,52 +476,89 @@ describe('fields are legible in both themes', () => {
 });
 
 /**
- * Not offering what the browser cannot do.
+ * Scanning on every browser, not only the ones with a native decoder.
  *
  * BarcodeDetector ships in Chrome on Android, ChromeOS and macOS — not on
  * Windows or Linux, and not in Safari. A shop owner on Chrome for Windows was
- * shown both buttons, clicked Scan, and got told the browser could not do it.
+ * shown both buttons, clicked Scan, and was told the browser could not do it,
+ * which covers most of the desk-bound use of this app and both iPhones.
  *
- * Worse, "Upload photo" used the same API and reported "No VIN barcode found
- * in that photo" — blaming the photo for a missing browser feature, which
- * sends someone off to retake pictures that were never going to work.
- *
- * Support is knowable on load, so the buttons appear only where they function.
+ * ZXing fills that gap, loaded on demand so the download only reaches browsers
+ * that need it. Scanning is therefore no longer conditional on the browser —
+ * only the live camera is, and on hardware rather than on the engine.
  */
-describe('scan controls appear only where they can work', () => {
-  it('support is resolved after mount, not during render', () => {
-    // Reading a browser API during render differs between server and client.
-    expect(guided).toMatch(/useEffect\(\(\) => \{ setCanScan\(isBarcodeScanSupported\(\)\); \}, \[\]\)/);
+describe('the decoder falls back rather than giving up', () => {
+  const scanner = read('lib/vin/scanVin.ts');
+
+  it('tries the native decoder first, when there is one', () => {
+    // It costs nothing when present, and downloads nothing.
+    expect(scanner).toMatch(/const native = createVinDetector\(\);\s*\n\s*if \(native\)/);
   });
 
-  it('the buttons render only when scanning is supported', () => {
-    expect(guided).toMatch(/\{canScan === true && \(/);
+  it('ZXing is imported on demand, not bundled into the page', () => {
+    // Dynamic import, so the ~200KB is fetched only when a browser without a
+    // native decoder actually scans. A static import would ship it to everyone.
+    expect(scanner).toMatch(/import\('@zxing\/browser'\)/);
+    expect(scanner).toMatch(/import\('@zxing\/library'\)/);
+    expect(scanner).not.toMatch(/^import .* from '@zxing/m);
   });
 
-  it('an unsupported browser gets an explanation, not a broken button', () => {
-    expect(guided).toMatch(/\{canScan === false && \(/);
-    expect(guided).toMatch(/Barcode scanning is not available in this browser/);
+  it('a photo the native decoder cannot read still reaches ZXing', () => {
+    // The two fail on different images; a second attempt costs one download.
+    expect(scanner).toMatch(/Fall through to ZXing rather than giving up/);
   });
 
-  it('nothing renders while support is still unknown', () => {
-    // Tri-state on purpose: `false` and "not yet checked" are different, and
-    // flashing the buttons then removing them looks like a fault.
+  it('limits ZXing to the symbologies a VIN sticker uses', () => {
+    // Left open it tries every format on every frame, which is visibly slow.
+    expect(scanner).toMatch(/POSSIBLE_FORMATS/);
+    expect(scanner).toMatch(/BarcodeFormat\.CODE_39/);
+    expect(scanner).toMatch(/BarcodeFormat\.CODE_128/);
+  });
+
+  it('reports support as universal now', () => {
+    expect(scanner).toMatch(/export function isBarcodeScanSupported\(\): boolean \{\s*\n\s*return true;/);
+  });
+
+  it('the object URL is released whether or not it decoded', () => {
+    expect(scanner).toMatch(/URL\.revokeObjectURL\(url\)/);
+  });
+
+  it('the caller keeps ownership of the camera stream', () => {
+    // Stopping a scan must not kill a stream the component is managing.
+    expect(scanner).toMatch(/The caller owns the MediaStream/);
+  });
+});
+
+describe('the camera button tracks hardware, not the browser', () => {
+  it('is offered only where a camera exists', () => {
+    expect(guided).toMatch(/\{canUseCamera && \(/);
+    expect(guided).toMatch(/setCanUseCamera\(isCameraAvailable\(\)\)/);
+  });
+
+  it('upload is always offered, since it needs no camera', () => {
+    // The useful path on a desktop, which is where this was first reported.
+    const block = guided.slice(guided.indexOf('🖼 Upload photo') - 600, guided.indexOf('🖼 Upload photo'));
+    expect(block).not.toMatch(/canUseCamera && \($/);
+  });
+
+  it('resolves after mount rather than during render', () => {
     expect(guided).toMatch(/useState<boolean \| null>\(null\)/);
   });
 
-  it('the photo path blames the browser, not the photo', () => {
-    expect(guided).toMatch(/This browser cannot read barcodes from photos/);
+  it('stops the decoder before ending the stream', () => {
+    // A ZXing loop reading from a stream that just ended throws on the next
+    // frame.
+    const stop = guided.slice(guided.indexOf('function stopScan'), guided.indexOf('function stopScan') + 400);
+    expect(stop.indexOf('stopDecodeRef.current?.()')).toBeLessThan(stop.indexOf('getTracks()'));
   });
 
-  it('and checks that before reading the file', () => {
-    const handler = guided.slice(guided.indexOf('async function handleVinPhoto'));
-    expect(handler.indexOf('isBarcodeScanSupported()'))
-      .toBeLessThan(handler.indexOf('await scanVinFromFile(file)'));
+  it('waits for the video element the overlay mounts', () => {
+    // The overlay renders in the same commit that starts the scan, so the ref
+    // is empty on the first tick.
+    expect(guided).toMatch(/function waitForVideo/);
   });
 
   it('typing the VIN is always available', () => {
-    // The keyboard is the fallback on every platform, which is why the input
-    // is never gated on scanner support.
-    expect(guided).toMatch(/Type the VIN here/);
+    expect(guided).toMatch(/placeholder=\{q\.placeholder\}/);
   });
 });
