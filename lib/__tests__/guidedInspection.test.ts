@@ -146,3 +146,32 @@ describe('it shares the form\'s state rather than copying it', () => {
     expect(view).toMatch(/▶ Walk through \{form\.items\.length\} checks/);
   });
 });
+
+/**
+ * Reaching the end of the walkthrough.
+ *
+ * An inspector reported it stuck at "64 of 65": the last item's Next did
+ * nothing, so the inspection could never be finished from inside the flow.
+ *
+ * The cause was calling setShowReview from inside a setIdx updater. Updaters
+ * must be pure — React invokes them twice in development — so the state change
+ * smuggled into one is not reliably applied. It worked for every item except
+ * the one where it mattered, which is why it survived review.
+ */
+describe('the last item finishes the walkthrough', () => {
+  it('decides before updating, rather than inside an updater', () => {
+    expect(guided).toMatch(/if \(idx >= total - 1\) \{ setShowReview\(true\); return; \}\s*\n\s*setIdx\(idx \+ 1\);/);
+  });
+
+  it('no state is set from inside a state updater', () => {
+    // The specific defect: a setState call nested in a setIdx callback.
+    expect(guided).not.toMatch(/setIdx\(i => \{[\s\S]*?setShowReview/);
+  });
+
+  it('the review screen is always reachable', () => {
+    // Any future bug that stops the flow advancing must not also trap the
+    // inspector inside it.
+    expect(guided).toMatch(/\{!showReview && \(\s*\n\s*<button onClick=\{\(\) => setShowReview\(true\)\}/);
+    expect(guided).toMatch(/Review →/);
+  });
+});

@@ -88,10 +88,11 @@ export function GuidedInspection({ items, onChange, onPhoto, uploadingItemId, on
   }
 
   function next() {
-    setIdx(i => {
-      if (i >= total - 1) { setShowReview(true); return i; }
-      return i + 1;
-    });
+    // Reading idx directly rather than from a setIdx updater: an updater must
+    // be pure, and calling setShowReview inside one meant the last item's Next
+    // did nothing at all — the walkthrough stopped one short of the end.
+    if (idx >= total - 1) { setShowReview(true); return; }
+    setIdx(idx + 1);
   }
 
   const judgedCount = judged.size;
@@ -136,9 +137,19 @@ export function GuidedInspection({ items, onChange, onPhoto, uploadingItemId, on
         <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${total ? (judgedCount / total) * 100 : 0}%`, borderRadius: 99, background: 'linear-gradient(90deg, #22c55e, #16a34a)', transition: 'width .25s ease' }} />
         </div>
-        <div style={{ color: '#fff', opacity: 0.7, fontSize: 12, marginTop: 6 }}>
-          {judgedCount} of {total} checked
-          {flagged.length > 0 && <span style={{ color: '#f59e0b', marginLeft: 10 }}>· {flagged.length} flagged</span>}
+        <div style={{ color: '#fff', opacity: 0.7, fontSize: 12, marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <span>
+            {judgedCount} of {total} checked
+            {flagged.length > 0 && <span style={{ color: '#f59e0b', marginLeft: 10 }}>· {flagged.length} flagged</span>}
+          </span>
+          {/* Always reachable. Any bug that stops the flow advancing must not
+              also trap the inspector inside it. */}
+          {!showReview && (
+            <button onClick={() => setShowReview(true)}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 8, color: '#fff', padding: '5px 12px', minHeight: 32, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Review →
+            </button>
+          )}
         </div>
       </div>
 
