@@ -78,6 +78,21 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [decodeError, setDecodeError] = useState('');
   const [decodedNote, setDecodedNote] = useState('');
 
+  /**
+   * What the VIN decoded to, held for confirmation rather than applied.
+   *
+   * NHTSA answers a malformed VIN with real-looking data: "123456789AAAAAAA4"
+   * returns Make "SHERMAN + REILLY", Year 2010, and a Honda CRX was filed under
+   * that. Its error codes cannot be used to reject it — genuine VINs in this
+   * fleet return errors too (Ford "1", Lexus "3,14", Toyota "1,11,14,400"), so
+   * filtering on them would throw away almost every real decode.
+   *
+   * The operator can tell at a glance what the machine cannot, so they confirm.
+   */
+  const [pendingDecode, setPendingDecode] = useState<{
+    vin: string; patch: Partial<TriageVehicle>; filled: Set<string>; summary: string; fields: [string, string][];
+  } | null>(null);
+
   const [scanning, setScanning] = useState(false);
   // Scanning itself works in every browser now — ZXing covers what the native
   // API does not. Only the live camera is conditional, and on hardware rather
@@ -220,6 +235,31 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
     setIdx(nextIndex(idx));
   }
 
+  function acceptDecode() {
+    if (!pendingDecode) return;
+    const { patch, filled, summary } = pendingDecode;
+    onChange({ ...vehicle, ...patch });
+    setAutoFilled(filled);
+    setSkipped(prev => {
+      const n = new Set(prev);
+      filled.forEach(k => n.delete(k));
+      return n;
+    });
+    setDecodedNote(summary);
+    setPendingDecode(null);
+    setIdx(nextIndex(0, filled));
+  }
+
+  function rejectDecode() {
+    if (!pendingDecode) return;
+    // Keep the VIN — it is what the operator typed or scanned, and is correct
+    // even when the lookup against it is not. Everything else gets asked.
+    onChange({ ...vehicle, vin: pendingDecode.vin });
+    setAutoFilled(new Set(['vin']));
+    setPendingDecode(null);
+    setIdx(nextIndex(0, new Set(['vin'])));
+  }
+
   function stopScan() {
     // Stop the decoder before the tracks: a ZXing loop reading from a video
     // whose stream just ended throws on the next frame.
@@ -333,18 +373,21 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
         return;
       }
 
-      onChange({ ...vehicle, ...patch });
-      setAutoFilled(filled);
-      setSkipped(prev => {
-        const n = new Set(prev);
-        filled.forEach(k => n.delete(k));
-        return n;
+      // Held, not applied. See pendingDecode above for why nothing about the
+      // response can be trusted to decide this automatically.
+      const labels: Record<string, string> = {
+        make: 'Make', model: 'Model', year: 'Year',
+        engine: 'Engine', fuelType: 'Fuel', transmission: 'Transmission',
+      };
+      setPendingDecode({
+        vin: raw,
+        patch,
+        filled,
+        summary: [d.year, d.make, d.model].filter(Boolean).join(' ') || 'Vehicle details found',
+        fields: Object.keys(labels)
+          .filter(k => filled.has(k))
+          .map(k => [labels[k], String((patch as Record<string, unknown>)[k] ?? '')] as [string, string]),
       });
-      setDecodedNote(
-        [d.year, d.make, d.model].filter(Boolean).join(' ') ||
-        'Vehicle details found',
-      );
-      setIdx(nextIndex(0, filled));
     } catch (e) {
       setDecodeError(e instanceof Error ? e.message : 'Could not decode that VIN.');
     } finally {
@@ -560,7 +603,11 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
             ) : (
               <input
                 ref={inputRef} value={draft}
-                onChange={e => { setDraft(q.kind === 'vin' ? e.target.value.toUpperCase() : e.target.value); if (q.kind === 'vin') setDecodeError(''); }}
+                onChange={e => {
+                  setDraft(q.kind === 'vin' ? e.target.value.toUpperCase() : e.target.value);
+                  // Editing the VIN invalidates a decode of the old one.
+                  if (q.kind === 'vin') { setDecodeError(''); setPendingDecode(null); }
+                }}
                 onKeyDown={e => {
                   if (e.key !== 'Enter') return;
                   if (q.kind === 'vin') { if (!decoding) void decodeVin(); return; }
@@ -624,6 +671,34 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
                   style={{ marginTop: 16, minHeight: 52, padding: '14px 30px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
                   Cancel
                 </button>
+              </div>
+            )}
+
+            {/* Confirm before anything is applied. A malformed VIN comes back
+                looking like a real answer, and only a person can tell. */}
+            {q.kind === 'vin' && pendingDecode && (
+              <div style={{ marginTop: 14, padding: 16, borderRadius: 14, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                  This VIN decoded as
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text)', marginBottom: 10 }}>
+                  {pendingDecode.summary}
+                </div>
+                <div style={{ display: 'grid', gap: 4, marginBottom: 14 }}>
+                  {pendingDecode.fields.map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+                      <span style={{ color: 'var(--muted)' }}>{label}</span>
+                      <span style={{ color: 'var(--text)', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+                  Does that match the vehicle in front of you?
+                </p>
+                <div className="gi-row">
+                  <button onClick={acceptDecode} style={primary}>Yes — use these</button>
+                  <button onClick={rejectDecode} style={ghost}>No — I&apos;ll enter it</button>
+                </div>
               </div>
             )}
 

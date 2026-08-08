@@ -562,3 +562,63 @@ describe('the camera button tracks hardware, not the browser', () => {
     expect(guided).toMatch(/placeholder=\{q\.placeholder\}/);
   });
 });
+
+/**
+ * A VIN decode is proposed, not applied.
+ *
+ * NHTSA answers a malformed VIN with real-looking data. "123456789AAAAAAA4"
+ * returns Make "SHERMAN + REILLY" and Year 2010, and a Honda CRX was filed in
+ * production as "2010 SHERMAN + REILLY honda crx".
+ *
+ * The response cannot be filtered automatically. Genuine VINs from this fleet
+ * come back with error codes too — Ford "1", Lexus "3,14", Chevrolet "1,8",
+ * Toyota Land Cruiser "1,11,14,400" — so rejecting on error code would discard
+ * almost every real decode. Only the Mercedes returned a clean "0".
+ *
+ * The operator is looking at the car and can tell in a second what no amount
+ * of parsing can, so they confirm.
+ */
+describe('a decode is confirmed before it is applied', () => {
+  it('holds the result instead of writing it', () => {
+    expect(guided).toMatch(/setPendingDecode\(\{/);
+    // Scoped to decodeVin: acceptDecode applies the same patch, and should —
+    // that is the confirmed path. What matters is that decoding alone does not.
+    const decode = guided.slice(
+      guided.indexOf('async function decodeVin'),
+      guided.indexOf('function acceptDecode'),
+    );
+    expect(decode).not.toMatch(/onChange\(\{ \.\.\.vehicle, \.\.\.patch \}\)/);
+    expect(decode).not.toMatch(/setAutoFilled\(filled\)/);
+  });
+
+  it('shows what it found, field by field', () => {
+    expect(guided).toMatch(/This VIN decoded as/);
+    expect(guided).toMatch(/pendingDecode\.fields\.map/);
+  });
+
+  it('asks a question the operator can actually answer', () => {
+    expect(guided).toMatch(/Does that match the vehicle in front of you\?/);
+  });
+
+  it('accepting applies the fields and skips those questions', () => {
+    expect(guided).toMatch(/function acceptDecode/);
+    expect(guided).toMatch(/setIdx\(nextIndex\(0, filled\)\)/);
+  });
+
+  it('declining keeps the VIN and asks everything else', () => {
+    // The VIN is what was typed or scanned and is right even when the lookup
+    // against it is wrong.
+    expect(guided).toMatch(/function rejectDecode/);
+    expect(guided).toMatch(/onChange\(\{ \.\.\.vehicle, vin: pendingDecode\.vin \}\)/);
+    expect(guided).toMatch(/setAutoFilled\(new Set\(\['vin'\]\)\);\s*\n\s*setPendingDecode\(null\)/);
+  });
+
+  it('editing the VIN discards a pending decode of the old one', () => {
+    expect(guided).toMatch(/Editing the VIN invalidates a decode of the old one/);
+  });
+
+  it('does not filter on NHTSA error codes', () => {
+    // Verified against six production VINs: only one returned a clean code.
+    expect(guided).not.toMatch(/errorCode/);
+  });
+});
