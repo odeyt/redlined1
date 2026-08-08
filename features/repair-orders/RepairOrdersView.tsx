@@ -624,6 +624,13 @@ export function RepairOrdersView() {
           // and flagging the invoice separately beats losing the sign-off.
           invNumber = ro.invoiceNumber;
           invoiceError = e instanceof Error ? e.message : 'unknown error';
+          // RO-00036 completed on 2026-08-07 with no invoice and no trace of
+          // why. A toast the operator may not read is not a record: this failure
+          // costs money, so it goes somewhere that survives the page.
+          try {
+            const { logger } = await import('@/lib/logger');
+            logger.error('repair-orders.autoDraftInvoice failed', e, { roNumber: ro.roNumber, roId: ro.id });
+          } catch { /* reporting must not mask the original failure */ }
         }
       }
 
@@ -837,6 +844,9 @@ export function RepairOrdersView() {
         ? false // archived ROs only show under the Archived tab, keeping every other list short
         : filterStatus === 'All'
           || (filterStatus === 'Pending' && (ro.status === 'Pending Approval' || ro.status === 'Pending Parts'))
+          // Cuts across status rather than being one: an order is uninvoiced
+          // whether it is Complete or Closed.
+          || (filterStatus === 'Uninvoiced' && isUninvoiced(ro))
           || ro.status === filterStatus;
     const matchSearch = !search || [ro.roNumber, ro.customerName, ro.vehicle, ro.technician]
       .some(v => v.toLowerCase().includes(search.toLowerCase()));
@@ -849,6 +859,8 @@ export function RepairOrdersView() {
   const openCount = orders.filter(r => r.status === 'Open' || r.status === 'In Progress').length;
   const pendingCount = orders.filter(r => r.status === 'Pending Parts' || r.status === 'Pending Approval').length;
   const completeCount = orders.filter(r => (r.status === 'Complete' || r.status === 'Closed') && !isArchivedRO(r)).length;
+  const isUninvoiced = (r: RepairOrder) => (r.status === 'Complete' || r.status === 'Closed') && !r.invoiceNumber;
+  const uninvoicedCount = orders.filter(r => isUninvoiced(r) && !isArchivedRO(r)).length;
   const totalLabor = orders.filter(r => r.status !== 'Void').reduce((s, r) => s + r.laborHours * r.laborRate, 0);
 
   return (
@@ -861,6 +873,10 @@ export function RepairOrdersView() {
           { label: 'Open / In Progress', count: openCount,    color: '#2196f3', filter: 'In Progress' },
           { label: 'Pending',            count: pendingCount, color: '#f59e0b', filter: 'Pending' },
           { label: 'Complete / Closed',  count: completeCount,color: '#4caf50', filter: 'Complete' },
+          // Finished work nobody billed for. It was 20 of 21 when this was
+          // added, and invisible: the only way to find them was to open each
+          // order and notice the absence of an invoice number.
+          { label: 'Not invoiced',       count: uninvoicedCount, color: '#dc2626', filter: 'Uninvoiced' },
         ].map(({ label, count, color, filter }) => {
           const active = filterStatus === filter;
           return (
@@ -1048,6 +1064,19 @@ export function RepairOrdersView() {
                 <button className="btn" style={{ background: 'rgba(245,158,11,0.1)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)', fontWeight: 700 }}
                   onClick={() => setQaTarget(selected)}>
                   ⚠ Complete QA Sign-Off
+                </button>
+              )}
+
+              {/* Finished work that was never billed.
+                  RO-00036 signed off cleanly and produced no invoice, and
+                  nothing on screen said so afterwards — the only signal was a
+                  toast that had long since gone. 20 of 21 completed orders are
+                  in this state. A standing prompt is the difference between a
+                  missed invoice and an unnoticed one. */}
+              {!isTech && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
+                <button className="btn" style={{ background: 'rgba(220,38,38,0.12)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.45)', fontWeight: 800 }}
+                  onClick={() => handleConvertToInvoice(selected)}>
+                  ⚠ Not invoiced — raise invoice
                 </button>
               )}
 
