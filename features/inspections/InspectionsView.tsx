@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { GuidedInspection } from './GuidedInspection';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { TechPills } from '@/components/TechPill';
@@ -214,6 +215,7 @@ export function InspectionsView() {
   const [toast, setToast] = useState('');
   const [selected, setSelected] = useState<Inspection | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [guidedOpen, setGuidedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
@@ -559,6 +561,19 @@ export function InspectionsView() {
       <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0]); e.target.value = ''; }} />
 
+      {/* Writes into the same form state the checklist below renders, so the
+          two are never out of step and Save behaves identically either way. */}
+      {guidedOpen && showForm && (
+        <GuidedInspection
+          items={form.items}
+          onChange={items => setForm(f => ({ ...f, items }))}
+          onPhoto={itemId => { setPhotoTargetItem(itemId); photoInputRef.current?.click(); }}
+          uploadingItemId={uploadingItemId}
+          onClose={() => setGuidedOpen(false)}
+          title={form.inspectionNumber || 'Inspection'}
+        />
+      )}
+
       {/* Stats */}
       {(() => {
         const statGroups = [
@@ -835,6 +850,16 @@ export function InspectionsView() {
                     <input type="tel" value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))} placeholder="Auto-filled from customer" />
                   </div>
                 </div>
+
+                {/* Sixty-odd rows of four-way radios is where a technician on a
+                    phone loses their place. The walkthrough is the same items,
+                    one at a time, writing into this same form state. */}
+                {form.items.length > 0 && (
+                  <button type="button" onClick={() => setGuidedOpen(true)}
+                    style={{ width: '100%', minHeight: 54, marginBottom: 14, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}>
+                    ▶ Walk through {form.items.length} checks
+                  </button>
+                )}
 
                 {/* Checklist */}
                 {categories.map(cat => {
