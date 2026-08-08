@@ -296,7 +296,7 @@ export function TriageView() {
       dispatch({
         type: 'SET_PREFILL',
         prefill: {
-          inspectionId: (created as { id?: string })?.id ?? '',
+          openInspectionId: (created as { id?: string })?.id ?? '',
           customerId,
           customerName: session.vehicle.customerName ?? '',
           vehicle: `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim(),

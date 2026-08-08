@@ -281,17 +281,34 @@ export function InspectionsView() {
   // Vehicle Intake creates the inspection itself, then sends its id. Open that
   // record rather than starting a new form — building a second one here is how
   // a single intake would end up as two DVIs.
+  //
+  // The request is consumed the moment it arrives and held in a ref, rather
+  // than left in the store until the list loads. Leaving it there meant the
+  // effect re-fired on every change to `inspections`, and if the operator had
+  // opened the edit form in the meantime it closed again under them.
+  const pendingOpenId = useRef<string | null>(null);
   useEffect(() => {
-    if (!prefill?.inspectionId) return;
-    const found = inspections.find(i => i.id === prefill.inspectionId);
-    if (!found) return; // list not loaded yet; this reruns when it is
-    setSelected(found);
-    setShowForm(false);
+    if (!prefill?.openInspectionId) return;
+    pendingOpenId.current = prefill.openInspectionId;
     dispatch({ type: 'SET_PREFILL', prefill: null });
-  }, [prefill, inspections, dispatch]);
+  }, [prefill, dispatch]);
 
   useEffect(() => {
-    if (!prefill || prefill.inspectionId) return;
+    const id = pendingOpenId.current;
+    if (!id) return;
+    // A form the operator opened themselves outranks a stale navigation.
+    if (showForm) { pendingOpenId.current = null; return; }
+    const found = inspections.find(i => i.id === id);
+    if (!found) return; // list not loaded yet; this reruns when it is
+    pendingOpenId.current = null;
+    setSelected(found);
+  }, [inspections, showForm]);
+
+  useEffect(() => {
+    // Stand down for both other instructions: `openInspectionId` means a DVI
+    // already exists, and `inspectionId` belongs to the estimates flow. Acting
+    // on either would open a blank second inspection.
+    if (!prefill || prefill.openInspectionId || prefill.inspectionId) return;
     if (!prefill.jobCardId && !prefill.customerName) return;
     nextInspectionNumber().then(num => {
       setForm({

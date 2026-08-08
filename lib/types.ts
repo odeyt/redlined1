@@ -238,7 +238,12 @@ export interface AppState {
   auditLogs: AuditLog[];
   parts: Part[];
   openNewJobCard: boolean;
-  prefill: { customerName?: string; customerId?: string; vehicle?: string; vin?: string; inspectionId?: string; jobCardId?: string; notes?: string } | null;
+  // `inspectionId` means "build an estimate from this inspection" and is read
+  // by the estimates flow. `openInspectionId` means "open this DVI" and is read
+  // by the inspections module. They are separate keys because they are separate
+  // instructions — sharing one made opening a DVI and estimating from it the
+  // same request, which closed the edit form out from under the operator.
+  prefill: { customerName?: string; customerId?: string; vehicle?: string; vin?: string; inspectionId?: string; openInspectionId?: string; jobCardId?: string; notes?: string } | null;
 }
 
 export type AppAction =

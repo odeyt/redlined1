@@ -97,23 +97,55 @@ describe('the vehicle is identified, not re-keyed', () => {
   });
 });
 
+/**
+ * The hand-off uses its own key.
+ *
+ * `inspectionId` already meant "build an estimate from this inspection" — set
+ * by the Create Estimate button on a completed DVI, and never cleared by the
+ * estimates flow. Reusing it for "open this DVI" made two different
+ * instructions indistinguishable.
+ *
+ * The visible cost: opening Inspections with that stale prefill still set,
+ * clicking Fill Out / Edit, and having the form close again the moment the
+ * list finished loading. It read as "editing is broken".
+ */
 describe('the inspection it just created is the one that opens', () => {
-  it('the hand-off sends the new inspection id', () => {
-    expect(triage).toMatch(/inspectionId: \(created as \{ id\?: string \}\)\?\.id \?\? ''/);
+  it('the hand-off sends the new inspection id under its own key', () => {
+    expect(triage).toMatch(/openInspectionId: \(created as \{ id\?: string \}\)\?\.id \?\? ''/);
   });
 
   it('the module opens that record instead of a blank form', () => {
-    expect(inspections).toMatch(/if \(!prefill\?\.inspectionId\) return;/);
+    expect(inspections).toMatch(/if \(!prefill\?\.openInspectionId\) return;/);
     expect(inspections).toMatch(/setSelected\(found\)/);
+  });
+
+  it('consumes the request immediately rather than leaving it in the store', () => {
+    // Left there, the effect re-fired on every change to `inspections`.
+    expect(inspections).toMatch(/pendingOpenId\.current = prefill\.openInspectionId;\s*\n\s*dispatch\(\{ type: 'SET_PREFILL', prefill: null \}\)/);
   });
 
   it('waits for the list rather than giving up when it is not loaded', () => {
     expect(inspections).toMatch(/if \(!found\) return; \/\/ list not loaded yet/);
   });
 
-  it('the create-new path stands down when an id is supplied', () => {
+  it('never closes a form the operator opened', () => {
+    // The bug: setShowForm(false) fired after the list loaded, shutting the
+    // edit form. A deliberate click outranks a stale navigation.
+    expect(inspections).toMatch(/if \(showForm\) \{ pendingOpenId\.current = null; return; \}/);
+    const effect = inspections.slice(
+      inspections.indexOf('const id = pendingOpenId.current;'),
+      inspections.indexOf('}, [inspections, showForm]);'),
+    );
+    expect(effect).not.toMatch(/setShowForm\(false\)/);
+  });
+
+  it('the create-new path stands down for both other instructions', () => {
     // Otherwise one intake becomes two DVIs — the created one and a new blank.
-    expect(inspections).toMatch(/if \(!prefill \|\| prefill\.inspectionId\) return;/);
+    expect(inspections).toMatch(/if \(!prefill \|\| prefill\.openInspectionId \|\| prefill\.inspectionId\) return;/);
+  });
+
+  it('the estimates meaning of inspectionId is left intact', () => {
+    expect(inspections).toMatch(/prefill: \{ customerName: selected\.customerName, customerId: selected\.customerId, inspectionId: selected\.id \}/);
   });
 
   it('a prefilled VIN reaches the form on the create-new path too', () => {
