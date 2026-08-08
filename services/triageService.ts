@@ -92,7 +92,13 @@ export async function saveTriageSession(session: TriageSession): Promise<TriageS
       .eq('shop_id', shopId)
       .select()
       .single();
-    if (error) { logger.error('triageService.saveTriageSession (update)', error); return null; }
+    // Throw, not return null. Every caller ignored the null, so a failure here
+    // was invisible: triage_sessions has never held a single row in production
+    // while intake has been used daily, and nothing ever said so.
+    if (error) {
+      logger.error('triageService.saveTriageSession (update)', error);
+      throw new Error(`The intake session could not be saved: ${error.message}`);
+    }
     return rowToSession(data);
   }
 
@@ -101,7 +107,10 @@ export async function saveTriageSession(session: TriageSession): Promise<TriageS
     .insert(row)
     .select()
     .single();
-  if (error) { logger.error('triageService.saveTriageSession (insert)', error); return null; }
+  if (error) {
+    logger.error('triageService.saveTriageSession (insert)', error);
+    throw new Error(`The intake session could not be saved: ${error.message}`);
+  }
   return rowToSession(data);
 }
 

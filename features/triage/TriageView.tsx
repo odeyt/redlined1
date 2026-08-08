@@ -232,13 +232,17 @@ export function TriageView() {
   const handleSaveDraft = useCallback(async () => {
     if (!session) return;
     setSaving(true);
-    const saved = await saveTriageSession({ ...session, status: 'draft' });
-    setSaving(false);
-    if (saved) {
-      setSession(saved);
-      showToast('Draft saved');
-      const sessions = await listTriageSessions(10);
-      setHistory(sessions);
+    try {
+      const saved = await saveTriageSession({ ...session, status: 'draft' });
+      if (saved) {
+        setSession(saved);
+        showToast('Draft saved');
+        setHistory(await listTriageSessions(10));
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Draft could not be saved.');
+    } finally {
+      setSaving(false);
     }
   }, [session]);
 
@@ -246,8 +250,14 @@ export function TriageView() {
     if (!session) return;
     setSaving(true);
 
-    // Save as complete
-    await saveTriageSession({ ...session, status: 'complete' });
+    // Save as complete. A failure here is reported but does not block the
+    // hand-off: the job card is what the shop needs, and losing it because the
+    // intake record could not be filed would be the worse outcome.
+    try {
+      await saveTriageSession({ ...session, status: 'complete' });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Intake session not saved.');
+    }
 
     // If a customer name was typed but never explicitly linked (the
     // "+ Add as new customer" step is easy to skip), create the record now
