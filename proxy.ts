@@ -91,5 +91,21 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|otf)).*)'],
+  /**
+   * The exclusions covered images and fonts but not .json, .js, .txt or .xml,
+   * so four files that must be reachable without a session were being
+   * redirected to /login:
+   *
+   *   /manifest.json   an install prompt cannot read it, so the app has never
+   *                    been installable
+   *   /sw.js           the worker script itself, so no service worker has ever
+   *                    registered — every caching and update mechanism in this
+   *                    codebase has been inert
+   *   /robots.txt      crawlers received a redirect to a login page
+   *   /sitemap.xml     the same
+   *
+   * These are public by nature: the manifest and worker are fetched by the
+   * browser before any session exists, and neither carries tenant data.
+   */
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|otf)).*)'],
 };

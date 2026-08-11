@@ -163,3 +163,46 @@ describe('the viewport does not fight the user', () => {
     expect(layout).toMatch(/viewportFit: 'cover'/);
   });
 });
+
+/**
+ * The files a browser fetches before it has a session.
+ *
+ * Verified against production on 2026-08-11: /manifest.json, /sw.js,
+ * /robots.txt and /sitemap.xml all returned 307 redirects to /login. The proxy
+ * matcher excluded image and font extensions but not .json, .js, .txt or .xml.
+ *
+ * The consequences were larger than they look. An install prompt cannot read a
+ * manifest it is redirected away from, so the app has never been installable.
+ * A service worker script that 307s never registers, so every caching and
+ * update mechanism in this codebase — including the one added in this
+ * commit — was inert. And crawlers were being sent to a login page.
+ *
+ * None of these carry tenant data; they are fetched before any session exists.
+ */
+describe('public PWA files are not behind the session gate', () => {
+  const proxy = read('proxy.ts');
+
+  it('the manifest is reachable without a session', () => {
+    expect(proxy).toMatch(/manifest\.json/);
+  });
+
+  it('so is the service worker script', () => {
+    // Without this the worker never registers and nothing else here matters.
+    expect(proxy).toMatch(/\|sw\.js\|/);
+  });
+
+  it('and the crawler files', () => {
+    expect(proxy).toMatch(/robots\.txt/);
+    expect(proxy).toMatch(/sitemap\.xml/);
+  });
+
+  it('the exclusions stay inside the matcher, not the auth logic', () => {
+    // Widening publicPaths instead would let these bypass the session checks
+    // for every route beginning with those strings.
+    expect(proxy).toMatch(/matcher: \['\/\(\(\?!_next\/static\|_next\/image\|favicon\.ico\|manifest\.json\|sw\.js\|robots\.txt\|sitemap\.xml\|/);
+  });
+
+  it('images and fonts are still excluded as before', () => {
+    expect(proxy).toMatch(/png\|jpg\|jpeg\|gif\|svg\|webp\|ico\|woff2\?\|ttf\|otf/);
+  });
+});
