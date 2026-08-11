@@ -525,6 +525,31 @@ textarea {
   padding: 24px 28px 36px;
   display: grid;
   gap: 18px;
+  /*
+   * minmax(0, 1fr), not the implicit auto track.
+   *
+   * A grid item's min-width defaults to auto, meaning "do not shrink below my
+   * content". One unshrinkable child — a wide table, a long unbroken string —
+   * therefore sizes the whole column to itself, and every sibling inherits
+   * that width. Measured at 375px: this column was 640px, so Repair Orders
+   * scrolled to 661px, Invoicing to 697px and Inspections to 654px. Every
+   * authenticated screen scrolled sideways on a phone; the public pages that
+   * the responsive tests covered were unaffected, which is why it went unseen.
+   *
+   * minmax(0, …) lets the track shrink below its content, so wide children
+   * scroll inside their own container instead of widening the page.
+   */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Same reasoning one level up: the shell's content column must be allowed to
+   shrink, or the sidebar plus an unshrinkable child forces the page wider. */
+.shell {
+  grid-template-columns: 268px minmax(0, 1fr);
+}
+
+.shell:has(.sidebar-collapsed) {
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 
 .grid {
