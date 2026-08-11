@@ -122,3 +122,69 @@ describe('the helper is declared before the code that calls it', () => {
     expect(src).toMatch(/temporal dead zone/);
   });
 });
+
+/**
+ * One repair order, at most one invoice — enforced by the database.
+ *
+ * Probed directly on 2026-08-11: two invoices with different numbers, both
+ * naming the same repair order, were BOTH accepted. invoices.number is the
+ * primary key so two invoices can never share a number, but nothing stopped
+ * one job being billed twice under two numbers.
+ *
+ * The only guard was the client-side check on ro.invoiceNumber. It reads state
+ * the browser loaded, so two tabs that both opened the order before either
+ * converted each believe it is unbilled — both pass, both allocate, both
+ * insert. Two advisors on the same order is not exotic in a two-location shop.
+ *
+ * A partial unique index makes it impossible regardless of what any client
+ * believes. It only works if every conversion path records the link.
+ */
+describe('the database refuses to bill one job twice', () => {
+  const migration = readFileSync(
+    join(__dirname, '..', '..', 'supabase/migrations/2026-08-11_one_invoice_per_repair_order.sql'),
+    'utf8',
+  );
+  const service = readFileSync(join(__dirname, '..', '..', 'services/invoiceService.ts'), 'utf8');
+
+  it('adds the column the index needs', () => {
+    // invoices had no reference to a repair order at all — only job_card and
+    // free text in notes.
+    expect(migration).toMatch(/add column if not exists repair_order_id uuid references public\.repair_orders\(id\)/);
+  });
+
+  it('the index is unique and partial', () => {
+    // Partial, or the many invoices with no repair order collide on null.
+    expect(migration).toMatch(/create unique index if not exists invoices_one_per_repair_order/);
+    expect(migration).toMatch(/where repair_order_id is not null/);
+  });
+
+  it('backfills only unambiguous links', () => {
+    // A wrong link is worse than none: it would block a legitimate conversion.
+    expect(migration).toMatch(/= 1;/);
+    expect(migration).toMatch(/Guessing a link would be worse than leaving it null/);
+  });
+
+  it('asserts the index exists rather than assuming', () => {
+    expect(migration).toMatch(/raise exception 'invoices_one_per_repair_order was not created'/);
+  });
+
+  it('every invoice-from-repair-order path records the link', () => {
+    // The index guards nothing on a path that leaves the column null.
+    expect((view.match(/repairOrderId: ro\.id/g) ?? []).length).toBe(2);
+  });
+
+  it('the estimate path deliberately does not', () => {
+    // An estimate is not an invoice, and one order may produce several.
+    expect(view).toMatch(/No repairOrderId here: an estimate is not an invoice/);
+  });
+
+  it('the service carries it through to the insert', () => {
+    expect(service).toMatch(/repair_order_id: inv\.repairOrderId \|\| null/);
+    expect(service).toMatch(/repairOrderId\?: string/);
+  });
+
+  it('a collision reads as English, not a constraint name', () => {
+    expect(service).toMatch(/error\.code === '23505' && String\(error\.message\)\.includes\('invoices_one_per_repair_order'\)/);
+    expect(service).toMatch(/already been invoiced — someone else may have just billed it/);
+  });
+});

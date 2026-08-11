@@ -727,7 +727,9 @@ export function RepairOrdersView() {
         const invNumber = await nextInvoiceNumber();
         await createInvoice({
           invoiceNumber: invNumber, customerName: ro.customerName, customerId: ro.customerId,
-          vehicle: ro.vehicle, jobCardId: ro.jobCardId, status: 'Draft', lines: allLines,
+          // repairOrderId is what the unique index keys on — omit it and the
+          // one-invoice-per-order guarantee is inert on this path.
+          vehicle: ro.vehicle, jobCardId: ro.jobCardId, repairOrderId: ro.id, status: 'Draft', lines: allLines,
           discount: 0, shopSupplies: 0, taxRate: shopSettings?.defaultTaxRate ?? 0,
           notes: `Converted from ${ro.roNumber}. ${ro.notes}`.trim(), dueDate: '', paidDate: null, currency: ro.currency,
         });
@@ -744,6 +746,8 @@ export function RepairOrdersView() {
         const estNumber = await nextEstimateNumber();
         await createEstimate({
           estimateNumber: estNumber, customerName: ro.customerName, customerId: ro.customerId,
+          // No repairOrderId here: an estimate is not an invoice, and a repair
+          // order may legitimately produce several.
           vehicle: ro.vehicle, jobCardId: ro.jobCardId, status: 'Draft', lines: allLines,
           taxRate: 0, discount: 0, shopSupplies: 0,
           notes: `Created from ${ro.roNumber}.`, validUntil: '', approvedDate: null, currency: ro.currency,
@@ -773,6 +777,9 @@ export function RepairOrdersView() {
       customerId: ro.customerId,
       vehicle: ro.vehicle,
       jobCardId: ro.jobCardId,
+      // What the unique index keys on. This is the path QA sign-off uses, so
+      // without it the auto-draft could bill an order a second time.
+      repairOrderId: ro.id,
       status: 'Draft',
       lines: [
         { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern}`, qty: ro.laborHours, rate: ro.laborRate },

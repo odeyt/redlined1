@@ -20,6 +20,15 @@ export interface InvoiceFull {
   customerId: string;
   vehicle: string;
   jobCardId: string;
+  /**
+   * The repair order this was raised from, when it was one.
+   *
+   * Carries the database's one-invoice-per-repair-order guarantee: a unique
+   * index on this column is what stops two sessions each billing the same job
+   * under different numbers. Optional because estimates and parts quotations
+   * also produce invoices, and those have no repair order.
+   */
+  repairOrderId?: string;
   status: string;
   lines: InvoiceLine[];
   discount: number;
@@ -50,6 +59,7 @@ function mapRow(r: Record<string, unknown>): InvoiceFull {
     customerId: (r.customer_id as string) || '',
     vehicle: (r.vehicle as string) || '',
     jobCardId: (r.job_card as string) || '',
+    repairOrderId: (r.repair_order_id as string) || undefined,
     status: (r.status as string) || 'Draft',
     lines: (r.lines as InvoiceLine[]) || [],
     discount: Number(r.discount ?? 0),
@@ -120,6 +130,7 @@ export async function createInvoice(inv: Omit<InvoiceFull, 'id' | 'createdAt'>):
       customer_id: inv.customerId || null,
       vehicle: inv.vehicle,
       job_card: inv.jobCardId || null,
+      repair_order_id: inv.repairOrderId || null,
       status: inv.status,
       lines: inv.lines,
       discount: inv.discount,
@@ -131,7 +142,16 @@ export async function createInvoice(inv: Omit<InvoiceFull, 'id' | 'createdAt'>):
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    // 23505 on invoices_one_per_repair_order means another session billed this
+    // job while this one was working. That is the guard doing its job, and it
+    // deserves a sentence a service advisor can act on rather than a Postgres
+    // constraint name.
+    if (error.code === '23505' && String(error.message).includes('invoices_one_per_repair_order')) {
+      throw new Error('This repair order has already been invoiced — someone else may have just billed it. Reload to see the invoice.');
+    }
+    throw error;
+  }
   return mapRow(data);
 }
 
