@@ -622,3 +622,47 @@ describe('a decode is confirmed before it is applied', () => {
     expect(guided).not.toMatch(/errorCode/);
   });
 });
+
+/**
+ * Field borders, measured in a browser rather than eyeballed.
+ *
+ * The first contrast fix moved the tokens far enough apart to look right and
+ * was still wrong: measured live at 375px, the field border came out at
+ * 1.71:1 against the card. WCAG 1.4.11 requires 3:1 for the boundary of a UI
+ * component, so the fields were still not reliably visible — which is what was
+ * reported as "too light in light mode".
+ *
+ * Values chosen by computing the ratio for candidates in the page and taking
+ * the first that cleared 3:1, then re-measuring to confirm:
+ *
+ *   light  #8b92a6 on #ffffff  →  3.11:1
+ *   dark   #66668c on #0d0d14  →  3.54:1
+ *
+ * The previous values, for the record: #c2c6d2 → 1.71:1, #3a3a4e → 1.75:1.
+ */
+describe('field borders meet non-text contrast', () => {
+  const inspection = read('features/inspections/GuidedInspection.tsx');
+
+  it('uses the measured light value in both components', () => {
+    expect(guided).toMatch(/--gi-edge: #8b92a6;/);
+    expect(inspection).toMatch(/--gi-edge:#8b92a6;/);
+  });
+
+  it('uses the measured dark value in both components', () => {
+    expect(guided).toMatch(/--gi-edge: #66668c;/);
+    expect(inspection).toMatch(/--gi-edge:#66668c;/);
+  });
+
+  it('no longer uses the values that measured below 3:1', () => {
+    for (const src of [guided, inspection]) {
+      expect(src).not.toMatch(/#c2c6d2/);
+      expect(src).not.toMatch(/#3a3a4e/);
+    }
+  });
+
+  it('the card edge stays distinct from the field edge', () => {
+    // A card outlined at the same weight as its inputs reads as one flat block.
+    expect(guided).toMatch(/--gi-card-edge: #c3c7d3;/);
+    expect(guided).toMatch(/--gi-card-edge: #3a3a52;/);
+  });
+});

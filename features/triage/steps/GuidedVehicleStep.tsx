@@ -436,14 +436,14 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
            dark, matching :root. */
         .gi-scope {
           --gi-field: #191922;
-          --gi-edge: #3a3a4e;
-          --gi-card-edge: #2b2b3a;
+          --gi-edge: #66668c;
+          --gi-card-edge: #3a3a52;
           --gi-focus: rgba(224, 48, 48, 0.35);
         }
         [data-theme="light"] .gi-scope {
           --gi-field: #f1f2f6;
-          --gi-edge: #c2c6d2;
-          --gi-card-edge: #d6d9e2;
+          --gi-edge: #8b92a6;
+          --gi-card-edge: #c3c7d3;
           --gi-focus: rgba(204, 0, 0, 0.22);
         }
         .gi-fade { animation: gi-in .28s cubic-bezier(.2,.7,.3,1) both; }

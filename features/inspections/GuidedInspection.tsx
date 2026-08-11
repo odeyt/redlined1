@@ -117,8 +117,8 @@ export function GuidedInspection({ items, onChange, onPhoto, uploadingItemId, on
         overflowY: 'auto',
       }}>
       <style>{`
-        .gi-scope { --gi-field:#191922; --gi-edge:#3a3a4e; --gi-card-edge:#2b2b3a; }
-        [data-theme="light"] .gi-scope { --gi-field:#f1f2f6; --gi-edge:#c2c6d2; --gi-card-edge:#d6d9e2; }
+        .gi-scope { --gi-field:#191922; --gi-edge:#66668c; --gi-card-edge:#3a3a52; }
+        [data-theme="light"] .gi-scope { --gi-field:#f1f2f6; --gi-edge:#8b92a6; --gi-card-edge:#c3c7d3; }
         .gdvi-fade { animation: gdvi-in .2s ease both; }
         @keyframes gdvi-in { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform:none; } }
         @media (prefers-reduced-motion: reduce) { .gdvi-fade { animation: none; } }
