@@ -19,6 +19,15 @@ import { createSyntheticShop, destroySyntheticShop, type SyntheticShop } from '.
 
 let shop: SyntheticShop;
 let admin: SupabaseClient;
+/**
+ * Signed in as the synthetic owner.
+ *
+ * next_document_number is SECURITY DEFINER and checks shop_users against
+ * auth.uid(), so the service-role client cannot call it — it has no user. That
+ * check is the tenant boundary, so calling as a real member is also the only
+ * honest way to test the allocator.
+ */
+let asOwner: SupabaseClient;
 
 const RO_NUMBER = 'RO-90001';
 
@@ -31,6 +40,17 @@ test.beforeAll(async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } },
   );
+
+  asOwner = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } },
+  );
+  const { error: signInError } = await asOwner.auth.signInWithPassword({
+    email: shop.email,
+    password: shop.password,
+  });
+  if (signInError) throw new Error(`could not sign in as the synthetic owner: ${signInError.message}`);
 
   // A completed repair order with real money on it, so a duplicate would be
   // an actual double bill rather than two empty drafts.
@@ -73,7 +93,7 @@ test('the allocator never hands the same number to two callers', async () => {
   // The property the whole scheme rests on. Ten concurrent allocations must
   // produce ten distinct numbers; a read-then-increment would collide here.
   const results = await Promise.all(
-    Array.from({ length: 10 }, () => admin.rpc('next_document_number', { p_shop_id: shop.shopId, p_doc_type: 'invoice' })),
+    Array.from({ length: 10 }, () => asOwner.rpc('next_document_number', { p_shop_id: shop.shopId, p_doc_type: 'invoice' })),
   );
   const values = results.map(r => r.data).filter(v => v !== null && v !== undefined);
   expect(values.length, 'every allocation should succeed').toBe(10);
@@ -83,7 +103,7 @@ test('the allocator never hands the same number to two callers', async () => {
 test('invoice numbers are unique across shops, not just within one', async () => {
   // invoices.number is the primary key, so a per-shop counter would collide
   // the moment one shop caught up with another. This is what that guarantees.
-  const a = await admin.rpc('next_document_number', { p_shop_id: shop.shopId, p_doc_type: 'invoice' });
+  const a = await asOwner.rpc('next_document_number', { p_shop_id: shop.shopId, p_doc_type: 'invoice' });
   const { data: existing } = await admin.from('invoices').select('number');
   const taken = new Set((existing ?? []).map(r => String(r.number)));
   expect(taken.has(`INV-${String(a.data).padStart(4, '0')}`),
