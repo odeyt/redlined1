@@ -86,7 +86,16 @@ self.addEventListener('fetch', (event) => {
   // Documents always come from the network, with no cached fallback.
   if (request.mode === 'navigate') return;
 
-  // Build output is content-hashed, so a hit is always the right file.
+  // Development is never cached.
+  //
+  // Caching build output is only safe because production filenames are
+  // content-hashed, so a cache hit is always the right file. Turbopack's dev
+  // chunk names are stable across edits, so caching them serves yesterday's
+  // JavaScript — and because the HMR client is itself such a chunk, hot reload
+  // stops working with no error to explain why. Observed directly: a fix
+  // present on disk kept throwing the error it had just fixed.
+  if (BUILD === 'dev' || url.hostname === 'localhost' || url.hostname === '127.0.0.1') return;
+
   event.respondWith(
     caches.open(CACHE_NAME).then((cache) =>
       cache.match(request).then((cached) => {

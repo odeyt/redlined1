@@ -206,3 +206,32 @@ describe('public PWA files are not behind the session gate', () => {
     expect(proxy).toMatch(/png\|jpg\|jpeg\|gif\|svg\|webp\|ico\|woff2\?\|ttf\|otf/);
   });
 });
+
+/**
+ * The worker must not cache a development build.
+ *
+ * Caching /_next/static/ is only safe because production filenames are
+ * content-hashed, so a hit is always the right file. Turbopack's dev chunk
+ * names are stable across edits, so the worker served yesterday's JavaScript —
+ * and since the HMR client is itself one of those chunks, hot reload stopped
+ * working with nothing to explain why.
+ *
+ * Observed directly: a fix present on disk kept throwing the error it had just
+ * fixed, through a reload, because the page was running a cached chunk.
+ */
+describe('development is never cached', () => {
+  it('bails out for the dev build and for localhost', () => {
+    expect(sw).toMatch(/if \(BUILD === 'dev' \|\| url\.hostname === 'localhost' \|\| url\.hostname === '127\.0\.0\.1'\) return;/);
+  });
+
+  it('the bail-out happens before anything is stored', () => {
+    const guard = sw.indexOf("BUILD === 'dev'");
+    const put = sw.indexOf('cache.put(request');
+    expect(guard).toBeLessThan(put);
+  });
+
+  it('production caching is unchanged', () => {
+    expect(sw).toMatch(/url\.pathname\.startsWith\('\/_next\/static\/'\)/);
+    expect(sw).toMatch(/res\.ok && res\.type === 'basic'/);
+  });
+});

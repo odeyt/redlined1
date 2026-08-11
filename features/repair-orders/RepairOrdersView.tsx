@@ -836,6 +836,13 @@ export function RepairOrdersView() {
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
   }
 
+  // Declared above `filtered`, which calls it. As a const arrow function
+  // defined after its first use it sat in the temporal dead zone, so selecting
+  // the "Not invoiced" filter threw ReferenceError and took the whole Repair
+  // Orders page down. The tile rendered fine because the count is computed
+  // after the declaration — only the filter path crashed.
+  const isUninvoiced = (r: RepairOrder) => (r.status === 'Complete' || r.status === 'Closed') && !r.invoiceNumber;
+
   const filtered = orders.filter(ro => {
     const archived = isArchivedRO(ro);
     const matchStatus = filterStatus === 'Archived'
@@ -859,7 +866,6 @@ export function RepairOrdersView() {
   const openCount = orders.filter(r => r.status === 'Open' || r.status === 'In Progress').length;
   const pendingCount = orders.filter(r => r.status === 'Pending Parts' || r.status === 'Pending Approval').length;
   const completeCount = orders.filter(r => (r.status === 'Complete' || r.status === 'Closed') && !isArchivedRO(r)).length;
-  const isUninvoiced = (r: RepairOrder) => (r.status === 'Complete' || r.status === 'Closed') && !r.invoiceNumber;
   const uninvoicedCount = orders.filter(r => isUninvoiced(r) && !isArchivedRO(r)).length;
   const totalLabor = orders.filter(r => r.status !== 'Void').reduce((s, r) => s + r.laborHours * r.laborRate, 0);
 

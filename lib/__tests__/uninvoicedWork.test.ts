@@ -84,3 +84,41 @@ describe('an order in that state offers the fix directly', () => {
     expect(view).toMatch(/onClick=\{\(\) => handleConvertToInvoice\(selected\)\}/);
   });
 });
+
+/**
+ * The filter crashed the page, and no source-level test could see it.
+ *
+ * Selecting "Not invoiced" threw:
+ *
+ *   ReferenceError: Cannot access 'isUninvoiced' before initialization
+ *
+ * `filtered` calls isUninvoiced, and isUninvoiced was declared as a const
+ * arrow function below it — inside the temporal dead zone at the moment
+ * `filtered` runs. The tile still rendered its count, because the count is
+ * computed after the declaration, so the feature looked fine until someone
+ * clicked it. Every test here passed the whole time: they asserted the source
+ * contained the right expressions, which it did. Only running the page found
+ * it.
+ *
+ * Caught in the preview browser, fixed, and re-verified there: the filter now
+ * lists 21 orders including RO-00036.
+ */
+describe('the helper is declared before the code that calls it', () => {
+  const src = view;
+
+  it('isUninvoiced is defined above `filtered`', () => {
+    const decl = src.indexOf('const isUninvoiced =');
+    const use  = src.indexOf('const filtered = orders.filter');
+    expect(decl).toBeGreaterThan(-1);
+    expect(use).toBeGreaterThan(-1);
+    expect(decl).toBeLessThan(use);
+  });
+
+  it('and above the count that also uses it', () => {
+    expect(src.indexOf('const isUninvoiced =')).toBeLessThan(src.indexOf('const uninvoicedCount ='));
+  });
+
+  it('records why the ordering matters', () => {
+    expect(src).toMatch(/temporal dead zone/);
+  });
+});
