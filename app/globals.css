@@ -1340,6 +1340,32 @@ tr:last-child td {
   gap: 12px;
 }
 
+/*
+ * Phone: every inline grid collapses to one column.
+ *
+ * Feature components lay out list-and-detail with an inline style —
+ * `gridTemplateColumns: '1fr 1.6fr'` and similar — rather than the .two-panel
+ * class below, which is why that class is currently used by nothing. An inline
+ * style cannot be overridden by a media query, so those layouts stayed
+ * two-column on a phone and pushed the second column past the viewport.
+ *
+ * Measured at 375px before this rule: Repair Orders scrolled to 661px,
+ * Estimates 700, Invoicing 697, Inspections 654, Payments 559.
+ *
+ * `1fr` also cannot shrink below its content, so minmax(0, 1fr) is what
+ * actually lets a wide table scroll inside its own box instead of widening the
+ * page.
+ *
+ * !important is load-bearing here — it is the only thing that beats an inline
+ * style. The right long-term fix is to move these components onto .two-panel;
+ * this makes the app usable on a phone until that happens.
+ */
+@media (max-width: 760px) {
+  .content [style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 /* 2-panel: list + detail side-by-side → stacks on tablet */
 .two-panel {
   display: grid;

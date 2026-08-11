@@ -2079,7 +2079,11 @@ export function VehiclesView() {
                     onFocus={() => setShowCustFilterDrop(true)}
                     onBlur={() => setTimeout(() => setShowCustFilterDrop(false), 150)}
                     placeholder="Filter by customer…"
-                    style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, width: 200, boxSizing: 'border-box' }}
+                    // width: 200 fixed pushed this past a 375px viewport when it
+                    // sat beside another control — the last 20px of horizontal
+                    // scroll on this screen. A max-width keeps the desktop size
+                    // while letting it shrink on a phone.
+                    style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, width: '100%', maxWidth: 200, boxSizing: 'border-box' }}
                   />
                   {showCustFilterDrop && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', maxHeight: 280, overflowY: 'auto', marginTop: 2 }}>
