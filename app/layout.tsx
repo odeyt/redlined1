@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { PwaUpdater } from '@/components/PwaUpdater';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -79,6 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             The old script registered '/sw.js' with no version and no update
             handling, so a tab could run a superseded bundle indefinitely. */}
         <PwaUpdater />
+        <ConnectionStatus />
       </body>
     </html>
   );

@@ -61,6 +61,22 @@ export function GuidedInspection({ items, onChange, onPhoto, uploadingItemId, on
     return map;
   }, [items]);
 
+  /**
+   * Verdicts live in the parent's form state until Save, so closing the tab
+   * mid-walkthrough loses them. Fifty checks marked under a car is an hour of
+   * work, and the browser gives us exactly one chance to say so.
+   *
+   * Only armed once something has actually been judged — a confirmation
+   * prompt on an untouched form is the kind of noise that teaches people to
+   * dismiss it without reading.
+   */
+  useEffect(() => {
+    if (judged.size === 0) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [judged.size]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (showReview) return;

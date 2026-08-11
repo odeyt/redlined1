@@ -23,6 +23,7 @@ import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsSer
 import { useShop } from '@/lib/useShop';
 import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
+import { confirmOnline } from '@/lib/useOnline';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 import { RepairCaseWizard } from '@/components/RepairCaseWizard';
@@ -806,6 +807,17 @@ export function RepairOrdersView() {
       return;
     }
     if (!confirm(`Convert ${ro.roNumber} to an invoice?`)) return;
+
+    // Confirmed connectivity, checked now rather than read from the polled
+    // status, which can be half a minute stale. Raising an invoice allocates a
+    // number from a sequence before it inserts — starting that on a dead
+    // connection burns a number and leaves the operator unsure whether the
+    // invoice exists.
+    if (!(await confirmOnline())) {
+      setError('No connection to the server, so no invoice was created. Check the network and try again — nothing has changed.');
+      return;
+    }
+
     try {
       const invNumber = await draftInvoiceFor(ro);
       const closedDate = ro.closedDate || new Date().toISOString();
