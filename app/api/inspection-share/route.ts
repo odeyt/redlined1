@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerDb, getAdminDb } from '@/lib/supabaseServer';
+import { signStoredUrls } from '@/lib/storage/signServer';
 
 function generateToken(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -60,18 +61,33 @@ export async function GET(req: NextRequest) {
     const { data: shop }     = await db.from('shops').select('name').eq('id', ins.shop_id).single();
     const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', ins.shop_id).single();
 
-    let items = [];
+    let items: Array<Record<string, unknown>> = [];
     try {
       const raw = ins.items;
       items = Array.isArray(raw) ? raw : JSON.parse(raw ?? '[]');
     } catch { items = []; }
 
+    // The customer opening this link has no session and cannot sign a storage
+    // URL themselves, so we hand them short-lived signed ones. Batched: a
+    // report can carry dozens of photos plus the logo, and signing them one
+    // at a time is what makes the page crawl. Anything that fails to sign
+    // keeps its stored URL rather than vanishing from the report.
+    const signed = await signStoredUrls([
+      settings?.logo_url,
+      ...items.map(it => (typeof it.photoUrl === 'string' ? it.photoUrl : null)),
+    ]);
+    const signedItems = items.map(it =>
+      typeof it.photoUrl === 'string' && signed.has(it.photoUrl)
+        ? { ...it, photoUrl: signed.get(it.photoUrl) }
+        : it,
+    );
+
     return NextResponse.json({
-      inspection: { ...ins, items },
+      inspection: { ...ins, items: signedItems },
       shopName:     shop?.name         ?? 'My Shop',
       shopPhone:    settings?.phone    ?? '',
       shopAddress:  settings?.address  ?? '',
-      shopLogoUrl:  settings?.logo_url ?? '',
+      shopLogoUrl:  signed.get(settings?.logo_url ?? '') ?? settings?.logo_url ?? '',
       shopEmail:    settings?.email    ?? '',
     });
   } catch (e: unknown) {

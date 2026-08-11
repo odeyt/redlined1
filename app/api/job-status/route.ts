@@ -3,6 +3,7 @@ import { requireShopRole } from '@/lib/serverAuth';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { parseJsonBody, sanitizeError } from '@/lib/apiHelpers';
 import { JobStatusTokenRequestSchema, JobStatusAdvanceSchema } from '@/lib/schemas';
+import { signStoredUrl } from '@/lib/storage/signServer';
 
 /**
  * PUT /api/job-status — generate (or fetch) a job's public status-tracking token.
@@ -128,7 +129,9 @@ export async function GET(req: NextRequest) {
     shopName: shop?.name ?? '',
     shopPhone: settings?.phone ?? '',
     shopAddress: settings?.address ?? '',
-    shopLogoUrl: settings?.logo_url ?? '',
+    // Signed for the same reason as the inspection report: the customer
+    // tracking their job has no session to sign with. Only the logo here.
+    shopLogoUrl: await signStoredUrl(settings?.logo_url),
     shopEmail: settings?.email ?? '',
   });
 }

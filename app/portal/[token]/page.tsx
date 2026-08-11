@@ -4,6 +4,7 @@
  * The token is never exposed to the browser beyond what the user already knows.
  */
 import { createServerSupabase } from '@/lib/supabase-server';
+import { signStoredUrls } from '@/lib/storage/signServer';
 import { PortalClient } from './PortalClient';
 import type {
   PortalData, PortalCustomer, PortalShop, PortalVehicle,
@@ -137,7 +138,29 @@ export default async function CustomerPortalPage({ params }: Props) {
       total: Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0) + Number(r.parts_total ?? 0),
     }));
 
-    const data: PortalData = { customer, shop, vehicles, invoices, estimates, inspections, repairOrders };
+    // The customer viewing this portal has no session, so the server signs
+    // every storage URL on their behalf — the logo plus any inspection photo.
+    // One batched call for the whole page. Anything that fails to sign keeps
+    // its stored URL rather than disappearing from the report.
+    const signed = await signStoredUrls([
+      shop.logoUrl,
+      ...inspections.flatMap(i => i.items.map(it => it.photoUrl)),
+    ]);
+    const signedShop: PortalShop = {
+      ...shop,
+      logoUrl: shop.logoUrl ? (signed.get(shop.logoUrl) ?? shop.logoUrl) : null,
+    };
+    const signedInspections: PortalInspection[] = inspections.map(i => ({
+      ...i,
+      items: i.items.map(it =>
+        it.photoUrl ? { ...it, photoUrl: signed.get(it.photoUrl) ?? it.photoUrl } : it,
+      ),
+    }));
+
+    const data: PortalData = {
+      customer, shop: signedShop, vehicles, invoices, estimates,
+      inspections: signedInspections, repairOrders,
+    };
 
     return <PortalClient data={data} />;
 
