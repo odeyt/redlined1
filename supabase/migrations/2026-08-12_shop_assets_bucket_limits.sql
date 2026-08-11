@@ -18,6 +18,21 @@
 -- NOT addressed here: the bucket is still public. Every stored object is
 -- readable by anyone holding its URL. See the note at the bottom.
 
+-- APPLIED 2026-08-12 — but NOT by this statement. Running it in the Supabase
+-- SQL editor left both columns null (verified by reading the bucket back
+-- afterwards); storage.buckets is not writable from that role. What actually
+-- worked was the storage admin API with the service-role key:
+--
+--   PUT /storage/v1/bucket/shop-assets
+--   {"public":true,"file_size_limit":10485760,
+--    "allowed_mime_types":["image/jpeg","image/png","image/webp","image/heic","image/heif"]}
+--
+-- Use that route if these need changing again. This statement is kept as the
+-- record of intent and the verify query below still works for checking state.
+--
+-- Enforcement confirmed against the live bucket: text/plain → 415,
+-- application/pdf named .jpg → 415, 11 MiB image/jpeg → 413, 2 KiB jpeg → 200.
+
 update storage.buckets
 set
   file_size_limit = 10485760,  -- 10 MiB
