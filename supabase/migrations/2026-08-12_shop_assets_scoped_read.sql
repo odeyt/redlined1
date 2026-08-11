@@ -112,55 +112,61 @@ as $$
       (storage.foldername(object_name))[1] as prefix,
       (storage.foldername(object_name))[2] as ident
   ),
+  -- Cast to text once, here. shop_id is not consistently typed across the
+  -- schema — a first attempt failed with "operator does not exist: text =
+  -- uuid" on appointments, so at least one table stores it as text while
+  -- shop_users uses uuid. Comparing everything as text sidesteps the
+  -- mismatch wherever it occurs instead of casting table by table and
+  -- discovering the next one at runtime.
   mine as (
-    select shop_id from shop_users where user_id = auth.uid()
+    select shop_id::text as shop_id from shop_users where user_id = auth.uid()
   )
   select case (select prefix from parts)
 
     -- Paths whose second segment IS the shop id.
     --   logo/{shopId}/shop-logo.ext
     --   parts/{shopId}/{partNumber}/{ts}.ext
-    when 'logo'  then (select ident from parts) in (select shop_id::text from mine)
-    when 'parts' then (select ident from parts) in (select shop_id::text from mine)
+    when 'logo'  then (select ident from parts) in (select shop_id from mine)
+    when 'parts' then (select ident from parts) in (select shop_id from mine)
 
     -- Paths whose second segment is an entity id; resolve it to its shop.
     --   vehicles/{vehicleId}/{ts}.ext
     when 'vehicles' then exists (
       select 1 from vehicles v
       where v.id::text = (select ident from parts)
-        and v.shop_id in (select shop_id from mine))
+        and v.shop_id::text in (select shop_id from mine))
 
     --   inspections/{inspectionId}/{itemId}.ext
     when 'inspections' then exists (
       select 1 from inspections i
       where i.id::text = (select ident from parts)
-        and i.shop_id in (select shop_id from mine))
+        and i.shop_id::text in (select shop_id from mine))
 
     -- entity_images paths: `${entityType}s/${entityId}/...`
     when 'job_cards' then exists (
       select 1 from job_cards j
       where j.id::text = (select ident from parts)
-        and j.shop_id in (select shop_id from mine))
+        and j.shop_id::text in (select shop_id from mine))
 
     when 'repair_orders' then exists (
       select 1 from repair_orders r
       where r.id::text = (select ident from parts)
-        and r.shop_id in (select shop_id from mine))
+        and r.shop_id::text in (select shop_id from mine))
 
     when 'appointments' then exists (
       select 1 from appointments a
       where a.id::text = (select ident from parts)
-        and a.shop_id in (select shop_id from mine))
+        and a.shop_id::text in (select shop_id from mine))
 
     when 'parts_orders' then exists (
       select 1 from parts_orders p
       where p.id::text = (select ident from parts)
-        and p.shop_id in (select shop_id from mine))
+        and p.shop_id::text in (select shop_id from mine))
 
     when 'parts_estimates' then exists (
       select 1 from parts_estimates p
       where p.id::text = (select ident from parts)
-        and p.shop_id in (select shop_id from mine))
+        and p.shop_id::text in (select shop_id from mine))
 
     -- Deny by default. A new upload path added in application code without a
     -- matching branch here becomes unreadable rather than world-readable.
