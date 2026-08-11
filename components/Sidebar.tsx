@@ -720,6 +720,20 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
         <span>⏻</span>{!collapsed && ' Sign Out'}
       </button>
 
+      {/* The build this browser is actually running.
+          /api/ping reports what the server deployed; this reports what the tab
+          loaded. When they disagree the tab is stale, which is the state that
+          made three separate bugs look real this week. Both numbers are needed
+          to tell them apart. */}
+      {!collapsed && (
+        <div
+          title="Build running in this browser. Compare with /api/ping to spot a stale tab."
+          style={{ padding: '6px 14px 10px', fontSize: 10, color: 'var(--muted)', letterSpacing: '.04em', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+        >
+          build {process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'}
+        </div>
+      )}
+
       {/* Fixed-position tooltip — escapes sidebar overflow clipping */}
       {collapsed && tooltip && (
         <div style={{

@@ -1,12 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
+import { PwaUpdater } from '@/components/PwaUpdater';
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale was 1, which disables pinch-zoom. It is a common way to stop
+  // iOS zooming when an input is focused, but it takes zoom away from everyone
+  // — including a technician trying to read a VIN plate in a photo — and fails
+  // WCAG 1.4.4. The focus-zoom problem is solved properly by 16px inputs,
+  // which the mobile components already use.
   viewportFit: 'cover',
+  themeColor: '#dc2626',
 };
 
 export const metadata: Metadata = {
@@ -68,15 +74,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             gtag('config', '${GA_ID}', { page_path: window.location.pathname });
           `}
         </Script>
-        <Script id="register-sw" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js');
-              });
-            }
-          `}
-        </Script>
+        {/* Registration moved out of an inline script so the worker can be
+            registered per build and an available update can be surfaced.
+            The old script registered '/sw.js' with no version and no update
+            handling, so a tab could run a superseded bundle indefinitely. */}
+        <PwaUpdater />
       </body>
     </html>
   );
