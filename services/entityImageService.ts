@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId } from '@/lib/shopStore';
 
 export type EntityType = 'job_card' | 'repair_order' | 'appointment' | 'parts_order' | 'parts_estimate';
@@ -36,12 +37,14 @@ export async function uploadEntityImage(
   file: File,
   label = 'Photo',
 ): Promise<EntityImage> {
-  const ext = file.name.split('.').pop() || 'jpg';
+  // Same gate as every other photo path — see prepareImageForUpload.
+  const prepared = await prepareImageForUpload(file);
+  const ext = prepared.name.split('.').pop() || 'jpg';
   const path = `${entityType}s/${entityId}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from('shop-assets')
-    .upload(path, file, { upsert: false });
+    .upload(path, prepared, { upsert: false, contentType: prepared.type });
   if (uploadError) throw uploadError;
 
   const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path);

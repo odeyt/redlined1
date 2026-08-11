@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 
 export interface VehicleImage {
   id: string;
@@ -18,11 +19,15 @@ export async function fetchVehicleImages(vehicleId: string): Promise<VehicleImag
 }
 
 export async function uploadVehicleImage(vehicleId: string, file: File, label = 'Vehicle photo'): Promise<VehicleImage> {
-  const ext = file.name.split('.').pop();
+  // Validated and compressed here rather than at the call site: most vehicle
+  // photos still arrive from a plain file input, and a rule enforced only in
+  // the camera component is not a rule.
+  const prepared = await prepareImageForUpload(file);
+  const ext = prepared.name.split('.').pop() || 'jpg';
   const path = `vehicles/${vehicleId}/${Date.now()}.${ext}`;
   const { error: uploadError } = await supabase.storage
     .from('shop-assets')
-    .upload(path, file, { upsert: false });
+    .upload(path, prepared, { upsert: false, contentType: prepared.type });
   if (uploadError) throw uploadError;
 
   const { data: urlData } = supabase.storage.from('shop-assets').getPublicUrl(path);

@@ -1,4 +1,5 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { DEFAULT_CURRENCY } from '@/lib/currencies';
 
@@ -176,11 +177,13 @@ export async function updatePartQty(partNumber: string, qty: number): Promise<vo
 }
 
 export async function uploadPartPhoto(partNumber: string, file: File): Promise<string> {
-  const ext  = file.name.split('.').pop() ?? 'jpg';
+  // Same gate as every other photo path — see prepareImageForUpload.
+  const prepared = await prepareImageForUpload(file);
+  const ext  = prepared.name.split('.').pop() ?? 'jpg';
   const path = `parts/${getShopId()}/${partNumber}/${Date.now()}.${ext}`;
   const { error: upErr } = await supabase.storage
     .from('shop-assets')
-    .upload(path, file, { upsert: false, contentType: file.type });
+    .upload(path, prepared, { upsert: false, contentType: prepared.type });
   if (upErr) throw upErr;
   const { data } = supabase.storage.from('shop-assets').getPublicUrl(path);
   return data.publicUrl;

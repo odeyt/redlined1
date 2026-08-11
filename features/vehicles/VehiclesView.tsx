@@ -18,6 +18,7 @@ import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/services/vehicleImageService';
+import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -404,6 +405,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   const [drawerImages, setDrawerImages] = useState<Array<{id: string; url: string; label: string}>>([]);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const photoUploadRef = useRef<HTMLInputElement>(null);
 
   // Seed from thumbUrls immediately, then fetch full list once
@@ -421,12 +423,19 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
     if (!files?.length) return;
     setUploadingPhotos(true);
     const uploaded: Array<{id: string; url: string; label: string}> = [];
+    const failures: string[] = [];
     for (const file of Array.from(files)) {
       try {
         const img = await uploadVehicleImage(vehicle.id, file);
         uploaded.push(img);
-      } catch { /* skip failed file */ }
+      } catch (e) {
+        // Was a bare skip. Uploads are now validated and compressed, so a
+        // rejection is both more likely and more meaningful — "I chose a photo
+        // and nothing happened" is the worst possible answer.
+        failures.push(`${file.name}: ${e instanceof Error ? e.message : 'upload failed'}`);
+      }
     }
+    if (failures.length) notify(failures.length === 1 ? failures[0] : `${failures.length} photos were not uploaded. ${failures[0]}`);
     if (uploaded.length) {
       setDrawerImages(prev => {
         const next = [...prev.filter(i => !i.id.startsWith('seed-')), ...uploaded];
@@ -967,9 +976,25 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                 </div>
               </>
             ) : (
+              <>
+              <button
+                type="button"
+                onClick={() => setShowCamera(true)}
+                disabled={uploadingPhotos}
+                title="Take a photo with the camera"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  minHeight: 48, padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                  border: 'none', color: '#fff', fontWeight: 700, fontSize: 13,
+                  background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
+                  opacity: uploadingPhotos ? 0.5 : 1, marginRight: 8,
+                }}
+              >
+                📷 Take photo
+              </button>
               <div
                 onClick={() => photoUploadRef.current?.click()}
-                title="Add photos"
+                title="Choose existing photos"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                   padding: '8px 12px', borderRadius: 10,
@@ -980,9 +1005,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                 <span style={{ fontSize: 22 }}>{uploadingPhotos ? '⏳' : '📷'}</span>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{uploadingPhotos ? 'Uploading…' : 'No photos yet'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Tap to add vehicle photos</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Tap to choose from your files</div>
                 </div>
               </div>
+              </>
             )}
           </div>
         </div>
@@ -994,6 +1020,23 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
           style={{ display: 'none' }}
           onChange={e => handleInlineUpload(e.target.files)}
         />
+
+        {/* The camera, for the common case: a technician standing at the car.
+            The picker above stays for a desktop with files already on disk,
+            and CameraCapture falls back to it where there is no usable
+            camera, so nothing is lost on either. */}
+        {showCamera && (
+          <CameraCapture
+            title={`Photo — ${vehicle.label || 'vehicle'}`}
+            onCancel={() => setShowCamera(false)}
+            onCapture={file => {
+              setShowCamera(false);
+              const list = new DataTransfer();
+              list.items.add(file);
+              void handleInlineUpload(list.files);
+            }}
+          />
+        )}
 
         {/* Lightbox */}
         {lightboxIdx !== null && drawerImages[lightboxIdx] && (() => {

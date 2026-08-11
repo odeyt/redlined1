@@ -1,4 +1,5 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
 
@@ -253,9 +254,13 @@ export async function nextInspectionNumber(): Promise<string> {
 }
 
 export async function uploadInspectionPhoto(inspectionId: string, itemId: string, file: File): Promise<string> {
-  const ext = file.name.split('.').pop();
+  // Same gate as every other photo path — see prepareImageForUpload. The
+  // camera compresses already, but the plain file input in the checklist does
+  // not, and both arrive here.
+  const prepared = await prepareImageForUpload(file);
+  const ext = prepared.name.split('.').pop() || 'jpg';
   const path = `inspections/${inspectionId}/${itemId}.${ext}`;
-  const { error } = await supabase.storage.from('shop-assets').upload(path, file, { upsert: true });
+  const { error } = await supabase.storage.from('shop-assets').upload(path, prepared, { upsert: true, contentType: prepared.type });
   if (error) throw error;
   const { data } = supabase.storage.from('shop-assets').getPublicUrl(path);
   return data.publicUrl + '?t=' + Date.now();
