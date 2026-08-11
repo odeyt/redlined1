@@ -23,24 +23,21 @@
 --
 -- WHAT THIS DOES NOT DO
 -- ---------------------
--- Nothing, until the bucket is private. MEASURED, not assumed:
+-- Stop anonymous reads of a URL someone already holds. While the bucket is
+-- public, /object/public/ serves those directly. Only public = false (step 4)
+-- closes that, and this policy is what governs reads once it does.
 --
--- After this migration was applied on 2026-08-12 — with "public read
--- shop-assets" confirmed dropped and no SELECT policy remaining — an
--- anonymous caller could STILL list the bucket and sign any object. The
--- storage API does not consult RLS for read operations on a public bucket;
--- public = true short-circuits read authorization entirely.
+-- It SHOULD stop anonymous listing and signing as soon as it lands. That is
+-- unverified: as of 2026-08-12 this migration has not successfully applied
+-- (see the status note in Part 1), so nothing about it has been measured yet.
+-- Do not describe its effect in either direction until the probe has been
+-- re-run against a database where the function actually exists.
 --
--- An earlier version of this comment claimed this migration would stop
--- anonymous listing and signing on its own. It does not. It changes nothing
--- observable until step 4 (public = false), at which point it becomes the
--- rule that governs every read.
---
--- Consequence for testing: while the bucket is public, signing appears to
--- work for everyone, so NOTHING here validates the policy. The first real
--- test of can_read_shop_asset() is the moment the bucket goes private — which
--- is exactly when a mistake in it locks staff out of every photo. Plan that
--- flip as a reversible experiment, not a one-way door.
+-- Note for whoever tests this: while the bucket is public, service-role and
+-- anon signing both succeed today, so a passing signing test does NOT confirm
+-- the policy is correct. The first genuine test of can_read_shop_asset() is
+-- the moment the bucket goes private — exactly when an error in it locks
+-- staff out of every photo. Treat that flip as a reversible experiment.
 --
 -- BLAST RADIUS
 -- ------------
@@ -95,6 +92,13 @@ where table_schema = 'public' and table_name = 'shop_users';
 -- It answers exactly one question and returns a boolean. It leaks nothing:
 -- callers can only learn whether they may read a path they already named.
 -- ---------------------------------------------------------------------------
+
+-- STATUS 2026-08-12: NOT APPLIED. A first attempt to run Parts 1 and 2
+-- reported success, but `select proname from pg_proc where proname =
+-- 'can_read_shop_asset'` returned no rows and "public read shop-assets" was
+-- still present, so neither part took effect. Run Part 1 on its own and read
+-- the result before assuming otherwise. Verify with the two queries at the
+-- bottom of this file — never by whether the editor looked happy.
 
 create or replace function public.can_read_shop_asset(object_name text)
 returns boolean
