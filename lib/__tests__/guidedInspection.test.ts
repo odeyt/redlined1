@@ -127,8 +127,12 @@ describe('it shares the form\'s state rather than copying it', () => {
     expect(view).toMatch(/onChange=\{items => setForm\(f => \(\{ \.\.\.f, items \}\)\)\}/);
   });
 
-  it('photos go through the existing upload path', () => {
-    expect(view).toMatch(/onPhoto=\{itemId => \{ setPhotoTargetItem\(itemId\); photoInputRef\.current\?\.click\(\); \}\}/);
+  it('photos open the camera, which falls back to the picker itself', () => {
+    // Was a bare file input. CameraCapture handles permission, preview and
+    // retake, and drops back to the picker where there is no usable camera —
+    // so desktop behaviour is unchanged.
+    expect(view).toMatch(/onPhoto=\{itemId => setCameraItemId\(itemId\)\}/);
+    expect(view).toMatch(/<CameraCapture/);
   });
 
   it('is honest that photos persist immediately and verdicts do not', () => {

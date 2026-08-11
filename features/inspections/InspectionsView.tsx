@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GuidedInspection } from './GuidedInspection';
+import { CameraCapture } from '@/components/camera/CameraCapture';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import { TechPills } from '@/components/TechPill';
@@ -229,6 +230,12 @@ export function InspectionsView() {
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoTargetItem, setPhotoTargetItem] = useState<string | null>(null);
+  // Which item the camera is open for. Separate from photoTargetItem so the
+  // camera can be cancelled without leaving a target armed.
+  const [cameraItemId, setCameraItemId] = useState<string | null>(null);
+  // Kept so a failed upload can be retried without making the technician walk
+  // back to the car and take the photo again.
+  const [failedPhoto, setFailedPhoto] = useState<{ file: File; itemId: string } | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -444,17 +451,29 @@ export function InspectionsView() {
     setForm(f => ({ ...f, items: f.items.map(it => it.id === itemId ? { ...it, notes } : it) }));
   }
 
-  async function handlePhotoUpload(file: File) {
-    if (!editingId || !photoTargetItem) return;
-    const targetItemId = photoTargetItem;
+  async function handlePhotoUpload(file: File, itemId?: string) {
+    // Explicit id when the camera supplies one: setPhotoTargetItem is async, so
+    // reading state here would attach the photo to the previously chosen item.
+    const targetItemId = itemId ?? photoTargetItem;
+    if (!editingId || !targetItemId) return;
     setUploadingItemId(targetItemId);
     try {
       const url = await uploadInspectionPhoto(editingId, targetItemId, file);
       const updatedItems = form.items.map(it => it.id === targetItemId ? { ...it, photoUrl: url } : it);
       setForm(f => ({ ...f, items: updatedItems }));
       await updateInspection(editingId, { items: updatedItems });
+      setFailedPhoto(null);
       notify('Photo uploaded.');
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
+    } catch (e: unknown) {
+      // Hold the file so it can be retried. A technician on shop wifi loses
+      // an upload often enough that "take it again" is not an answer.
+      setFailedPhoto({ file, itemId: targetItemId });
+      setError(`Photo upload failed: ${e instanceof Error ? e.message : 'unknown error'}. Use Retry — the photo is still here.`);
+      try {
+        const { logger } = await import('@/lib/logger');
+        logger.error('inspections.photoUpload failed', e, { inspectionId: editingId, itemId: targetItemId, bytes: file.size });
+      } catch { /* reporting must not mask the upload failure */ }
+    }
     finally { setUploadingItemId(null); setPhotoTargetItem(null); }
   }
 
@@ -561,13 +580,45 @@ export function InspectionsView() {
       <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handlePhotoUpload(e.target.files[0]); e.target.value = ''; }} />
 
+      {/* Opens the camera rather than the file picker. Falls back to the
+          picker itself when there is no camera, no permission, or the browser
+          cannot do it — so desktop keeps working unchanged. */}
+      {cameraItemId && (
+        <CameraCapture
+          title="Inspection photo"
+          onCancel={() => setCameraItemId(null)}
+          onCapture={file => {
+            const itemId = cameraItemId;
+            setCameraItemId(null);
+            if (itemId) void handlePhotoUpload(file, itemId);
+          }}
+        />
+      )}
+
+      {/* A failed upload keeps the photo rather than discarding it. */}
+      {failedPhoto && (
+        <div style={{ position: 'fixed', left: 16, right: 16, bottom: 'max(16px, env(safe-area-inset-bottom))', zIndex: 3000, margin: '0 auto', maxWidth: 460, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '13px 16px', borderRadius: 14, background: 'var(--surface)', border: '1px solid #dc2626', boxShadow: '0 18px 44px rgba(0,0,0,0.5)', color: 'var(--text)', fontSize: 14 }}>
+          <span style={{ flex: 1, minWidth: 150 }}>Photo not uploaded.</span>
+          <button
+            onClick={() => { const p = failedPhoto; setFailedPhoto(null); void handlePhotoUpload(p.file, p.itemId); }}
+            disabled={uploadingItemId !== null}
+            style={{ minHeight: 44, padding: '10px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, var(--accent), var(--accent-2))', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>
+            {uploadingItemId ? 'Retrying…' : 'Retry'}
+          </button>
+          <button onClick={() => setFailedPhoto(null)}
+            style={{ minHeight: 44, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--btn-border)', background: 'transparent', color: 'var(--muted)', fontWeight: 700, cursor: 'pointer' }}>
+            Discard
+          </button>
+        </div>
+      )}
+
       {/* Writes into the same form state the checklist below renders, so the
           two are never out of step and Save behaves identically either way. */}
       {guidedOpen && showForm && (
         <GuidedInspection
           items={form.items}
           onChange={items => setForm(f => ({ ...f, items }))}
-          onPhoto={itemId => { setPhotoTargetItem(itemId); photoInputRef.current?.click(); }}
+          onPhoto={itemId => setCameraItemId(itemId)}
           uploadingItemId={uploadingItemId}
           onClose={() => setGuidedOpen(false)}
           title={form.inspectionNumber || 'Inspection'}
@@ -891,12 +942,12 @@ export function InspectionsView() {
                                   <img src={item.photoUrl} alt="inspection photo"
                                     style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in' }} />
                                 </a>
-                                <button type="button" onClick={() => { setPhotoTargetItem(item.id); photoInputRef.current?.click(); }}
+                                <button type="button" onClick={() => setCameraItemId(item.id)}
                                   style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}
                                   title="Replace photo">↺</button>
                               </div>
                             ) : (
-                              <button type="button" onClick={() => { setPhotoTargetItem(item.id); photoInputRef.current?.click(); }}
+                              <button type="button" onClick={() => setCameraItemId(item.id)}
                                 style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--line)', background: 'transparent', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}
                                 title="Add photo">📷</button>
                             )
