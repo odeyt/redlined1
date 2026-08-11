@@ -6,10 +6,17 @@ import { test, expect } from '@playwright/test';
  * These run without auth so they work in preview and production smoke passes.
  */
 
+// The widths named in the M-PWA brief: three phones, both tablet orientations
+// and two laptop sizes. 375 is the narrowest screen still in real use and is
+// where horizontal overflow shows up first.
 const VIEWPORTS = [
-  { label: 'desktop', width: 1280, height: 800 },
-  { label: 'tablet',  width: 768,  height: 1024 },
-  { label: 'mobile',  width: 390,  height: 844 },
+  { label: 'iphone-se',    width: 375,  height: 812  },
+  { label: 'iphone-14',    width: 390,  height: 844  },
+  { label: 'pixel-7',      width: 412,  height: 915  },
+  { label: 'tablet-port',  width: 768,  height: 1024 },
+  { label: 'tablet-land',  width: 1024, height: 768  },
+  { label: 'laptop',       width: 1280, height: 800  },
+  { label: 'laptop-large', width: 1440, height: 900  },
 ];
 
 for (const vp of VIEWPORTS) {

@@ -291,7 +291,7 @@ export function SchedulingView() {
 
       {/* Confirm save modal */}
       {confirmSave && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => setConfirmSave(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflowY: 'auto' }} onClick={() => setConfirmSave(false)}>
           <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 400, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Confirm Save</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}><strong>{form.serviceType}</strong> — {form.customerName}</div>

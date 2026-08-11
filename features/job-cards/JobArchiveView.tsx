@@ -221,7 +221,7 @@ export function JobArchiveView() {
 
       {/* ── Return Job Modal ── */}
       {returnModalJob && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, overflowY: 'auto' }}>
           <div style={{ background: 'var(--surface)', borderRadius: 14, padding: 28, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>↩ Return Job</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>

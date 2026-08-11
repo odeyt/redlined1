@@ -32,11 +32,15 @@ test.describe('Public pages @smoke', () => {
     await expect(page.locator('button[type="submit"]')).toBeVisible();
   });
 
-  test('signup page shows "Free forever" messaging', async ({ page }) => {
+  test('signup page shows the trial-then-free messaging', async ({ page }) => {
+    // The plan changed to "7 days of everything, then free forever" and the
+    // copy followed. This test still asserted the older free-only model and
+    // had been failing against production ever since — it forbade the very
+    // wording the product now leads with.
     await page.goto('/signup');
-    const bodyText = await page.locator('body').innerText();
-    expect(bodyText.toLowerCase()).toContain('free forever');
-    expect(bodyText.toLowerCase()).not.toContain('7-day');
+    const bodyText = (await page.locator('body').innerText()).toLowerCase();
+    expect(bodyText).toContain('free forever');
+    expect(bodyText).toContain('7');
   });
 
   test('unauthenticated / serves the marketing page, not the app shell', async ({ page }) => {
