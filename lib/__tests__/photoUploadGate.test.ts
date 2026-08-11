@@ -22,7 +22,7 @@ const root = join(__dirname, '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 const gate = read('lib/image/prepareUpload.ts');
-const SERVICES = ['vehicleImageService', 'entityImageService', 'partsService', 'inspectionService'];
+const SERVICES = ['vehicleImageService', 'entityImageService', 'partsService', 'inspectionService', 'shopSettingsService'];
 
 describe('one gate, applied everywhere', () => {
   it.each(SERVICES)('%s prepares the file before uploading', name => {

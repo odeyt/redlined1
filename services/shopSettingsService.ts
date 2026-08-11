@@ -1,4 +1,5 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export type RoleKey = 'manager' | 'advisor' | 'technician';
@@ -262,11 +263,15 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
 
 export async function uploadLogo(file: File): Promise<string> {
   const shopId = getShopId();
-  const ext = file.name.split('.').pop();
+  // The fifth and last upload path to go through the gate. A logo is an image
+  // like any other, and it was the one route that could still put arbitrary
+  // bytes in the bucket.
+  const prepared = await prepareImageForUpload(file);
+  const ext = prepared.name.split('.').pop() || 'jpg';
   const path = `logo/${shopId}/shop-logo.${ext}`;
   const { error } = await supabase.storage
     .from('shop-assets')
-    .upload(path, file, { upsert: true });
+    .upload(path, prepared, { upsert: true, contentType: prepared.type });
   if (error) throw error;
   const { data } = supabase.storage.from('shop-assets').getPublicUrl(path);
   return data.publicUrl + '?t=' + Date.now();
