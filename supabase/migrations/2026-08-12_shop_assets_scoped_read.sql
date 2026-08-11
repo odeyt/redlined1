@@ -27,17 +27,24 @@
 -- public, /object/public/ serves those directly. Only public = false (step 4)
 -- closes that, and this policy is what governs reads once it does.
 --
--- It SHOULD stop anonymous listing and signing as soon as it lands. That is
--- unverified: as of 2026-08-12 this migration has not successfully applied
--- (see the status note in Part 1), so nothing about it has been measured yet.
--- Do not describe its effect in either direction until the probe has been
--- re-run against a database where the function actually exists.
+-- It DOES stop anonymous listing and signing, immediately. Measured against
+-- production right after this applied on 2026-08-12:
 --
--- Note for whoever tests this: while the bucket is public, service-role and
--- anon signing both succeed today, so a passing signing test does NOT confirm
--- the policy is correct. The first genuine test of can_read_shop_asset() is
--- the moment the bucket goes private — exactly when an error in it locks
--- staff out of every photo. Treat that flip as a reversible experiment.
+--   anon list 'vehicles/'   -> 0 entries (was 5)   enumeration closed
+--   anon createSignedUrl    -> denied, "Object not found"
+--   anon GET /object/public -> 200, still open until step 4
+--   service role sign+fetch -> unaffected, 200
+--
+-- The list call succeeds and returns nothing rather than erroring: RLS
+-- filters the rows before the caller sees them. That is the fix working.
+--
+-- Caveat that still stands: none of the above exercises the ALLOW side of
+-- can_read_shop_asset(). Every check here is a denial, and a function that
+-- returned false for everyone would produce identical output. The first test
+-- that a shop member can still read their OWN objects is the moment the app
+-- starts signing (step 2) or the bucket goes private (step 4) — and that is
+-- exactly when an error locks staff out of every photo. Treat the flip as a
+-- reversible experiment, not a one-way door.
 --
 -- BLAST RADIUS
 -- ------------
@@ -93,12 +100,12 @@ where table_schema = 'public' and table_name = 'shop_users';
 -- callers can only learn whether they may read a path they already named.
 -- ---------------------------------------------------------------------------
 
--- STATUS 2026-08-12: NOT APPLIED. A first attempt to run Parts 1 and 2
--- reported success, but `select proname from pg_proc where proname =
--- 'can_read_shop_asset'` returned no rows and "public read shop-assets" was
--- still present, so neither part took effect. Run Part 1 on its own and read
--- the result before assuming otherwise. Verify with the two queries at the
--- bottom of this file — never by whether the editor looked happy.
+-- STATUS 2026-08-12: APPLIED to production. Parts 1 and 2 were run
+-- separately, on purpose: the SQL editor executes a script as one
+-- transaction, and a first attempt at running them together failed inside
+-- Part 1 (shop_id type mismatch), which silently rolled back everything and
+-- looked like success. Verify with the queries at the bottom of this file --
+-- never by whether the editor looked happy.
 
 create or replace function public.can_read_shop_asset(object_name text)
 returns boolean
