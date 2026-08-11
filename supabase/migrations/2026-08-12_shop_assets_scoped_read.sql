@@ -23,11 +23,24 @@
 --
 -- WHAT THIS DOES NOT DO
 -- ---------------------
--- While the bucket is public, reads through /object/public/ do not consult
--- RLS at all. So on its own this migration stops anonymous LISTING and
--- SIGNING but does not stop anonymous reads of a known URL. Only setting
--- public = false (step 4) makes this policy actually govern reads. Both are
--- needed; this one is safe to land first and buys the enumeration fix.
+-- Nothing, until the bucket is private. MEASURED, not assumed:
+--
+-- After this migration was applied on 2026-08-12 — with "public read
+-- shop-assets" confirmed dropped and no SELECT policy remaining — an
+-- anonymous caller could STILL list the bucket and sign any object. The
+-- storage API does not consult RLS for read operations on a public bucket;
+-- public = true short-circuits read authorization entirely.
+--
+-- An earlier version of this comment claimed this migration would stop
+-- anonymous listing and signing on its own. It does not. It changes nothing
+-- observable until step 4 (public = false), at which point it becomes the
+-- rule that governs every read.
+--
+-- Consequence for testing: while the bucket is public, signing appears to
+-- work for everyone, so NOTHING here validates the policy. The first real
+-- test of can_read_shop_asset() is the moment the bucket goes private — which
+-- is exactly when a mistake in it locks staff out of every photo. Plan that
+-- flip as a reversible experiment, not a one-way door.
 --
 -- BLAST RADIUS
 -- ------------
