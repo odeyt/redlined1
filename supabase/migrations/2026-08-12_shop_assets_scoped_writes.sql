@@ -62,6 +62,17 @@
 -- ===========================================================================
 
 
+-- STATUS 2026-08-12: APPLIED to production. Verified by reading pg_policies:
+-- four "shop members ..." policies present, all three "auth ..." policies
+-- gone. Re-running Part 1 afterwards raises 42710 (already exists) and rolls
+-- back only that duplicate attempt — it does not disturb what is installed.
+--
+-- STILL UNTESTED: the allow side. Every automated check available here runs
+-- as anon or the service role, and neither exercises an authenticated shop
+-- member writing to their own path. The five manual tests below are the only
+-- evidence that staff can still upload and delete photos. Until someone runs
+-- them, treat this as IMPLEMENTED, not VERIFIED.
+
 -- ---------------------------------------------------------------------------
 -- PART 1 — create the scoped policies.
 --
