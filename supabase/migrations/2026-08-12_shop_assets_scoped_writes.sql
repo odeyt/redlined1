@@ -67,11 +67,21 @@
 -- gone. Re-running Part 1 afterwards raises 42710 (already exists) and rolls
 -- back only that duplicate attempt — it does not disturb what is installed.
 --
--- STILL UNTESTED: the allow side. Every automated check available here runs
--- as anon or the service role, and neither exercises an authenticated shop
--- member writing to their own path. The five manual tests below are the only
--- evidence that staff can still upload and delete photos. Until someone runs
--- them, treat this as IMPLEMENTED, not VERIFIED.
+-- ALLOW SIDE VERIFIED 2026-08-12 by manual test as a signed-in shop member.
+-- All five passed: vehicle photo upload, inspection item photo, part photo,
+-- shop logo change, and vehicle photo DELETE (which needs SELECT as well as
+-- DELETE, and was the one most likely to expose a gap).
+--
+-- This is the only evidence anywhere that can_read_shop_asset() returns TRUE
+-- for real member paths. Every automated check available in this repo runs as
+-- anon or the service role, and both only ever demonstrate denial — a
+-- function that returned false for everyone would pass all of them. If that
+-- function is ever edited, these five tests are what must be re-run, and
+-- there is no substitute short of a staging environment.
+--
+-- It also de-risks step 4 (public = false): the four prefixes exercised above
+-- resolve correctly for a member. Untested prefixes remain job_cards,
+-- repair_orders, appointments, parts_orders and parts_estimates.
 
 -- ---------------------------------------------------------------------------
 -- PART 1 — create the scoped policies.
