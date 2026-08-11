@@ -205,3 +205,59 @@ describe('one shop cannot touch another shop\'s numbering', () => {
     );
   });
 });
+
+/**
+ * Invoice numbers are global; every other document number is per shop.
+ *
+ * invoices.number is that table's PRIMARY KEY, so it is unique across all
+ * shops. The per-shop counter introduced on 2026-08-04 was correct for repair
+ * orders, estimates and inspections — whose numbers only need to be unique
+ * within a shop — and wrong for invoices.
+ *
+ * Measured against production on 2026-08-11: Location 2 held INV-0037 and
+ * D1 Imports' next allocation was INV-0037. The next invoice raised at that
+ * shop would have failed with "duplicate key value violates unique constraint
+ * invoices_pkey". Not a race — the very next one.
+ *
+ * A sequence is the right shape for a global counter: nextval is atomic
+ * without a row lock and cannot hand the same value to two callers.
+ */
+describe('invoice numbering is global', () => {
+  const seq = read('supabase/migrations/2026-08-11_invoice_number_global_sequence.sql');
+
+  it('creates a sequence rather than another counter row', () => {
+    expect(seq).toMatch(/create sequence if not exists invoice_number_seq/);
+  });
+
+  it('starts above every invoice that exists', () => {
+    // Highest was INV-0037 across all 32 rows, all INV-#### format.
+    expect(seq).toMatch(/start with 38/);
+  });
+
+  it('invoices take their number from the sequence', () => {
+    expect(seq).toMatch(/if p_doc_type = 'invoice' then\s*\n\s*return nextval\('invoice_number_seq'\);/);
+  });
+
+  it('and return before touching the per-shop counter', () => {
+    expect(seq.indexOf("nextval('invoice_number_seq')"))
+      .toBeLessThan(seq.indexOf('insert into public.document_counters'));
+  });
+
+  it('every other type stays per shop', () => {
+    // Two tenants may both legitimately hold RO-00001.
+    expect(seq).toMatch(/when 'repair_order' then/);
+    expect(seq).toMatch(/when 'estimate' then/);
+    expect(seq).toMatch(/when 'inspection' then/);
+    expect(seq).not.toMatch(/when 'invoice' then \(\s*\n?\s*select coalesce\(max/);
+  });
+
+  it('keeps the membership check and the grants', () => {
+    expect(seq).toMatch(/raise exception 'not a member of shop/);
+    expect(seq).toMatch(/revoke execute on function public\.next_document_number\(uuid, text\) from public/);
+    expect(seq).toMatch(/grant  execute on function public\.next_document_number\(uuid, text\) to authenticated/);
+  });
+
+  it('reloads the API schema cache', () => {
+    expect(seq).toMatch(/notify pgrst, 'reload schema'/);
+  });
+});
