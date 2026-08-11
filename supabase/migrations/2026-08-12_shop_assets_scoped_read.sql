@@ -184,11 +184,23 @@ using (
   and public.can_read_shop_asset(name)
 );
 
--- >>> SUBSTITUTE THE REAL NAME(S) FROM 0a BEFORE RUNNING <<<
--- Typical Supabase defaults look like 'Public Access' or
--- 'Give anon users access to shop-assets'.
+-- Part 0a returned exactly one SELECT policy, confirmed 2026-08-12:
 --
--- drop policy "<name from 0a>" on storage.objects;
+--   policyname : public read shop-assets
+--   cmd        : SELECT
+--   roles      : {public}          <- every role, anon included
+--   qual       : (bucket_id = 'shop-assets'::text)
+--
+-- No ownership test whatsoever: "is it in this bucket" was the entire
+-- condition. That one line is what let an unauthenticated caller enumerate
+-- the bucket. No other SELECT or ALL policy exists, so uploads (governed by
+-- separate INSERT policies) are untouched by dropping it.
+--
+-- Note this also removes the blanket read that `authenticated` was getting
+-- through {public} — which is the point. The new policy above replaces it
+-- with the same access, scoped to the user's own shops.
+
+drop policy "public read shop-assets" on storage.objects;
 
 
 -- ---------------------------------------------------------------------------
@@ -211,9 +223,13 @@ order by policyname;
 -- ---------------------------------------------------------------------------
 -- ROLLBACK — if staff report missing images
 --
---   drop policy "shop members read shop-assets" on storage.objects;
---   -- then recreate the policy dropped in Part 2, using its definition from 0a
+-- Exact, captured from Part 0a before the drop. Restores the previous
+-- behaviour completely — including the open access, so treat this as a
+-- break-glass step and say so if it is used.
 --
--- Capture the full output of 0a somewhere before running Part 2. It is the
--- only record of the old policy's definition.
+--   drop policy "shop members read shop-assets" on storage.objects;
+--
+--   create policy "public read shop-assets"
+--   on storage.objects for select to public
+--   using (bucket_id = 'shop-assets'::text);
 -- ---------------------------------------------------------------------------
