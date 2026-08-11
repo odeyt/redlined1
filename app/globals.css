@@ -1361,7 +1361,15 @@ tr:last-child td {
  * this makes the app usable on a phone until that happens.
  */
 @media (max-width: 760px) {
-  .content [style*="grid-template-columns"] {
+  /*
+   * repeat(auto-fit …) and repeat(auto-fill …) are excluded: they already size
+   * themselves to the space available, so overriding them forces one column
+   * where two would have fitted and wastes half a phone screen. 28 grids in
+   * features/ use that form. What is left — explicit tracks like '1fr 1.6fr'
+   * or '340px 1fr' — cannot adapt on its own, and is what pushed content past
+   * the viewport.
+   */
+  .content [style*="grid-template-columns"]:not([style*="repeat("]) {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
