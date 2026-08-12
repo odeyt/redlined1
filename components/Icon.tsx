@@ -65,14 +65,36 @@ interface IconProps {
   className?: string;
 }
 
+/**
+ * The markup is injected into a <span>, not straight into an <svg>.
+ *
+ * Setting innerHTML on an SVG element is the fragile path: the content has to
+ * be parsed into the SVG namespace, and support for that has never been
+ * uniform across engines. Injecting the whole <svg> string into an HTML
+ * element instead hands it to the HTML parser, which creates the element in
+ * the right namespace every time.
+ *
+ * Reported symptom that prompted this: sidebar icons blank on an iPhone while
+ * rendering correctly in desktop Chrome. This component was the only thing in
+ * the app setting innerHTML on an <svg>. That diagnosis is unconfirmed — it
+ * could not be reproduced without an iOS device — but this form is correct
+ * either way, so it is worth keeping regardless of what the cause turns out
+ * to be.
+ *
+ * Colour still flows through: the span carries the passed style (which sets
+ * `color`), and .ui-icon uses `stroke: currentColor`, so the svg inherits it.
+ * Existing selectors like `.nav button.active .ui-icon` are descendant
+ * selectors and keep matching through the wrapper.
+ */
 export function Icon({ name, style, className = 'ui-icon' }: IconProps) {
+  const body = paths[name] || paths.dashboard;
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
+    <span
       aria-hidden="true"
-      style={style}
-      dangerouslySetInnerHTML={{ __html: paths[name] || paths.dashboard }}
+      style={{ display: 'inline-flex', lineHeight: 0, ...style }}
+      dangerouslySetInnerHTML={{
+        __html: `<svg class="${className}" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`,
+      }}
     />
   );
 }
