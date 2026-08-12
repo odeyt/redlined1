@@ -74,12 +74,14 @@ interface IconProps {
  * element instead hands it to the HTML parser, which creates the element in
  * the right namespace every time.
  *
- * Reported symptom that prompted this: sidebar icons blank on an iPhone while
- * rendering correctly in desktop Chrome. This component was the only thing in
- * the app setting innerHTML on an <svg>. That diagnosis is unconfirmed — it
- * could not be reproduced without an iOS device — but this form is correct
- * either way, so it is worth keeping regardless of what the cause turns out
- * to be.
+ * CONFIRMED on iOS, 2026-08-12: sidebar icons rendered blank on an iPhone
+ * while being correct in desktop Chrome, and switching to this form fixed
+ * them. This component was the only thing in the app setting innerHTML on an
+ * <svg>.
+ *
+ * So: do not "simplify" this back to <svg dangerouslySetInnerHTML>. It looks
+ * like an unnecessary wrapper and reads cleaner, and it breaks every icon on
+ * iPhone — on a platform no automated test here covers.
  *
  * Colour still flows through: the span carries the passed style (which sets
  * `color`), and .ui-icon uses `stroke: currentColor`, so the svg inherits it.

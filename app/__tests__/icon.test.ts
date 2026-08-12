@@ -7,8 +7,12 @@
  * uniformly supported path across engines. Injecting a full <svg> string into
  * an HTML element instead lets the HTML parser handle the namespace.
  *
- * The iOS diagnosis is unconfirmed (no device to reproduce on), so these
- * tests assert the robust shape rather than claiming to prove the fix.
+ * CONFIRMED on iOS 2026-08-12: the wrapper fixed it on a real iPhone.
+ *
+ * These tests assert the shape, not the behaviour — nothing here runs in
+ * WebKit, so they cannot catch a regression by observing it. They exist
+ * because the fix looks like a pointless wrapper and is exactly the kind of
+ * thing a later cleanup deletes.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
