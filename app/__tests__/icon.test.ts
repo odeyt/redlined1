@@ -17,7 +17,12 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const src = readFileSync(join(__dirname, '..', '..', 'components', 'Icon.tsx'), 'utf8');
+const raw = readFileSync(join(__dirname, '..', '..', 'components', 'Icon.tsx'), 'utf8');
+
+// Comments discuss the very pattern these tests forbid — the file warns the
+// next reader not to revert to `<svg dangerouslySetInnerHTML>`. Matching
+// against comment text would fail on the warning itself.
+const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const css = readFileSync(join(__dirname, '..', 'globals.css'), 'utf8');
 
 describe('Icon rendering', () => {
