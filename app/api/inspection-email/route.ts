@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getServerDb } from '@/lib/supabaseServer';
+import { signStoredUrls, EMAIL_LINK_TTL_SECONDS } from '@/lib/storage/signServer';
 
 const STATUS_COLOR: Record<string, string> = {
   Pass: '#4caf50',
@@ -38,7 +39,12 @@ export async function POST(req: NextRequest) {
     const shopName = shop?.name ?? 'My Shop';
     const phone = settings?.phone ?? '';
     const address = settings?.address ?? '';
-    const logoUrl = settings?.logo_url ?? '';
+    // Signed with the long email TTL, not the customer-link one: the URL in a
+    // sent message is fixed forever, and a four-hour link is already dead by
+    // the time most people open their mail. See EMAIL_LINK_TTL_SECONDS.
+    const storedLogoUrl = settings?.logo_url ?? '';
+    const logoUrl = (await signStoredUrls([storedLogoUrl], EMAIL_LINK_TTL_SECONDS)).get(storedLogoUrl)
+      ?? storedLogoUrl;
 
     // Parse items
     let items: Array<{ id: string; category: string; name: string; status: string; notes: string; photoUrl: string }> = [];

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { navItems } from '@/lib/mock-data';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { fetchMessagingStatus, updateMessagingSecrets, AuthSessionError, type MessagingStatus } from '@/services/messagingSecretsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
@@ -387,7 +388,7 @@ export function SettingsView() {
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Logo</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 {currentLogo
-                  ? <img src={currentLogo} alt="Logo" style={{ height: 56, maxWidth: 160, objectFit: 'contain', borderRadius: 8, border: '1px solid var(--line)', padding: 4, background: '#fff' }} />
+                  ? <StorageImage url={currentLogo} alt="Logo" style={{ height: 56, maxWidth: 160, objectFit: 'contain', borderRadius: 8, border: '1px solid var(--line)', padding: 4, background: '#fff' }} />
                   : <div style={{ width: 80, height: 56, borderRadius: 8, border: '2px dashed var(--line)', display: 'grid', placeItems: 'center', color: 'var(--muted)', fontSize: 11 }}>No logo</div>
                 }
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -404,7 +405,7 @@ export function SettingsView() {
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Sidebar Preview</label>
               <div style={{ background: 'var(--nav)', borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
                 {currentLogo
-                  ? <img src={currentLogo} alt="Logo" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3 }} />
+                  ? <StorageImage url={currentLogo} alt="Logo" style={{ height: 38, width: 38, objectFit: 'contain', borderRadius: 8, background: '#fff', padding: 3 }} />
                   : <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--accent)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, fontSize: 14 }}>{companyName?.slice(0, 2).toUpperCase() || 'RL'}</div>
                 }
                 <div>

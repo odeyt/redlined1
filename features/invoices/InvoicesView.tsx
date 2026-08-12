@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
+import { StorageImage } from '@/components/StorageImage';
+import { signStoredUrlClient } from '@/lib/storage/signClient';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
 import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
@@ -237,7 +239,11 @@ export function InvoicesView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
-  function printInvoice(inv: InvoiceFull, t: ReturnType<typeof calculateTotals>, payments: Payment[]) {
+  async function printInvoice(inv: InvoiceFull, t: ReturnType<typeof calculateTotals>, payments: Payment[]) {
+    // The print window is raw HTML, so StorageImage cannot help here. Sign the
+    // logo up front; once shop-assets is private the stored public URL would
+    // print as a broken image. Falls back to the stored value on failure.
+    const printLogoUrl = (await signStoredUrlClient(shopSettings?.logoUrl)) ?? shopSettings?.logoUrl ?? '';
     const fmt2 = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
     const lines = inv.lines.map((line, i) => {
       const lc = line.currency || inv.currency;
@@ -279,7 +285,7 @@ export function InvoicesView() {
     </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #cc0000">
         <div style="display:flex;gap:12px;align-items:flex-start">
-          ${shopSettings?.logoUrl ? `<img src="${shopSettings.logoUrl}" style="height:48px;max-width:110px;object-fit:contain;border-radius:4px">` : ''}
+          ${printLogoUrl ? `<img src="${printLogoUrl}" style="height:48px;max-width:110px;object-fit:contain;border-radius:4px">` : ''}
           <div>
             <div style="font-size:22px;font-weight:900;color:#cc0000">${shopSettings?.companyName || 'Redlined1'}</div>
             ${shopSettings?.tagline ? `<div style="font-size:11px;color:#666;margin-top:2px">${shopSettings.tagline}</div>` : ''}
@@ -1669,7 +1675,7 @@ export function InvoicesView() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--accent)' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   {shopSettings?.logoUrl && (
-                    <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 52, maxWidth: 120, objectFit: 'contain', borderRadius: 6 }} />
+                    <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 52, maxWidth: 120, objectFit: 'contain', borderRadius: 6 }} />
                   )}
                   <div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{shopSettings?.companyName || 'Redlined1'}</div>

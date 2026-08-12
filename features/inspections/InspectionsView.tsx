@@ -12,6 +12,7 @@ import {
   INSPECTION_TEMPLATE, INTAKE_OUTTAKE_ITEMS, INSPECTION_STATUSES,
   type Inspection, type InspectionItem, type CustomerApproval,
 } from '@/services/inspectionService';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import type { Vehicle, Customer } from '@/lib/types';
@@ -160,7 +161,7 @@ function ReportItemRow({ item, onPhotoClick }: { item: InspectionItem; onPhotoCl
         </span>
       </div>
       {item.photoUrl && (
-        <img src={item.photoUrl} alt="photo" onClick={() => onPhotoClick(item.photoUrl)}
+        <StorageImage url={item.photoUrl} alt="photo" onClick={() => onPhotoClick(item.photoUrl)}
           style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: `2px solid ${color}`, cursor: 'zoom-in', flexShrink: 0 }} />
       )}
     </div>
@@ -939,7 +940,7 @@ export function InspectionsView() {
                             ) : item.photoUrl ? (
                               <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <a href={item.photoUrl} target="_blank" rel="noreferrer" title="View full photo">
-                                  <img src={item.photoUrl} alt="inspection photo"
+                                  <StorageImage url={item.photoUrl} alt="inspection photo"
                                     style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 6, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in' }} />
                                 </a>
                                 <button type="button" onClick={() => setCameraItemId(item.id)}
@@ -1197,7 +1198,7 @@ export function InspectionsView() {
                           <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[item.status] }}>{item.status}</span>
                           {item.notes && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{item.notes}</span>}
                           {item.photoUrl && (
-                            <img src={item.photoUrl} alt="photo"
+                            <StorageImage url={item.photoUrl} alt="photo"
                               onClick={() => setLightboxUrl(item.photoUrl)}
                               style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 5, border: '2px solid #4caf50', display: 'block', cursor: 'zoom-in', flexShrink: 0 }} />
                           )}
@@ -1238,7 +1239,7 @@ export function InspectionsView() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 28, paddingBottom: 20, borderBottom: '3px solid #cc0000' }}>
               <div style={{ display: 'flex', gap: 14 }}>
-                {shopSettings?.logoUrl && <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 50, objectFit: 'contain' }} />}
+                {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 50, objectFit: 'contain' }} />}
                 <div>
                   <div style={{ fontSize: 22, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                   {shopSettings?.address && <div style={{ fontSize: 11, color: '#555', whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
@@ -1295,7 +1296,7 @@ export function InspectionsView() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={() => setLightboxUrl('')}>
           <button onClick={() => setLightboxUrl('')} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
-          <img src={lightboxUrl} alt="Inspection photo"
+          <StorageImage url={lightboxUrl} alt="Inspection photo"
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }} />
           <a href={lightboxUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}

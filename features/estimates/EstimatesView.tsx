@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { FilterPills } from '@/components/FilterPills';
@@ -1040,7 +1041,7 @@ export function EstimatesView() {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--accent)' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                  {shopSettings?.logoUrl && <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
+                  {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                     {shopSettings?.tagline && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{shopSettings.tagline}</div>}
@@ -1209,7 +1210,7 @@ export function EstimatesView() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                {shopSettings?.logoUrl && <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain', borderRadius: 6 }} />}
+                {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain', borderRadius: 6 }} />}
                 <div>
                   <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                   {shopSettings?.tagline && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{shopSettings.tagline}</div>}

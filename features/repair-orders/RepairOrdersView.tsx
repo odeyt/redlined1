@@ -12,6 +12,7 @@ import {
   deleteRepairOrder, nextRONumber, calcROTotal, calcPartsTotal,
   RO_STATUSES, type RepairOrder, type RoPart, type WorkLine,
 } from '@/services/repairOrderService';
+import { StorageImage } from '@/components/StorageImage';
 import { createEstimate, nextEstimateNumber } from '@/services/estimateService';
 import { createInvoice, formatMoney, CURRENCIES, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchPartsOrders } from '@/services/partsOrderService';
@@ -1155,7 +1156,7 @@ export function RepairOrdersView() {
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--accent)' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                  {shopSettings?.logoUrl && <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
+                  {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                     {shopSettings?.address && <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
@@ -1301,7 +1302,7 @@ export function RepairOrdersView() {
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 32, paddingBottom: 24, borderBottom: '3px solid #cc0000' }}>
               <div style={{ display: 'flex', gap: 16 }}>
-                {shopSettings?.logoUrl && <img src={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain' }} />}
+                {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain' }} />}
                 <div>
                   <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
                   {shopSettings?.address && <div style={{ fontSize: 12, color: '#555', whiteSpace: 'pre-line', marginTop: 4 }}>{shopSettings.address}</div>}

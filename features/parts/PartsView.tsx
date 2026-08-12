@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
+import { StorageImage } from '@/components/StorageImage';
 import { useShop } from '@/lib/useShop';
 import {
   fetchParts, createPart, updatePart, deletePart,
@@ -1177,7 +1178,7 @@ export function PartsView() {
                     {selected.photos.map((url, i) => (
                       <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`Part photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                        <StorageImage url={url} alt={`Part photo ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                         <button onClick={() => handleDeletePhoto(url)}
                           style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           ✕
@@ -1571,7 +1572,7 @@ export function PartsView() {
                       {pendingPhotoUrls.map((url, i) => (
                         <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt={`Preview ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                          <StorageImage url={url} alt={`Preview ${i + 1}`} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                           <button type="button" onClick={() => removePendingPhoto(i)}
                             style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--red,#ef4444)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             ✕

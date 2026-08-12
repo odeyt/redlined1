@@ -9,6 +9,7 @@ import {
   PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
 } from '@/services/partsOrderService';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles, fetchVehiclesAll } from '@/services/vehicleService';
 import { createPartsEstimate, ESTIMATE_STATUSES } from '@/services/partsEstimateService';
@@ -904,7 +905,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button onClick={() => setLightbox(null)}
             style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
-          <img src={lightbox} alt="" onClick={e => e.stopPropagation()}
+          <StorageImage url={lightbox} alt="" onClick={e => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
@@ -1208,7 +1209,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
                               </a>
                             ) : (
-                              <img src={img.url} alt={img.label} draggable={false}
+                              <StorageImage url={img.url} alt={img.label} draggable={false}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
                                 onClick={() => setLightbox(img.url)} />
                             )}

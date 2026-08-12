@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useAppDispatch } from '@/lib/store';
 import {
@@ -1050,7 +1051,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
               </button>
             )}
             {/* Image */}
-            <img src={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '80vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: 8 }} />
+            <StorageImage url={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '80vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: 8 }} />
             {/* Thumbnail strip */}
             {photoImages.length > 1 && (
               <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', gap: 6, overflowX: 'auto', maxWidth: '90vw', padding: '4px 0' }}>
@@ -1219,7 +1220,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         onDrop={() => { handleReorder(dragSrcIdx.current, idx); setDragOverIdx(null); }}
                         onDragEnd={() => setDragOverIdx(null)}
                         style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid var(--accent)' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
-                        <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} onClick={() => { setLightbox(img); setLightboxLabel(img.label); }} />
+                        <StorageImage url={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} onClick={() => { setLightbox(img); setLightboxLabel(img.label); }} />
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 6px' }}>
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: img.label === 'Invoice' ? 'rgba(139,92,246,0.85)' : 'rgba(34,197,94,0.85)', color: '#fff' }}>
                             {img.label === 'Invoice' ? '🧾' : '📷'}
@@ -1409,7 +1410,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
                               </a>
                             ) : (
-                              <img src={img.url} alt={img.label} draggable={false}
+                              <StorageImage url={img.url} alt={img.label} draggable={false}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'zoom-in' }} />
                             )}
                             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '3px 4px' }}>

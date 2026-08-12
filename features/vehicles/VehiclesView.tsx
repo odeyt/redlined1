@@ -11,6 +11,7 @@ const VehicleIntelligencePanel = dynamic(
 );
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
+import { StorageImage } from '@/components/StorageImage';
 import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { useShop } from '@/lib/useShop';
@@ -132,7 +133,7 @@ function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
       {enablePhotos && (
         <div onClick={onPhotos} style={{ height: 120, cursor: 'pointer', background: thumbUrl ? '#000' : 'var(--surface-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderBottom: '1px solid var(--line)', position: 'relative' }}>
           {thumbUrl
-            ? <img src={thumbUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ? <StorageImage url={thumbUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'var(--muted)' }}><span style={{ fontSize: 28 }}>🚗</span><span style={{ fontSize: 11 }}>Add photos</span></div>
           }
           <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, padding: '2px 7px', borderRadius: 5 }}>📷 Photos</div>
@@ -957,7 +958,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent,#cc0000)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'scale(1)'; }}
                   >
-                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <StorageImage url={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </div>
                 ))}
                 <div
@@ -1088,7 +1089,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                           opacity: i === lightboxIdx ? 1 : 0.55, transition: 'opacity .15s, border-color .15s',
                         }}
                       >
-                        <img src={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <StorageImage url={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       </div>
                     ))}
                   </div>
@@ -2367,14 +2368,14 @@ export function VehiclesView() {
                   return (
                     <div onClick={() => setGalleryVehicle(v)} style={{ height: 160, cursor: 'pointer', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--line)', display: 'flex', background: '#000' }}>
                       {count === 0 && <div style={{ flex: 1, background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)' }}><span style={{ fontSize: 32 }}>🚗</span><span style={{ fontSize: 12 }}>Add photos</span></div>}
-                      {count === 1 && <img src={photos[0]} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
-                      {count === 2 && (<><img src={photos[0]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block', borderRight: '2px solid #000' }} /><img src={photos[1]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block' }} /></>)}
+                      {count === 1 && <StorageImage url={photos[0]} alt="" style={{ flex: 1, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
+                      {count === 2 && (<><StorageImage url={photos[0]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block', borderRight: '2px solid #000' }} /><StorageImage url={photos[1]} alt="" style={{ flex: 1, height: '100%', objectFit: 'cover', display: 'block' }} /></>)}
                       {count >= 3 && (<>
-                        <img src={photos[0]} alt="" style={{ width: '62%', height: '100%', objectFit: 'cover', display: 'block', flexShrink: 0, borderRight: '2px solid #000' }} />
+                        <StorageImage url={photos[0]} alt="" style={{ width: '62%', height: '100%', objectFit: 'cover', display: 'block', flexShrink: 0, borderRight: '2px solid #000' }} />
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {photos.slice(1, 5).map((url, i, arr) => (
                             <div key={i} style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                              <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              <StorageImage url={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                               {i === arr.length - 1 && count > 5 && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14 }}>+{count - 4} more</div>}
                             </div>
                           ))}
@@ -2426,7 +2427,7 @@ export function VehiclesView() {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         {enableVehiclePhotos && ((thumbs[v.id]?.[0])
-                          ? <img src={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
+                          ? <StorageImage url={thumbs[v.id][0]} alt="" style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)} />
                           : <div style={{ width: 40, height: 32, borderRadius: 6, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 16, cursor: 'pointer' }} onClick={() => setGalleryVehicle(v)}>🚗</div>
                         )}
                         <div><strong>{v.label}</strong><div className="meta">{v.plate}</div></div>
@@ -2477,7 +2478,7 @@ export function VehiclesView() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {enableVehiclePhotos && (
                         thumbs[v.id]?.[0]
-                          ? <img src={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }} />
+                          ? <StorageImage url={thumbs[v.id][0]} alt="" style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }} />
                           : <div style={{ width: 36, height: 28, borderRadius: 5, background: 'var(--surface-soft)', border: '1px solid var(--line)', display: 'grid', placeItems: 'center', fontSize: 14, cursor: 'pointer', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setGalleryVehicle(v); }}>🚗</div>
                       )}
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{v.label}</span>
@@ -2598,7 +2599,7 @@ export function VehiclesView() {
                               style={{ height: 80, background: thumb ? '#000' : col.bg, cursor: 'pointer', overflow: 'hidden', borderBottom: `1px solid ${col.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
                             >
                               {thumb
-                                ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ? <StorageImage url={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 : <span style={{ fontSize: 26, opacity: 0.4 }}>🚗</span>
                               }
                               <div style={{ position: 'absolute', bottom: 4, right: 6, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 10, padding: '2px 6px', borderRadius: 5 }}>📷</div>

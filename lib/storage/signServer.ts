@@ -10,19 +10,20 @@
  * before that flip and harmless after it: signed URLs work on public buckets
  * too, so these surfaces can move to signing now and keep working either way.
  *
- * What this does NOT do: restrict anything. As of 2026-08-12 storage.objects
- * grants SELECT to anon, so anyone holding the publishable key can list the
- * bucket and sign any object themselves. Signing here does not change that —
- * only a scoped SELECT policy plus `public = false` will. Do not describe this
- * module as a security control until both have landed.
+ * Since 2026-08-12 storage.objects no longer grants SELECT to anon, so
+ * anonymous listing and signing are closed. What remains open until the
+ * bucket is private is a read of a URL someone already holds: public buckets
+ * serve /object/public/ directly. This module is a prerequisite for that
+ * flip, not a control in its own right.
  *
  * Server-only: it uses the service-role key.
  */
 import 'server-only';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { SHOP_ASSETS_BUCKET as BUCKET, toStoragePath } from '@/lib/storage/storagePath';
 
-const BUCKET = 'shop-assets';
-const MARKER = `/${BUCKET}/`;
+// Re-exported so callers and tests keep one obvious import site for both.
+export { toStoragePath };
 
 /**
  * Default lifetime for a customer-facing link.
@@ -35,26 +36,20 @@ const MARKER = `/${BUCKET}/`;
 export const CUSTOMER_LINK_TTL_SECONDS = 60 * 60 * 4; // 4 hours
 
 /**
- * Extracts the object path from whatever is stored in the database.
+ * Lifetime for URLs embedded in an email.
  *
- * Historically every row stores a fully-qualified public URL
- * (".../object/public/shop-assets/vehicles/<id>/<file>.jpg"), sometimes with
- * a cache-busting query string. Returns null for anything that is not an
- * object in this bucket, so callers can pass values through untouched.
+ * Email is the one surface we cannot re-render. A customer opens an
+ * inspection report weeks later, or their client downloads images on first
+ * view — either way the URL in that message is fixed at send time, and a
+ * four-hour link is a broken image by the time most people read it.
+ *
+ * 90 days is a compromise, not a solution: it is long enough to cover
+ * realistic reading habits and short enough that a forwarded email stops
+ * working eventually. The durable fix is embedding images as attachments so
+ * nothing depends on a URL surviving, which is a larger change to the email
+ * templates and has not been done.
  */
-export function toStoragePath(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const idx = value.indexOf(MARKER);
-  if (idx === -1) return null;
-  const raw = value.slice(idx + MARKER.length).split('?')[0];
-  if (!raw) return null;
-  // Stored URLs are percent-encoded; the storage API wants the real path.
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
+export const EMAIL_LINK_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
 /**
  * Signs a batch of stored URLs, returning a lookup keyed by the ORIGINAL

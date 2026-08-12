@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { StorageImage } from '@/components/StorageImage';
 import type { InspectionItem } from '@/services/inspectionService';
 
 /**
@@ -208,7 +209,7 @@ export function GuidedInspection({ items, onChange, onPhoto, uploadingItemId, on
               {item.photoUrl ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.photoUrl} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--gi-edge)' }} />
+                  <StorageImage url={item.photoUrl} alt="" style={{ width: 54, height: 54, objectFit: 'cover', borderRadius: 10, border: '1px solid var(--gi-edge)' }} />
                   <button onClick={() => onPhoto(item.id)} style={ghost}>Replace photo</button>
                 </div>
               ) : (
