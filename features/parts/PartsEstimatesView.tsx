@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
+import { getExchangeRate, convertAmount } from '@/lib/fx';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useAppDispatch } from '@/lib/store';
@@ -115,6 +116,12 @@ type FormState = {
    * already follow (see calcTotals in PartsOrdersView).
    */
   deposit: number;
+  /**
+   * Currency the deposit was actually handed over in — often not the quote's.
+   * Stored alongside the amount so the figure is never ambiguous; conversion
+   * happens for display and on convert-to-order, never to the stored value.
+   */
+  depositCurrency: string;
   status: string;
   quoteDate: string; validUntil: string;
   jobCardNumber: string; repairOrderNumber: string;
@@ -133,6 +140,7 @@ const EMPTY_ESTIMATE: FormState = {
   coreCharge: 0,
   totalCost: 0,
   deposit: 0,
+  depositCurrency: DEFAULT_CURRENCY,
   status: 'Draft',
   quoteDate: today(), validUntil: '',
   jobCardNumber: '', repairOrderNumber: '',
@@ -199,6 +207,13 @@ export function PartsEstimatesView() {
   const [showForm, setShowForm]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm]           = useState<FormState>(EMPTY_ESTIMATE);
+  /**
+   * Rate from the deposit's currency to the currency the quote is actually
+   * priced in. null = not available; undefined = still fetching. The three
+   * states are distinct on purpose: showing a balance computed at a guessed
+   * rate is worse than showing none.
+   */
+  const [depositFx, setDepositFx] = useState<number | null | undefined>(1);
   const [saving, setSaving]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [formError, setFormError] = useState('');
@@ -324,6 +339,26 @@ export function PartsEstimatesView() {
       })
     : vehicles;
 
+  // Fetch the rate whenever the deposit's currency or the quote's pricing
+  // currency changes. Kept out of render because it is async: the balance
+  // shows "Converting…" until it resolves rather than a number computed at a
+  // guessed rate.
+  useEffect(() => {
+    const byCur = calcTotalByCurrency(form.lineItems, form.coreCharge, form.currency);
+    const priced = Object.entries(byCur).filter(([, v]) => v > 0);
+    const quoteCur = priced.length ? priced.reduce((a, b) => (b[1] > a[1] ? b : a))[0] : form.currency;
+    const from = form.depositCurrency || quoteCur;
+
+    if (from === quoteCur) { setDepositFx(1); return; }
+
+    let cancelled = false;
+    setDepositFx(undefined);
+    getExchangeRate(from, quoteCur).then(rate => {
+      if (!cancelled) setDepositFx(rate);
+    });
+    return () => { cancelled = true; };
+  }, [form.depositCurrency, form.lineItems, form.coreCharge, form.currency]);
+
   function setF(patch: Partial<FormState>) {
     setForm(prev => {
       const next = { ...prev, ...patch };
@@ -373,6 +408,7 @@ export function PartsEstimatesView() {
       vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
       coreCharge: e.coreCharge,
       deposit: e.deposit ?? 0,
+      depositCurrency: e.depositCurrency || e.currency || DEFAULT_CURRENCY,
       ...calcTotal(lineItems, e.coreCharge, e.currency || 'USD'),
       status: e.status,
       quoteDate: e.quoteDate, validUntil: e.validUntil,
@@ -408,7 +444,8 @@ export function PartsEstimatesView() {
       // Clamped on save as well as in the input: the quoted total can change
       // after a deposit is typed, and a deposit above the total would produce
       // a negative balance on the order it converts into.
-      deposit: Math.min(Math.max(form.deposit || 0, 0), form.totalCost || 0),
+      deposit: Math.max(form.deposit || 0, 0),
+      depositCurrency: form.depositCurrency || form.currency,
       status: form.status,
       quoteDate: form.quoteDate, validUntil: form.validUntil,
       jobCardNumber: form.jobCardNumber, repairOrderNumber: form.repairOrderNumber,
@@ -475,6 +512,28 @@ export function PartsEstimatesView() {
 
   async function handleConvertToOrder(e: PartsEstimate) {
     if (!confirm(`Convert "${e.partName || 'this quotation'}" to a Parts Order?`)) return;
+
+    // The order records one deposit figure in its own currency, so a deposit
+    // taken in another has to be converted now. If today's rate cannot be
+    // fetched, stop rather than guess: carrying 600,000 LAK across as 600,000
+    // THB would understate the balance by roughly 25x, and the order is what
+    // the customer is eventually billed from.
+    const depositCur = e.depositCurrency || e.currency;
+    const rawDeposit = e.deposit ?? 0;
+    let depositForOrder = rawDeposit;
+    if (rawDeposit > 0 && depositCur !== e.currency) {
+      const converted = await convertAmount(rawDeposit, depositCur, e.currency);
+      if (converted === null) {
+        alert(
+          `Could not fetch today's ${depositCur}→${e.currency} rate, so the ` +
+          `${fmt(rawDeposit, depositCur)} deposit cannot be converted. ` +
+          `The order was not created — try again when back online.`,
+        );
+        return;
+      }
+      depositForOrder = converted;
+    }
+
     try {
       await createPartsOrder({
         lineItems: e.lineItems?.length ? e.lineItems : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost }],
@@ -485,8 +544,8 @@ export function PartsEstimatesView() {
         // Carry the deposit across. Hardcoding 0 here meant a customer who
         // had already paid up front on the quote was invoiced for the full
         // amount once it became an order.
-        depositPaid: e.deposit ?? 0,
-        balanceDue: Math.max(0, e.totalCost + e.coreCharge - (e.deposit ?? 0)),
+        depositPaid: depositForOrder,
+        balanceDue: Math.max(0, e.totalCost + e.coreCharge - depositForOrder),
         status: 'Pending', paymentStatus: 'Unpaid',
         orderDate: new Date().toISOString().split('T')[0],
         etr: '', receivedDate: '',
@@ -1557,34 +1616,92 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   than the quote is a data-entry slip, not a refund. */}
               <FormSection label="Deposit" />
               {(() => {
-                const quoted = form.totalCost || 0;
-                const deposit = Math.min(Math.max(form.deposit || 0, 0), quoted);
-                const balance = Math.max(quoted - deposit, 0);
+                // The currency the quote is actually priced in, which is not
+                // always form.currency: a LAK quote whose only line is priced
+                // in THB is quoted in THB. Labelling the total with
+                // form.currency regardless is what produced "LAK 1,600" for a
+                // THB 1,600 line, and clamped a 600,000 LAK deposit against
+                // it.
+                const byCur = calcTotalByCurrency(form.lineItems, form.coreCharge, form.currency);
+                const priced = Object.entries(byCur).filter(([, v]) => v > 0);
+                const [quoteCur, quoted] = priced.length
+                  ? priced.reduce((a, b) => (b[1] > a[1] ? b : a))
+                  : [form.currency, 0];
+
+                const entered = Math.max(form.deposit || 0, 0);
+                const sameCur = form.depositCurrency === quoteCur;
+                // In the quote's currency. undefined while the rate loads,
+                // null when it could not be fetched.
+                const depositInQuoteCur = sameCur
+                  ? entered
+                  : depositFx == null ? depositFx : entered * depositFx;
+
+                const applied = typeof depositInQuoteCur === 'number'
+                  ? Math.min(depositInQuoteCur, quoted)
+                  : null;
+                const balance = applied === null ? null : Math.max(quoted - applied, 0);
+
                 return (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20, alignItems: 'end' }}>
-                    {field(`Deposit paid (${form.currency})`, (
-                      <input
-                        type="text" inputMode="decimal"
-                        value={form.deposit === 0 || form.deposit === undefined ? '' : String(form.deposit)}
-                        onChange={e => {
-                          const raw = e.target.value.replace(/[^0-9.]/g, '');
-                          setF({ deposit: raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0) });
-                        }}
-                        onFocus={e => e.target.select()}
-                        placeholder="0"
-                        style={{ width: '100%' }}
-                      />
-                    ))}
-                    <div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Quoted total</div>
-                      <div style={{ fontWeight: 700 }}>{fmt(quoted, form.currency)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Balance due</div>
-                      <div style={{ fontWeight: 800, color: balance === 0 && deposit > 0 ? '#22c55e' : 'var(--text)' }}>
-                        {fmt(balance, form.currency)}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
+                      {field('Deposit paid', (
+                        <input
+                          type="text" inputMode="decimal"
+                          value={form.deposit === 0 || form.deposit === undefined ? '' : String(form.deposit)}
+                          onChange={e => {
+                            const raw = e.target.value.replace(/[^0-9.]/g, '');
+                            setF({ deposit: raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0) });
+                          }}
+                          onFocus={e => e.target.select()}
+                          placeholder="0"
+                          style={{ width: '100%' }}
+                        />
+                      ))}
+                      {field('Paid in', (
+                        <select
+                          value={form.depositCurrency || quoteCur}
+                          onChange={e => setF({ depositCurrency: e.target.value })}
+                          style={{ width: '100%' }}
+                        >
+                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                        </select>
+                      ))}
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Quoted total</div>
+                        <div style={{ fontWeight: 700 }}>{fmt(quoted, quoteCur)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Balance due</div>
+                        <div style={{ fontWeight: 800, color: balance === 0 && entered > 0 ? '#22c55e' : 'var(--text)' }}>
+                          {balance === null
+                            ? (depositFx === undefined ? 'Converting…' : '—')
+                            : fmt(balance, quoteCur)}
+                        </div>
                       </div>
                     </div>
+
+                    {!sameCur && entered > 0 && (
+                      <div style={{ marginTop: 8, fontSize: 12 }}>
+                        {depositFx === undefined && (
+                          <span style={{ color: 'var(--muted)' }}>Converting at today’s rate…</span>
+                        )}
+                        {depositFx === null && (
+                          // Never fall back to 1:1. Between LAK and THB that
+                          // is a ~25x error on the customer's balance.
+                          <span style={{ color: 'var(--danger)' }}>
+                            Could not fetch today’s {form.depositCurrency}→{quoteCur} rate, so the balance
+                            cannot be worked out. Enter the deposit in {quoteCur}, or try again when back online.
+                          </span>
+                        )}
+                        {typeof depositFx === 'number' && typeof depositInQuoteCur === 'number' && (
+                          <span style={{ color: 'var(--muted)' }}>
+                            {fmt(entered, form.depositCurrency)} ≈ <strong>{fmt(depositInQuoteCur, quoteCur)}</strong>
+                            {' '}at today’s rate ({depositFx.toFixed(6)} {quoteCur} per {form.depositCurrency})
+                            {depositInQuoteCur > quoted && ' — more than the quoted total, so the balance is nil.'}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })()}

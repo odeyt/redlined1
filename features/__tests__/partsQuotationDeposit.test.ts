@@ -55,34 +55,41 @@ describe('balance arithmetic', () => {
 });
 
 describe('the quotation editor', () => {
-  it('offers a deposit field', () => {
-    expect(quotes).toMatch(/Deposit paid \(\$\{form\.currency\}\)/);
+  it('offers a deposit field with its own currency', () => {
+    expect(quotes).toMatch(/field\('Deposit paid'/);
+    expect(quotes).toMatch(/field\('Paid in'/);
   });
 
   it('shows the balance rather than leaving it to be worked out', () => {
     expect(quotes).toMatch(/Balance due/);
-    expect(quotes).toMatch(/Math\.max\(quoted - deposit, 0\)/);
+    expect(quotes).toMatch(/Math\.max\(quoted - applied, 0\)/);
   });
 
-  it('clamps the deposit on save, not only in the input', () => {
-    // The quoted total can change after a deposit is typed.
-    expect(quotes).toMatch(/deposit: Math\.min\(Math\.max\(form\.deposit \|\| 0, 0\), form\.totalCost \|\| 0\)/);
+  it('clamps the deposit against the total for display only', () => {
+    // Display clamps so the balance cannot go negative; the STORED amount is
+    // left exactly as entered (see "stores the amount as entered" below).
+    expect(quotes).toMatch(/Math\.min\(depositInQuoteCur, quoted\)/);
+  });
+
+  it('shows nothing rather than a number computed at a guessed rate', () => {
+    expect(quotes).toMatch(/Converting…/);
   });
 });
 
 describe('converting a quotation to an order', () => {
   it('carries the deposit across instead of zeroing it', () => {
     expect(quotes).not.toMatch(/depositPaid: 0, balanceDue: e\.totalCost \+ e\.coreCharge/);
-    expect(quotes).toMatch(/depositPaid: e\.deposit \?\? 0/);
+    expect(quotes).toMatch(/depositPaid: depositForOrder/);
   });
 
   it('opens the order with the balance already net of the deposit', () => {
-    expect(quotes).toMatch(/balanceDue: Math\.max\(0, e\.totalCost \+ e\.coreCharge - \(e\.deposit \?\? 0\)\)/);
+    expect(quotes).toMatch(/balanceDue: Math\.max\(0, e\.totalCost \+ e\.coreCharge - depositForOrder\)/);
   });
 
   it('carries a deposit back the other way too', () => {
     // An order converted into a quotation keeps what was already paid.
     expect(orders).toMatch(/deposit: o\.depositPaid \?\? 0/);
+    expect(orders).toMatch(/depositCurrency: o\.currency/);
   });
 });
 
@@ -101,5 +108,36 @@ describe('persistence', () => {
   it('does not store the balance', () => {
     // Two sources of truth for the same number is how they drift apart.
     expect(migration).not.toMatch(/add column[^\n]*balance/i);
+  });
+});
+
+describe('deposits paid in another currency', () => {
+  it('labels the total with the currency the quote is actually priced in', () => {
+    // A LAK quote whose only line is priced in THB is quoted in THB. Using
+    // form.currency regardless produced "LAK 1,600" for a THB 1,600 line and
+    // clamped a 600,000 LAK deposit against it.
+    expect(quotes).toMatch(/const byCur = calcTotalByCurrency\(form\.lineItems, form\.coreCharge, form\.currency\)/);
+    expect(quotes).toMatch(/fmt\(quoted, quoteCur\)/);
+  });
+
+  it('records the currency the deposit was handed over in', () => {
+    expect(quotes).toMatch(/depositCurrency: e\.target\.value/);
+    expect(service).toMatch(/deposit_currency:\s*o\.depositCurrency \|\| o\.currency/);
+  });
+
+  it('stores the amount as entered rather than converting on the way in', () => {
+    // Converting on save would bake in that day's rate and lose what the
+    // customer actually handed over.
+    expect(quotes).toMatch(/deposit: Math\.max\(form\.deposit \|\| 0, 0\)/);
+  });
+
+  it('refuses to convert at a guessed rate when the rate is unavailable', () => {
+    expect(quotes).toMatch(/Could not fetch today’s \{form\.depositCurrency\}→\{quoteCur\} rate/);
+    expect(quotes).toMatch(/The order was not created/);
+  });
+
+  it('converts the deposit into the order currency on convert', () => {
+    expect(quotes).toMatch(/convertAmount\(rawDeposit, depositCur, e\.currency\)/);
+    expect(quotes).toMatch(/depositPaid: depositForOrder/);
   });
 });

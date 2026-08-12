@@ -16,6 +16,8 @@ export interface PartsEstimate {
   coreCharge: number;
   /** Amount paid up front on the quote; carried into the order on convert. */
   deposit: number;
+  /** Currency the deposit was handed over in. */
+  depositCurrency: string;
   status: string;
   quoteDate: string;
   validUntil: string;
@@ -84,6 +86,7 @@ function mapEstimate(r: Record<string, unknown>): PartsEstimate {
     totalCost:          total,
     coreCharge:         core,
     deposit:            Number(r.deposit ?? 0),
+    depositCurrency:    (r.deposit_currency as string) || (r.currency as string) || 'USD',
     status:             (r.status as string)           || 'Draft',
     quoteDate:          (r.quote_date as string)       || '',
     validUntil:         (r.valid_until as string)      || '',
@@ -117,6 +120,7 @@ function buildPayload(o: Omit<PartsEstimate, 'id' | 'createdAt'>) {
     total_cost:           total,
     core_charge:          o.coreCharge,
     deposit:              o.deposit ?? 0,
+    deposit_currency:     o.depositCurrency || o.currency,
     vendor_name:          o.vendorName,
     vendor_phone:         o.vendorPhone,
     vendor_email:         o.vendorEmail,
@@ -181,6 +185,7 @@ function buildPartialPayload(o: Partial<Omit<PartsEstimate, 'id' | 'createdAt'>>
   if (o.totalCost     !== undefined) p.total_cost         = o.totalCost;
   if (o.coreCharge    !== undefined) p.core_charge        = o.coreCharge;
   if (o.deposit       !== undefined) p.deposit            = o.deposit;
+  if (o.depositCurrency !== undefined) p.deposit_currency   = o.depositCurrency;
   if (o.vendorName    !== undefined) p.vendor_name        = o.vendorName;
   if (o.vendorPhone   !== undefined) p.vendor_phone       = o.vendorPhone;
   if (o.vendorEmail   !== undefined) p.vendor_email       = o.vendorEmail;
