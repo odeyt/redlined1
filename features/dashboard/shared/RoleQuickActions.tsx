@@ -1,105 +1,198 @@
 'use client';
 
 /**
- * The first thing on the dashboard: the handful of things this role actually
- * does, as large tap targets.
+ * The first thing on the dashboard: the handful of modules this role actually
+ * uses, as large tap targets, customisable.
  *
- * Reported from a phone — after signing in, the dashboard was a tall black
- * expanse and you had to scroll to reach anything usable. The widgets below
- * load asynchronously (seven parallel fetches), so on a slow connection the
- * top of the screen is empty for seconds. This section renders instantly from
- * local data, so the landing screen is useful before any request completes.
+ * Renders from local data with no fetch, so the landing screen is useful
+ * before any widget below it finishes loading — the reason it exists is that
+ * the dashboard was a tall black expanse on a phone until the widgets
+ * arrived.
  *
- * Deliberately short. A technician wants job cards and inspections, not a
- * scrollable index of twenty modules — the sidebar already is that index.
- * Six is the cap: two rows of three on a phone, one row on a desktop.
+ * On customisation: HTML5 drag-and-drop does not fire on touch. dragstart
+ * simply never happens on a phone, so a drag-only implementation would work
+ * on a desktop and do nothing on the device this is for. Both are provided:
+ * drag to reorder with a mouse, and explicit move/remove/add controls that
+ * work with a thumb. The controls are not a fallback — on a phone they are
+ * the primary interface, and they are also the only accessible route from a
+ * keyboard.
  */
-import { useShop, getBlockedModules } from '@/lib/useShop';
+import { useEffect, useState } from 'react';
+import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import { navItems } from '@/lib/mock-data';
 import { Icon, iconColors } from '@/components/Icon';
-
-/**
- * What each role reaches for first, most-used first.
- *
- * These are ordered by frequency of use in a working day, not by importance:
- * the technician's list starts with job cards because that is the screen they
- * open every time they pick up work.
- *
- * Anything blocked for the role is filtered out below rather than being
- * curated here, so tightening a role's permissions cannot leave a tile that
- * bounces the user back to the dashboard.
- */
-const TOP_BY_ROLE: Record<string, string[]> = {
-  owner:      ['command-center', 'job-cards', 'invoices', 'estimates', 'customers', 'reports'],
-  manager:    ['job-cards', 'repair-orders', 'inspections', 'scheduling', 'parts', 'technicians'],
-  advisor:    ['job-cards', 'customers', 'vehicles', 'estimates', 'inspections', 'appointments'],
-  technician: ['job-cards', 'inspections', 'repair-orders', 'time-tracking', 'parts'],
-};
-
-const FALLBACK = ['job-cards', 'inspections'];
+import {
+  MAX_QUICK_ACTIONS, availableModules, loadQuickActions, saveQuickActions,
+  resetQuickActions, reorder,
+} from '@/lib/quickActions';
 
 export function RoleQuickActions() {
   const { role, loading } = useShop();
   const dispatch = useAppDispatch();
 
-  // Nothing until the role is known. Guessing would show a technician the
-  // owner's tiles for a moment, and a wrong tile is worse than a late one.
+  const [ids, setIds] = useState<string[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+
+  // Loaded in an effect, not in useState's initialiser: localStorage is not
+  // available during server rendering, and reading it there would make the
+  // first client render disagree with the server's.
+  useEffect(() => {
+    if (!role) return;
+    setIds(loadQuickActions(role));
+  }, [role]);
+
   if (loading || !role) return null;
 
-  const blocked = new Set(getBlockedModules(role));
   const meta = new Map(navItems.map(([id, icon, label]) => [id, { icon, label }]));
+  const available = availableModules(role).filter(([id]) => !ids.includes(id));
 
-  const ids = (TOP_BY_ROLE[role] ?? FALLBACK)
-    .filter(id => !blocked.has(id))
-    .filter(id => meta.has(id))
-    .slice(0, 6);
+  function commit(next: string[]) {
+    setIds(next);
+    saveQuickActions(role, next);
+  }
 
-  if (ids.length === 0) return null;
+  const tileStyle: React.CSSProperties = {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', gap: 8, minHeight: 88, padding: '14px 8px',
+    borderRadius: 14, border: '1px solid var(--line, rgba(255,255,255,0.10))',
+    background: 'var(--card, rgba(255,255,255,0.04))', color: 'var(--text)',
+    cursor: 'pointer', textAlign: 'center', position: 'relative',
+  };
 
   return (
-    <section
-      aria-label="Quick actions"
-      style={{
+    <section aria-label="Quick actions" style={{ marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+          {editing ? `Shortcuts — ${ids.length} of ${MAX_QUICK_ACTIONS}` : 'Shortcuts'}
+        </span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {editing && (
+            <button
+              type="button"
+              onClick={() => { resetQuickActions(role); setIds(loadQuickActions(role)); }}
+              style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}
+            >
+              Reset
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing(e => !e)}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+          >
+            {editing ? 'Done' : 'Customise'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{
         display: 'grid',
-        // Fills the row on a phone at three across, and stays three across on
-        // a desktop rather than stretching into six thin strips.
         gridTemplateColumns: 'repeat(auto-fit, minmax(104px, 1fr))',
         gap: 10,
-        marginBottom: 18,
-      }}
-    >
-      {ids.map(id => {
-        const { icon, label } = meta.get(id)!;
-        const color = iconColors[id] || '#9eb2c2';
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => dispatch({ type: 'SET_MODULE', module: id })}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              // Comfortably above the 44px minimum: this is tapped with a
-              // gloved or greasy hand in a workshop.
-              minHeight: 88,
-              padding: '14px 8px',
-              borderRadius: 14,
-              border: '1px solid var(--line, rgba(255,255,255,0.10))',
-              background: 'var(--card, rgba(255,255,255,0.04))',
-              color: 'var(--text)',
-              cursor: 'pointer',
-              textAlign: 'center',
-            }}
-          >
-            <Icon name={icon} style={{ color }} />
-            <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2 }}>{label}</span>
-          </button>
-        );
-      })}
+      }}>
+        {ids.map((id, i) => {
+          const m = meta.get(id);
+          if (!m) return null;
+          const color = iconColors[id] || '#9eb2c2';
+          return (
+            <div
+              key={id}
+              // Desktop reordering. Harmless on touch, where these never fire.
+              draggable={editing}
+              onDragStart={() => setDragFrom(i)}
+              onDragOver={e => { if (editing) e.preventDefault(); }}
+              onDrop={() => {
+                if (dragFrom !== null) commit(reorder(ids, dragFrom, i));
+                setDragFrom(null);
+              }}
+              onDragEnd={() => setDragFrom(null)}
+              style={{
+                ...tileStyle,
+                cursor: editing ? 'grab' : 'pointer',
+                opacity: dragFrom === i ? 0.5 : 1,
+                borderStyle: editing ? 'dashed' : 'solid',
+              }}
+              onClick={() => { if (!editing) dispatch({ type: 'SET_MODULE', module: id }); }}
+            >
+              <Icon name={m.icon} style={{ color }} />
+              <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2 }}>{m.label}</span>
+
+              {editing && (
+                // Thumb-reachable equivalents of dragging. Also the only way
+                // to reorder from a keyboard.
+                <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+                  <button type="button" aria-label={`Move ${m.label} left`} disabled={i === 0}
+                    onClick={ev => { ev.stopPropagation(); commit(reorder(ids, i, i - 1)); }}
+                    style={miniBtn(i === 0)}>←</button>
+                  <button type="button" aria-label={`Remove ${m.label}`}
+                    onClick={ev => { ev.stopPropagation(); commit(ids.filter(x => x !== id)); }}
+                    style={miniBtn(false)}>✕</button>
+                  <button type="button" aria-label={`Move ${m.label} right`} disabled={i === ids.length - 1}
+                    onClick={ev => { ev.stopPropagation(); commit(reorder(ids, i, i + 1)); }}
+                    style={miniBtn(i === ids.length - 1)}>→</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {editing && (
+        <div style={{ marginTop: 12 }}>
+          {ids.length >= MAX_QUICK_ACTIONS ? (
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+              All {MAX_QUICK_ACTIONS} slots are full — remove one to add another.
+            </p>
+          ) : available.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+              Every module you can open is already a shortcut.
+            </p>
+          ) : (
+            <>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 8px' }}>
+                Tap to add a shortcut:
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {available.map(([id, icon, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => commit([...ids, id])}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      minHeight: 44, padding: '8px 12px', borderRadius: 10,
+                      border: '1px dashed var(--line, rgba(255,255,255,0.14))',
+                      background: 'transparent', color: 'var(--text)',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    <Icon name={icon} style={{ color: iconColors[id] || '#9eb2c2' }} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
+}
+
+function miniBtn(disabled: boolean): React.CSSProperties {
+  return {
+    // 28px rather than 44: these sit inside an 88px tile and three of them
+    // must fit across it. Spaced apart so the destructive one is not adjacent
+    // to a mis-tap.
+    minWidth: 28, minHeight: 28,
+    borderRadius: 8,
+    border: '1px solid var(--line, rgba(255,255,255,0.14))',
+    background: 'var(--surface, rgba(255,255,255,0.06))',
+    color: disabled ? 'var(--muted)' : 'var(--text)',
+    fontSize: 12, lineHeight: 1,
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.4 : 1,
+  };
 }

@@ -43,9 +43,13 @@ describe('it appears before anything has loaded', () => {
 });
 
 describe('it never offers a module the role cannot open', () => {
-  it('filters against the role block list at render time', () => {
-    expect(src).toMatch(/getBlockedModules\(role\)/);
-    expect(src).toMatch(/\.filter\(id => !blocked\.has\(id\)\)/);
+  it('delegates the filtering to lib/quickActions', () => {
+    // The rules — block-list filtering, dedupe, cap, corrupt-storage
+    // handling — live there and are tested in lib/__tests__/quickActions.
+    // What matters here is that the component does not reimplement them.
+    expect(src).toMatch(/from '@\/lib\/quickActions'/);
+    expect(src).toMatch(/loadQuickActions\(role\)/);
+    expect(src).toMatch(/availableModules\(role\)/);
   });
 
   it.each([
@@ -61,14 +65,17 @@ describe('it never offers a module the role cannot open', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('only offers modules that exist in the nav table', () => {
-    expect(src).toMatch(/\.filter\(id => meta\.has\(id\)\)/);
+  it('skips an id missing from the nav table rather than rendering a blank tile', () => {
+    expect(src).toMatch(/const m = meta\.get\(id\);/);
+    expect(src).toMatch(/if \(!m\) return null;/);
   });
 });
 
 describe('it stays short and tappable', () => {
   it('caps the row so it cannot become a second sidebar', () => {
-    expect(src).toMatch(/\.slice\(0, 6\)/);
+    // MAX_QUICK_ACTIONS is enforced in lib/quickActions on both load and
+    // save; the component shows the count against it while editing.
+    expect(src).toMatch(/MAX_QUICK_ACTIONS/);
   });
 
   it('uses targets well above the 44px minimum', () => {
@@ -81,5 +88,47 @@ describe('it stays short and tappable', () => {
     // Showing an owner's tiles to a technician for a frame is worse than a
     // beat of empty space.
     expect(src).toMatch(/if \(loading \|\| !role\) return null/);
+  });
+});
+
+describe('customisation works on the device it is for', () => {
+  const src2 = readFileSync(join(root, 'features', 'dashboard', 'shared', 'RoleQuickActions.tsx'), 'utf8');
+
+  it('offers drag reordering for a mouse', () => {
+    expect(src2).toMatch(/draggable=\{editing\}/);
+    expect(src2).toMatch(/onDrop=/);
+  });
+
+  it('also offers tap controls, because dragstart never fires on touch', () => {
+    // A drag-only implementation would work on a desktop and do nothing on
+    // the phone this was asked for.
+    expect(src2).toMatch(/Move \$\{m\.label\} left/);
+    expect(src2).toMatch(/Move \$\{m\.label\} right/);
+    expect(src2).toMatch(/Remove \$\{m\.label\}/);
+  });
+
+  it('labels the controls for screen readers', () => {
+    expect(src2).toMatch(/aria-label=\{`Move/);
+    expect(src2).toMatch(/aria-label=\{`Remove/);
+  });
+
+  it('persists a change immediately rather than on a separate save', () => {
+    // There is no Save button; every edit commits.
+    expect(src2).toMatch(/function commit\(next: string\[\]\) \{[\s\S]{0,120}saveQuickActions\(role, next\)/);
+  });
+
+  it('offers a way back to the role default', () => {
+    expect(src2).toMatch(/resetQuickActions\(role\)/);
+  });
+
+  it('does not open a module while editing', () => {
+    // Tapping a tile in edit mode must not navigate away mid-customisation.
+    expect(src2).toMatch(/if \(!editing\) dispatch\(\{ type: 'SET_MODULE'/);
+  });
+
+  it('reads storage in an effect, not during render', () => {
+    // localStorage does not exist server-side; reading it in useState's
+    // initialiser would make the first client render disagree with the server.
+    expect(src2).toMatch(/useEffect\(\(\) => \{[\s\S]{0,160}loadQuickActions\(role\)/);
   });
 });
