@@ -467,14 +467,26 @@ export function InvoicesView() {
     if (field === 'cost' || field === 'markup' || field === 'currency') {
       // Read from current form state (not stale snapshot) using latest lines
       const currentLine = form.lines[i];
-      const cost = parseFloat(field === 'cost' ? value : currentLine.cost);
+      const costRaw = field === 'cost' ? value : currentLine.cost;
+      const cost = parseFloat(costRaw);
       const markup = parseFloat(field === 'markup' ? value : currentLine.markup);
       const pct = isNaN(markup) ? 0 : markup;
-      // If cost is zero or not provided, clear rate only when cost is explicitly set to 0/empty
-      // Otherwise leave rate unchanged so existing values persist while user is typing
-      if (!cost || cost <= 0) {
+
+      // Only an EMPTY or unparseable cost clears the rate.
+      //
+      // This used to be `if (!cost || cost <= 0)`, which caught three very
+      // different things: empty, zero, and negative. A negative cost is how a
+      // deposit, refund or goodwill credit is entered, and zeroing its rate
+      // silently dropped it from every total — the line rendered as "—" and
+      // the invoice billed the customer for money they had already paid.
+      // Reported with a THB 6,000 deposit that vanished from a THB 12,000
+      // invoice.
+      //
+      // Zero is also legitimate: a no-charge line documents work performed at
+      // no cost, and it should keep its rate of 0 rather than be treated as
+      // an unfinished edit.
+      if (costRaw.trim() === '' || isNaN(cost)) {
         if (field === 'cost') {
-          // User cleared cost — zero out rate too
           setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, [field]: value, rate: '0' }) }));
         }
         return;
