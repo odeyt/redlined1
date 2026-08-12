@@ -3,7 +3,7 @@
   "short_name": "Redlined1",
   "description": "Vehicle intake, inspections, repair orders and invoicing for automotive shops.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/login",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
