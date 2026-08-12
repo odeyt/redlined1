@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds, assertShopOwner } from './shopStore';
 
@@ -77,8 +78,52 @@ export function useShop() {
   const [mirrorShopIds, setLocalMirrorIds] = useState<string[]>(getMirrorShopIds());
 
   useEffect(() => {
-    async function load() {
+    let cancelled = false;
+
+    /**
+     * Resolves the signed-in user, waiting for auth to settle first.
+     *
+     * getUser() can answer "no user" on a cold start simply because the
+     * session has not been restored yet — which is not the same as being
+     * signed out. Treating the two as equal is what produced this bug:
+     *
+     *   loading flips to false -> AppShell renders the active view -> that
+     *   view sees a shopId cached in localStorage and immediately queries ->
+     *   the request goes out with no session, as `anon` -> `42501 permission
+     *   denied for table shop_users`, because the grant is on `authenticated`
+     *   only.
+     *
+     * Reported on an Android phone, where a cold PWA start is slow enough to
+     * lose the race; it cleared on refresh, by which point the session had
+     * been restored. Desktop almost always wins the race, which is why this
+     * never showed up locally.
+     *
+     * onAuthStateChange fires INITIAL_SESSION once auth has settled, so a
+     * genuinely signed-out user still resolves promptly rather than hanging.
+     * The timeout is a backstop for the case where that event never arrives —
+     * better to proceed and let a query fail than to leave the app on a
+     * spinner forever.
+     */
+    async function resolveUser() {
       const { data: { user } } = await supabase.auth.getUser();
+      if (user) return user;
+
+      // Explicit type: in this branch `user` is narrowed to null, so
+      // `typeof user` would make the promise Promise<null>.
+      return new Promise<User | null>(resolve => {
+        const timer = setTimeout(() => { sub.data.subscription.unsubscribe(); resolve(null); }, 5000);
+        const sub = supabase.auth.onAuthStateChange((_event, session) => {
+          if (!session?.user) return;
+          clearTimeout(timer);
+          sub.data.subscription.unsubscribe();
+          resolve(session.user);
+        });
+      });
+    }
+
+    async function load() {
+      const user = await resolveUser();
+      if (cancelled) return;
       if (!user) { setLoading(false); return; }
 
       // Discard a shop id cached by a different account on this browser before
@@ -181,6 +226,7 @@ export function useShop() {
       setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, []);
 
   const switchShop = useCallback((id: string) => {
