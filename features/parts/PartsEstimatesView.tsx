@@ -109,6 +109,12 @@ type FormState = {
   vendorName: string; vendorPhone: string; vendorEmail: string;
   coreCharge: number;
   totalCost: number;
+  /**
+   * Amount already paid up front. Balance is always derived from it rather
+   * than stored, so the two cannot disagree — the same rule parts orders
+   * already follow (see calcTotals in PartsOrdersView).
+   */
+  deposit: number;
   status: string;
   quoteDate: string; validUntil: string;
   jobCardNumber: string; repairOrderNumber: string;
@@ -126,6 +132,7 @@ const EMPTY_ESTIMATE: FormState = {
   vendorName: '', vendorPhone: '', vendorEmail: '',
   coreCharge: 0,
   totalCost: 0,
+  deposit: 0,
   status: 'Draft',
   quoteDate: today(), validUntil: '',
   jobCardNumber: '', repairOrderNumber: '',
@@ -365,6 +372,7 @@ export function PartsEstimatesView() {
       lineItems,
       vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
       coreCharge: e.coreCharge,
+      deposit: e.deposit ?? 0,
       ...calcTotal(lineItems, e.coreCharge, e.currency || 'USD'),
       status: e.status,
       quoteDate: e.quoteDate, validUntil: e.validUntil,
@@ -397,6 +405,10 @@ export function PartsEstimatesView() {
       vendorName: form.vendorName, vendorPhone: form.vendorPhone, vendorEmail: form.vendorEmail,
       coreCharge: form.coreCharge,
       totalCost: form.totalCost,
+      // Clamped on save as well as in the input: the quoted total can change
+      // after a deposit is typed, and a deposit above the total would produce
+      // a negative balance on the order it converts into.
+      deposit: Math.min(Math.max(form.deposit || 0, 0), form.totalCost || 0),
       status: form.status,
       quoteDate: form.quoteDate, validUntil: form.validUntil,
       jobCardNumber: form.jobCardNumber, repairOrderNumber: form.repairOrderNumber,
@@ -470,7 +482,11 @@ export function PartsEstimatesView() {
         quantity: e.quantity, unitCost: e.unitCost,
         vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
         coreCharge: e.coreCharge, totalCost: e.totalCost,
-        depositPaid: 0, balanceDue: e.totalCost + e.coreCharge,
+        // Carry the deposit across. Hardcoding 0 here meant a customer who
+        // had already paid up front on the quote was invoiced for the full
+        // amount once it became an order.
+        depositPaid: e.deposit ?? 0,
+        balanceDue: Math.max(0, e.totalCost + e.coreCharge - (e.deposit ?? 0)),
         status: 'Pending', paymentStatus: 'Unpaid',
         orderDate: new Date().toISOString().split('T')[0],
         etr: '', receivedDate: '',
@@ -1532,6 +1548,46 @@ CREATE POLICY "Shop members can manage their parts estimates"
               <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
                 + Add Part
               </button>
+
+              {/* Deposit — a customer paying up front on a parts quotation is
+                  routine, and until now there was nowhere to record it. The
+                  balance is what the shop actually collects on handover, so it
+                  is shown next to the deposit rather than left to be worked
+                  out on paper. Clamped to the quoted total: a deposit larger
+                  than the quote is a data-entry slip, not a refund. */}
+              <FormSection label="Deposit" />
+              {(() => {
+                const quoted = form.totalCost || 0;
+                const deposit = Math.min(Math.max(form.deposit || 0, 0), quoted);
+                const balance = Math.max(quoted - deposit, 0);
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20, alignItems: 'end' }}>
+                    {field(`Deposit paid (${form.currency})`, (
+                      <input
+                        type="text" inputMode="decimal"
+                        value={form.deposit === 0 || form.deposit === undefined ? '' : String(form.deposit)}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/[^0-9.]/g, '');
+                          setF({ deposit: raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0) });
+                        }}
+                        onFocus={e => e.target.select()}
+                        placeholder="0"
+                        style={{ width: '100%' }}
+                      />
+                    ))}
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Quoted total</div>
+                      <div style={{ fontWeight: 700 }}>{fmt(quoted, form.currency)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Balance due</div>
+                      <div style={{ fontWeight: 800, color: balance === 0 && deposit > 0 ? '#22c55e' : 'var(--text)' }}>
+                        {fmt(balance, form.currency)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Customer & Vehicle */}
               <FormSection label="Customer & Vehicle" />

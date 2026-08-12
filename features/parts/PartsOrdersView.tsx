@@ -526,6 +526,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         partName: o.partName, partNumber: o.partNumber, condition: o.condition,
         quantity: o.quantity, unitCost: o.unitCost,
         vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
+        deposit: o.depositPaid ?? 0,
         coreCharge: o.coreCharge, totalCost: o.totalCost,
         status: ESTIMATE_STATUSES.includes(o.status) ? o.status : 'Draft',
         quoteDate: new Date().toISOString().split('T')[0], validUntil: '',
