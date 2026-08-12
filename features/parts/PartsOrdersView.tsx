@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useShop } from '@/lib/useShop';
+import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { useAppDispatch } from '@/lib/store';
 import {
   fetchPartsOrders, createPartsOrder, updatePartsOrder, deletePartsOrder,
@@ -1375,7 +1376,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                 {field('Vehicle', (
                   <select value={form.vehicle} onChange={e => setF({ vehicle: e.target.value })} style={selStyle}>
                     <option value="">— Select vehicle —</option>
-                    {customerVehicles.map(v => <option key={v.id} value={v.label}>{v.label}</option>)}
+                    {customerVehicles.map(v => <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>)}
                     {form.vehicle && !customerVehicles.find(v => v.label === form.vehicle) && (
                       <option value={form.vehicle}>{form.vehicle}</option>
                     )}

@@ -19,6 +19,7 @@ import type { Vehicle, Customer } from '@/lib/types';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
+import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { supabase } from '@/lib/supabase';
 import { fetchTechnicians, createTechnician, uniqueTechsByPerson, TECH_ROLES } from '@/services/technicianService';
 import { FilterPills } from '@/components/FilterPills';
@@ -800,21 +801,21 @@ export function InspectionsView() {
                         </label>
                         {showDropdown ? (
                           <select value={form.vehicle} onChange={e => {
-                            const v = allVehicles.find(v => v.label === e.target.value);
+                            const v = allVehicles.find(v => vehicleOptionValue(v) === e.target.value);
                             setForm(f => ({ ...f, vehicle: e.target.value, vin: v?.vin ?? f.vin }));
                           }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
                             <option value="">— select vehicle —</option>
                             {customerVehicles.length > 0 && (
                               <optgroup label={`${form.customerName || 'Customer'} vehicles`}>
                                 {customerVehicles.map(v => (
-                                  <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
+                                  <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>
                                 ))}
                               </optgroup>
                             )}
                             {otherVehicles.length > 0 && (
                               <optgroup label="Other vehicles">
                                 {otherVehicles.map(v => (
-                                  <option key={v.id} value={v.label}>{v.label}{v.vin ? ` · ${v.vin}` : ''}</option>
+                                  <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>
                                 ))}
                               </optgroup>
                             )}

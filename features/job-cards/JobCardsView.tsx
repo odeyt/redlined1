@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
+import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
@@ -755,7 +756,7 @@ export function JobCardsView() {
               <select value={fVehicle} onChange={e => handleVehicleSelect(e.target.value)}>
                 <option value="">— select vehicle —</option>
                 {customerVehicles.map(v => (
-                  <option key={v.id} value={v.label}>{v.label}{v.plate ? ` · ${v.plate}` : ''}</option>
+                  <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>
                 ))}
               </select>
             ) : (

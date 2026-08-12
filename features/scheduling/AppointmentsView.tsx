@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
+import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { Panel } from '@/components/Panel';
 import { TechPills } from '@/components/TechPill';
 import { Badge } from '@/components/Badge';
@@ -352,7 +353,7 @@ export function AppointmentsView() {
                   <select value={form.vehicle} onChange={e => set('vehicle', e.target.value)}>
                     <option value="">— Select vehicle —</option>
                     {customerVehicles.map(v => (
-                      <option key={v.id} value={v.label}>{v.label}</option>
+                      <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>
                     ))}
                   </select>
                 ) : (
