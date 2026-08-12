@@ -19,6 +19,7 @@ import type { Vehicle, Customer } from '@/lib/types';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
+import { revealNewRecord } from '@/lib/revealNewRecord';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { supabase } from '@/lib/supabase';
 import { fetchTechnicians, createTechnician, uniqueTechsByPerson, TECH_ROLES } from '@/services/technicianService';
@@ -274,8 +275,14 @@ export function InspectionsView() {
 
   useEffect(() => {
     load();
-    fetchCustomers().then(setCustomers).catch(() => {});
-    fetchVehicles().then(setAllVehicles).catch(() => {});
+    // These used to swallow every failure. When the customer list failed to
+    // load the dropdown was simply empty, with nothing on screen to say so —
+    // which reads as "the customer name won't register" rather than "the
+    // request failed". Same for vehicles. Report it instead.
+    fetchCustomers().then(setCustomers)
+      .catch(e => setError(`Could not load customers: ${e instanceof Error ? e.message : 'request failed'}`));
+    fetchVehicles().then(setAllVehicles)
+      .catch(e => setError(`Could not load vehicles: ${e instanceof Error ? e.message : 'request failed'}`));
     fetchShopSettings().then(setShopSettings).catch(() => {});
     fetchTechnicians(true).then(ts => setDbTechs(uniqueTechsByPerson(ts).map(t => ({ id: t.id, name: t.name, role: t.role })))).catch(() => {});
     if (shopId) {
@@ -441,6 +448,12 @@ export function InspectionsView() {
         notify(`${saved.inspectionNumber} created.`);
       }
       setShowForm(false); setEditingId(null);
+      // The new inspection is prepended, so it is at the top of the list —
+      // but the form is long and closing it leaves you scrolled where you
+      // were, with both the confirmation and the new row off-screen. On a
+      // phone that made a successful save indistinguishable from a failed one
+      // without scrolling up to check.
+      revealNewRecord();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
     finally { setSaving(false); }
   }

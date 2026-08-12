@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
+import { revealNewRecord } from '@/lib/revealNewRecord';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { Panel } from '@/components/Panel';
@@ -554,6 +555,10 @@ export function JobCardsView() {
       setJobs(prev => [job, ...prev]);
       resetCreateForm();
       notify(`${job.id} created${smartIntake ? ' with Smart Intake' : ''}.`);
+      // The card is prepended, so it is the first row — but the intake form
+      // is long, and without this you are left scrolled past both the
+      // confirmation and the new card, unable to tell whether it saved.
+      revealNewRecord();
       return true;
     } catch (err: unknown) {
       const limitInfo = parseFreeTierLimitError(err);
@@ -923,7 +928,10 @@ export function JobCardsView() {
         <StatCard
           className="card-hero"
           label="Technicians"
-          value={String(techs.length)}
+          // People, not rows: someone working at both locations has a
+          // technician row per shop, so techs.length reported double the
+          // headcount.
+          value={String(uniqueTechs.length)}
           subtext="Manage staff"
           accent="#8b5cf6"
           active={tab === 'techs'}
@@ -1005,7 +1013,13 @@ export function JobCardsView() {
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {techs.map(t => (
+                            {/* uniqueTechs, not techs: a person who works at
+                                both locations has a technician row per shop,
+                                so the raw list showed every name twice (and
+                                ticking one left its twin unticked). The create
+                                form above already deduped; this inline editor
+                                was missed. */}
+                            {uniqueTechs.map(t => (
                               <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
                                 <input type="checkbox" checked={(editFields.technicians ?? []).includes(t.name)} onChange={() => toggleEditTech(t.name)} />
                                 {t.name}
