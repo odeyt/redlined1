@@ -285,17 +285,23 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
           )}
         </div>
 
+        {/* topbar-action: hidden on phones. These three stacked full-width
+            above every module, so opening Vehicle Intake showed a screenful of
+            buttons before the first question. Sign Out is not lost — it sits
+            at the bottom of the nav drawer, which is where a destructive
+            action belongs on a small screen anyway, well away from the
+            controls a technician taps all day. */}
         {!isTech && (
-          <button className="btn" onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD' })}>
+          <button className="btn topbar-action" onClick={() => dispatch({ type: 'OPEN_NEW_JOB_CARD' })}>
             <Icon name="add" /> New Job Card
           </button>
         )}
         {!isTech && (
-          <button className="btn primary" onClick={handleTopCreateInvoice}>
+          <button className="btn primary topbar-action" onClick={handleTopCreateInvoice}>
             <Icon name="invoice" /> Create Invoice
           </button>
         )}
-        <button className="btn" onClick={handleLogout} title="Sign out">
+        <button className="btn topbar-action" onClick={handleLogout} title="Sign out">
           Sign Out
         </button>
       </div>

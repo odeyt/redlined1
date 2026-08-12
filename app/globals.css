@@ -1054,6 +1054,22 @@ tr:last-child td {
     display: flex;
   }
 
+  /*
+   * Give the module the screen.
+   *
+   * New Job Card, Create Invoice and Sign Out stack full-width on a phone, so
+   * roughly half the first screenful was buttons before any module content —
+   * opening Vehicle Intake showed three buttons and a search box above
+   * "Question 1 of 9". They stay on desktop, where they cost nothing.
+   *
+   * Sign Out is not removed, only relocated: the nav drawer already carries it
+   * at the bottom, which is a better home for a destructive action on a small
+   * screen than directly above the controls used all day.
+   */
+  .topbar-action {
+    display: none;
+  }
+
   /* Topbar: sticky, stacks title row then actions */
   .topbar {
     align-items: stretch;
