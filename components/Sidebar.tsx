@@ -349,7 +349,20 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
           aria-hidden="true"
         />
       )}
-    <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} style={{ position: 'relative' }}>
+      {/*
+        No inline `position` on this element. An inline style outranks every
+        stylesheet rule, so `position: relative` defeated BOTH layers of the
+        layout: the base rule's `position: sticky` on desktop, and — the
+        visible bug — the `position: fixed` in the max-width:760px block that
+        turns this into an off-canvas drawer. On a phone the sidebar stayed in
+        normal flow and stacked ABOVE the main content: a tall black band you
+        had to scroll past to reach the page, with the entire nav list sitting
+        above the header once opened. Reported from Android.
+
+        `sticky` still establishes a containing block, so absolutely
+        positioned children anchor to this element exactly as before.
+      */}
+      <aside className={`sidebar${collapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}>
       {/* Collapse toggle — upper-right corner */}
       <button
         onClick={toggleCollapse}
