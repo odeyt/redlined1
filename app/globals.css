@@ -1171,9 +1171,20 @@ tr:last-child td {
 
 /* ── Login Page ─────────────────────────────────── */
 .login-page {
-  min-height: 100vh;
+  /* 100vh does not shrink when a phone's on-screen keyboard opens, so a
+     perfectly centred card puts the Sign In button underneath the keyboard —
+     and because the content exactly fills the viewport there is nothing to
+     scroll to reach it. Reported from a real phone: fields visible, button
+     unreachable. 100dvh tracks the visible area, and the padding plus
+     align-content:safe keeps the card scrollable instead of clipped when the
+     remaining space is shorter than the card. */
+  min-height: 100vh;      /* fallback for browsers without dvh */
+  min-height: 100dvh;
   display: grid;
-  place-items: center;
+  justify-items: center;
+  align-content: safe center;
+  padding: 24px 16px;
+  overflow-y: auto;
   background: #07070a;
   background-image:
     radial-gradient(ellipse 60% 50% at 50% 0%, rgba(204,0,0,0.12) 0%, transparent 70%),
