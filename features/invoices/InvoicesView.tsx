@@ -240,6 +240,24 @@ export function InvoicesView() {
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
   async function printInvoice(inv: InvoiceFull, t: ReturnType<typeof calculateTotals>, payments: Payment[]) {
+    // Last gate before a customer sees it. An invoice that lists work but
+    // totals zero is a quantity that never got filled in — printing it either
+    // loses the shop the job's revenue or has to be retracted. The editor
+    // warns while it is being built; this catches one that was saved anyway.
+    const pricedLines = inv.lines.filter(l => (l.rate || 0) > 0);
+    const { amount: effective } = getEffectiveTotal(inv);
+    if (pricedLines.length > 0 && effective === 0) {
+      const zeroQty = pricedLines.filter(l => (l.qty || 0) === 0).map(l => l.description || 'a line');
+      const ok = confirm(
+        `This invoice totals zero even though it lists priced work.\n\n` +
+        (zeroQty.length
+          ? `No quantity on: ${zeroQty.join(', ')}.\n\n`
+          : '') +
+        `Print it anyway?`,
+      );
+      if (!ok) return;
+    }
+
     // The print window is raw HTML, so StorageImage cannot help here. Sign the
     // logo up front; once shop-assets is private the stored public URL would
     // print as a broken image. Falls back to the stored value on failure.
@@ -1188,6 +1206,33 @@ export function InvoicesView() {
                 );
               })()}
 
+              {/* A line priced but not quantified contributes nothing, so the
+                  invoice totals correctly to less than it looks. Auto-drafted
+                  invoices copy qty straight from the repair order, so a job
+                  saved with 0 labour hours or a part with no quantity yields
+                  a fully populated invoice for zero. Named here rather than
+                  guessed at: inventing "1 hour" would be its own error, and
+                  only the advisor knows the real figure. */}
+              {(() => {
+                const unpriced = form.lines.filter(l =>
+                  (parseFloat(l.rate) || 0) > 0 && (parseFloat(l.qty) || 0) === 0,
+                );
+                if (unpriced.length === 0) return null;
+                return (
+                  <div style={{
+                    marginBottom: 12, padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--danger)', background: 'rgba(204,0,0,0.08)',
+                    fontSize: 12, lineHeight: 1.5,
+                  }}>
+                    <strong>Quantity missing on {unpriced.length === 1 ? 'a line' : `${unpriced.length} lines`}.</strong>{' '}
+                    {unpriced.map(l => l.description || 'Untitled line').join(', ')}
+                    {unpriced.length === 1 ? ' has a price but a quantity of 0' : ' have a price but a quantity of 0'},
+                    so {unpriced.length === 1 ? 'it adds' : 'they add'} nothing to the total.
+                    Set the quantity, or remove the {unpriced.length === 1 ? 'line' : 'lines'}.
+                  </div>
+                );
+              })()}
+
               {/* Adjustments */}
               {(() => {
                 const { amount: adjEff, currency: adjCur } = calcFormEffectiveTotal(form.lines, form.currency);
@@ -1546,6 +1591,33 @@ export function InvoicesView() {
                         </span>
                       ))}
                     </div>
+                  </div>
+                );
+              })()}
+
+              {/* A line priced but not quantified contributes nothing, so the
+                  invoice totals correctly to less than it looks. Auto-drafted
+                  invoices copy qty straight from the repair order, so a job
+                  saved with 0 labour hours or a part with no quantity yields
+                  a fully populated invoice for zero. Named here rather than
+                  guessed at: inventing "1 hour" would be its own error, and
+                  only the advisor knows the real figure. */}
+              {(() => {
+                const unpriced = form.lines.filter(l =>
+                  (parseFloat(l.rate) || 0) > 0 && (parseFloat(l.qty) || 0) === 0,
+                );
+                if (unpriced.length === 0) return null;
+                return (
+                  <div style={{
+                    marginBottom: 12, padding: '10px 12px', borderRadius: 8,
+                    border: '1px solid var(--danger)', background: 'rgba(204,0,0,0.08)',
+                    fontSize: 12, lineHeight: 1.5,
+                  }}>
+                    <strong>Quantity missing on {unpriced.length === 1 ? 'a line' : `${unpriced.length} lines`}.</strong>{' '}
+                    {unpriced.map(l => l.description || 'Untitled line').join(', ')}
+                    {unpriced.length === 1 ? ' has a price but a quantity of 0' : ' have a price but a quantity of 0'},
+                    so {unpriced.length === 1 ? 'it adds' : 'they add'} nothing to the total.
+                    Set the quantity, or remove the {unpriced.length === 1 ? 'line' : 'lines'}.
                   </div>
                 );
               })()}
