@@ -1042,7 +1042,34 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           <div style={{ fontSize: 13 }}>{e.vendorName || '—'}</div>
                           {e.vendorPhone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{e.vendorPhone}</div>}
                         </td>
-                        <td style={{ fontWeight: 700, fontSize: 12 }}>{fmtMultiCurrency(e.lineItems || [], e.coreCharge || 0, e.currency || 'USD')}</td>
+                        <td style={{ fontWeight: 700, fontSize: 12 }}>
+                          {fmtMultiCurrency(e.lineItems || [], e.coreCharge || 0, e.currency || 'USD')}
+                          {(e.deposit ?? 0) > 0 && (() => {
+                            // Under the total rather than in a new column: the
+                            // table is already wide, and a deposit is only
+                            // meaningful next to the figure it reduces.
+                            const depCur = e.depositCurrency || e.currency || 'USD';
+                            const sameCur = depCur === (e.currency || 'USD');
+                            const balance = Math.max((e.totalCost || 0) - e.deposit, 0);
+                            return (
+                              <div style={{ fontWeight: 600, fontSize: 11, marginTop: 3, lineHeight: 1.4 }}>
+                                <div style={{ color: '#22c55e' }}>
+                                  Deposit {fmt(e.deposit, depCur)}
+                                </div>
+                                <div style={{ color: 'var(--muted)' }}>
+                                  {/* Only when the deposit is in the quote's own
+                                      currency. Converting per row would mean an
+                                      FX request for every line of the table, and
+                                      showing a balance computed at a guessed rate
+                                      is worse than not showing one. */}
+                                  {sameCur
+                                    ? `Balance ${fmt(balance, e.currency || 'USD')}`
+                                    : `Paid in ${depCur} — open to see the balance`}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
                         <td onClick={ev => ev.stopPropagation()}>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLOR[e.status] || '#888') + '22', color: STATUS_COLOR[e.status] || '#888', whiteSpace: 'nowrap' }}>
                             {e.status}

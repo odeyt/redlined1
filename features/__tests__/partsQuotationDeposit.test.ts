@@ -141,3 +141,26 @@ describe('deposits paid in another currency', () => {
     expect(quotes).toMatch(/depositPaid: depositForOrder/);
   });
 });
+
+describe('the quotations list shows the deposit', () => {
+  it('shows it under the total it reduces, not in a new column', () => {
+    // The table already carries eight columns; a ninth would push it wider
+    // still on the laptop this is used on.
+    expect(quotes).toMatch(/Deposit \{fmt\(e\.deposit, depCur\)\}/);
+  });
+
+  it('shows nothing for quotations without one', () => {
+    expect(quotes).toMatch(/\(e\.deposit \?\? 0\) > 0 && /);
+  });
+
+  it('shows the balance only when the deposit is in the quote currency', () => {
+    // Converting per row would fire an FX request for every line of the
+    // table, and a balance computed at a guessed rate is worse than none.
+    expect(quotes).toMatch(/sameCur\s*\?\s*`Balance \$\{fmt\(balance, e\.currency \|\| 'USD'\)\}`/);
+    expect(quotes).toMatch(/Paid in \$\{depCur\} — open to see the balance/);
+  });
+
+  it('never shows a negative balance in the list', () => {
+    expect(quotes).toMatch(/Math\.max\(\(e\.totalCost \|\| 0\) - e\.deposit, 0\)/);
+  });
+});
