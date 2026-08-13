@@ -24,10 +24,15 @@ const qaApprove = roView.slice(
   roView.indexOf('async function handleQAApprove'),
   roView.indexOf('async function handleQASendBack'),
 );
-const convert = roView.slice(
-  roView.indexOf('async function handleConvertToInvoice'),
-  roView.indexOf('async function handleConvertToInvoice') + 1400,
-);
+// To the end of the function, not a fixed character count. A 1400-char window
+// silently stopped covering the body the moment the function grew, turning
+// ordering assertions into indexOf(-1) comparisons that pass or fail for
+// reasons unrelated to what they check.
+const convert = (() => {
+  const start = roView.indexOf('async function handleConvertToInvoice');
+  const next = roView.indexOf('\n  async function', start + 1);
+  return roView.slice(start, next === -1 ? roView.length : next);
+})();
 const helper = roView.slice(
   roView.indexOf('async function draftInvoiceFor'),
   roView.indexOf('async function handleConvertToInvoice'),
