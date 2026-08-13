@@ -642,7 +642,17 @@ export function RepairOrdersView() {
       if (invoiceError) {
         setError(`${ro.roNumber} is signed off and Complete, but the draft invoice could not be created: ${invoiceError}. Use "Convert to invoice" to raise it.`);
       } else {
-        notify(`✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — draft invoice ${invNumber} created.`);
+        // Deliberately not a confirm: sign-off must never be blocked or lost,
+        // and the invoice is a Draft that a human reviews before sending. But
+        // the draft will total less than the work shown, so say which lines
+        // need a quantity while the advisor is still here.
+        const missing = unquantifiedWork(ro);
+        notify(
+          `✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete — draft invoice ${invNumber} created.`
+          + (missing.length
+            ? ` ⚠ Add quantities before sending — ${missing.join('; ')}.`
+            : ''),
+        );
       }
       setWizardRO(updated as RepairOrder);
     } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
@@ -721,7 +731,13 @@ export function RepairOrdersView() {
     setPullModal(m => m ? { ...m, creating: true } : null);
     const { ro, target, lines, selected } = pullModal;
     const chosenParts = lines.filter(l => selected.has(l.id));
-    const laborLine = { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern || 'Repair'}`, qty: ro.laborHours || 1, rate: ro.laborRate || 0 };
+    // qty: ro.laborHours, not `|| 1`. This path used to substitute one hour
+    // when none was recorded, which produced an invoice that looked right and
+    // billed a number nobody chose — and disagreed with the QA sign-off path
+    // below, which passes the 0 through. Both now carry what the order
+    // actually says, and the invoice editor flags a priced line with no
+    // quantity rather than quietly inventing one.
+    const laborLine = { note: ro.roNumber, description: `Labor — ${ro.correction || ro.concern || 'Repair'}`, qty: ro.laborHours, rate: ro.laborRate || 0 };
     const partLines = chosenParts.map(p => ({ note: p.partNumber, description: p.description, qty: p.qty, rate: p.unitCost, currency: p.currency !== ro.currency ? p.currency : '' }));
     const allLines = [laborLine, ...partLines].filter(l => l.description);
     try {
@@ -771,6 +787,22 @@ export function RepairOrdersView() {
    * raised at QA sign-off, so the two cannot produce different invoices from
    * the same work.
    */
+  /**
+   * Lines on a repair order that are priced but not quantified.
+   *
+   * These are what turn into an invoice worth nothing: labour with a rate but
+   * no hours, a part with a unit cost but no count. Reported after an invoice
+   * listing THB 700 and THB 500 of work totalled THB 0.
+   */
+  function unquantifiedWork(ro: RepairOrder): string[] {
+    const out: string[] = [];
+    if (ro.laborRate > 0 && ro.laborHours === 0) out.push('Labour (rate set, no hours)');
+    for (const p of ro.parts ?? []) {
+      if (p.unitCost > 0 && p.qty === 0) out.push(`${p.description || 'Part'} (priced, no quantity)`);
+    }
+    return out;
+  }
+
   async function draftInvoiceFor(ro: RepairOrder): Promise<string> {
     const invNumber = await nextInvoiceNumber();
     await createInvoice({
@@ -817,6 +849,18 @@ export function RepairOrdersView() {
     if (!(await confirmOnline())) {
       setError('No connection to the server, so no invoice was created. Check the network and try again — nothing has changed.');
       return;
+    }
+
+    // Unlike QA sign-off, this action exists to raise the invoice, so it is
+    // the right moment to stop and ask. Nothing has been written yet.
+    const missing = unquantifiedWork(ro);
+    if (missing.length > 0) {
+      const ok = confirm(
+        `${ro.roNumber} has priced work with no quantity, so the invoice will total less than the work shown:\n\n` +
+        missing.map(m => `  • ${m}`).join('\n') +
+        `\n\nCreate the invoice anyway?`,
+      );
+      if (!ok) return;
     }
 
     try {

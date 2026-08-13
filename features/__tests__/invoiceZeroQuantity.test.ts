@@ -82,3 +82,40 @@ describe('what it deliberately does not do', () => {
     expect(stripped).not.toMatch(/parseFloat\(l\.qty\) \|\| 1/);
   });
 });
+
+describe('the repair order catches it one step earlier', () => {
+  const ro = readFileSync(join(root, 'features', 'repair-orders', 'RepairOrdersView.tsx'), 'utf8');
+  const roStripped = ro.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  it('identifies labour priced with no hours', () => {
+    expect(roStripped).toMatch(/ro\.laborRate > 0 && ro\.laborHours === 0/);
+  });
+
+  it('identifies parts priced with no quantity', () => {
+    expect(roStripped).toMatch(/p\.unitCost > 0 && p\.qty === 0/);
+  });
+
+  it('no longer substitutes an hour nobody recorded', () => {
+    // This path used to send `qty: ro.laborHours || 1`, billing one hour that
+    // nobody chose — and disagreeing with the sign-off path beside it, which
+    // passed the 0 straight through.
+    expect(roStripped).not.toMatch(/qty: ro\.laborHours \|\| 1/);
+  });
+
+  it('both invoice paths now carry what the order actually says', () => {
+    expect(roStripped.match(/qty: ro\.laborHours(?! \|\|)/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('asks before the action whose purpose is raising the invoice', () => {
+    expect(roStripped).toMatch(/has priced work with no quantity/);
+    expect(roStripped).toMatch(/Create the invoice anyway\?/);
+  });
+
+  it('never blocks QA sign-off, which must not be lost', () => {
+    // Sign-off warns in the toast instead: the invoice is a Draft a human
+    // reviews, and losing a sign-off is the worse failure.
+    expect(roStripped).toMatch(/⚠ Add quantities before sending/);
+    const signOff = roStripped.slice(0, roStripped.indexOf('async function draftInvoiceFor'));
+    expect(signOff).not.toMatch(/Create the invoice anyway\?/);
+  });
+});
