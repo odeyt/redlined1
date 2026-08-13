@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { deriveRecordCurrency } from '@/lib/recordCurrency';
 
 export interface PartsVendor {
   id: string;
@@ -145,7 +146,9 @@ function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
     estimate_number: o.estimateNumber, invoice_number: o.invoiceNumber,
     vehicle: o.vehicle, customer_name: o.customerName,
     warranty: o.warranty, notes: o.notes,
-    currency: o.currency || 'USD',
+    // See lib/recordCurrency: orders had the same drift as quotations,
+    // recording THB while every line was priced in USD.
+    currency: deriveRecordCurrency(items, o.currency),
   };
 }
 

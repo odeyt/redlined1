@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { deriveRecordCurrency } from '@/lib/recordCurrency';
 
 export interface PartsEstimate {
   id: string;
@@ -132,7 +133,10 @@ function buildPayload(o: Omit<PartsEstimate, 'id' | 'createdAt'>) {
     vehicle:              o.vehicle,
     customer_name:        o.customerName,
     notes:                o.notes,
-    currency:             o.currency || 'USD',
+    // Follows the lines when they all name one currency — the record used to
+    // keep whatever the form defaulted to, so a LAK quote could be stored as
+    // THB. See lib/recordCurrency.
+    currency:             deriveRecordCurrency(items, o.currency),
   };
 }
 
