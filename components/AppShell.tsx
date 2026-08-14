@@ -2,9 +2,11 @@
 
 import { AppProvider, useAppState } from '@/lib/store';
 import { Sidebar } from './Sidebar';
-// STAGING ONLY. Re-mounted here to reproduce the failure that took production
-// down, on a branch nobody works from. It must be verified on the staging
-// preview before this reaches main.
+// Renders on every authenticated screen, so a fault here takes the whole shell
+// down — it did exactly that on 2026-08-13, when it opened a second Supabase
+// Realtime channel on a topic Sidebar was already using. Verified on
+// staging.redlined1.com before returning here. Anything added to this
+// component carries the same blast radius; see AlertToaster's own note.
 import { AlertToaster } from './AlertToaster';
 import { Header } from './Header';
 import { Toast } from './Toast';

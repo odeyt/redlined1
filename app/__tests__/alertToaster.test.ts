@@ -98,7 +98,7 @@ describe('mounting is a deliberate decision, not an accident', () => {
     // shell can never quietly acquire this component again without somebody
     // writing down why.
     const mounted = /<AlertToaster \/>/.test(shell);
-    if (mounted) expect(shell).toMatch(/STAGING ONLY/);
+    if (mounted) expect(shell).toMatch(/takes the whole shell\s*\n?\/\/ down/);
     else expect(shell).toMatch(/intentionally NOT mounted/);
   });
 });
