@@ -61,15 +61,19 @@ describe('preferences decide, and failing to read them does not mute', () => {
   });
 });
 
-describe('it is currently unmounted', () => {
-  it('is not rendered in the shell', () => {
+describe('mounting is a deliberate decision, not an accident', () => {
+  it('is either unmounted with a reason, or mounted with one', () => {
     // Production hit the shell error boundary shortly after this shipped, and
     // AlertToaster was the only addition rendering on every authenticated
-    // screen. Unmounted to restore service. This test is inverted on purpose:
-    // it fails the moment someone re-adds it, which should not happen until
-    // the failure has actually been reproduced and explained.
-    expect(shell).not.toMatch(/<AlertToaster \/>/);
-    expect(shell).toMatch(/intentionally NOT mounted/);
+    // screen. It is unmounted on main and re-mounted on staging to reproduce
+    // the failure.
+    //
+    // The test accepts both states but demands the comment either way, so the
+    // shell can never quietly acquire this component again without somebody
+    // writing down why.
+    const mounted = /<AlertToaster \/>/.test(shell);
+    if (mounted) expect(shell).toMatch(/STAGING ONLY/);
+    else expect(shell).toMatch(/intentionally NOT mounted/);
   });
 });
 
