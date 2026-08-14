@@ -154,6 +154,39 @@ export async function POST(req: NextRequest) {
 
   if (existingProfile) {
     userId = existingProfile.id;
+
+    // An existing profile does not mean an existing SIGN-IN. generateLink
+    // creates a real auth user as a side effect, so an invitation that failed
+    // after that point — a bad redirect URL, a link nobody could open — leaves
+    // an account with no password behind it. The next invitation then took
+    // this branch and told the person to "sign in with your existing account",
+    // which they cannot do: there is nothing to sign in with.
+    //
+    // Reported exactly that way. Two accounts sat unconfirmed and never
+    // signed in while their invitations kept arriving as sign-in prompts.
+    //
+    // So: if they have never signed in, send them a link that lets them set a
+    // password, the same as a brand-new invitee.
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
+    const neverSignedIn = !authUser?.user?.last_sign_in_at;
+
+    if (neverSignedIn) {
+      // 'recovery', not 'invite': Supabase refuses to invite an address it
+      // already knows, and recovery is the flow that ends at "choose a
+      // password" for an account that exists.
+      const { data: recoveryData, error: recoveryError } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: { redirectTo: `${siteUrl}/auth/callback?next=/reset-password` },
+      });
+      if (recoveryError) {
+        return NextResponse.json(
+          { error: sanitizeError(recoveryError, 'invite:POST recovery link', 'Unable to send invitation') },
+          { status: 502 },
+        );
+      }
+      inviteActionLink = recoveryData?.properties?.action_link ?? null;
+    }
   } else {
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: 'invite',
@@ -206,7 +239,9 @@ export async function POST(req: NextRequest) {
   let emailWarning: string | undefined;
 
   try {
-    if (isNewAccount && inviteActionLink) {
+    // Keyed on having a set-password link, not on the account being new: an
+    // existing account that has never signed in needs exactly the same email.
+    if (inviteActionLink) {
       await resend.emails.send({
         from: 'RedlineD1 <noreply@redlined1.com>',
         to: email,
@@ -266,7 +301,7 @@ export async function POST(req: NextRequest) {
   // (already-authorized owner) caller something actionable to hand the
   // invitee directly — the one-time invite link for a new account, or just
   // the login URL for an existing one (they already have credentials).
-  const actionLink = emailWarning ? (isNewAccount ? inviteActionLink : loginUrl) : undefined;
+  const actionLink = emailWarning ? (inviteActionLink ?? loginUrl) : undefined;
 
   return NextResponse.json({
     success: true,

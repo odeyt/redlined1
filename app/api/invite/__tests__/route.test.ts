@@ -36,6 +36,7 @@ let tableResults: Record<string, ChainResult>;
 const mockGenerateLink = jest.fn();
 const mockCreateUser = jest.fn();
 const mockUpdateUserById = jest.fn();
+const mockGetUserById = jest.fn();
 const mockFrom = jest.fn((table: string) => makeChain(tableResults[table] ?? { data: null, error: null }));
 
 jest.mock('@/lib/supabase-server', () => ({
@@ -46,6 +47,7 @@ jest.mock('@/lib/supabase-server', () => ({
         generateLink: (...args: unknown[]) => mockGenerateLink(...args),
         createUser: (...args: unknown[]) => mockCreateUser(...args),
         updateUserById: (...args: unknown[]) => mockUpdateUserById(...args),
+        getUserById: (...args: unknown[]) => mockGetUserById(...args),
       },
     },
   }),
@@ -84,6 +86,10 @@ beforeEach(() => {
   mockGenerateLink.mockReset();
   mockCreateUser.mockReset();
   mockUpdateUserById.mockReset();
+  // Default: an existing account belongs to somebody who already uses the app.
+  // The never-signed-in case is the exception and sets its own value.
+  mockGetUserById.mockReset();
+  mockGetUserById.mockResolvedValue({ data: { user: { last_sign_in_at: '2026-01-01T00:00:00Z' } }, error: null });
   mockResendSend.mockClear();
   mockFrom.mockClear();
   tableResults = {
@@ -447,5 +453,45 @@ describe('PATCH /api/invite', () => {
     const res = await PATCH(makeReq('PATCH', { userId: EXISTING_USER, shopId: SHOP_A, role: 'manager' }));
     expect(res.status).toBe(200);
     expect(mockIsLastOwner).not.toHaveBeenCalled();
+  });
+});
+
+describe('existing account that has never signed in', () => {
+  // The state left behind when an invitation fails after generateLink has
+  // already created the auth user — which is exactly what happened when the
+  // invite link pointed at an unreachable host. The account exists, so the
+  // route took the "sign in with your existing account" branch, and the
+  // invitee had no password to sign in with.
+  beforeEach(() => {
+    mockRequireShopRole.mockResolvedValue(ownerOk());
+    tableResults.profiles = { data: { id: EXISTING_USER }, error: null };
+    mockGetUserById.mockResolvedValue({ data: { user: { last_sign_in_at: null } }, error: null });
+    mockGenerateLink.mockResolvedValue({
+      data: { user: { id: 'u-existing' }, properties: { action_link: 'https://link.example/set-password' } },
+      error: null,
+    });
+  });
+
+  it('sends a recovery link so they can choose a password', async () => {
+    await POST(makeReq('POST', { email: 'existing@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(mockGenerateLink).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'recovery', email: 'existing@b.com' }),
+    );
+  });
+
+  it('emails the set-password link rather than a sign-in prompt', async () => {
+    await POST(makeReq('POST', { email: 'existing@b.com', role: 'technician', shopId: SHOP_A }));
+    const sent = mockResendSend.mock.calls.at(-1)?.[0];
+    expect(sent.html).toContain('https://link.example/set-password');
+  });
+
+  it('still adds them to the shop', async () => {
+    const res = await POST(makeReq('POST', { email: 'existing@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(res.status).toBe(200);
+  });
+
+  it('never creates a second account for them', async () => {
+    await POST(makeReq('POST', { email: 'existing@b.com', role: 'technician', shopId: SHOP_A }));
+    expect(mockCreateUser).not.toHaveBeenCalled();
   });
 });
