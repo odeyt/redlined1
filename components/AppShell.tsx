@@ -2,6 +2,7 @@
 
 import { AppProvider, useAppState } from '@/lib/store';
 import { Sidebar } from './Sidebar';
+import { AlertToaster } from './AlertToaster';
 import { Header } from './Header';
 import { Toast } from './Toast';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -370,6 +371,7 @@ function Shell() {
         <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
         <main className="main">
           <Header onMobileNavToggle={() => setMobileNavOpen(o => !o)} />
+          <AlertToaster />
           <div className="content" style={{ position: 'relative' }}>
             <Toast message={toast} />
             <ErrorBoundary>

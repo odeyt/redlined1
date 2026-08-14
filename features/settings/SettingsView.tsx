@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
+import { ALERT_ROLES, eventsForRole, isAlertEnabled, setAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
 import { navItems } from '@/lib/mock-data';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
@@ -93,6 +94,9 @@ export function SettingsView() {
   const [savingMsg, setSavingMsg] = useState(false);
 
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(DEFAULT_ROLE_PERMISSIONS);
+  const [alertPreferences, setAlertPreferences] = useState<AlertPreferences>({});
+  const [activeAlertRole, setActiveAlertRole] = useState<AlertRole>("technician");
+  const [savingAlerts, setSavingAlerts] = useState(false);
   const [activeRoleTab, setActiveRoleTab] = useState<RoleKey>('manager');
   const [savingRolePerms, setSavingRolePerms] = useState(false);
 
@@ -148,6 +152,7 @@ export function SettingsView() {
       setEnableJobCardServiceLocation(s.enableJobCardServiceLocation ?? true);
       setEnableJobCardApprovalCode(s.enableJobCardApprovalCode ?? true);
       setRolePermissions(s.rolePermissions ?? DEFAULT_ROLE_PERMISSIONS);
+      setAlertPreferences(s.alertPreferences ?? {});
       if (s.inspectionTemplate && s.inspectionTemplate.length > 0) {
         setInspTemplate(s.inspectionTemplate);
       }
@@ -279,6 +284,19 @@ export function SettingsView() {
           : [...current, moduleId],
       };
     });
+  }
+
+  async function handleSaveAlerts() {
+    setSavingAlerts(true);
+    try {
+      await saveShopSettings({ alertPreferences });
+      // Same broadcast the permissions save uses, so an open tab picks the
+      // change up without a reload — alerts are decided here and delivered
+      // elsewhere in the app.
+      window.dispatchEvent(new CustomEvent('shop-settings-updated', { detail: { alertPreferences } }));
+    } catch (err: unknown) {
+      setError('Save failed: ' + (err instanceof Error ? err.message : ''));
+    } finally { setSavingAlerts(false); }
   }
 
   async function handleSaveRolePerms() {
@@ -761,6 +779,81 @@ export function SettingsView() {
             ? <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Portal settings saved — payment methods updated</span>
             : <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
           }
+        </div>
+      </Panel>
+
+      <Panel title="Alerts" hint="Choose what each role is told about. Everything is on unless you switch it off.">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+          {ALERT_ROLES.map(r => {
+            const labels: Record<AlertRole, string> = {
+              owner: 'Owner', manager: 'Manager', advisor: 'Service Advisor', technician: 'Technician',
+            };
+            const isActive = activeAlertRole === r;
+            return (
+              <button
+                key={r}
+                onClick={() => setActiveAlertRole(r)}
+                style={{
+                  padding: '7px 18px', borderRadius: 8, border: `1px solid ${isActive ? 'var(--accent)' : 'var(--line)'}`,
+                  background: isActive ? 'rgba(204,0,0,0.12)' : 'var(--surface-soft)',
+                  color: isActive ? 'var(--accent)' : 'var(--muted)', fontSize: 13, fontWeight: isActive ? 700 : 400,
+                  cursor: 'pointer',
+                }}
+              >
+                {labels[r]}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'grid', gap: 8, marginBottom: 18 }}>
+          {eventsForRole(activeAlertRole).map(ev => {
+            const on = isAlertEnabled(alertPreferences, activeAlertRole, ev.id);
+            return (
+              <label
+                key={ev.id}
+                style={{
+                  display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer',
+                  padding: '12px 14px', borderRadius: 10, minHeight: 44,
+                  border: `1px solid ${on ? 'var(--accent)' : 'var(--line)'}`,
+                  background: on ? 'rgba(204,0,0,0.06)' : 'var(--surface-soft)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={e => setAlertPreferences(p => setAlertEnabled(p, activeAlertRole, ev.id, e.target.checked))}
+                  style={{ marginTop: 2 }}
+                />
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, display: 'block' }}>
+                    {ev.label}
+                    {/* Said plainly rather than hidden. A switch for something
+                        nothing emits yet looks like it works and does nothing,
+                        which is worse than an absent feature. */}
+                    {ev.source === 'planned' && (
+                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase' }}>
+                        not sending yet
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{ev.detail}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={handleSaveAlerts} disabled={savingAlerts}>
+            {savingAlerts ? 'Saving…' : 'Save Alerts'}
+          </button>
+          <button
+            className="mini-btn"
+            onClick={() => setAlertPreferences(p => ({ ...p, [activeAlertRole]: [] }))}
+          >
+            Turn all on for this role
+          </button>
         </div>
       </Panel>
 
