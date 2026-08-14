@@ -23,7 +23,7 @@ const settings = strip(readFileSync(join(root, 'features', 'settings', 'Settings
 describe('it never announces the backlog', () => {
   it('treats the first batch as already seen', () => {
     expect(toaster).toMatch(/if \(seen\.current === null\)/);
-    expect(toaster).toMatch(/seen\.current = new Set\(notifications\.map\(n => n\.id\)\)/);
+    expect(toaster).toMatch(/seen\.current = new Set\(events\.map\(e => e\.id\)\)/);
   });
 
   it('distinguishes "not loaded yet" from "no events"', () => {
@@ -33,18 +33,44 @@ describe('it never announces the backlog', () => {
   });
 
   it('only announces ids it has not seen', () => {
-    expect(toaster).toMatch(/notifications\.filter\(n => !seen\.current!\.has\(n\.id\)\)/);
+    expect(toaster).toMatch(/events\.filter\(e => !seen\.current!\.has\(e\.id\)\)/);
   });
 
   it('caps a burst rather than firing one toast per row', () => {
-    expect(toaster).toMatch(/fresh\.slice\(0, 3\)/);
-    expect(toaster).toMatch(/and \$\{fresh\.length - toAnnounce\.length\} more updates/);
+    expect(toaster).toMatch(/wanted\.slice\(0, 3\)/);
+    expect(toaster).toMatch(/more alerts/);
+  });
+});
+
+describe('one feed, one channel — the fault that took production down', () => {
+  it('does not call useNotifications', () => {
+    // Sidebar already calls it. A second instance opened a second Supabase
+    // Realtime channel on the same topic ('ro-status-events'), and because
+    // this component renders on every authenticated screen, the shell error
+    // boundary caught it for every signed-in user while login stayed fine.
+    expect(toaster).not.toMatch(/useNotifications/);
+  });
+
+  it('subscribes to a topic named for this subscriber, not the table', () => {
+    // 'alerts-toaster' cannot collide with another reader of alert_events the
+    // way 'ro-status-events' collided with Sidebar.
+    expect(toaster).toMatch(/\.channel\('alerts-toaster'\)/);
+  });
+
+  it('reads only alert_events', () => {
+    expect(toaster).toMatch(/table: 'alert_events'/);
+    expect(toaster).not.toMatch(/ro_status_events/);
+  });
+
+  it('nothing else in the app subscribes to that topic', () => {
+    const shellSrc = readFileSync(join(root, 'components', 'Sidebar.tsx'), 'utf8');
+    expect(shellSrc).not.toMatch(/alerts-toaster/);
   });
 });
 
 describe('preferences decide, and failing to read them does not mute', () => {
   it('checks the role preference before announcing', () => {
-    expect(toaster).toMatch(/isAlertEnabled\(prefs, role as AlertRole, 'ro\.status_changed'\)/);
+    expect(toaster).toMatch(/isAlertEnabled\(prefs, forRole, e\.eventType\)/);
   });
 
   it('falls back to everything-on when settings cannot be read', () => {

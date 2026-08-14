@@ -3,34 +3,41 @@
 /**
  * Live toasts for alerts, while the app is open.
  *
- * Rides on useNotifications, which already reads ro_status_events with a
- * Realtime subscription and a poll fallback. Nothing new is fetched here; this
- * decides which of those events the person looking at the screen should be
- * interrupted for.
+ * Reads alert_events and nothing else. That is a correctness requirement, not
+ * a simplification:
  *
- * Two rules do most of the work:
+ * The first version also called useNotifications() to toast repair-order
+ * status changes. Sidebar ALREADY calls that hook, so the app ended up with
+ * two instances, each opening a Supabase Realtime channel on the same topic
+ * ('ro-status-events'). supabase-js does not tolerate two subscriptions to one
+ * topic, and because this component renders on every authenticated screen, the
+ * failure took the whole shell down — production showed the error boundary to
+ * every signed-in user while the login page stayed fine.
  *
- *   1. Only events that arrive AFTER this mounts are toasted. The hook returns
- *      up to fifty recent events on first load; toasting those would fire a
- *      wall of popups on every page load and train everyone to ignore them.
- *   2. The role's preferences decide. Absent preferences mean everything is
- *      on, so a shop that has never opened the settings screen still gets
- *      alerts — which is what "on by default" has to mean in practice.
+ * So: one feed, one channel, one subscriber. Repair-order status changes reach
+ * here as ro.status_changed rows in alert_events, emitted by a trigger, rather
+ * than by subscribing to a second table. The notifications PANEL keeps using
+ * useNotifications and ro_status_events, untouched.
+ *
+ * Do not add another hook here that opens a channel. If this needs a second
+ * source, give it a distinct topic name and check nothing else already
+ * subscribes to it.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
-import { useNotifications } from '@/lib/useNotifications';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchAlertEvents, type AlertEvent } from '@/services/alertEventService';
 import { isAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
 
-/** Matches useNotifications: Realtime when available, poll when it is not. */
+/** Realtime where available; the poll covers where it is not. */
 const POLL_MS = 60_000;
 
 const EVENT_ICON: Record<string, string> = {
+  'ro.status_changed': '🔧',
   'ro.pending_approval': '⏳',
+  'job.assigned': '📋',
   'inspection.completed': '🔍',
   'estimate.approved': '👍',
   'parts.received': '📦',
@@ -42,15 +49,14 @@ const ALERT_ROLES_SET = new Set<AlertRole>(['owner', 'manager', 'advisor', 'tech
 export function AlertToaster() {
   const { role, loading } = useShop();
   const dispatch = useAppDispatch();
-  const { notifications, STATUS_EMOJI } = useNotifications();
 
   const [prefs, setPrefs] = useState<AlertPreferences>({});
 
   /**
-   * Ids present before this component started caring. Undefined until the
-   * first batch arrives, which is what distinguishes "nothing has loaded yet"
-   * from "there genuinely are no events" — the difference between staying
-   * quiet and toasting the entire backlog.
+   * Ids present before this component started caring. Null until the first
+   * batch arrives, which distinguishes "nothing has loaded yet" from "there
+   * genuinely are no events" — the difference between staying quiet and
+   * announcing a fortnight of backlog on every page load.
    */
   const seen = useRef<Set<string> | null>(null);
 
@@ -59,11 +65,10 @@ export function AlertToaster() {
     fetchShopSettings()
       .then(s => { if (!cancelled) setPrefs(s.alertPreferences ?? {}); })
       // Preferences failing to load must not silence alerts: an empty object
-      // means everything is on, which is the safer failure for a notification
-      // system. Losing an alert is worse than showing one someone muted.
+      // means everything is on, which is the safer failure here. Losing an
+      // alert is worse than showing one somebody muted.
       .catch(() => { if (!cancelled) setPrefs({}); });
 
-    // Settings saves broadcast this, so a change applies without a reload.
     const onUpdate = (e: Event) => {
       const detail = (e as CustomEvent).detail as { alertPreferences?: AlertPreferences } | undefined;
       if (detail?.alertPreferences) setPrefs(detail.alertPreferences);
@@ -72,57 +77,7 @@ export function AlertToaster() {
     return () => { cancelled = true; window.removeEventListener('shop-settings-updated', onUpdate); };
   }, []);
 
-  useEffect(() => {
-    if (loading || !role || !ALERT_ROLES_SET.has(role as AlertRole)) return;
-
-    // First batch: remember it, announce nothing.
-    if (seen.current === null) {
-      seen.current = new Set(notifications.map(n => n.id));
-      return;
-    }
-
-    const fresh = notifications.filter(n => !seen.current!.has(n.id));
-    if (fresh.length === 0) return;
-    fresh.forEach(n => seen.current!.add(n.id));
-
-    if (!isAlertEnabled(prefs, role as AlertRole, 'ro.status_changed')) return;
-
-    // Newest first from the hook; announce oldest first so the most recent
-    // ends up on top, and cap it — five status changes landing at once is a
-    // bulk update, not five things worth reading.
-    const toAnnounce = fresh.slice(0, 3).reverse();
-    for (const n of toAnnounce) {
-      const icon = STATUS_EMOJI[n.newStatus] ?? '🔔';
-      dispatch({
-        type: 'NOTIFY',
-        message: `${icon} ${n.roNumber} → ${n.newStatus}${n.vehicle ? ` · ${n.vehicle}` : ''}`,
-      });
-    }
-    if (fresh.length > toAnnounce.length) {
-      dispatch({ type: 'NOTIFY', message: `…and ${fresh.length - toAnnounce.length} more updates` });
-    }
-  }, [notifications, role, loading, prefs, dispatch, STATUS_EMOJI]);
-
-  return <AlertEventToasts role={role as AlertRole} prefs={prefs} enabled={!loading && ALERT_ROLES_SET.has(role as AlertRole)} />;
-}
-
-/**
- * The same two rules, applied to the trigger-written alert_events feed.
- *
- * Kept separate from the repair-order status toasts above because they come
- * from different tables with different histories — ro_status_events predates
- * alerts and feeds the notifications panel as well. Merging them would mean
- * one of the two loses behaviour it already has.
- */
-function AlertEventToasts({ role, prefs, enabled }: {
-  role: AlertRole; prefs: AlertPreferences; enabled: boolean;
-}) {
-  const dispatch = useAppDispatch();
-  const seen = useRef<Set<string> | null>(null);
-
-  const announce = useCallback((events: AlertEvent[]) => {
-    // First batch is history: remember it, say nothing. Otherwise every page
-    // load replays a fortnight of alerts.
+  const announce = useCallback((events: AlertEvent[], forRole: AlertRole) => {
     if (seen.current === null) {
       seen.current = new Set(events.map(e => e.id));
       return;
@@ -131,9 +86,12 @@ function AlertEventToasts({ role, prefs, enabled }: {
     if (fresh.length === 0) return;
     fresh.forEach(e => seen.current!.add(e.id));
 
-    const wanted = fresh.filter(e => isAlertEnabled(prefs, role, e.eventType));
+    const wanted = fresh.filter(e => isAlertEnabled(prefs, forRole, e.eventType));
     if (wanted.length === 0) return;
 
+    // Newest first from the query; announce oldest first so the most recent
+    // ends on top. Capped — five landing at once is a bulk update, not five
+    // things worth reading.
     const toAnnounce = wanted.slice(0, 3).reverse();
     for (const e of toAnnounce) {
       dispatch({
@@ -144,25 +102,28 @@ function AlertEventToasts({ role, prefs, enabled }: {
     if (wanted.length > toAnnounce.length) {
       dispatch({ type: 'NOTIFY', message: `…and ${wanted.length - toAnnounce.length} more alerts` });
     }
-  }, [dispatch, prefs, role]);
+  }, [dispatch, prefs]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (loading || !role || !ALERT_ROLES_SET.has(role as AlertRole)) return;
+    const forRole = role as AlertRole;
     let stopped = false;
 
     const load = async () => {
       const events = await fetchAlertEvents();
-      if (!stopped) announce(events);
+      if (!stopped) announce(events, forRole);
     };
     void load();
 
+    // 'alerts-toaster', not 'alert-events': the topic is named for the
+    // subscriber, so a second reader of this table cannot collide with it the
+    // way this component once collided with Sidebar.
     const channel = supabase
-      .channel('alert-events')
+      .channel('alerts-toaster')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alert_events' }, () => { void load(); })
       .subscribe();
 
     const timer = setInterval(() => { void load(); }, POLL_MS);
-    // Coming back to the tab matters more than the interval.
     const onFocus = () => { void load(); };
     window.addEventListener('focus', onFocus);
 
@@ -172,7 +133,7 @@ function AlertEventToasts({ role, prefs, enabled }: {
       window.removeEventListener('focus', onFocus);
       supabase.removeChannel(channel);
     };
-  }, [enabled, announce]);
+  }, [loading, role, announce]);
 
   return null;
 }
