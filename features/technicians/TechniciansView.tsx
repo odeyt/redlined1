@@ -8,6 +8,9 @@ import {
   TECH_ROLES, PAY_TYPES, SPECIALTIES,
 } from '@/services/technicianService';
 import { useShop } from '@/lib/useShop';
+import { authedFetch, AuthSessionError } from '@/lib/apiClient';
+
+interface ShopMember { userId: string; email: string; name: string; role: string; }
 
 /* ─────────────────── helpers ─────────────────── */
 function fmt(n: number) {
@@ -29,7 +32,7 @@ function initials(name: string) {
 }
 
 const EMPTY: Omit<Technician, 'id' | 'createdAt' | 'shopId'> = {
-  name: '', role: 'Technician', phone: '', email: '',
+  name: '', role: 'Technician', phone: '', email: '', userId: '',
   specialty: 'General Repair', certifications: '',
   payType: 'Hourly', payRate: 25,
   hireDate: '', status: 'Active', notes: '',
@@ -80,6 +83,9 @@ export function TechniciansView() {
   const [saving, setSaving]         = useState(false);
   const [editing, setEditing]       = useState(false);
   const [form, setForm]             = useState<Omit<Technician, 'id' | 'createdAt' | 'shopId'>>(EMPTY);
+  /** Accounts in this shop, for linking a technician to a login. */
+  const [members, setMembers]       = useState<ShopMember[]>([]);
+  const [membersError, setMembersError] = useState('');
   const [error, setError]           = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [boardPerf, setBoardPerf]   = useState<Record<string, TechRO[]>>({});
@@ -112,6 +118,31 @@ export function TechniciansView() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Accounts in this shop, so a technician can be linked to the login they
+  // actually sign in with. Owner-only endpoint: a manager editing staff sees
+  // the field with an explanation rather than an empty dropdown and no reason.
+  useEffect(() => {
+    if (!shopId) return;
+    let cancelled = false;
+    authedFetch(`/api/members?shopId=${shopId}`)
+      .then(async res => {
+        const json = await res.json();
+        if (cancelled) return;
+        if (!res.ok) throw new Error(json?.error || 'Could not load accounts');
+        setMembers(json.members ?? []);
+        setMembersError('');
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setMembers([]);
+        setMembersError(
+          e instanceof AuthSessionError ? e.message
+            : `Accounts could not be loaded${e instanceof Error ? `: ${e.message}` : ''}. Only an owner can list them.`,
+        );
+      });
+    return () => { cancelled = true; };
+  }, [shopId]);
 
   /* Load work board when tab switches */
   const loadBoard = useCallback(async (techList: Technician[]) => {
@@ -153,6 +184,7 @@ export function TechniciansView() {
   function startEdit(t: Technician) {
     setForm({
       name: t.name, role: t.role, phone: t.phone, email: t.email,
+      userId: t.userId,
       specialty: t.specialty, certifications: t.certifications,
       payType: t.payType, payRate: t.payRate,
       hireDate: t.hireDate ?? '', status: t.status, notes: t.notes,
@@ -358,6 +390,38 @@ export function TechniciansView() {
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Email</label>
                     <input className="input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="tech@shop.com" style={{ width: '100%' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
+                      Login account
+                    </label>
+                    <select
+                      className="input"
+                      value={form.userId}
+                      onChange={e => setForm(f => ({ ...f, userId: e.target.value }))}
+                      style={{ width: '100%' }}
+                    >
+                      <option value="">No login — cannot receive alerts</option>
+                      {members.map(m => (
+                        <option key={m.userId} value={m.userId}>
+                          {m.name || m.email} ({m.role})
+                        </option>
+                      ))}
+                    </select>
+                    {/* Said plainly, because it is the difference between the
+                        alert feature working for this person and silently doing
+                        nothing. Job alerts are addressed to an account; a
+                        technician who is only a record here has nowhere to
+                        receive them. */}
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, lineHeight: 1.5 }}>
+                      {form.userId
+                        ? 'Job alerts will reach this person on their own device.'
+                        : membersError
+                          ? membersError
+                          : members.length === 0
+                            ? 'Nobody has been invited yet. Invite them under Access first, then link them here.'
+                            : 'Link an account so this person is told when a job is assigned to them.'}
+                    </div>
                   </div>
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Specialty</label>

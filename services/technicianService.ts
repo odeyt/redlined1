@@ -21,6 +21,11 @@ export interface Technician {
    * this to show the record for the shop they are working in.
    */
   shopId: string;
+  /**
+   * The account this person signs in as, or '' when they have no login.
+   * Job alerts are addressed through this: an unlinked technician gets none.
+   */
+  userId: string;
 }
 
 export interface TechPerformance {
@@ -94,6 +99,7 @@ function mapRow(r: Record<string, unknown>): Technician {
     notes:          (r.notes as string) || '',
     createdAt:      (r.created_at as string) || '',
     shopId:         (r.shop_id as string) || '',
+    userId:         (r.user_id as string) || '',
   };
 }
 
@@ -111,7 +117,11 @@ export async function fetchTechnicians(activeOnly = false): Promise<Technician[]
 
 // shopId is omitted: the row is always created in the caller's active shop,
 // assigned below from getShopId() rather than passed in.
-export async function createTechnician(t: Omit<Technician, 'id' | 'createdAt' | 'shopId'>): Promise<Technician> {
+// userId is optional: a technician added inline from a job card or inspection
+// has no login yet, and linking one is a separate deliberate act in Employees.
+export async function createTechnician(
+  t: Omit<Technician, 'id' | 'createdAt' | 'shopId' | 'userId'> & { userId?: string },
+): Promise<Technician> {
   const { data, error } = await supabase
     .from('technicians')
     .insert({
@@ -147,6 +157,9 @@ export async function updateTechnician(id: string, updates: Partial<Technician>)
   if (updates.hireDate      !== undefined) payload.hire_date      = updates.hireDate || null;
   if (updates.status        !== undefined) payload.status         = updates.status;
   if (updates.notes         !== undefined) payload.notes          = updates.notes;
+  // Empty string means unlinked in the app; the column is nullable, so it
+  // has to go back as NULL rather than an empty uuid.
+  if (updates.userId        !== undefined) payload.user_id        = updates.userId || null;
   const { error } = await supabase.from('technicians').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }

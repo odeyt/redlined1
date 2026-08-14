@@ -39,7 +39,10 @@ CREATE TABLE IF NOT EXISTS public.alert_events (
   body         TEXT,
   -- What it is about, so the client can navigate to it.
   entity_type  TEXT,
-  entity_id    UUID,
+  -- TEXT, not UUID: job_cards.id is a human key like 'JC-1784537040284'.
+  -- Every other entity here uses a UUID, but one text id is enough to make
+  -- the column text, and storing a uuid as text costs nothing.
+  entity_id    TEXT,
   created_by   UUID,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -54,7 +57,7 @@ CREATE INDEX IF NOT EXISTS alert_events_user_idx
 -- One helper so every trigger below records rows the same shape.
 CREATE OR REPLACE FUNCTION public.emit_alert_event(
   p_shop_id UUID, p_event_type TEXT, p_target_role TEXT,
-  p_title TEXT, p_body TEXT, p_entity_type TEXT, p_entity_id UUID
+  p_title TEXT, p_body TEXT, p_entity_type TEXT, p_entity_id TEXT
 )
 RETURNS void
 LANGUAGE sql
@@ -67,7 +70,7 @@ AS $fn$
     (p_shop_id, p_event_type, p_target_role, p_title, p_body, p_entity_type, p_entity_id, auth.uid());
 $fn$;
 
-REVOKE EXECUTE ON FUNCTION public.emit_alert_event(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, UUID) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.emit_alert_event(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
 
 -- ── 1. Work waiting for QA sign-off ─────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.alert_ro_pending_approval()
@@ -78,7 +81,7 @@ BEGIN
       NEW.shop_id, 'ro.pending_approval', NULL,
       COALESCE(NEW.ro_number, 'A repair order') || ' is ready for QA sign-off',
       COALESCE(NEW.customer_name, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'repair_order', NEW.id);
+      'repair_order', NEW.id::text);
   END IF;
   RETURN NEW;
 END $fn$;
@@ -97,7 +100,7 @@ BEGIN
       NEW.shop_id, 'inspection.completed', NULL,
       'Inspection ' || COALESCE(NEW.inspection_number, '') || ' completed',
       COALESCE(NEW.customer_name, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'inspection', NEW.id);
+      'inspection', NEW.id::text);
   END IF;
   RETURN NEW;
 END $fn$;
@@ -116,7 +119,7 @@ BEGIN
       NEW.shop_id, 'estimate.approved', NULL,
       'Estimate ' || COALESCE(NEW.estimate_number, '') || ' approved',
       COALESCE(NEW.customer_name, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'estimate', NEW.id);
+      'estimate', NEW.id::text);
   END IF;
   RETURN NEW;
 END $fn$;
@@ -135,7 +138,7 @@ BEGIN
       NEW.shop_id, 'parts.received', NULL,
       COALESCE(NULLIF(NEW.part_name, ''), 'Parts') || ' received',
       COALESCE(NEW.vendor_name, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'parts_order', NEW.id);
+      'parts_order', NEW.id::text);
   END IF;
   RETURN NEW;
 END $fn$;
@@ -156,7 +159,7 @@ BEGIN
       NEW.shop_id, 'invoice.paid', NULL,
       'Invoice ' || COALESCE(NEW.number, '') || ' paid',
       COALESCE(NEW.customer, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'invoice', NEW.id);
+      'invoice', NEW.id::text);
   END IF;
   RETURN NEW;
 END $fn$;
