@@ -1,5 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
+import type { AlertPreferences } from '@/lib/alerts/catalogue';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export type RoleKey = 'manager' | 'advisor' | 'technician';
@@ -64,6 +65,7 @@ export interface ShopSettings {
   serviceTypes: string;
   enabledPaymentMethods: string[];
   rolePermissions: RolePermissions;
+  alertPreferences: AlertPreferences;
   inspectionTemplate: Array<{ category: string; name: string }> | null;
   enableTimeTracking: boolean;
   enableJobArchive: boolean;
@@ -96,7 +98,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data, error } = await supabase
     .from('shop_settings')
     .select(
-      'company_name, tagline, logo_url, address, phone, email, website, hidden_modules, role_permissions, labor_rate, default_tax_rate, default_currency, invoice_prefix, estimate_prefix, business_type, service_types, enabled_payment_methods, inspection_template, enable_time_tracking, enable_job_archive, enable_vehicle_photos, enable_vehicle_edit, enable_technician_report, enable_job_completion_report, enable_appointment_bay, appointment_bays, enable_job_card_priority, enable_job_card_branch_route, enable_job_card_service_location, enable_job_card_approval_code, enable_job_card_sub_type, service_sub_types'
+      'company_name, tagline, logo_url, address, phone, email, website, hidden_modules, role_permissions, alert_preferences, labor_rate, default_tax_rate, default_currency, invoice_prefix, estimate_prefix, business_type, service_types, enabled_payment_methods, inspection_template, enable_time_tracking, enable_job_archive, enable_vehicle_photos, enable_vehicle_edit, enable_technician_report, enable_job_completion_report, enable_appointment_bay, appointment_bays, enable_job_card_priority, enable_job_card_branch_route, enable_job_card_service_location, enable_job_card_approval_code, enable_job_card_sub_type, service_sub_types'
     )
     .eq('shop_id', getShopId())
     .maybeSingle();
@@ -110,6 +112,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     email: data?.email ?? '',
     website: data?.website ?? '',
     hiddenModules: data?.hidden_modules ?? [],
+    alertPreferences: (data?.alert_preferences as AlertPreferences) ?? {},
     rolePermissions: data?.role_permissions && Object.keys(data.role_permissions).length > 0
       ? data.role_permissions as RolePermissions
       : DEFAULT_ROLE_PERMISSIONS,
@@ -163,6 +166,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
   if (settings.email !== undefined) update.email = settings.email;
   if (settings.website !== undefined) update.website = settings.website;
   if (settings.hiddenModules !== undefined) update.hidden_modules = settings.hiddenModules;
+  if (settings.alertPreferences !== undefined) update.alert_preferences = settings.alertPreferences;
   if (settings.laborRate !== undefined) update.labor_rate = settings.laborRate;
   if (settings.defaultTaxRate !== undefined) update.default_tax_rate = settings.defaultTaxRate;
   if (settings.defaultCurrency !== undefined) update.default_currency = settings.defaultCurrency;
