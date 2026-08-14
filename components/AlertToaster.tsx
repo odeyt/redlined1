@@ -17,12 +17,25 @@
  *      on, so a shop that has never opened the settings screen still gets
  *      alerts — which is what "on by default" has to mean in practice.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { useAppDispatch } from '@/lib/store';
 import { useNotifications } from '@/lib/useNotifications';
 import { fetchShopSettings } from '@/services/shopSettingsService';
+import { fetchAlertEvents, type AlertEvent } from '@/services/alertEventService';
 import { isAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
+
+/** Matches useNotifications: Realtime when available, poll when it is not. */
+const POLL_MS = 60_000;
+
+const EVENT_ICON: Record<string, string> = {
+  'ro.pending_approval': '⏳',
+  'inspection.completed': '🔍',
+  'estimate.approved': '👍',
+  'parts.received': '📦',
+  'invoice.paid': '💰',
+};
 
 const ALERT_ROLES_SET = new Set<AlertRole>(['owner', 'manager', 'advisor', 'technician']);
 
@@ -89,6 +102,77 @@ export function AlertToaster() {
       dispatch({ type: 'NOTIFY', message: `…and ${fresh.length - toAnnounce.length} more updates` });
     }
   }, [notifications, role, loading, prefs, dispatch, STATUS_EMOJI]);
+
+  return <AlertEventToasts role={role as AlertRole} prefs={prefs} enabled={!loading && ALERT_ROLES_SET.has(role as AlertRole)} />;
+}
+
+/**
+ * The same two rules, applied to the trigger-written alert_events feed.
+ *
+ * Kept separate from the repair-order status toasts above because they come
+ * from different tables with different histories — ro_status_events predates
+ * alerts and feeds the notifications panel as well. Merging them would mean
+ * one of the two loses behaviour it already has.
+ */
+function AlertEventToasts({ role, prefs, enabled }: {
+  role: AlertRole; prefs: AlertPreferences; enabled: boolean;
+}) {
+  const dispatch = useAppDispatch();
+  const seen = useRef<Set<string> | null>(null);
+
+  const announce = useCallback((events: AlertEvent[]) => {
+    // First batch is history: remember it, say nothing. Otherwise every page
+    // load replays a fortnight of alerts.
+    if (seen.current === null) {
+      seen.current = new Set(events.map(e => e.id));
+      return;
+    }
+    const fresh = events.filter(e => !seen.current!.has(e.id));
+    if (fresh.length === 0) return;
+    fresh.forEach(e => seen.current!.add(e.id));
+
+    const wanted = fresh.filter(e => isAlertEnabled(prefs, role, e.eventType));
+    if (wanted.length === 0) return;
+
+    const toAnnounce = wanted.slice(0, 3).reverse();
+    for (const e of toAnnounce) {
+      dispatch({
+        type: 'NOTIFY',
+        message: `${EVENT_ICON[e.eventType] ?? '🔔'} ${e.title}${e.body ? ` · ${e.body}` : ''}`,
+      });
+    }
+    if (wanted.length > toAnnounce.length) {
+      dispatch({ type: 'NOTIFY', message: `…and ${wanted.length - toAnnounce.length} more alerts` });
+    }
+  }, [dispatch, prefs, role]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let stopped = false;
+
+    const load = async () => {
+      const events = await fetchAlertEvents();
+      if (!stopped) announce(events);
+    };
+    void load();
+
+    const channel = supabase
+      .channel('alert-events')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'alert_events' }, () => { void load(); })
+      .subscribe();
+
+    const timer = setInterval(() => { void load(); }, POLL_MS);
+    // Coming back to the tab matters more than the interval.
+    const onFocus = () => { void load(); };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [enabled, announce]);
 
   return null;
 }

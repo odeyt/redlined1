@@ -48,7 +48,7 @@ export const ALERT_EVENTS: readonly AlertEvent[] = [
     label: 'Work waiting for QA sign-off',
     detail: 'A repair order is finished and needs approving before it can be billed.',
     roles: ['owner', 'manager', 'advisor'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'job.assigned',
@@ -69,28 +69,28 @@ export const ALERT_EVENTS: readonly AlertEvent[] = [
     label: 'An inspection is completed',
     detail: 'A technician finishes a DVI, so the findings can go to the customer.',
     roles: ['owner', 'manager', 'advisor'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'estimate.approved',
     label: 'A customer approves an estimate',
     detail: 'Approved work can be scheduled and ordered.',
     roles: ['owner', 'manager', 'advisor'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'parts.received',
     label: 'Parts arrive',
     detail: 'An order is marked received, so the job it was blocking can continue.',
     roles: ['owner', 'manager', 'advisor', 'technician'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'invoice.paid',
     label: 'An invoice is paid',
     detail: 'Payment is recorded against an invoice.',
     roles: ['owner', 'manager'],
-    source: 'planned',
+    source: 'live',
   },
 ];
 

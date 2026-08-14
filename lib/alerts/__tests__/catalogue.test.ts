@@ -40,8 +40,25 @@ describe('the catalogue itself', () => {
     // A switch for an event nothing emits looks like it works and does
     // nothing. The settings screen labels these, so the distinction has to
     // survive in the data.
-    const live = ALERT_EVENTS.filter(e => e.source === 'live');
-    expect(live.map(e => e.id)).toEqual(['ro.status_changed']);
+    const live = ALERT_EVENTS.filter(e => e.source === 'live').map(e => e.id);
+    expect(live).toEqual([
+      'ro.status_changed',
+      'ro.pending_approval',
+      'inspection.completed',
+      'estimate.approved',
+      'parts.received',
+      'invoice.paid',
+    ]);
+  });
+
+  it('still marks the technician events as not yet sending', () => {
+    // Measured 2026-08-13: 25 technicians exist as records, none has a login
+    // with the technician role, so nothing could receive these. They stay
+    // planned until technicians have accounts and technicians.user_id links
+    // them — marking them live would put two working-looking switches in
+    // settings that can never fire.
+    const planned = ALERT_EVENTS.filter(e => e.source === 'planned').map(e => e.id);
+    expect(planned).toEqual(['job.assigned', 'job.work_added']);
   });
 });
 
