@@ -1,3 +1,4 @@
+import { AuthHashRedirect } from '@/components/AuthHashRedirect';
 import { MarketingHeader } from '@/components/marketing/MarketingHeader';
 import { HeroSection } from '@/components/marketing/HeroSection';
 import { FounderOriginSection } from '@/components/marketing/FounderOriginSection';
@@ -35,6 +36,10 @@ import { colors } from '@/components/marketing/theme';
 export default function LandingPreviewPage() {
   return (
     <main style={{ background: colors.surfaceBg, fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* An invite or password reset can land here when Supabase falls back to
+          the Site URL. Forward it to /auth/callback rather than showing a
+          marketing page to someone trying to set their password. */}
+      <AuthHashRedirect />
       <a href="#main-content" className="rd1-skip-link">
         Skip to main content
       </a>
