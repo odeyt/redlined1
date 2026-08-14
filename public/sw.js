@@ -112,3 +112,58 @@ self.addEventListener('fetch', (event) => {
     ).catch(() => fetch(request))
   );
 });
+
+// ── Push ────────────────────────────────────────────────────────────────────
+//
+// Runs with the app closed, which is the entire point of this channel. Two
+// rules matter here:
+//
+//   1. Never throw. An error in a push handler means the browser shows its own
+//      generic "This site has been updated in the background" notification,
+//      which is worse than saying nothing and tells the user nothing.
+//   2. Always show something once a push is received. Browsers require a
+//      visible notification for every push on a user-visible subscription;
+//      staying silent gets the subscription revoked over time.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // Malformed or plain-text payload — fall through to the defaults below
+    // rather than dropping a notification the user is waiting for.
+  }
+
+  const title = payload.title || 'Redlined1';
+  const options = {
+    body: payload.body || '',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-192x192.png',
+    // Collapses repeats of the same subject: three updates to one repair order
+    // replace each other rather than stacking three rows deep on a phone.
+    tag: payload.tag || undefined,
+    data: { url: payload.url || '/' },
+    // A workshop is loud and gloves are on; a job alert should be felt.
+    vibrate: [80, 40, 80],
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+
+  // Focus an open tab rather than opening a second one — a technician tapping
+  // an alert wants the app they already have, in the state they left it.
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          if ('navigate' in client && target !== '/') client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
