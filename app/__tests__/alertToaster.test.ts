@@ -61,9 +61,15 @@ describe('preferences decide, and failing to read them does not mute', () => {
   });
 });
 
-describe('it is actually mounted', () => {
-  it('sits inside the shell so it runs on every screen', () => {
-    expect(shell).toMatch(/<AlertToaster \/>/);
+describe('it is currently unmounted', () => {
+  it('is not rendered in the shell', () => {
+    // Production hit the shell error boundary shortly after this shipped, and
+    // AlertToaster was the only addition rendering on every authenticated
+    // screen. Unmounted to restore service. This test is inverted on purpose:
+    // it fails the moment someone re-adds it, which should not happen until
+    // the failure has actually been reproduced and explained.
+    expect(shell).not.toMatch(/<AlertToaster \/>/);
+    expect(shell).toMatch(/intentionally NOT mounted/);
   });
 });
 

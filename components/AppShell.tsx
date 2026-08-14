@@ -2,7 +2,10 @@
 
 import { AppProvider, useAppState } from '@/lib/store';
 import { Sidebar } from './Sidebar';
-import { AlertToaster } from './AlertToaster';
+// AlertToaster is intentionally NOT mounted right now. It rendered on every
+// authenticated screen, and production hit the shell error boundary shortly
+// after it shipped. Unmounted first to restore service; the cause is still
+// being established, so do not re-add this without reproducing the failure.
 import { Header } from './Header';
 import { Toast } from './Toast';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -371,7 +374,6 @@ function Shell() {
         <Sidebar mobileOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
         <main className="main">
           <Header onMobileNavToggle={() => setMobileNavOpen(o => !o)} />
-          <AlertToaster />
           <div className="content" style={{ position: 'relative' }}>
             <Toast message={toast} />
             <ErrorBoundary>
