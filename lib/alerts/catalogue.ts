@@ -53,9 +53,9 @@ export const ALERT_EVENTS: readonly AlertEvent[] = [
   {
     id: 'job.assigned',
     label: 'A job is assigned to you',
-    detail: 'You are added to a job card as a technician.',
+    detail: 'You are added to a job card as a technician. Needs their Employees record linked to a login.',
     roles: ['technician'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'job.work_added',

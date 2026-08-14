@@ -44,6 +44,7 @@ describe('the catalogue itself', () => {
     expect(live).toEqual([
       'ro.status_changed',
       'ro.pending_approval',
+      'job.assigned',
       'inspection.completed',
       'estimate.approved',
       'parts.received',
@@ -51,14 +52,20 @@ describe('the catalogue itself', () => {
     ]);
   });
 
-  it('still marks the technician events as not yet sending', () => {
-    // Measured 2026-08-13: 25 technicians exist as records, none has a login
-    // with the technician role, so nothing could receive these. They stay
-    // planned until technicians have accounts and technicians.user_id links
-    // them — marking them live would put two working-looking switches in
-    // settings that can never fire.
+  it('marks the one event still without an emitter', () => {
+    // job.work_added has no trigger: "work added" needs a definition first —
+    // a line, a part, a note, a photo? Guessing would produce either silence
+    // or a stream of alerts for typing.
     const planned = ALERT_EVENTS.filter(e => e.source === 'planned').map(e => e.id);
-    expect(planned).toEqual(['job.assigned', 'job.work_added']);
+    expect(planned).toEqual(['job.work_added']);
+  });
+
+  it('warns in the detail text where an alert needs setup to arrive', () => {
+    // job.assigned has a trigger, but it only fires for a technician whose
+    // Employees record is linked to a login. Live-but-inert is worse than
+    // absent unless the settings screen says why.
+    const assigned = ALERT_EVENTS.find(e => e.id === 'job.assigned');
+    expect(assigned?.detail).toMatch(/linked to a login/);
   });
 });
 
