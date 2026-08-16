@@ -33,22 +33,25 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS
 DECLARE
   who       TEXT;
   target    UUID;
-  changed   TEXT[] := '{}';
+  -- ARRAY[...] on every append, not a bare string literal. `changed || 'notes'`
+  -- resolves to array || array, so Postgres parses the string as an array
+  -- literal and raises 22P02 at RUNTIME — the function still compiles clean.
+  changed   TEXT[] := ARRAY[]::TEXT[];
   summary   TEXT;
 BEGIN
   -- What changed, in the recipient's language rather than column names.
   IF NEW.service_type IS DISTINCT FROM OLD.service_type THEN
-    changed := changed || 'service';
+    changed := changed || ARRAY['service'];
   END IF;
   IF COALESCE(NEW.notes, '') IS DISTINCT FROM COALESCE(OLD.notes, '')
      AND COALESCE(NEW.notes, '') <> '' THEN
-    changed := changed || 'notes';
+    changed := changed || ARRAY['notes'];
   END IF;
   IF COALESCE(NEW.labor_hours, 0) IS DISTINCT FROM COALESCE(OLD.labor_hours, 0) THEN
-    changed := changed || 'labour hours';
+    changed := changed || ARRAY['labour hours'];
   END IF;
   IF COALESCE(NEW.parts_total, 0) IS DISTINCT FROM COALESCE(OLD.parts_total, 0) THEN
-    changed := changed || 'parts';
+    changed := changed || ARRAY['parts'];
   END IF;
 
   IF array_length(changed, 1) IS NULL THEN
@@ -84,9 +87,9 @@ BEGIN
         (shop_id, event_type, target_user_id, title, body, entity_type, entity_id, created_by)
       VALUES
         (NEW.shop_id, 'job.work_added', target,
-         COALESCE(NEW.id::text, 'A job') || ' updated — ' || summary,
+         NEW.id || ' updated — ' || summary,
          COALESCE(NEW.customer, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-         'job_card', NEW.id::text, auth.uid());
+         'job_card', NEW.id, auth.uid());
     END IF;
   END LOOP;
 
@@ -101,6 +104,21 @@ CREATE TRIGGER job_cards_alert_work_added
 COMMIT;
 
 -- ── Verification ────────────────────────────────────────────────────────────
+--
+-- FIRST, before attaching anything to a live table: prove the function body
+-- runs. PL/pgSQL does not type-check a body at CREATE time, so "Success. No
+-- rows returned" means it parsed, not that it works — the first version of
+-- this trigger passed that and then raised 22P02 on every job card edit.
+-- DDL is transactional, so this proves it and leaves nothing behind:
+--
+--   BEGIN;
+--   CREATE TRIGGER job_cards_alert_work_added
+--     AFTER UPDATE ON public.job_cards
+--     FOR EACH ROW EXECUTE FUNCTION public.alert_job_work_added();
+--   UPDATE public.job_cards SET notes = 'trigger test' WHERE id = '<a card>';
+--   SELECT event_type, title, target_user_id FROM public.alert_events
+--     WHERE event_type = 'job.work_added';
+--   ROLLBACK;
 --
 -- Both job_cards triggers attached:
 --   SELECT tgname FROM pg_trigger
