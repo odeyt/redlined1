@@ -58,6 +58,8 @@ import { canAccess, needsWatermark } from '@/lib/planGate';
 import { isModuleAvailable } from '@/lib/moduleAvailability';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import type { RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { parseAlertParam } from '@/lib/alerts/alertLink';
+import { setAlertFocus } from '@/lib/alerts/alertFocus';
 
 const views: Record<string, React.ComponentType> = {
   dashboard: DashboardView,
@@ -121,6 +123,7 @@ function Shell() {
   const enforcePlanLock = process.env.NEXT_PUBLIC_ENFORCE_PLAN_LOCK === 'true';
   const checkoutFired = useRef(false);
   const defaulted = useRef(false);
+  const alertHandled = useRef(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rolePermissions, setRolePermissions] = useState<RolePermissions | null>(null);
   const [permLoaded, setPermLoaded] = useState(false);
@@ -131,6 +134,34 @@ function Shell() {
       .catch(() => {})
       .finally(() => setPermLoaded(true));
   }, []);
+
+  /**
+   * A notification tapped from the lock screen opens the record it was about.
+   *
+   * Runs before the Command Center default below and claims `defaulted` so
+   * that effect cannot immediately navigate away from the record an owner just
+   * tapped through to.
+   *
+   * The parameter is stripped from the URL afterwards, so a reload — or the
+   * PWA being resumed hours later — does not silently yank someone back to an
+   * old alert.
+   */
+  useEffect(() => {
+    if (alertHandled.current) return;
+    const target = parseAlertParam(new URLSearchParams(window.location.search).get('alert'));
+    if (!target) return;
+    alertHandled.current = true;
+    defaulted.current = true;
+
+    dispatch({ type: 'SET_MODULE', module: target.module });
+    // The module mounts and loads its own records, so it cannot be told to
+    // open one synchronously. It picks this up when its list arrives.
+    setAlertFocus(target);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('alert');
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+  }, [dispatch]);
 
   // Owners and managers land on Command Center instead of Dashboard
   useEffect(() => {

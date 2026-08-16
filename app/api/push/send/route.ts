@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { isAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
+import { alertPath } from '@/lib/alerts/alertLink';
 
 interface AlertRow {
   id: string;
@@ -126,7 +127,9 @@ export async function POST(req: NextRequest) {
     body: row.body ?? '',
     // Same subject collapses rather than stacking on the lock screen.
     tag: `${row.entity_type ?? 'alert'}:${row.entity_id ?? row.id}`,
-    url: '/',
+    // Opens the record the alert is about. Falls back to '/' for an entity
+    // type with no screen behind it, which is the old behaviour.
+    url: alertPath(row.entity_type, row.entity_id),
   });
 
   let sent = 0;

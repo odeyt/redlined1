@@ -20,6 +20,7 @@ import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { errorMessage } from '@/lib/errorMessage';
+import { consumeAlertFocus } from '@/lib/alerts/alertFocus';
 import type { Vehicle, Customer } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
@@ -589,6 +590,24 @@ export function JobCardsView() {
       notify(`${job.id} updated.`);
     } catch (err: unknown) { setError('Save failed: ' + (err instanceof Error ? err.message : '')); }
   }
+
+  /**
+   * A tapped job alert opens that card's drawer.
+   *
+   * Runs when the list arrives rather than on mount, because the target has to
+   * be found in it. Looks in the closed archive too: a job can be closed
+   * between the alert going out and somebody picking up their phone, and
+   * landing on a list with no explanation is exactly the dead end this is
+   * meant to remove.
+   */
+  useEffect(() => {
+    if (jobs.length === 0 && closedJobs.length === 0) return;
+    const id = consumeAlertFocus('job_card');
+    if (!id) return;
+    const job = jobs.find(j => j.id === id) ?? closedJobs.find(j => j.id === id);
+    if (job) setSelectedJob(job);
+    else setError(`${id} is not in this location's job cards. It may belong to your other shop.`);
+  }, [jobs, closedJobs]);
 
   // Opening a different card must not carry the previous card's draft into it.
   // Keyed on the id rather than the object so a refresh of the same job does
