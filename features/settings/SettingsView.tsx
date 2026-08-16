@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
+import { PushToggle } from '@/components/PushToggle';
 import { ALERT_ROLES, eventsForRole, isAlertEnabled, setAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
 import { navItems } from '@/lib/mock-data';
 import { StorageImage } from '@/components/StorageImage';
@@ -783,6 +784,12 @@ export function SettingsView() {
       </Panel>
 
       <Panel title="Alerts" hint="Choose what each role is told about. Everything is on unless you switch it off.">
+        <div style={{ marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--line)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+            Notifications on this device
+          </div>
+          <PushToggle />
+        </div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
           {ALERT_ROLES.map(r => {
             const labels: Record<AlertRole, string> = {
