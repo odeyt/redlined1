@@ -1,92 +1,41 @@
-﻿import { supabase } from '@/lib/supabase';
-import { getShopId, getShopIds } from '@/lib/shopStore';
+/**
+ * Compatibility wrapper. The payment logic now lives in lib/domain/payments.ts.
+ *
+ * Signatures are unchanged, so no view was touched. Two of them —
+ * updatePayment and deletePayment — are destructive edits of financial records
+ * with no ledger behind them. M1 does not fix that; it routes them through one
+ * place and makes them produce an audit row. They are scheduled for removal in
+ * M2, which replaces them with adjustment and reversal entries.
+ *
+ * Callers of the two legacy functions are listed in
+ * docs/domain-service-architecture.md so the M2 removal has a known blast
+ * radius.
+ */
+import { browserDeps } from '@/lib/domain/browserAdapter';
+import { createPaymentDomain, type DomainPayment } from '@/lib/domain/payments';
 
-export interface Payment {
-  id: string;
-  invoiceNumber: string;
-  customerName: string;
-  customerId: string;
-  amount: number;
-  method: string;
-  methodDetail: string;
-  status: string;
-  notes: string;
-  currency: string;
-  referenceNumber: string;
-  paymentDate: string;
-  createdAt: string;
-}
+export type Payment = DomainPayment;
 
-function mapRow(r: Record<string, unknown>): Payment {
-  return {
-    id: r.id as string,
-    invoiceNumber: (r.invoice_number as string) || '',
-    customerName: (r.customer_name as string) || '',
-    customerId: (r.customer_id as string) || '',
-    amount: Number(r.amount ?? 0),
-    method: (r.method as string) || 'Cash',
-    methodDetail: (r.method_detail as string) || '',
-    status: (r.status as string) || 'Recorded',
-    notes: (r.notes as string) || '',
-    currency: (r.currency as string) || 'USD',
-    referenceNumber: (r.reference_number as string) || '',
-    paymentDate: (r.payment_date as string) || '',
-    createdAt: (r.created_at as string) || '',
-  };
+async function domain() {
+  return createPaymentDomain(await browserDeps());
 }
 
 export async function fetchPayments(): Promise<Payment[]> {
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .in('shop_id', getShopIds())
-    .order('payment_date', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapRow);
+  return (await domain()).list();
 }
 
 export async function createPayment(p: Omit<Payment, 'id' | 'createdAt'>): Promise<Payment> {
-  const { data, error } = await supabase
-    .from('payments')
-    .insert({
-      shop_id: getShopId(),
-      invoice_number: p.invoiceNumber || null,
-      customer_name: p.customerName,
-      customer_id: p.customerId || null,
-      amount: p.amount,
-      method: p.method,
-      method_detail: p.methodDetail,
-      status: p.status,
-      notes: p.notes,
-      currency: p.currency,
-      reference_number: p.referenceNumber,
-      payment_date: p.paymentDate || new Date().toISOString(),
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return mapRow(data);
+  return (await domain()).create(p);
 }
 
+/** LEGACY — destructive edit of a financial record. Replaced in M2. */
 export async function updatePayment(id: string, updates: Partial<Payment>): Promise<void> {
-  const payload: Record<string, unknown> = {};
-  if (updates.invoiceNumber !== undefined) payload.invoice_number = updates.invoiceNumber || null;
-  if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
-  if (updates.amount !== undefined) payload.amount = updates.amount;
-  if (updates.method !== undefined) payload.method = updates.method;
-  if (updates.methodDetail !== undefined) payload.method_detail = updates.methodDetail;
-  if (updates.status !== undefined) payload.status = updates.status;
-  if (updates.notes !== undefined) payload.notes = updates.notes;
-  if (updates.currency !== undefined) payload.currency = updates.currency;
-  if (updates.referenceNumber !== undefined) payload.reference_number = updates.referenceNumber;
-  if (updates.paymentDate !== undefined) payload.payment_date = updates.paymentDate;
-  const { error } = await supabase.from('payments').update(payload).eq('id', id).in('shop_id', getShopIds());
-  if (error) throw error;
+  return (await domain()).updateLegacy(id, updates);
 }
 
+/** LEGACY — hard delete of a financial record. Replaced in M2. */
 export async function deletePayment(id: string): Promise<void> {
-  const { error } = await supabase.from('payments').delete().eq('id', id).in('shop_id', getShopIds());
-  if (error) throw error;
+  return (await domain()).removeLegacy(id);
 }
 
 export const PAYMENT_METHODS = [

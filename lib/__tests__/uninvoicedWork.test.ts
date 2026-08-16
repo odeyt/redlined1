@@ -144,7 +144,12 @@ describe('the database refuses to bill one job twice', () => {
     join(__dirname, '..', '..', 'supabase/migrations/2026-08-11_one_invoice_per_repair_order.sql'),
     'utf8',
   );
-  const service = readFileSync(join(__dirname, '..', '..', 'services/invoiceService.ts'), 'utf8');
+  // M1 split this: the insert and its 23505 translation moved to the domain
+  // layer, the InvoiceFull type to the pure arithmetic module. Both halves are
+  // read so the guarantee is still pinned end to end.
+  const service =
+    readFileSync(join(__dirname, '..', '..', 'lib/domain/invoices.ts'), 'utf8') +
+    readFileSync(join(__dirname, '..', '..', 'lib/domain/invoiceMath.ts'), 'utf8');
 
   it('adds the column the index needs', () => {
     // invoices had no reference to a repair order at all — only job_card and

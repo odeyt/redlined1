@@ -109,7 +109,8 @@ describe('the link reaches the database', () => {
  */
 describe('an invoice records the job it bills for', () => {
   const invoices = read('features/invoices/InvoicesView.tsx');
-  const invSvc   = read('services/invoiceService.ts');
+  // The insert moved to the domain layer in M1; the service is now a wrapper.
+  const invSvc   = read('lib/domain/invoices.ts');
   const estimates = read('features/estimates/EstimatesView.tsx');
 
   it('the direct Job Card → Invoice hand-off passes the job card id', () => {
