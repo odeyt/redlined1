@@ -45,6 +45,7 @@ describe('the catalogue itself', () => {
       'ro.status_changed',
       'ro.pending_approval',
       'job.assigned',
+      'job.work_added',
       'inspection.completed',
       'estimate.approved',
       'parts.received',
@@ -52,12 +53,12 @@ describe('the catalogue itself', () => {
     ]);
   });
 
-  it('marks the one event still without an emitter', () => {
-    // job.work_added has no trigger: "work added" needs a definition first —
-    // a line, a part, a note, a photo? Guessing would produce either silence
-    // or a stream of alerts for typing.
+  it('has an emitter for every event in the catalogue', () => {
+    // Every alert now has a trigger behind it. Anything added later starts as
+    // 'planned' until it does, so settings never shows a switch that does
+    // nothing.
     const planned = ALERT_EVENTS.filter(e => e.source === 'planned').map(e => e.id);
-    expect(planned).toEqual(['job.work_added']);
+    expect(planned).toEqual([]);
   });
 
   it('warns in the detail text where an alert needs setup to arrive', () => {

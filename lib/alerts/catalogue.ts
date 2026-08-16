@@ -60,9 +60,9 @@ export const ALERT_EVENTS: readonly AlertEvent[] = [
   {
     id: 'job.work_added',
     label: 'Work added to your job',
-    detail: 'Lines, parts or instructions are added to a job you are on.',
+    detail: 'The service, notes, hours or parts change on a job you are already on. Not sent for your own edits.',
     roles: ['technician'],
-    source: 'planned',
+    source: 'live',
   },
   {
     id: 'inspection.completed',
