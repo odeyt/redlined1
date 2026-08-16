@@ -159,7 +159,11 @@ BEGIN
       NEW.shop_id, 'invoice.paid', NULL,
       'Invoice ' || COALESCE(NEW.number, '') || ' paid',
       COALESCE(NEW.customer, '') || CASE WHEN NEW.vehicle IS NULL THEN '' ELSE ' · ' || NEW.vehicle END,
-      'invoice', NEW.id::text);
+      -- NEW.number, not NEW.id: invoices is the one table here keyed on
+      -- number, and there is no id column at all. Using NEW.id aborted every
+      -- attempt to mark an invoice Paid with 42703 'record NEW has no field
+      -- id' — the trigger broke the payment it was meant to announce.
+      'invoice', NEW.number);
   END IF;
   RETURN NEW;
 END $fn$;
