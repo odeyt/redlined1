@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
 import { useAppDispatch, useAppState } from '@/lib/store';
@@ -358,6 +359,9 @@ export function RepairOrdersView() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<RepairOrder | null>(null);
+  // ro.status_changed / ro.pending_approval open the repair order itself.
+  useAlertFocus('repair_order', orders, o => o.id, setSelected,
+    id => setError(`Repair order ${id} is not in this location's list.`));
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [allVehicles, setAllVehicles] = useState<{ id: string; customerId: string; label: string }[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);

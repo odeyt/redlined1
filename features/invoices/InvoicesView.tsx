@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
 import { signStoredUrlClient } from '@/lib/storage/signClient';
@@ -97,6 +98,10 @@ export function InvoicesView() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<InvoiceFull | null>(null);
+  // invoice.paid carries the invoice NUMBER, which is this table's key — there
+  // is no id column, and InvoiceFull.id is the number mapped through.
+  useAlertFocus('invoice', invoices, inv => inv.invoiceNumber, setSelected,
+    id => setError(`Invoice ${id} is not in this location's list.`));
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [custVehicles, setCustVehicles] = useState<{ id: string; label: string }[]>([]);
   const [filterStatus, setFilterStatus] = useState('All');

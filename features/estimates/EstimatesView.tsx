@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
@@ -128,6 +129,9 @@ export function EstimatesView() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<EstimateFull | null>(null);
+  // estimate.approved opens the estimate so the work can be scheduled.
+  useAlertFocus('estimate', estimates, e => e.id, setSelected,
+    id => setError(`Estimate ${id} is not in this location's list.`));
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [custQuery, setCustQuery] = useState('');

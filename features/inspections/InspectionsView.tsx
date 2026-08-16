@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { GuidedInspection } from './GuidedInspection';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { useAppDispatch, useAppState } from '@/lib/store';
@@ -218,6 +219,9 @@ export function InspectionsView() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [selected, setSelected] = useState<Inspection | null>(null);
+  // inspection.completed opens the DVI so the findings can go to the customer.
+  useAlertFocus('inspection', inspections, i => i.id, setSelected,
+    id => setError(`Inspection ${id} is not in this location's list.`));
   const [showForm, setShowForm] = useState(false);
   const [guidedOpen, setGuidedOpen] = useState(false);
   const [saving, setSaving] = useState(false);

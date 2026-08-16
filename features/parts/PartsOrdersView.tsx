@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { useShop } from '@/lib/useShop';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { useAppDispatch } from '@/lib/store';
@@ -182,6 +183,9 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
   /* detail drawer */
   const [selected, setSelected] = useState<PartsOrder | null>(null);
+  // parts.received opens the order, so the job it was blocking can continue.
+  useAlertFocus('parts_order', orders, o => o.id, setSelected,
+    id => setError(`Parts order ${id} is not in this location's list.`));
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   /* images */
