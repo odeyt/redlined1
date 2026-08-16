@@ -23,13 +23,25 @@ export async function proxy(request: NextRequest) {
   // Route handlers only. Pages still redirect, which is right for a browser.
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/');
 
+  // A note on the public list below: /api/push/send sits there beside
+  // /api/billing/webhook for the same reason. Both are called by a machine —
+  // Supabase's database webhook and the payment provider — so there is no
+  // session to check and this proxy would reject them before the handler ran.
+  // Observed exactly that: the webhook fired, and net._http_response recorded
+  // 401 "Your session has expired", which is this file's message, not the
+  // route's.
+  //
+  // Neither endpoint is actually unauthenticated. Each verifies a shared
+  // secret itself — x-push-secret here — so being listed as public means
+  // "authenticated differently", not "open".
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   // If Supabase env vars are not yet available, redirect unauthenticated
   // users to login rather than crashing the handler.
   if (!supabaseUrl || !supabaseKey) {
-    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping'];
+    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send'];
     const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
     if (!isPublic) {
       // 503, not 401: the caller's credentials are not the problem — the server
@@ -58,7 +70,7 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping'];
+  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send'];
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 
