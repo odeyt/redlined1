@@ -32,9 +32,22 @@ interface AlertRow {
   entity_id: string | null;
 }
 
+/**
+ * The public key under either name.
+ *
+ * The browser needs it as NEXT_PUBLIC_VAPID_PUBLIC_KEY; this route originally
+ * read only VAPID_PUBLIC_KEY. Setting one and not the other produced a 503
+ * "Push is not configured" while the keys were plainly present — the value is
+ * identical and public by definition, so accepting either removes a
+ * configuration trap rather than loosening anything.
+ */
+function vapidPublicKey(): string | undefined {
+  return process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+}
+
 function configured(): boolean {
   return Boolean(
-    process.env.VAPID_PUBLIC_KEY &&
+    vapidPublicKey() &&
     process.env.VAPID_PRIVATE_KEY &&
     process.env.PUSH_WEBHOOK_SECRET,
   );
@@ -67,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   webpush.setVapidDetails(
     'mailto:support@redlined1.com',
-    process.env.VAPID_PUBLIC_KEY!,
+    vapidPublicKey()!,
     process.env.VAPID_PRIVATE_KEY!,
   );
 
