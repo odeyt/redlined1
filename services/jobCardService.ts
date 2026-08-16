@@ -158,6 +158,7 @@ export async function updateJobCard(id: string, fields: Partial<{
   location: string;
   laborHours: number;
   partsTotal: number;
+  notes: string;
 }>): Promise<void> {
   const update: Record<string, unknown> = {};
   if (fields.status !== undefined) update.status = fields.status;
@@ -173,6 +174,11 @@ export async function updateJobCard(id: string, fields: Partial<{
   if (fields.location !== undefined) update.location = fields.location;
   if (fields.laborHours !== undefined) update.labor_hours = fields.laborHours;
   if (fields.partsTotal !== undefined) update.parts_total = fields.partsTotal;
+  // notes was readable but never writable: the column was mapped on read and
+  // set on create, and omitted here. So a job's instructions could not be
+  // changed after check-in, and the job.work_added alert had nothing to fire
+  // on.
+  if (fields.notes !== undefined) update.notes = fields.notes;
   const { error } = await supabase.from('job_cards').update(update).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
 }

@@ -19,6 +19,7 @@ import {
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
+import { errorMessage } from '@/lib/errorMessage';
 import type { Vehicle, Customer } from '@/lib/types';
 import { fetchTechnicians, createTechnician, deleteTechnician, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { createMaintenanceSchedule } from '@/services/maintenanceService';
@@ -343,6 +344,11 @@ export function JobCardsView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFields, setEditFields] = useState<Partial<JobCardFull>>({});
   const [selectedJob, setSelectedJob] = useState<JobCardFull | null>(null);
+  // The drawer is where a job is read on a phone, so it is where notes have to
+  // be editable. Kept separate from editFields so opening the drawer never
+  // disturbs a half-finished inline edit.
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
 
   // Create form
   const [fCustomer, setFCustomer] = useState('');
@@ -572,7 +578,7 @@ export function JobCardsView() {
 
   function startEdit(job: JobCardFull) {
     setEditingId(job.id);
-    setEditFields({ vehicle: job.vehicle, serviceType: job.serviceType, priority: job.priority, location: job.location, laborHours: job.laborHours, partsTotal: job.partsTotal, technicians: [...job.technicians] });
+    setEditFields({ vehicle: job.vehicle, serviceType: job.serviceType, priority: job.priority, location: job.location, laborHours: job.laborHours, partsTotal: job.partsTotal, technicians: [...job.technicians], notes: job.notes ?? '' });
   }
 
   async function saveEdit(job: JobCardFull) {
@@ -582,6 +588,25 @@ export function JobCardsView() {
       setEditingId(null);
       notify(`${job.id} updated.`);
     } catch (err: unknown) { setError('Save failed: ' + (err instanceof Error ? err.message : '')); }
+  }
+
+  // Opening a different card must not carry the previous card's draft into it.
+  // Keyed on the id rather than the object so a refresh of the same job does
+  // not discard what someone is typing.
+  useEffect(() => { setNoteDraft(null); }, [selectedJob?.id]);
+
+  async function saveNote(job: JobCardFull) {
+    const next = noteDraft ?? '';
+    setSavingNote(true);
+    try {
+      await updateJobCard(job.id, { notes: next });
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, notes: next } : j));
+      setSelectedJob(j => (j && j.id === job.id ? { ...j, notes: next } : j));
+      setNoteDraft(null);
+      notify(`Notes saved on ${job.id}. Technicians on this job will be alerted.`);
+    } catch (err: unknown) {
+      setError('Notes not saved: ' + errorMessage(err));
+    } finally { setSavingNote(false); }
   }
 
   function toggleEditTech(name: string) {
@@ -1010,6 +1035,7 @@ export function JobCardsView() {
                             <option>Normal</option><option>High</option><option>Roadside</option><option>Fleet SLA</option>
                           </select>
                           <input value={editFields.serviceType ?? ''} onChange={e => setEditFields(f => ({ ...f, serviceType: e.target.value }))} style={{ width: '100%', fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line)' }} placeholder="Service type" />
+                          <textarea value={editFields.notes ?? ''} onChange={e => setEditFields(f => ({ ...f, notes: e.target.value }))} rows={2} style={{ width: '100%', fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line)', marginTop: 4, resize: 'vertical', fontFamily: 'inherit' }} placeholder="Notes for the technician" />
                         </td>
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1157,6 +1183,23 @@ export function JobCardsView() {
             <div>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>TECHNICIANS</div>
               <TechPills value={selectedJob.technicians.join(', ')} gap={6} />
+            </div>
+
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>NOTES</div>
+              <textarea
+                value={noteDraft ?? selectedJob.notes ?? ''}
+                onChange={e => setNoteDraft(e.target.value)}
+                rows={4}
+                placeholder="Instructions for the technicians on this job"
+                style={{ width: '100%', fontSize: 13, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'inherit', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              {noteDraft !== null && noteDraft !== (selectedJob.notes ?? '') && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <button className="mini-btn primary" disabled={savingNote} onClick={() => saveNote(selectedJob)}>{savingNote ? 'Saving…' : 'Save notes'}</button>
+                  <button className="mini-btn" disabled={savingNote} onClick={() => setNoteDraft(null)}>Cancel</button>
+                </div>
+              )}
             </div>
 
             <div>
