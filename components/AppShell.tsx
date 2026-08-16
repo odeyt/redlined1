@@ -8,6 +8,7 @@ import { Sidebar } from './Sidebar';
 // staging.redlined1.com before returning here. Anything added to this
 // component carries the same blast radius; see AlertToaster's own note.
 import { AlertToaster } from './AlertToaster';
+import { PushPrompt } from './PushPrompt';
 import { Header } from './Header';
 import { Toast } from './Toast';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -408,6 +409,7 @@ function Shell() {
         <main className="main">
           <Header onMobileNavToggle={() => setMobileNavOpen(o => !o)} />
           <AlertToaster />
+          <PushPrompt />
           <div className="content" style={{ position: 'relative' }}>
             <Toast message={toast} />
             <ErrorBoundary>
