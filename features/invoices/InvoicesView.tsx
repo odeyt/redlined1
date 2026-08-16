@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
 import { signStoredUrlClient } from '@/lib/storage/signClient';
+import { errorMessage } from '@/lib/errorMessage';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
 import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
@@ -655,7 +656,12 @@ export function InvoicesView() {
       setPayModal(null);
       triggerPaidCleanup(inv);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Payment failed');
+      // errorMessage rather than an instanceof Error check: Supabase throws
+      // plain objects, so every database failure fell into the generic branch
+      // and the real reason was replaced with this sentence. Reported as
+      // "PAYMENT FAILED" with nothing else, while the database had been
+      // saying something specific the whole time.
+      setError(errorMessage(e, 'Payment failed'));
       setPayModal(m => m ? { ...m, saving: false } : null);
     }
   }
