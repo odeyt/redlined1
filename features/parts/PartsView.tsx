@@ -656,9 +656,8 @@ export function PartsView() {
                   <button type="button" onClick={() => step(-1)} aria-label="Previous photo"
                     style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontSize: 24, padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>‹</button>
                 )}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={part.photos[index]}
+                <StorageImage
+                  url={part.photos[index]}
                   alt={`${part.partNumber} photo ${index + 1} of ${total}`}
                   style={{ maxWidth: '80vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 10, background: '#000' }}
                 />
@@ -1021,9 +1020,8 @@ export function PartsView() {
                                 }}
                               >
                                 {p.photos.length > 0 ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={p.photos[0]}
+                                  <StorageImage
+                                    url={p.photos[0]}
                                     alt={p.description || p.partNumber}
                                     loading="lazy"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}

@@ -13,8 +13,7 @@
  * the bucket is public. Once it is private that fallback shows a broken
  * image — which is the correct visible failure, not a silent blank.
  */
-import { useEffect, useState } from 'react';
-import { signStoredUrlClient } from '@/lib/storage/signClient';
+import { useSignedStorageUrl } from '@/lib/storage/useSignedStorageUrl';
 
 type Props = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
   /** The value as stored in the database — a public shop-assets URL. */
@@ -22,24 +21,9 @@ type Props = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
 };
 
 export function StorageImage({ url, alt = '', ...rest }: Props) {
-  // Start on the stored URL so the image can paint immediately on a cache
+  // Starts on the stored URL so the image can paint immediately on a cache
   // hit and there is never an empty src attribute.
-  const [src, setSrc] = useState<string>(url ?? '');
-
-  useEffect(() => {
-    let cancelled = false;
-    setSrc(url ?? '');
-    if (!url) return;
-
-    signStoredUrlClient(url).then(signed => {
-      // Guard the async result: a technician swiping through a gallery can
-      // unmount or change `url` before this resolves, and applying a stale
-      // signature would show the previous photo.
-      if (!cancelled && signed) setSrc(signed);
-    });
-
-    return () => { cancelled = true; };
-  }, [url]);
+  const src = useSignedStorageUrl(url);
 
   if (!url) return null;
   return <img src={src} alt={alt} {...rest} />;

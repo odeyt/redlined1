@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { StorageLink } from '@/components/StorageLink';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { useShop } from '@/lib/useShop';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
@@ -1037,8 +1038,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                           cursor: 'grab', background: 'var(--surface-soft)',
                         }}
                       >
-                        <img
-                          src={img.url} alt={img.label}
+                        <StorageImage
+                          url={img.url} alt={img.label}
                           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           onClick={() => setLightbox(img.url)}
                         />
@@ -1210,11 +1211,11 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                             onDragEnd={() => setDragOverIdx(null)}
                             style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', aspectRatio: '1', border: dragOverIdx === idx ? '2px solid #cc0000' : '1px solid var(--line)', cursor: 'grab', background: 'var(--surface-soft)' }}>
                             {isPdf ? (
-                              <a href={img.url} target="_blank" rel="noreferrer"
+                              <StorageLink url={img.url} target="_blank" rel="noreferrer"
                                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none', color: 'var(--text)' }}>
                                 <span style={{ fontSize: 32 }}>📄</span>
                                 <span style={{ fontSize: 9, marginTop: 4, fontWeight: 600, textAlign: 'center', padding: '0 4px', wordBreak: 'break-all' }}>PDF</span>
-                              </a>
+                              </StorageLink>
                             ) : (
                               <StorageImage url={img.url} alt={img.label} draggable={false}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}

@@ -12,6 +12,7 @@ const VehicleIntelligencePanel = dynamic(
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import { StorageImage } from '@/components/StorageImage';
+import { StorageLink } from '@/components/StorageLink';
 import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { useShop } from '@/lib/useShop';
@@ -1057,8 +1058,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                 >✕</button>
 
                 {/* Main image */}
-                <img
-                  src={img.url}
+                <StorageImage
+                  url={img.url}
                   alt={img.label}
                   style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 8px 48px rgba(0,0,0,0.6)' }}
                 />
@@ -1066,14 +1067,14 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                 {/* Counter + link */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{lightboxIdx + 1} / {drawerImages.length}</span>
-                  <a
-                    href={img.url}
+                  <StorageLink
+                    url={img.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
                   >
                     🔗 Open full size ↗
-                  </a>
+                  </StorageLink>
                 </div>
 
                 {/* Thumbnail strip */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { StorageImage } from '@/components/StorageImage';
 
 export interface GalleryImage {
   id: string;
@@ -306,7 +307,7 @@ export function PhotoGalleryModal({
                 }}
               >
                 {current && (
-                  <img key={current.id} src={current.url} alt={current.label}
+                  <StorageImage key={current.id} url={current.url} alt={current.label}
                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', transition: 'opacity .15s' }} />
                 )}
                 {images.length > 1 && (
@@ -360,7 +361,7 @@ export function PhotoGalleryModal({
                       transform: thumbDragOver === i && thumbDragFrom !== i ? 'scale(1.08)' : 'scale(1)',
                     }}
                   >
-                    <img src={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+                    <StorageImage url={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
                   </div>
                 ))}
               </div>
