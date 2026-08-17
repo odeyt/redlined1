@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { PushToggle } from '@/components/PushToggle';
 import { PushCoverage } from '@/components/PushCoverage';
+import { BuildMarker } from '@/components/BuildMarker';
 import { ALERT_ROLES, eventsForRole, isAlertEnabled, setAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
 import { navItems } from '@/lib/mock-data';
 import { StorageImage } from '@/components/StorageImage';
@@ -782,6 +783,10 @@ export function SettingsView() {
             : <span style={{ fontSize: 12, color: 'var(--muted)' }}>Changes apply immediately to the sidebar</span>
           }
         </div>
+      </Panel>
+
+      <Panel title="App version" hint="Which version this device is running, and whether it matches the server.">
+        <BuildMarker />
       </Panel>
 
       <Panel title="Alerts" hint="Choose what each role is told about. Everything is on unless you switch it off.">
