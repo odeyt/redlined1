@@ -11,11 +11,13 @@ import { join } from 'path';
 import { createDomainContext } from '../context';
 import { createCustomerDomain } from '../customers';
 import type { DomainDb } from '../db';
+import { DEFAULT_CAPABILITIES } from '@/lib/auth/capabilities';
 
 const ctx = createDomainContext({
   shopId: 'shop-A',
   shopIds: ['shop-A', 'shop-B'],
   actor: { type: 'user', userId: 'user-1', role: 'owner' },
+  capabilities: DEFAULT_CAPABILITIES.owner,
 });
 
 interface Recorded { table: string; op: string; filters: Record<string, unknown>; payload?: unknown }

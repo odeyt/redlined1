@@ -23,6 +23,7 @@
  */
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
+import { requireCapability } from './context';
 
 export type PaymentEntryType = 'payment' | 'reversal';
 
@@ -147,6 +148,7 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
   }
 
   async function create(input: PaymentInput): Promise<DomainPayment> {
+    requireCapability(context, 'payments.record', 'record payments');
     const { data, error } = await db
       .from('payments')
       .insert({
@@ -186,6 +188,9 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
    * later and nobody can answer.
    */
   async function reverse(paymentId: string, reason: string): Promise<DomainPayment> {
+    // Separate from payments.record on purpose: taking money is a daily task,
+    // cancelling a recorded payment rewrites the books.
+    requireCapability(context, 'payments.reverse', 'reverse payments');
     const trimmed = (reason ?? '').trim();
     if (!trimmed) throw new LedgerError('A reversal needs a reason.');
 

@@ -12,6 +12,7 @@ import { createInvoiceDomain } from '../invoices';
 import { createPaymentDomain, LedgerError, netAmount, liveEntries } from '../payments';
 import { redactSnapshot, AuditWriteError, writeAuditEvent } from '../audit';
 import type { DomainDb } from '../db';
+import { DEFAULT_CAPABILITIES } from '@/lib/auth/capabilities';
 
 interface Recorded {
   table: string;
@@ -69,6 +70,9 @@ const ctx = createDomainContext({
   shopId: 'shop-A',
   shopIds: ['shop-A', 'shop-B'],
   actor: { type: 'user', userId: 'user-1', role: 'owner' },
+  // An owner's capabilities. These suites are about tenancy and auditing, so
+  // they must not accidentally be exercising a permission denial as well.
+  capabilities: DEFAULT_CAPABILITIES.owner,
 });
 
 describe('the domain context', () => {
@@ -317,7 +321,11 @@ describe('mutations are audited', () => {
 
   it('sends the actor type through so API and AI writes are distinguishable', async () => {
     const aiCtx = createDomainContext({
-      shopId: 'shop-A', actor: { type: 'ai', userId: null, role: null },
+      shopId: 'shop-A',
+      actor: { type: 'ai', userId: null, role: null },
+      // An AI tool gets capabilities explicitly, like any other caller — which
+      // is the point: it holds a scoped list rather than the run of the place.
+      capabilities: ['customers.manage'],
     });
     const { db, rpcCalls } = fakeDb([{ id: 'C-1', name: 'A' }]);
     await createCustomerDomain({ db, context: aiCtx }).create({
@@ -411,3 +419,89 @@ interface DomainPaymentLike {
   entryType: 'payment' | 'reversal';
   reversesPaymentId: string | null;
 }
+
+describe('capabilities are enforced before anything is written', () => {
+  const advisor = createDomainContext({
+    shopId: 'shop-A',
+    actor: { type: 'user', userId: 'u', role: 'advisor' },
+    capabilities: DEFAULT_CAPABILITIES.advisor,
+  });
+
+  it('refuses an advisor recording a payment', async () => {
+    const { db, calls, rpcCalls } = fakeDb([{ id: 'P-1' }]);
+    await expect(
+      createPaymentDomain({ db, context: advisor }).create({
+        invoiceNumber: '', customerName: 'x', customerId: '', amount: 100, method: 'Cash',
+        methodDetail: '', status: 'Recorded', notes: '', currency: 'USD',
+        referenceNumber: '', paymentDate: '',
+      }),
+    ).rejects.toThrow(/do not have permission to record payments/);
+
+    // Nothing written, nothing audited. A refusal after a partial write would
+    // be worse than no check at all.
+    expect(calls.some(c => c.op === 'insert')).toBe(false);
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it('refuses an advisor raising an invoice', async () => {
+    const { db, calls } = fakeDb();
+    await expect(
+      createInvoiceDomain({ db, context: advisor }).create({
+        invoiceNumber: 'INV-1', customerName: '', customerId: '', vehicle: '', jobCardId: '',
+        status: 'Draft', lines: [], discount: 0, shopSupplies: 0, taxRate: 0, notes: '',
+        dueDate: '', paidDate: null, currency: 'USD',
+      }),
+    ).rejects.toThrow(/do not have permission to raise invoices/);
+    expect(calls.some(c => c.op === 'insert')).toBe(false);
+  });
+
+  it('still lets an advisor do their own job', async () => {
+    // The check must not be a blanket lockout: an advisor's actual work —
+    // customers, estimates, job cards — has to keep working.
+    const { db } = fakeDb([{ id: 'C-1', name: 'A' }]);
+    await expect(
+      createCustomerDomain({ db, context: advisor }).create({
+        name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it('separates reversing a payment from recording one', async () => {
+    // A shop can let somebody take money without letting them cancel it.
+    const recorder = createDomainContext({
+      shopId: 'shop-A',
+      actor: { type: 'user', userId: 'u', role: 'owner' },
+      capabilities: ['payments.record'],
+    });
+    const { db } = fakeDb([{ id: 'P-1', amount: 500 }]);
+    await expect(
+      createPaymentDomain({ db, context: recorder }).reverse('P-1', 'oops'),
+    ).rejects.toThrow(/do not have permission to reverse payments/);
+  });
+
+  it('refuses a context built without capabilities at all', async () => {
+    // The safe default. A caller that forgot to resolve permissions gets
+    // nothing rather than everything.
+    const bare = createDomainContext({
+      shopId: 'shop-A', actor: { type: 'api', userId: null, role: null },
+    });
+    const { db } = fakeDb();
+    await expect(
+      createCustomerDomain({ db, context: bare }).create({
+        name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+      }),
+    ).rejects.toThrow(/do not have permission/);
+  });
+
+  it('gives a system context the run of the place, deliberately', async () => {
+    // Back-fills and scheduled jobs have no role to resolve and must not do
+    // half their work. The gate is that createSystemContext is unreachable
+    // from a request.
+    const { db } = fakeDb([{ id: 'C-1', name: 'A' }]);
+    await expect(
+      createCustomerDomain({ db, context: createSystemContext('shop-A') }).create({
+        name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+      }),
+    ).resolves.toBeTruthy();
+  });
+});

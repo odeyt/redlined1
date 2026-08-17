@@ -282,3 +282,72 @@ The Redline Intelligence Bus (`lib/intelligence-bus/`) was reviewed and left
 untouched. Its event envelope already carries `organization_id`, which is
 consistent with the tier introduced here. Activation belongs to the event
 milestone.
+
+---
+
+## Capabilities (M4)
+
+**What a role may DO, as distinct from what it may SEE.**
+
+`shop_settings.role_permissions` is a per-shop allowlist of module *names*,
+evaluated in the browser. It can hide the Payments screen from managers. It
+cannot express "may read their own pay but not anyone else's", because a module
+name has no notion of a row, a verb or a subject — and that becomes
+load-bearing the moment an employees table has a pay rate on it.
+
+`lib/auth/capabilities.ts` is the vocabulary. `DomainContext.capabilities` is
+the resolved list. `requireCapability(context, id, phrase)` is the check.
+
+```text
+shop_users.role  +  shop_settings.capability_overrides
+                    │
+            capabilitiesFor()          ← one implementation, both sides
+                    │
+        DomainContext.capabilities
+                    │
+     requireCapability(ctx, 'payments.reverse', 'reverse payments')
+```
+
+### Nobody's access changed
+
+The default grants were derived from the existing blocked-module lists in
+`lib/useShop.ts`, and `capabilities.test.ts` re-derives them from those lists
+rather than restating them — so the two cannot drift without a failure. This
+shipped as a new vocabulary for the same access.
+
+### Rules
+
+- **Read is separate from write**, everywhere.
+- **`payments.record` is separate from `payments.reverse`.** Taking money is a
+  daily task; cancelling a recorded payment rewrites the books.
+- **Deny beats grant**, and beats the default.
+- **A `planned` capability grants nothing**, whatever the stored settings say.
+  Same lesson as the alerts catalogue: a switch for something nothing enforces
+  looks like it works and does nothing. HR and money capabilities are declared
+  so the milestones have a target, and they are inert.
+- **An empty capability list means no permissions.** A caller that forgot to
+  resolve them gets nothing rather than everything.
+- **`createSystemContext` is unrestricted** — a back-fill has no role and must
+  not do half its work. Its gate is that it is unreachable from a request.
+
+### Both sides, and the duplication that costs
+
+`public.has_capability(shop_id, capability)` answers the same question inside
+Postgres, so RLS policies can use it — `audit_events` is the first, replacing a
+hardcoded `role IN ('owner','manager')`.
+
+The role defaults are therefore written twice: once in TypeScript, once in
+PL/pgSQL. That is real duplication. The alternative was routing every policy
+through the application, which would make RLS decorative. The test
+`the database agrees with the application` parses the SQL function and fails if
+the two lists ever disagree.
+
+### Still module-based
+
+Navigation is unchanged — `role_permissions` and `getBlockedModules` still
+decide which screens appear. Capabilities decide what actions succeed. Merging
+them is a later milestone; doing both at once would change what people see and
+what they may do in one release, with no way to tell which broke.
+
+**There is no editor yet.** `capability_overrides` resolves correctly and is
+`{}` everywhere; a per-shop UI is deferred.

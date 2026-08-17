@@ -23,6 +23,12 @@
  * webhook retry and an AI agent, and after the fact that distinction is the
  * only thing that explains the change.
  */
+import { CAPABILITIES } from '@/lib/auth/capabilities';
+
+/** Every enforced capability. Only for contexts with no human behind them. */
+const SYSTEM_CAPABILITIES: readonly string[] =
+  CAPABILITIES.filter(c => c.status === 'enforced').map(c => c.id);
+
 export type ActorType = 'user' | 'system' | 'api' | 'mcp' | 'ai' | 'webhook';
 
 export const ACTOR_TYPES: readonly ActorType[] = ['user', 'system', 'api', 'mcp', 'ai', 'webhook'];
@@ -51,6 +57,15 @@ export interface DomainContext {
    */
   shopIds: string[];
   actor: DomainActor;
+  /**
+   * What this actor may do, already resolved from their role and the shop's
+   * own overrides. A list rather than a role, so that no caller is tempted to
+   * re-derive permissions slightly differently from everybody else.
+   *
+   * Empty means no capabilities — the safe default for a context built without
+   * them, since any operation that checks will refuse.
+   */
+  capabilities: readonly string[];
   /** Correlates several writes made by one request. Optional. */
   requestId?: string;
 }
@@ -67,6 +82,7 @@ export interface DomainContextInput {
   shopId: string;
   shopIds?: string[];
   actor: DomainActor;
+  capabilities?: readonly string[];
   requestId?: string;
 }
 
@@ -99,6 +115,7 @@ export function createDomainContext(input: DomainContextInput): DomainContext {
     shopId,
     shopIds,
     actor: { ...input.actor },
+    capabilities: [...(input.capabilities ?? [])],
     requestId: input.requestId,
   };
 }
@@ -113,5 +130,41 @@ export function createSystemContext(shopId: string, organizationId: string | nul
     organizationId,
     shopId,
     actor: { type: 'system', userId: null, role: null },
+    // Unrestricted, because a back-fill or scheduled job has no role to
+    // resolve and must not silently do half its work. The gate on this
+    // context is that it can only be built by server-side code that has
+    // already decided the work is authorized — createSystemContext is never
+    // reachable from a request.
+    capabilities: SYSTEM_CAPABILITIES,
   });
+}
+
+/** Whether this context may do something. */
+export function can(context: DomainContext, capability: string): boolean {
+  return context.capabilities.includes(capability);
+}
+
+export class NotPermittedError extends Error {
+  readonly capability: string;
+  constructor(capability: string, what: string) {
+    super(`You do not have permission to ${what}.`);
+    this.name = 'NotPermittedError';
+    this.capability = capability;
+  }
+}
+
+/**
+ * Refuses unless the context has the capability.
+ *
+ * Domain-level authorization, which is a SECOND line rather than the only one:
+ * RLS still decides what the database will hand over. The value of checking
+ * here is that the refusal happens before a partial write, and arrives as a
+ * sentence rather than a Postgres error — a caller denied by RLS alone finds
+ * out by getting zero rows, which is indistinguishable from "there is nothing
+ * there".
+ *
+ * `what` is the human phrase completing "You do not have permission to …".
+ */
+export function requireCapability(context: DomainContext, capability: string, what: string): void {
+  if (!can(context, capability)) throw new NotPermittedError(capability, what);
 }

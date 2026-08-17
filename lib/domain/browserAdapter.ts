@@ -27,6 +27,7 @@
 import { supabase } from '@/lib/supabase';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { createDomainContext, type DomainContext } from './context';
+import { capabilitiesFor, type CapabilityOverrides } from '@/lib/auth/capabilities';
 import type { DomainDeps } from './db';
 
 /**
@@ -35,13 +36,13 @@ import type { DomainDeps } from './db';
  * value cannot widen access, since the id is only used for the audit row and
  * RLS re-derives the real user from the JWT on every query.
  */
-let cachedActor: { shopId: string; userId: string | null; role: string | null } | null = null;
+let cachedActor: { shopId: string; userId: string | null; role: string | null; capabilities: string[] } | null = null;
 
 export function resetBrowserActorCache(): void {
   cachedActor = null;
 }
 
-async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null }> {
+async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null; capabilities: string[] }> {
   // Keyed on the shop, because the role is per membership: an owner at one
   // location can be a manager at the other, and a cached role from the
   // previous shop would put the wrong one on every audit row after a switch.
@@ -50,6 +51,7 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
     const { data } = await supabase.auth.getUser();
     const userId = data.user?.id ?? null;
     let role: string | null = null;
+    let capabilities: string[] = [];
     if (userId) {
       const { data: membership } = await supabase
         .from('shop_users')
@@ -58,14 +60,28 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
         .eq('shop_id', shopId)
         .maybeSingle();
       role = (membership?.role as string) ?? null;
+      // The role comes from shop_users, never from anything the client holds.
+      // Overrides come from the shop's own settings; a failure to read them
+      // falls back to the role defaults rather than to nothing, because a
+      // settings hiccup must not lock a shop out of its own product.
+      let overrides: CapabilityOverrides | null = null;
+      try {
+        const { data: settings } = await supabase
+          .from('shop_settings')
+          .select('capability_overrides')
+          .eq('shop_id', shopId)
+          .maybeSingle();
+        overrides = (settings?.capability_overrides as CapabilityOverrides) ?? null;
+      } catch { /* role defaults are the safe fallback */ }
+      capabilities = capabilitiesFor(role, overrides);
     }
-    cachedActor = { shopId, userId, role };
+    cachedActor = { shopId, userId, role, capabilities };
     return cachedActor;
   } catch {
     // A failure to name the actor must not stop the business operation. The
     // audit row still gets written, with a null actor, and the database
     // stamps auth.uid() itself — so the row is not actually anonymous.
-    return { userId: null, role: null };
+    return { userId: null, role: null, capabilities: [] };
   }
 }
 
@@ -77,6 +93,7 @@ export async function browserDeps(): Promise<DomainDeps> {
     shopId,
     shopIds: getShopIds(),
     actor: { type: 'user', userId: actor.userId, role: actor.role },
+    capabilities: actor.capabilities,
   });
   return { db: supabase, context };
 }

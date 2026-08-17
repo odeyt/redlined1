@@ -16,6 +16,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase-server';
+import { capabilitiesFor, type CapabilityOverrides } from '@/lib/auth/capabilities';
 
 export type ShopRole = 'owner' | 'manager' | 'advisor' | 'technician';
 
@@ -118,4 +119,44 @@ export async function isLastOwner(shopId: string, userId: string): Promise<boole
   if (error) return true;
   const otherOwners = (data ?? []).filter((row) => (row as { user_id: string }).user_id !== userId);
   return otherOwners.length === 0;
+}
+
+/**
+ * Confirms the caller is a member of the shop AND holds a capability.
+ *
+ * The successor to `requireShopRole(req, shopId, ['owner','manager'])`. A role
+ * list at the call site is a permission model scattered across 101 route
+ * handlers: to answer "who can read the audit trail" you have to grep. A
+ * capability is one name, defined once, and a shop can adjust it without a
+ * deploy.
+ *
+ * Same failure shape as requireShopRole, deliberately: uniform 403s, so this
+ * cannot be used to discover which capabilities exist or which shops are real.
+ */
+export async function requireCapability(
+  req: NextRequest,
+  shopId: unknown,
+  capability: string,
+): Promise<AuthorizationResult> {
+  const membership = await requireShopRole(req, shopId);
+  if (!membership.ok) return membership;
+
+  const admin = createServerSupabase();
+  // Overrides are read server-side rather than accepted from the request. A
+  // client that could supply its own overrides could grant itself anything.
+  const { data: settings } = await admin
+    .from('shop_settings')
+    .select('capability_overrides')
+    .eq('shop_id', shopId as string)
+    .maybeSingle();
+
+  const capabilities = capabilitiesFor(
+    membership.context.role,
+    (settings?.capability_overrides as CapabilityOverrides) ?? null,
+  );
+
+  if (!capabilities.includes(capability)) {
+    return { ok: false, response: forbidden('Insufficient permission for this action') };
+  }
+  return membership;
 }

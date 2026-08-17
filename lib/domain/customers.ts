@@ -8,6 +8,7 @@
  */
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
+import { requireCapability } from './context';
 
 export interface DomainCustomer {
   id: string;
@@ -116,6 +117,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
   }
 
   async function create(input: CustomerInput): Promise<DomainCustomer> {
+    requireCapability(context, 'customers.manage', 'add customers');
     // Timestamp id, as the existing service does. Changing the scheme would
     // orphan every foreign reference that stores it as text.
     const id = `C-${Date.now()}`;
@@ -147,6 +149,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
   }
 
   async function update(id: string, input: CustomerInput): Promise<DomainCustomer> {
+    requireCapability(context, 'customers.manage', 'edit customers');
     // Read first so the audit row can say what changed. Two round trips rather
     // than one; an audit that records only the new value cannot answer the
     // question anyone actually asks, which is what it used to be.
@@ -221,6 +224,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
    * reserved for records created by mistake.
    */
   async function archive(id: string, reason: string): Promise<DomainCustomer | null> {
+    requireCapability(context, 'customers.archive', 'archive customers');
     const before = await get(id);
     if (!before) return null;
 
@@ -247,6 +251,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
   }
 
   async function unarchive(id: string): Promise<DomainCustomer | null> {
+    requireCapability(context, 'customers.archive', 'restore customers');
     const before = await get(id);
     if (!before) return null;
 
@@ -276,6 +281,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
    * created by mistake, and the error explains the alternative.
    */
   async function remove(id: string): Promise<void> {
+    requireCapability(context, 'customers.manage', 'delete customers');
     const before = await get(id);
     const { error } = await db
       .from('customers')

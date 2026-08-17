@@ -19,6 +19,7 @@
  */
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
+import { requireCapability } from './context';
 import { mapInvoiceRow } from './invoiceMath';
 import type { InvoiceFull } from './invoiceMath';
 
@@ -71,6 +72,7 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
   }
 
   async function create(inv: InvoiceInput): Promise<InvoiceFull> {
+    requireCapability(context, 'invoices.manage', 'raise invoices');
     const { data, error } = await db
       .from('invoices')
       .insert({
@@ -111,6 +113,7 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
   }
 
   async function update(invoiceNumber: string, updates: Partial<InvoiceFull>): Promise<void> {
+    requireCapability(context, 'invoices.manage', 'edit invoices');
     const before = await get(invoiceNumber);
 
     const payload: Record<string, unknown> = {};
@@ -158,6 +161,7 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
    * milestone, not a side effect of moving code.
    */
   async function markPaid(invoiceNumber: string): Promise<InvoiceFull | null> {
+    requireCapability(context, 'invoices.manage', 'mark invoices paid');
     const before = await get(invoiceNumber);
     const paidDate = new Date().toISOString();
 
@@ -179,6 +183,7 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
   }
 
   async function remove(invoiceNumber: string): Promise<void> {
+    requireCapability(context, 'invoices.manage', 'delete invoices');
     const before = await get(invoiceNumber);
     const { error } = await db
       .from('invoices')
