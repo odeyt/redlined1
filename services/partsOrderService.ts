@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { deriveRecordCurrency } from '@/lib/recordCurrency';
 
@@ -190,6 +192,13 @@ export async function createVendor(v: Omit<PartsVendor, 'id'>): Promise<PartsVen
     .insert({ shop_id: getShopId(), name: v.name, phone: v.phone, email: v.email, website: v.website, notes: v.notes })
     .select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vendorCreated,
+    entityType: 'vendor',
+    entityId: data.id as string,
+    after: { name: data.name, phone: data.phone, email: data.email, website: data.website },
+  });
   return mapVendor(data);
 }
 
@@ -201,16 +210,35 @@ export async function updateVendor(id: string, v: Omit<PartsVendor, 'id'>): Prom
     .in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vendorUpdated,
+    entityType: 'vendor',
+    entityId: id,
+    after: { name: data.name, phone: data.phone, email: data.email, website: data.website },
+  });
   return mapVendor(data);
 }
 
 export async function deleteVendor(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('parts_vendors').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase
     .from('parts_vendors')
     .delete()
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vendorDeleted,
+    entityType: 'vendor',
+    entityId: id,
+    before: before ? {
+      name: before.name, phone: before.phone, email: before.email, website: before.website,
+    } : null,
+  });
 }
 
 /* ── Parts Orders ── */
@@ -233,6 +261,18 @@ export async function createPartsOrder(o: Omit<PartsOrder, 'id' | 'createdAt'>):
     .insert({ shop_id: getShopId(), ...buildOrderPayload(o) })
     .select().single();
   if (error) throw error;
+
+  // A parts order is money committed to a supplier, so it is audited like the
+  // other money documents rather than like inventory bookkeeping.
+  await recordAudit({
+    action: AUDIT.partsOrderCreated,
+    entityType: 'parts_order',
+    entityId: data.id as string,
+    after: {
+      vendor: data.vendor_name, status: data.status, total: data.total_cost,
+      currency: data.currency, jobCardNumber: data.job_card_number,
+    },
+  });
   return mapOrder(data);
 }
 
@@ -243,10 +283,33 @@ export async function updatePartsOrder(id: string, o: Partial<Omit<PartsOrder, '
     .eq('id', id).in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partsOrderUpdated,
+    entityType: 'parts_order',
+    entityId: id,
+    after: {
+      vendor: data.vendor_name, status: data.status, total: data.total_cost,
+      currency: data.currency, jobCardNumber: data.job_card_number,
+    },
+  });
   return mapOrder(data);
 }
 
 export async function deletePartsOrder(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('parts_orders').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('parts_orders').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partsOrderDeleted,
+    entityType: 'parts_order',
+    entityId: id,
+    before: before ? {
+      vendor: before.vendor_name, status: before.status, total: before.total_cost,
+      currency: before.currency, jobCardNumber: before.job_card_number,
+    } : null,
+  });
 }

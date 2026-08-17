@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface Technician {
@@ -141,6 +143,19 @@ export async function createTechnician(
     .select()
     .single();
   if (error) throw error;
+
+  // Pay type and rate are recorded deliberately: who changed someone's pay,
+  // and when, is one of the questions an audit trail exists to answer.
+  await recordAudit({
+    action: AUDIT.technicianCreated,
+    entityType: 'technician',
+    entityId: data.id as string,
+    after: {
+      name: data.name, role: data.role, specialty: data.specialty,
+      payType: data.pay_type, payRate: data.pay_rate, status: data.status,
+      hireDate: data.hire_date,
+    },
+  });
   return mapRow(data);
 }
 
@@ -162,11 +177,32 @@ export async function updateTechnician(id: string, updates: Partial<Technician>)
   if (updates.userId        !== undefined) payload.user_id        = updates.userId || null;
   const { error } = await supabase.from('technicians').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.technicianUpdated,
+    entityType: 'technician',
+    entityId: id,
+    after: payload,
+  });
 }
 
 export async function deleteTechnician(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('technicians').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('technicians').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.technicianDeleted,
+    entityType: 'technician',
+    entityId: id,
+    before: before ? {
+      name: before.name, role: before.role, specialty: before.specialty,
+      payType: before.pay_type, payRate: before.pay_rate,
+      status: before.status, userId: before.user_id,
+    } : null,
+  });
 }
 
 export async function fetchTechPerformance(): Promise<TechPerformance[]> {

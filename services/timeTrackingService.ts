@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface TimeEntry {
@@ -72,12 +74,28 @@ export async function clockOut(id: string): Promise<TimeEntry> {
 }
 
 export async function deleteTimeEntry(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('time_entries').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase
     .from('time_entries')
     .delete()
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+
+  // Only deletion is recorded here. Clocking in and out already leaves the row
+  // itself as the record; deleting one is what removes the evidence of hours
+  // worked, and hours are what people are paid on.
+  await recordAudit({
+    action: AUDIT.timeEntryDeleted,
+    entityType: 'time_entry',
+    entityId: id,
+    before: before ? {
+      technician: before.technician_name, jobCardNumber: before.job_card_number,
+      clockIn: before.clock_in, clockOut: before.clock_out, notes: before.notes,
+    } : null,
+  });
 }
 
 export function elapsedMinutes(clockIn: string): number {

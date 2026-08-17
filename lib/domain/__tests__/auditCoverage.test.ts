@@ -27,6 +27,10 @@ const AUDITED = [
   // wiring each one is the kind of edit that gets a branch wrong. They wait
   // for the porting pass, when the retries collapse into one path.
   'appointmentService',
+  'partsService', 'partsOrderService', 'technicianService',
+  // Partial: deleting a clock record is audited, clocking in and out is not —
+  // the entry row is itself the record of those.
+  'timeTrackingService',
 ];
 
 function source(name: string): string {
@@ -81,7 +85,7 @@ describe('coverage is stated, not assumed', () => {
   it('does not shrink silently', () => {
     // If a service is wired up, this number moves and the list above is
     // updated deliberately rather than by accident.
-    expect(PORTED.length + AUDITED.length).toBe(10);
+    expect(PORTED.length + AUDITED.length).toBe(14);
   });
 });
 

@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { DEFAULT_CURRENCY } from '@/lib/currencies';
@@ -111,6 +113,17 @@ export async function createPart(p: Omit<Part, 'photos'> & { photos?: string[] }
   const row = { ...toRow({ ...p, photos: p.photos ?? [] }), shop_id: getShopId() };
   const { data, error } = await supabase.from('parts').insert(row).select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partCreated,
+    entityType: 'part',
+    entityId: data.part_number as string,
+    after: {
+      partNumber: data.part_number, brand: data.brand, description: data.description,
+      cost: data.cost, retail: data.retail, quantity: data.quantity,
+      supplier: data.supplier, currency: data.currency,
+    },
+  });
   return mapRow(data);
 }
 
@@ -159,11 +172,39 @@ export async function updatePart(partNumber: string, updates: Partial<Part>, sho
       `This usually means a database permission rule rejected the change.`,
     );
   }
+
+  // Stock movement is separated from an edit of the part itself. Quantity
+  // changes every time a part is reserved or sold, and if those were filed as
+  // generic updates they would bury the rarer, more interesting event of
+  // somebody changing a price or a supplier.
+  const keys = Object.keys(updates);
+  const stockOnly = keys.length > 0 && keys.every(k => k === 'quantity');
+
+  await recordAudit({
+    action: stockOnly ? AUDIT.partStockChanged : AUDIT.partUpdated,
+    entityType: 'part',
+    entityId: partNumber,
+    after: updates as Record<string, unknown>,
+  });
 }
 
 export async function deletePart(partNumber: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('parts').select('*').eq('part_number', partNumber).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('parts').delete().eq('part_number', partNumber).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partDeleted,
+    entityType: 'part',
+    entityId: partNumber,
+    before: before ? {
+      partNumber: before.part_number, brand: before.brand, description: before.description,
+      cost: before.cost, retail: before.retail, quantity: before.quantity,
+      supplier: before.supplier, location: before.location, currency: before.currency,
+    } : null,
+  });
 }
 
 export async function reservePart(partNumber: string, currentQty: number): Promise<number> {
