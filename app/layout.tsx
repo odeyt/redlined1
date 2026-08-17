@@ -40,6 +40,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/*
+          Which build this page was rendered from, readable without opening
+          Settings or reading a network trace.
+
+          A day went into a bug whose whole explanation was a browser running
+          months-old JavaScript, and at no point could either the operator or
+          an automated test answer "what is this page actually running?".
+          A meta tag can be read by a test, by view-source, and by anyone
+          helping over a phone call.
+        */}
+        <meta name="build" content={process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'} />
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             var t = localStorage.getItem('redlined1-theme');
