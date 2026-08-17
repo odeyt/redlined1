@@ -73,6 +73,37 @@ export async function getOrCreatePrimaryShop(
     return { shopId: (owned ?? memberships[0]).shop_id, created: false };
   }
 
+  // ── Only one caller may proceed past here ─────────────────────────────────
+  //
+  // The check above is a read, and two requests can both pass it before either
+  // writes — a textbook check-then-act race. It is not hypothetical: an E2E run
+  // produced FIVE shops for one account within a single second because several
+  // pages opened at once. A real customer who opens two tabs during signup, or
+  // reloads while the first request is in flight, takes the same path.
+  //
+  // The claim table's primary key is the user, so exactly one insert wins.
+  // Losers wait for the winner and return its shop, rather than creating their
+  // own.
+  const { data: claim, error: claimErr } = await db
+    .from('shop_provisioning_claims')
+    .insert({ user_id: userId })
+    .select('user_id')
+    .maybeSingle();
+
+  if (claimErr && claimErr.code === '23505') {
+    // Somebody else is provisioning this user. Wait for their shop rather than
+    // making a second one.
+    const shopId = await waitForProvisionedShop(userId);
+    if (shopId) return { shopId, created: false };
+    // The winner failed or is stuck. Falling through to create is the lesser
+    // evil: a duplicate shop is recoverable, an account with no shop is not.
+  } else if (claimErr) {
+    // A missing table (before the migration lands) or any other failure must
+    // not block signup. Provisioning without the guard is what happens today.
+    console.warn(`[provisioning] claim unavailable, proceeding unguarded: ${claimErr.message}`);
+  }
+  void claim;
+
   // The shops table has exactly four columns: id, name, slug, created_at.
   // This insert also sent currency, country and timezone, so PostgREST rejected
   // it with "could not find the 'country' column of 'shops' in the schema
@@ -104,7 +135,46 @@ export async function getOrCreatePrimaryShop(
   // Create owner membership
   await ensureOwnerMembership(userId, shop.id);
 
+  // Record which shop the claim produced, so a concurrent caller waiting on it
+  // has something to return. Best-effort: the membership above is what the
+  // rest of the app reads, and failing here must not undo a successful signup.
+  await db
+    .from('shop_provisioning_claims')
+    .upsert({ user_id: userId, shop_id: shop.id }, { onConflict: 'user_id' });
+
   return { shopId: shop.id, created: true };
+}
+
+/**
+ * Waits for whichever caller won the claim to finish creating the shop.
+ *
+ * Short and bounded: provisioning is three inserts, so a second is generous,
+ * and a caller that waits longer than that is worse than one that creates a
+ * duplicate — the person is sitting in front of a signup form. Returns null on
+ * timeout and lets the caller decide.
+ */
+async function waitForProvisionedShop(
+  userId: string,
+  timeoutMs = 3000,
+): Promise<string | null> {
+  const db = getAdminDb();
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    // The membership is the authoritative signal, not the claim: it is what
+    // every other part of the app reads to decide which shop somebody is in.
+    const { data: memberships } = await db
+      .from('shop_users')
+      .select('shop_id, role')
+      .eq('user_id', userId);
+
+    if (memberships && memberships.length > 0) {
+      const owned = memberships.find(m => m.role === 'owner');
+      return (owned ?? memberships[0]).shop_id as string;
+    }
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  return null;
 }
 
 /**
