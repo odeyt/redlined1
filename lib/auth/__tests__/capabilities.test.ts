@@ -3,7 +3,7 @@
  * a verb and a subject. The risk in that swap is silent re-permissioning, so
  * the first group of tests exists to prove nobody's access changed.
  */
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import {
   CAPABILITIES, DEFAULT_CAPABILITIES, SHOP_ROLES,
@@ -149,10 +149,24 @@ describe('resolving what a role may do', () => {
 });
 
 describe('the database agrees with the application', () => {
-  const SQL = readFileSync(
-    join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m4_capabilities.sql'),
-    'utf8',
-  );
+  /**
+   * The LATEST migration that redefines has_capability, not a fixed filename.
+   *
+   * A later milestone that adds a capability has to redefine the function, and
+   * pinning this to the file that first created it would quietly start
+   * comparing against a superseded definition — a guard that passes while the
+   * thing it guards has moved on.
+   */
+  const SQL = (() => {
+    const dir = join(__dirname, '..', '..', '..', 'supabase/migrations');
+    const definers = readdirSync(dir)
+      .filter(f => f.endsWith('.sql'))
+      .filter(f => readFileSync(join(dir, f), 'utf8')
+        .includes('CREATE OR REPLACE FUNCTION public.has_capability'))
+      .sort();
+    expect(definers.length).toBeGreaterThan(0);
+    return readFileSync(join(dir, definers[definers.length - 1]), 'utf8');
+  })();
 
   /** The capability list the SQL function hands a given role. */
   function sqlDefaultsFor(role: string): string[] {
@@ -180,19 +194,35 @@ describe('the database agrees with the application', () => {
     expect(SQL).toMatch(/IF v_role IS NULL THEN\s*\n\s*RETURN FALSE/);
   });
 
-  it('is revoked from PUBLIC before being granted', () => {
-    // Postgres grants EXECUTE to PUBLIC by default.
-    expect(SQL).toMatch(/REVOKE ALL ON FUNCTION public\.has_capability\(UUID, TEXT\) FROM PUBLIC/);
+  it('was revoked from PUBLIC before being granted', () => {
+    // Postgres grants EXECUTE to PUBLIC by default. This lives in the
+    // migration that CREATED the function; later ones redefine the body only,
+    // and a redefinition does not reset grants.
+    const m4 = readFileSync(
+      join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m4_capabilities.sql'),
+      'utf8',
+    );
+    expect(m4).toMatch(/REVOKE ALL ON FUNCTION public\.has_capability\(UUID, TEXT\) FROM PUBLIC/);
   });
 
-  it('replaces the hardcoded role list on audit_events with the capability', () => {
-    expect(SQL).toMatch(/DROP POLICY IF EXISTS audit_events_select_managers/);
-    expect(SQL).toMatch(/has_capability\(audit_events\.shop_id, 'audit\.read'\)/);
+  it('replaced the hardcoded role list on audit_events with the capability', () => {
+    const m4 = readFileSync(
+      join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m4_capabilities.sql'),
+      'utf8',
+    );
+    expect(m4).toMatch(/DROP POLICY IF EXISTS audit_events_select_managers/);
+    expect(m4).toMatch(/has_capability\(audit_events\.shop_id, 'audit\.read'\)/);
   });
 
-  it('says the app can ship before or after it', () => {
-    // The app reads capability_overrides inside a guard, so a missing column
-    // falls back to role defaults rather than failing.
-    expect(SQL).toMatch(/Safe in either order relative to the application/i);
+  it('could ship before or after the app that introduced it', () => {
+    // M4 specifically: the app reads capability_overrides inside a guard, so a
+    // missing column falls back to role defaults rather than failing. Later
+    // migrations state their own ordering, which is not always this one — M5
+    // adds a table the app reads, so it must run first.
+    const m4 = readFileSync(
+      join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m4_capabilities.sql'),
+      'utf8',
+    );
+    expect(m4).toMatch(/Safe in either order relative to the application/i);
   });
 });

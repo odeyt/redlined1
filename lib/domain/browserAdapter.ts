@@ -36,13 +36,13 @@ import type { DomainDeps } from './db';
  * value cannot widen access, since the id is only used for the audit row and
  * RLS re-derives the real user from the JWT on every query.
  */
-let cachedActor: { shopId: string; userId: string | null; role: string | null; capabilities: string[] } | null = null;
+let cachedActor: { shopId: string; userId: string | null; role: string | null; capabilities: string[]; organizationId: string | null } | null = null;
 
 export function resetBrowserActorCache(): void {
   cachedActor = null;
 }
 
-async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null; capabilities: string[] }> {
+async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null; capabilities: string[]; organizationId: string | null }> {
   // Keyed on the shop, because the role is per membership: an owner at one
   // location can be a manager at the other, and a cached role from the
   // previous shop would put the wrong one on every audit row after a switch.
@@ -52,6 +52,7 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
     const userId = data.user?.id ?? null;
     let role: string | null = null;
     let capabilities: string[] = [];
+    let organizationId: string | null = null;
     if (userId) {
       const { data: membership } = await supabase
         .from('shop_users')
@@ -74,14 +75,28 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
         overrides = (settings?.capability_overrides as CapabilityOverrides) ?? null;
       } catch { /* role defaults are the safe fallback */ }
       capabilities = capabilitiesFor(role, overrides);
+
+      // The organization the shop belongs to. Introduced in M1 and unread
+      // until now; employees are scoped to it, because that is what makes one
+      // record per person work across two locations. A failure to resolve it
+      // leaves it null, and the employee domain refuses with a sentence rather
+      // than silently listing half a business.
+      try {
+        const { data: shop } = await supabase
+          .from('shops')
+          .select('organization_id')
+          .eq('id', shopId)
+          .maybeSingle();
+        organizationId = (shop?.organization_id as string) ?? null;
+      } catch { /* null is the safe answer */ }
     }
-    cachedActor = { shopId, userId, role, capabilities };
+    cachedActor = { shopId, userId, role, capabilities, organizationId };
     return cachedActor;
   } catch {
     // A failure to name the actor must not stop the business operation. The
     // audit row still gets written, with a null actor, and the database
     // stamps auth.uid() itself — so the row is not actually anonymous.
-    return { userId: null, role: null, capabilities: [] };
+    return { userId: null, role: null, capabilities: [], organizationId: null };
   }
 }
 
@@ -90,6 +105,7 @@ export async function browserDeps(): Promise<DomainDeps> {
   const shopId = getShopId();
   const actor = await resolveActor(shopId);
   const context: DomainContext = createDomainContext({
+    organizationId: actor.organizationId,
     shopId,
     shopIds: getShopIds(),
     actor: { type: 'user', userId: actor.userId, role: actor.role },

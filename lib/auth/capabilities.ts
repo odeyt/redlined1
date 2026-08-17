@@ -87,8 +87,8 @@ export const CAPABILITIES: readonly Capability[] = [
 
   // Declared, not enforced. The HR milestones target these; nothing reads them
   // yet, and the settings screen must label them as such.
-  { id: 'employees.read',         label: 'See employee records',        group: 'People',   status: 'planned' },
-  { id: 'employees.manage',       label: 'Add and edit employees',      group: 'People',   status: 'planned' },
+  { id: 'employees.read',         label: 'See employee records',        group: 'People',   status: 'enforced' },
+  { id: 'employees.manage',       label: 'Add and edit employees',      group: 'People',   status: 'enforced' },
   { id: 'attendance.read',        label: 'See attendance',              group: 'People',   status: 'planned' },
   { id: 'attendance.manage',      label: 'Record and correct attendance', group: 'People', status: 'planned' },
   { id: 'salary.read_own',        label: 'See their own pay',           group: 'Pay',      status: 'planned' },
@@ -132,6 +132,10 @@ const MANAGER: readonly string[] = [
   'estimates.read', 'estimates.manage',
   'parts.read', 'parts.manage',
   'appointments.read', 'appointments.manage',
+  // Read only. An employee record is about a person's employment and is where
+  // pay will live; narrowing before there is anything sensitive on it is
+  // cheaper than narrowing after.
+  'employees.read',
 ];
 
 const ADVISOR: readonly string[] = [
