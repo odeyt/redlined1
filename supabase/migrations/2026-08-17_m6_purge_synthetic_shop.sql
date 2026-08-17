@@ -115,8 +115,12 @@ BEGIN
     v_progress := FALSE;
     FOREACH v_table IN ARRAY COALESCE(v_pending, ARRAY[]::TEXT[]) LOOP
       BEGIN
-        EXECUTE format('DELETE FROM public.%I WHERE shop_id = $1', v_table)
-          USING p_shop_id;
+        -- Both sides cast to text: shop_id is uuid on most tables and TEXT on
+        -- some, and an uncast comparison fails with 'operator does not exist:
+        -- text = uuid' on exactly those. The same inconsistency broke a
+        -- storage policy earlier in this codebase's life.
+        EXECUTE format('DELETE FROM public.%I WHERE shop_id::text = $1', v_table)
+          USING p_shop_id::text;
         GET DIAGNOSTICS v_deleted = ROW_COUNT;
         IF v_deleted > 0 THEN
           v_progress := TRUE;

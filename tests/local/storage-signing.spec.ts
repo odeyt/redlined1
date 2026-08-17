@@ -23,6 +23,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createSyntheticShop, destroySyntheticShop, SyntheticShop } from '../helpers/synthetic-shop';
+import { randomUUID } from 'crypto';
 
 const BUCKET = 'shop-assets';
 
@@ -40,6 +41,7 @@ let admin: SupabaseClient;
 let asOwner: SupabaseClient;
 let anon: SupabaseClient;
 let probePath: string;
+let probeVehicleId = '';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -69,11 +71,34 @@ test.beforeAll(async () => {
   });
   if (error) throw new Error(`could not sign in as the synthetic owner: ${error.message}`);
 
-  probePath = `vehicles/${shop.shopId}-probe/pixel.jpg`;
+  // The write policy resolves ownership through the RECORD, not the shop:
+  //
+  //   when 'vehicles' then exists (
+  //     select 1 from vehicles v
+  //     where v.id::text = <second path segment>
+  //       and v.shop_id::text in (<shops this user belongs to>))
+  //
+  // So the path has to name a vehicle that actually exists in this shop. The
+  // earlier version put the SHOP id in the vehicle slot, which nothing
+  // matches — the policy refused it, correctly, and the test reported a broken
+  // upload. It was written before the bucket was scoped per shop, and nothing
+  // exercised it in between.
+  probeVehicleId = randomUUID();
+  const { error: vehicleErr } = await admin.from('vehicles').insert({
+    id: probeVehicleId,
+    shop_id: shop.shopId,
+    label: '[E2E] storage probe vehicle',
+  });
+  if (vehicleErr) throw new Error(`could not seed the probe vehicle: ${vehicleErr.message}`);
+
+  probePath = `vehicles/${probeVehicleId}/pixel.jpg`;
 });
 
 test.afterAll(async () => {
   if (probePath) await admin.storage.from(BUCKET).remove([probePath]);
+  // The vehicle goes with the shop in destroySyntheticShop, but removing it
+  // here keeps the teardown honest if that ever fails.
+  if (probeVehicleId) await admin.from('vehicles').delete().eq('id', probeVehicleId);
   if (shop) await destroySyntheticShop(shop);
 });
 
