@@ -27,6 +27,42 @@ const MUTATIONS_ALLOWED = process.env.E2E_ALLOW_MUTATIONS === 'true';
 /** A name this run can find again, and a human can recognise in the UI. */
 const MARKER = `[E2E] Audit ${Date.now()}`;
 
+/**
+ * Opens the Customers screen the way a person does.
+ *
+ * The app is one page with the active module in reducer state, so there is no
+ * URL for a screen. Clicking the sidebar is not a detail of the test — it is
+ * the only way in.
+ */
+async function openCustomers(page: import("@playwright/test").Page): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: /^customers$/i })
+    .or(page.locator("nav, aside").getByText(/^customers$/i))
+    .first()
+    .click();
+  await page.getByRole("button", { name: "+ Add Customer" }).waitFor({ timeout: 20000 });
+}
+
+/**
+ * Waits for a row to appear, rather than reading immediately after a click.
+ *
+ * The first version of this test read the database the instant the Save button
+ * was clicked and failed because the insert had not landed — the same race it
+ * already guarded against for audit rows, and then did not apply to the record
+ * itself.
+ */
+async function waitForRow(
+  db: SupabaseClient, table: string, column: string, value: string, timeoutMs = 20_000,
+): Promise<Record<string, unknown> | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { data } = await db.from(table).select('*').eq(column, value).limit(1);
+    if (data && data.length > 0) return data[0] as Record<string, unknown>;
+    await new Promise(r => setTimeout(r, 750));
+  }
+  return null;
+}
+
 function admin(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -82,30 +118,37 @@ test.describe('the audit trail records real user actions', () => {
     console.log(`[audit-trail] page build=${build} server=${server.commit}`);
 
     // ── Create ──────────────────────────────────────────────────────────────
-    await page.goto('/?module=customers');
-    await page.getByRole('button', { name: /add customer|new customer/i }).first().click();
-    await page.locator('input[name="name"], input[placeholder*="ame" i]').first().fill(MARKER);
-    await page.getByRole('button', { name: /^save|create/i }).first().click();
+    // Navigate the way a person does. There is no ?module= deep link — the
+    // shell keeps the active module in reducer state and only understands
+    // ?alert=, which was added for notifications. Assuming otherwise is what
+    // made the first run of this test fail on the dashboard.
+    await openCustomers(page);
+    await page.getByRole('button', { name: '+ Add Customer' }).click();
+    await page.getByPlaceholder('Customer or business name').fill(MARKER);
+    await page.getByRole('button', { name: 'Save Customer' }).click();
 
-    // The id is not shown reliably in the list, so it is read back from the
-    // database by the marker this run wrote.
-    const { data: created } = await db
-      .from('customers').select('id, shop_id, name').eq('name', MARKER).limit(1);
-    expect(created?.length, 'customer was created').toBe(1);
-    const customerId = created![0].id as string;
+    // The id is not shown in the list, so it is read back from the database by
+    // the marker this run wrote — polled, because the insert is in flight.
+    const created = await waitForRow(db, 'customers', 'name', MARKER);
+    expect(created, 'customer was created').toBeTruthy();
+    const customerId = created!.id as string;
 
     const createdRow = await waitForAuditRow(db, 'customer.created', customerId);
     expect(createdRow, 'customer.created was audited').toBeTruthy();
     expect(createdRow!.actor_type).toBe('user');
     expect(createdRow!.actor_user_id, 'the row names a real person').toBeTruthy();
-    expect(createdRow!.shop_id, 'scoped to the acting shop').toBe(created![0].shop_id);
+    expect(createdRow!.shop_id, 'scoped to the acting shop').toBe(created!.shop_id);
 
     // ── Update ──────────────────────────────────────────────────────────────
-    await page.reload();
-    const row = page.locator('tr', { hasText: MARKER }).first();
-    await row.getByRole('button', { name: /^edit$/i }).click();
-    await page.locator('input[placeholder*="hone" i]').first().fill('020 5550100');
-    await page.getByRole('button', { name: /^save/i }).first().click();
+    await openCustomers(page);
+    await page.locator('tr', { hasText: MARKER }).first()
+      .getByRole('button', { name: /^edit$/i }).click();
+    // The drawer's labels are siblings of their inputs with no htmlFor, so
+    // getByLabel cannot find them — worth fixing in the app for screen readers
+    // as much as for tests. Selecting by the field wrapper until then.
+    await page.locator('.login-field').filter({ hasText: /^Phone$/ }).locator('input')
+      .first().fill('020 5550100');
+    await page.getByRole('button', { name: 'Update Customer' }).first().click();
 
     const updatedRow = await waitForAuditRow(db, 'customer.updated', customerId);
     expect(updatedRow, 'customer.updated was audited').toBeTruthy();
@@ -116,7 +159,7 @@ test.describe('the audit trail records real user actions', () => {
     // Leaves the shop tidy as a side effect: an archived customer is out of
     // every picker, which is what a synthetic record should be.
     page.once('dialog', d => d.accept('E2E run'));
-    await page.reload();
+    await openCustomers(page);
     await page.locator('tr', { hasText: MARKER }).first()
       .getByRole('button', { name: /^archive$/i }).click();
 
@@ -138,10 +181,10 @@ test.describe('the audit trail records real user actions', () => {
       .from('audit_events').select('*', { count: 'exact', head: true })
       .eq('entity_id', id).eq('action', 'customer.updated');
 
-    await page.goto('/?module=customers');
+    await openCustomers(page);
     const row = page.locator('tr', { hasText: existing![0].name as string }).first();
     await row.getByRole('button', { name: /^edit$/i }).click();
-    await page.getByRole('button', { name: /^save/i }).first().click();
+    await page.getByRole('button', { name: 'Update Customer' }).first().click();
     await page.waitForTimeout(3000);
 
     const { count: after } = await db
