@@ -58,14 +58,29 @@ export interface DomainContext {
   shopIds: string[];
   actor: DomainActor;
   /**
-   * What this actor may do, already resolved from their role and the shop's
-   * own overrides. A list rather than a role, so that no caller is tempted to
+   * What this actor may do, resolved from their role and the shop's own
+   * overrides. A list rather than a role, so that no caller is tempted to
    * re-derive permissions slightly differently from everybody else.
    *
-   * Empty means no capabilities — the safe default for a context built without
-   * them, since any operation that checks will refuse.
+   * NULL means "could not be worked out" — not "allowed nothing". The two are
+   * different questions with different right answers, and conflating them has
+   * already caused one incident in each direction:
+   *
+   *   - Treating unresolved as "nothing" refused every save for a user who
+   *     genuinely had permission. That is a lie to a legitimate user, and RLS
+   *     was going to allow the write anyway.
+   *   - Treating unresolved as "everything" would let an API, MCP or AI caller
+   *     that simply forgot to resolve capabilities act unrestricted — which is
+   *     the over-permissioning the M0 audit warned about.
+   *
+   * So the state is recorded rather than inferred from an empty array, and
+   * requireCapability decides per actor: a human whose lookup failed is
+   * deferred to RLS; a machine caller that never resolved is refused.
+   *
+   * An EMPTY ARRAY is a real answer: resolution succeeded and this actor may
+   * do nothing. That is refused, as it should be.
    */
-  capabilities: readonly string[];
+  capabilities: readonly string[] | null;
   /** Correlates several writes made by one request. Optional. */
   requestId?: string;
 }
@@ -82,7 +97,8 @@ export interface DomainContextInput {
   shopId: string;
   shopIds?: string[];
   actor: DomainActor;
-  capabilities?: readonly string[];
+  /** Omit or pass null when resolution failed. See DomainContext.capabilities. */
+  capabilities?: readonly string[] | null;
   requestId?: string;
 }
 
@@ -115,7 +131,7 @@ export function createDomainContext(input: DomainContextInput): DomainContext {
     shopId,
     shopIds,
     actor: { ...input.actor },
-    capabilities: [...(input.capabilities ?? [])],
+    capabilities: input.capabilities == null ? null : [...input.capabilities],
     requestId: input.requestId,
   };
 }
@@ -139,9 +155,14 @@ export function createSystemContext(shopId: string, organizationId: string | nul
   });
 }
 
-/** Whether this context may do something. */
+/**
+ * Whether this context is KNOWN to be allowed something.
+ *
+ * False for an unresolved context: "we do not know" is not "yes". Callers
+ * needing the three-way answer should read `context.capabilities` directly.
+ */
 export function can(context: DomainContext, capability: string): boolean {
-  return context.capabilities.includes(capability);
+  return context.capabilities !== null && context.capabilities.includes(capability);
 }
 
 export class NotPermittedError extends Error {
@@ -166,24 +187,34 @@ export class NotPermittedError extends Error {
  * `what` is the human phrase completing "You do not have permission to …".
  */
 export function requireCapability(context: DomainContext, capability: string, what: string): void {
-  // An EMPTY list means "not resolved", not "allowed nothing".
+  // Unresolved is not the same as empty, and the right answer differs by who
+  // is asking.
   //
-  // This distinction was missing when M4 shipped, and it took production down:
-  // capabilities are resolved in the browser from shop_users and shop_settings,
-  // and when that resolution came back empty — for reasons still being traced —
-  // every customer, invoice and payment save began failing with "permission
-  // denied". Saves that had worked for a year stopped, because a lookup that
-  // was only ever meant to NARROW access was treated as authoritative when it
-  // returned nothing.
-  //
-  // Falling open here is deliberate and is not the security hole it looks like:
-  // RLS is the actual boundary and is unaffected, so an unresolved context can
-  // still only touch what the database already permits. This layer's job is to
-  // refuse early and explain clearly, not to be the last line — and an
+  // A HUMAN whose lookup failed — a slow session, a shop switch, a hiccup
+  // reading shop_users — genuinely holds the permission; refusing tells them a
+  // falsehood and stops work RLS was going to allow anyway. This layer refuses
+  // early and explains clearly; it was never the last line, and an
   // authorization layer that locks out legitimate users when its own inputs
   // fail is worse than one that defers to the database.
   //
-  // A context that DID resolve, and lacks the capability, is still refused.
-  if (context.capabilities.length === 0) return;
+  // A MACHINE caller — api, mcp, ai, webhook — has no lookup to fail. An
+  // unresolved context there means the caller never set capabilities, and
+  // "the programmer forgot" must not become "unrestricted". That is precisely
+  // the AI over-permissioning the M0 audit warned about, and these are the
+  // callers the domain layer exists to serve.
+  //
+  // The first version of this check inferred both cases from an empty array
+  // and answered "defer" to each. It was written in a hurry, during what
+  // looked like an outage and turned out to be a browser running months-old
+  // JavaScript — capabilities were never the cause. This is what it should
+  // have been.
+  if (context.capabilities === null) {
+    if (context.actor.type === 'user') return;   // defer to RLS
+    throw new NotPermittedError(
+      capability,
+      `${what} — this caller did not resolve its permissions`,
+    );
+  }
+
   if (!can(context, capability)) throw new NotPermittedError(capability, what);
 }

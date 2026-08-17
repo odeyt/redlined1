@@ -36,13 +36,13 @@ import type { DomainDeps } from './db';
  * value cannot widen access, since the id is only used for the audit row and
  * RLS re-derives the real user from the JWT on every query.
  */
-let cachedActor: { shopId: string; userId: string | null; role: string | null; capabilities: string[]; organizationId: string | null } | null = null;
+let cachedActor: { shopId: string; userId: string | null; role: string | null; capabilities: string[] | null; organizationId: string | null } | null = null;
 
 export function resetBrowserActorCache(): void {
   cachedActor = null;
 }
 
-async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null; capabilities: string[]; organizationId: string | null }> {
+async function resolveActor(shopId: string): Promise<{ userId: string | null; role: string | null; capabilities: string[] | null; organizationId: string | null }> {
   // Keyed on the shop, because the role is per membership: an owner at one
   // location can be a manager at the other, and a cached role from the
   // previous shop would put the wrong one on every audit row after a switch.
@@ -51,10 +51,11 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
     const { data } = await supabase.auth.getUser();
     const userId = data.user?.id ?? null;
     let role: string | null = null;
-    let capabilities: string[] = [];
+    // null until proven otherwise: an unread membership is "unknown", not "none".
+    let capabilities: string[] | null = null;
     let organizationId: string | null = null;
     if (userId) {
-      const { data: membership } = await supabase
+      const { data: membership, error: membershipErr } = await supabase
         .from('shop_users')
         .select('role')
         .eq('user_id', userId)
@@ -74,7 +75,12 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
           .maybeSingle();
         overrides = (settings?.capability_overrides as CapabilityOverrides) ?? null;
       } catch { /* role defaults are the safe fallback */ }
-      capabilities = capabilitiesFor(role, overrides);
+      // The distinction that matters: an ERROR reading the membership leaves
+      // capabilities unresolved (null), so a human is deferred to RLS rather
+      // than told they lack permission they actually hold. NO ROW is a real
+      // answer — this person is not a member of this shop — and resolves to an
+      // empty list, which is refused.
+      capabilities = membershipErr ? null : capabilitiesFor(role, overrides);
 
       // The organization the shop belongs to. Introduced in M1 and unread
       // until now; employees are scoped to it, because that is what makes one
@@ -96,7 +102,8 @@ async function resolveActor(shopId: string): Promise<{ userId: string | null; ro
     // A failure to name the actor must not stop the business operation. The
     // audit row still gets written, with a null actor, and the database
     // stamps auth.uid() itself — so the row is not actually anonymous.
-    return { userId: null, role: null, capabilities: [], organizationId: null };
+    // Resolution threw outright. Unresolved, not empty.
+    return { userId: null, role: null, capabilities: null, organizationId: null };
   }
 }
 

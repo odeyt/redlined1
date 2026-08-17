@@ -479,19 +479,15 @@ describe('capabilities are enforced before anything is written', () => {
     ).rejects.toThrow(/do not have permission to reverse payments/);
   });
 
-  it('defers to the database when capabilities did not resolve', async () => {
-    // An EMPTY list means "not resolved", not "allowed nothing".
-    //
-    // Treating the two as the same took production down: capabilities are
-    // resolved in the browser, and when that came back empty every customer,
-    // invoice and payment save started failing with "permission denied".
-    //
-    // Falling open here is safe because RLS is the real boundary and is
-    // unaffected — an unresolved context can still only touch what the
-    // database already permits. An authorization layer that locks out
-    // legitimate users when its own inputs fail is worse than one that defers.
+  it('defers to the database when a HUMAN\'s capabilities did not resolve', async () => {
+    // A person whose lookup failed — slow session, shop switch, a hiccup
+    // reading shop_users — genuinely holds the permission. Refusing tells them
+    // a falsehood and blocks work RLS was going to allow anyway. This layer
+    // refuses early and explains; it was never the last line.
     const unresolved = createDomainContext({
-      shopId: 'shop-A', actor: { type: 'api', userId: null, role: null },
+      shopId: 'shop-A',
+      actor: { type: 'user', userId: 'u', role: null },
+      capabilities: null,
     });
     const { db } = fakeDb();
     await expect(
@@ -499,6 +495,47 @@ describe('capabilities are enforced before anything is written', () => {
         name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
       }),
     ).resolves.toBeTruthy();
+  });
+
+  it('REFUSES a machine caller that never resolved its permissions', async () => {
+    // An api, mcp, ai or webhook caller has no lookup to fail — unresolved
+    // there means the caller never set capabilities, and "the programmer
+    // forgot" must not become "unrestricted". These are exactly the callers
+    // the domain layer exists to serve, and exactly the over-permissioning the
+    // M0 audit warned about.
+    //
+    // The first version of this check inferred both cases from an empty array
+    // and deferred for each. It was written during what looked like an outage
+    // and turned out to be a stale browser bundle.
+    for (const type of ['api', 'mcp', 'ai', 'webhook'] as const) {
+      const machine = createDomainContext({
+        shopId: 'shop-A', actor: { type, userId: null, role: null },
+      });
+      const { db, calls } = fakeDb();
+      await expect(
+        createCustomerDomain({ db, context: machine }).create({
+          name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+        }),
+      ).rejects.toThrow(/did not resolve its permissions/);
+      // Refused before any write, for every machine actor type.
+      expect(calls.some(c => c.op === 'insert')).toBe(false);
+    }
+  });
+
+  it('refuses anyone whose capabilities resolved to nothing', async () => {
+    // An empty ARRAY is a real answer — resolution succeeded and this actor
+    // may do nothing, e.g. somebody who is not a member of this shop.
+    const notAMember = createDomainContext({
+      shopId: 'shop-A',
+      actor: { type: 'user', userId: 'u', role: null },
+      capabilities: [],
+    });
+    const { db } = fakeDb();
+    await expect(
+      createCustomerDomain({ db, context: notAMember }).create({
+        name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+      }),
+    ).rejects.toThrow(/do not have permission to add customers/);
   });
 
   it('still refuses a context that DID resolve and lacks the capability', async () => {
