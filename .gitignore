@@ -58,3 +58,11 @@ redlined1-backup-*.sql
 
 # Schema dump produced by scripts/clone-schema-to-staging.sh
 supabase/schema-snapshot.sql
+
+# Local-only: the two database connection strings for the schema clone.
+# Holds passwords. Delete it once the clone is done.
+.clone-env
+
+# Local-only: the two database connection strings for the schema clone.
+# Holds passwords. Delete it once the clone is done.
+.clone-env

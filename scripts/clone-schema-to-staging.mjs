@@ -41,6 +41,30 @@ function fail(message) {
   process.exit(1);
 }
 
+/**
+ * Connection strings come from the environment, or from a gitignored
+ * `.clone-env` file beside the repo root.
+ *
+ * The file exists because $env: variables live only as long as one PowerShell
+ * window, and losing them between opening a terminal and running this is the
+ * single most common way this script has failed to start. It holds two
+ * database passwords: keep it only as long as the clone takes, then delete it.
+ */
+function loadCloneEnv() {
+  if (!existsSync('.clone-env')) return;
+  for (const line of readFileSync('.clone-env', 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*(PROD_DB_URL|STAGING_DB_URL)\s*=\s*(.+?)\s*$/);
+    if (!match) continue;
+    const [, name, rawValue] = match;
+    // Quotes are stripped: pasted straight from the dashboard they are usually
+    // absent, and pasted from these docs they are usually present.
+    process.env[name] ??= rawValue.replace(/^['"]|['"]$/g, '');
+  }
+  console.log('Read connection strings from .clone-env\n');
+}
+
+loadCloneEnv();
+
 const PROD_DB_URL = process.env.PROD_DB_URL ?? '';
 const STAGING_DB_URL = process.env.STAGING_DB_URL ?? '';
 

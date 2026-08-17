@@ -13,14 +13,26 @@
  *   node scripts/run-sql.mjs scripts/verify-schema-parity.sql prod
  *   node scripts/run-sql.mjs scripts/verify-schema-parity.sql staging
  *
+ * Connection strings are also read from a gitignored `.clone-env` file if one
+ * exists, for the same reason the clone script does: $env: variables live only
+ * as long as one PowerShell window.
+ *
  * The target is named explicitly rather than defaulted. A script that picks a
  * database for you is one that eventually picks the wrong one.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import pg from 'pg';
 
 const PRODUCTION_REF = 'ldjrlvjkmzrcdqhetqoh';
+
+if (existsSync('.clone-env')) {
+  for (const line of readFileSync('.clone-env', 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*(PROD_DB_URL|STAGING_DB_URL)\s*=\s*(.+?)\s*$/);
+    if (match) process.env[match[1]] ??= match[2].replace(/^['"]|['"]$/g, '');
+  }
+}
+
 const [file, target] = process.argv.slice(2);
 
 function fail(message) {
