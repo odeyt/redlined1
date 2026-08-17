@@ -49,6 +49,32 @@ function auditView(c: DomainCustomer): Record<string, unknown> {
   return { id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email, followUp: c.followUp };
 }
 
+/**
+ * A refused delete, in words that say what to do instead.
+ *
+ * `payments.customer_id` is ON DELETE RESTRICT, so a customer who has ever
+ * paid cannot be removed — deliberately, because the alternative was blanking
+ * the link and leaving money in the ledger belonging to nobody. Without this
+ * translation the person clicking Delete sees a Postgres constraint name and
+ * files a bug.
+ */
+function translateDeleteError(error: { code?: string; message?: string }): Error {
+  const message = String(error?.message ?? '');
+  if (error?.code === '23503' && message.includes('payments')) {
+    return new Error(
+      'This customer has payments recorded against them and cannot be deleted — ' +
+      'their payment history would be left belonging to nobody. Reverse the ' +
+      'payments first if they were entered in error.',
+    );
+  }
+  if (error?.code === '23503') {
+    return new Error(
+      'This customer still has records attached and cannot be deleted yet.',
+    );
+  }
+  return error as Error;
+}
+
 export function createCustomerDomain({ db, context }: DomainDeps) {
   async function list(): Promise<DomainCustomer[]> {
     const { data, error } = await db
@@ -174,7 +200,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
       .delete()
       .eq('id', id)
       .in('shop_id', context.shopIds);
-    if (error) throw error;
+    if (error) throw translateDeleteError(error);
 
     await writeAuditEvent(db, context, {
       action: AUDIT.customerDeleted,

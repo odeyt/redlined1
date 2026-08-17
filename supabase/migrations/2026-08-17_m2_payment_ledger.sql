@@ -95,12 +95,11 @@ ALTER TABLE public.payments
   FOREIGN KEY (invoice_number) REFERENCES public.invoices(number)
   ON UPDATE CASCADE ON DELETE RESTRICT;
 
--- NOT changed here: payments_customer_id_fkey is also ON DELETE SET NULL, so
--- deleting a customer detaches their payments the same way (5 already have no
--- customer link). Same class of problem, different workflow — whether a
--- customer with payment history should be deletable at all is a product
--- decision, not a side effect of the payment ledger. Recorded for a later
--- milestone rather than folded in here.
+-- payments_customer_id_fkey is also ON DELETE SET NULL, so deleting a customer
+-- detaches their payments the same way (5 already have no customer link). It
+-- is fixed separately in 2026-08-17_m2b_customer_payment_link.sql, which was
+-- written after this one — the workflow cost there is larger, so it deserved
+-- its own decision rather than riding along with the ledger.
 
 -- ── 3. Append-only ──────────────────────────────────────────────────────────
 --

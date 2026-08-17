@@ -75,10 +75,11 @@ describe('the invoice link', () => {
     expect(CODE).not.toMatch(/IF NOT EXISTS \(\s*SELECT 1 FROM pg_constraint WHERE conname = 'payments_invoice_number_fkey'/);
   });
 
-  it('records the customer link as a known, unfixed instance of the same flaw', () => {
-    // payments_customer_id_fkey is also SET NULL. Left alone deliberately;
-    // saying so beats a future reader assuming it was checked.
+  it('points at where the same flaw on the customer link is fixed', () => {
+    // Both constraints had the same defect. A reader of this file must be able
+    // to find the other half rather than assume it was missed.
     expect(SQL).toMatch(/payments_customer_id_fkey is also ON DELETE SET NULL/);
+    expect(SQL).toMatch(/2026-08-17_m2b_customer_payment_link\.sql/);
   });
 });
 
@@ -130,5 +131,43 @@ describe('the callers were actually migrated', () => {
     const invoices = read('features/invoices/InvoicesView.tsx');
     expect(payments).toMatch(/reversePayment\(p\.id, reason\)/);
     expect(invoices).toMatch(/reversePayment\(paymentId, reason\)/);
+  });
+});
+
+describe('the customer link', () => {
+  const M2B = readFileSync(
+    join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m2b_customer_payment_link.sql'),
+    'utf8',
+  );
+  const M2B_CODE = M2B.replace(/^\s*--.*$/gm, '');
+
+  it('stops a customer deletion from detaching their payments', () => {
+    // Was ON DELETE SET NULL: the payment survived but belonged to nobody, and
+    // afterwards that is indistinguishable from a payment recorded without a
+    // customer.
+    expect(M2B_CODE).toMatch(/FOREIGN KEY \(customer_id\) REFERENCES public\.customers\(id\)/i);
+    expect(M2B_CODE).toMatch(/ON UPDATE CASCADE ON DELETE RESTRICT/i);
+  });
+
+  it('replaces the constraint rather than guarding around it', () => {
+    expect(M2B_CODE).toMatch(/DROP CONSTRAINT IF EXISTS payments_customer_id_fkey/i);
+  });
+
+  it('admits the workflow cost instead of burying it', () => {
+    const prose = M2B.replace(/^\s*--/gm, ' ').replace(/\s+/g, ' ');
+    expect(prose).toMatch(/archive\/inactive flag/);
+  });
+
+  it('records that other references to customers were NOT surveyed', () => {
+    // vehicles, invoices and job_cards have their own delete rules. Claiming
+    // this milestone made customer deletion safe would be false.
+    const prose = M2B.replace(/^\s*--/gm, ' ').replace(/\s+/g, ' ');
+    expect(prose).toMatch(/have not been surveyed/);
+  });
+
+  it('the app explains the refusal rather than showing a constraint name', () => {
+    const domain = readFileSync(join(__dirname, '..', 'customers.ts'), 'utf8');
+    expect(domain).toMatch(/translateDeleteError/);
+    expect(domain).toMatch(/payment history would be left belonging to nobody/);
   });
 });
