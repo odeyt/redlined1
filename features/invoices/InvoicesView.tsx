@@ -16,7 +16,7 @@ import {
   deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES, cloneInvoice,
   type InvoiceFull, type InvoiceLine,
 } from '@/services/invoiceService';
-import { createPayment, deletePayment, fetchPayments, type Payment } from '@/services/paymentService';
+import { createPayment, reversePayment, fetchPayments, type Payment } from '@/services/paymentService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
@@ -676,13 +676,17 @@ export function InvoicesView() {
   }
 
   async function handleVoidPayment(paymentId: string) {
-    if (!confirm('Remove this payment record?')) return;
+    // Reversed rather than removed. The entry stays and its opposite cancels
+    // it, so what the customer actually paid — and what was later taken back —
+    // both remain answerable against a bank statement.
+    const reason = window.prompt('Why is this payment being reversed?')?.trim();
+    if (!reason) return;
     try {
-      await deletePayment(paymentId);
-      setInvoicePayments(prev => prev.filter(p => p.id !== paymentId));
-      setAllPayments(prev => prev.filter(p => p.id !== paymentId));
-      notify('Payment record removed.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Failed to remove payment.'); }
+      const reversal = await reversePayment(paymentId, reason);
+      setInvoicePayments(prev => [reversal, ...prev]);
+      setAllPayments(prev => [reversal, ...prev]);
+      notify('Payment reversed.');
+    } catch (e) { setError(errorMessage(e, 'Failed to reverse payment.')); }
   }
 
   async function handleStatusChange(inv: InvoiceFull, status: string) {

@@ -1,34 +1,30 @@
 /**
- * Payment operations, callable from anywhere — and a holding pen for two
- * operations that should not exist.
+ * Payments, as a ledger.
  *
- * ## What this milestone does and does not fix
+ * Entries are appended and never changed. A mistake is corrected by REVERSING
+ * it — a second row of the opposite amount pointing at the first — so the
+ * history stays true and the arithmetic still comes out right.
  *
- * The M0 audit found that payments can be edited and hard-deleted with no
- * ledger, no reversal, and — because `audit_logs` was an unused stub — no
- * record that it happened. Money could be altered or erased leaving nothing
- * behind.
+ * Why that shape rather than an edit:
  *
- * **M1 does not fix that.** Moving `updatePayment` and `deletePayment` into a
- * domain module does not make them safe, and this file must not be read as
- * claiming otherwise. What M1 does is narrower and still worth having:
+ *   - Every existing report, dashboard and metric sums `amount`. A reversal is
+ *     negative, so all of them stay correct with no changes. (Verified: the
+ *     six other readers of this table are SELECT-only.)
+ *   - "The customer paid 500 and we later reversed it" is a different fact
+ *     from "the customer paid nothing", and only one of them can be
+ *     reconciled against a bank statement.
+ *   - A deleted row cannot be audited after the fact. A reversed one explains
+ *     itself.
  *
- *   1. every payment mutation now goes through one place, and
- *   2. every payment mutation now writes an audit row first,
- *
- * so that while the destructive behaviour still exists, it is at least
- * recoverable in the sense that mattered most: you can find out what was
- * there. `payment.deleted` audit rows carry the full financial detail of the
- * removed row for exactly this reason.
- *
- * M2 replaces both with ledger semantics — append, reverse, adjust — after
- * which `updateLegacy` and `removeLegacy` are deleted. They are named
- * `*Legacy` so that no new caller adopts them by accident, and so that the
- * eventual removal is a compile error at every remaining call site rather than
- * a silent behaviour change.
+ * The database enforces the same rules independently (see
+ * 2026-08-17_m2_payment_ledger.sql): payments cannot be updated or deleted at
+ * all, a reversal must be the exact negative of its target, in the same
+ * currency and shop, and a payment can be reversed only once.
  */
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
+
+export type PaymentEntryType = 'payment' | 'reversal';
 
 export interface DomainPayment {
   id: string;
@@ -44,9 +40,17 @@ export interface DomainPayment {
   referenceNumber: string;
   paymentDate: string;
   createdAt: string;
+  /** 'payment' or 'reversal'. Reversals carry a negative amount. */
+  entryType: PaymentEntryType;
+  /** Set on a reversal: the entry it cancels. */
+  reversesPaymentId: string | null;
+  /** Why it was reversed. Required by the domain, not by the column. */
+  reason: string;
 }
 
-export type PaymentInput = Omit<DomainPayment, 'id' | 'createdAt'>;
+export type PaymentInput = Omit<
+  DomainPayment, 'id' | 'createdAt' | 'entryType' | 'reversesPaymentId' | 'reason'
+>;
 
 export function mapPaymentRow(r: Record<string, unknown>): DomainPayment {
   return {
@@ -63,21 +67,22 @@ export function mapPaymentRow(r: Record<string, unknown>): DomainPayment {
     referenceNumber: (r.reference_number as string) || '',
     paymentDate: (r.payment_date as string) || '',
     createdAt: (r.created_at as string) || '',
+    entryType: ((r.entry_type as PaymentEntryType) || 'payment'),
+    reversesPaymentId: (r.reverses_payment_id as string) ?? null,
+    reason: (r.reason as string) || '',
   };
 }
 
 /**
- * The whole financial record, deliberately.
- *
- * For customers an audit snapshot is trimmed, because an audit table holding
- * personal data is a liability. For payments the opposite applies: if a row is
- * deleted, this snapshot is the only surviving evidence of the transaction,
- * and an amount without its method, reference and date cannot be reconciled
- * against a bank statement.
+ * The whole financial record. If anything ever goes wrong with an entry, this
+ * snapshot is what makes it reconcilable against a bank statement — an amount
+ * without its method, reference and date is not.
  */
 function auditView(p: DomainPayment): Record<string, unknown> {
   return {
     id: p.id,
+    entryType: p.entryType,
+    reversesPaymentId: p.reversesPaymentId,
     invoiceNumber: p.invoiceNumber,
     customerName: p.customerName,
     customerId: p.customerId,
@@ -88,9 +93,35 @@ function auditView(p: DomainPayment): Record<string, unknown> {
     status: p.status,
     referenceNumber: p.referenceNumber,
     paymentDate: p.paymentDate,
+    reason: p.reason,
     notes: p.notes,
-    createdAt: p.createdAt,
   };
+}
+
+export class LedgerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LedgerError';
+  }
+}
+
+/**
+ * Net of an entry list — payments minus reversals.
+ *
+ * Exported so a caller never has to remember that reversals are already
+ * negative and must NOT be subtracted again. Getting that wrong double-counts
+ * a reversal, which is the arithmetic mistake this shape otherwise invites.
+ */
+export function netAmount(entries: readonly DomainPayment[]): number {
+  return entries.reduce((sum, e) => sum + e.amount, 0);
+}
+
+/** Entries that are still standing: a payment with no reversal against it. */
+export function liveEntries(entries: readonly DomainPayment[]): DomainPayment[] {
+  const reversed = new Set(
+    entries.filter(e => e.entryType === 'reversal').map(e => e.reversesPaymentId),
+  );
+  return entries.filter(e => e.entryType === 'payment' && !reversed.has(e.id));
 }
 
 export function createPaymentDomain({ db, context }: DomainDeps) {
@@ -131,10 +162,11 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
         currency: input.currency,
         reference_number: input.referenceNumber,
         payment_date: input.paymentDate || new Date().toISOString(),
+        entry_type: 'payment',
       })
       .select()
       .single();
-    if (error) throw error;
+    if (error) throw translate(error);
 
     const payment = mapPaymentRow(data);
     await writeAuditEvent(db, context, {
@@ -147,70 +179,107 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
   }
 
   /**
-   * LEGACY — destructive edit of a financial record. Replaced in M2 by an
-   * adjustment entry. Do not call from new code.
+   * Cancels an entry by appending its opposite. The original row is untouched.
+   *
+   * A reason is required by this layer even though the column allows null: a
+   * reversal with no explanation is the thing an auditor asks about six months
+   * later and nobody can answer.
    */
-  async function updateLegacy(id: string, updates: Partial<DomainPayment>): Promise<void> {
-    const before = await get(id);
+  async function reverse(paymentId: string, reason: string): Promise<DomainPayment> {
+    const trimmed = (reason ?? '').trim();
+    if (!trimmed) throw new LedgerError('A reversal needs a reason.');
 
-    const payload: Record<string, unknown> = {};
-    if (updates.invoiceNumber !== undefined) payload.invoice_number = updates.invoiceNumber || null;
-    if (updates.customerName !== undefined) payload.customer_name = updates.customerName;
-    if (updates.amount !== undefined) payload.amount = updates.amount;
-    if (updates.method !== undefined) payload.method = updates.method;
-    if (updates.methodDetail !== undefined) payload.method_detail = updates.methodDetail;
-    if (updates.status !== undefined) payload.status = updates.status;
-    if (updates.notes !== undefined) payload.notes = updates.notes;
-    if (updates.currency !== undefined) payload.currency = updates.currency;
-    if (updates.referenceNumber !== undefined) payload.reference_number = updates.referenceNumber;
-    if (updates.paymentDate !== undefined) payload.payment_date = updates.paymentDate;
+    const original = await get(paymentId);
+    if (!original) throw new LedgerError('That payment is not in this location.');
+    if (original.entryType === 'reversal') {
+      throw new LedgerError('That entry is already a reversal. Record a new payment instead.');
+    }
 
-    const { error } = await db
+    const { data, error } = await db
       .from('payments')
-      .update(payload)
-      .eq('id', id)
-      .in('shop_id', context.shopIds);
-    if (error) throw error;
+      .insert({
+        shop_id: context.shopId,
+        invoice_number: original.invoiceNumber || null,
+        customer_name: original.customerName,
+        customer_id: original.customerId || null,
+        amount: -original.amount,
+        method: original.method,
+        method_detail: original.methodDetail,
+        status: original.status,
+        notes: original.notes,
+        currency: original.currency,
+        reference_number: original.referenceNumber,
+        payment_date: new Date().toISOString(),
+        entry_type: 'reversal',
+        reverses_payment_id: original.id,
+        reason: trimmed,
+      })
+      .select()
+      .single();
+    if (error) throw translate(error);
 
+    const reversal = mapPaymentRow(data);
     await writeAuditEvent(db, context, {
-      action: AUDIT.paymentUpdated,
+      action: AUDIT.paymentReversed,
       entityType: 'payment',
-      entityId: id,
-      before: before ? auditView(before) : null,
-      after: before ? { ...auditView(before), ...updates } : (updates as Record<string, unknown>),
-      metadata: { legacy: true, replacedBy: 'M2 adjustment entry' },
+      entityId: original.id,
+      before: auditView(original),
+      after: auditView(reversal),
+      metadata: { reversalId: reversal.id, reason: trimmed },
     });
+    return reversal;
   }
 
   /**
-   * LEGACY — hard delete of a financial record. Replaced in M2 by a reversal
-   * entry. Do not call from new code.
+   * Fixes a wrong entry: reverse it, then record the corrected one.
    *
-   * The audit row is written BEFORE the delete, not after. If the delete then
-   * fails, an extra audit row is confusing but harmless; if the order were
-   * reversed and the audit write failed, the money would be gone with no
-   * record of what it was — which is the failure this exists to prevent.
+   * Two writes, not one transaction — PostgREST cannot span them. The ORDER is
+   * the safeguard: the reversal goes first, so a failure in the second step
+   * leaves the payment cancelled and visible rather than duplicated. Losing a
+   * payment that can be re-entered is recoverable; billing a customer twice
+   * is not.
+   *
+   * The caller is told which half happened via the returned pair.
    */
-  async function removeLegacy(id: string): Promise<void> {
-    const before = await get(id);
-
-    await writeAuditEvent(db, context, {
-      action: AUDIT.paymentDeleted,
-      entityType: 'payment',
-      entityId: id,
-      before: before ? auditView(before) : null,
-      metadata: { legacy: true, replacedBy: 'M2 reversal entry' },
-    });
-
-    const { error } = await db
-      .from('payments')
-      .delete()
-      .eq('id', id)
-      .in('shop_id', context.shopIds);
-    if (error) throw error;
+  async function correct(
+    paymentId: string,
+    corrected: PaymentInput,
+    reason: string,
+  ): Promise<{ reversal: DomainPayment; replacement: DomainPayment }> {
+    const reversal = await reverse(paymentId, reason);
+    try {
+      const replacement = await create(corrected);
+      await writeAuditEvent(db, context, {
+        action: AUDIT.paymentCorrected,
+        entityType: 'payment',
+        entityId: paymentId,
+        after: { reversalId: reversal.id, replacementId: replacement.id, reason },
+      });
+      return { reversal, replacement };
+    } catch (e) {
+      throw new LedgerError(
+        `The original payment was reversed, but the corrected entry could not be saved: ` +
+        `${e instanceof Error ? e.message : String(e)}. Record the correct payment manually.`,
+      );
+    }
   }
 
-  return { list, get, create, updateLegacy, removeLegacy };
+  return { list, get, create, reverse, correct };
+}
+
+/** Postgres constraint violations, in words a service advisor can act on. */
+function translate(error: { code?: string; message?: string }): Error {
+  const message = String(error?.message ?? '');
+  if (error?.code === '23503' && message.includes('invoice_number')) {
+    return new LedgerError('That invoice no longer exists, so a payment cannot be recorded against it.');
+  }
+  if (error?.code === '23505' && message.includes('one_reversal_per_payment')) {
+    return new LedgerError('That payment has already been reversed — someone else may have just done it. Reload to see the ledger.');
+  }
+  if (error?.code === '42501' && message.includes('append-only')) {
+    return new LedgerError('Payments cannot be edited or deleted. Reverse the entry instead.');
+  }
+  return error as Error;
 }
 
 export type PaymentDomain = ReturnType<typeof createPaymentDomain>;

@@ -1,20 +1,24 @@
 /**
- * Compatibility wrapper. The payment logic now lives in lib/domain/payments.ts.
+ * Compatibility wrapper. The payment ledger lives in lib/domain/payments.ts.
  *
- * Signatures are unchanged, so no view was touched. Two of them —
- * updatePayment and deletePayment — are destructive edits of financial records
- * with no ledger behind them. M1 does not fix that; it routes them through one
- * place and makes them produce an audit row. They are scheduled for removal in
- * M2, which replaces them with adjustment and reversal entries.
+ * updatePayment and deletePayment are GONE as of M2. Payments are append-only
+ * in the database now, so those calls would fail anyway; removing them makes
+ * that a compile error at the call site instead of a runtime one in front of a
+ * customer.
  *
- * Callers of the two legacy functions are listed in
- * docs/domain-service-architecture.md so the M2 removal has a known blast
- * radius.
+ * Their replacements:
+ *   updatePayment(id, fields)  →  correctPayment(id, corrected, reason)
+ *   deletePayment(id)          →  reversePayment(id, reason)
  */
 import { browserDeps } from '@/lib/domain/browserAdapter';
-import { createPaymentDomain, type DomainPayment } from '@/lib/domain/payments';
+import {
+  createPaymentDomain, netAmount, liveEntries, LedgerError,
+  type DomainPayment, type PaymentInput,
+} from '@/lib/domain/payments';
 
 export type Payment = DomainPayment;
+export type { PaymentInput };
+export { netAmount, liveEntries, LedgerError };
 
 async function domain() {
   return createPaymentDomain(await browserDeps());
@@ -24,18 +28,20 @@ export async function fetchPayments(): Promise<Payment[]> {
   return (await domain()).list();
 }
 
-export async function createPayment(p: Omit<Payment, 'id' | 'createdAt'>): Promise<Payment> {
+export async function createPayment(p: PaymentInput): Promise<Payment> {
   return (await domain()).create(p);
 }
 
-/** LEGACY — destructive edit of a financial record. Replaced in M2. */
-export async function updatePayment(id: string, updates: Partial<Payment>): Promise<void> {
-  return (await domain()).updateLegacy(id, updates);
+/** Cancels an entry by appending its opposite. Returns the reversal row. */
+export async function reversePayment(id: string, reason: string): Promise<Payment> {
+  return (await domain()).reverse(id, reason);
 }
 
-/** LEGACY — hard delete of a financial record. Replaced in M2. */
-export async function deletePayment(id: string): Promise<void> {
-  return (await domain()).removeLegacy(id);
+/** Reverses a wrong entry and records the corrected one. */
+export async function correctPayment(
+  id: string, corrected: PaymentInput, reason: string,
+): Promise<{ reversal: Payment; replacement: Payment }> {
+  return (await domain()).correct(id, corrected, reason);
 }
 
 export const PAYMENT_METHODS = [

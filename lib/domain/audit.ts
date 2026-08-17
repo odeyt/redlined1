@@ -127,8 +127,8 @@ export const AUDIT = {
   invoiceStatusChanged: 'invoice.status_changed',
   invoiceDeleted: 'invoice.deleted',
   paymentCreated: 'payment.created',
-  /** Legacy — see lib/domain/payments.ts. Removed in M2. */
-  paymentUpdated: 'payment.updated',
-  /** Legacy — see lib/domain/payments.ts. Removed in M2. */
-  paymentDeleted: 'payment.deleted',
+  /** An entry cancelled by its opposite. The original row still stands. */
+  paymentReversed: 'payment.reversed',
+  /** A reversal plus its replacement, recorded as one intent. */
+  paymentCorrected: 'payment.corrected',
 } as const;

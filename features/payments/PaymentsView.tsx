@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
 import {
-  fetchPayments, createPayment, updatePayment, deletePayment,
+  fetchPayments, createPayment, reversePayment, correctPayment,
   PAYMENT_METHODS, type Payment,
 } from '@/services/paymentService';
 import { fetchInvoices, formatMoney, CURRENCIES } from '@/services/invoiceService';
@@ -217,9 +217,19 @@ export function PaymentsView() {
     setSaving(true); setError('');
     try {
       if (editingId) {
-        await updatePayment(editingId, { ...form, paymentDate: new Date(form.paymentDate).toISOString() });
-        setPayments(prev => prev.map(p => p.id === editingId ? { ...p, ...form, id: editingId, createdAt: p.createdAt } : p));
-        notify('Payment updated.');
+        // A correction is a reversal plus a replacement, not an edit. The
+        // ledger is append-only, and "paid 500, reversed, then paid 450" is a
+        // different fact from "paid 450 all along" when someone is matching
+        // this against a bank statement.
+        const reason = window.prompt('Why is this payment being corrected?')?.trim();
+        if (!reason) { setSaving(false); return; }
+        const { reversal, replacement } = await correctPayment(
+          editingId,
+          { ...form, paymentDate: new Date(form.paymentDate).toISOString() },
+          reason,
+        );
+        setPayments(prev => [replacement, reversal, ...prev]);
+        notify('Payment corrected — the original entry was reversed.');
       } else {
         const saved = await createPayment({ ...form, paymentDate: new Date(form.paymentDate).toISOString() });
         setPayments(prev => [saved, ...prev]);
@@ -231,13 +241,19 @@ export function PaymentsView() {
     } finally { setSaving(false); }
   }
 
-  async function handleDelete(p: Payment) {
-    if (!confirm(`Delete this payment of ${formatMoney(p.amount, p.currency)}?`)) return;
+  async function handleReverse(p: Payment) {
+    // Reversed, not deleted. The original entry stays and a second entry of
+    // the opposite amount cancels it, so the history stays reconcilable and
+    // every report — all of which sum amounts — stays correct untouched.
+    const reason = window.prompt(`Reversing ${formatMoney(p.amount, p.currency)}. Why?`)?.trim();
+    if (!reason) return;
     try {
-      await deletePayment(p.id);
-      setPayments(prev => prev.filter(x => x.id !== p.id));
-      notify('Payment deleted.');
-    } catch (e: unknown) { setError((e instanceof Error ? e.message : '')); }
+      const reversal = await reversePayment(p.id, reason);
+      setPayments(prev => [reversal, ...prev]);
+      notify('Payment reversed.');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Could not reverse this payment.');
+    }
   }
 
   // When invoice is selected, auto-fill customer and amount
@@ -521,8 +537,17 @@ export function PaymentsView() {
                       <td style={{ fontSize: 12, color: 'var(--muted)' }}>{fmt(p.paymentDate)}</td>
                       <td>
                         <div className="row-actions">
-                          <button className="mini-btn" onClick={() => openEdit(p)}>Edit</button>
-                          <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => handleDelete(p)}>Delete</button>
+                          {/* A reversal is itself an entry and cannot be
+                              corrected or reversed again — the only sensible
+                              next step is a fresh payment. */}
+                          {p.entryType === 'reversal' ? (
+                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>Reversal</span>
+                          ) : (
+                            <>
+                              <button className="mini-btn" onClick={() => openEdit(p)}>Correct</button>
+                              <button className="mini-btn" style={{ color: 'var(--danger)' }} onClick={() => handleReverse(p)}>Reverse</button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -9,7 +9,7 @@
 import { createDomainContext, createSystemContext, DomainContextError } from '../context';
 import { createCustomerDomain } from '../customers';
 import { createInvoiceDomain } from '../invoices';
-import { createPaymentDomain } from '../payments';
+import { createPaymentDomain, LedgerError, netAmount, liveEntries } from '../payments';
 import { redactSnapshot, AuditWriteError, writeAuditEvent } from '../audit';
 import type { DomainDb } from '../db';
 
@@ -205,40 +205,101 @@ describe('mutations are audited', () => {
     expect(rpcCalls[0].args.p_action).toBe('payment.created');
   });
 
-  it('a legacy payment edit is audited and marked legacy', async () => {
-    const { db, rpcCalls } = fakeDb([{ id: 'P-1', amount: 500 }]);
-    await createPaymentDomain({ db, context: ctx }).updateLegacy('P-1', { amount: 900 });
-    expect(rpcCalls[0].args.p_action).toBe('payment.updated');
-    expect(rpcCalls[0].args.p_metadata).toMatchObject({ legacy: true });
-  });
-
-  it('a legacy payment deletion preserves the whole transaction', async () => {
-    // This snapshot is the only surviving evidence of a deleted payment. An
-    // amount without its method, reference and date cannot be reconciled
-    // against a bank statement.
-    const { db, rpcCalls } = fakeDb([{
+  it('reverses by appending the exact opposite, leaving the original alone', async () => {
+    const { db, calls } = fakeDb([{
       id: 'P-1', amount: 500, currency: 'THB', method: 'Cash',
-      reference_number: 'R-7', payment_date: '2026-08-16', invoice_number: 'INV-1',
+      invoice_number: 'INV-1', customer_name: 'Ai Peng',
     }]);
-    await createPaymentDomain({ db, context: ctx }).removeLegacy('P-1');
-    expect(rpcCalls[0].args.p_action).toBe('payment.deleted');
-    const before = rpcCalls[0].args.p_before as Record<string, unknown>;
-    expect(before).toMatchObject({
-      amount: 500, currency: 'THB', method: 'Cash',
-      referenceNumber: 'R-7', paymentDate: '2026-08-16', invoiceNumber: 'INV-1',
-    });
+    await createPaymentDomain({ db, context: ctx }).reverse('P-1', 'entered twice');
+
+    // No update, no delete — the ledger only ever grows.
+    expect(calls.some(c => c.op === 'update')).toBe(false);
+    expect(calls.some(c => c.op === 'delete')).toBe(false);
+
+    const insert = calls.find(c => c.op === 'insert')!.payload as Record<string, unknown>;
+    expect(insert.amount).toBe(-500);
+    expect(insert.entry_type).toBe('reversal');
+    expect(insert.reverses_payment_id).toBe('P-1');
+    expect(insert.currency).toBe('THB');
+    expect(insert.reason).toBe('entered twice');
   });
 
-  it('audits a deletion BEFORE removing the row', async () => {
-    // If the order were reversed and the audit failed, the money would be gone
-    // with no record of what it was.
-    const { db, calls, rpcCalls } = fakeDb([{ id: 'P-1', amount: 500 }]);
-    await createPaymentDomain({ db, context: ctx }).removeLegacy('P-1');
-    const deleteCall = calls.findIndex(c => c.op === 'delete');
-    expect(deleteCall).toBeGreaterThan(-1);
-    expect(rpcCalls).toHaveLength(1);
-    // The read happened, the audit happened, and only then the delete.
-    expect(calls[deleteCall].op).toBe('delete');
+  it('refuses a reversal with no reason', async () => {
+    // A reversal nobody explained is the thing an auditor asks about months
+    // later and no one can answer.
+    const { db } = fakeDb([{ id: 'P-1', amount: 500 }]);
+    await expect(createPaymentDomain({ db, context: ctx }).reverse('P-1', '   '))
+      .rejects.toThrow(LedgerError);
+  });
+
+  it('refuses to reverse a reversal', async () => {
+    const { db } = fakeDb([{ id: 'R-1', amount: -500, entry_type: 'reversal', reverses_payment_id: 'P-1' }]);
+    await expect(createPaymentDomain({ db, context: ctx }).reverse('R-1', 'oops'))
+      .rejects.toThrow(/already a reversal/);
+  });
+
+  it('refuses to reverse a payment from another shop', async () => {
+    const { db } = fakeDb([]);   // the shop-scoped read finds nothing
+    await expect(createPaymentDomain({ db, context: ctx }).reverse('P-9', 'x'))
+      .rejects.toThrow(/not in this location/);
+  });
+
+  it('records a reversal against the ORIGINAL entry, so its history is findable', async () => {
+    const { db, rpcCalls } = fakeDb([{ id: 'P-1', amount: 500, currency: 'THB' }]);
+    await createPaymentDomain({ db, context: ctx }).reverse('P-1', 'duplicate');
+    expect(rpcCalls[0].args.p_action).toBe('payment.reversed');
+    expect(rpcCalls[0].args.p_entity_id).toBe('P-1');
+    expect(rpcCalls[0].args.p_metadata).toMatchObject({ reason: 'duplicate' });
+  });
+
+  it('corrects by reversing FIRST, then recording the replacement', async () => {
+    // The order is the safeguard: PostgREST cannot span the two writes in one
+    // transaction, so a failure after step one leaves the payment cancelled
+    // rather than duplicated. A lost payment can be re-entered; a customer
+    // billed twice cannot be un-billed as easily.
+    const { db, calls } = fakeDb([{ id: 'P-1', amount: 500, currency: 'THB' }]);
+    await createPaymentDomain({ db, context: ctx }).correct(
+      'P-1',
+      {
+        invoiceNumber: 'INV-1', customerName: 'Ai Peng', customerId: '', amount: 450,
+        method: 'Cash', methodDetail: '', status: 'Recorded', notes: '',
+        currency: 'THB', referenceNumber: '', paymentDate: '2026-08-17',
+      },
+      'wrong amount',
+    );
+    const inserts = calls.filter(c => c.op === 'insert').map(c => c.payload as Record<string, unknown>);
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0].entry_type).toBe('reversal');
+    expect(inserts[1].entry_type).toBe('payment');
+    expect(inserts[1].amount).toBe(450);
+  });
+
+  it('says plainly which half happened if the replacement fails', async () => {
+    const f = fakeDb([{ id: 'P-1', amount: 500 }]);
+    let inserts = 0;
+    const target = f.db as unknown as { from: (t: string) => Record<string, unknown> };
+    const realFrom = target.from.bind(f.db);
+    target.from = (table: string) => {
+      const b = realFrom(table);
+      const insert = b.insert as (p: unknown) => unknown;
+      b.insert = (payload: unknown) => {
+        inserts += 1;
+        if (inserts === 2) throw new Error('network died');
+        return insert(payload);
+      };
+      return b;
+    };
+    await expect(
+      createPaymentDomain({ db: f.db, context: ctx }).correct(
+        'P-1',
+        {
+          invoiceNumber: '', customerName: 'x', customerId: '', amount: 450, method: 'Cash',
+          methodDetail: '', status: 'Recorded', notes: '', currency: 'USD',
+          referenceNumber: '', paymentDate: '',
+        },
+        'wrong amount',
+      ),
+    ).rejects.toThrow(/was reversed, but the corrected entry could not be saved/);
   });
 
   it('a failed audit write is loud, not swallowed', async () => {
@@ -303,3 +364,50 @@ describe('the audit writer', () => {
     expect(Object.keys(rpcCalls[0].args)).not.toContain('p_actor_user_id');
   });
 });
+
+describe('ledger arithmetic', () => {
+  const entry = (over: Partial<DomainPaymentLike>): DomainPaymentLike => ({
+    id: 'P', amount: 0, entryType: 'payment', reversesPaymentId: null, ...over,
+  });
+
+  it('nets reversals without subtracting them twice', () => {
+    // Reversals are ALREADY negative. Subtracting them again is the arithmetic
+    // mistake this shape invites, and netAmount exists so no caller has to
+    // remember.
+    const entries = [
+      entry({ id: 'P-1', amount: 500 }),
+      entry({ id: 'R-1', amount: -500, entryType: 'reversal', reversesPaymentId: 'P-1' }),
+      entry({ id: 'P-2', amount: 450 }),
+    ];
+    expect(netAmount(entries as never)).toBe(450);
+  });
+
+  it('leaves an unreversed ledger alone', () => {
+    expect(netAmount([entry({ amount: 100 }), entry({ amount: 250 })] as never)).toBe(350);
+  });
+
+  it('lists the entries still standing', () => {
+    const entries = [
+      entry({ id: 'P-1', amount: 500 }),
+      entry({ id: 'R-1', amount: -500, entryType: 'reversal', reversesPaymentId: 'P-1' }),
+      entry({ id: 'P-2', amount: 450 }),
+    ];
+    expect(liveEntries(entries as never).map(e => e.id)).toEqual(['P-2']);
+  });
+
+  it('is empty, not negative, when everything is reversed', () => {
+    const entries = [
+      entry({ id: 'P-1', amount: 500 }),
+      entry({ id: 'R-1', amount: -500, entryType: 'reversal', reversesPaymentId: 'P-1' }),
+    ];
+    expect(netAmount(entries as never)).toBe(0);
+    expect(liveEntries(entries as never)).toEqual([]);
+  });
+});
+
+interface DomainPaymentLike {
+  id: string;
+  amount: number;
+  entryType: 'payment' | 'reversal';
+  reversesPaymentId: string | null;
+}

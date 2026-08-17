@@ -1,4 +1,4 @@
-# Domain service architecture
+# Domain service architecture (M1–M2)
 
 > **External integrations call domain services; they do not reimplement
 > business rules or receive arbitrary database access.**
@@ -168,34 +168,70 @@ Snapshot scope differs by entity, deliberately:
 
 ---
 
-## Payments: what M1 did *not* fix
+## Payments: the ledger (M2)
 
-M0 found payments could be edited and hard-deleted with no ledger and no
-record. **M1 does not fix that.** Moving the functions did not make them safe.
+Payments are **append-only**. They cannot be edited or deleted — not by a user,
+not by the service role. A mistake is corrected by appending its opposite.
 
-What M1 did:
+```text
+  P-1  payment    +500 THB   INV-1
+  R-1  reversal   -500 THB   INV-1   reverses P-1   reason: "entered twice"
+  P-2  payment    +450 THB   INV-1
+                  ------
+  net              450 THB
+```
 
-1. routed both through one place, and
-2. made both write an audit row first — the deletion audit is written *before*
-   the row is removed, so a failure leaves an extra row rather than losing the
-   evidence.
+Why this shape rather than an edit:
 
-They are exported as `updateLegacy` / `removeLegacy` in the domain layer so no
-new caller adopts them by accident, and so their removal in M2 is a compile
-error at every remaining call site rather than a silent behaviour change.
+- Every report, dashboard and metric sums `amount`. A reversal is negative, so
+  all six other readers of the table stay correct **with no changes** — they
+  were checked and are SELECT-only.
+- "Paid 500, later reversed" is a different fact from "paid nothing", and only
+  one of them reconciles against a bank statement.
+- A deleted row cannot be explained afterwards. A reversed one explains itself.
 
-### Known callers, for M2's blast radius
+### The operations
 
-| Call site | Operation |
+| Was | Is |
 |---|---|
-| `features/payments/PaymentsView.tsx:220` | `updatePayment` — edit an existing payment |
-| `features/payments/PaymentsView.tsx:237` | `deletePayment` — delete from the payments list |
-| `features/invoices/InvoicesView.tsx:681` | `deletePayment` — remove a payment from an invoice |
+| `updatePayment(id, fields)` | `correctPayment(id, corrected, reason)` |
+| `deletePayment(id)` | `reversePayment(id, reason)` |
 
-Three call sites, two components. M2 replaces them with adjustment and reversal
-entries.
+A **reason is required** by the domain even though the column allows null: a
+reversal nobody explained is what an auditor asks about six months later.
 
----
+`correct()` is two writes, and **the order is the safeguard**. PostgREST cannot
+span them in one transaction, so the reversal goes first: a failure after step
+one leaves the payment cancelled and visible rather than duplicated. A lost
+payment can be re-entered; a customer billed twice cannot be un-billed as
+easily. The error names which half happened.
+
+### Enforced in the database, not just here
+
+`supabase/migrations/2026-08-17_m2_payment_ledger.sql`:
+
+- `REVOKE UPDATE, DELETE, TRUNCATE` plus a trigger — the same two locks as
+  `audit_events`, for the same reason.
+- A reversal must be the **exact negative** of its target, in the same currency
+  and shop, and the target must not itself be a reversal.
+- A partial unique index allows **one reversal per payment**, so two people
+  clicking Reverse at the same moment cannot drive an invoice negative.
+- The long-missing foreign key `payments.invoice_number → invoices.number`,
+  `ON DELETE RESTRICT`: a billed invoice can no longer be deleted out from
+  under its payments.
+
+### Arithmetic helpers
+
+`netAmount(entries)` and `liveEntries(entries)` exist so no caller has to
+remember that reversals are *already* negative. Subtracting them again
+double-counts, which is the one mistake this shape invites.
+
+### Deployment order
+
+The application must ship **before** the migration. The old code issues UPDATE
+and DELETE; migration-first would make the live Edit and Delete buttons fail in
+front of customers.
+
 
 ## Ported in M1
 
@@ -229,7 +265,7 @@ The enforcement suite picks up new files automatically.
 
 ---
 
-## Not in M1
+## Not in M1 or M2
 
 API v1, MCP, WhatsApp, voice, HR, payroll, expenses, receivables, event
 publishing, and the remaining ~40 services. `organization_id` exists and is
