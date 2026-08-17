@@ -1964,7 +1964,7 @@ export function InvoicesView() {
                               <span style={{ color: '#4caf50', fontWeight: 600 }}>
                                 {p.method}{p.currency !== effectiveCur ? ` (${p.currency})` : ''}
                               </span>
-                              <button onClick={() => handleVoidPayment(p.id)} title="Remove payment" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, fontWeight: 800, padding: '0 2px', lineHeight: 1 }}>×</button>
+                              <button onClick={() => handleVoidPayment(p.id)} title="Reverse payment" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, fontWeight: 800, padding: '0 2px', lineHeight: 1 }}>×</button>
                             </div>
                             <span style={{ color: '#4caf50', fontWeight: 600 }}>-{formatMoney(p.amount, p.currency)}</span>
                           </div>
