@@ -15,20 +15,20 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isSyntheticEmail } from './synthetic-data';
 
-// Deleted in FK order — children before the shop row they hang off.
-const SHOP_SCOPED_TABLES = [
-  'invoices',
-  'estimates',
-  'repair_orders',
-  'job_cards',
-  'inspections',
-  'appointments',
-  'parts',
-  'vehicles',
-  'customers',
-  'shop_settings',
-  'shop_users',
-];
+/**
+ * Shop teardown is done by purge_synthetic_shop(), not by a list here.
+ *
+ * A hand-maintained list is what broke this: payments and audit_events became
+ * append-only in M1/M2 — DELETE revoked and blocked by a trigger — while both
+ * kept a foreign key to shops. Any run that recorded a payment, or merely
+ * edited a customer, left a shop that could never be removed. payments and
+ * maintenance_schedules were never in the list at all.
+ *
+ * The function discovers every table carrying a shop_id from the catalogue, so
+ * a table added later is covered without anyone remembering, and it refuses
+ * outright unless the shop's name starts with the synthetic marker. See
+ * supabase/migrations/2026-08-17_m6_purge_synthetic_shop.sql.
+ */
 
 function adminClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -48,8 +48,11 @@ export interface CleanupResult {
 
 /**
  * Removes the given synthetic shops and users.
- * Shop rows are deleted child-first; users are deleted only after their
- * synthetic email is re-verified against the auth record.
+ *
+ * Shops go through purge_synthetic_shop(), which refuses anything not named
+ * with the synthetic marker. Users are deleted only after their synthetic
+ * email is re-verified against the auth record — two independent guards, so a
+ * wrong id passed in here cannot take a real tenant with it.
  */
 export async function cleanupSyntheticRun(
   shopIds: string[],
@@ -60,20 +63,16 @@ export async function cleanupSyntheticRun(
   if (!admin) return result;
   result.ran = true;
 
-  for (const table of SHOP_SCOPED_TABLES) {
-    if (shopIds.length === 0) break;
-    const { error } = await admin.from(table).delete().in('shop_id', shopIds);
-    // A missing table, or one this key has no GRANT on, must not abort cleanup —
-    // the remaining tables and the shop/user rows still need removing.
-    if (error && !/does not exist|permission denied/i.test(error.message)) {
-      result.errors.push(`${table}: ${error.message}`);
+  for (const shopId of shopIds) {
+    const { error } = await admin.rpc('purge_synthetic_shop', { p_shop_id: shopId });
+    if (error) {
+      // Reported rather than swallowed: a shop that cannot be purged is a
+      // tenant left behind in a real database, which is exactly what this
+      // harness exists to avoid.
+      result.errors.push(`purge ${shopId}: ${error.message}`);
+    } else {
+      result.shopsDeleted += 1;
     }
-  }
-
-  if (shopIds.length > 0) {
-    const { error } = await admin.from('shops').delete().in('id', shopIds);
-    if (error) result.errors.push(`shops: ${error.message}`);
-    else result.shopsDeleted = shopIds.length;
   }
 
   for (const userId of userIds) {
