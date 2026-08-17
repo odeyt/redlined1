@@ -216,9 +216,16 @@ easily. The error names which half happened.
   and shop, and the target must not itself be a reversal.
 - A partial unique index allows **one reversal per payment**, so two people
   clicking Reverse at the same moment cannot drive an invoice negative.
-- The long-missing foreign key `payments.invoice_number → invoices.number`,
-  `ON DELETE RESTRICT`: a billed invoice can no longer be deleted out from
-  under its payments.
+- `payments.invoice_number → invoices.number` changed from **ON DELETE SET
+  NULL** to **ON DELETE RESTRICT**. The constraint always existed — the M0
+  audit was wrong to say otherwise — but its delete rule quietly blanked a
+  payment's invoice link when the invoice was deleted. INV-0003 demonstrated
+  this in production: it is gone, and a payment still carries the note
+  "Credit card payment — INV-0003". A billed invoice can no longer be deleted
+  out from under its payments.
+- `payments.customer_id` has the same SET NULL rule and is deliberately **not**
+  changed here. Whether a customer with payment history should be deletable at
+  all is a product decision, not a side effect of the payment ledger.
 
 ### Arithmetic helpers
 

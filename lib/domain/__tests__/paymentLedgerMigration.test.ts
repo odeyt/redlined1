@@ -60,19 +60,25 @@ describe('a reversal has to be a real reversal', () => {
   });
 });
 
-describe('the missing foreign key', () => {
-  it('links a payment to the invoice it pays', () => {
-    expect(CODE).toMatch(/FOREIGN KEY \(invoice_number\) REFERENCES public\.invoices\(number\)/i);
-  });
-
+describe('the invoice link', () => {
   it('refuses to let a billed invoice be deleted out from under its payments', () => {
-    // A behaviour change, deliberately: deleting a billed invoice and leaving
-    // the money pointing at nothing is the silent loss this milestone is about.
+    // The constraint already existed with ON DELETE SET NULL, which blanked a
+    // payment's invoice_number instead — INV-0003 proved it in production.
+    expect(CODE).toMatch(/FOREIGN KEY \(invoice_number\) REFERENCES public\.invoices\(number\)/i);
     expect(CODE).toMatch(/ON UPDATE CASCADE ON DELETE RESTRICT/i);
   });
 
-  it('is guarded so re-running the migration is safe', () => {
-    expect(CODE).toMatch(/IF NOT EXISTS \(\s*SELECT 1 FROM pg_constraint WHERE conname = 'payments_invoice_number_fkey'/);
+  it('replaces the existing constraint rather than skipping it', () => {
+    // An IF NOT EXISTS guard here would silently leave SET NULL in place while
+    // this file claimed to have fixed it. That is the bug this test exists for.
+    expect(CODE).toMatch(/DROP CONSTRAINT IF EXISTS payments_invoice_number_fkey/i);
+    expect(CODE).not.toMatch(/IF NOT EXISTS \(\s*SELECT 1 FROM pg_constraint WHERE conname = 'payments_invoice_number_fkey'/);
+  });
+
+  it('records the customer link as a known, unfixed instance of the same flaw', () => {
+    // payments_customer_id_fkey is also SET NULL. Left alone deliberately;
+    // saying so beats a future reader assuming it was checked.
+    expect(SQL).toMatch(/payments_customer_id_fkey is also ON DELETE SET NULL/);
   });
 });
 

@@ -64,32 +64,43 @@ CREATE UNIQUE INDEX IF NOT EXISTS payments_one_reversal_per_payment
 CREATE INDEX IF NOT EXISTS payments_invoice_number_idx
   ON public.payments (invoice_number);
 
--- ── 2. The missing foreign key ──────────────────────────────────────────────
+-- ── 2. Stop invoice deletion from orphaning money ───────────────────────────
 --
--- `payments.invoice_number` has always been free text pointing at
--- `invoices.number` with nothing enforcing it. Verified before writing this:
--- 13 payments, 1 with a NULL reference (allowed — a payment need not be
--- against an invoice), 0 orphans, 0 cross-shop references. The constraint can
--- be added without touching data.
+-- CORRECTION to the M0 audit, which claimed there was no foreign key here.
+-- There is, and always has been: `payments_invoice_number_fkey`. That finding
+-- was inferred from the schema file rather than read from pg_constraint, and
+-- it was wrong.
 --
--- ON UPDATE CASCADE: if an invoice is ever renumbered, its payments follow.
--- ON DELETE RESTRICT: an invoice with payments against it cannot be deleted.
--- That IS a behaviour change, and a deliberate one — deleting a billed invoice
--- and leaving the money pointing at nothing is precisely the silent data loss
--- this milestone is about. The domain layer translates the resulting 23503
--- into a sentence a service advisor can act on.
+-- The real problem is its delete rule: ON DELETE SET NULL (confdeltype = 'n').
+-- Deleting an invoice does not delete its payments — it quietly blanks their
+-- invoice_number, leaving the money in the ledger attached to nothing.
+--
+-- This has already happened. INV-0003 is absent from `invoices`, and the one
+-- payment with a NULL invoice_number carries the note "Credit card payment —
+-- INV-0003". That entry was for 0.00 so nothing was lost, but the mechanism is
+-- demonstrated, and after the fact an orphaned payment is indistinguishable
+-- from a payment that was never against an invoice.
+--
+-- RESTRICT instead: an invoice with payments against it cannot be deleted. A
+-- behaviour change, deliberately — the domain layer translates the resulting
+-- 23503 into a sentence a service advisor can act on.
+--
+-- Dropped and recreated rather than guarded with IF NOT EXISTS, because the
+-- constraint already exists and a guard would silently skip the fix, leaving
+-- SET NULL in place while this file claimed otherwise.
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'payments_invoice_number_fkey'
-  ) THEN
-    ALTER TABLE public.payments
-      ADD CONSTRAINT payments_invoice_number_fkey
-      FOREIGN KEY (invoice_number) REFERENCES public.invoices(number)
-      ON UPDATE CASCADE ON DELETE RESTRICT;
-  END IF;
-END $$;
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_invoice_number_fkey;
+ALTER TABLE public.payments
+  ADD CONSTRAINT payments_invoice_number_fkey
+  FOREIGN KEY (invoice_number) REFERENCES public.invoices(number)
+  ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- NOT changed here: payments_customer_id_fkey is also ON DELETE SET NULL, so
+-- deleting a customer detaches their payments the same way (5 already have no
+-- customer link). Same class of problem, different workflow — whether a
+-- customer with payment history should be deletable at all is a product
+-- decision, not a side effect of the payment ledger. Recorded for a later
+-- milestone rather than folded in here.
 
 -- ── 3. Append-only ──────────────────────────────────────────────────────────
 --
