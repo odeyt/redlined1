@@ -9,6 +9,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { isNoOp } from './changes';
 
 export interface DomainCustomer {
   id: string;
@@ -155,6 +156,14 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
     // question anyone actually asks, which is what it used to be.
     const before = await get(id);
 
+    // Saving a form nobody edited is not a change. Writing it anyway put two
+    // identical customer.updated rows in the trail during testing — same name
+    // before and after — and a log full of those is harder to read than one
+    // carrying only real edits.
+    if (before && isNoOp(before as unknown as Record<string, unknown>, input as Record<string, unknown>)) {
+      return before;
+    }
+
     const { data, error } = await db
       .from('customers')
       .update({
@@ -197,6 +206,9 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
     if (fields.type !== undefined) payload.type = fields.type;
     if (fields.tags !== undefined) payload.tags = fields.tags;
     if (Object.keys(payload).length === 0) return;
+    // Same rule as update(): a patch that sets a field to what it already is
+    // is not a change, and should not appear in the trail as one.
+    if (isNoOp(before as unknown as Record<string, unknown>, fields as Record<string, unknown>)) return;
 
     const { error } = await db
       .from('customers')

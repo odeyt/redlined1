@@ -22,6 +22,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { isNoOp } from './changes';
 
 export type EmploymentStatus = 'Active' | 'On leave' | 'Suspended' | 'Left';
 

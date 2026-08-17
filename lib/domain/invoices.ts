@@ -20,6 +20,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { changedFields } from './changes';
 import { mapInvoiceRow } from './invoiceMath';
 import type { InvoiceFull } from './invoiceMath';
 
@@ -112,9 +113,20 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
     return invoice;
   }
 
-  async function update(invoiceNumber: string, updates: Partial<InvoiceFull>): Promise<void> {
+  async function update(invoiceNumber: string, raw: Partial<InvoiceFull>): Promise<void> {
     requireCapability(context, 'invoices.manage', 'edit invoices');
     const before = await get(invoiceNumber);
+
+    // Only the fields that actually differ. Re-saving an invoice nobody edited
+    // should not appear in the audit trail as a change to money — that is the
+    // one place a false entry is genuinely misleading.
+    const updates: Partial<InvoiceFull> = before
+      ? (changedFields(
+          before as unknown as Record<string, unknown>,
+          raw as Record<string, unknown>,
+        ) as Partial<InvoiceFull>)
+      : raw;
+    if (before && Object.keys(updates).length === 0) return;
 
     const payload: Record<string, unknown> = {};
     if (updates.customerName !== undefined) payload.customer = updates.customerName;

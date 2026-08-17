@@ -529,3 +529,61 @@ describe('capabilities are enforced before anything is written', () => {
     ).resolves.toBeTruthy();
   });
 });
+
+describe('a save with nothing edited is not written', () => {
+  it('skips the update and the audit row for an unchanged customer', async () => {
+    // Two identical customer.updated rows reached the production trail this
+    // way. The log is only useful if scanning it shows what actually happened.
+    const existing = {
+      id: 'C-1', name: 'Ai Joy', type: 'Individual', phone: '', email: '',
+      address: '', tags: [], follow_up: '',
+    };
+    const { db, calls, rpcCalls } = fakeDb([existing]);
+    const result = await createCustomerDomain({ db, context: ctx }).update('C-1', {
+      name: 'Ai Joy', type: 'Individual', phone: '', email: '',
+      address: '', tags: [], followUp: '',
+    });
+
+    expect(calls.some(c => c.op === 'update')).toBe(false);
+    expect(rpcCalls).toHaveLength(0);
+    expect(result.name).toBe('Ai Joy');   // still returns the record
+  });
+
+  it('still writes when something did change', async () => {
+    const { db, calls, rpcCalls } = fakeDb([{
+      id: 'C-1', name: 'Ai Joy', type: 'Individual', phone: '', email: '',
+      address: '', tags: [], follow_up: '',
+    }]);
+    await createCustomerDomain({ db, context: ctx }).update('C-1', {
+      name: 'Ai Joy', type: 'Individual', phone: '020 555', email: '',
+      address: '', tags: [], followUp: '',
+    });
+    expect(calls.some(c => c.op === 'update')).toBe(true);
+    expect(rpcCalls[0].args.p_action).toBe('customer.updated');
+  });
+
+  it('skips an invoice update that changes nothing', async () => {
+    // The one place a false entry is genuinely misleading: an audit row saying
+    // an invoice changed, when the money did not.
+    const { db, calls, rpcCalls } = fakeDb([{
+      number: 'INV-9', customer: 'A', status: 'Draft', lines: [], discount: 0,
+      shop_supplies: 0, tax_rate: 0, notes: '', currency: 'USD',
+    }]);
+    await createInvoiceDomain({ db, context: ctx }).update('INV-9', {
+      status: 'Draft', discount: 0, lines: [],
+    });
+    expect(calls.some(c => c.op === 'update')).toBe(false);
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it('writes an invoice change of zero, which is a real change', async () => {
+    // Setting a discount to 0 is not the same as leaving it alone.
+    const { db, calls } = fakeDb([{
+      number: 'INV-9', customer: 'A', status: 'Draft', lines: [], discount: 50,
+      shop_supplies: 0, tax_rate: 0, notes: '', currency: 'USD',
+    }]);
+    await createInvoiceDomain({ db, context: ctx }).update('INV-9', { discount: 0 });
+    const update = calls.find(c => c.op === 'update')!.payload as Record<string, unknown>;
+    expect(update.discount).toBe(0);
+  });
+});
