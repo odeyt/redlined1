@@ -1,0 +1,4 @@
+# Shell scripts must keep LF. With CRLF, bash fails on the shebang line
+# with "$'': command not found" — which reads as a broken script
+# rather than a line-ending problem.
+*.sh text eol=lf
