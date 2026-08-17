@@ -1,18 +1,53 @@
 /**
  * Seeds 13 vehicle service records into Shop 2 (D1 Imports - Location 2)
  * Shop 2 UUID: 90b72748-bf01-4456-999f-f4ba48091606
- * Run: node scripts/seed-vehicles-shop2.mjs
+ *
+ * Run:
+ *   NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+ *   SEED_EMAIL=... SEED_PASSWORD=... node scripts/seed-vehicles-shop2.mjs
+ *
+ * The shop id below is a production row. Against any other project it will
+ * insert nothing, because no shop with that id exists there and RLS has
+ * nothing to match — check the target it prints before assuming a silent run
+ * was a successful one.
  */
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY || '';
+// SUPABASE_URL and SUPABASE_SERVICE_KEY were read here, and nothing in this
+// repo sets either name. Both resolved to '' and the script authenticated
+// against nothing.
+//
+// The anon key is correct, not the service role key: the sign-in below exists
+// so the insert runs as a real member and RLS applies. A service-role client
+// would bypass RLS, making the sign-in decorative and letting this script
+// write rows the signed-in account has no right to write.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const ANON_KEY     = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const EMAIL        = process.env.SEED_EMAIL || '';
 const PASSWORD     = process.env.SEED_PASSWORD || '';
 const SHOP2_ID     = '90b72748-bf01-4456-999f-f4ba48091606';
 
-const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+// Checked rather than left to fail later: createClient('', '') constructs
+// happily and reports a confusing network error at the first query, which is
+// how a missing variable reads as a broken database.
+const missing = [
+  ['NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL],
+  ['NEXT_PUBLIC_SUPABASE_ANON_KEY', ANON_KEY],
+  ['SEED_EMAIL', EMAIL],
+  ['SEED_PASSWORD', PASSWORD],
+].filter(([, value]) => !value).map(([name]) => name);
+
+if (missing.length > 0) {
+  console.error(`Missing environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
+// Whichever project the environment resolves to — which is the point. This
+// used to be pinned to production by the variables it read.
+console.log(`Target: ${SUPABASE_URL}`);
+
+const sb = createClient(SUPABASE_URL, ANON_KEY);
 
 // Sign in to get session (needed for RLS)
 const { error: authErr } = await sb.auth.signInWithPassword({ email: EMAIL, password: PASSWORD });
