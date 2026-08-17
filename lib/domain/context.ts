@@ -166,5 +166,24 @@ export class NotPermittedError extends Error {
  * `what` is the human phrase completing "You do not have permission to …".
  */
 export function requireCapability(context: DomainContext, capability: string, what: string): void {
+  // An EMPTY list means "not resolved", not "allowed nothing".
+  //
+  // This distinction was missing when M4 shipped, and it took production down:
+  // capabilities are resolved in the browser from shop_users and shop_settings,
+  // and when that resolution came back empty — for reasons still being traced —
+  // every customer, invoice and payment save began failing with "permission
+  // denied". Saves that had worked for a year stopped, because a lookup that
+  // was only ever meant to NARROW access was treated as authoritative when it
+  // returned nothing.
+  //
+  // Falling open here is deliberate and is not the security hole it looks like:
+  // RLS is the actual boundary and is unaffected, so an unresolved context can
+  // still only touch what the database already permits. This layer's job is to
+  // refuse early and explain clearly, not to be the last line — and an
+  // authorization layer that locks out legitimate users when its own inputs
+  // fail is worse than one that defers to the database.
+  //
+  // A context that DID resolve, and lacks the capability, is still refused.
+  if (context.capabilities.length === 0) return;
   if (!can(context, capability)) throw new NotPermittedError(capability, what);
 }

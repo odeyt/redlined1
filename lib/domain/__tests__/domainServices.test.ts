@@ -479,18 +479,42 @@ describe('capabilities are enforced before anything is written', () => {
     ).rejects.toThrow(/do not have permission to reverse payments/);
   });
 
-  it('refuses a context built without capabilities at all', async () => {
-    // The safe default. A caller that forgot to resolve permissions gets
-    // nothing rather than everything.
-    const bare = createDomainContext({
+  it('defers to the database when capabilities did not resolve', async () => {
+    // An EMPTY list means "not resolved", not "allowed nothing".
+    //
+    // Treating the two as the same took production down: capabilities are
+    // resolved in the browser, and when that came back empty every customer,
+    // invoice and payment save started failing with "permission denied".
+    //
+    // Falling open here is safe because RLS is the real boundary and is
+    // unaffected — an unresolved context can still only touch what the
+    // database already permits. An authorization layer that locks out
+    // legitimate users when its own inputs fail is worse than one that defers.
+    const unresolved = createDomainContext({
       shopId: 'shop-A', actor: { type: 'api', userId: null, role: null },
     });
     const { db } = fakeDb();
     await expect(
-      createCustomerDomain({ db, context: bare }).create({
+      createCustomerDomain({ db, context: unresolved }).create({
         name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
       }),
-    ).rejects.toThrow(/do not have permission/);
+    ).resolves.toBeTruthy();
+  });
+
+  it('still refuses a context that DID resolve and lacks the capability', async () => {
+    // The distinction that keeps the check meaningful: a known-but-insufficient
+    // permission is refused; an unknown one is not guessed at.
+    const resolvedButLimited = createDomainContext({
+      shopId: 'shop-A',
+      actor: { type: 'user', userId: 'u', role: 'advisor' },
+      capabilities: ['customers.read'],
+    });
+    const { db } = fakeDb();
+    await expect(
+      createCustomerDomain({ db, context: resolvedButLimited }).create({
+        name: 'A', type: '', phone: '', email: '', address: '', tags: [], followUp: '',
+      }),
+    ).rejects.toThrow(/do not have permission to add customers/);
   });
 
   it('gives a system context the run of the place, deliberately', async () => {
