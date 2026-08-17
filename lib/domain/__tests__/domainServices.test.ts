@@ -31,9 +31,9 @@ function fakeDb(rows: Record<string, unknown>[] = [{ id: 'X-1', number: 'INV-1',
     calls.push(rec);
     const chain: Record<string, unknown> = {};
     const self = () => chain;
-    for (const m of ['select', 'order', 'eq', 'in', 'maybeSingle', 'single']) {
+    for (const m of ['select', 'order', 'eq', 'in', 'is', 'maybeSingle', 'single']) {
       chain[m] = (...args: unknown[]) => {
-        if (m === 'eq' || m === 'in') rec.filters[String(args[0])] = args[1];
+        if (m === 'eq' || m === 'in' || m === 'is') rec.filters[String(args[0])] = args[1];
         if (m === 'maybeSingle' || m === 'single') {
           return Promise.resolve({ data: rows[0] ?? null, error: null });
         }

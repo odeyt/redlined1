@@ -20,8 +20,26 @@ async function domain() {
   return createCustomerDomain(await browserDeps());
 }
 
-export async function fetchCustomers(): Promise<Customer[]> {
-  return (await domain()).list();
+/**
+ * Active customers. Archived ones are excluded unless asked for.
+ *
+ * Nine screens call this for their customer pickers, and none of them should
+ * offer somebody who has been archived — so the default does the right thing
+ * for all of them without a single call site changing.
+ */
+export async function fetchCustomers(
+  options: { includeArchived?: boolean } = {},
+): Promise<Customer[]> {
+  return (await domain()).list(options);
+}
+
+/** Archives a customer. Returns null if they are not in this location. */
+export async function archiveCustomer(id: string, reason: string): Promise<Customer | null> {
+  return (await domain()).archive(id, reason);
+}
+
+export async function restoreCustomer(id: string): Promise<Customer | null> {
+  return (await domain()).unarchive(id);
 }
 
 export async function saveCustomer(customer: Omit<Customer, 'id'>): Promise<Customer> {

@@ -121,6 +121,8 @@ export async function writeAuditEvent(
 export const AUDIT = {
   customerCreated: 'customer.created',
   customerUpdated: 'customer.updated',
+  customerArchived: 'customer.archived',
+  customerRestored: 'customer.restored',
   customerDeleted: 'customer.deleted',
   invoiceCreated: 'invoice.created',
   invoiceUpdated: 'invoice.updated',

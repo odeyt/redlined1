@@ -17,6 +17,16 @@ export interface Customer {
   tags: string[];
   followUp: string;
   portalToken: string | null;
+  /**
+   * Set when the customer is archived; null means active.
+   *
+   * Archiving replaced deletion as the way to tidy the list, because a
+   * customer with a vehicle, an invoice or a payment can no longer be deleted
+   * — those foreign keys restrict it so a tidy-up cannot detach or destroy
+   * history.
+   */
+  archivedAt?: string | null;
+  archivedReason?: string;
 }
 
 export interface Vehicle {

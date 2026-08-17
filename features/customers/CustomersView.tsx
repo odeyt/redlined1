@@ -6,7 +6,7 @@ import { Pagination } from '@/components/Pagination';
 import { Panel } from '@/components/Panel';
 import { Badge } from '@/components/Badge';
 import type { Customer } from '@/lib/types';
-import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCustomer, updateCustomerEmail } from '@/services/customerService';
+import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCustomer, updateCustomerEmail, archiveCustomer, restoreCustomer } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
 import { getShopId } from '@/lib/shopStore';
@@ -24,6 +24,7 @@ export function CustomersView() {
   const dispatch = useAppDispatch();
   const { currentShop } = useShop();
   const [customers, setCustomers]         = useState<Customer[]>([]);
+  const [showArchived, setShowArchived]   = useState(false);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState('');
   const [showForm, setShowForm]           = useState(false);
@@ -52,7 +53,7 @@ export function CustomersView() {
 
   useEffect(() => {
     if (!currentShop?.id) return;
-    fetchCustomers()
+    fetchCustomers({ includeArchived: showArchived })
       .then(list => {
         setCustomers(list);
         // If a deep-link arrived before data loaded, open now
@@ -66,7 +67,7 @@ export function CustomersView() {
       })
       .catch((err) => setError('Load error: ' + (err?.message || JSON.stringify(err))))
       .finally(() => setLoading(false));
-  }, [currentShop?.id]);
+  }, [currentShop?.id, showArchived]);
 
   useEffect(() => {
     function handleOpenCustomer(e: Event) {
@@ -151,14 +152,62 @@ export function CustomersView() {
     finally { setSaving(false); }
   }
 
+  /**
+   * Archiving, not deleting.
+   *
+   * A customer with a vehicle, invoice, estimate, inspection, repair order or
+   * payment can no longer be deleted — those foreign keys restrict it, so a
+   * tidy-up cannot quietly detach or destroy history. Archiving is what the
+   * Delete button was actually being used for.
+   */
+  async function handleArchive(c: Customer) {
+    const reason = window.prompt(`Archive ${c.name}? They stay in reports and history, and disappear from the lists.\n\nWhy?`)?.trim();
+    if (reason === undefined || reason === '') return;
+    try {
+      const archived = await archiveCustomer(c.id, reason);
+      if (!archived) return;
+      setCustomers(prev => showArchived
+        ? prev.map(x => x.id === c.id ? archived : x)
+        : prev.filter(x => x.id !== c.id));
+      if (selected?.id === c.id) setSelected(showArchived ? archived : null);
+      notify(`${c.name} archived.`);
+    } catch (e: unknown) {
+      // The old handler swallowed the reason entirely and said "check your
+      // connection", which is how a constraint violation reads as a network
+      // fault. Say what actually happened.
+      notify(e instanceof Error ? e.message : 'Could not archive this customer.');
+    }
+  }
+
+  async function handleRestore(c: Customer) {
+    try {
+      const restored = await restoreCustomer(c.id);
+      if (!restored) return;
+      setCustomers(prev => prev.map(x => x.id === c.id ? restored : x));
+      if (selected?.id === c.id) setSelected(restored);
+      notify(`${c.name} restored.`);
+    } catch (e: unknown) {
+      notify(e instanceof Error ? e.message : 'Could not restore this customer.');
+    }
+  }
+
+  /**
+   * Permanent deletion, offered only for an already-archived customer.
+   *
+   * It succeeds only where nothing is attached, so in practice this clears up
+   * records created by mistake. Anything else is refused by the database, and
+   * the message says so.
+   */
   async function handleDelete(c: Customer) {
-    if (!confirm(`Delete ${c.name}? This cannot be undone.`)) return;
+    if (!confirm(`Permanently delete ${c.name}? This cannot be undone.\n\nIt will be refused if they have any vehicles, invoices or payments.`)) return;
     try {
       await deleteCustomer(c.id);
       setCustomers(prev => prev.filter(x => x.id !== c.id));
       if (selected?.id === c.id) setSelected(null);
       notify(`${c.name} deleted.`);
-    } catch { notify('Delete failed. Check your connection.'); }
+    } catch (e: unknown) {
+      notify(e instanceof Error ? e.message : 'Could not delete this customer.');
+    }
   }
 
   async function sendFollowUpEmail(customerId: string, customerName: string, email: string) {
@@ -275,8 +324,15 @@ export function CustomersView() {
           </form>
         )}
 
-        <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search customers…" className="search" style={{ width: '100%', maxWidth: 340 }} />
+          {/* Archived customers are hidden everywhere by default, including in
+              every other screen's customer picker. This is the one place they
+              can be seen and brought back. */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', minHeight: 44 }}>
+            <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} />
+            Show archived
+          </label>
         </div>
 
         {loading && <p style={{ color: 'var(--muted)', padding: 16 }}>Loading customers…</p>}
@@ -292,10 +348,16 @@ export function CustomersView() {
             </thead>
             <tbody>
               {custPage.pageItems.map(c => (
-                <tr key={c.id} style={{ cursor: 'pointer' }}>
+                <tr key={c.id} style={{ cursor: 'pointer', opacity: c.archivedAt ? 0.55 : 1 }}>
                   <td onClick={() => openDetail(c)}>
                     <strong style={{ color: 'var(--accent)', textDecoration: 'underline', cursor: 'pointer' }}>{c.name}</strong>
+                    {c.archivedAt && (
+                      <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: 'var(--surface-soft)', border: '1px solid var(--line)', color: 'var(--muted)' }}>
+                        ARCHIVED
+                      </span>
+                    )}
                     <div className="meta">{c.id} — {c.address}</div>
+                    {c.archivedReason && <div className="meta">Archived: {c.archivedReason}</div>}
                   </td>
                   <td><Badge text={c.type} /></td>
                   <td>{c.phone}<div className="meta">{c.email}</div></td>
@@ -306,7 +368,17 @@ export function CustomersView() {
                       <button className="mini-btn" onClick={() => openDetail(c)}>View</button>
                       <button className="mini-btn" onClick={() => { setSelected(c); openEdit(c); }}>Edit</button>
                       <button className="mini-btn" onClick={() => handleFollowUp(c.id, c.name)}>Follow-up</button>
-                      <button className="mini-btn" style={{ color: 'var(--accent)' }} onClick={() => handleDelete(c)}>Delete</button>
+                      {c.archivedAt ? (
+                        <>
+                          <button className="mini-btn" onClick={() => handleRestore(c)}>Restore</button>
+                          {/* Permanent deletion only for something already
+                              archived, and only where nothing is attached —
+                              the database refuses the rest. */}
+                          <button className="mini-btn" style={{ color: 'var(--accent)' }} onClick={() => handleDelete(c)}>Delete</button>
+                        </>
+                      ) : (
+                        <button className="mini-btn" style={{ color: 'var(--accent)' }} onClick={() => handleArchive(c)}>Archive</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -572,9 +644,15 @@ export function CustomersView() {
                 )}
                 <button className="btn" onClick={() => setSelected(null)}>Close</button>
               </div>
-              <button className="btn" style={{ color: '#ef4444', borderColor: '#ef4444', width: '100%' }} onClick={() => handleDelete(selected)}>
-                🗑 Delete Customer
-              </button>
+              {selected.archivedAt ? (
+                <button className="btn" style={{ width: '100%' }} onClick={() => handleRestore(selected)}>
+                  ↩ Restore Customer
+                </button>
+              ) : (
+                <button className="btn" style={{ color: '#ef4444', borderColor: '#ef4444', width: '100%' }} onClick={() => handleArchive(selected)}>
+                  📦 Archive Customer
+                </button>
+              )}
             </div>
           </div>
         </>

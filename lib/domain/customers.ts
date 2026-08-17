@@ -19,9 +19,12 @@ export interface DomainCustomer {
   tags: string[];
   followUp: string;
   portalToken: string | null;
+  /** Set when archived. Null means active. */
+  archivedAt: string | null;
+  archivedReason: string;
 }
 
-export type CustomerInput = Omit<DomainCustomer, 'id' | 'portalToken'>;
+export type CustomerInput = Omit<DomainCustomer, 'id' | 'portalToken' | 'archivedAt' | 'archivedReason'>;
 
 function mapRow(row: Record<string, unknown>): DomainCustomer {
   return {
@@ -34,6 +37,8 @@ function mapRow(row: Record<string, unknown>): DomainCustomer {
     tags: (row.tags as string[]) ?? [],
     followUp: (row.follow_up as string) ?? '',
     portalToken: (row.portal_token as string) ?? null,
+    archivedAt: (row.archived_at as string) ?? null,
+    archivedReason: (row.archived_reason as string) ?? '',
   };
 }
 
@@ -46,7 +51,10 @@ function mapRow(row: Record<string, unknown>): DomainCustomer {
  * answer "who changed what".
  */
 function auditView(c: DomainCustomer): Record<string, unknown> {
-  return { id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email, followUp: c.followUp };
+  return {
+    id: c.id, name: c.name, type: c.type, phone: c.phone, email: c.email,
+    followUp: c.followUp, archivedAt: c.archivedAt,
+  };
 }
 
 /**
@@ -76,12 +84,22 @@ function translateDeleteError(error: { code?: string; message?: string }): Error
 }
 
 export function createCustomerDomain({ db, context }: DomainDeps) {
-  async function list(): Promise<DomainCustomer[]> {
-    const { data, error } = await db
+  /**
+   * Active customers by default.
+   *
+   * Every picker in the app — job cards, invoices, estimates, appointments —
+   * calls this, and none of them should offer a customer somebody has
+   * archived. Making exclusion the default rather than an opt-in means those
+   * nine call sites get the right behaviour without being touched, and a
+   * screen that genuinely wants the archived ones has to say so.
+   */
+  async function list(options: { includeArchived?: boolean } = {}): Promise<DomainCustomer[]> {
+    let query = db
       .from('customers')
       .select('*')
-      .in('shop_id', context.shopIds)
-      .order('name');
+      .in('shop_id', context.shopIds);
+    if (!options.includeArchived) query = query.is('archived_at', null);
+    const { data, error } = await query.order('name');
     if (error) throw error;
     return (data ?? []).map(mapRow);
   }
@@ -193,6 +211,70 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
     });
   }
 
+  /**
+   * Takes a customer out of the lists without destroying anything.
+   *
+   * This is what Delete was standing in for. A customer with invoices, a
+   * vehicle or a payment cannot be deleted — those constraints exist so a
+   * tidy-up cannot quietly detach or destroy history — but the list still has
+   * to be tidyable, so archiving is the real operation and deletion is
+   * reserved for records created by mistake.
+   */
+  async function archive(id: string, reason: string): Promise<DomainCustomer | null> {
+    const before = await get(id);
+    if (!before) return null;
+
+    const archivedAt = new Date().toISOString();
+    const { data, error } = await db
+      .from('customers')
+      .update({ archived_at: archivedAt, archived_reason: reason.trim() || null })
+      .eq('id', id)
+      .in('shop_id', context.shopIds)
+      .select()
+      .single();
+    if (error) throw error;
+
+    const customer = mapRow(data);
+    await writeAuditEvent(db, context, {
+      action: AUDIT.customerArchived,
+      entityType: 'customer',
+      entityId: id,
+      before: auditView(before),
+      after: auditView(customer),
+      metadata: { reason: reason.trim() || null },
+    });
+    return customer;
+  }
+
+  async function unarchive(id: string): Promise<DomainCustomer | null> {
+    const before = await get(id);
+    if (!before) return null;
+
+    const { data, error } = await db
+      .from('customers')
+      .update({ archived_at: null, archived_reason: null })
+      .eq('id', id)
+      .in('shop_id', context.shopIds)
+      .select()
+      .single();
+    if (error) throw error;
+
+    const customer = mapRow(data);
+    await writeAuditEvent(db, context, {
+      action: AUDIT.customerRestored,
+      entityType: 'customer',
+      entityId: id,
+      before: auditView(before),
+      after: auditView(customer),
+    });
+    return customer;
+  }
+
+  /**
+   * Permanent deletion. Only succeeds for a customer with nothing attached —
+   * every other table now refuses it — so in practice this is for records
+   * created by mistake, and the error explains the alternative.
+   */
   async function remove(id: string): Promise<void> {
     const before = await get(id);
     const { error } = await db
@@ -210,7 +292,7 @@ export function createCustomerDomain({ db, context }: DomainDeps) {
     });
   }
 
-  return { list, get, create, update, patch, remove };
+  return { list, get, create, update, patch, archive, unarchive, remove };
 }
 
 export type CustomerDomain = ReturnType<typeof createCustomerDomain>;
