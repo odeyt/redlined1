@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
@@ -172,6 +174,16 @@ export async function createInspection(ins: Omit<Inspection, 'id' | 'createdAt'>
     .select()
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.inspectionCreated,
+    entityType: 'inspection',
+    entityId: data.id,
+    after: {
+      number: data.inspection_number, customer: data.customer_name,
+      vehicle: data.vehicle, status: data.status, jobCardId: data.job_card_id,
+    },
+  });
   return mapRow(data);
 }
 
@@ -192,11 +204,34 @@ export async function updateInspection(id: string, updates: Partial<Inspection>)
   if (updates.jobCardId !== undefined) payload.job_card_id = updates.jobCardId || null;
   const { error } = await supabase.from('inspections').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  // The findings themselves are not snapshotted: an inspection's items carry
+  // photo URLs and free-text notes about a customer's vehicle, and an audit
+  // table is read by more people and kept longer than the record it describes.
+  await recordAudit({
+    action: AUDIT.inspectionUpdated,
+    entityType: 'inspection',
+    entityId: id,
+    after: { status: payload.status ?? null, itemsChanged: payload.items !== undefined },
+  });
 }
 
 export async function deleteInspection(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('inspections').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('inspections').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.inspectionDeleted,
+    entityType: 'inspection',
+    entityId: id,
+    before: before ? {
+      number: before.inspection_number, customer: before.customer_name,
+      vehicle: before.vehicle, status: before.status, jobCardId: before.job_card_id,
+    } : null,
+  });
 }
 
 export function createInspectionFromTriage(

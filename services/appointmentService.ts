@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { AppointmentRow } from '@/lib/types';
 
@@ -184,7 +186,22 @@ export async function updateAppointment(id: string, date: string, row: Appointme
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('appointments').select('*').eq('id', id).maybeSingle();
+
   const { error } = await supabase
     .from('appointments').delete().eq('id', id);
   if (error) throw error;
+
+  // A cancelled booking is a customer who was told to come in and then was
+  // not. Worth being able to say who cancelled it and when.
+  await recordAudit({
+    action: AUDIT.appointmentDeleted,
+    entityType: 'appointment',
+    entityId: id,
+    before: before ? {
+      date: before.date, time: before.time, customer: before.customer,
+      vehicle: before.vehicle, service: before.service, technician: before.technician,
+    } : null,
+  });
 }

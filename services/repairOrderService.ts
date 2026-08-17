@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
 
@@ -125,6 +127,16 @@ export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'
     .select()
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.repairOrderCreated,
+    entityType: 'repair_order',
+    entityId: data.id,
+    after: {
+      roNumber: data.ro_number, customer: data.customer_name, vehicle: data.vehicle,
+      status: data.status, jobCardId: data.job_card_id,
+    },
+  });
   return mapRow(data);
 }
 
@@ -179,11 +191,34 @@ export async function closeRepairOrder(id: string): Promise<void> {
   if (count === 0) {
     throw new Error('The repair order was not closed — no matching record was found, or your account may not have permission to change it.');
   }
+
+  // Closing is its own event: it is when the work is declared finished, and
+  // the point an invoice is raised from. A generic "updated" row buries it.
+  await recordAudit({
+    action: AUDIT.repairOrderClosed,
+    entityType: 'repair_order',
+    entityId: id,
+    after: { status: 'Closed' },
+  });
 }
 
 export async function deleteRepairOrder(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('repair_orders').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('repair_orders').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.repairOrderDeleted,
+    entityType: 'repair_order',
+    entityId: id,
+    before: before ? {
+      roNumber: before.ro_number, customer: before.customer_name, vehicle: before.vehicle,
+      status: before.status, invoiceNumber: before.invoice_number,
+      concern: before.concern, correction: before.correction,
+    } : null,
+  });
 }
 
 export async function nextRONumber(): Promise<string> {

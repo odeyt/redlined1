@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
 
@@ -105,6 +107,17 @@ export async function createEstimate(est: Omit<EstimateFull, 'id' | 'createdAt'>
     .select()
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.estimateCreated,
+    entityType: 'estimate',
+    entityId: data.id as string,
+    after: {
+      number: data.estimate_number, customer: data.customer_name,
+      vehicle: data.vehicle, status: data.status,
+      lines: data.lines, discount: data.discount, currency: data.currency,
+    },
+  });
   return mapRow(data);
 }
 
@@ -125,6 +138,13 @@ export async function updateEstimate(id: string, updates: Partial<EstimateFull>)
   if (updates.currency !== undefined) payload.currency = updates.currency;
   const { error } = await supabase.from('estimates').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.estimateUpdated,
+    entityType: 'estimate',
+    entityId: id,
+    after: payload,
+  });
 }
 
 export async function approveEstimate(id: string): Promise<void> {
@@ -150,11 +170,33 @@ export async function approveEstimate(id: string): Promise<void> {
       aggregateId: id,
     });
   } catch { /* sapelee integration must never affect production */ }
+
+  // Approval is its own event, not a generic update: it is the moment the
+  // customer agreed to the work, and that is what a dispute asks about.
+  await recordAudit({
+    action: AUDIT.estimateApproved,
+    entityType: 'estimate',
+    entityId: id,
+    after: { status: 'Approved' },
+  });
 }
 
 export async function deleteEstimate(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('estimates').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('estimates').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.estimateDeleted,
+    entityType: 'estimate',
+    entityId: id,
+    before: before ? {
+      number: before.estimate_number, customer: before.customer_name,
+      status: before.status, lines: before.lines, currency: before.currency,
+    } : null,
+  });
 }
 
 export async function nextEstimateNumber(): Promise<string> {

@@ -19,7 +19,15 @@ const SERVICES = join(process.cwd(), 'services');
 const PORTED = ['customerService', 'invoiceService', 'paymentService', 'employeeService'];
 
 /** Wired with recordAudit at their existing write sites. */
-const AUDITED = ['jobCardService', 'vehicleService'];
+const AUDITED = [
+  'jobCardService', 'vehicleService', 'estimateService',
+  'repairOrderService', 'inspectionService',
+  // Partial: deleteAppointment records, create and update do not. Both have
+  // three return paths apiece — retry branches for missing columns — and
+  // wiring each one is the kind of edit that gets a branch wrong. They wait
+  // for the porting pass, when the retries collapse into one path.
+  'appointmentService',
+];
 
 function source(name: string): string {
   return readFileSync(join(SERVICES, `${name}.ts`), 'utf8');
@@ -73,7 +81,7 @@ describe('coverage is stated, not assumed', () => {
   it('does not shrink silently', () => {
     // If a service is wired up, this number moves and the list above is
     // updated deliberately rather than by accident.
-    expect(PORTED.length + AUDITED.length).toBe(6);
+    expect(PORTED.length + AUDITED.length).toBe(10);
   });
 });
 
