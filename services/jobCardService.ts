@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface StageHistoryEntry {
@@ -141,6 +143,18 @@ export async function createJobCard(fields: {
       aggregateId: id,
     });
   } catch { /* sapelee integration must never affect production */ }
+
+  // Recorded after the write, never before: an audit row for something that
+  // did not happen is worse than a missing one, because it is believed.
+  await recordAudit({
+    action: AUDIT.jobCreated,
+    entityType: 'job_card',
+    entityId: id,
+    after: {
+      id, customer: data.customer, vehicle: data.vehicle,
+      serviceType: data.service_type, status: data.status,
+    },
+  });
   return toJob(data);
 }
 
@@ -181,6 +195,13 @@ export async function updateJobCard(id: string, fields: Partial<{
   if (fields.notes !== undefined) update.notes = fields.notes;
   const { error } = await supabase.from('job_cards').update(update).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.jobUpdated,
+    entityType: 'job_card',
+    entityId: id,
+    after: update,
+  });
 }
 
 /**
@@ -303,6 +324,23 @@ export async function closeJob(job: JobCardFull): Promise<{ invoiceNumber: strin
 }
 
 export async function deleteJobCard(id: string): Promise<void> {
+  // Read first: after the delete there is nothing left to describe, and a
+  // deletion nobody can reconstruct is exactly the gap an audit trail exists
+  // to close.
+  const { data: before } = await supabase
+    .from('job_cards').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('job_cards').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.jobDeleted,
+    entityType: 'job_card',
+    entityId: id,
+    before: before ? {
+      id, customer: before.customer, vehicle: before.vehicle,
+      serviceType: before.service_type, status: before.status,
+      ro: before.ro, invoice: before.invoice,
+    } : null,
+  });
 }

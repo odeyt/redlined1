@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { Vehicle } from '@/lib/types';
 
@@ -157,6 +159,13 @@ export async function saveVehicle(
       aggregateId: data.id,
     });
   } catch { /* sapelee integration must never affect production */ }
+
+  await recordAudit({
+    action: AUDIT.vehicleCreated,
+    entityType: 'vehicle',
+    entityId: data.id as string,
+    after: { label: data.label, vin: data.vin, plate: data.plate, customerId: data.customer_id },
+  });
   return toVehicle(data);
 }
 
@@ -180,6 +189,16 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
     .select()
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vehicleUpdated,
+    entityType: 'vehicle',
+    entityId: id,
+    after: {
+      label: data.label, vin: data.vin, plate: data.plate,
+      mileage: data.mileage, status: data.status, customerId: data.customer_id,
+    },
+  });
   return toVehicle(data);
 }
 
@@ -239,21 +258,49 @@ export async function updateVehicleServiceRecord(
 }
 
 export async function transferVehicle(id: string, targetShopId: string): Promise<void> {
+  // Read before the move: afterwards this row belongs to another shop, and the
+  // audit row would be written against a shop the actor may not even be in.
+  const { data: before } = await supabase
+    .from('vehicles').select('shop_id, label, plate, vin').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase
     .from('vehicles')
     .update({ shop_id: targetShopId })
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+
+  // A vehicle changing shop is the one vehicle event with tenancy meaning:
+  // it leaves one location's records and appears in another's.
+  await recordAudit({
+    action: AUDIT.vehicleTransferred,
+    entityType: 'vehicle',
+    entityId: id,
+    before: before ? { shopId: before.shop_id, label: before.label, plate: before.plate } : null,
+    after: { shopId: targetShopId },
+  });
 }
 
 export async function deleteVehicle(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('vehicles').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase
     .from('vehicles')
     .delete()
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vehicleDeleted,
+    entityType: 'vehicle',
+    entityId: id,
+    before: before ? {
+      label: before.label, vin: before.vin, plate: before.plate,
+      customerId: before.customer_id, mileage: before.mileage, status: before.status,
+    } : null,
+  });
 }
 
 export async function fetchCustomerNames(): Promise<{ id: string; name: string }[]> {
