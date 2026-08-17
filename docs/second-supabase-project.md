@@ -35,21 +35,34 @@ step needs it. Do not paste it into this conversation.
 
 Both connection strings come from Settings → Database → Connection string (URI).
 
-```bash
-export PROD_DB_URL='postgresql://postgres.ldjrlvjkmzrcdqhetqoh:...@...:5432/postgres'
-export STAGING_DB_URL='postgresql://postgres.NEWREF:...@...:5432/postgres'
-bash scripts/clone-schema-to-staging.sh
+Everything below runs in **PowerShell**, from `C:\Users\wallyd1\REDLINE`.
+
+Not the Supabase SQL Editor — that runs SQL only, and `export`/`node` there
+return `syntax error at or near "export"`. Not Git Bash either: `bash` on this
+machine resolves to `C:\WINDOWS\system32\bash.exe`, the WSL launcher, which
+would run inside a Linux VM with different paths and a different Node install.
+`psql` is not installed at all, which is why none of this uses it.
+
+```powershell
+$env:PROD_DB_URL='postgresql://postgres.ldjrlvjkmzrcdqhetqoh:...@...:5432/postgres'
+$env:STAGING_DB_URL='postgresql://postgres.NEWREF:...@...:5432/postgres'
+node scripts/clone-schema-to-staging.mjs
 ```
+
+Set both in the same window — `$env:` variables live as long as that PowerShell
+session and no longer. Check they took with `$env:PROD_DB_URL.Length`, which
+prints a number rather than the string.
 
 The script dumps **schema only** — no customers, no vehicles, no invoices. It
 refuses to run if the target is the production ref, and refuses to apply a dump
-that contains no RLS policies.
+that contains no RLS policies. Neither connection string is ever printed; the
+output is refs and object counts.
 
 Then prove it matched, rather than trusting that it applied without error:
 
-```bash
-psql "$PROD_DB_URL"    -f scripts/verify-schema-parity.sql
-psql "$STAGING_DB_URL" -f scripts/verify-schema-parity.sql
+```powershell
+node scripts/run-sql.mjs scripts/verify-schema-parity.sql prod
+node scripts/run-sql.mjs scripts/verify-schema-parity.sql staging
 ```
 
 The two outputs should agree on every count except the row counts at the end,
@@ -57,8 +70,8 @@ where staging should be empty. Pay attention to the *tables with RLS disabled*
 list: a policy that failed to copy is bad, but a table whose RLS switch is off
 enforces nothing while every policy on it still looks present.
 
-```bash
-psql "$STAGING_DB_URL" -f scripts/seed-staging-buckets.sql
+```powershell
+node scripts/run-sql.mjs scripts/seed-staging-buckets.sql staging
 ```
 
 Buckets are rows, not schema, so the dump does not carry them. Without this,
