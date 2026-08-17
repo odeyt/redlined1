@@ -55,3 +55,6 @@ redlined1-backup-*.sql
 *.dump
 
 .env*
+
+# Schema dump produced by scripts/clone-schema-to-staging.sh
+supabase/schema-snapshot.sql
