@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 
 export interface MaintenanceSchedule {
@@ -84,6 +86,17 @@ export async function createMaintenanceSchedule(ms: Omit<MaintenanceSchedule, 'i
     .select()
     .single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.maintenanceCreated,
+    entityType: 'maintenance_schedule',
+    entityId: data.id as string,
+    after: {
+      vehicle: data.vehicle, customer: data.customer_name,
+      serviceType: data.service_type, status: data.status,
+      nextDueDate: data.next_due_date, nextDueMiles: data.next_due_miles,
+    },
+  });
   return mapRow(data);
 }
 
@@ -106,11 +119,32 @@ export async function updateMaintenanceSchedule(id: string, updates: Partial<Mai
   if (updates.status !== undefined) payload.status = updates.status;
   const { error } = await supabase.from('maintenance_schedules').update(payload).eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.maintenanceUpdated,
+    entityType: 'maintenance_schedule',
+    entityId: id,
+    after: payload,
+  });
 }
 
 export async function deleteMaintenanceSchedule(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('maintenance_schedules').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase.from('maintenance_schedules').delete().eq('id', id).in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.maintenanceDeleted,
+    entityType: 'maintenance_schedule',
+    entityId: id,
+    before: before ? {
+      vehicle: before.vehicle, customer: before.customer_name,
+      serviceType: before.service_type, status: before.status,
+      nextDueDate: before.next_due_date, nextDueMiles: before.next_due_miles,
+    } : null,
+  });
 }
 
 export function getDaysUntilDue(nextDueDate: string | null): number | null {

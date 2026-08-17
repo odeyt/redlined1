@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { deriveRecordCurrency } from '@/lib/recordCurrency';
 
@@ -156,6 +158,17 @@ export async function createPartsEstimate(o: Omit<PartsEstimate, 'id' | 'created
     .insert({ shop_id: getShopId(), ...buildPayload(o) })
     .select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partsEstimateCreated,
+    entityType: 'parts_estimate',
+    entityId: data.id as string,
+    after: {
+      vendor: data.vendor_name, status: data.status, totalCost: data.total_cost,
+      deposit: data.deposit, currency: data.currency,
+      jobCardNumber: data.job_card_number, customer: data.customer_name,
+    },
+  });
   return mapEstimate(data);
 }
 
@@ -174,6 +187,17 @@ export async function updatePartsEstimate(id: string, o: Partial<Omit<PartsEstim
     .eq('id', id).in('shop_id', getShopIds())
     .select().single();
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partsEstimateUpdated,
+    entityType: 'parts_estimate',
+    entityId: id,
+    after: {
+      vendor: data.vendor_name, status: data.status, totalCost: data.total_cost,
+      deposit: data.deposit, currency: data.currency,
+      jobCardNumber: data.job_card_number, customer: data.customer_name,
+    },
+  });
   return mapEstimate(data);
 }
 
@@ -205,10 +229,24 @@ function buildPartialPayload(o: Partial<Omit<PartsEstimate, 'id' | 'createdAt'>>
 }
 
 export async function deletePartsEstimate(id: string): Promise<void> {
+  const { data: before } = await supabase
+    .from('parts_estimates').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+
   const { error } = await supabase
     .from('parts_estimates')
     .delete()
     .eq('id', id)
     .in('shop_id', getShopIds());
   if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.partsEstimateDeleted,
+    entityType: 'parts_estimate',
+    entityId: id,
+    before: before ? {
+      vendor: before.vendor_name, status: before.status, totalCost: before.total_cost,
+      deposit: before.deposit, currency: before.currency,
+      jobCardNumber: before.job_card_number, customer: before.customer_name,
+    } : null,
+  });
 }

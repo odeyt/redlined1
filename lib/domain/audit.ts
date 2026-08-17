@@ -165,6 +165,16 @@ export const AUDIT = {
   technicianDeleted: 'technician.deleted',
   /** Deleting a clock record removes the evidence of hours worked. */
   timeEntryDeleted: 'time_entry.deleted',
+  /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
+  settingsUpdated: 'settings.updated',
+  /** Who can see and do what. A security decision, not a preference. */
+  settingsPermissionsChanged: 'settings.permissions_changed',
+  maintenanceCreated: 'maintenance.created',
+  maintenanceUpdated: 'maintenance.updated',
+  maintenanceDeleted: 'maintenance.deleted',
+  partsEstimateCreated: 'parts_estimate.created',
+  partsEstimateUpdated: 'parts_estimate.updated',
+  partsEstimateDeleted: 'parts_estimate.deleted',
   invoiceCreated: 'invoice.created',
   invoiceUpdated: 'invoice.updated',
   invoiceStatusChanged: 'invoice.status_changed',

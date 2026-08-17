@@ -1,4 +1,6 @@
 ﻿import { supabase } from '@/lib/supabase';
+import { recordAudit } from '@/lib/domain/auditFromBrowser';
+import { AUDIT } from '@/lib/domain/audit';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
 import type { AlertPreferences } from '@/lib/alerts/catalogue';
 import { getShopId, getShopIds } from '@/lib/shopStore';
@@ -216,6 +218,16 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
         if (count === 0) {
           throw new Error('Role permissions were not saved — no matching shop record was found.');
         }
+
+        // Recorded as its own action, and against every shop it was written to.
+        // This decides who can see which modules across all of an owner's
+        // locations, so it is a security change rather than a preference.
+        await recordAudit({
+          action: AUDIT.settingsPermissionsChanged,
+          entityType: 'shop_settings',
+          entityId: getShopId(),
+          after: { shopIds: allShopIds, rolePermissions: settings.rolePermissions },
+        });
       }
     }
     // If other settings are also being saved, don't re-save role_permissions below
@@ -237,6 +249,7 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
         .from('shop_settings')
         .insert({ ...update, shop_id: shopId });
       if (error) throw error;
+      await recordSettingsChange(shopId, update);
       return;
     }
 
@@ -262,7 +275,37 @@ export async function saveShopSettings(settings: Partial<ShopSettings>): Promise
         'Reload the page and try again; if it persists, your account may have lost access to this shop.',
       );
     }
+
+    await recordSettingsChange(getShopId(), update);
   }
+}
+
+/**
+ * Which settings changed, and the values of the ones that decide money.
+ *
+ * The whole payload is deliberately not snapshotted. Alert preferences,
+ * inspection templates and the hidden-module list are large blobs that would
+ * bury the fields anyone actually asks about later — a labour rate, a tax rate
+ * or a currency silently changing alters what every invoice raised afterwards
+ * charges, and that is the question an audit row needs to answer.
+ */
+const PRICING_FIELDS = [
+  'labor_rate', 'default_tax_rate', 'default_currency',
+  'invoice_prefix', 'estimate_prefix', 'enabled_payment_methods',
+] as const;
+
+async function recordSettingsChange(shopId: string, update: Record<string, unknown>): Promise<void> {
+  const pricing: Record<string, unknown> = {};
+  for (const field of PRICING_FIELDS) {
+    if (update[field] !== undefined) pricing[field] = update[field];
+  }
+
+  await recordAudit({
+    action: AUDIT.settingsUpdated,
+    entityType: 'shop_settings',
+    entityId: shopId,
+    after: { fieldsChanged: Object.keys(update), ...pricing },
+  });
 }
 
 export async function uploadLogo(file: File): Promise<string> {

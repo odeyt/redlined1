@@ -31,7 +31,28 @@ const AUDITED = [
   // Partial: deleting a clock record is audited, clocking in and out is not —
   // the entry row is itself the record of those.
   'timeTrackingService',
+  'shopSettingsService', 'maintenanceService', 'partsEstimateService',
 ];
+
+/**
+ * Deliberately not audited, and why.
+ *
+ * Coverage driven to zero would be a worse trail, not a better one. These
+ * write derived, cosmetic or already-logged data, and rows about them would
+ * outnumber the events anyone actually goes looking for. Excluding them is a
+ * decision recorded here rather than an omission nobody noticed.
+ */
+const EXCLUDED: Record<string, string> = {
+  dashboardLayoutService: 'where a user dragged their own widgets — a personal view preference',
+  entityImageService:     'image attach/detach; the storage bucket keeps its own object log',
+  vehicleImageService:    'as above, for vehicle photos',
+  knowledgeGraphService:  'derived from records that are themselves audited',
+  triageService:          'derived: symptom-to-cause suggestions, no business record changes',
+  observabilityService:   'the logging system; auditing it would recurse',
+  campaignService:        'marketing sends, tracked in their own send log',
+  portalService:          'read-mostly customer-facing views over audited records',
+  repairCaseService:      'derived grouping of repair orders, which are audited',
+};
 
 function source(name: string): string {
   return readFileSync(join(SERVICES, `${name}.ts`), 'utf8');
@@ -42,7 +63,7 @@ function unaudited(): string[] {
   return readdirSync(SERVICES)
     .filter(f => f.endsWith('.ts'))
     .map(f => f.replace(/\.ts$/, ''))
-    .filter(name => !PORTED.includes(name) && !AUDITED.includes(name))
+    .filter(name => !PORTED.includes(name) && !AUDITED.includes(name) && !(name in EXCLUDED))
     .filter(name => /\.(insert|update|delete|upsert)\(/.test(source(name)));
 }
 
@@ -78,14 +99,26 @@ describe('coverage is stated, not assumed', () => {
     // trail, and anything built on "the audit trail covers the app" is wrong
     // until this list is empty.
     const remaining = unaudited();
-    console.log(`[audit-coverage] ${PORTED.length} ported, ${AUDITED.length} wired, ${remaining.length} still unaudited:\n  ${remaining.join('\n  ')}`);
+    console.log(
+      `[audit-coverage] ${PORTED.length} ported, ${AUDITED.length} wired, ` +
+      `${Object.keys(EXCLUDED).length} excluded by decision, ` +
+      `${remaining.length} still unaudited:\n  ${remaining.join('\n  ') || '(none)'}`,
+    );
     expect(Array.isArray(remaining)).toBe(true);
+  });
+
+  it('every exclusion carries a reason', () => {
+    // An empty reason is how a decision turns back into an oversight.
+    for (const [name, why] of Object.entries(EXCLUDED)) {
+      expect(why.length).toBeGreaterThan(20);
+      expect(() => source(name)).not.toThrow();
+    }
   });
 
   it('does not shrink silently', () => {
     // If a service is wired up, this number moves and the list above is
     // updated deliberately rather than by accident.
-    expect(PORTED.length + AUDITED.length).toBe(14);
+    expect(PORTED.length + AUDITED.length).toBe(17);
   });
 });
 
