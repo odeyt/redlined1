@@ -20,7 +20,7 @@ file, on branch `audit/m0-backoffice-platform`, unmerged.
 - **An append-only event bus already exists and is dormant.** `lib/intelligence-bus/` (RIB) has publish, subscribe, idempotency, loop guard, payload/secret guard, and an immutable `rib_events` store whose envelope already carries `organization_id`. `rib_events` has **0 rows**.
 - A second, *working* event mechanism exists: `sapelee_event_outbox` — a real transactional outbox with `idempotency_key`, `attempts`, `next_attempt_at`, 67 rows.
 - **`audit_logs` exists and is unusable**: columns are `action, "user" text, entity, time text`. No shop_id, no actor id, no before/after, no append-only enforcement, **0 rows**. Nothing writes to it.
-- **There is no receivables model.** No stored balance, no aging, no credit notes, no write-offs, no adjustments. `payments.invoice_number` is a text reference with no foreign key to `invoices.number`.
+- **There is no receivables model.** No stored balance, no aging, no credit notes, no write-offs, no adjustments. ~~`payments.invoice_number` is a text reference with no foreign key to `invoices.number`.~~ **CORRECTED — see §28.** The foreign key exists; its delete rule was the defect.
 - **Payments are mutable and deletable** (`updatePayment`, `deletePayment` in `services/paymentService.ts`) with no ledger, no reversal, no audit. This is the highest-risk finding for any financial expansion.
 - HR foundations partially exist: `technicians` already carries `pay_type, pay_rate, hire_date, status, user_id`, and `time_entries` already has `clock_in / clock_out`. Attendance and payroll would *extend* these, not replace them.
 - **AI is already real and reasonably well-architected**: `lib/platform/ai/AiProvider.ts` is a provider-agnostic abstraction (OpenAI + Anthropic), with quota control in `lib/ai/aiQuota.ts`. But `ai_usage_logs` has a migration and **does not exist in the live database** — schema drift.
@@ -164,7 +164,7 @@ records printed).
 | Table | Rows | Notable |
 |---|---|---|
 | `invoices` | 37 | **PK is `number`, not `id`** — a fact that has already caused a production outage. Has `due_date`, `paid_date`, `lines`, `discount`, `tax_rate`, `repair_order_id` |
-| `payments` | 13 | `invoice_number` (text, **no FK**), `amount`, `method`, `status`, `currency`, `payment_date` |
+| `payments` | 13 | `invoice_number` (text, FK to `invoices.number` — **ON DELETE SET NULL**, see §28), `amount`, `method`, `status`, `currency`, `payment_date` |
 | `parts_orders` / `parts_estimates` | 9 / 31 | already have `deposit_paid`, `balance_due` |
 | `shop_subscriptions` | 1 | SaaS billing — **not** shop revenue |
 | `commercial_plans` | 4 | plan registry with `max_users`, `max_locations`, `ai_credits_per_month` |
@@ -319,7 +319,7 @@ customers ──< vehicles
             ├──< inspections
             └──< invoices (PK = number)
                      ▲
-                     │ invoice_number  (TEXT, no FK)
+                     │ invoice_number  (TEXT, FK — SET NULL, see §28)
                   payments
 ```
 
@@ -337,8 +337,10 @@ customers ──< vehicles
 - **Partial payments are not modelled.** `payments` rows are independent; there
   is no allocation table, so two partial payments and one overpayment are
   indistinguishable from three unrelated rows.
-- **No FK between `payments.invoice_number` and `invoices.number`.** A payment
-  can reference an invoice that does not exist, or be orphaned by a renumber.
+- ~~**No FK between `payments.invoice_number` and `invoices.number`.**~~
+  **WRONG — corrected in §28.** The foreign key exists. Its delete rule was
+  `ON DELETE SET NULL`, which is worse than the absence I reported: deleting an
+  invoice blanked the payment's link rather than being refused.
 - **Deposits are handled as negative invoice lines** (`services/__tests__/invoiceCredits.test.ts`),
   and `parts_orders` / `parts_estimates` have their own `deposit_paid` /
   `balance_due` / `deposit` columns. That is **three** deposit mechanisms.
@@ -800,8 +802,10 @@ would have blocked every job card edit). PL/pgSQL is not type-checked at
 
 ### MEDIUM
 
-**M1 — `payments.invoice_number` has no foreign key** to `invoices.number`.
-Orphan and mismatch are both possible.
+**M1 — ~~`payments.invoice_number` has no foreign key~~ WRONG. See §28.**
+It has one. The real defect, found later, was that its delete rule and four
+others were `ON DELETE SET NULL`, and `vehicles.customer_id` was `CASCADE` —
+which belongs in CRITICAL, not MEDIUM.
 
 **M2 — `job_cards.technicians` stores names, not ids.** Renaming a technician
 silently detaches their history; two shops with the same name collide.
@@ -1027,9 +1031,9 @@ begins:
    rules, which is the specific failure this plan exists to avoid.
 2. **A real audit log exists and is written by every domain write** (M1). Payroll
    and receivables cannot be built on a table with `time text` and zero rows.
-3. **Payments become append-only with reversals, and gain a foreign key**
-   (M3, moved up). Mutable, deletable, unaudited money is the single highest risk
-   in the current system.
+3. **Payments become append-only with reversals, and the delete rules are
+   fixed** (M3, moved up). Mutable, deletable, unaudited money is the single
+   highest risk in the current system. (The foreign key already existed — §28.)
 4. **Schema drift is reconciled.** `ai_usage_logs` exists as a migration and not
    as a table. Until the migration set matches production, no migration-based
    plan is trustworthy.
@@ -1058,3 +1062,81 @@ document.
 
 Artefact created: `docs/m0-architecture-audit.md` on branch
 `audit/m0-backoffice-platform` — **not merged, not pushed.**
+
+---
+
+## 28. Corrections (added 2026-08-17, after M1–M3)
+
+This audit was used to plan three milestones. Everything it got wrong is
+recorded here rather than edited out of the sections above, because a document
+that silently repairs itself cannot be trusted about the things it still
+asserts.
+
+### C1 — "No foreign key between `payments.invoice_number` and `invoices.number`"
+
+**Wrong.** `payments_invoice_number_fkey` exists and always has. It was
+enforced — an insert against a non-existent invoice number was refused with
+`23503`.
+
+**How the error was made:** the claim was inferred from `supabase-schema.sql`
+rather than read from `pg_constraint`. The schema file does not describe the
+constraint, so its absence in the file was mistaken for absence in the
+database.
+
+**Why it mattered more than a wrong label:** the M2 migration was written to
+*add* the constraint, guarded with `IF NOT EXISTS`. That guard would have
+silently skipped the statement, leaving the real defect in place while the
+migration file, the documentation and a test all claimed it was fixed. It was
+caught only because a paste of the SQL, without the guard, hit `42710
+constraint already exists`.
+
+**The real defect**, once `pg_constraint` was actually read:
+
+```sql
+SELECT conrelid::regclass, conname, confdeltype FROM pg_constraint
+WHERE confrelid = 'public.customers'::regclass AND contype = 'f';
+```
+
+| Reference | Was | Now |
+|---|---|---|
+| `payments.invoice_number → invoices.number` | SET NULL | RESTRICT |
+| `payments.customer_id` | SET NULL | RESTRICT |
+| `estimates.customer_id` | SET NULL | RESTRICT |
+| `inspections.customer_id` | SET NULL | RESTRICT |
+| `invoices.customer_id` | SET NULL | RESTRICT |
+| `maintenance_schedules.customer_id` | SET NULL | RESTRICT |
+| `repair_orders.customer_id` | SET NULL | RESTRICT |
+| **`vehicles.customer_id`** | **CASCADE** | **RESTRICT** |
+
+`SET NULL` is worse than a missing constraint: the record survives but loses
+its link, and afterwards a detached record is indistinguishable from one that
+was never linked. **INV-0003 proved it in production** — the invoice is gone
+and a payment still carries the note "Credit card payment — INV-0003".
+
+`vehicles.customer_id` being CASCADE was the serious one, and this audit missed
+it entirely. Deleting one customer deleted all their vehicles, and
+`vehicle_images` cascades from vehicles, so the photos went too. Deleting
+D1_Shop1 would have destroyed 22 vehicles. Verified fixed by attempting a
+delete of a customer with 44 attached records: refused, `23503`, nothing lost.
+
+### C2 — Ranking
+
+The finding above was filed as **MEDIUM (M1)**. Silent bulk deletion of vehicle
+history belongs in **CRITICAL**. The severity was wrong because the finding
+itself was wrong.
+
+### C3 — What this says about the rest of this document
+
+Every schema claim here that was **read from the database** — table lists, row
+counts, column names, the anonymous-access test across 31 tables — was verified
+by executing something. Those stand.
+
+Claims **inferred from files** were not verified, and one of them was wrong.
+The affected areas are the delete/cascade behaviour discussed in §8, §20 and
+§21. Anything in this document about constraints, triggers or grants should be
+re-checked against `pg_constraint`, `pg_trigger` and `information_schema` before
+being relied on.
+
+**The rule that came out of it:** read the catalogue, never the schema file. A
+schema file describes what someone once wrote; the catalogue describes what the
+database is actually doing.
