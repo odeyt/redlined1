@@ -24,7 +24,7 @@ import { fetchInvoices } from '@/services/invoiceService';
 import { FilterPills } from '@/components/FilterPills';
 import {
   fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder,
-  updateEntityImageLabel, EntityImage,
+  updateEntityImageLabel, reassignEntityImages, EntityImage,
 } from '@/services/entityImageService';
 import type { Customer } from '@/lib/types';
 
@@ -536,7 +536,7 @@ export function PartsEstimatesView() {
     }
 
     try {
-      await createPartsOrder({
+      const order = await createPartsOrder({
         lineItems: e.lineItems?.length ? e.lineItems : [{ partName: e.partName, partNumber: e.partNumber, condition: e.condition, quantity: e.quantity, unitCost: e.unitCost }],
         partName: e.partName, partNumber: e.partNumber, condition: e.condition,
         quantity: e.quantity, unitCost: e.unitCost,
@@ -557,10 +557,34 @@ export function PartsEstimatesView() {
         notes: e.notes ? `Converted from Parts Quotation. ${e.notes}` : 'Converted from Parts Quotation.',
         currency: e.currency,
       });
+      // Photos move before the quotation is deleted, never after.
+      //
+      // Images are keyed on (entity_type, entity_id). The order is a new row
+      // with a new id, so photos left behind point at an id that is about to
+      // stop existing — the rows and the files survive, but nothing displays
+      // them. To the person who attached them, they were erased.
+      let movedPhotos = 0;
+      try {
+        movedPhotos = await reassignEntityImages('parts_estimate', e.id, 'parts_order', order.id);
+      } catch (photoErr: unknown) {
+        // The order exists and the quotation still holds its photos. Stopping
+        // here leaves both visible, which a person can sort out; deleting the
+        // quotation anyway would strand the photos for good.
+        notify(
+          'Order created, but the photos could not be moved — the quotation has been kept so they are not lost. ' +
+          ((photoErr as { message?: string })?.message ?? 'unknown error'),
+        );
+        return;
+      }
+
       await deletePartsEstimate(e.id);
       setEstimates(prev => prev.filter(x => x.id !== e.id));
       setSelected(null);
-      notify('✓ Converted to Parts Order — quotation removed');
+      notify(
+        movedPhotos > 0
+          ? `✓ Converted to Parts Order — ${movedPhotos} photo${movedPhotos === 1 ? '' : 's'} moved across`
+          : '✓ Converted to Parts Order — quotation removed',
+      );
       setTimeout(() => { dispatch({ type: 'SET_MODULE', module: 'parts-orders' }); }, 600);
     } catch (err: unknown) {
       notify('Failed to convert — ' + ((err as { message?: string })?.message ?? 'unknown error'));

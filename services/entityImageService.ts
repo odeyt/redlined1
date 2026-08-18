@@ -79,3 +79,36 @@ export async function saveEntityImageOrder(entityType: EntityType, entityId: str
     .upsert(updates, { onConflict: 'id' });
   if (error) throw error;
 }
+
+/**
+ * Move a set of photos from one record to another.
+ *
+ * Converting a parts quotation to a parts order creates a new row with a new
+ * id and deletes the quotation. Images are keyed on (entity_type, entity_id),
+ * so without this they keep pointing at an id that no longer exists: the rows
+ * survive, the storage objects survive, and nothing displays them anywhere.
+ * To the person who attached them, the photos were erased.
+ *
+ * Returns how many were moved, so the caller can decide whether it is safe to
+ * delete the record they came from.
+ */
+export async function reassignEntityImages(
+  fromType: EntityType,
+  fromId: string,
+  toType: EntityType,
+  toId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('entity_images')
+    .update({ entity_type: toType, entity_id: toId })
+    .eq('entity_type', fromType)
+    .eq('entity_id', fromId)
+    .select('id');
+  if (error) throw error;
+
+  // The storage paths still read parts_estimates/<old id>/… and are left
+  // alone. A path is an opaque key here; renaming objects would mean a copy,
+  // a delete and a rewritten url for every photo, and any failure midway
+  // would lose the file rather than merely mislabel it.
+  return (data ?? []).length;
+}
