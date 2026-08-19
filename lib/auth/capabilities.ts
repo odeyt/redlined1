@@ -89,8 +89,13 @@ export const CAPABILITIES: readonly Capability[] = [
   // yet, and the settings screen must label them as such.
   { id: 'employees.read',         label: 'See employee records',        group: 'People',   status: 'enforced' },
   { id: 'employees.manage',       label: 'Add and edit employees',      group: 'People',   status: 'enforced' },
-  { id: 'attendance.read',        label: 'See attendance',              group: 'People',   status: 'planned' },
-  { id: 'attendance.manage',      label: 'Record and correct attendance', group: 'People', status: 'planned' },
+  { id: 'attendance.read',        label: 'See attendance',              group: 'People',   status: 'enforced' },
+  { id: 'attendance.manage',      label: 'Record and correct attendance', group: 'People', status: 'enforced' },
+  { id: 'leave.read',             label: 'See leave requests',          group: 'People',   status: 'enforced' },
+  // Requesting is separate from approving on purpose: everyone needs the
+  // first, and nobody should get the second by being given the first.
+  { id: 'leave.request',          label: 'Request leave',               group: 'People',   status: 'enforced' },
+  { id: 'leave.approve',          label: 'Approve or reject leave',     group: 'People',   status: 'enforced' },
   { id: 'salary.read_own',        label: 'See their own pay',           group: 'Pay',      status: 'planned' },
   { id: 'salary.read_all',        label: "See everyone's pay",          group: 'Pay',      status: 'planned' },
   { id: 'salary.manage',          label: 'Set pay rates',               group: 'Pay',      status: 'planned' },
@@ -136,6 +141,10 @@ const MANAGER: readonly string[] = [
   // pay will live; narrowing before there is anything sensitive on it is
   // cheaper than narrowing after.
   'employees.read',
+  // Attendance and leave are what a shop manager actually does day to day —
+  // who turned up, who is off next week. Pay itself stays with the owner.
+  'attendance.read', 'attendance.manage',
+  'leave.read', 'leave.request', 'leave.approve',
 ];
 
 const ADVISOR: readonly string[] = [
@@ -146,6 +155,8 @@ const ADVISOR: readonly string[] = [
   'estimates.read', 'estimates.manage',
   'parts.read',
   'appointments.read', 'appointments.manage',
+  // Their own time off, not anyone else's.
+  'leave.request',
 ];
 
 const TECHNICIAN: readonly string[] = [
@@ -153,6 +164,7 @@ const TECHNICIAN: readonly string[] = [
   'repair_orders.read', 'repair_orders.manage',
   'inspections.read', 'inspections.manage',
   'parts.read', 'parts.manage',
+  'leave.request',
 ];
 
 export const DEFAULT_CAPABILITIES: Readonly<Record<ShopRole, readonly string[]>> = {

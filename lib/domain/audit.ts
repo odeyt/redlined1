@@ -165,6 +165,15 @@ export const AUDIT = {
   technicianDeleted: 'technician.deleted',
   /** Deleting a clock record removes the evidence of hours worked. */
   timeEntryDeleted: 'time_entry.deleted',
+  /** A working day recorded for the first time. */
+  attendanceRecorded: 'attendance.recorded',
+  /** A working day changed after the fact. This is the one people query. */
+  attendanceCorrected: 'attendance.corrected',
+  leaveRequested: 'leave.requested',
+  leaveApproved: 'leave.approved',
+  leaveRejected: 'leave.rejected',
+  leaveCancelled: 'leave.cancelled',
+  leaveTypeChanged: 'leave_type.changed',
   /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
   settingsUpdated: 'settings.updated',
   /** Who can see and do what. A security decision, not a preference. */

@@ -4,7 +4,7 @@
  * The behavioural half runs against the fake database; the back-fill and the
  * access rules are pinned to the migration, since nothing here executes SQL.
  */
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createDomainContext } from '../context';
 import { createEmployeeDomain, EmployeeError } from '../employees';
@@ -251,10 +251,24 @@ describe('the migration', () => {
 });
 
 describe('the SQL capability defaults still match the application', () => {
-  const SQL = readFileSync(
-    join(__dirname, '..', '..', '..', 'supabase/migrations/2026-08-17_m5_employees.sql'),
-    'utf8',
-  );
+  /**
+   * The LATEST migration that redefines has_capability, not this one.
+   *
+   * Pinned to the M5 file, this silently started comparing against a
+   * superseded definition the moment M6 redefined the function — a guard that
+   * passes while the thing it guards has moved on. capabilities.test.ts had
+   * already learnt this; this copy had not.
+   */
+  const SQL = (() => {
+    const dir = join(__dirname, '..', '..', '..', 'supabase/migrations');
+    const definers = readdirSync(dir)
+      .filter(f => f.endsWith('.sql'))
+      .filter(f => readFileSync(join(dir, f), 'utf8')
+        .includes('CREATE OR REPLACE FUNCTION public.has_capability'))
+      .sort();
+    expect(definers.length).toBeGreaterThan(0);
+    return readFileSync(join(dir, definers[definers.length - 1]), 'utf8');
+  })();
 
   function sqlDefaultsFor(role: string): string[] {
     const start = SQL.indexOf(`WHEN '${role}' THEN ARRAY[`);
