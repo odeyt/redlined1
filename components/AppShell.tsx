@@ -34,6 +34,7 @@ import { PartsReceivedView } from '@/features/parts/PartsReceivedView';
 import { PartsEstimatesView } from '@/features/parts/PartsEstimatesView';
 import { TechniciansView } from '@/features/technicians/TechniciansView';
 import { AttendanceView } from '@/features/people/AttendanceView';
+import { PayView } from '@/features/people/PayView';
 import { VinView } from '@/features/vin/VinView';
 import { DtcView } from '@/features/dtc/DtcView';
 import { DiagnosticsView } from '@/features/diagnostics/DiagnosticsView';
@@ -86,6 +87,7 @@ const views: Record<string, React.ComponentType> = {
   'parts-estimates': PartsEstimatesView,
   technicians: TechniciansView,
   attendance: AttendanceView,
+  pay: PayView,
   vin: VinView,
   dtc: DtcView,
   diagnostics: DiagnosticsView,

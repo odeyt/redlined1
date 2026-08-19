@@ -96,11 +96,11 @@ export const CAPABILITIES: readonly Capability[] = [
   // first, and nobody should get the second by being given the first.
   { id: 'leave.request',          label: 'Request leave',               group: 'People',   status: 'enforced' },
   { id: 'leave.approve',          label: 'Approve or reject leave',     group: 'People',   status: 'enforced' },
-  { id: 'salary.read_own',        label: 'See their own pay',           group: 'Pay',      status: 'planned' },
-  { id: 'salary.read_all',        label: "See everyone's pay",          group: 'Pay',      status: 'planned' },
-  { id: 'salary.manage',          label: 'Set pay rates',               group: 'Pay',      status: 'planned' },
-  { id: 'salary_advances.request',label: 'Request an advance',          group: 'Pay',      status: 'planned' },
-  { id: 'salary_advances.approve',label: 'Approve an advance',          group: 'Pay',      status: 'planned' },
+  { id: 'salary.read_own',        label: 'See their own pay',           group: 'Pay',      status: 'enforced' },
+  { id: 'salary.read_all',        label: "See everyone's pay",          group: 'Pay',      status: 'enforced' },
+  { id: 'salary.manage',          label: 'Set pay rates',               group: 'Pay',      status: 'enforced' },
+  { id: 'salary_advances.request',label: 'Request an advance',          group: 'Pay',      status: 'enforced' },
+  { id: 'salary_advances.approve',label: 'Approve an advance',          group: 'Pay',      status: 'enforced' },
   { id: 'payroll.read',           label: 'See payroll runs',            group: 'Pay',      status: 'planned' },
   { id: 'payroll.manage',         label: 'Run payroll',                 group: 'Pay',      status: 'planned' },
   { id: 'expenses.read',          label: 'See expenses',                group: 'Money',    status: 'planned' },
@@ -145,6 +145,10 @@ const MANAGER: readonly string[] = [
   // who turned up, who is off next week. Pay itself stays with the owner.
   'attendance.read', 'attendance.manage',
   'leave.read', 'leave.request', 'leave.approve',
+  // Nothing from Pay, deliberately. A manager runs the shop day to day and
+  // now holds attendance and leave; what each person earns is needed for
+  // none of that. They may still ask for an advance for themselves.
+  'salary.read_own', 'salary_advances.request',
 ];
 
 const ADVISOR: readonly string[] = [
@@ -155,8 +159,9 @@ const ADVISOR: readonly string[] = [
   'estimates.read', 'estimates.manage',
   'parts.read',
   'appointments.read', 'appointments.manage',
-  // Their own time off, not anyone else's.
+  // Their own time off, their own pay, not anyone else's.
   'leave.request',
+  'salary.read_own', 'salary_advances.request',
 ];
 
 const TECHNICIAN: readonly string[] = [
@@ -165,6 +170,7 @@ const TECHNICIAN: readonly string[] = [
   'inspections.read', 'inspections.manage',
   'parts.read', 'parts.manage',
   'leave.request',
+  'salary.read_own', 'salary_advances.request',
 ];
 
 export const DEFAULT_CAPABILITIES: Readonly<Record<ShopRole, readonly string[]>> = {

@@ -85,11 +85,27 @@ describe('the catalogue', () => {
     expect(CAPABILITIES.map(c => c.id)).toEqual(expect.arrayContaining(['payments.record', 'payments.reverse']));
   });
 
-  it('marks the HR and money capabilities as planned, not enforced', () => {
+  it('marks the capabilities nothing enforces yet as planned', () => {
     // Same lesson as the alerts catalogue: a switch for something nothing
     // enforces looks like it works and does nothing.
-    for (const id of ['payroll.read', 'salary.read_all', 'expenses.approve', 'receivables.read']) {
+    //
+    // salary.read_all left this list in M7, when RLS policies and a domain
+    // layer began enforcing it. Moving an id out of here is deliberate and
+    // belongs in the same commit as the thing that enforces it — never on its
+    // own to make a test pass.
+    for (const id of ['payroll.read', 'payroll.manage', 'expenses.approve', 'receivables.read',
+                      'reconciliation.manage']) {
       expect(CAPABILITIES.find(c => c.id === id)?.status).toBe('planned');
+    }
+  });
+
+  it('enforces every capability the pay screens rely on', () => {
+    // The other half of the same guard: something that IS enforced must not
+    // sit in the catalogue marked planned, because capabilitiesFor() refuses
+    // to grant a planned id and the screen would silently do nothing.
+    for (const id of ['salary.read_own', 'salary.read_all', 'salary.manage',
+                      'salary_advances.request', 'salary_advances.approve']) {
+      expect(CAPABILITIES.find(c => c.id === id)?.status).toBe('enforced');
     }
   });
 });

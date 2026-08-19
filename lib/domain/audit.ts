@@ -174,6 +174,13 @@ export const AUDIT = {
   leaveRejected: 'leave.rejected',
   leaveCancelled: 'leave.cancelled',
   leaveTypeChanged: 'leave_type.changed',
+  /** A pay rate set from a date. Never an edit — the history is insert-only. */
+  salarySet: 'salary.set',
+  advanceRequested: 'salary_advance.requested',
+  advanceApproved: 'salary_advance.approved',
+  advanceRejected: 'salary_advance.rejected',
+  /** The money actually handed over. This is the one payroll deducts from. */
+  advancePaid: 'salary_advance.paid',
   /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
   settingsUpdated: 'settings.updated',
   /** Who can see and do what. A security decision, not a preference. */
