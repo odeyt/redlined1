@@ -95,8 +95,11 @@ describe('the catalogue', () => {
     // own to make a test pass.
     // payroll.read and payroll.manage left this list in M8, when policies and
     // a domain layer began enforcing them.
-    for (const id of ['expenses.approve', 'expenses.read', 'receivables.read',
-                      'reconciliation.manage', 'api_keys.manage']) {
+    // expenses.* left this list in M9. What remains is receivables, daily
+    // reconciliation and the integration capabilities — none of which has any
+    // code behind it yet.
+    for (const id of ['receivables.read', 'reconciliation.manage',
+                      'api_keys.manage', 'integrations.manage']) {
       expect(CAPABILITIES.find(c => c.id === id)?.status).toBe('planned');
     }
   });

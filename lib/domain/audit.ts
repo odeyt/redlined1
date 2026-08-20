@@ -186,6 +186,11 @@ export const AUDIT = {
   payrollRunFinalised: 'payroll_run.finalised',
   payrollRunPaid: 'payroll_run.paid',
   payrollDraftDeleted: 'payroll_run.draft_deleted',
+  expenseSubmitted: 'expense.submitted',
+  expenseApproved: 'expense.approved',
+  expenseRejected: 'expense.rejected',
+  /** Money handed back to someone who paid out of their own pocket. */
+  expenseReimbursed: 'expense.reimbursed',
   /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
   settingsUpdated: 'settings.updated',
   /** Who can see and do what. A security decision, not a preference. */

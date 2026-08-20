@@ -36,6 +36,7 @@ import { TechniciansView } from '@/features/technicians/TechniciansView';
 import { AttendanceView } from '@/features/people/AttendanceView';
 import { PayView } from '@/features/people/PayView';
 import { PayrollView } from '@/features/people/PayrollView';
+import { ExpensesView } from '@/features/money/ExpensesView';
 import { VinView } from '@/features/vin/VinView';
 import { DtcView } from '@/features/dtc/DtcView';
 import { DiagnosticsView } from '@/features/diagnostics/DiagnosticsView';
@@ -90,6 +91,7 @@ const views: Record<string, React.ComponentType> = {
   attendance: AttendanceView,
   pay: PayView,
   payroll: PayrollView,
+  expenses: ExpensesView,
   vin: VinView,
   dtc: DtcView,
   diagnostics: DiagnosticsView,

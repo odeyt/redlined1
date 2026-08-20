@@ -105,9 +105,12 @@ export const CAPABILITIES: readonly Capability[] = [
   // manager who can read one has been handed salary.read_all by another route.
   { id: 'payroll.read',           label: 'See payroll runs',            group: 'Pay',      status: 'enforced' },
   { id: 'payroll.manage',         label: 'Run payroll',                 group: 'Pay',      status: 'enforced' },
-  { id: 'expenses.read',          label: 'See expenses',                group: 'Money',    status: 'planned' },
-  { id: 'expenses.create',        label: 'Submit an expense',           group: 'Money',    status: 'planned' },
-  { id: 'expenses.approve',       label: 'Approve an expense',          group: 'Money',    status: 'planned' },
+  { id: 'expenses.read',          label: 'See expenses',                group: 'Money',    status: 'enforced' },
+  // Everyone can submit: a technician who bought fuel out of pocket has to
+  // be able to say so. Approving is the owner's, because it is the moment a
+  // cost is accepted and somebody gets paid back.
+  { id: 'expenses.create',        label: 'Submit an expense',           group: 'Money',    status: 'enforced' },
+  { id: 'expenses.approve',       label: 'Approve an expense',          group: 'Money',    status: 'enforced' },
   { id: 'receivables.read',       label: 'See what customers owe',      group: 'Money',    status: 'planned' },
   { id: 'reconciliation.manage',  label: 'Close the day',               group: 'Money',    status: 'planned' },
   { id: 'api_keys.manage',        label: 'Manage API keys',             group: 'Integrations', status: 'planned' },
@@ -151,6 +154,7 @@ const MANAGER: readonly string[] = [
   // now holds attendance and leave; what each person earns is needed for
   // none of that. They may still ask for an advance for themselves.
   'salary.read_own', 'salary_advances.request',
+  'expenses.read', 'expenses.create',
 ];
 
 const ADVISOR: readonly string[] = [
@@ -164,6 +168,7 @@ const ADVISOR: readonly string[] = [
   // Their own time off, their own pay, not anyone else's.
   'leave.request',
   'salary.read_own', 'salary_advances.request',
+  'expenses.create',
 ];
 
 const TECHNICIAN: readonly string[] = [
@@ -173,6 +178,7 @@ const TECHNICIAN: readonly string[] = [
   'parts.read', 'parts.manage',
   'leave.request',
   'salary.read_own', 'salary_advances.request',
+  'expenses.create',
 ];
 
 export const DEFAULT_CAPABILITIES: Readonly<Record<ShopRole, readonly string[]>> = {
