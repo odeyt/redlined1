@@ -5,6 +5,8 @@
  * the right shape: the risk here is a wrong number that looks plausible, not a
  * failed write.
  */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   receivablesFrom, agingSummary, byCustomer, bucketFor, daysBetween,
 } from '../receivables';
@@ -205,5 +207,25 @@ describe('by customer', () => {
       invoice({ invoiceNumber: 'B', customerName: 'Ancient', dueDate: '2026-01-01' }),
     ], [], TODAY);
     expect(byCustomer(rows)[0].customerName).toBe('Ancient');
+  });
+});
+
+describe('the grouping key cannot collide', () => {
+  it('keeps a customer whose name looks like a key apart from a real one', () => {
+    // "John USD" joined to a currency with a separator produces the same key
+    // as John's USD row. The merged total would look entirely plausible, which
+    // is what makes this worth a test rather than a comment.
+    const rows = receivablesFrom([
+      invoice({ invoiceNumber: 'A', customerName: 'John' }),
+      invoice({ invoiceNumber: 'B', customerName: 'John USD' }),
+    ], [], TODAY);
+    expect(byCustomer(rows)).toHaveLength(2);
+  });
+
+  it('has no control characters in the source', () => {
+    // A raw NUL byte made git treat this file as binary — it compiled and the
+    // tests passed, so nothing else would have noticed.
+    const source = readFileSync(join(__dirname, '..', 'receivables.ts'), 'utf8');
+    expect(source).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/);
   });
 });
