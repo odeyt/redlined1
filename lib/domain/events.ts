@@ -147,12 +147,27 @@ export const DOMAIN_EVENTS = {
   invoiceIssued: 'invoice.issued',
   paymentRecorded: 'payment.recorded',
   paymentReversed: 'payment.reversed',
-  repairOrderClosed: 'repair_order.closed',
-  estimateApproved: 'estimate.approved',
   payrollFinalised: 'payroll.finalised',
   cashDayClosed: 'cash_day.closed',
   expenseApproved: 'expense.approved',
   leaveApproved: 'leave.approved',
+} as const;
+
+/**
+ * Named, but NOT emitted yet — and deliberately kept out of DOMAIN_EVENTS.
+ *
+ * Repair orders and estimates still live in services/, with no lib/domain
+ * module to emit from. Listing them above would have made the promise this
+ * file opens with — "a subscriber can be written against something knowable" —
+ * false: five of the nine types listed here originally never fired, so anything
+ * subscribing to them waited forever with no way to tell.
+ *
+ * They move up when those entities get a domain module, and
+ * `eventsEmitted.test.ts` fails if a name is added above without an emitter.
+ */
+export const PLANNED_DOMAIN_EVENTS = {
+  repairOrderClosed: 'repair_order.closed',
+  estimateApproved: 'estimate.approved',
 } as const;
 
 export type DomainEventType = typeof DOMAIN_EVENTS[keyof typeof DOMAIN_EVENTS];

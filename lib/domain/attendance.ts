@@ -28,6 +28,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 
 export type AttendanceStatus =
   | 'Present' | 'Late' | 'Half day' | 'Absent' | 'Leave' | 'Holiday' | 'Rest day';
@@ -423,6 +424,26 @@ export function createAttendanceDomain({ db, context }: DomainDeps) {
     if (error) throw error;
 
     const request = mapRequest(data);
+
+    // Only approval is an event. A rejection changes nothing outside this
+    // system — nobody is absent, no payroll line moves — whereas an approval
+    // is what a scheduling or payroll consumer has to react to.
+    if (decision === 'Approved') {
+      await emitDomainEvent(db, context, {
+        eventType: DOMAIN_EVENTS.leaveApproved,
+        aggregateType: 'leave_request',
+        aggregateId: request.id,
+        payload: {
+          employeeId: request.employeeId,
+          leaveTypeId: request.leaveTypeId,
+          startDate: request.startDate,
+          endDate: request.endDate,
+          days: leaveDayCount(request),
+        },
+        idempotencyKey: 'leave.approved:' + request.id,
+      });
+    }
+
     await writeAuditEvent(db, context, {
       action: decision === 'Approved' ? AUDIT.leaveApproved : AUDIT.leaveRejected,
       entityType: 'leave_request',

@@ -293,8 +293,14 @@ describe('mutations are audited', () => {
       const b = realFrom(table);
       const insert = b.insert as (p: unknown) => unknown;
       b.insert = (payload: unknown) => {
-        inserts += 1;
-        if (inserts === 2) throw new Error('network died');
+        // Count payment rows only. reverse() also queues an outbox event, and
+        // counting every insert put the failure on the event instead of the
+        // replacement — which emitDomainEvent swallows by design, so the
+        // operation succeeded and this test quietly stopped testing anything.
+        if (table === 'payments') {
+          inserts += 1;
+          if (inserts === 2) throw new Error('network died');
+        }
         return insert(payload);
       };
       return b;

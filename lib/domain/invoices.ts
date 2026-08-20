@@ -21,7 +21,8 @@ import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
 import { changedFields } from './changes';
-import { mapInvoiceRow } from './invoiceMath';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
+import { mapInvoiceRow, getEffectiveTotal } from './invoiceMath';
 import type { InvoiceFull } from './invoiceMath';
 
 export type { InvoiceFull, InvoiceLine, InvoiceTotals } from './invoiceMath';
@@ -104,6 +105,29 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
     }
 
     const invoice = mapInvoiceRow(data);
+    const total = getEffectiveTotal(invoice);
+
+    // Raising an invoice is the moment a receivable exists, which is what an
+    // accounting integration subscribes to. Keyed on invoiceNumber, not id:
+    // this table is keyed on number everywhere else, and an aggregateId that
+    // disagrees with the rest of the system is a subscriber's bug to find.
+    await emitDomainEvent(db, context, {
+      eventType: DOMAIN_EVENTS.invoiceIssued,
+      aggregateType: 'invoice',
+      aggregateId: invoice.invoiceNumber,
+      payload: {
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        repairOrderId: invoice.repairOrderId ?? null,
+        amount: total.amount,
+        currency: total.currency,
+        status: invoice.status,
+        dueDate: invoice.dueDate,
+        lineCount: invoice.lines.length,
+      },
+      idempotencyKey: 'invoice.issued:' + invoice.invoiceNumber,
+    });
+
     await writeAuditEvent(db, context, {
       action: AUDIT.invoiceCreated,
       entityType: 'invoice',

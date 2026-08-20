@@ -241,6 +241,28 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     if (error) throw translate(error);
 
     const reversal = mapPaymentRow(data);
+
+    // Money leaving is as material as money arriving, and a subscriber that
+    // heard payment.recorded and never hears this one has a wrong balance.
+    // The aggregate is the ORIGINAL payment — that is the thing whose state
+    // changed; the reversal row is how, and rides in the payload.
+    await emitDomainEvent(db, context, {
+      eventType: DOMAIN_EVENTS.paymentReversed,
+      aggregateType: 'payment',
+      aggregateId: original.id,
+      payload: {
+        reversalId: reversal.id,
+        invoiceNumber: reversal.invoiceNumber,
+        amount: reversal.amount,
+        currency: reversal.currency,
+        method: reversal.method,
+        reason: trimmed,
+      },
+      // A payment can be reversed only once, so the original's id is the whole
+      // key. A second attempt is refused by the ledger before reaching here.
+      idempotencyKey: 'payment.reversed:' + original.id,
+    });
+
     await writeAuditEvent(db, context, {
       action: AUDIT.paymentReversed,
       entityType: 'payment',
