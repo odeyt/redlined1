@@ -1,0 +1,53 @@
+name: Domain Event Health
+
+# DETECTION ONLY. This never emits, repairs or replays anything.
+#
+# A scheduled task holding a service-role key that can write events is a task
+# that can quietly replay history at 3am. Repair stays a deliberate human
+# action: this reports, and a person runs the reconciler.
+#
+# Hourly, not every five minutes. The relay already runs on the shorter cycle
+# and is what actually moves events; this is looking for a gap between a
+# business record and its event, which appears at the speed a workshop works,
+# not at the speed of a queue. GitHub throttles scheduled workflows under load
+# anyway — the relay's */5 lands nearer 30-50 minutes in practice — so a
+# tighter cron would buy nothing but noise.
+on:
+  schedule:
+    - cron: '17 * * * *' # hourly, off the hour to avoid the crowded :00 slot
+  workflow_dispatch:
+
+concurrency:
+  group: event-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Domain event health
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: @supabase/supabase-js initializes a realtime/WebSocket client
+          # during createClient() even for plain REST work, and Node 20 has no
+          # native WebSocket. Learned on the Sapelee workflow.
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The script asserts the Supabase project ref itself and exits 2 on a
+      # mismatch, so a mis-set secret stops the run rather than reading another
+      # product's database.
+      - name: Check event health
+        run: npm run events:health -- --json
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          VERCEL_ENV: production

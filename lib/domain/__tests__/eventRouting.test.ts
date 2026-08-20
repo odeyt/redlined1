@@ -137,6 +137,10 @@ describe('the relay reports which events it settled as failures', () => {
 describe('the reconciler rebuilds the same idempotency keys the emitters use', () => {
   // A reconciler that derives a different key would re-emit an event that
   // already exists, which is the one thing it must never do.
+  // The rule registry lives in its own module, shared by the reconciler and
+  // the scheduled health check so a detector and a repairer cannot disagree
+  // about what counts as missing.
+  const rules = readFileSync(join(process.cwd(), 'scripts', 'reconcileRules.ts'), 'utf8');
   const reconciler = readFileSync(join(process.cwd(), 'scripts', 'reconcile-domain-events.ts'), 'utf8');
   const domainSources = ['invoices', 'payments', 'expenses', 'attendance', 'cashDay', 'payroll']
     .map(f => readFileSync(join(process.cwd(), 'lib', 'domain', f + '.ts'), 'utf8'))
@@ -149,7 +153,7 @@ describe('the reconciler rebuilds the same idempotency keys the emitters use', (
 
   it.each(KEY_PREFIXES)('%s is built by both the emitter and the reconciler', prefix => {
     expect(domainSources).toContain("'" + prefix + "'");
-    expect(reconciler).toContain("'" + prefix + "'");
+    expect(rules).toContain("'" + prefix + "'");
   });
 
   it('refuses --execute without a lower bound', () => {
@@ -158,6 +162,7 @@ describe('the reconciler rebuilds the same idempotency keys the emitters use', (
 
   it('takes tenancy from the business row, never from an argument', () => {
     expect(reconciler).toContain('Tenant identity comes from the business row');
+    expect(rules).toContain('shared by the reconciler');
     expect(reconciler).not.toMatch(/--shop\b/);
   });
 });
