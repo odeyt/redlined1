@@ -24,6 +24,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 
 export type PaymentEntryType = 'payment' | 'reversal';
 
@@ -171,6 +172,22 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     if (error) throw translate(error);
 
     const payment = mapPaymentRow(data);
+    // Money arriving is the event other systems care about most, and the
+    // one an accounting integration or a customer receipt would subscribe to.
+    await emitDomainEvent(db, context, {
+      eventType: DOMAIN_EVENTS.paymentRecorded,
+      aggregateType: 'payment',
+      aggregateId: payment.id,
+      payload: {
+        invoiceNumber: payment.invoiceNumber,
+        amount: payment.amount,
+        currency: payment.currency,
+        method: payment.method,
+        paymentDate: payment.paymentDate,
+      },
+      idempotencyKey: 'payment.recorded:' + payment.id,
+    });
+
     await writeAuditEvent(db, context, {
       action: AUDIT.paymentCreated,
       entityType: 'payment',

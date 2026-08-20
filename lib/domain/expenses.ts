@@ -22,6 +22,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 
 export type ExpenseStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
 
@@ -254,6 +255,22 @@ export function createExpenseDomain({ db, context }: DomainDeps) {
     if (!data) throw new ExpenseError('That expense was already decided.');
 
     const expense = mapExpense(data);
+
+    if (decision === 'Approved') {
+      await emitDomainEvent(db, context, {
+        eventType: DOMAIN_EVENTS.expenseApproved,
+        aggregateType: 'expense',
+        aggregateId: expense.id,
+        payload: {
+          amount: expense.amount,
+          currency: expense.currency,
+          spentOn: expense.spentOn,
+          categoryId: expense.categoryId,
+        },
+        idempotencyKey: 'expense.approved:' + expense.id,
+      });
+    }
+
     await writeAuditEvent(db, context, {
       action: decision === 'Approved' ? AUDIT.expenseApproved : AUDIT.expenseRejected,
       entityType: 'expense',

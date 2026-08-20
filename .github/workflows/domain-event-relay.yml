@@ -1,0 +1,48 @@
+name: Domain Event Relay
+
+# Drains domain_event_outbox into rib_events — the append-only bus store that
+# has existed, fully built and empty, since it was written.
+#
+# Same shape as sapelee-flush.yml, which has been running in production: this
+# app has no cron of its own, so a scheduled workflow is the trigger. It calls
+# the script directly rather than an HTTP route, which sidesteps the app's
+# session-gated middleware entirely.
+on:
+  schedule:
+    - cron: '*/5 * * * *' # every 5 minutes
+  workflow_dispatch: # manual run, for debugging or draining a backlog
+
+# Unlike the Sapelee flush, this group is belt-and-braces rather than the only
+# thing preventing double delivery: claim_domain_events uses FOR UPDATE SKIP
+# LOCKED, so two overlapping runs take different rows. The group just stops a
+# backlog spawning runs faster than they finish.
+concurrency:
+  group: domain-event-relay
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    name: Relay domain events
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22+ required: @supabase/supabase-js's createClient() initializes a
+          # realtime/WebSocket client during construction even for plain REST
+          # work, and Node 20 has no native WebSocket. Learned the hard way on
+          # the Sapelee workflow — see its comment.
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Relay
+        run: npm run events:relay
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

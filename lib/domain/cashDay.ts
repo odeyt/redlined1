@@ -32,6 +32,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 import type { DomainPayment } from './payments';
 import type { Expense } from './expenses';
 
@@ -331,6 +332,14 @@ export function createCashDayDomain({ db, context }: DomainDeps) {
     const result = Array.isArray(data) ? data[0] : data;
     const currencies = Number(result?.currencies ?? 0);
     const totalVariance = Number(result?.total_variance ?? 0);
+
+    await emitDomainEvent(db, context, {
+      eventType: DOMAIN_EVENTS.cashDayClosed,
+      aggregateType: 'cash_day',
+      aggregateId: dayId,
+      payload: { currencies, totalVariance },
+      idempotencyKey: 'cash_day.closed:' + dayId,
+    });
 
     await writeAuditEvent(db, context, {
       action: AUDIT.cashDayClosed,

@@ -271,7 +271,13 @@ describe('mutations are audited', () => {
       },
       'wrong amount',
     );
-    const inserts = calls.filter(c => c.op === 'insert').map(c => c.payload as Record<string, unknown>);
+    // Filtered to the payments table: the domain also queues an event on the
+    // outbox now, and this assertion is about the ORDER of the two payment
+    // rows — reversal first, replacement second — not about how many inserts
+    // the whole operation makes.
+    const inserts = calls
+      .filter(c => c.op === 'insert' && c.table === 'payments')
+      .map(c => c.payload as Record<string, unknown>);
     expect(inserts).toHaveLength(2);
     expect(inserts[0].entry_type).toBe('reversal');
     expect(inserts[1].entry_type).toBe('payment');

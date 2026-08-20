@@ -29,7 +29,8 @@
     "test:audit": "cross-env TEST_MODE=production ALLOW_PROD_E2E=true playwright test --project=audit",
     "test:unit": "jest",
     "test:report": "playwright show-report tests/reports/html",
-    "test:sweep": "npx tsx scripts/sweep-e2e-data.ts"
+    "test:sweep": "npx tsx scripts/sweep-e2e-data.ts",
+    "events:relay": "tsx scripts/relay-domain-events.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",

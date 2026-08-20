@@ -34,6 +34,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 import { PRESENT_STATUSES, type AttendanceDay } from './attendance';
 import { salaryOn, type SalaryRecord } from './salary';
 
@@ -378,6 +379,17 @@ export function createPayrollDomain({ db, context }: DomainDeps) {
     const result = Array.isArray(data) ? data[0] : data;
     const recoveredAdvances = Number(result?.recovered_advances ?? 0);
     const totalRecovered = Number(result?.total_recovered ?? 0);
+
+    await emitDomainEvent(db, context, {
+      eventType: DOMAIN_EVENTS.payrollFinalised,
+      aggregateType: 'payroll_run',
+      aggregateId: runId,
+      // No amounts. This event says a run closed; what anybody was paid is
+      // behind salary.read_all, and an event goes to subscribers who may not
+      // have it.
+      payload: { recoveredAdvances, totalRecovered },
+      idempotencyKey: 'payroll.finalised:' + runId,
+    });
 
     await writeAuditEvent(db, context, {
       action: AUDIT.payrollRunFinalised,
