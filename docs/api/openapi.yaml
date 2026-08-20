@@ -27,6 +27,7 @@ security:
 
 tags:
   - name: Customers
+  - name: Vehicles
 
 paths:
   /api/v1/customers:
@@ -151,6 +152,164 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /api/v1/vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List vehicles
+      description: |
+        Vehicles visible to this key, ordered by label then id so paging is
+        stable when two vehicles share a label — many do.
+
+        `search` matches VIN, plate, label, make or model, case-insensitively.
+      operationId: listVehicles
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          description: Capped at 100.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: search
+          in: query
+          description: Substring match on VIN, plate, label, make or model.
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: A page of vehicles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Vehicle' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    post:
+      tags: [Vehicles]
+      summary: Create a vehicle
+      description: |
+        Creates a vehicle in the shop this key is scoped to.
+
+        `label` is the only required field. A vehicle may have **no VIN** and
+        **no customer** — both are real states in Redlined1, used for classic
+        and import work and for vehicles booked in before an owner record
+        exists.
+
+        If `customerId` is supplied it must belong to a shop this key can
+        reach. One that does not returns **404**, the same as a customer that
+        does not exist, and no vehicle is created.
+
+        VINs are trimmed and upper-cased. They are **not** required to be 17
+        characters and are **not** unique — Redlined1 holds vehicles with 16-
+        and 22-character VINs, and duplicates exist within a single shop.
+      operationId: createVehicle
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VehicleCreate' }
+            example:
+              label: Hilux — Somchai
+              vin: MR0FZ29G501234567
+              plate: KM-4821
+              make: Toyota
+              model: Hilux
+              year: "2019"
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Vehicle' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: NOT_FOUND — the supplied `customerId` is not reachable by this key.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/vehicles/{id}:
+    get:
+      tags: [Vehicles]
+      summary: Get one vehicle
+      description: A vehicle belonging to another tenant returns **404**, not 403.
+      operationId: getVehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The vehicle.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Vehicle' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    patch:
+      tags: [Vehicles]
+      summary: Update a vehicle
+      description: |
+        Updates only the fields supplied. Omitted fields are left alone.
+
+        A vehicle cannot be moved between shops through this endpoint —
+        `shop_id` is not an accepted field and is rejected as unknown.
+        Relocating a vehicle is a separate deliberate operation.
+      operationId: updateVehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VehiclePatch' }
+            example:
+              mileage: "120000"
+              plate: KM-4821
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Vehicle' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -163,7 +322,8 @@ components:
         is shown once at creation and stored only as a hash — it cannot be
         recovered, only replaced.
 
-        Scopes: `customers:read`, `customers:write`.
+        Scopes: `customers:read`, `customers:write`, `vehicles:read`,
+        `vehicles:write`.
 
   schemas:
     Customer:
@@ -193,6 +353,73 @@ components:
         tags: { type: array, maxItems: 20, items: { type: string, maxLength: 50 } }
         followUp: { type: string, maxLength: 500 }
       required: [name]
+
+    Vehicle:
+      type: object
+      description: |
+        Service-record fields — issues, damage at intake, parts needed,
+        technician pay entries, flat rate, assigned technician — are
+        deliberately not exposed. They are the workshop's internal notes and
+        its labour cost.
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        vin: { type: string, description: Trimmed and upper-cased. May be empty. Not unique. }
+        plate: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: string }
+        fuel_type: { type: string }
+        trim: { type: string }
+        engine: { type: string }
+        transmission: { type: string }
+        mileage: { type: string }
+        status: { type: string, example: Active }
+        customer_id: { type: string, nullable: true }
+      required: [id, label, vin, plate, status, customer_id]
+
+    VehicleCreate:
+      type: object
+      additionalProperties: false
+      description: Unknown fields are rejected rather than ignored.
+      properties:
+        label: { type: string, minLength: 1, maxLength: 200 }
+        customerId: { type: string, maxLength: 100, nullable: true }
+        vin: { type: string, maxLength: 32 }
+        plate: { type: string, maxLength: 30 }
+        make: { type: string, maxLength: 60 }
+        model: { type: string, maxLength: 60 }
+        year: { type: string, maxLength: 10 }
+        fuelType: { type: string, maxLength: 30 }
+        trim: { type: string, maxLength: 60 }
+        engine: { type: string, maxLength: 60 }
+        transmission: { type: string, maxLength: 60 }
+        mileage: { type: string, maxLength: 20 }
+        status: { type: string, maxLength: 40 }
+        recommendation: { type: string, maxLength: 1000 }
+      required: [label]
+
+    VehiclePatch:
+      type: object
+      additionalProperties: false
+      description: |
+        Every field optional; omitted fields are left alone. `shop_id` is not
+        accepted — a vehicle cannot change shop through this endpoint.
+      properties:
+        label: { type: string, minLength: 1, maxLength: 200 }
+        customerId: { type: string, maxLength: 100, nullable: true }
+        vin: { type: string, maxLength: 32 }
+        plate: { type: string, maxLength: 30 }
+        make: { type: string, maxLength: 60 }
+        model: { type: string, maxLength: 60 }
+        year: { type: string, maxLength: 10 }
+        fuelType: { type: string, maxLength: 30 }
+        trim: { type: string, maxLength: 60 }
+        engine: { type: string, maxLength: 60 }
+        transmission: { type: string, maxLength: 60 }
+        mileage: { type: string, maxLength: 20 }
+        status: { type: string, maxLength: 40 }
+        recommendation: { type: string, maxLength: 1000 }
 
     Meta:
       type: object

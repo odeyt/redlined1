@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { withApi, apiSuccess, type ApiContext } from '@/lib/api/handler';
 import { ApiError } from '@/lib/api/errors';
 import { createCustomerDomain } from '@/lib/domain/customers';
-import { findReplay, recordReplay, hashRequest } from '@/lib/api/idempotency';
+import { reserveIdempotency, completeReservation, releaseReservation, hashRequest } from '@/lib/api/idempotency';
 
 const MAX_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
@@ -102,18 +102,34 @@ export const POST = withApi(
     const idempotencyKey = ctx.request.headers.get('idempotency-key');
     const requestHash = hashRequest(parsed.data);
 
+    // Reserve BEFORE creating. M13.1 checked first and created after, which
+    // left the same race the vehicles matrix demonstrated: three concurrent
+    // requests with one key all found nothing and all created a record. The
+    // unique index now decides the winner before any work happens.
+    const ENDPOINT = 'POST /api/v1/customers';
     if (idempotencyKey) {
-      const replay = await findReplay(ctx.db, ctx.principal.keyId, 'POST /api/v1/customers', idempotencyKey, requestHash);
-      if (replay) return apiSuccess(replay.body, ctx.requestId, { idempotent_replay: true }, replay.statusCode);
+      const reservation = await reserveIdempotency(ctx.db, ctx.principal.keyId, ENDPOINT, idempotencyKey, requestHash);
+      if (reservation.mode === 'replay') {
+        return apiSuccess(reservation.body, ctx.requestId, { idempotent_replay: true }, reservation.statusCode);
+      }
     }
 
     const customers = createCustomerDomain({ db: ctx.db, context: ctx.domain });
-    // The domain writes shop_id from context.shopId and writes the audit row.
-    const created = await customers.create(parsed.data);
-    const body = present(created);
 
+    let created;
+    try {
+      // The domain writes shop_id from context.shopId and writes the audit row.
+      created = await customers.create(parsed.data);
+    } catch (err) {
+      if (idempotencyKey) {
+        await releaseReservation(ctx.db, ctx.principal.keyId, ENDPOINT, idempotencyKey);
+      }
+      throw err;
+    }
+
+    const body = present(created);
     if (idempotencyKey) {
-      await recordReplay(ctx.db, ctx.principal.keyId, 'POST /api/v1/customers', idempotencyKey, requestHash, 201, body);
+      await completeReservation(ctx.db, ctx.principal.keyId, ENDPOINT, idempotencyKey, 201, body);
     }
 
     return apiSuccess(body, ctx.requestId, undefined, 201);

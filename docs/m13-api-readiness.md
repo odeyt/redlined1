@@ -70,3 +70,39 @@ acceptable for customers, which are not plan-limited. It is **not** acceptable
 for anything that is — invoices under a plan invoice cap, technicians under a
 seat limit — and those must not be exposed until the organization-level check
 exists. The `ENTITLEMENT_DENIED` error code is reserved for it.
+
+---
+
+## Update after M13.2
+
+**Vehicles: SHIPPED** — ported to `lib/domain/vehicles.ts`, exposed as
+`GET/POST /api/v1/vehicles` and `GET/PATCH /api/v1/vehicles/:id`.
+
+Entitlements were traced properly rather than assumed. `config/plans.ts` — the
+canonical registry — gates `unlimitedInvoices`, `maxTechnicians`, `aiAdvisor`,
+`smsCredits`, `digitalInspections`, `smartIntake`, `multiLocation`, `reports`,
+`repairIntelligence`, `triage`, `prioritySupport`. **No vehicle key exists on
+any plan**, so vehicle read and write are not plan-limited and the write
+endpoint is not blocked.
+
+`lib/api/entitlements.ts` now closes the M13.1 architecture gap: an API key
+resolves to an organization, its shops, their owners, their subscriptions, and
+the highest tier among them. `requireFeature` and `requireCapacity` take a
+feature key from the registry, never a plan name. Nothing calls them yet
+because nothing exposed is gated — they exist so the next slice that IS gated
+cannot ship without one.
+
+### No vehicle RIB event — and a divergence worth knowing
+
+`DOMAIN_EVENTS` has no vehicle type, and none was invented for this.
+
+But `services/vehicleService.saveVehicle` publishes a **Sapelee** bus event
+(`vehicle.created`) — a different system from the M12 RIB outbox. The API path
+does **not**, because that publish stayed in the browser service rather than
+moving into the domain.
+
+So a vehicle created in the app produces a Sapelee event and one created
+through the API does not. That is a real divergence, left deliberately: moving
+an integration's traffic is a decision about another product's data, not a
+side effect of adding an endpoint. Decide it before Sapelee starts relying on
+vehicle events being complete.

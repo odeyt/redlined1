@@ -3,6 +3,7 @@ import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { Vehicle } from '@/lib/types';
+import { normalizeVin, vinProblem, DEFAULT_VEHICLE_STATUS } from '@/lib/domain/vehicles';
 
 type VehicleRow = {
   id: string;
@@ -118,19 +119,26 @@ export async function saveVehicle(
     make?: string; model?: string; year?: string; fuelType?: string;
   }
 ): Promise<VehicleRecord> {
+  // One VIN rule for both paths. lib/domain/vehicles.ts owns it; this used to
+  // store whatever was typed, so the same car entered here and through the API
+  // could differ by case or a trailing space and never match.
+  const normalizedVin = normalizeVin(vehicle.vin);
+  const vinIssue = vinProblem(normalizedVin);
+  if (vinIssue) throw new Error(vinIssue);
+
   const { data, error } = await supabase
     .from('vehicles')
     .insert({
       shop_id:      getShopId(),
       customer_id:  vehicle.customerId || null,
-      vin:          vehicle.vin,
+      vin:          normalizedVin,
       label:        vehicle.label,
       trim:         vehicle.trim,
       engine:       vehicle.engine,
       transmission: vehicle.transmission,
       mileage:      vehicle.mileage,
       plate:        vehicle.plate,
-      status:       vehicle.status || 'Active',
+      status:       vehicle.status || DEFAULT_VEHICLE_STATUS,
       recommendation: vehicle.recommendation,
       make:         vehicle.make ?? null,
       model:        vehicle.model ?? null,
@@ -174,7 +182,7 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
     .from('vehicles')
     .update({
       customer_id:  vehicle.customerId || null,
-      vin:          vehicle.vin,
+      vin:          normalizeVin(vehicle.vin),
       label:        vehicle.label,
       trim:         vehicle.trim,
       engine:       vehicle.engine,

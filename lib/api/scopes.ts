@@ -14,6 +14,8 @@
 export const API_SCOPES = [
   'customers:read',
   'customers:write',
+  'vehicles:read',
+  'vehicles:write',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -21,9 +23,8 @@ export type ApiScope = typeof API_SCOPES[number];
 /**
  * Scope → the domain capabilities it unlocks.
  *
- * Only customers are exposed in this slice, so only customer capabilities
- * appear. Adding a resource to the API means adding its row here, deliberately,
- * rather than widening a wildcard.
+ * Adding a resource to the API means adding its row here, deliberately, rather
+ * than widening a wildcard.
  *
  * `customers.archive` is NOT granted by `customers:write`. Archiving is how a
  * customer disappears from every screen in the app, and an integration that
@@ -32,6 +33,13 @@ export type ApiScope = typeof API_SCOPES[number];
 const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   'customers:read':  ['customers.read'],
   'customers:write': ['customers.read', 'customers.manage'],
+
+  // Writing a vehicle needs to READ a customer, to verify the one supplied
+  // belongs to this tenant before attaching a vehicle to it. That check is the
+  // whole defence against a foreign customer_id, so the capability is not
+  // optional — but it is customers.read only, never customers.manage.
+  'vehicles:read':   ['vehicles.read'],
+  'vehicles:write':  ['vehicles.read', 'vehicles.manage', 'customers.read'],
 };
 
 export function isApiScope(value: string): value is ApiScope {
