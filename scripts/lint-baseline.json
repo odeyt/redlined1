@@ -1,0 +1,23 @@
+{
+  "errors": 180,
+  "warnings": 168,
+  "byRule": {
+    "warn:@typescript-eslint/no-unused-vars": 137,
+    "error:react-hooks/set-state-in-effect": 65,
+    "error:@next/next/no-html-link-for-pages": 8,
+    "error:react/no-unescaped-entities": 63,
+    "warn:@next/next/no-img-element": 8,
+    "error:react-hooks/error-boundaries": 2,
+    "warn:react-hooks/exhaustive-deps": 14,
+    "error:react-hooks/immutability": 21,
+    "error:@typescript-eslint/no-explicit-any": 6,
+    "error:react-hooks/purity": 2,
+    "error:react-hooks/refs": 4,
+    "warn:unknown": 8,
+    "warn:@typescript-eslint/no-unused-expressions": 1,
+    "error:prefer-const": 1,
+    "error:@typescript-eslint/no-require-imports": 5,
+    "error:@next/next/no-assign-module-variable": 2,
+    "error:@typescript-eslint/no-unsafe-function-type": 1
+  }
+}
