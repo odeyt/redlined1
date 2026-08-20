@@ -433,17 +433,17 @@ export function TechniciansView() {
                     <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Hire Date</label>
                     <input className="input" type="date" value={form.hireDate ?? ''} onChange={e => setForm(f => ({ ...f, hireDate: e.target.value }))} style={{ width: '100%' }} />
                   </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Pay Type</label>
-                    <select className="input" value={form.payType} onChange={e => setForm(f => ({ ...f, payType: e.target.value }))} style={{ width: '100%' }}>
-                      {PAY_TYPES.map(p => <option key={p}>{p}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>
-                      {form.payType === 'Commission' ? 'Commission %' : form.payType === 'Hourly' ? 'Hourly Rate ($)' : form.payType === 'Salary' ? 'Annual Salary ($)' : 'Flat Rate per Job ($)'}
-                    </label>
-                    <input className="input" type="number" step="0.01" min="0" value={form.payRate} onChange={e => setForm(f => ({ ...f, payRate: parseFloat(e.target.value) || 0 }))} style={{ width: '100%' }} />
+                  {/*
+                    Pay was collected here until M7. It is now recorded in Pay
+                    & Advances, where it is versioned and readable only by
+                    people who may see it — this form is open to anyone who can
+                    edit the staff directory. Two places to set someone's pay
+                    means two answers to what they earn, and payroll would have
+                    to guess which one is true.
+                  */}
+                  <div style={{ gridColumn: '1/-1', fontSize: 12, color: 'var(--muted)', padding: '8px 0' }}>
+                    Pay is set in <strong>Pay &amp; Advances</strong>, where each change is kept with the
+                    date it starts. That history is what payroll reads.
                   </div>
                   <div style={{ gridColumn: '1/-1' }}>
                     <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Certifications (comma-separated)</label>
@@ -506,7 +506,9 @@ export function TechniciansView() {
                   {([
                     ['📞 Phone', selected.phone || '—'],
                     ['📧 Email', selected.email || '—'],
-                    ['💰 Pay', `${selected.payType} · ${selected.payType === 'Commission' ? selected.payRate + '%' : fmt(selected.payRate)}`],
+                    // Deliberately not shown. This screen is visible to anyone
+                    // who can edit the directory; what a person earns is not.
+                    ['💰 Pay', 'See Pay & Advances'],
                     ['📅 Hire Date', selected.hireDate ? new Date(selected.hireDate + 'T00:00:00').toLocaleDateString() : '—'],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>

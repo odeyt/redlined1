@@ -134,8 +134,11 @@ export async function createTechnician(
       email:          t.email,
       specialty:      t.specialty,
       certifications: t.certifications,
-      pay_type:       t.payType,
-      pay_rate:       t.payRate,
+      // pay_type and pay_rate are NOT written any more. They still exist on
+      // the table and still carry pre-M7 values, which are the only record of
+      // what people were paid before salary_records existed — so they are left
+      // alone rather than dropped or overwritten. Nothing writes them; pay
+      // lives in salary_records now.
       hire_date:      t.hireDate || null,
       status:         t.status,
       notes:          t.notes,
@@ -167,8 +170,7 @@ export async function updateTechnician(id: string, updates: Partial<Technician>)
   if (updates.email         !== undefined) payload.email          = updates.email;
   if (updates.specialty     !== undefined) payload.specialty      = updates.specialty;
   if (updates.certifications!== undefined) payload.certifications = updates.certifications;
-  if (updates.payType       !== undefined) payload.pay_type       = updates.payType;
-  if (updates.payRate       !== undefined) payload.pay_rate       = updates.payRate;
+  // Pay is not updated through the directory any more — see createTechnician.
   if (updates.hireDate      !== undefined) payload.hire_date      = updates.hireDate || null;
   if (updates.status        !== undefined) payload.status         = updates.status;
   if (updates.notes         !== undefined) payload.notes          = updates.notes;
