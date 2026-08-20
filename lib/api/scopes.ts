@@ -16,6 +16,8 @@ export const API_SCOPES = [
   'customers:write',
   'vehicles:read',
   'vehicles:write',
+  'appointments:read',
+  'appointments:write',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -40,6 +42,12 @@ const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   // optional — but it is customers.read only, never customers.manage.
   'vehicles:read':   ['vehicles.read'],
   'vehicles:write':  ['vehicles.read', 'vehicles.manage', 'customers.read'],
+
+  // Appointments hold customer, vehicle and technician as free TEXT, not
+  // references, so writing one needs no read capability on anything else.
+  // There is nothing to look up.
+  'appointments:read':  ['appointments.read'],
+  'appointments:write': ['appointments.read', 'appointments.manage'],
 };
 
 export function isApiScope(value: string): value is ApiScope {

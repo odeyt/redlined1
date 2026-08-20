@@ -16,6 +16,11 @@ info:
     **Delivery of side effects** (domain events) is at-least-once. Anything you
     build on top of Redlined1 events must be idempotent.
 
+    **Appointment times carry no timezone.** `date` and `time` are a shop-local
+    wall clock, stored as two text columns. Redlined1 records no timezone for a
+    shop, so an instant cannot be derived here — apply the shop's zone yourself,
+    knowingly.
+
 servers:
   - url: https://www.redlined1.com
     description: Production
@@ -28,6 +33,7 @@ security:
 tags:
   - name: Customers
   - name: Vehicles
+  - name: Appointments
 
 paths:
   /api/v1/customers:
@@ -310,6 +316,179 @@ paths:
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /api/v1/appointments:
+    get:
+      tags: [Appointments]
+      summary: List appointments
+      description: |
+        Appointments visible to this key, ordered by date, then time, then id.
+
+        **Times carry no timezone.** `date` and `time` are a shop-local wall
+        clock. `meta.timezone` says so on every response.
+
+        Filter with `from`/`to` (inclusive, `YYYY-MM-DD`), `technician` (exact,
+        case-insensitive) and `reminder` (exact).
+      operationId: listAppointments
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          description: Capped at 100.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: from
+          in: query
+          description: Inclusive lower bound, YYYY-MM-DD. Rejected if malformed.
+          schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        - name: to
+          in: query
+          description: Inclusive upper bound, YYYY-MM-DD. Rejected if malformed.
+          schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        - name: technician
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: reminder
+          in: query
+          schema: { type: string, maxLength: 50 }
+      responses:
+        '200':
+          description: A page of appointments.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Appointment' }
+                  meta: { $ref: '#/components/schemas/AppointmentPageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    post:
+      tags: [Appointments]
+      summary: Book an appointment
+      description: |
+        `date` and `time` are required and are a shop-local wall clock:
+        `YYYY-MM-DD` and 24-hour `HH:MM`. An ISO-8601 instant is **rejected** —
+        the model has no timezone to interpret it against.
+
+        `customer`, `vehicle` and `technician` are **free text**, not
+        references. They are display strings a service advisor typed. Sending a
+        customer id will store the id as a name.
+
+        **Overlapping bookings are allowed.** Redlined1 has no conflict rule,
+        so two appointments may share a technician, a slot, or both.
+      operationId: createAppointment
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppointmentCreate' }
+            example:
+              date: "2026-09-01"
+              time: "09:30"
+              customer: SAISAVANH MOTOR
+              vehicle: Audi R8 2008 #6666
+              service: A/C not cooling
+              technician: Beck
+              bay: Bay 1
+      responses:
+        '201':
+          description: Booked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Appointment' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/appointments/{id}:
+    get:
+      tags: [Appointments]
+      summary: Get one appointment
+      description: A foreign appointment returns **404**, not 403.
+      operationId: getAppointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The appointment.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Appointment' }
+                  meta: { $ref: '#/components/schemas/AppointmentPageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    patch:
+      tags: [Appointments]
+      summary: Change or reschedule an appointment
+      description: |
+        Updates only the fields supplied.
+
+        **Rescheduling is a field change** — send `date` and `time`. There is no
+        separate reschedule operation.
+
+        **There is no status machine.** `reminder` is a free-text marker a human
+        sets; Redlined1 defines no states and no transitions, so nothing here
+        validates one against another. Values seen in practice are `Confirmed`
+        (the default), `Checked in` and `None`.
+
+        `shop_id`, `organization_id` and `id` are not accepted and are rejected
+        as unknown fields.
+      operationId: updateAppointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AppointmentPatch' }
+            example:
+              date: "2026-09-05"
+              time: "16:45"
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Appointment' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -323,7 +502,7 @@ components:
         recovered, only replaced.
 
         Scopes: `customers:read`, `customers:write`, `vehicles:read`,
-        `vehicles:write`.
+        `vehicles:write`, `appointments:read`, `appointments:write`.
 
   schemas:
     Customer:
@@ -420,6 +599,63 @@ components:
         mileage: { type: string, maxLength: 20 }
         status: { type: string, maxLength: 40 }
         recommendation: { type: string, maxLength: 1000 }
+
+    Appointment:
+      type: object
+      description: |
+        There is no end time and no duration — the model does not store them.
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, description: 'Shop-local wall clock, YYYY-MM-DD. Not an instant.' }
+        time: { type: string, description: 'Shop-local wall clock, 24-hour HH:MM. Not an instant.' }
+        customer: { type: string, description: Free text, not a reference. }
+        vehicle: { type: string, description: Free text, not a reference. }
+        service: { type: string }
+        job_card: { type: string }
+        bay: { type: string }
+        technician: { type: string, description: Free text, not a reference. }
+        reminder: { type: string, description: 'Free-text marker. Not a status; no transitions exist.' }
+      required: [id, date, time, customer, vehicle, service, job_card, bay, technician, reminder]
+
+    AppointmentCreate:
+      type: object
+      additionalProperties: false
+      description: Unknown fields are rejected rather than ignored.
+      properties:
+        date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        time: { type: string, pattern: '^\d{2}:\d{2}$' }
+        customer: { type: string, maxLength: 200 }
+        vehicle: { type: string, maxLength: 200 }
+        service: { type: string, maxLength: 2000 }
+        jobCard: { type: string, maxLength: 100 }
+        bay: { type: string, maxLength: 100 }
+        technician: { type: string, maxLength: 100 }
+        reminder: { type: string, maxLength: 50 }
+      required: [date, time]
+
+    AppointmentPatch:
+      type: object
+      additionalProperties: false
+      description: Every field optional; omitted fields are left alone.
+      properties:
+        date: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        time: { type: string, pattern: '^\d{2}:\d{2}$' }
+        customer: { type: string, maxLength: 200 }
+        vehicle: { type: string, maxLength: 200 }
+        service: { type: string, maxLength: 2000 }
+        jobCard: { type: string, maxLength: 100 }
+        bay: { type: string, maxLength: 100 }
+        technician: { type: string, maxLength: 100 }
+        reminder: { type: string, maxLength: 50 }
+
+    AppointmentPageMeta:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            timezone:
+              type: string
+              example: shop-local wall clock; date and time carry no offset
 
     Meta:
       type: object

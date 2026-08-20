@@ -106,3 +106,69 @@ through the API does not. That is a real divergence, left deliberately: moving
 an integration's traffic is a decision about another product's data, not a
 side effect of adding an endpoint. Decide it before Sapelee starts relying on
 vehicle events being complete.
+
+---
+
+## Update after M13.3
+
+**Appointments: SHIPPED** — `lib/domain/appointments.ts`, exposed as
+`GET/POST /api/v1/appointments` and `GET/PATCH /api/v1/appointments/:id`.
+
+Entitlements: no appointment key exists in `config/plans.ts`, on any plan, so
+appointments are not plan-limited. Same evidence path as vehicles.
+
+### The model is not what an appointments API usually assumes
+
+Read from the schema and the nine production rows:
+
+- **No timestamp.** `date` (`YYYY-MM-DD`) and `time` (`HH:MM`) are two TEXT
+  columns. No end time, no duration.
+- **No timezone anywhere.** `shops` is `id, name, slug, created_at,
+  organization_id` — there is no timezone column, so nothing in Redlined1
+  records what zone "10:10" means. The API therefore returns the wall clock
+  verbatim and says so in `meta.timezone`. Converting it to an instant would
+  assert a precision the data does not have.
+- **`customer`, `vehicle` and `technician` are free text**, not foreign keys —
+  "SAISAVANH MOTOR", "Audi R8 2008 #6666", "Beck". One production row has a
+  vehicle description in the customer field. There is nothing to tenant-verify
+  and equally no id through which another tenant could leak; the boundary is
+  `shop_id` alone.
+- **No status machine.** `reminder` holds "Checked in" or "None" in the data
+  and defaults to "Confirmed" in the old service — three values, two sources,
+  zero transitions defined anywhere. It is a marker, not a lifecycle, and none
+  was invented.
+- **Overlap is allowed.** No conflict rule exists in any code path; two
+  appointments may share a technician and a slot. Proven by booking one.
+
+## Sapelee integration — decision: C, REQUIRES SEPARATE HARDENING
+
+M13.2 reported the vehicle divergence as vehicle-specific. That was too
+narrow. `publishSapeleeEvent` is called from **at least six services** —
+appointments, customers, estimates, invoices, job cards, vehicles — always
+from the service layer, never from `lib/domain`. So **every** API slice built
+so far diverges, customers included, not just vehicles.
+
+Evidence for C rather than A/B/D:
+
+- It is a real integration, not dead code: `sapelee_event_outbox` holds 86
+  rows.
+- It is flag-gated and currently **off** locally —
+  `NEXT_PUBLIC_SAPELEE_EVENTS_ENABLED` is unset, and `publishSapeleeEvent`
+  is documented as "a complete no-op — not even a queue write" when
+  unconfigured. Yet rows exist, so it has been on somewhere.
+- The publish sites are UI-layer side effects by construction: the SDK comment
+  records "the browser client at every real call site found in the Part 1
+  audit".
+
+Moving publishing into the domain (option A) would make API traffic appear in
+another product's feed and would need double-publish protection across six
+call sites at once. Doing that entity-by-entity as a side effect of API work
+guarantees a half-migrated integration. It needs one deliberate pass.
+
+Until then: **no API-originated event reaches Sapelee, for any resource.**
+
+### RIB
+
+`DOMAIN_EVENTS` contains no appointment type and none was created. Appointment
+mutations produce an audit row and nothing on the outbox — the same as
+customers and vehicles.

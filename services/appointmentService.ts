@@ -3,6 +3,7 @@ import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { AppointmentRow } from '@/lib/types';
+import { dateProblem, timeProblem, DEFAULT_REMINDER } from '@/lib/domain/appointments';
 
 export type AppointmentRecord = {
   id: string;
@@ -28,7 +29,7 @@ function toRow(r: DbRow): AppointmentRecord {
   return {
     id: r.id,
     date: r.date ?? '',
-    data: [r.time, r.customer, r.vehicle, r.service, r.job_card ?? '', r.bay ?? '', r.reminder ?? 'Confirmed', r.technician ?? ''] as AppointmentRow,
+    data: [r.time, r.customer, r.vehicle, r.service, r.job_card ?? '', r.bay ?? '', r.reminder ?? DEFAULT_REMINDER, r.technician ?? ''] as AppointmentRow,
   };
 }
 
@@ -82,7 +83,7 @@ function basePayload(date: string, row: AppointmentRow) {
     service:  row[3],
     job_card: row[4] ?? '',
     bay:      row[5] ?? '',
-    reminder: row[6] ?? 'Confirmed',
+    reminder: row[6] ?? DEFAULT_REMINDER,
   };
   // Only include shop_id if we have a valid non-empty UUID
   if (shopId && shopIdColumnExists !== false) {
@@ -92,6 +93,14 @@ function basePayload(date: string, row: AppointmentRow) {
 }
 
 export async function createAppointment(date: string, row: AppointmentRow): Promise<AppointmentRecord> {
+  // One date/time rule for both paths. lib/domain/appointments.ts owns it, so
+  // the calendar and the API cannot disagree about what a valid slot is —
+  // and the column is TEXT, where a stray format sorts wrongly forever.
+  const dateIssue = dateProblem((date ?? '').trim());
+  if (dateIssue) throw new Error(dateIssue);
+  const timeIssue = timeProblem((row[0] ?? '').trim());
+  if (timeIssue) throw new Error(timeIssue);
+
   const base = basePayload(date, row);
 
   const withTech = { ...base, ...(technicianColumnExists !== false ? { technician: row[7] ?? '' } : {}) };
@@ -163,7 +172,7 @@ export async function updateAppointment(id: string, date: string, row: Appointme
     service:  row[3],
     job_card: row[4] ?? '',
     bay:      row[5] ?? '',
-    reminder: row[6] ?? 'Confirmed',
+    reminder: row[6] ?? DEFAULT_REMINDER,
     ...(technicianColumnExists !== false ? { technician: row[7] ?? '' } : {}),
   };
 
