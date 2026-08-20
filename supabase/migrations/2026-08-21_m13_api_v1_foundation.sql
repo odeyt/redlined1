@@ -143,6 +143,13 @@ REVOKE ALL ON public.api_rate_limits FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON FUNCTION public.api_rate_limit_hit(UUID, INTEGER) FROM PUBLIC, anon, authenticated;
 
+-- REVOKE ... FROM PUBLIC also strips the EXECUTE that service_role inherits
+-- through PUBLIC, so the grant has to be restated. Without it the API layer —
+-- which runs server-side as service_role — gets "permission denied for
+-- function api_rate_limit_hit" on every request. Found by calling it, not by
+-- reading it.
+GRANT EXECUTE ON FUNCTION public.api_rate_limit_hit(UUID, INTEGER) TO service_role;
+
 COMMIT;
 
 -- ── Verification (run after COMMIT) ─────────────────────────────────────────
@@ -162,4 +169,7 @@ SELECT 'no grants to anon/authenticated (expect 0)', count(*)::text
    AND grantee IN ('anon', 'authenticated')
 UNION ALL
 SELECT 'rate limit function is definer (expect true)', bool_and(prosecdef)::text
-  FROM pg_proc WHERE proname = 'api_rate_limit_hit';
+  FROM pg_proc WHERE proname = 'api_rate_limit_hit'
+UNION ALL
+SELECT 'service_role can execute it (expect true)',
+       has_function_privilege('service_role', 'public.api_rate_limit_hit(uuid,integer)', 'EXECUTE')::text;

@@ -110,9 +110,23 @@ export function withApi(
 
       const response = await handler({ principal, domain, db, requestId, request });
 
-      // Best-effort, and deliberately after the work: a failure to record
-      // last_used_at must not fail a request that already succeeded.
-      void db.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', principal.keyId);
+      // Awaited, not fire-and-forget.
+      //
+      // `void db.from(...).update(...)` looked like a deliberate
+      // fire-and-forget and was actually a no-op: a PostgREST builder is a
+      // thenable that issues its request only when awaited, so discarding it
+      // meant last_used_at was never written. Nothing failed; the column just
+      // stayed null, which is indistinguishable from a key nobody uses — the
+      // exact question the column exists to answer.
+      //
+      // Awaiting costs a round trip. Detaching it is not an option on
+      // serverless anyway: the function can be frozen the moment the response
+      // is returned, so an un-awaited write may simply never happen.
+      try {
+        await db.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', principal.keyId);
+      } catch {
+        // Recording usage must never fail a request that already succeeded.
+      }
 
       return response;
     } catch (err) {

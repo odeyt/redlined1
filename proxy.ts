@@ -17,6 +17,27 @@ function apiJson(status: number, error: string, detail: string) {
   return NextResponse.json({ error, detail }, { status });
 }
 
+/**
+ * Paths this proxy does not session-gate.
+ *
+ * 'Public' means AUTHENTICATED DIFFERENTLY, not open. /api/billing/webhook
+ * verifies a provider signature, /api/push/send checks x-push-secret, and
+ * /api/v1 authenticates a bearer API key in lib/api/handler.ts — none of them
+ * has a cookie session, so this proxy would reject every one before the
+ * handler ran.
+ *
+ * One list, used in both branches below. It was two copies, which is one
+ * paste away from a path being public in an outage and gated the rest of the
+ * time.
+ */
+const PUBLIC_PATHS = [
+  '/login', '/signup', '/help', '/forgot-password', '/reset-password',
+  '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy',
+  '/billing/success', '/billing/canceled', '/contact-sales',
+  '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send',
+  '/api/v1',
+];
+
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
@@ -41,7 +62,7 @@ export async function proxy(request: NextRequest) {
   // If Supabase env vars are not yet available, redirect unauthenticated
   // users to login rather than crashing the handler.
   if (!supabaseUrl || !supabaseKey) {
-    const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send'];
+    const publicPaths = PUBLIC_PATHS;
     const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
     if (!isPublic) {
       // 503, not 401: the caller's credentials are not the problem — the server
@@ -70,7 +91,7 @@ export async function proxy(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicPaths = ['/login', '/signup', '/help', '/forgot-password', '/reset-password', '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy', '/billing/success', '/billing/canceled', '/contact-sales', '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send'];
+  const publicPaths = PUBLIC_PATHS;
   const isPublic = publicPaths.some(p => request.nextUrl.pathname.startsWith(p));
   const isRoot = request.nextUrl.pathname === '/';
 

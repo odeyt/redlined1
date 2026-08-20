@@ -31,7 +31,8 @@ describe('manifest start_url', () => {
   it('opens on a route the proxy treats as public', () => {
     // If start_url were not public, a signed-out launch would bounce through
     // a redirect before showing anything.
-    const publicPaths = proxy.match(/const publicPaths = \[([^\]]+)\]/);
+    // One shared list now; it was two duplicated literals.
+    const publicPaths = proxy.match(/const PUBLIC_PATHS = \[([^\]]+)\]/);
     expect(publicPaths).toBeTruthy();
     expect(publicPaths![1]).toContain(`'${manifest.start_url}'`);
   });

@@ -22,11 +22,18 @@ describe('the proxy lets the webhook reach the handler', () => {
     expect(proxy).toMatch(/'\/api\/push\/send'/);
   });
 
-  it('does so in BOTH public lists', () => {
-    // There are two: one for the missing-env fallback, one for the normal
-    // path. Adding it to only one leaves a failure that appears solely when
-    // Supabase env vars are absent — the hardest kind to reproduce.
-    expect(proxy.match(/'\/api\/push\/send'/g)).toHaveLength(2);
+  it('is public in BOTH branches', () => {
+    // Two branches: the missing-env fallback and the normal path. Being public
+    // in only one leaves a failure that appears solely when Supabase env vars
+    // are absent — the hardest kind to reproduce.
+    //
+    // This was two duplicated array literals, and the assertion counted the
+    // path appearing twice. They are now ONE list consumed by both branches,
+    // which makes divergence impossible rather than merely detected. So the
+    // assertion moved: the list is defined once, used twice, and contains it.
+    expect(proxy.match(/const PUBLIC_PATHS = \[/g)).toHaveLength(1);
+    expect(proxy.match(/const publicPaths = PUBLIC_PATHS;/g)).toHaveLength(2);
+    expect(proxy).toMatch(/'\/api\/push\/send'/);
   });
 
   it('keeps the subscribe endpoint private', () => {
