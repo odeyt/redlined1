@@ -174,6 +174,7 @@ export const navItems: [string, string, string, string][] = [
   ['technicians',   'technician', 'Employees',     ''],
   ['attendance',    'clock',      'Attendance & Leave', ''],
   ['pay',           'payment',    'Pay & Advances', ''],
+  ['payroll',       'payment',    'Payroll',       ''],
   ['parts',         'parts',      'Parts Inventory', ''],
   ['parts-estimates', 'parts',    'Parts Quotations', ''],
   ['parts-orders',   'parts',      'Parts Ordered',  ''],

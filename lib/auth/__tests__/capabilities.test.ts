@@ -93,8 +93,10 @@ describe('the catalogue', () => {
     // layer began enforcing it. Moving an id out of here is deliberate and
     // belongs in the same commit as the thing that enforces it — never on its
     // own to make a test pass.
-    for (const id of ['payroll.read', 'payroll.manage', 'expenses.approve', 'receivables.read',
-                      'reconciliation.manage']) {
+    // payroll.read and payroll.manage left this list in M8, when policies and
+    // a domain layer began enforcing them.
+    for (const id of ['expenses.approve', 'expenses.read', 'receivables.read',
+                      'reconciliation.manage', 'api_keys.manage']) {
       expect(CAPABILITIES.find(c => c.id === id)?.status).toBe('planned');
     }
   });
@@ -148,8 +150,14 @@ describe('resolving what a role may do', () => {
   it('refuses to grant a planned capability even if settings say so', () => {
     // Otherwise the day something starts enforcing it, access changes silently
     // for every shop that had ticked it.
-    const overrides: CapabilityOverrides = { grant: { owner: ['payroll.manage'] } };
-    expect(capabilitiesFor('owner', overrides)).not.toContain('payroll.manage');
+    // The example has to be a capability that is still planned. It was
+    // payroll.manage until M8 started enforcing it — at which point this test
+    // was asserting that an enforced capability could not be granted, which is
+    // not what it is for.
+    const stillPlanned = CAPABILITIES.find(c => c.status === 'planned');
+    expect(stillPlanned).toBeDefined();
+    const overrides: CapabilityOverrides = { grant: { owner: [stillPlanned!.id] } };
+    expect(capabilitiesFor('owner', overrides)).not.toContain(stillPlanned!.id);
   });
 
   it('does not leak one role\'s override into another', () => {

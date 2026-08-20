@@ -101,8 +101,10 @@ export const CAPABILITIES: readonly Capability[] = [
   { id: 'salary.manage',          label: 'Set pay rates',               group: 'Pay',      status: 'enforced' },
   { id: 'salary_advances.request',label: 'Request an advance',          group: 'Pay',      status: 'enforced' },
   { id: 'salary_advances.approve',label: 'Approve an advance',          group: 'Pay',      status: 'enforced' },
-  { id: 'payroll.read',           label: 'See payroll runs',            group: 'Pay',      status: 'planned' },
-  { id: 'payroll.manage',         label: 'Run payroll',                 group: 'Pay',      status: 'planned' },
+  // Owner only, both of them. A payroll run holds everyone's pay, so a
+  // manager who can read one has been handed salary.read_all by another route.
+  { id: 'payroll.read',           label: 'See payroll runs',            group: 'Pay',      status: 'enforced' },
+  { id: 'payroll.manage',         label: 'Run payroll',                 group: 'Pay',      status: 'enforced' },
   { id: 'expenses.read',          label: 'See expenses',                group: 'Money',    status: 'planned' },
   { id: 'expenses.create',        label: 'Submit an expense',           group: 'Money',    status: 'planned' },
   { id: 'expenses.approve',       label: 'Approve an expense',          group: 'Money',    status: 'planned' },

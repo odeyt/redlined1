@@ -181,6 +181,11 @@ export const AUDIT = {
   advanceRejected: 'salary_advance.rejected',
   /** The money actually handed over. This is the one payroll deducts from. */
   advancePaid: 'salary_advance.paid',
+  payrollRunCreated: 'payroll_run.created',
+  /** The moment a run stops being a draft and becomes what people are owed. */
+  payrollRunFinalised: 'payroll_run.finalised',
+  payrollRunPaid: 'payroll_run.paid',
+  payrollDraftDeleted: 'payroll_run.draft_deleted',
   /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
   settingsUpdated: 'settings.updated',
   /** Who can see and do what. A security decision, not a preference. */
