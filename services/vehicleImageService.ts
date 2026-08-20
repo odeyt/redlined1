@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
+import { toStoragePath } from '@/lib/storage/storagePath';
 
 export interface VehicleImage {
   id: string;
@@ -43,10 +44,14 @@ export async function uploadVehicleImage(vehicleId: string, file: File, label = 
 }
 
 export async function deleteVehicleImage(id: string, url: string): Promise<void> {
-  // Extract storage path from URL
-  const match = url.match(/shop-assets\/(.+)$/);
-  if (match) {
-    await supabase.storage.from('shop-assets').remove([match[1]]);
+  // toStoragePath rather than a regex: the raw capture is percent-encoded and
+  // keeps any ?cache-buster, so storage was asked to remove a key that does
+  // not exist. remove() does not error on a missing key, so the row went and
+  // the file stayed. Only paths containing a space or a "/" showed it.
+  const path = toStoragePath(url);
+  if (path) {
+    const { error: storageError } = await supabase.storage.from('shop-assets').remove([path]);
+    if (storageError) console.error('[vehicle-images] could not remove ' + path, storageError.message);
   }
   const { error } = await supabase.from('vehicle_images').delete().eq('id', id);
   if (error) throw error;

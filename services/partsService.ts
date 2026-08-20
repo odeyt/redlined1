@@ -2,6 +2,7 @@
 import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
+import { toStoragePath } from '@/lib/storage/storagePath';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { DEFAULT_CURRENCY } from '@/lib/currencies';
 
@@ -192,8 +193,30 @@ export async function deletePart(partNumber: string): Promise<void> {
   const { data: before } = await supabase
     .from('parts').select('*').eq('part_number', partNumber).in('shop_id', getShopIds()).maybeSingle();
 
+  // Every photo on every matching row, before the rows are gone.
+  //
+  // Deliberately a separate query rather than reading `before`: parts are keyed
+  // on (shop_id, part_number), so a two-location shop can hold this number
+  // twice, each with its own photos. Deleting the rows and keeping the files
+  // is what left "Shell DOT 3" in the bucket with nothing pointing at it.
+  const { data: rows } = await supabase
+    .from('parts').select('photos').eq('part_number', partNumber).in('shop_id', getShopIds());
+
+  const paths = (rows ?? [])
+    .flatMap(r => (Array.isArray(r.photos) ? r.photos : []) as string[])
+    .map(toStoragePath)
+    .filter((p): p is string => Boolean(p));
+
   const { error } = await supabase.from('parts').delete().eq('part_number', partNumber).in('shop_id', getShopIds());
   if (error) throw error;
+
+  // After the delete, and never allowed to fail it. A part that will not
+  // delete because its photo could not be removed is worse than a stray file:
+  // the row is the thing the user asked to be rid of.
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from('shop-assets').remove(paths);
+    if (storageError) console.error('[parts] photos left behind for ' + partNumber, storageError.message);
+  }
 
   await recordAudit({
     action: AUDIT.partDeleted,
@@ -231,11 +254,20 @@ export async function uploadPartPhoto(partNumber: string, file: File): Promise<s
 }
 
 export async function deletePartPhoto(partNumber: string, url: string, allPhotos: string[]): Promise<void> {
-  const marker = '/shop-assets/';
-  const idx = url.indexOf(marker);
-  if (idx !== -1) {
-    const storagePath = url.slice(idx + marker.length);
-    await supabase.storage.from('shop-assets').remove([storagePath]);
+  // toStoragePath, not a local slice.
+  //
+  // The slice this replaced handed storage a PERCENT-ENCODED path, so removing
+  // a photo of "PTT Dynamic Turbo" asked for "PTT%20Dynamic%20Turbo/...".
+  // storage.remove() does not error on a key that is not there, so the row was
+  // updated, the caller saw success, and the file stayed forever. Part numbers
+  // with no space encode to themselves, which is why this only leaked on names
+  // like "Shell DOT 3" and looked like nothing was wrong.
+  const storagePath = toStoragePath(url);
+  if (storagePath) {
+    const { error } = await supabase.storage.from('shop-assets').remove([storagePath]);
+    // Reported, not thrown: the photo must still leave the part, or the user
+    // is stuck looking at an image they asked to remove.
+    if (error) console.error('[parts] could not remove ' + storagePath, error.message);
   }
   const newPhotos = allPhotos.filter(u => u !== url);
   await updatePart(partNumber, { photos: newPhotos });

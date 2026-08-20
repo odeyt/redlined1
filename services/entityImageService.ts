@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { prepareImageForUpload } from '@/lib/image/prepareUpload';
+import { toStoragePath } from '@/lib/storage/storagePath';
 import { getShopId } from '@/lib/shopStore';
 
 export type EntityType = 'job_card' | 'repair_order' | 'appointment' | 'parts_order' | 'parts_estimate';
@@ -61,8 +62,13 @@ export async function uploadEntityImage(
 }
 
 export async function deleteEntityImage(id: string, url: string): Promise<void> {
-  const match = url.match(/shop-assets\/(.+)$/);
-  if (match) await supabase.storage.from('shop-assets').remove([match[1]]);
+  // See deleteVehicleImage — the regex capture is percent-encoded, so the
+  // removal silently missed and the file was left in the bucket.
+  const path = toStoragePath(url);
+  if (path) {
+    const { error: storageError } = await supabase.storage.from('shop-assets').remove([path]);
+    if (storageError) console.error('[entity-images] could not remove ' + path, storageError.message);
+  }
   const { error } = await supabase.from('entity_images').delete().eq('id', id);
   if (error) throw error;
 }
