@@ -15,8 +15,23 @@ import { QuickActionsWidget } from '@/features/dashboard/widgets/catalog/QuickAc
 import { ReportsShortcutWidget } from '@/features/dashboard/widgets/catalog/ReportsShortcutWidget';
 import { ClockWidget } from '@/features/dashboard/widgets/catalog/ClockWidget';
 import { makeComingSoonWidget } from '@/features/dashboard/widgets/catalog/ComingSoonWidget';
+import { MoneyOwedWidget } from '@/features/dashboard/widgets/catalog/MoneyOwedWidget';
+import { SpendingWidget } from '@/features/dashboard/widgets/catalog/SpendingWidget';
+import { WhoIsInWidget } from '@/features/dashboard/widgets/catalog/WhoIsInWidget';
+import { TillWidget } from '@/features/dashboard/widgets/catalog/TillWidget';
 
 const OWNER_MANAGER = ['owner', 'manager'];
+
+/**
+ * Owner only, for the back-office widgets that show money across the whole
+ * business.
+ *
+ * Not a style choice: a manager has neither invoices.read nor payments.read,
+ * so the receivables widget would render an error rather than a number for
+ * them. Listing the role here keeps the catalogue honest about who a widget
+ * is actually for, instead of offering one that cannot work.
+ */
+const OWNER_ONLY = ['owner'];
 
 export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
   'revenue-kpi-row': {
@@ -143,6 +158,44 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     component: ReportsShortcutWidget,
     defaultSize: { w: 3, h: 3 },
     minSize: { w: 2, h: 2 },
+    allowedRoles: OWNER_MANAGER,
+  },
+  // ── Back office (M5–M10) ──────────────────────────────────────────────
+  'money-owed': {
+    id: 'money-owed',
+    title: 'Money Owed',
+    category: 'financial',
+    component: MoneyOwedWidget,
+    defaultSize: { w: 6, h: 3 },
+    minSize: { w: 4, h: 3 },
+    allowedRoles: OWNER_ONLY,
+  },
+  'spending': {
+    id: 'spending',
+    title: 'Spending This Month',
+    category: 'financial',
+    component: SpendingWidget,
+    defaultSize: { w: 6, h: 4 },
+    minSize: { w: 4, h: 3 },
+    // Managers can read expenses, so this one genuinely works for them.
+    allowedRoles: OWNER_MANAGER,
+  },
+  'who-is-in': {
+    id: 'who-is-in',
+    title: 'Who Is In Today',
+    category: 'operational',
+    component: WhoIsInWidget,
+    defaultSize: { w: 6, h: 3 },
+    minSize: { w: 4, h: 2 },
+    allowedRoles: OWNER_MANAGER,
+  },
+  'till': {
+    id: 'till',
+    title: 'The Till',
+    category: 'financial',
+    component: TillWidget,
+    defaultSize: { w: 4, h: 3 },
+    minSize: { w: 3, h: 3 },
     allowedRoles: OWNER_MANAGER,
   },
   'clock': {
