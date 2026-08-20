@@ -823,10 +823,6 @@ export function CommandCenterView() {
   // SI-10
   const [vehicleHighRiskCount, setVehicleHighRiskCount] = useState<number | null>(null);
 
-  if (role && role !== 'owner' && role !== 'manager') {
-    return <DisabledState reason="Command Center is only available to shop owners and managers." />;
-  }
-
   const shopHeaders = { 'x-shop-id': shopId };
 
   const loadRecommendations = useCallback(async () => {
@@ -930,6 +926,22 @@ export function CommandCenterView() {
     loadBusinessMemory();
     void loadVehicleIntelligence();
   }, [shopId, loadRecommendations, loadSignals, loadMetrics, loadActionQueue, loadMorningBrief, loadBusinessMemory, loadVehicleIntelligence]);
+
+  // Below every hook, deliberately. This guard used to sit above them, which
+  // meant the number of hooks this component called depended on `role`.
+  //
+  // `role` resolves asynchronously. The first render has it null, the guard is
+  // false, and all eight hooks run. When it resolves to a technician the guard
+  // returns early, those hooks are skipped, and React throws "Rendered fewer
+  // hooks than during the previous render" — a white screen, not a disabled
+  // state. This app has already shipped one role-resolution race, so that
+  // window is real rather than theoretical.
+  //
+  // Running the hooks for a user who is about to be turned away costs a few
+  // fetches that get discarded. Crashing costs the page.
+  if (role && role !== 'owner' && role !== 'manager') {
+    return <DisabledState reason="Command Center is only available to shop owners and managers." />;
+  }
 
   async function handleGenerateBrief() {
     setGeneratingBrief(true);

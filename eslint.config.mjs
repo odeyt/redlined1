@@ -1,12 +1,65 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+/**
+ * Flat config, called through eslint directly.
+ *
+ * Two things were broken at once, and each hid the other:
+ *
+ *   - `next lint` was removed in Next 16. `npm run lint` failed with
+ *     "Invalid project directory provided, no such directory: REDLINE\lint",
+ *     which reads like a path problem rather than a removed command.
+ *   - The FlatCompat shim around the old `next/core-web-vitals` string threw
+ *     "Converting circular structure to JSON" on ESLint 9, so even running
+ *     eslint by hand did not work either.
+ *
+ * eslint-config-next 15+ ships real flat configs, so the compat layer is gone.
+ *
+ * Nothing here downgrades a rule to make the output look better. What is
+ * excluded below is excluded because it is not this app's code, or because the
+ * rule is wrong about the file rather than the file being wrong.
+ */
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
 
-const compat = new FlatCompat({ baseDirectory: __dirname });
+  globalIgnores([
+    // Defaults from eslint-config-next, which must be restated when overriding.
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
 
-const eslintConfig = [...compat.extends("next/core-web-vitals", "next/typescript")];
+    // Generated or downloaded output, never authored.
+    'coverage/**',
+    'playwright-report/**',
+    'test-results/**',
 
-export default eslintConfig;
+    // A SEPARATE npm project (`redlined1-youtube-bot`) that happens to live in
+    // this folder: its own package.json, its own dependencies, not imported by
+    // the app and not part of the Next build. `next lint` never looked at it,
+    // and bare `eslint` walking into it is a change in scope, not a finding.
+    'youtube-bot/**',
+  ]),
+
+  {
+    // Playwright fixtures take a parameter named `use` and call it. That is
+    // not React's `use` hook, but the rule matches on the name and reports
+    // every fixture as a hook called outside a component.
+    files: ['tests/**/*.ts', 'tests/**/*.tsx', 'e2e/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
+
+  {
+    // One-off Node generators and the dev server. These really are CommonJS —
+    // they are run with `node`, not bundled — so no-require-imports is wrong
+    // about the file rather than the file being wrong about modules.
+    files: ['scripts/**/*.js', 'dev-server.js', '*.config.js'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+]);
