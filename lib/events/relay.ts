@@ -54,6 +54,16 @@ export interface RelayResult {
   /** Events that can never succeed, and were stopped rather than retried. */
   unroutable: number;
   errors: string[];
+  /**
+   * Events this pass settled as a failure, in the order it settled them.
+   *
+   * The caller re-reads these to see which have reached `dead`, and alerts on
+   * those only. Alerting from inside this function would fire on every retry of
+   * an event that is going to succeed on attempt three, and alerting on a
+   * scan of all dead rows would re-fire on every run forever. This is the
+   * narrow set that actually changed state.
+   */
+  settledFailures: string[];
 }
 
 /**
@@ -102,7 +112,7 @@ export async function relayOnce(
   db: Db,
   options: { limit?: number; worker?: string } = {},
 ): Promise<RelayResult> {
-  const result: RelayResult = { claimed: 0, written: 0, failed: 0, unroutable: 0, errors: [] };
+  const result: RelayResult = { claimed: 0, written: 0, failed: 0, unroutable: 0, errors: [], settledFailures: [] };
 
   const { data: claimed, error: claimError } = await db.rpc('claim_domain_events', {
     p_limit: options.limit ?? 50,
@@ -127,6 +137,7 @@ export async function relayOnce(
         await db.rpc('settle_domain_event', { p_id: event.id, p_ok: false, p_error: blocked });
       }
       result.unroutable += 1;
+      result.settledFailures.push(event.id);
       result.errors.push(event.event_type + ': ' + blocked);
       continue;
     }
@@ -144,6 +155,7 @@ export async function relayOnce(
       }
       await db.rpc('settle_domain_event', { p_id: event.id, p_ok: false, p_error: error.message });
       result.failed += 1;
+      result.settledFailures.push(event.id);
       result.errors.push(event.event_type + ' → ' + error.message);
       continue;
     }

@@ -97,11 +97,50 @@ export function scrubPayload(payload: Record<string, unknown>): Record<string, u
  * Returns whether it was queued. Callers generally ignore that — the point is
  * that they carry on either way — but the relay tests use it.
  */
+/**
+ * Why an event could never be delivered, or null when it can.
+ *
+ * `rib_events` requires shop_id and organization_id — both NOT NULL. The relay
+ * already refuses such an event, but only after it has been queued, claimed and
+ * burned through its eight attempts to reach `dead`. That is the right place to
+ * catch a row that became undeliverable later; it is the wrong place to catch
+ * one that was undeliverable the moment it was written.
+ *
+ * Queueing it anyway costs a claim cycle, an alert, and a dead row that reads
+ * like a delivery failure when it is really a tenancy gap. Refusing here says
+ * so plainly, and the reconciler can emit it properly once the organization is
+ * attached — the business record is the authoritative source, not the queue.
+ */
+export function routingProblem(context: DomainContext): string | null {
+  if (!context.shopId) return 'no shopId on the context';
+  if (!context.organizationId) return 'shop has no organization_id';
+  return null;
+}
+
 export async function emitDomainEvent(
   db: DomainDb,
   context: DomainContext,
   input: DomainEventInput,
 ): Promise<boolean> {
+  // Fail fast, loudly, and without writing a row that cannot go anywhere.
+  const blocked = routingProblem(context);
+  if (blocked) {
+    console.error(
+      '[events] refusing to queue ' + input.eventType + ' for ' + input.aggregateId + ': ' + blocked,
+    );
+    try {
+      const { alertException } = await import('@/lib/observability/alerts');
+      alertException('events', new Error('unroutable event refused: ' + blocked), {
+        eventType: input.eventType,
+        shopId: context.shopId,
+        aggregateId: input.aggregateId,
+      });
+    } catch {
+      /* reporting must not be the thing that breaks */
+    }
+    return false;
+  }
+
   try {
     const { error } = await db.from('domain_event_outbox').insert({
       organization_id: context.organizationId ?? null,

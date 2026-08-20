@@ -40,6 +40,40 @@ async function main() {
   const result = await relayOnce(db, { worker });
   console.log(JSON.stringify(result, null, 2));
 
+  // Alert on events that reached `dead` in THIS pass.
+  //
+  // Narrow on purpose. Alerting inside relayOnce would fire on every retry of
+  // an event that succeeds on attempt three; alerting on a scan of all dead
+  // rows would re-fire the same events on every run until someone cleared
+  // them, which is how an alert channel becomes noise nobody reads.
+  if (result.settledFailures.length) {
+    const { data: dead } = await db
+      .from('domain_event_outbox')
+      .select('id, event_type, shop_id, organization_id, attempts, last_error, correlation_id')
+      .in('id', result.settledFailures)
+      .eq('status', 'dead');
+
+    for (const row of dead ?? []) {
+      // Identifiers and the error only. The payload can hold customer detail
+      // and an alert channel is the wrong place for it.
+      const { alertException } = await import('../lib/observability/alerts');
+      alertException('events.relay', new Error('domain event is dead: ' + row.last_error), {
+        eventId: row.id,
+        eventType: row.event_type,
+        shopId: row.shop_id,
+        organizationId: row.organization_id,
+        attempts: row.attempts,
+        correlationId: row.correlation_id,
+        worker,
+      });
+      console.error(
+        '[relay] DEAD ' + row.event_type + ' id=' + row.id +
+        ' shop=' + row.shop_id + ' attempts=' + row.attempts + ' — ' + row.last_error,
+      );
+    }
+    if ((dead ?? []).length) process.exitCode = 1;
+  }
+
   // Unroutable events are a data problem, not a relay failure — they are
   // reported and marked dead, and the run itself succeeded.
   if (result.failed > 0) process.exitCode = 1;

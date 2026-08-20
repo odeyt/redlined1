@@ -124,9 +124,40 @@ export async function getOrCreatePrimaryShop(
   // legitimately share a name.
   const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shop'}-${crypto.randomUUID().slice(0, 8)}`;
 
+  // Every shop belongs to exactly one organization. M1 back-filled that for
+  // every shop existing on 2026-08-16 — one organization per shop, same name —
+  // but this insert was never updated, so every shop created since arrived with
+  // organization_id NULL. Two did before it was noticed.
+  //
+  // It matters now because rib_events.organization_id is NOT NULL: a shop with
+  // no organization can queue domain events that the relay can never deliver.
+  // They are marked dead, which is correct behaviour on wrong data.
+  //
+  // A solo shop still gets its own single-shop organization. That is the model
+  // M1 established, and it means nothing downstream has to special-case a
+  // tenant without one.
+  const { data: organization, error: orgErr } = await db
+    .from('organizations')
+    .insert({ name, slug: `${slug}-org` })
+    .select('id')
+    .single();
+
+  // Deliberately not fatal. The only caller is the auth callback, and the
+  // established rule here is that provisioning trouble must never block a
+  // signup. A shop with no organization is a repairable state — the
+  // reconciler finds the events it should have emitted once the organization
+  // is attached — whereas a user who cannot sign up is not.
+  if (orgErr) {
+    console.error(`[provisioning] organization creation failed for "${name}": ${orgErr.message}`);
+    try {
+      const { alertException } = await import('@/lib/observability/alerts');
+      alertException('provisioning', orgErr, { shopName: name });
+    } catch { /* reporting must not be the thing that breaks signup */ }
+  }
+
   const { data: shop, error: shopErr } = await db
     .from('shops')
-    .insert({ name, slug })
+    .insert({ name, slug, organization_id: organization?.id ?? null })
     .select('id')
     .single();
 
