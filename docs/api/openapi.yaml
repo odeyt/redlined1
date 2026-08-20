@@ -1,0 +1,243 @@
+openapi: 3.0.3
+info:
+  title: Redlined1 API
+  version: "1.0.0"
+  description: |
+    Redlined1 API v1.
+
+    Only the endpoints documented here exist. This file is the contract; it is
+    not generated from wishes.
+
+    **Authentication** is an organization-scoped API key sent as a bearer
+    token. The key determines which organization and which shops the request
+    can reach — no request field can change that. To act on a different tenant,
+    use a different key.
+
+    **Delivery of side effects** (domain events) is at-least-once. Anything you
+    build on top of Redlined1 events must be idempotent.
+
+servers:
+  - url: https://www.redlined1.com
+    description: Production
+  - url: https://staging.redlined1.com
+    description: Staging (behind deployment protection)
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Customers
+
+paths:
+  /api/v1/customers:
+    get:
+      tags: [Customers]
+      summary: List customers
+      description: |
+        Customers visible to this key, ordered by name then id so paging is
+        stable when two customers share a name. Archived customers are omitted.
+      operationId: listCustomers
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          description: Capped at 100.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: A page of customers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Customer' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+              example:
+                data:
+                  - id: C-1734567890123
+                    name: Somchai Vong
+                    type: Individual
+                    phone: "+856 20 5555 1234"
+                    email: somchai@example.la
+                    address: Sikhottabong, Vientiane
+                    tags: [fleet]
+                    follow_up: ""
+                    archived: false
+                meta:
+                  request_id: 4f1c2f0e-1f3a-4a9b-9a0e-2b6c1d5e7a10
+                  page: 1
+                  page_size: 25
+                  total: 1
+                  has_more: false
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+    post:
+      tags: [Customers]
+      summary: Create a customer
+      description: |
+        Creates a customer in the shop this key is scoped to.
+
+        A key covering several shops cannot create — there would be no
+        unambiguous target — and returns `SHOP_NOT_ACCESSIBLE`. Use a
+        shop-scoped key.
+
+        Send `Idempotency-Key` to make retries safe. The same key with the same
+        body replays the original response; the same key with a different body
+        returns `IDEMPOTENCY_CONFLICT`.
+      operationId: createCustomer
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerCreate' }
+            example:
+              name: Somchai Vong
+              type: Individual
+              phone: "+856 20 5555 1234"
+              email: somchai@example.la
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Customer' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Get one customer
+      description: |
+        A customer belonging to another tenant returns **404**, not 403 —
+        confirming existence would let a caller enumerate ids.
+      operationId: getCustomer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The customer.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Customer' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      description: |
+        `Authorization: Bearer rl_live_…`
+
+        Issued by a Redlined1 operator with an explicit scope list. The secret
+        is shown once at creation and stored only as a hash — it cannot be
+        recovered, only replaced.
+
+        Scopes: `customers:read`, `customers:write`.
+
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id: { type: string, example: C-1734567890123 }
+        name: { type: string }
+        type: { type: string, enum: [Individual, Business] }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        tags: { type: array, items: { type: string } }
+        follow_up: { type: string }
+        archived: { type: boolean }
+      required: [id, name, type, phone, email, address, tags, follow_up, archived]
+
+    CustomerCreate:
+      type: object
+      additionalProperties: false
+      description: Unknown fields are rejected rather than ignored.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        type: { type: string, enum: [Individual, Business], default: Individual }
+        phone: { type: string, maxLength: 50 }
+        email: { type: string, format: email, maxLength: 200 }
+        address: { type: string, maxLength: 500 }
+        tags: { type: array, maxItems: 20, items: { type: string, maxLength: 50 } }
+        followUp: { type: string, maxLength: 500 }
+      required: [name]
+
+    Meta:
+      type: object
+      properties:
+        request_id: { type: string, format: uuid }
+        idempotent_replay: { type: boolean }
+
+    PageMeta:
+      allOf:
+        - $ref: '#/components/schemas/Meta'
+        - type: object
+          properties:
+            page: { type: integer }
+            page_size: { type: integer }
+            total: { type: integer }
+            has_more: { type: boolean }
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string, format: uuid }
+            details: { type: object, additionalProperties: true }
+          required: [code, message, request_id]
+
+  responses:
+    Unauthorized:
+      description: AUTH_REQUIRED, INVALID_API_KEY or API_KEY_REVOKED.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: FORBIDDEN, SCOPE_REQUIRED or SHOP_NOT_ACCESSIBLE.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: NOT_FOUND. Also returned for a resource owned by another tenant.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: CONFLICT or IDEMPOTENCY_CONFLICT.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    ValidationFailed:
+      description: VALIDATION_FAILED, with the offending fields in `details.issues`.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    RateLimited:
+      description: RATE_LIMITED. 120 requests per key per minute.
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

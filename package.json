@@ -31,6 +31,7 @@
     "test:unit": "jest",
     "test:report": "playwright show-report tests/reports/html",
     "test:sweep": "npx tsx scripts/sweep-e2e-data.ts",
+    "api:key": "tsx scripts/api-key.ts",
     "events:health": "tsx scripts/event-health.ts",
     "events:dead": "tsx scripts/dead-domain-events.ts",
     "events:reconcile": "tsx scripts/reconcile-domain-events.ts",
