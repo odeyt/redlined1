@@ -88,9 +88,11 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   // allowlist from shop_settings is authoritative.
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>({ manager: [], advisor: [], technician: [] });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Must match the boot script in app/layout.tsx. If these disagree the toggle
+  // shows the wrong label until someone clicks it.
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return (localStorage.getItem('redlined1-theme') as 'dark' | 'light') ?? 'dark';
+    if (typeof window === 'undefined') return 'light';
+    return localStorage.getItem('redlined1-theme') === 'dark' ? 'dark' : 'light';
   });
 
   function toggleTheme() {

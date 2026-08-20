@@ -54,11 +54,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             var t = localStorage.getItem('redlined1-theme');
-            // Dark is the platform default — only opt into light explicitly
-            if (t === 'light') {
-              document.documentElement.setAttribute('data-theme', 'light');
-            } else {
+            // Light is the platform default — only opt into dark explicitly.
+            // Anyone who chose dark keeps it; a browser with nothing stored
+            // gets light. This runs before first paint, which is why it is an
+            // inline script rather than an effect: setting the attribute after
+            // React mounts would show the wrong theme for a frame first.
+            if (t === 'dark') {
               document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+              document.documentElement.setAttribute('data-theme', 'light');
             }
           } catch(e) {}
         `}} />
