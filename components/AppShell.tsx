@@ -38,6 +38,7 @@ import { PayView } from '@/features/people/PayView';
 import { PayrollView } from '@/features/people/PayrollView';
 import { ExpensesView } from '@/features/money/ExpensesView';
 import { ReceivablesView } from '@/features/money/ReceivablesView';
+import { CashDayView } from '@/features/money/CashDayView';
 import { VinView } from '@/features/vin/VinView';
 import { DtcView } from '@/features/dtc/DtcView';
 import { DiagnosticsView } from '@/features/diagnostics/DiagnosticsView';
@@ -94,6 +95,7 @@ const views: Record<string, React.ComponentType> = {
   payroll: PayrollView,
   expenses: ExpensesView,
   receivables: ReceivablesView,
+  'cash-day': CashDayView,
   vin: VinView,
   dtc: DtcView,
   diagnostics: DiagnosticsView,

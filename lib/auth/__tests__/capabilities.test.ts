@@ -98,8 +98,10 @@ describe('the catalogue', () => {
     // expenses.* left this list in M9. What remains is receivables, daily
     // reconciliation and the integration capabilities — none of which has any
     // code behind it yet.
-    for (const id of ['receivables.read', 'reconciliation.manage',
-                      'api_keys.manage', 'integrations.manage']) {
+    // reconciliation.manage left this list in M10. receivables.read stays:
+    // the receivables screen is gated on invoices.read AND payments.read,
+    // deliberately, so nothing enforces this id and it must not pretend to.
+    for (const id of ['receivables.read', 'api_keys.manage', 'integrations.manage']) {
       expect(CAPABILITIES.find(c => c.id === id)?.status).toBe('planned');
     }
   });
@@ -186,11 +188,26 @@ describe('the database agrees with the application', () => {
    */
   const SQL = (() => {
     const dir = join(__dirname, '..', '..', '..', 'supabase/migrations');
+    // Sorted by DATE then MILESTONE NUMBER, not by filename.
+    //
+    // A plain .sort() puts m10 before m8, because '1' < '8'. That is not a
+    // hypothetical: it happened the day M10 was written, and the effect was
+    // this guard silently comparing against M9's definition — a drift check
+    // that had itself drifted.
+    const rank = (f: string): [string, number] => {
+      const date = f.slice(0, 10);
+      const milestone = Number(f.match(/_m(\d+)/)?.[1] ?? 0);
+      return [date, milestone];
+    };
     const definers = readdirSync(dir)
       .filter(f => f.endsWith('.sql'))
       .filter(f => readFileSync(join(dir, f), 'utf8')
         .includes('CREATE OR REPLACE FUNCTION public.has_capability'))
-      .sort();
+      .sort((a, b) => {
+        const [da, ma] = rank(a);
+        const [db, mb] = rank(b);
+        return da === db ? ma - mb : da < db ? -1 : 1;
+      });
     expect(definers.length).toBeGreaterThan(0);
     return readFileSync(join(dir, definers[definers.length - 1]), 'utf8');
   })();

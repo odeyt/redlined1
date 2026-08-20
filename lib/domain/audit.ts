@@ -191,6 +191,11 @@ export const AUDIT = {
   expenseRejected: 'expense.rejected',
   /** Money handed back to someone who paid out of their own pocket. */
   expenseReimbursed: 'expense.reimbursed',
+  cashDayOpened: 'cash_day.opened',
+  /** The till was counted and the day declared finished. */
+  cashDayClosed: 'cash_day.closed',
+  /** A closed day was opened again. Always worth being able to find. */
+  cashDayReopened: 'cash_day.reopened',
   /** Shop settings changed — labour rate, tax rate, currency, prefixes. */
   settingsUpdated: 'settings.updated',
   /** Who can see and do what. A security decision, not a preference. */

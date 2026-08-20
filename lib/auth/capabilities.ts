@@ -112,7 +112,10 @@ export const CAPABILITIES: readonly Capability[] = [
   { id: 'expenses.create',        label: 'Submit an expense',           group: 'Money',    status: 'enforced' },
   { id: 'expenses.approve',       label: 'Approve an expense',          group: 'Money',    status: 'enforced' },
   { id: 'receivables.read',       label: 'See what customers owe',      group: 'Money',    status: 'planned' },
-  { id: 'reconciliation.manage',  label: 'Close the day',               group: 'Money',    status: 'planned' },
+  // Owner and manager. Counting the till at the end of the day is a
+  // manager's job in any shop this size, and a control nobody can follow
+  // gets worked around rather than obeyed.
+  { id: 'reconciliation.manage',  label: 'Close the day',               group: 'Money',    status: 'enforced' },
   { id: 'api_keys.manage',        label: 'Manage API keys',             group: 'Integrations', status: 'planned' },
   { id: 'integrations.manage',    label: 'Manage integrations',         group: 'Integrations', status: 'planned' },
 ];
@@ -155,6 +158,7 @@ const MANAGER: readonly string[] = [
   // none of that. They may still ask for an advance for themselves.
   'salary.read_own', 'salary_advances.request',
   'expenses.read', 'expenses.create',
+  'reconciliation.manage',
 ];
 
 const ADVISOR: readonly string[] = [
