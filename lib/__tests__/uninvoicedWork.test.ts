@@ -75,8 +75,12 @@ describe('an order in that state offers the fix directly', () => {
     expect(view).toMatch(/\(selected\.status === 'Complete' \|\| selected\.status === 'Closed'\) && !selected\.invoiceNumber/);
   });
 
-  it('is hidden from technicians, who do not raise invoices', () => {
-    expect(view).toMatch(/\{!isTech && \(selected\.status === 'Complete'/);
+  it('is hidden from anyone who may not raise invoices', () => {
+    // Was `!isTech`, which only excluded technicians. A manager at D1 Imports
+    // saw it, pressed it, and the domain layer refused — the button read as a
+    // broken product rather than a withheld permission. `canInvoice` is
+    // capability AND module access, so it now matches what the server allows.
+    expect(view).toMatch(/\{canInvoice && \(selected\.status === 'Complete'/);
   });
 
   it('reuses the existing convert path rather than a second one', () => {

@@ -62,7 +62,12 @@ describe('completing an order raises the invoice for it', () => {
 
 describe('it never bills the same job twice', () => {
   it('skips drafting when the order already has an invoice', () => {
-    expect(qaApprove).toMatch(/if \(!invNumber\)/);
+    // The guard also now requires the permission: a manager whose shop
+    // withholds invoicing signed off correctly and was then shown a red
+    // banner about a draft they never asked for. `capsLoading` keeps the old
+    // behaviour while permissions are still resolving, so a slow read cannot
+    // silently skip invoicing for someone who does hold it.
+    expect(qaApprove).toMatch(/if \(!invNumber && \(canInvoice \|\| capsLoading\)\)/);
   });
 
   it('the manual Convert button refuses an already-invoiced order', () => {

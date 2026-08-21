@@ -23,6 +23,7 @@ import { saveCustomer } from '@/services/customerService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
+import { useCapabilities } from '@/lib/auth/useCapabilities';
 import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
 import { confirmOnline } from '@/lib/useOnline';
@@ -348,8 +349,22 @@ const EMPTY_FORM = {
 export function RepairOrdersView() {
   const { prefill } = useAppState();
   const dispatch = useAppDispatch();
-  const { role, currentShop } = useShop();
+  const { role, currentShop, shopId } = useShop();
   const isTech = role === 'technician';
+
+  // Role alone is not the answer. A shop can withhold invoicing or estimates
+  // from managers in Role Permissions, and D1 Imports does — so `!isTech` let
+  // a manager press buttons the domain layer then refused, and made a
+  // successful sign-off look like a failure. Same resolution the write path
+  // uses, so the button and the refusal cannot disagree.
+  // Both questions, because Redlined1 answers them separately: capabilities
+  // say what a role may DO, role_permissions says what it may SEE. The owner
+  // here removed the Invoices and Estimates MODULES from managers, which the
+  // capability defaults never heard about — so an in-context button has to
+  // satisfy both before it appears.
+  const { can, canUseModule, loading: capsLoading } = useCapabilities(shopId);
+  const canInvoice = !isTech && can('invoices.manage') && canUseModule('invoices');
+  const canEstimate = !isTech && can('estimates.manage') && canUseModule('estimates');
   const [orders, setOrders] = useState<RepairOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -621,7 +636,15 @@ export function RepairOrdersView() {
       // It is a Draft: reviewed and sent by a human, never charged automatically.
       let invNumber = ro.invoiceNumber;
       let invoiceError = '';
-      if (!invNumber) {
+      // Only attempt it if this person may raise invoices.
+      //
+      // Without this a manager whose shop withholds invoicing signed off
+      // correctly and then got a red banner saying they lack a permission —
+      // for an action they never asked to take. The sign-off succeeded; the
+      // draft is simply somebody else's job. `capsLoading` keeps the old
+      // behaviour while unresolved, so a slow read does not silently skip
+      // invoicing for someone who does hold the permission.
+      if (!invNumber && (canInvoice || capsLoading)) {
         try {
           invNumber = await draftInvoiceFor({ ...ro, notes });
           await updateRepairOrder(ro.id, { invoiceNumber: invNumber });
@@ -645,6 +668,14 @@ export function RepairOrdersView() {
       setSelected(updated);
       if (invoiceError) {
         setError(`${ro.roNumber} is signed off and Complete, but the draft invoice could not be created: ${invoiceError}. Use "Convert to invoice" to raise it.`);
+      } else if (!invNumber && !canInvoice) {
+        // Not an error. The sign-off is the thing that was asked for and it
+        // worked; invoicing is withheld from this role at this shop, which is
+        // a setting somebody chose, not a fault to report in red.
+        notify(
+          `✓ QA signed off by ${advisorName}. ${ro.roNumber} marked Complete.`
+          + ' Invoicing is not enabled for your role — an owner can raise it.',
+        );
       } else {
         // Deliberately not a confirm: sign-off must never be blocked or lost,
         // and the invoice is a Draft that a human reviews before sending. But
@@ -1147,7 +1178,7 @@ export function RepairOrdersView() {
                   toast that had long since gone. 20 of 21 completed orders are
                   in this state. A standing prompt is the difference between a
                   missed invoice and an unnoticed one. */}
-              {!isTech && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
+              {canInvoice && (selected.status === 'Complete' || selected.status === 'Closed') && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(220,38,38,0.12)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.45)', fontWeight: 800 }}
                   onClick={() => handleConvertToInvoice(selected)}>
                   ⚠ Not invoiced — raise invoice
@@ -1155,15 +1186,16 @@ export function RepairOrdersView() {
               )}
 
               {/* Create Estimate from RO — pulls all parts from orders/quotations */}
-              {!isTech && (
+              {canEstimate && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.08)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => openPullModal(selected, 'estimate')}>
                   📋 Create Estimate
                 </button>
               )}
 
-              {/* Create Invoice — available to owner/manager on any active RO */}
-              {!isTech && selected.status !== 'Closed' && selected.status !== 'Void' && !selected.invoiceNumber && (
+              {/* Create Invoice. Gated on the capability, not the role: a shop
+                  may withhold invoicing from managers in Role Permissions. */}
+              {canInvoice && selected.status !== 'Closed' && selected.status !== 'Void' && !selected.invoiceNumber && (
                 <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 700 }}
                   onClick={() => openPullModal(selected, 'invoice')}>
                   ⚡ Create Invoice
