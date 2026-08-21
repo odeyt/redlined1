@@ -12,6 +12,7 @@ import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor,
   PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
+  PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine,
 } from '@/services/partsOrderService';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchCustomers } from '@/services/customerService';
@@ -111,7 +112,7 @@ const PAY_COLOR: Record<string, string> = {
   'Paid in Full': '#22c55e',
 };
 
-const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', currency: 'USD' };
+const EMPTY_LINE: LineItem = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', currency: 'USD', unit: DEFAULT_PART_UNIT };
 
 type FormState = {
   lineItems: LineItem[];
@@ -454,7 +455,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         vehicle,
         jobCardId: o?.jobCardNumber ?? form.jobCardNumber,
         status: 'Draft',
-        lines: items.map(i => ({ note: i.partNumber || '', description: i.partName, qty: i.quantity, rate: i.unitCost })),
+        lines: items.map(i => ({ note: i.partNumber || '', description: describeLine(i.partName, i.unit), qty: i.quantity, rate: i.unitCost })),
         discount: 0,
         shopSupplies: 0,
         taxRate: 0,
@@ -500,7 +501,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
         vehicle,
         jobCardId: o?.jobCardNumber ?? form.jobCardNumber,
         status: 'Draft',
-        lines: items.map(i => ({ note: i.partNumber || '', description: i.partName, qty: i.quantity, rate: i.unitCost })),
+        lines: items.map(i => ({ note: i.partNumber || '', description: describeLine(i.partName, i.unit), qty: i.quantity, rate: i.unitCost })),
         discount: 0,
         shopSupplies: 0,
         taxRate: 0,
@@ -705,7 +706,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     form.lineItems.forEach((item, idx) => {
       rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(),
         value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
-      rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
+      rows.push({ label: '  Qty / Condition', value: `${formatQty(item.quantity, item.unit)} × ${item.condition}` });
       const iCur = item.currency || cur;
       rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} → ${fmt(item.unitCost * item.quantity, iCur)}` });
       if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
@@ -962,7 +963,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 12 }}>
                       {item.partNumber && <span>#{item.partNumber}</span>}
                       <span>{item.condition}</span>
-                      <span>Qty: {item.quantity}</span>
+                      <span>Qty: {formatQty(item.quantity, item.unit)}</span>
                       <span>{moneyO(item.unitCost, selected)} each</span>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: 'var(--accent)' }}>
@@ -1269,15 +1270,19 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
               {/* ── Parts Table ── */}
               <FormSection label="Parts" />
+              {/* minWidth for the same reason as the quotation table: the Qty
+                  column grew to carry a unit, and without a floor the table
+                  takes that width back off the other columns instead of
+                  scrolling. See the note there for what was measured. */}
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={thStyle}>Part Name *</th>
                       <th style={thStyle}>Part # / SKU</th>
                       <th style={thStyle}>Vendor</th>
                       <th style={thStyle}>Condition</th>
-                      <th style={{ ...thStyle, width: 70 }}>Qty</th>
+                      <th style={{ ...thStyle, width: 150 }}>Qty / Unit</th>
                       <th style={{ ...thStyle, width: 90 }}>Currency</th>
                       <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
                       <th style={{ ...thStyle, width: 100 }}>Line Total</th>
@@ -1326,13 +1331,28 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                           </select>
                         </td>
                         <td style={tdStyle}>
-                          <input
-                            type="number" min={1}
-                            value={item.quantity}
-                            onFocus={e => e.target.select()}
-                            onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
-                            style={{ ...cellInput, textAlign: 'center' }}
-                          />
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <input
+                              type="number" min={1} inputMode="numeric"
+                              // `|| 1`, matching the quotation form. A
+                              // line_items row saved before quantity existed
+                              // parses to undefined, and React renders an
+                              // undefined value as an EMPTY box — a blank
+                              // quantity that looks like a rendering fault.
+                              value={item.quantity || 1}
+                              onFocus={e => e.target.select()}
+                              onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
+                              style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
+                            />
+                            <select
+                              value={item.unit || DEFAULT_PART_UNIT}
+                              onChange={e => updateLineItem(idx, 'unit', e.target.value)}
+                              aria-label="Unit"
+                              style={{ ...cellInput, width: 80, flex: '0 0 80px', padding: '7px 2px 7px 6px', fontSize: 12 }}
+                            >
+                              {PART_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </div>
                         </td>
                         <td style={tdStyle}>
                           <select

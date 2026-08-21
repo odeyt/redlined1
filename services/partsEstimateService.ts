@@ -41,6 +41,13 @@ export interface EstimateLineItem {
   unitCost: number;
   vendorName?: string;
   currency?: string;
+  /**
+   * What the quantity counts. Rides inside the `line_items` JSONB, so an
+   * older quote simply has no `unit` and reads as the default — no migration
+   * and nothing to backfill. Kept identical to partsOrderService.LineItem so
+   * a quote converts to an order without losing it.
+   */
+  unit?: string;
 }
 
 export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired', 'Converted'];

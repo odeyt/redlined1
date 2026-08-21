@@ -21,6 +21,54 @@ export interface LineItem {
   unitCost: number;
   vendorName?: string;
   currency?: string | null;
+  /**
+   * What the quantity counts — "4 Qt" of oil is not "4 Pcs".
+   *
+   * Optional, and it rides inside the `line_items` JSONB rather than needing a
+   * column: the whole item object is written and read back verbatim, so an
+   * older row simply has no `unit` and reads as the default. No migration, and
+   * nothing to backfill.
+   */
+  unit?: string;
+}
+
+/**
+ * Units a workshop actually sells in.
+ *
+ * Pcs first because it is the overwhelming majority and the default. The
+ * volume units exist because oil, coolant and brake fluid are quoted by the
+ * quart or litre, and a line reading "4" with no unit is ambiguous between
+ * four bottles and four litres — a real pricing difference.
+ */
+export const PART_UNITS = [
+  'Pcs', 'Set', 'Pair', 'Kit',
+  'Qt', 'L', 'ml', 'Gal',
+  'kg', 'g', 'lb',
+  'm', 'ft',
+  'Box', 'Roll', 'Can', 'Bottle', 'Tube',
+] as const;
+
+export const DEFAULT_PART_UNIT = 'Pcs';
+
+/** "4 Qt" / "2 Pcs". Never bare, so a quantity is never ambiguous on a quote. */
+export function formatQty(quantity: number, unit?: string): string {
+  return `${quantity} ${unit || DEFAULT_PART_UNIT}`;
+}
+
+/**
+ * The description to carry onto an estimate or invoice line.
+ *
+ * Those lines have a `qty` and NO unit column, so a parts order for "4 Qt" of
+ * oil would print as a bare "4" and read as four bottles — a four-fold pricing
+ * difference on a consumable. The unit rides in the description instead.
+ *
+ * Suppressed for Pcs: appending "(Pcs)" to every brake pad is noise, and the
+ * whole point is that a unit worth stating stands out.
+ */
+export function describeLine(partName: string, unit?: string): string {
+  const u = unit || DEFAULT_PART_UNIT;
+  const name = (partName || '').trim();
+  return u === DEFAULT_PART_UNIT ? name : `${name} (${u})`.trim();
 }
 
 export interface PartsOrder {

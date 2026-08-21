@@ -15,7 +15,7 @@ import {
 } from '@/services/partsEstimateService';
 import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor, PartsVendor,
-  createPartsOrder,
+  createPartsOrder, PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine,
 } from '@/services/partsOrderService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import { fetchVehiclesAll } from '@/services/vehicleService';
@@ -100,7 +100,7 @@ function extractLinkedEstimate(notes: string): string | null {
 // The consequence is monetary, not cosmetic: converting a quote to an order
 // runs fxRate(itemCurrency, mainCurrency), so a ฿3,000 part recorded as USD
 // becomes roughly ฿108,000.
-const EMPTY_LINE: Omit<EstimateLineItem, 'currency'> = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '' };
+const EMPTY_LINE: Omit<EstimateLineItem, 'currency'> = { partName: '', partNumber: '', condition: 'New', quantity: 1, unitCost: 0, vendorName: '', unit: DEFAULT_PART_UNIT };
 
 /** A blank line for a quote in the given currency. Never defaults the currency. */
 const emptyLine = (currency: string): EstimateLineItem => ({ ...EMPTY_LINE, currency });
@@ -654,8 +654,14 @@ export function PartsEstimatesView() {
         const markup = 0;
         const fx_to_billing = isForeign ? await fxRate(mainCur, itemCur) : 1;
         const rate = +(cost * fx_to_billing).toFixed(2);
-        const description = item.partName || '';
-        const laoDescription = await translateToLao(description);
+        // An estimate line has a qty and no unit column, so a quote for
+        // "4 Qt" of oil would print as a bare "4" and read as four bottles.
+        // The unit rides in the description rather than being dropped.
+        // Translated from the part name alone: the unit is a symbol, and
+        // round-tripping "Qt" through a translator is how it becomes noise.
+        const baseName = item.partName || '';
+        const description = describeLine(baseName, item.unit);
+        const laoDescription = await translateToLao(baseName);
         return {
           note: item.partNumber || '',
           description,
@@ -806,7 +812,7 @@ export function PartsEstimatesView() {
     const rows: { label: string; value: string; highlight?: boolean }[] = [];
     form.lineItems.forEach((item, idx) => {
       rows.push({ label: `Part ${form.lineItems.length > 1 ? idx + 1 : ''}`.trim(), value: `${item.partName}${item.partNumber ? ` (${item.partNumber})` : ''}` });
-      rows.push({ label: '  Qty / Condition', value: `${item.quantity} × ${item.condition}` });
+      rows.push({ label: '  Qty / Condition', value: `${formatQty(item.quantity, item.unit)} × ${item.condition}` });
       const iCur = item.currency || cur;
       rows.push({ label: '  Unit / Line Total', value: `${fmt(item.unitCost, iCur)} → ${fmt(item.unitCost * item.quantity, iCur)}` });
       if (item.vendorName) rows.push({ label: '  Vendor', value: item.vendorName });
@@ -1284,7 +1290,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, display: 'flex', gap: 12 }}>
                       {item.partNumber && <span>#{item.partNumber}</span>}
                       <span>{item.condition}</span>
-                      <span>Qty: {item.quantity}</span>
+                      <span>Qty: {formatQty(item.quantity, item.unit)}</span>
                       <span>{moneyE(item.unitCost, selected)} each</span>
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4, color: 'var(--accent)' }}>
@@ -1590,15 +1596,28 @@ CREATE POLICY "Shop members can manage their parts estimates"
 
               {/* Parts table */}
               <FormSection label="Quoted Parts" />
+              {/*
+                Qty was reported unreadable from a screenshot on 2026-08-21.
+
+                Measured in a browser before changing anything, because the
+                obvious explanation was wrong: at 70px the column held 42.4px
+                of usable width at EVERY container size from 420px up, so the
+                table was not being squeezed. What that 42.4px does do is clip
+                at five digits, and leave no room for a unit beside the number.
+
+                So the column is widened for the unit rather than to rescue a
+                crushed digit, and minWidth makes the table scroll instead of
+                redistributing the extra width away from the other columns.
+              */}
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={thStyle}>Part Name *</th>
                       <th style={thStyle}>Part # / SKU</th>
                       <th style={thStyle}>Vendor</th>
                       <th style={thStyle}>Condition</th>
-                      <th style={{ ...thStyle, width: 70 }}>Qty</th>
+                      <th style={{ ...thStyle, width: 150 }}>Qty / Unit</th>
                       <th style={{ ...thStyle, width: 90 }}>Currency</th>
                       <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
                       <th style={{ ...thStyle, width: 100 }}>Line Total</th>
@@ -1622,7 +1641,25 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             {PART_CONDITIONS.map(c => <option key={c}>{c}</option>)}
                           </select>
                         </td>
-                        <td style={tdStyle}><input type="number" min={1} value={item.quantity || 1} onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)} style={{ ...cellInput, textAlign: 'center' }} /></td>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <input
+                              type="number" min={1} inputMode="numeric"
+                              value={item.quantity || 1}
+                              onFocus={e => e.target.select()}
+                              onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
+                              style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
+                            />
+                            <select
+                              value={item.unit || DEFAULT_PART_UNIT}
+                              onChange={e => updateLineItem(idx, 'unit', e.target.value)}
+                              aria-label="Unit"
+                              style={{ ...cellInput, width: 80, flex: '0 0 80px', padding: '7px 2px 7px 6px', fontSize: 12 }}
+                            >
+                              {PART_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </div>
+                        </td>
                         <td style={tdStyle}>
                           <select value={item.currency || form.currency} onChange={e => updateLineItem(idx, 'currency', e.target.value)} style={{ ...cellInput, paddingRight: 4, minWidth: 80, fontSize: 12 }}>
                             {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
@@ -1643,7 +1680,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td style={{ ...tdStyle, fontWeight: 700, fontSize: 13, paddingLeft: 8, whiteSpace: 'nowrap', color: 'var(--accent)' }}>
                           {item.quantity > 1 && (
                             <span style={{ fontWeight: 500, fontSize: 11, color: 'var(--muted)', marginRight: 6 }}>
-                              {item.quantity} × {fmt(item.unitCost, item.currency || form.currency)} =
+                              {formatQty(item.quantity, item.unit)} × {fmt(item.unitCost, item.currency || form.currency)} =
                             </span>
                           )}
                           {fmt(item.unitCost * item.quantity, item.currency || form.currency)}
