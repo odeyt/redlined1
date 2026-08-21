@@ -50,9 +50,25 @@ export const PART_UNITS = [
 
 export const DEFAULT_PART_UNIT = 'Pcs';
 
-/** "4 Qt" / "2 Pcs". Never bare, so a quantity is never ambiguous on a quote. */
+/**
+ * A quantity as a customer should read it: "4 Qt", "2 Pair", and plain "4"
+ * for pieces.
+ *
+ * The default is SUPPRESSED, and that is the whole point. Printing "4 Pcs" on
+ * every brake pad restates what a quantity already means, and a unit that
+ * appears on every line stops being read — which is exactly when the "Qt" on
+ * the oil line gets missed. It also means the thousands of existing lines that
+ * predate units keep displaying precisely as they did.
+ *
+ * Not pluralised. "2 Pcs" and "2 Set" are how a parts counter writes it, and
+ * pluralising would need a rule per unit ("2 Boxes" but never "2 Ls").
+ */
 export function formatQty(quantity: number, unit?: string): string {
-  return `${quantity} ${unit || DEFAULT_PART_UNIT}`;
+  // A line_items row written before quantity existed parses to undefined, and
+  // `${undefined}` renders the literal word "undefined" on a customer's quote.
+  const q = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  const u = (unit || '').trim() || DEFAULT_PART_UNIT;
+  return u === DEFAULT_PART_UNIT ? String(q) : `${q} ${u}`;
 }
 
 /**
@@ -66,9 +82,16 @@ export function formatQty(quantity: number, unit?: string): string {
  * whole point is that a unit worth stating stands out.
  */
 export function describeLine(partName: string, unit?: string): string {
-  const u = unit || DEFAULT_PART_UNIT;
+  const u = (unit || '').trim() || DEFAULT_PART_UNIT;
   const name = (partName || '').trim();
-  return u === DEFAULT_PART_UNIT ? name : `${name} (${u})`.trim();
+  if (u === DEFAULT_PART_UNIT) return name;
+  const suffix = `(${u})`;
+  // Idempotent. A quotation converts to an order and that order converts on to
+  // an estimate; if either end ever reads back a description that already
+  // carries the unit, appending again would give "Oil (Qt) (Qt)" and every
+  // further pass would add another. Cheap to prevent, ugly on a customer's
+  // document, and invisible until someone converts twice.
+  return name.endsWith(suffix) ? name : `${name} ${suffix}`.trim();
 }
 
 export interface PartsOrder {

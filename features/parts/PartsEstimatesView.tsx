@@ -661,7 +661,16 @@ export function PartsEstimatesView() {
         // round-tripping "Qt" through a translator is how it becomes noise.
         const baseName = item.partName || '';
         const description = describeLine(baseName, item.unit);
-        const laoDescription = await translateToLao(baseName);
+        // The unit goes on the Lao line too.
+        //
+        // A Lao-only printed estimate renders laoDescription ALONE — the
+        // English line is not shown at all — so translating the bare part name
+        // and stopping there drops "(Qt)" from the document the customer
+        // actually receives. Translate the name, then attach the unit through
+        // the same helper: the symbol is not Lao or English, and round
+        // tripping it through a translator is how it turns into noise.
+        const laoName = await translateToLao(baseName);
+        const laoDescription = laoName ? describeLine(laoName, item.unit) : '';
         return {
           note: item.partNumber || '',
           description,
