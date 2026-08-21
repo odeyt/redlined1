@@ -16,6 +16,7 @@ import { StorageLink } from '@/components/StorageLink';
 import { fetchVehicles, saveVehicle, updateVehicle, updateVehicleServiceRecord, deleteVehicle, transferVehicle } from '@/services/vehicleService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { useShop } from '@/lib/useShop';
+import { useCapabilities } from '@/lib/auth/useCapabilities';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
@@ -401,6 +402,12 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   onGoToModule: (module: string, extra?: Record<string, unknown>) => void;
   onThumbsUpdated?: (vehicleId: string, urls: string[]) => void;
 }) {
+  // This drawer offered Create Invoice to every role, gated on nothing at all.
+  // Same two questions as the header and Repair Orders, from the same hook.
+  const { shopId: drawerShopId } = useShop();
+  const { can, canUseModule } = useCapabilities(drawerShopId);
+  const canInvoice = can('invoices.manage') && canUseModule('invoices');
+
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
   // Local image state for lightbox + inline upload
@@ -896,7 +903,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--accent,#cc0000)'; }}
             style={{ flex: 1, padding: '8px', borderRadius: 999, border: '2px solid var(--accent,#cc0000)', background: 'transparent', color: 'var(--accent,#cc0000)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background .15s, color .15s' }}>ï¼‹ Job Card</button>
           <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
-          <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>
+          {canInvoice && <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>}
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
           <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
         </div>

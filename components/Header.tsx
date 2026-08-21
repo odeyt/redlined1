@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 import { signOut } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useShop } from '@/lib/useShop';
+import { useCapabilities } from '@/lib/auth/useCapabilities';
 import { globalSearch, type SearchResult, type SearchResultType } from '@/services/globalSearchService';
 
 const TYPE_ICON: Record<SearchResultType, string> = {
@@ -54,7 +55,10 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
   const { activeModule } = useAppState();
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { role } = useShop();
+  const { role, shopId } = useShop();
+  // The same two questions the Repair Orders screen asks, from the same hook,
+  // so the header and the module cannot disagree about who may invoice.
+  const { can, canUseModule } = useCapabilities(shopId);
   // Same rule as the sidebar, from the same function: a paying shop sees
   // "Account" rather than a purchase still to be made, in the nav and on the
   // page. Billing has no moduleTitles entry, so without this the page header
@@ -64,6 +68,11 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
     ? billingTitle(planStatus)
     : moduleTitles[activeModule] || ['Dashboard', ''];
   const isTech = role === 'technician';
+  // `!isTech` was the whole gate on the top-bar Create Invoice button. It reads
+  // as a permission check and is not one: a manager at D1 Imports with the
+  // Invoices module withheld still saw it, pressed it, and landed on a form the
+  // server would refuse. Capability AND module, exactly as RepairOrdersView.
+  const canInvoice = !isTech && can('invoices.manage') && canUseModule('invoices');
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -296,7 +305,7 @@ export function Header({ onMobileNavToggle }: { onMobileNavToggle?: () => void }
             <Icon name="add" /> New Job Card
           </button>
         )}
-        {!isTech && (
+        {canInvoice && (
           <button className="btn primary topbar-action" onClick={handleTopCreateInvoice}>
             <Icon name="invoice" /> Create Invoice
           </button>

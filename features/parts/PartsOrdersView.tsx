@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { StorageLink } from '@/components/StorageLink';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { useShop } from '@/lib/useShop';
+import { useCapabilities } from '@/lib/auth/useCapabilities';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { useAppDispatch } from '@/lib/store';
 import {
@@ -149,6 +150,11 @@ function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number) 
 
 export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: string } = {}) {
   const { shopId } = useShop();
+  // Both button pairs below were gated on nothing at all — every role saw
+  // Create Estimate and Create Invoice on a parts order.
+  const { can, canUseModule } = useCapabilities(shopId);
+  const canInvoice = can('invoices.manage') && canUseModule('invoices');
+  const canEstimate = can('estimates.manage') && canUseModule('estimates');
   const dispatch = useAppDispatch();
 
   const [orders, setOrders]     = useState<PartsOrder[]>([]);
@@ -1132,14 +1138,14 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
 
             <div style={{ padding: '14px 24px', borderTop: '1px solid var(--line)', background: 'var(--surface-soft)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleCreateEstimate(selected)}
+                {canEstimate && <button onClick={() => handleCreateEstimate(selected)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   📋 Create Estimate
-                </button>
-                <button onClick={() => handleCreateInvoice(selected)}
+                </button>}
+                {canInvoice && <button onClick={() => handleCreateInvoice(selected)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   🧾 Create Invoice
-                </button>
+                </button>}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => openEdit(selected)}>✏ Edit Order</button>
@@ -1244,14 +1250,14 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
               {/* ── Action bar (top) ── */}
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={() => handleCreateEstimate()}
+                  {canEstimate && <button type="button" onClick={() => handleCreateEstimate()}
                     style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #3b82f6', background: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     📋 Create Estimate
-                  </button>
-                  <button type="button" onClick={() => handleCreateInvoice()}
+                  </button>}
+                  {canInvoice && <button type="button" onClick={() => handleCreateInvoice()}
                     style={{ padding: '8px 16px', borderRadius: 999, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     🧾 Create Invoice
-                  </button>
+                  </button>}
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button type="button" className="btn" onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_ORDER); setFormError(''); }}>Cancel</button>
