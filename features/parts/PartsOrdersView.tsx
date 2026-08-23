@@ -12,7 +12,7 @@ import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor,
   PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
-  PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine,
+  PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
 } from '@/services/partsOrderService';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchCustomers } from '@/services/customerService';
@@ -1341,7 +1341,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                               // quantity that looks like a rendering fault.
                               value={item.quantity || 1}
                               onFocus={e => e.target.select()}
-                              onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
+                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value))}
                               style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
                             />
                             <select

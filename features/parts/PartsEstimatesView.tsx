@@ -15,7 +15,7 @@ import {
 } from '@/services/partsEstimateService';
 import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor, PartsVendor,
-  createPartsOrder, PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine,
+  createPartsOrder, PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
 } from '@/services/partsOrderService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import { fetchVehiclesAll } from '@/services/vehicleService';
@@ -1656,7 +1656,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                               type="number" min={1} inputMode="numeric"
                               value={item.quantity || 1}
                               onFocus={e => e.target.select()}
-                              onChange={e => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
+                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value))}
                               style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
                             />
                             <select

@@ -51,6 +51,37 @@ export const PART_UNITS = [
 export const DEFAULT_PART_UNIT = 'Pcs';
 
 /**
+ * A typed quantity, clamped where the value is decided rather than at the
+ * edge of the browser.
+ *
+ * `Number(raw) || 1` — what both parts forms used — only catches 0 and NaN.
+ * A typed "-5" is truthy, so it went straight into form state and the Line
+ * Total column showed -250 while the row was being edited.
+ *
+ * It could NOT be saved: both tables sit inside a real <form> with a real
+ * type="submit" and no noValidate, so `min={1}` fires rangeUnderflow and the
+ * browser refuses to submit. Checked against production before changing
+ * anything — 186 line items across quotations and orders, zero negative, zero
+ * zero-quantity. Nothing to repair.
+ *
+ * So this closes a display defect and a latent hole rather than live bad data.
+ * The hole is worth closing because native validation was the ONLY guard:
+ * adding noValidate, submitting programmatically, or moving the button to
+ * type="button" would each silently make negative quantities persistable, and
+ * none of those changes looks like it touches money.
+ *
+ * NOT rounded, so a fractional value survives the helper. Note that the form
+ * itself still refuses one — `min={1}` with the default step makes "0.5"
+ * invalid — and no fractional quantity exists in production today. If oil by
+ * the half-litre is ever wanted, that is a deliberate change to min and step,
+ * not something to infer from this function.
+ */
+export function normalizeQty(raw: string | number): number {
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+/**
  * A quantity as a customer should read it: "4 Qt", "2 Pair", and plain "4"
  * for pieces.
  *

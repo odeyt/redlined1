@@ -23,7 +23,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine,
+  PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
 } from '../../../services/partsOrderService';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
@@ -184,6 +184,52 @@ describe('the unit survives conversion to an estimate or invoice', () => {
     // carries the unit. Pinning it so the fallback is not "improved" away.
     expect(read('features/estimates/EstimatesView.tsx'))
       .toContain("{showLao && !line.laoDescription && printLang === 'lo' && ");
+  });
+});
+
+describe('a quantity cannot go negative or zero', () => {
+  it('rejects a negative', () => {
+    // `Number('-5') || 1` is -5: truthy, so the old guard passed it through
+    // and the Line Total column showed -250 mid-edit.
+    expect(normalizeQty('-5')).toBe(1);
+    expect(normalizeQty(-0.001)).toBe(1);
+  });
+
+  it('rejects zero and non-numbers', () => {
+    expect(normalizeQty('0')).toBe(1);
+    expect(normalizeQty('')).toBe(1);
+    expect(normalizeQty('abc')).toBe(1);
+    expect(normalizeQty(NaN)).toBe(1);
+    expect(normalizeQty(Infinity)).toBe(1);
+    expect(normalizeQty(-Infinity)).toBe(1);
+  });
+
+  it('leaves a legitimate quantity exactly alone', () => {
+    expect(normalizeQty('4')).toBe(4);
+    expect(normalizeQty(99999)).toBe(99999);
+    expect(normalizeQty(1)).toBe(1);
+  });
+
+  it('does not round, so the helper is not what blocks a fraction', () => {
+    // The form's min/step is. Kept separate deliberately: enabling oil by the
+    // half-litre is a product decision, not a side effect of clamping.
+    expect(normalizeQty('0.5')).toBe(0.5);
+    expect(normalizeQty('1.5')).toBe(1.5);
+  });
+
+  it('both quantity inputs go through it', () => {
+    for (const f of [QUOTES, ORDERS]) {
+      expect(read(f)).toContain("updateLineItem(idx, 'quantity', normalizeQty(e.target.value))");
+      // The old guard must be gone, not merely wrapped.
+      expect(read(f)).not.toContain("'quantity', Number(e.target.value) || 1");
+    }
+  });
+
+  it('keeps min={1} as the second line of defence', () => {
+    // Native validation was the ONLY thing stopping a negative being saved.
+    // Removing it while trusting the clamp would swap one single point of
+    // failure for another.
+    for (const f of [QUOTES, ORDERS]) expect(read(f)).toMatch(/min=\{1\}/);
   });
 });
 
