@@ -3,6 +3,9 @@ import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { deriveRecordCurrency } from '@/lib/recordCurrency';
+// One definition of what a quantity may be, shared with parts orders so a
+// quote and the order it converts into cannot disagree.
+import { summaryQuantity } from './partsOrderService';
 
 export interface PartsEstimate {
   id: string;
@@ -124,7 +127,7 @@ function buildPayload(o: Omit<PartsEstimate, 'id' | 'createdAt'>) {
     line_items:           items,
     part_name:            partNameSummary,
     part_number:          firstItem.partNumber,
-    quantity:             items.reduce((s, i) => s + i.quantity, 0),
+    quantity:             summaryQuantity(items),
     condition:            firstItem.condition,
     unit_cost:            items.length === 1 ? firstItem.unitCost : 0,
     total_cost:           total,

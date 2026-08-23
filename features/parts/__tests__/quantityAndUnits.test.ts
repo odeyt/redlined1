@@ -24,6 +24,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
+  allowsFraction, FRACTIONAL_UNITS, summaryQuantity,
 } from '../../../services/partsOrderService';
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
@@ -113,7 +114,9 @@ describe('a quantity carries its unit', () => {
   for (const file of [QUOTES, ORDERS]) {
     it(`${file} renders a unit selector on every line`, () => {
       expect(read(file)).toContain('PART_UNITS.map(u =>');
-      expect(read(file)).toContain("updateLineItem(idx, 'unit', e.target.value)");
+      // Through updateLineItemUnit, not a bare field set: the quantity has to
+      // be re-checked against the new unit in the same update.
+      expect(read(file)).toContain('updateLineItemUnit(idx, e.target.value)');
     });
 
     it(`${file} shows the unit wherever it shows the quantity`, () => {
@@ -210,26 +213,108 @@ describe('a quantity cannot go negative or zero', () => {
     expect(normalizeQty(1)).toBe(1);
   });
 
-  it('does not round, so the helper is not what blocks a fraction', () => {
-    // The form's min/step is. Kept separate deliberately: enabling oil by the
-    // half-litre is a product decision, not a side effect of clamping.
-    expect(normalizeQty('0.5')).toBe(0.5);
-    expect(normalizeQty('1.5')).toBe(1.5);
+  it('rounds to a whole piece when no unit is given', () => {
+    // The old two-argument-less behaviour, kept: a bare call means counted.
+    expect(normalizeQty('0.5')).toBe(1);
+    expect(normalizeQty('1.5')).toBe(2);
   });
 
   it('both quantity inputs go through it', () => {
     for (const f of [QUOTES, ORDERS]) {
-      expect(read(f)).toContain("updateLineItem(idx, 'quantity', normalizeQty(e.target.value))");
+      expect(read(f)).toContain("updateLineItem(idx, 'quantity', normalizeQty(e.target.value, item.unit))");
       // The old guard must be gone, not merely wrapped.
       expect(read(f)).not.toContain("'quantity', Number(e.target.value) || 1");
     }
   });
 
-  it('keeps min={1} as the second line of defence', () => {
+  it('keeps a native min as the second line of defence', () => {
     // Native validation was the ONLY thing stopping a negative being saved.
     // Removing it while trusting the clamp would swap one single point of
     // failure for another.
-    for (const f of [QUOTES, ORDERS]) expect(read(f)).toMatch(/min=\{1\}/);
+    for (const f of [QUOTES, ORDERS]) {
+      expect(read(f)).toContain('min={allowsFraction(item.unit) ? MIN_FRACTIONAL_QTY : 1}');
+    }
+  });
+});
+
+describe('measured units may carry a fraction; counted units may not', () => {
+  it('measured units allow it', () => {
+    for (const u of ['L', 'kg', 'Qt', 'ml', 'Gal', 'g', 'lb', 'm', 'ft']) {
+      expect(allowsFraction(u)).toBe(true);
+    }
+  });
+
+  it('counted units do not', () => {
+    // Half a brake pad, half a gasket set or half a bottle is not sellable.
+    for (const u of ['Pcs', 'Set', 'Pair', 'Kit', 'Box', 'Roll', 'Can', 'Bottle', 'Tube']) {
+      expect(allowsFraction(u)).toBe(false);
+    }
+    expect(allowsFraction(undefined)).toBe(false);
+    expect(allowsFraction('')).toBe(false);
+  });
+
+  it('every fractional unit is a real unit in the registry', () => {
+    for (const u of FRACTIONAL_UNITS) expect(PART_UNITS).toContain(u);
+  });
+
+  it('keeps the decimal for a measured unit', () => {
+    expect(normalizeQty('0.5', 'L')).toBe(0.5);
+    expect(normalizeQty('1.25', 'kg')).toBe(1.25);
+    expect(normalizeQty('0.25', 'Qt')).toBe(0.25);
+  });
+
+  it('rounds a counted unit to a whole piece', () => {
+    expect(normalizeQty('1.6', 'Pcs')).toBe(2);
+    expect(normalizeQty('0.5', 'Pcs')).toBe(1);
+    // Rounded, never floored — flooring 0.4 would give the empty quantity back.
+    expect(normalizeQty('0.4', 'Set')).toBe(1);
+  });
+
+  it('still refuses zero and negative on a measured unit', () => {
+    expect(normalizeQty('-0.5', 'L')).toBe(1);
+    expect(normalizeQty('0', 'kg')).toBe(1);
+  });
+
+  it('switching a fractional line to a counted unit fixes the quantity', () => {
+    // 0.5 L -> Pcs must not leave half a part on the shelf. Both views do this
+    // in ONE update so the row is never in a state it could not be typed into.
+    expect(normalizeQty(0.5, 'Pcs')).toBe(1);
+    for (const f of [QUOTES, ORDERS]) {
+      expect(read(f)).toContain('quantity: normalizeQty(item.quantity, unit)');
+      expect(read(f)).toContain('updateLineItemUnit(idx, e.target.value)');
+    }
+  });
+
+  it('displays a fraction without binary float noise', () => {
+    // 0.1 + 0.2 is 0.30000000000000004, and that must never reach a quote.
+    expect(formatQty(0.1 + 0.2, 'L')).toBe('0.3 L');
+    expect(formatQty(0.5, 'L')).toBe('0.5 L');
+    expect(formatQty(1.25, 'kg')).toBe('1.25 kg');
+    expect(formatQty(2, 'Pcs')).toBe('2');
+    expect(formatQty(1.0, 'L')).toBe('1 L');
+  });
+});
+
+describe('the integer summary column cannot reject a fractional line', () => {
+  // parts_estimates.quantity and parts_orders.quantity are INTEGER — probing
+  // them with 2.5 returned "invalid input syntax for type integer". The
+  // fraction lives in line_items; this column is a rounded summary, which
+  // avoids retyping a live column.
+  it('rounds the sum to a whole number', () => {
+    expect(summaryQuantity([{ quantity: 0.5 }, { quantity: 1.25 }, { quantity: 2 }])).toBe(4);
+    expect(Number.isInteger(summaryQuantity([{ quantity: 0.5 }]))).toBe(true);
+  });
+
+  it('never produces zero, so the legacy fallback line stays valid', () => {
+    expect(summaryQuantity([{ quantity: 0.1 }])).toBe(1);
+    expect(summaryQuantity([])).toBe(1);
+  });
+
+  it('both services write through it rather than summing inline', () => {
+    for (const f of ['services/partsOrderService.ts', 'services/partsEstimateService.ts']) {
+      expect(read(f)).toContain('summaryQuantity(items)');
+      expect(read(f)).not.toMatch(/quantity:\s+items\.reduce\(\(s, i\) => s \+ i\.quantity, 0\)/);
+    }
   });
 });
 

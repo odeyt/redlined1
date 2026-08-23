@@ -16,6 +16,7 @@ import {
 import {
   fetchVendors, fetchVendorsAll, createVendor, updateVendor, deleteVendor, PartsVendor,
   createPartsOrder, PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
+  allowsFraction, MIN_FRACTIONAL_QTY,
 } from '@/services/partsOrderService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import { fetchVehiclesAll } from '@/services/vehicleService';
@@ -364,6 +365,24 @@ export function PartsEstimatesView() {
     setForm(prev => {
       const next = { ...prev, ...patch };
       return { ...next, ...calcTotal(next.lineItems, next.coreCharge, next.currency) };
+    });
+  }
+
+  /**
+   * Changing the unit re-checks the quantity against it.
+   *
+   * Both fields have to move together: setting the unit alone would leave a
+   * 0.5 that was legal as litres sitting on a line now counted in pieces, and
+   * the input's own min/step would then mark the row invalid with no visible
+   * cause. One update, so the row is never briefly in a state it could not
+   * have been typed into.
+   */
+  function updateLineItemUnit(idx: number, unit: string) {
+    setForm(prev => {
+      const lineItems = prev.lineItems.map((item, i) =>
+        i === idx ? { ...item, unit, quantity: normalizeQty(item.quantity, unit) } : item
+      );
+      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
     });
   }
 
@@ -1652,16 +1671,26 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: 'flex', gap: 4 }}>
+                            {/* min and step follow the unit. `min={1}` with the
+                                default step marks "0.5" invalid, and these
+                                inputs sit in a real <form> with a real submit,
+                                so native validation would block the save. */}
                             <input
-                              type="number" min={1} inputMode="numeric"
+                              type="number"
+                              min={allowsFraction(item.unit) ? MIN_FRACTIONAL_QTY : 1}
+                              step={allowsFraction(item.unit) ? 'any' : 1}
+                              inputMode={allowsFraction(item.unit) ? 'decimal' : 'numeric'}
                               value={item.quantity || 1}
                               onFocus={e => e.target.select()}
-                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value))}
+                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value, item.unit))}
                               style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
                             />
                             <select
                               value={item.unit || DEFAULT_PART_UNIT}
-                              onChange={e => updateLineItem(idx, 'unit', e.target.value)}
+                              // Re-normalise the quantity against the NEW unit:
+                              // switching 0.5 L to Pcs must not leave half a
+                              // part that nobody can pick off a shelf.
+                              onChange={e => updateLineItemUnit(idx, e.target.value)}
                               aria-label="Unit"
                               style={{ ...cellInput, width: 80, flex: '0 0 80px', padding: '7px 2px 7px 6px', fontSize: 12 }}
                             >

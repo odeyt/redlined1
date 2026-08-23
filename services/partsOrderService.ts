@@ -51,6 +51,29 @@ export const PART_UNITS = [
 export const DEFAULT_PART_UNIT = 'Pcs';
 
 /**
+ * Units that may carry a fraction.
+ *
+ * The line is measured vs counted, not a list of favourites. Oil comes off a
+ * drum by the half-litre and refrigerant goes in by the tenth of a kilo, so a
+ * measured unit has no natural smallest piece. A counted one does: half a
+ * brake pad, half a gasket set or half a bottle is not a quantity anyone can
+ * sell, and allowing it only invites a typo to become a price.
+ *
+ * Asked for as "L and kg". Extended to the whole measured category, because
+ * quoting 0.5 L while refusing 0.5 Qt — the same oil, a different label —
+ * would be arbitrary and would come straight back as another report. Narrow
+ * this constant if that is not wanted; nothing else has to change.
+ */
+export const FRACTIONAL_UNITS: readonly string[] = ['Qt', 'L', 'ml', 'Gal', 'kg', 'g', 'lb', 'm', 'ft'];
+
+/** The smallest fraction the form will accept, and the input's `min`. */
+export const MIN_FRACTIONAL_QTY = 0.001;
+
+export function allowsFraction(unit?: string): boolean {
+  return FRACTIONAL_UNITS.includes((unit || '').trim() || DEFAULT_PART_UNIT);
+}
+
+/**
  * A typed quantity, clamped where the value is decided rather than at the
  * edge of the browser.
  *
@@ -70,15 +93,36 @@ export const DEFAULT_PART_UNIT = 'Pcs';
  * type="button" would each silently make negative quantities persistable, and
  * none of those changes looks like it touches money.
  *
- * NOT rounded, so a fractional value survives the helper. Note that the form
- * itself still refuses one — `min={1}` with the default step makes "0.5"
- * invalid — and no fractional quantity exists in production today. If oil by
- * the half-litre is ever wanted, that is a deliberate change to min and step,
- * not something to infer from this function.
+ * The unit decides whether a fraction is allowed. A measured unit keeps the
+ * decimal; a counted one is rounded to a whole piece, so switching a 0.5 L
+ * line to Pcs gives 1 rather than half a part that nobody can pick off a
+ * shelf. Without the unit argument it behaves as it did — whole numbers only.
  */
-export function normalizeQty(raw: string | number): number {
+export function normalizeQty(raw: string | number, unit?: string): number {
   const n = typeof raw === 'number' ? raw : Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  if (allowsFraction(unit)) return Math.max(MIN_FRACTIONAL_QTY, n);
+  // Rounded, not floored: 1.6 Pcs is far more likely a slip for 2 than for 1,
+  // and flooring 0.5 to 0 would reintroduce the empty quantity.
+  return Math.max(1, Math.round(n));
+}
+
+/**
+ * The whole-number quantity for the denormalised summary column.
+ *
+ * `parts_estimates.quantity` and `parts_orders.quantity` are INTEGER — proven
+ * by probing them, which rejected 2.5 outright with "invalid input syntax for
+ * type integer". They are a summary: every read prefers `line_items`, and the
+ * column is consulted only when a row has no line items at all.
+ *
+ * So the fraction lives in the JSONB where the truth is, and this column is
+ * rounded to keep the insert legal. That avoids retyping a live column, which
+ * would not be an additive migration. At least 1, so the legacy fallback path
+ * can never produce a zero-quantity line.
+ */
+export function summaryQuantity(items: { quantity: number }[]): number {
+  const sum = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+  return Math.max(1, Math.round(sum));
 }
 
 /**
@@ -97,9 +141,13 @@ export function normalizeQty(raw: string | number): number {
 export function formatQty(quantity: number, unit?: string): string {
   // A line_items row written before quantity existed parses to undefined, and
   // `${undefined}` renders the literal word "undefined" on a customer's quote.
-  const q = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  const n = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  // Trimmed to three decimals with trailing zeros dropped: 0.1 + 0.2 is
+  // 0.30000000000000004 in binary floating point, and that must never reach a
+  // customer's quote. "0.5" stays "0.5", never "0.500".
+  const q = String(Number(n.toFixed(3)));
   const u = (unit || '').trim() || DEFAULT_PART_UNIT;
-  return u === DEFAULT_PART_UNIT ? String(q) : `${q} ${u}`;
+  return u === DEFAULT_PART_UNIT ? q : `${q} ${u}`;
 }
 
 /**
@@ -236,7 +284,7 @@ function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
     line_items: items,
     part_name: partNameSummary,
     part_number: firstItem.partNumber,
-    quantity: items.reduce((s, i) => s + i.quantity, 0),
+    quantity: summaryQuantity(items),
     condition: firstItem.condition,
     unit_cost: items.length === 1 ? firstItem.unitCost : 0,
     total_cost: total,

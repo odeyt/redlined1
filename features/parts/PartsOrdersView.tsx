@@ -13,6 +13,7 @@ import {
   PartsOrder, PartsVendor, LineItem,
   ORDER_STATUSES, PAYMENT_STATUSES, PART_CONDITIONS,
   PART_UNITS, DEFAULT_PART_UNIT, formatQty, describeLine, normalizeQty,
+  allowsFraction, MIN_FRACTIONAL_QTY,
 } from '@/services/partsOrderService';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchCustomers } from '@/services/customerService';
@@ -339,6 +340,16 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   }
 
   /* line item operations */
+  /** Unit and quantity move together — see the note in the quotation form. */
+  function updateLineItemUnit(idx: number, unit: string) {
+    setForm(prev => {
+      const lineItems = prev.lineItems.map((item, i) =>
+        i === idx ? { ...item, unit, quantity: normalizeQty(item.quantity, unit) } : item
+      );
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
+    });
+  }
+
   function updateLineItem(idx: number, field: keyof LineItem, value: string | number) {
     setForm(prev => {
       const lineItems = prev.lineItems.map((item, i) =>
@@ -1332,8 +1343,13 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: 'flex', gap: 4 }}>
+                            {/* min and step follow the unit — see the note in
+                                the quotation form. */}
                             <input
-                              type="number" min={1} inputMode="numeric"
+                              type="number"
+                              min={allowsFraction(item.unit) ? MIN_FRACTIONAL_QTY : 1}
+                              step={allowsFraction(item.unit) ? 'any' : 1}
+                              inputMode={allowsFraction(item.unit) ? 'decimal' : 'numeric'}
                               // `|| 1`, matching the quotation form. A
                               // line_items row saved before quantity existed
                               // parses to undefined, and React renders an
@@ -1341,12 +1357,12 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
                               // quantity that looks like a rendering fault.
                               value={item.quantity || 1}
                               onFocus={e => e.target.select()}
-                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value))}
+                              onChange={e => updateLineItem(idx, 'quantity', normalizeQty(e.target.value, item.unit))}
                               style={{ ...cellInput, width: 62, flex: '0 0 62px', textAlign: 'center', padding: '7px 4px' }}
                             />
                             <select
                               value={item.unit || DEFAULT_PART_UNIT}
-                              onChange={e => updateLineItem(idx, 'unit', e.target.value)}
+                              onChange={e => updateLineItemUnit(idx, e.target.value)}
                               aria-label="Unit"
                               style={{ ...cellInput, width: 80, flex: '0 0 80px', padding: '7px 2px 7px 6px', fontSize: 12 }}
                             >
