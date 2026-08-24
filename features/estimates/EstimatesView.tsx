@@ -361,6 +361,8 @@ export function EstimatesView() {
     const year = Number(v.year);
     return {
       vehicle: {
+        // Carried so the server can look up and store the catalogue mapping.
+        id: (match as { id?: string }).id,
         vin: v.vin || undefined,
         year: Number.isFinite(year) && year > 1900 ? year : undefined,
         make: v.make || undefined,

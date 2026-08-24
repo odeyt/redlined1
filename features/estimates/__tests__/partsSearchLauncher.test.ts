@@ -164,8 +164,11 @@ describe('search modes', () => {
   it('sends the term as the field the technician chose', () => {
     // A part number typed into a description search reaches a different
     // provider endpoint and comes back with different evidence.
-    expect(MODAL).toContain("mode === 'oem' ? { oemNumber: q }");
-    expect(MODAL).toContain("mode === 'partNumber' ? { manufacturerPartNumber: q }");
+    // `activeMode`, because a replayed search after a variant confirmation
+    // must send the mode the technician originally chose, not whatever the
+    // dialog happens to be showing when the replay runs.
+    expect(MODAL).toContain("activeMode === 'oem' ? { oemNumber: q }");
+    expect(MODAL).toContain("activeMode === 'partNumber' ? { manufacturerPartNumber: q }");
   });
 });
 

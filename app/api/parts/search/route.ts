@@ -6,6 +6,8 @@ import { logger } from '@/lib/logger';
 import { searchAllProviders } from '@/lib/parts/partsService';
 import { getAllProviderHealth, anyProviderEnabled } from '@/lib/parts/providerRegistry';
 import { rankParts } from '@/lib/parts/recommendation';
+import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
+import { readMapping, writeMapping } from '@/lib/parts/vehicleResolution/mappingStore';
 
 /**
  * POST /api/parts/search — the only way the browser reaches a provider.
@@ -35,6 +37,8 @@ import { rankParts } from '@/lib/parts/recommendation';
 const SearchSchema = z.object({
   query: z.string().trim().min(2).max(120),
   shopId: z.string().uuid(),
+  /** Redlined1's vehicle id, when the estimate names a real vehicle record. */
+  vehicleId: z.string().uuid().optional(),
   vin: z.string().trim().max(32).optional(),
   year: z.number().int().min(1900).max(2100).optional(),
   make: z.string().trim().max(60).optional(),
@@ -180,6 +184,61 @@ export async function POST(req: NextRequest) {
     // The vehicle's marque decides which rows may carry a badge. A catalogue
     // row filed under another marque stays in the list — it is a candidate —
     // but it is not endorsed.
+    /**
+     * Resolve the estimate's vehicle to a catalogue variant.
+     *
+     * Deliberately AFTER the parts search and deliberately non-fatal: a
+     * failure here costs the fitment claim, never the search. The technician
+     * still gets their parts list.
+     *
+     * The persisted mapping is consulted first, so the manufacturer, model and
+     * variant endpoints are hit once per vehicle rather than once per search —
+     * the difference between four searches on one car spending three calls
+     * and spending twelve.
+     */
+    let vehicleResolution: unknown;
+    if (input.vehicleId && input.make && input.model) {
+      try {
+        const canonical = {
+          id: input.vehicleId,
+          vin: input.vin, year: input.year, make: input.make, model: input.model,
+          trim: input.trim, engine: input.engine,
+        };
+        const existingMapping = await readMapping(input.shopId, input.vehicleId);
+        const outcome = await resolveProviderVehicle(canonical, {
+          shopId: input.shopId,
+          existingMapping,
+        });
+
+        // Store what was resolved so the next search reuses it. A technician
+        // confirmation is never overwritten by a weaker computed result.
+        const alreadyConfirmed = Boolean(existingMapping?.confirmed_by_user_id);
+        if (!alreadyConfirmed && outcome.externalCalls > 0) {
+          await writeMapping({
+            shopId: input.shopId,
+            vehicleId: input.vehicleId,
+            resolution: outcome.resolution,
+          });
+        }
+
+        vehicleResolution = {
+          status: outcome.resolution.resolutionStatus,
+          reason: outcome.resolution.evidence.at(-1)?.detail ?? '',
+          fingerprint: outcome.resolution.fingerprint,
+          vehicleId: input.vehicleId,
+          candidates: outcome.candidates,
+          manufacturerName: outcome.resolution.manufacturerName,
+          modelName: outcome.resolution.modelName,
+          modificationDescription: outcome.resolution.modificationDescription,
+          confirmedByTechnician: alreadyConfirmed,
+        };
+      } catch {
+        // Silent by design. The parts list is still worth returning, and the
+        // fitment fields already default to unverified.
+        logger.warn('parts_vehicle_resolution_failed', { shopId: input.shopId });
+      }
+    }
+
     const scored = rankParts(response.results, { vehicleMake: input.make });
 
     logger.info('parts_search_completed', {
@@ -194,6 +253,7 @@ export async function POST(req: NextRequest) {
       outcomes: response.outcomes,
       searchedAt: response.searchedAt,
       role: auth.role,
+      vehicleResolution,
     });
   } catch (err) {
     // Reaching here means the orchestrator itself failed, not a provider —

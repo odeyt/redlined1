@@ -27,12 +27,22 @@ import { FITMENT_LABEL, FITMENT_WARNING, needsFitmentWarning } from '@/lib/parts
 import { LABEL_TEXT, type Recommendation } from '@/lib/parts/recommendation';
 import { sellPriceFor, type MarkupType } from '@/lib/parts/snapshot';
 import type { NormalizedPartResult, ProviderHealth, ProviderOutcome } from '@/lib/parts/types';
+import type { ModificationCandidate } from '@/lib/parts/vehicleResolution/types';
+import { VehicleVariantSelector } from './VehicleVariantSelector';
 
 export interface ScoredResult extends NormalizedPartResult {
   recommendation: Recommendation;
 }
 
 export interface PartsSearchVehicle {
+  /**
+   * Redlined1's own vehicle id.
+   *
+   * Needed so the server can look up and store the catalogue mapping. Absent
+   * when the estimate names a vehicle that is not a record — resolution is
+   * simply skipped then, rather than guessed at.
+   */
+  id?: string;
   vin?: string;
   year?: number;
   make?: string;
@@ -133,6 +143,28 @@ export type SearchState =
   | 'error'
   | 'provider_unavailable';
 
+/** What the server said about pinning this estimate's vehicle to a catalogue variant. */
+export interface VehicleResolutionState {
+  status: 'resolved' | 'ambiguous' | 'insufficient_data' | 'not_found';
+  reason: string;
+  fingerprint: string;
+  vehicleId?: string;
+  candidates?: ModificationCandidate[];
+  manufacturerName?: string;
+  modelName?: string;
+  modificationDescription?: string;
+  confirmedByTechnician?: boolean;
+}
+
+/** Confirmation outcomes, each with a sentence a technician can act on. */
+const CONFIRM_MESSAGE: Record<string, string> = {
+  VEHICLE_CHANGED: 'This vehicle changed since the catalogue search. Search again to pick a variant.',
+  CANDIDATE_INVALID: 'That vehicle variant is no longer one of the options. Search again.',
+  UNAUTHORIZED: 'You are not authorised to change this vehicle.',
+  PROVIDER_UNAVAILABLE: 'The parts catalogue could not be reached. You can still add parts manually.',
+  PERSIST_FAILED: 'The vehicle variant could not be saved. Try again.',
+};
+
 const FITMENT_COLOR: Record<string, string> = {
   verified: '#16a34a',
   likely: '#d97706',
@@ -193,6 +225,19 @@ export function PartsSearchModal({
   const [markupValue, setMarkupValue] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
+  /**
+   * Vehicle resolution, and the search waiting behind it.
+   *
+   * `pendingSearch` is the whole point of the workflow: a technician who
+   * searched an OEM number and was asked to pick a variant must not have to
+   * close the dialog, reopen it and retype. The term and mode are held here,
+   * and `resumeAfterConfirm` replays them the moment the mapping is saved.
+   */
+  const [resolution, setResolution] = useState<VehicleResolutionState | null>(null);
+  const [pendingSearch, setPendingSearch] = useState<{ term: string; mode: SearchMode } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+
   // Owners and managers see wholesale. Technicians follow the existing rule
   // that hides costs from them, and the SERVER decided which they are.
   const canSeeCost = role === 'owner' || role === 'manager' || role === 'admin';
@@ -209,9 +254,71 @@ export function PartsSearchModal({
   // effect that cleared state on close would do the same job less reliably and
   // would set state during render.
 
-  async function runSearch(bypassCache = false) {
-    const q = query.trim();
+  /**
+   * Confirm a variant, then replay the search that was waiting.
+   *
+   * The replay is not a nicety — being sent back to retype an OEM number is
+   * how a technician learns to skip the variant step, and skipping it is what
+   * keeps fitment unverified forever.
+   */
+  async function confirmVariant(providerVehicleId: number) {
+    if (!resolution?.vehicleId || confirming) return;
+    setConfirming(true);
+    setConfirmError('');
+    try {
+      const res = await fetch('/api/parts/vehicle-resolution/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId,
+          vehicleId: resolution.vehicleId,
+          providerVehicleId,
+          fingerprint: resolution.fingerprint,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || json?.code !== 'CONFIRMED') {
+        // Our own words for every outcome, keyed on the server's CODE rather
+        // than its message.
+        setConfirmError(CONFIRM_MESSAGE[json?.code] ?? 'The vehicle variant could not be confirmed.');
+        return;
+      }
+
+      setResolution({
+        status: 'resolved',
+        reason: 'Catalogue variant confirmed by technician.',
+        fingerprint: json.resolution.fingerprint,
+        vehicleId: resolution.vehicleId,
+        manufacturerName: json.resolution.manufacturerName,
+        modelName: json.resolution.modelName,
+        modificationDescription: json.resolution.modificationDescription,
+        confirmedByTechnician: true,
+      });
+
+      await resumeAfterConfirm();
+    } catch {
+      setConfirmError('The vehicle variant could not be confirmed. You can still add parts manually.');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  /** Replay the term and mode the technician had already entered. */
+  async function resumeAfterConfirm() {
+    const pending = pendingSearch;
+    setPendingSearch(null);
+    if (!pending) return;
+    setQuery(pending.term);
+    setMode(pending.mode);
+    await runSearch(false, pending);
+  }
+
+  async function runSearch(bypassCache = false, replay?: { term: string; mode: SearchMode }) {
+    const q = (replay?.term ?? query).trim();
+    const activeMode = replay?.mode ?? mode;
     if (q.length < 2) { setError('Enter at least two characters.'); setState('error'); return; }
+    setConfirmError('');
 
     setLoading(true);
     setState('loading');
@@ -222,12 +329,13 @@ export function PartsSearchModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: q, shopId, currency,
+          vehicleId: vehicle.id || undefined,
           // The mode decides which field the term is sent as. A part number
           // typed into a description search reaches a different provider
           // endpoint and comes back with different evidence, so choosing
           // "OEM Number" is a real instruction rather than a hint.
-          ...(mode === 'oem' ? { oemNumber: q } : {}),
-          ...(mode === 'partNumber' ? { manufacturerPartNumber: q } : {}),
+          ...(activeMode === 'oem' ? { oemNumber: q } : {}),
+          ...(activeMode === 'partNumber' ? { manufacturerPartNumber: q } : {}),
           vin: vehicle.vin || undefined,
           year: vehicle.year, make: vehicle.make, model: vehicle.model,
           trim: vehicle.trim || undefined, engine: vehicle.engine || undefined,
@@ -254,6 +362,20 @@ export function PartsSearchModal({
       setOutcomes(Array.isArray(json?.outcomes) ? json.outcomes : []);
       setRole(typeof json?.role === 'string' ? json.role : '');
       if (json?.error) setError(json.error);
+
+      // Vehicle resolution rides back with the search. When the catalogue
+      // cannot pin the vehicle to one variant, the term and mode are HELD so
+      // confirming a variant resumes the very search that triggered it.
+      const vr = json?.vehicleResolution as VehicleResolutionState | undefined;
+      if (vr) {
+        setResolution(vr);
+        if ((vr.status === 'ambiguous' || vr.status === 'insufficient_data')
+          && (vr.candidates?.length ?? 0) > 1) {
+          setPendingSearch({ term: q, mode: activeMode });
+        } else {
+          setPendingSearch(null);
+        }
+      }
 
       // Named outcome, so the panel never sits in an unexplained blank.
       const anyEnabled = provs.some((p: ProviderHealth) => p.enabled);
@@ -474,6 +596,44 @@ export function PartsSearchModal({
               {o.provider}: {o.message} You can still add the part manually.
             </div>
           ))}
+
+          {/* ── Vehicle variant ─────────────────────────────────────────────
+              Shown INSTEAD of results while a choice is outstanding. Burying
+              it under a result list would let a technician add parts against
+              an unresolved vehicle without noticing the question. */}
+          {pendingSearch && resolution?.candidates && resolution.candidates.length > 1 && (
+            <div style={{
+              border: '1px solid var(--line)', borderRadius: 10, padding: 14,
+              background: 'var(--surface-soft)', marginBottom: 12,
+            }}>
+              <VehicleVariantSelector
+                vehicleLabel={vehicleLabel || 'this vehicle'}
+                knownEngine={vehicle.engine}
+                candidates={resolution.candidates}
+                reason={resolution.reason}
+                confirming={confirming}
+                error={confirmError}
+                onConfirm={id => void confirmVariant(id)}
+                onCancel={() => { setPendingSearch(null); setConfirmError(''); }}
+              />
+            </div>
+          )}
+
+          {/* Confirmed context, stated for exactly what it is. */}
+          {resolution?.status === 'resolved' && resolution.modificationDescription && !pendingSearch && (
+            <div data-testid="vehicle-banner" style={{
+              border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px',
+              background: 'var(--surface-soft)', marginBottom: 12, fontSize: 12,
+            }}>
+              <span style={{ fontWeight: 800, color: '#16a34a' }}>✓ Catalogue variant confirmed</span>
+              <span style={{ color: 'var(--muted)', marginLeft: 8 }}>
+                {resolution.modificationDescription}
+              </span>
+              {resolution.confirmedByTechnician && (
+                <span style={{ color: 'var(--muted)', marginLeft: 8 }}>· technician confirmed</span>
+              )}
+            </div>
+          )}
 
           {/* One line per named state, so the technician is never left
               guessing whether the click registered. */}

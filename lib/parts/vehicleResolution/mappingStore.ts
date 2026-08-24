@@ -157,7 +157,11 @@ export function candidateWasOffered(
   providerVehicleId: unknown,
   offered: Array<{ vehicleId: number }>,
 ): boolean {
-  const id = Number(providerVehicleId);
-  if (!Number.isInteger(id) || id <= 0) return false;
-  return offered.some(c => c.vehicleId === id);
+  // A NUMBER, not something that coerces to one. `Number('101')` is 101, and
+  // accepting that would mean this guard's answer depends on whoever called
+  // it having validated first. It is the last line before a mapping is
+  // written, so it assumes nothing about its caller.
+  if (typeof providerVehicleId !== 'number') return false;
+  if (!Number.isInteger(providerVehicleId) || providerVehicleId <= 0) return false;
+  return offered.some(c => c.vehicleId === providerVehicleId);
 }
