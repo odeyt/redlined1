@@ -80,7 +80,11 @@ export type ResolverStatus = ProviderVehicleResolution['resolutionStatus'] | 'pr
 
 function rowsOf(payload: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
-  for (const k of ['data', 'items', 'result', 'results', 'manufacturers', 'models', 'types', 'vehicles']) {
+  for (const k of [
+    'data', 'items', 'result', 'results',
+    // The live envelope keys, each named after its own payload.
+    'manufacturers', 'models', 'modelTypes', 'types', 'vehicles',
+  ]) {
     const v = (payload as Record<string, unknown>)?.[k];
     if (Array.isArray(v)) return v as Array<Record<string, unknown>>;
   }
@@ -106,13 +110,24 @@ export function readManufacturers(payload: unknown): ProviderManufacturer[] {
     .filter(m => m.id > 0 && m.name);
 }
 
+/**
+ * Live shape, observed 2026-08-24:
+ *
+ *   { modelId: 4, modelName: "123 Coupe (C123)",
+ *     modelYearFrom: "1977-03-01", modelYearTo: "1985-12-01" }
+ *
+ * The year fields are `modelYearFrom`/`modelYearTo` and hold ISO DATES, not
+ * years. Reading them under any other name silently yields `undefined`, and
+ * an undefined production window passes every year check — which is how a
+ * 2009 S-Class matched sixteen series including the 1970s W116.
+ */
 export function readModels(payload: unknown): ProviderModel[] {
   return rowsOf(payload)
     .map(r => ({
       id: num(r.modelId ?? r.modId ?? r.id) ?? 0,
       name: str(r.modelName ?? r.modName ?? r.name) ?? '',
-      yearFrom: yearOf(r.yearOfConstrFrom ?? r.constructionFrom ?? r.yearFrom ?? r.from),
-      yearTo: yearOf(r.yearOfConstrTo ?? r.constructionTo ?? r.yearTo ?? r.to),
+      yearFrom: yearOf(r.modelYearFrom ?? r.yearOfConstrFrom ?? r.constructionFrom ?? r.yearFrom),
+      yearTo: yearOf(r.modelYearTo ?? r.yearOfConstrTo ?? r.constructionTo ?? r.yearTo),
     }))
     .filter(m => m.id > 0 && m.name);
 }
@@ -126,17 +141,39 @@ function yearOf(v: unknown): number | undefined {
   return Number.isInteger(n) && n > 1900 && n < 2200 ? n : undefined;
 }
 
+/**
+ * Live shape, observed 2026-08-24 (41 variants for the W221):
+ *
+ *   { modelType, countModelTypes, modelTypes: [{
+ *       vehicleId, manufacturerName, modelName, typeEngineName,
+ *       constructionIntervalStart: "2009-01-01", constructionIntervalEnd,
+ *       powerKw: "205.0000", powerPs, fuelType, bodyType,
+ *       numberOfCylinders: 6, capacityLt: "3.5000",
+ *       capacityTech: "3498.0000", engineCodes: "M 272.974", engId }] }
+ *
+ * Two things to note. The envelope key is `modelTypes`, which nothing was
+ * looking for — the first live call parsed zero variants from a perfectly
+ * good 41-row response. And the numbers arrive as STRINGS with four decimal
+ * places, so `powerKw` is "205.0000" rather than 205.
+ *
+ * `capacityLt` is already litres; `capacityTech` is cubic centimetres. Litres
+ * is preferred because it needs no conversion and cannot be misread as cc.
+ */
 export function readVariants(payload: unknown): ModificationCandidate[] {
   return rowsOf(payload)
     .map(r => ({
       vehicleId: num(r.vehicleId ?? r.carId ?? r.typeId ?? r.id) ?? 0,
-      description: str(r.typeName ?? r.description ?? r.name) ?? '',
-      yearFrom: yearOf(r.yearOfConstrFrom ?? r.constructionFrom ?? r.yearFrom),
-      yearTo: yearOf(r.yearOfConstrTo ?? r.constructionTo ?? r.yearTo),
-      engineCode: str(r.engineCode ?? r.motorCode ?? r.engine),
-      displacementL: ccToLitres(r.cylinderCapacityCcm ?? r.ccm ?? r.capacity),
+      description: str(r.typeEngineName ?? r.typeName ?? r.description ?? r.name) ?? '',
+      // From the ROW, never from the envelope: the envelope's `modelType`
+      // came back as "PC" live, which is not a series name.
+      modelName: str(r.modelName),
+      yearFrom: yearOf(r.constructionIntervalStart ?? r.yearOfConstrFrom ?? r.yearFrom),
+      yearTo: yearOf(r.constructionIntervalEnd ?? r.yearOfConstrTo ?? r.yearTo),
+      engineCode: str(r.engineCodes ?? r.engineCode ?? r.motorCode),
+      displacementL: num(r.capacityLt) ?? ccToLitres(r.capacityTech ?? r.cylinderCapacityCcm),
+      cylinders: num(r.numberOfCylinders),
       fuel: str(r.fuelType ?? r.fuel),
-      powerKw: num(r.powerKw ?? r.kw ?? r.powerKW),
+      powerKw: num(r.powerKw ?? r.kw),
       bodyType: str(r.bodyType ?? r.body),
       driveType: str(r.driveType ?? r.drive),
       transmission: str(r.transmissionType ?? r.transmission),

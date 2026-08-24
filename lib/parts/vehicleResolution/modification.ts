@@ -126,11 +126,14 @@ export function matchModification(
 
   const wantedCyl = parseCylinders(evidence.engine);
   if (wantedCyl !== undefined) {
-    // The candidate shape carries no cylinder count of its own; the provider
-    // puts it in the description. Matched there rather than invented.
-    const narrowed = pool.filter(c =>
-      parseCylinders(c.description) === undefined
-      || parseCylinders(c.description) === wantedCyl);
+    // The provider publishes `numberOfCylinders` directly, so it is read
+    // rather than parsed out of the description. Falls back to the
+    // description only where the field is absent — and a candidate with
+    // neither is not eliminated, because absence eliminates nothing.
+    const narrowed = pool.filter(c => {
+      const has = c.cylinders ?? parseCylinders(c.description);
+      return has === undefined || has === wantedCyl;
+    });
     if (narrowed.length) { pool = narrowed; usedEngineEvidence.push(`${wantedCyl} cylinders`); }
   }
 

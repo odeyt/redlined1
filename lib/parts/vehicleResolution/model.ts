@@ -101,7 +101,33 @@ export function matchModel(
     return { status: 'missing_input', detail: 'The vehicle has no model recorded.' };
   }
 
-  const byName = provider.filter(m => modelNameCovers(m.name, wanted));
+  let byName = provider.filter(m => modelNameCovers(m.name, wanted));
+
+  // ── Designations ─────────────────────────────────────────────────────────
+  //
+  // Redlined1 stores what is written on the car. For a Mercedes that is
+  // usually a DESIGNATION — "C260", "S350" — while the catalogue names the
+  // SERIES: "C-CLASS (W206)". They share no token, so a live 2023 C260
+  // matched nothing at all against 255 real Mercedes series.
+  //
+  // A designation decomposes: a letter part naming the class and a number
+  // part naming the variant. The letter is matched against the series here;
+  // the NUMBER is left for the modification step, where the provider's own
+  // descriptions carry "C 260".
+  //
+  // This deliberately always reports AMBIGUOUS, never `matched`. A single
+  // letter must not select a series — "C" fits both C-CLASS and C-MAX — so
+  // the surviving series are handed to the technician rather than chosen.
+  let viaDesignation = false;
+  if (!byName.length) {
+    const designation = wanted.trim().match(/^([A-Za-z]{1,3})[\s-]?(\d{2,4})$/);
+    if (designation) {
+      const classToken = designation[1].toLowerCase();
+      byName = provider.filter(m => modelTokens(m.name).includes(classToken));
+      viaDesignation = byName.length > 0;
+    }
+  }
+
   if (!byName.length) {
     return {
       status: 'no_match',
@@ -118,6 +144,18 @@ export function matchModel(
     return {
       status: 'no_match',
       detail: `The catalogue lists "${wanted}" but not in production for ${year}.`,
+    };
+  }
+
+  // A designation never resolves on its own, even down to one survivor: it
+  // matched on a class letter, and a class letter is not a series.
+  if (viaDesignation) {
+    return {
+      status: 'ambiguous',
+      candidates: byYear,
+      detail: `"${wanted}" is a model designation rather than a catalogue series. `
+        + `${byYear.length} series match its class`
+        + (year ? ` for ${year}.` : '.'),
     };
   }
 

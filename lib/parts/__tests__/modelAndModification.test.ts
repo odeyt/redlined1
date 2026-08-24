@@ -82,6 +82,44 @@ describe('model series matching', () => {
     expect(matchModel('', 2014, MB_MODELS).status).toBe('missing_input');
   });
 
+  describe('model designations — found live, not in fixtures', () => {
+    // A real 2023 vehicle stored as "C260" matched NOTHING against 255 live
+    // Mercedes series, because the catalogue names series by class and the
+    // shop records what is written on the car.
+    it('decomposes a designation and offers the class series', () => {
+      const m = matchModel('C260', 2014, MB_MODELS);
+      expect(m.status).toBe('ambiguous');
+      expect(m.detail).toContain('designation');
+      expect(m.candidates!.map(c => c.id)).toEqual(expect.arrayContaining([1, 2]));
+    });
+
+    it('NEVER resolves a designation outright, even down to one survivor', () => {
+      // It matched on a class letter, and a class letter is not a series.
+      // "C" fits both C-CLASS and C-MAX.
+      const single = [{ id: 7, name: 'S-CLASS (W222)', yearFrom: 2013, yearTo: 2020 }];
+      const m = matchModel('S350', 2015, single);
+      expect(m.status).toBe('ambiguous');
+      expect(m.model).toBeUndefined();
+      expect(m.candidates).toHaveLength(1);
+    });
+
+    it('does not treat an ordinary model name as a designation', () => {
+      // "S-Class" matches directly and must not take the designation path.
+      expect(matchModel('S-Class', 2014, MB_MODELS).status).toBe('matched');
+    });
+
+    it('leaves the number for the modification step', () => {
+      // 260 identifies the variant, and the provider puts "C 260" in the
+      // variant description — not in the series name.
+      const m = matchModel('C260', 2014, MB_MODELS);
+      expect(m.candidates!.every(c => !c.name.includes('260'))).toBe(true);
+    });
+
+    it('still reports no_match when the class letter is unknown', () => {
+      expect(matchModel('Z999', 2014, MB_MODELS).status).toBe('no_match');
+    });
+  });
+
   it('tokenises punctuation away', () => {
     expect(modelTokens('C-CLASS (W205)')).toEqual(['c', 'class', 'w205']);
   });

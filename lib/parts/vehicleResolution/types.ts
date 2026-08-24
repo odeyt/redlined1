@@ -80,10 +80,22 @@ export interface ProviderVehicleResolution {
 export interface ModificationCandidate {
   vehicleId: number;
   description: string;
+  /**
+   * The series name as the PROVIDER writes it on this row.
+   *
+   * Carried because the applicability endpoint returns no vehicle id, so a
+   * variant is recognised there by (modelName, typeEngineName). Both must come
+   * from provider rows or the comparison is between two different vocabularies
+   * — the variants envelope's own `modelType` field returned "PC" live, not a
+   * series name at all.
+   */
+  modelName?: string;
   yearFrom?: number;
   yearTo?: number;
   engineCode?: string;
   displacementL?: number;
+  /** The provider publishes this directly, so it is not parsed out of prose. */
+  cylinders?: number;
   fuel?: string;
   powerKw?: number;
   bodyType?: string;

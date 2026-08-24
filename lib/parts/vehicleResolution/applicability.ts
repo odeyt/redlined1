@@ -55,6 +55,49 @@ function rowVehicleId(row: ApplicabilityRow): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * How a resolved variant is recognised in an applicability response.
+ *
+ * ## The finding that forced this
+ *
+ * The live applicability endpoint returns NO vehicle id. Observed 2026-08-24:
+ * 370 rows for a Mercedes brake-pad OEM, each
+ *
+ *   { manufacturerName, modelName, typeEngineName, bodyType,
+ *     constructionIntervalStart, constructionIntervalEnd, powerKw, powerPs }
+ *
+ * and not one identifier among them. Matching on `vehicleId` — which is what
+ * this module did — could therefore never succeed, and every part on every
+ * vehicle would have come back UNKNOWN forever. It would have looked like
+ * caution and been a bug.
+ *
+ * So a variant is matched on the tuple the provider actually publishes:
+ * model series AND engine-type name. Both, together — `typeEngineName` alone
+ * repeats across series ("350 CDI" exists under several), and `modelName`
+ * alone is the whole series rather than one variant.
+ */
+export interface ResolvedVariantIdentity {
+  vehicleId?: number;
+  modelName?: string;
+  typeEngineName?: string;
+}
+
+const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function rowMatchesVariant(row: ApplicabilityRow, want: ResolvedVariantIdentity): boolean {
+  // An id, if the provider ever supplies one.
+  const id = rowVehicleId(row);
+  if (id !== null && want.vehicleId !== undefined) return id === want.vehicleId;
+
+  if (!want.modelName || !want.typeEngineName) return false;
+
+  const model = norm(row.modelName);
+  const engine = norm(row.typeEngineName);
+  if (!model || !engine) return false;
+
+  return model === norm(want.modelName) && engine === norm(want.typeEngineName);
+}
+
 export function extractApplicabilityRows(payload: unknown): ApplicabilityRow[] {
   if (Array.isArray(payload)) return payload as ApplicabilityRow[];
   for (const key of ['data', 'items', 'vehicles', 'cars', 'result']) {
@@ -74,12 +117,21 @@ export function extractApplicabilityRows(payload: unknown): ApplicabilityRow[] {
  */
 export function normalizeApplicability(
   payload: unknown,
-  resolvedVehicleId: number | undefined,
+  resolved: number | ResolvedVariantIdentity | undefined,
 ): ApplicabilityResult {
   const rows = extractApplicabilityRows(payload);
   const listed = rows.length;
 
-  if (resolvedVehicleId === undefined) {
+  const want: ResolvedVariantIdentity | undefined =
+    typeof resolved === 'number' ? { vehicleId: resolved } : resolved;
+
+  // Nothing to look for: either no variant was resolved, or the one we have
+  // carries neither an id nor the descriptive pair the provider publishes.
+  const identifiable = Boolean(
+    want && (want.vehicleId !== undefined || (want.modelName && want.typeEngineName)),
+  );
+
+  if (!identifiable) {
     return {
       answer: 'unknown',
       listed,
@@ -91,7 +143,7 @@ export function normalizeApplicability(
     };
   }
 
-  const matched = rows.some(r => rowVehicleId(r) === resolvedVehicleId);
+  const matched = rows.some(r => rowMatchesVariant(r, want!));
 
   if (matched) {
     return {
