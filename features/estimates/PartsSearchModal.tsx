@@ -86,6 +86,19 @@ const MODE_PLACEHOLDER: Record<SearchMode, string> = {
   partNumber: 'e.g. ACT976',
 };
 
+/**
+ * Whether a catalogue row's marque is the estimate's vehicle.
+ *
+ * Loose on punctuation and case only — "MERCEDES-BENZ" is "Mercedes Benz",
+ * and nothing else. Never a similarity score: Toyota and Lexus are related
+ * companies and entirely different parts catalogues.
+ */
+export function marqueMatchesVehicle(rowMarque?: string, vehicleMake?: string): boolean {
+  if (!rowMarque || !vehicleMake) return false;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return norm(rowMarque) === norm(vehicleMake);
+}
+
 /** Said on every failure. The technician's next move, not an apology. */
 export const MANUAL_FALLBACK = 'You can still add the part manually.';
 
@@ -566,6 +579,27 @@ export function PartsSearchModal({
                         </span>
                         {r.brand && <span style={{ color: 'var(--muted)' }}>{r.brand}</span>}
                         {r.manufacturerPartNumber && <span style={{ color: 'var(--muted)' }}>#{r.manufacturerPartNumber}</span>}
+                        {/* The marque this catalogue row is filed under, and
+                            whether it is the estimate's. OEM numbers collide
+                            across marques, so without this a Toyota part
+                            number on a Mercedes estimate looks like any other
+                            result. */}
+                        {r.vehicleManufacturer && (
+                          <span
+                            data-testid="row-marque"
+                            title={marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make)
+                              ? undefined
+                              : `Filed under ${r.vehicleManufacturer}, not ${vehicle.make}`}
+                            style={{
+                              fontWeight: 700,
+                              color: marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make)
+                                ? '#16a34a' : '#b45309',
+                            }}
+                          >
+                            {marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make) ? '' : '≠ '}
+                            {r.vehicleManufacturer}
+                          </span>
+                        )}
                         <span style={{ color: 'var(--muted)' }}>{r.provider}</span>
                         {r.condition && <span style={{ color: 'var(--muted)' }}>{r.condition}</span>}
                       </div>

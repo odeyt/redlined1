@@ -122,6 +122,7 @@ export function normalizeAutoPartsArticle(
     manufacturerPartNumber: mpn,
     oemNumbers: oemNumbers.length ? [...new Set(oemNumbers)].slice(0, 25) : undefined,
     imageUrl: firstImage(article),
+    vehicleManufacturer: marque,
     // A catalogue publishes identity, not an offer. No currency amount is
     // claimed, so landed cost stays unknown rather than being reported as
     // zero — which would rank it as free.

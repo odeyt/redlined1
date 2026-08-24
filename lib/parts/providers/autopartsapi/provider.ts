@@ -151,10 +151,25 @@ export const autoPartsApiProvider: PartsProvider = {
         vehicle: { make: input.make, model: input.model, year: input.year },
       });
 
+      // The marque reason must survive.
+      //
+      // buildVerdict answers "does the catalogue list this part for this
+      // vehicle", and with no applicability records its answer is the generic
+      // "no applicability listed". That was overwriting the far more useful
+      // thing normalize() already worked out — that the row is filed under
+      // CHRYSLER while the estimate is a Mercedes. Both are true; the
+      // marque-specific one is what tells a technician to move on.
+      const marqueMismatch = Boolean(
+        article.vehicleManufacturer && input.make
+        && article.fitmentReason?.includes('collide across marques'),
+      );
+
       return {
         ...article,
         fitmentStatus: verdict.fitmentStatus,
-        fitmentReason: verdict.fitmentReason,
+        fitmentReason: marqueMismatch && !applicability.length
+          ? article.fitmentReason
+          : verdict.fitmentReason,
       };
     });
   },

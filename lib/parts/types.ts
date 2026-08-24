@@ -110,6 +110,18 @@ export interface NormalizedPartResult {
 
   warranty?: string;
 
+  /**
+   * The vehicle marque a catalogue row belongs to — NOT the part's brand.
+   *
+   * Surfaced because OEM numbers collide across marques: searching Toyota's
+   * 04465-0K340 returns rows filed under CHRYSLER and FORD too. Without this
+   * on the card, a technician looking at a Mercedes estimate cannot tell
+   * whether a row has anything to do with their vehicle, and neither can
+   * anyone reviewing the screen. Absent for marketplace providers, which
+   * describe an offer rather than a catalogue position.
+   */
+  vehicleManufacturer?: string;
+
   fitmentStatus: FitmentStatus;
   fitmentReason?: string;
 
