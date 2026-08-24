@@ -64,7 +64,46 @@ Estimate → vehicle linkage already exists: `EstimatesView.searchVehicle`
 resolves `form.vehicle` against `allVehicles` and hands make/model/year/engine
 to the search. No new canonical vehicle fields are introduced.
 
-## BLOCKER — the endpoints I do not have
+## Verified provider chain (2026-08-24, provider's current public documentation)
+
+```
+Manufacturers      GET /manufacturers/list/type-id/{typeId}
+Models             GET /models/list/type-id/{}/manufacturer-id/{}/lang-id/{}/country-filter-id/{}
+Vehicle variants   GET /types/type-id/{}/list-vehicles-types/{modelId}/lang-id/{}/country-filter-id/{}
+Vehicle detail     GET /types/type-id/{}/vehicle-type-details/{vehicleId}/lang-id/{}/country-filter-id/{}
+OEM applicability  GET /articles-oem/selecting-a-list-of-cars-for-oem-part-number
+                       /type-id/{}/lang-id/{}/country-filter-id/{}/manufacturer-id/{}/article-oem-no/{}
+```
+
+Constants, confined to the adapter: `typeId=1` (passenger car), `langId=4`
+(English), `countryFilterId=63` — the provider's catalogue **market** filter,
+**not** the shop's or customer's location.
+
+**`list-vehicles-types`, not `list-vehicles-id`.** The engine-spec variant costs
+the same call and returns displacement, cylinders, kW and engine codes. With
+engine recorded on 6 of 114 vehicles, the provider's own engine data is the
+only thing that lets a technician tell two variants apart; the cheaper endpoint
+would render a picker of identical-looking rows.
+
+Vehicle detail is called only when a variant needs more than the list gave —
+never once per candidate, which on a model with a dozen variants would spend a
+dozen calls to draw a picker.
+
+### Deliberately not used
+
+**VIN decoders.** `decoder-v1/v2/v5` and `tecdoc-vin-check` exist, but the
+catalogue-native one needs a separate `VIN_API_KEY`, and M-PARTS2B does not
+introduce a second credential dependency. `decoder-v3` is documented as reading
+an external public VIN source and is **excluded from the fitment trust chain**
+outright — the authoritative path stays structured catalogue ids and
+applicability.
+
+**Article-based compatibility** (`/articles/get-compatible-cars-by-article-number`)
+is a second evidence source for later. The applicability abstraction accepts
+OEM evidence and aftermarket-article evidence as distinct kinds; only OEM is
+implemented.
+
+## Previous blocker — resolved
 
 Documented and in use from M-PARTS2A:
 

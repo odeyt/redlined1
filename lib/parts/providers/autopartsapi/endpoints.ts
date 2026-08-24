@@ -84,6 +84,82 @@ export function oemSegment(oem: string): string {
 /** GET /languages/list — reference data, and the connectivity gate. */
 export const LANGUAGES_LIST = 'languages/list';
 
+// ─── Vehicle resolution chain ────────────────────────────────────────────────
+//
+// Verified against the provider's current public documentation, 2026-08-24.
+// Each path is built by a helper so no segment is ever interpolated
+// unvalidated; ids go through idSegment, which refuses anything but an
+// integer in range.
+
+/**
+ * GET /manufacturers/list/type-id/{typeId}
+ *
+ * Essentially static catalogue reference data. Cached for a day and never
+ * called per parts search — see referenceCache.ts.
+ */
+export function manufacturersPath(typeId = AUTOPARTS_TYPE_ID.passengerCar): string {
+  return `manufacturers/list/type-id/${idSegment(typeId)}`;
+}
+
+/**
+ * GET /models/list/type-id/{}/manufacturer-id/{}/lang-id/{}/country-filter-id/{}
+ *
+ * Model series for one manufacturer, with the provider's modelId.
+ */
+export function modelsPath(args: {
+  manufacturerId: number;
+  typeId?: number;
+  langId?: number;
+  countryFilterId?: number;
+}): string {
+  return 'models/list'
+    + `/type-id/${idSegment(args.typeId ?? AUTOPARTS_TYPE_ID.passengerCar)}`
+    + `/manufacturer-id/${idSegment(args.manufacturerId)}`
+    + `/lang-id/${idSegment(args.langId ?? AUTOPARTS_ENGLISH_LANG_ID)}`
+    + `/country-filter-id/${idSegment(args.countryFilterId ?? AUTOPARTS_DEFAULT_COUNTRY_FILTER_ID)}`;
+}
+
+/**
+ * GET /types/type-id/{}/list-vehicles-types/{modelId}/lang-id/{}/country-filter-id/{}
+ *
+ * The ENGINE-SPEC variant, deliberately. The provider also offers
+ * `list-vehicles-id`, which returns variants without engine data — and with
+ * engine recorded on 6 of 114 Redlined1 vehicles, the provider's own
+ * displacement, cylinders, kW and engine codes are the only way a technician
+ * can tell two variants apart. The cheaper endpoint would make the variant
+ * selector a list of identical-looking rows.
+ */
+export function vehicleVariantsPath(args: {
+  modelId: number;
+  typeId?: number;
+  langId?: number;
+  countryFilterId?: number;
+}): string {
+  return `types/type-id/${idSegment(args.typeId ?? AUTOPARTS_TYPE_ID.passengerCar)}`
+    + `/list-vehicles-types/${idSegment(args.modelId)}`
+    + `/lang-id/${idSegment(args.langId ?? AUTOPARTS_ENGLISH_LANG_ID)}`
+    + `/country-filter-id/${idSegment(args.countryFilterId ?? AUTOPARTS_DEFAULT_COUNTRY_FILTER_ID)}`;
+}
+
+/**
+ * GET /types/type-id/{}/vehicle-type-details/{vehicleId}/lang-id/{}/country-filter-id/{}
+ *
+ * Full technical detail for ONE variant. Called only when a variant needs
+ * more detail than the list gave — never once per candidate, which on a model
+ * with a dozen variants would spend a dozen calls to render a picker.
+ */
+export function vehicleDetailPath(args: {
+  vehicleId: number;
+  typeId?: number;
+  langId?: number;
+  countryFilterId?: number;
+}): string {
+  return `types/type-id/${idSegment(args.typeId ?? AUTOPARTS_TYPE_ID.passengerCar)}`
+    + `/vehicle-type-details/${idSegment(args.vehicleId)}`
+    + `/lang-id/${idSegment(args.langId ?? AUTOPARTS_ENGLISH_LANG_ID)}`
+    + `/country-filter-id/${idSegment(args.countryFilterId ?? AUTOPARTS_DEFAULT_COUNTRY_FILTER_ID)}`;
+}
+
 /**
  * Primary OEM search.
  * GET /articles-oem/search-by-article-oem-no?langId=&articleOemNo=
