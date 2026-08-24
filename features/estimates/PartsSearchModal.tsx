@@ -22,6 +22,7 @@
  * does not see costs sees only the sell price.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FITMENT_LABEL, FITMENT_WARNING, needsFitmentWarning } from '@/lib/parts/fitment';
 import { LABEL_TEXT, type Recommendation } from '@/lib/parts/recommendation';
 import { sellPriceFor, type MarkupType } from '@/lib/parts/snapshot';
@@ -59,6 +60,65 @@ interface Props {
 }
 
 type SortKey = 'recommended' | 'landed' | 'item' | 'delivery' | 'fitment';
+
+/**
+ * Above every fixed element the app paints.
+ *
+ * AppShell's header is 8000, its nav overlay 9000, and Sidebar / ChatWidget /
+ * EnvBanner are 9999. A dialog must cover the application, so it sits above
+ * all of them. Exported so a test can assert it rather than trusting a
+ * literal buried in a style object.
+ */
+export const MODAL_Z = 10000;
+
+/** What the technician is searching by. */
+export type SearchMode = 'description' | 'oem' | 'partNumber';
+
+const MODE_LABEL: Record<SearchMode, string> = {
+  description: 'Description',
+  oem: 'OEM Number',
+  partNumber: 'Part Number',
+};
+
+const MODE_PLACEHOLDER: Record<SearchMode, string> = {
+  description: 'e.g. front brake pads',
+  oem: 'e.g. 04465-0K340',
+  partNumber: 'e.g. ACT976',
+};
+
+/** Said on every failure. The technician's next move, not an apology. */
+export const MANUAL_FALLBACK = 'You can still add the part manually.';
+
+/**
+ * A technician-facing sentence for an HTTP status. Never the server's own.
+ *
+ * The proxy answers a session-less API call with "Unauthorized", and that
+ * reached the technician verbatim — a word that names the problem and offers
+ * nothing to do about it.
+ */
+export function messageForStatus(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'Your session has expired. Reload the page and sign in again.';
+  }
+  if (status === 429) return 'Too many searches. Wait a moment and try again.';
+  if (status === 422) return 'That search term was not accepted.';
+  if (status >= 500) return 'Parts catalog is temporarily unavailable.';
+  return 'Parts search could not be completed.';
+}
+
+/**
+ * Every state the panel can be in, named.
+ *
+ * A click that silently does nothing is the defect this milestone exists to
+ * fix, so "we are between states" is not allowed to be one of them.
+ */
+export type SearchState =
+  | 'idle'
+  | 'loading'
+  | 'success'
+  | 'empty'
+  | 'error'
+  | 'provider_unavailable';
 
 const FITMENT_COLOR: Record<string, string> = {
   verified: '#16a34a',
@@ -105,12 +165,13 @@ export function PartsSearchModal({
   open, onClose, shopId, currency, vehicle, vehicleLabel, onAdd,
 }: Props) {
   const [query, setQuery] = useState('');
+  const [mode, setMode] = useState<SearchMode>('description');
+  const [state, setState] = useState<SearchState>('idle');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<ScoredResult[]>([]);
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [outcomes, setOutcomes] = useState<ProviderOutcome[]>([]);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
   const [role, setRole] = useState('');
   const [sort, setSort] = useState<SortKey>('recommended');
   const [selected, setSelected] = useState<ScoredResult | null>(null);
@@ -137,9 +198,10 @@ export function PartsSearchModal({
 
   async function runSearch(bypassCache = false) {
     const q = query.trim();
-    if (q.length < 2) { setError('Enter at least two characters.'); return; }
+    if (q.length < 2) { setError('Enter at least two characters.'); setState('error'); return; }
 
     setLoading(true);
+    setState('loading');
     setError('');
     try {
       const res = await fetch('/api/parts/search', {
@@ -147,6 +209,12 @@ export function PartsSearchModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: q, shopId, currency,
+          // The mode decides which field the term is sent as. A part number
+          // typed into a description search reaches a different provider
+          // endpoint and comes back with different evidence, so choosing
+          // "OEM Number" is a real instruction rather than a hint.
+          ...(mode === 'oem' ? { oemNumber: q } : {}),
+          ...(mode === 'partNumber' ? { manufacturerPartNumber: q } : {}),
           vin: vehicle.vin || undefined,
           year: vehicle.year, make: vehicle.make, model: vehicle.model,
           trim: vehicle.trim || undefined, engine: vehicle.engine || undefined,
@@ -157,23 +225,35 @@ export function PartsSearchModal({
       const json = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(json?.error ?? 'Parts search is unavailable. You can still add the part manually.');
+        // Our own words, not the server's — and every failure ends with the
+        // one thing the technician needs, which is that the estimate can
+        // still be written by hand.
+        setError(`${messageForStatus(res.status)} ${MANUAL_FALLBACK}`);
         setResults([]);
-        setSearched(true);
+        setState('error');
         return;
       }
 
-      setResults(Array.isArray(json?.results) ? json.results : []);
-      setProviders(Array.isArray(json?.providers) ? json.providers : []);
+      const rows = Array.isArray(json?.results) ? json.results : [];
+      const provs = Array.isArray(json?.providers) ? json.providers : [];
+      setResults(rows);
+      setProviders(provs);
       setOutcomes(Array.isArray(json?.outcomes) ? json.outcomes : []);
       setRole(typeof json?.role === 'string' ? json.role : '');
       if (json?.error) setError(json.error);
-      setSearched(true);
+
+      // Named outcome, so the panel never sits in an unexplained blank.
+      const anyEnabled = provs.some((p: ProviderHealth) => p.enabled);
+      setState(
+        json?.error ? 'error'
+          : !anyEnabled ? 'provider_unavailable'
+            : rows.length ? 'success' : 'empty',
+      );
     } catch {
       // A network failure here is not an estimate failure. Say so plainly.
-      setError('Could not reach the parts service. You can still add the part manually.');
+      setError(`Could not reach the parts service. ${MANUAL_FALLBACK}`);
       setResults([]);
-      setSearched(true);
+      setState('error');
     } finally {
       setLoading(false);
     }
@@ -210,6 +290,10 @@ export function PartsSearchModal({
   }, [results, selected]);
 
   if (!open) return null;
+  // The portal needs a document. A guard rather than a mounted flag set from
+  // an effect: this only ever renders after a click, so there is no server
+  // render to hydrate against and no state to set during one.
+  if (typeof document === 'undefined') return null;
 
   const enabled = providers.filter(p => p.enabled);
   const disabled = providers.filter(p => !p.enabled);
@@ -238,14 +322,28 @@ export function PartsSearchModal({
     ? sellPriceFor(landed, effectiveMarkupType, markupNum)
     : null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Search parts"
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 3000,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        // ABOVE the app chrome, and portalled to <body>.
+        //
+        // This is the bug that made the button look dead. At 3000 the dialog
+        // opened UNDERNEATH AppShell's header (8000) and Sidebar (9999), so
+        // its title, close button and search field were painted behind the
+        // application. Measured in a browser: the card's top sat at y=14 with
+        // a 72px header over it.
+        //
+        // The portal matters as much as the number. Rendering inside the
+        // estimate panel leaves the dialog at the mercy of any ancestor that
+        // creates a containing block (transform, filter, contain) or clips
+        // with overflow. Escaping to <body> removes that whole class of bug
+        // rather than this one instance of it.
+        zIndex: MODAL_Z,
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
         padding: '2vh 8px', overflowY: 'auto',
       }}
@@ -282,12 +380,35 @@ export function PartsSearchModal({
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          {/* Search by — the term means different things to the providers, so
+              the technician says which it is rather than us guessing. */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }} role="group" aria-label="Search by">
+            {(Object.keys(MODE_LABEL) as SearchMode[]).map(m => (
+              <button
+                key={m}
+                type="button"
+                data-testid={`mode-${m}`}
+                aria-pressed={mode === m}
+                onClick={() => setMode(m)}
+                style={{
+                  padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', minHeight: 36,
+                  border: `1px solid ${mode === m ? 'var(--accent)' : 'var(--line)'}`,
+                  background: mode === m ? 'var(--accent)' : 'transparent',
+                  color: mode === m ? '#fff' : 'var(--text)',
+                }}
+              >
+                {MODE_LABEL[m]}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void runSearch(); } }}
-              placeholder="e.g. front brake pads"
+              placeholder={MODE_PLACEHOLDER[mode]}
               maxLength={120}
               aria-label="Part search"
               style={{
@@ -341,13 +462,30 @@ export function PartsSearchModal({
             </div>
           ))}
 
-          {searched && !loading && results.length === 0 && !error && (
-            <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-              {enabled.length === 0
-                ? 'No parts provider is configured yet. Add the part manually for now.'
-                : 'No results. Try a different description, or add the part manually.'}
-            </div>
-          )}
+          {/* One line per named state, so the technician is never left
+              guessing whether the click registered. */}
+          <div data-testid="search-state" data-state={state} aria-live="polite">
+            {state === 'idle' && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                Enter a {MODE_LABEL[mode].toLowerCase()} and press Search.
+              </div>
+            )}
+            {state === 'loading' && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                Searching parts...
+              </div>
+            )}
+            {state === 'empty' && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                No matching parts found. {MANUAL_FALLBACK}
+              </div>
+            )}
+            {state === 'provider_unavailable' && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                Parts catalog unavailable. You can still add a part manually.
+              </div>
+            )}
+          </div>
 
           {results.length > 0 && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -606,6 +744,7 @@ export function PartsSearchModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

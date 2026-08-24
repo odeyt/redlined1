@@ -15,7 +15,8 @@ import {
 } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
-import { PartsSearchModal, type AddPartPayload } from './PartsSearchModal';
+import { PartsSearchLauncher } from './PartsSearchLauncher';
+import type { AddPartPayload } from './PartsSearchModal';
 import { buildEstimateLineFromPart, type PartsSourceSnapshot } from '@/lib/parts/snapshot';
 import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
 import type { Vehicle } from '@/lib/types';
@@ -147,7 +148,6 @@ export function EstimatesView() {
   const [custOpen, setCustOpen] = useState(false);
   const [vehQuery, setVehQuery] = useState('');
   const [vehOpen, setVehOpen] = useState(false);
-  const [partsSearchOpen, setPartsSearchOpen] = useState(false);
   const [allJobCards, setAllJobCards] = useState<JobCardFull[]>([]);
   const [jcQuery, setJcQuery] = useState('');
   const [jcOpen, setJcOpen] = useState(false);
@@ -910,9 +910,17 @@ export function EstimatesView() {
                     {/* Search Parts sits BESIDE Add Line rather than replacing
                         it. Manual entry is the fallback whenever a provider is
                         down, and it must never become the harder path. */}
-                    <button type="button" className="mini-btn" onClick={() => setPartsSearchOpen(true)}>
-                      🔍 Search Parts
-                    </button>
+                    {/* Button AND dialog live together in the launcher. They
+                        used to be a hundred lines apart, and the bug lived in
+                        the gap. */}
+                    <PartsSearchLauncher
+                      className="mini-btn"
+                      shopId={getShopId()}
+                      currency={form.currency}
+                      vehicle={searchVehicle.vehicle}
+                      vehicleLabel={searchVehicle.label}
+                      onAdd={handleAddSearchedPart}
+                    />
                     <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
                       const ls = [...f.lines];
                       const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
@@ -1057,22 +1065,6 @@ export function EstimatesView() {
               </div>
             </form>
           )}
-
-          {/* Outside the <form>: the modal has its own inputs and buttons, and
-              nesting them would let Enter inside the search box submit the
-              estimate. */}
-          {/* Mounted only while open, so closing genuinely discards its state
-              rather than leaving a previous search sitting behind a hidden
-              modal. */}
-          {partsSearchOpen && <PartsSearchModal
-            open={partsSearchOpen}
-            onClose={() => setPartsSearchOpen(false)}
-            shopId={getShopId()}
-            currency={form.currency}
-            vehicle={searchVehicle.vehicle}
-            vehicleLabel={searchVehicle.label}
-            onAdd={handleAddSearchedPart}
-          />}
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading estimates…</p>}
           {!loading && filtered.length === 0 && (
