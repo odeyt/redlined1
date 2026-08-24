@@ -86,9 +86,22 @@ async function main() {
   });
   check('anon INSERT into mappings is denied', Boolean(anonMapInsert));
 
-  // Positive control: the same client CAN read something it is allowed to.
-  const { error: anonReadAllowed } = await anon.from('shops').select('id').limit(1);
-  check('positive control — anon client works at all (shops readable or RLS-empty)', !anonReadAllowed);
+  // Positive control: the same anon client CAN reach a table whose RLS simply
+  // returns nothing.
+  //
+  // NOT `shops` — anon holds no grant there and is refused outright, which is
+  // correct security and made this control fail against a perfectly good
+  // migration. `vehicles` is grant-visible and RLS-empty for anon, so a
+  // success here proves the client works and the denials above are RLS doing
+  // its job rather than the client being broken.
+  const { error: anonReadAllowed } = await anon.from('vehicles').select('id').limit(1);
+  check('positive control — anon client reaches an RLS-empty table', !anonReadAllowed);
+
+  // And the negative half of the same control: a table anon has no grant on
+  // must still be refused, so "denied" above is not simply how this client
+  // answers everything.
+  const { error: anonDeniedElsewhere } = await anon.from('shop_settings').select('id').limit(1);
+  check('negative control — anon is refused on a table it has no grant for', Boolean(anonDeniedElsewhere));
 
   // ── service_role can write, and cleans up after itself ──────────────────
   const { data: shop } = await admin.from('shops').select('id').limit(1).single();
