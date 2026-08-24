@@ -177,7 +177,10 @@ export async function POST(req: NextRequest) {
       { bypassCache: input.bypassCache },
     );
 
-    const scored = rankParts(response.results);
+    // The vehicle's marque decides which rows may carry a badge. A catalogue
+    // row filed under another marque stays in the list — it is a candidate —
+    // but it is not endorsed.
+    const scored = rankParts(response.results, { vehicleMake: input.make });
 
     logger.info('parts_search_completed', {
       shopId: input.shopId,

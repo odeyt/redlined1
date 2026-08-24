@@ -14,9 +14,10 @@
  * fact that tells them to move on.
  */
 import { normalizeAutoPartsArticle } from '../providers/autopartsapi/normalize';
+import { rankParts, marqueContradicts } from '../recommendation';
 import { marqueMatchesVehicle } from '../../../features/estimates/PartsSearchModal';
 import type { AutoPartsArticle } from '../providers/autopartsapi/types';
-import type { PartsSearchInput } from '../types';
+import type { NormalizedPartResult, PartsSearchInput } from '../types';
 
 const CHECKED_AT = '2026-08-24T00:00:00.000Z';
 const OEM = '04465-0K340';
@@ -101,6 +102,78 @@ describe('a mismatched marque says so, and never claims fit', () => {
     // Only vehicle applicability can produce `verified`, and this endpoint
     // does not provide it.
     expect(r.fitmentStatus).not.toBe('verified');
+  });
+});
+
+describe('a contradicting marque is never endorsed', () => {
+  // Production showed "🏆 RECOMMENDED" on a row scored 45/100, UNVERIFIED,
+  // and filed under LEXUS while the estimate was a Mercedes. Fitment was
+  // correct; the badge was not. On a list of 277 rows a technician reads the
+  // badge long before they read the marque.
+  const scoredRow = (marque: string, over: Partial<NormalizedPartResult> = {}): NormalizedPartResult => ({
+    provider: 'catalog',
+    title: 'Brake Pad Set, disc brake',
+    brand: 'BOSCH',
+    manufacturerPartNumber: '0 986 495 302',
+    vehicleManufacturer: marque,
+    currency: 'USD',
+    estimatedTax: null,
+    estimatedImportDuty: null,
+    landedCostCompleteness: 'unknown',
+    fitmentStatus: 'unverified',
+    sourceCheckedAt: CHECKED_AT,
+    ...over,
+  });
+
+  it('withholds every badge from a mismatched marque', () => {
+    const ranked = rankParts(
+      [scoredRow('LEXUS'), scoredRow('LEXUS', { title: 'Other', manufacturerPartNumber: 'X' })],
+      { vehicleMake: 'Mercedes-Benz' },
+    );
+    for (const r of ranked) expect(r.recommendation.label).toBeNull();
+  });
+
+  it('still badges a row whose marque matches', () => {
+    const ranked = rankParts(
+      [scoredRow('MERCEDES-BENZ'), scoredRow('LEXUS', { title: 'Other' })],
+      { vehicleMake: 'Mercedes-Benz' },
+    );
+    const mine = ranked.find(r => r.part.vehicleManufacturer === 'MERCEDES-BENZ')!;
+    const theirs = ranked.find(r => r.part.vehicleManufacturer === 'LEXUS')!;
+    expect(mine.recommendation.label).toBe('best_overall');
+    expect(theirs.recommendation.label).toBeNull();
+  });
+
+  it('leaves the SCORE alone — score and fitment stay separate', () => {
+    // §18: "OEM Match Score: 99 / Vehicle Fitment: UNVERIFIED" is valid.
+    // Withholding the badge must not quietly become a scoring penalty.
+    const withMake = rankParts([scoredRow('LEXUS')], { vehicleMake: 'Mercedes-Benz' });
+    const without = rankParts([scoredRow('LEXUS')], {});
+    expect(withMake[0].recommendation.score).toBe(without[0].recommendation.score);
+  });
+
+  it('says why, rather than leaving a silent absence', () => {
+    const ranked = rankParts([scoredRow('LEXUS')], { vehicleMake: 'Mercedes-Benz' });
+    expect(ranked[0].recommendation.reasons[0])
+      .toBe('Filed under LEXUS, not Mercedes-Benz — not recommended for this vehicle.');
+  });
+
+  it('badges normally when the estimate has no vehicle to contradict', () => {
+    const ranked = rankParts([scoredRow('LEXUS')], {});
+    expect(ranked[0].recommendation.label).toBe('best_overall');
+  });
+
+  it('does not treat punctuation as a contradiction', () => {
+    expect(marqueContradicts(scoredRow('MERCEDES-BENZ'), 'Mercedes Benz')).toBe(false);
+    expect(marqueContradicts(scoredRow('LEXUS'), 'Toyota')).toBe(true);
+  });
+
+  it('the route passes the estimate vehicle through', () => {
+    const fs = jest.requireActual('fs') as typeof import('fs');
+    const path = jest.requireActual('path') as typeof import('path');
+    const ROUTE = fs.readFileSync(
+      path.join(process.cwd(), 'app', 'api', 'parts', 'search', 'route.ts'), 'utf8');
+    expect(ROUTE).toContain('rankParts(response.results, { vehicleMake: input.make })');
   });
 });
 

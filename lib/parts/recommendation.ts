@@ -216,9 +216,22 @@ function cheapestLandedOf(parts: NormalizedPartResult[]): number | null {
  * "lowest price" is meaningless for one result in isolation. Each label is
  * used at most once, and only a recommendable part can receive one.
  */
+/**
+ * Whether a catalogue row is filed under a different marque than the vehicle.
+ *
+ * Exact on punctuation and case only. Never a similarity score — Toyota and
+ * Lexus are the same company and entirely different parts catalogues, and
+ * this function decides whether a badge appears.
+ */
+export function marqueContradicts(part: NormalizedPartResult, vehicleMake?: string): boolean {
+  if (!part.vehicleManufacturer || !vehicleMake) return false;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return norm(part.vehicleManufacturer) !== norm(vehicleMake);
+}
+
 export function rankParts(
   parts: NormalizedPartResult[],
-  opts: { now?: Date } = {},
+  opts: { now?: Date; vehicleMake?: string } = {},
 ): ScoredPart[] {
   const cheapestLanded = cheapestLandedOf(parts);
   const scored: ScoredPart[] = parts.map(part => ({
@@ -226,7 +239,34 @@ export function rankParts(
     recommendation: scorePart(part, { cheapestLanded, now: opts.now }),
   }));
 
-  const eligible = scored.filter(s => s.part.fitmentStatus !== 'incompatible');
+  /**
+   * Who may carry a badge.
+   *
+   * Two exclusions, and they are exclusions rather than penalties for the
+   * same reason: no weighting change can float them back to the top.
+   *
+   * `incompatible` — the provider said it does not fit.
+   *
+   * A CONTRADICTING MARQUE — the row is filed under Lexus and the estimate is
+   * a Mercedes. Fitment already reads UNVERIFIED for these, which is correct
+   * and safe, but "RECOMMENDED" is a stronger word than a score: on a list of
+   * 277 rows a technician reads the badge long before they read the marque.
+   * The score is left alone — score and fitment are deliberately separate —
+   * but the endorsement is withheld.
+   */
+  const eligible = scored.filter(s =>
+    s.part.fitmentStatus !== 'incompatible'
+    && !marqueContradicts(s.part, opts.vehicleMake));
+
+  // Say why, on the row itself, rather than leaving a silent absence.
+  for (const s of scored) {
+    if (marqueContradicts(s.part, opts.vehicleMake)) {
+      s.recommendation.reasons.unshift(
+        `Filed under ${s.part.vehicleManufacturer}, not ${opts.vehicleMake} — not recommended for this vehicle.`,
+      );
+    }
+  }
+
   if (!eligible.length) return scored;
 
   const taken = new Set<ScoredPart>();
