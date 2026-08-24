@@ -26,6 +26,7 @@ import 'server-only';
  * components mounting at once cost one call, not two.
  */
 import { logger } from '@/lib/logger';
+import { recordUsage, type UsageContext } from './telemetry';
 import { AutoPartsApiError, type AutoPartsLanguageRow, type AutoPartsLocale } from './types';
 
 /**
@@ -163,14 +164,33 @@ function classify(status: number): AutoPartsApiError {
   return new AutoPartsApiError('bad_request', status);
 }
 
-export async function autoPartsApiRequest<T>(path: string, query?: QueryParams): Promise<T> {
+export async function autoPartsApiRequest<T>(
+  path: string,
+  query?: QueryParams,
+  usage?: UsageContext,
+): Promise<T> {
   const key = (process.env.AUTOPARTS_API_KEY ?? '').trim();
   if (!key) throw new AutoPartsApiError('no_credentials');
 
   const url = buildProviderUrl(path, query);
 
+  /**
+   * Coalescing, and why it is not just a performance trick.
+   *
+   * Two components mounting at once, or a double-clicked Search, would
+   * otherwise spend two calls from a hundred-a-month allowance for one
+   * answer. The in-flight entry is cleared in `finally`, so a rejection
+   * cannot poison the key — the next caller retries rather than inheriting
+   * an old failure forever.
+   *
+   * A coalesced caller is a cache hit: it consumed no upstream request, and
+   * counting it as external would overstate the month.
+   */
   const existing = inFlight.get(url);
-  if (existing) return existing as Promise<T>;
+  if (existing) {
+    if (usage) void recordUsage({ ...usage, cacheHit: true, success: true });
+    return existing as Promise<T>;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -194,8 +214,15 @@ export async function autoPartsApiRequest<T>(path: string, query?: QueryParams):
         // Status only. A provider error body can echo the request, and the
         // request carried the key.
         logger.warn('parts.autopartsapi.http_error', { status: res.status, path });
-        throw classify(res.status);
+        const err = classify(res.status);
+        // A failed call still SPENT a request at the provider, so it is
+        // recorded as external. Counting only successes would understate the
+        // month in the direction that hides a problem.
+        if (usage) void recordUsage({ ...usage, cacheHit: false, success: false, failureKind: err.kind });
+        throw err;
       }
+
+      if (usage) void recordUsage({ ...usage, cacheHit: false, success: true });
 
       const text = await res.text();
       try {
