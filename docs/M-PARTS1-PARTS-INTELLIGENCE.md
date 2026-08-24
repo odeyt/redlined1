@@ -10,7 +10,7 @@ again.
 |---|---|---|
 | **eBay** | **IMPLEMENTED — DISABLED** | Official Browse API adapter is complete. `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET` are not configured, so it reports `missing_credentials` and returns nothing. **It has never returned a live result and is not claimed to work.** |
 | **Amazon** | SCAFFOLD — DISABLED | Creators API credentials and eligibility not configured. Adapter shape only; no request code. |
-| **Catalog / OEM** | INTERFACE — DISABLED | No catalogue provider licensed for this environment. |
+| **Catalog / OEM (AutoPartsAPI)** | CLIENT BUILT — DISABLED | `AUTOPARTS_API_KEY` not configured, **and** the catalogue search endpoint is not documented to this codebase. Connectivity has **never been proven**. See the AutoPartsAPI section below. |
 | RockAuto | PENDING AUTHORIZED ACCESS | No public parts API. Needs an authorised feed or partner agreement. |
 | PartsGeek | PENDING AUTHORIZED ACCESS | No public parts API. |
 | SSG Asia | PENDING AUTHORIZED ACCESS | Regional supplier; needs a supplier data agreement. |
@@ -272,6 +272,137 @@ Every one keeps the estimate writable:
 
 **Manual entry is never removed.** "Search Parts" sits beside "+ Add Line", it
 does not replace it.
+
+---
+
+# AutoPartsAPI (M-PARTS2A §37–48)
+
+## Request contract
+
+```
+Base URL   https://auto-parts-catalog.apiprofile.com/api   (server-side constant)
+Auth       x-apiprofile-key: <AUTOPARTS_API_KEY>           (header, never a URL)
+Reference  GET /languages/list                             (documented)
+Example    GET /countries/get-country/lang-id/{id}/country-filter-id/{id}
+```
+
+The base URL is a **constant**, not an environment variable. A settable base
+URL is an SSRF lever — anything that can influence it can point our
+authenticated, key-bearing request at a host of its choosing. An override via
+`AUTOPARTS_API_BASE_URL` is honoured only for an `https` host inside
+`.apiprofile.com`, which keeps a sandbox possible without opening that door.
+
+## Environment
+
+```
+AUTOPARTS_API_KEY=              # server-only. Never NEXT_PUBLIC_*.
+AUTOPARTS_API_BASE_URL=         # optional; only *.apiprofile.com over https
+AUTOPARTS_SEARCH_PATH=          # set once the search endpoint is documented
+AUTOPARTS_API_TIMEOUT_MS=8000
+AUTOPARTS_REFERENCE_TTL_MS=86400000
+```
+
+**Rotate the provider secret** if the key visible in the dashboard screenshot
+is the live production key. It is not in this repository, and
+`lib/parts/__tests__/secretHygiene.test.ts` fails CI if one ever appears.
+
+## URL construction safety
+
+`buildProviderUrl` refuses a scheme, a protocol-relative prefix, a backslash,
+`..` (raw or percent-encoded), a query or a fragment, and any segment outside
+`[A-Za-z0-9._~-]`. The resolved URL is then re-checked for `https` and the
+allowed host. A technician's search text can never decide the upstream host.
+
+## Error classification
+
+| | |
+|---|---|
+| 401 / 403 | `unauthorized` |
+| 404 | `not_found` |
+| 429 | `rate_limited` |
+| 5xx | `provider_error` |
+| abort | `timeout` |
+| 2xx, unparseable | `malformed` |
+| other 4xx | `bad_request` |
+
+Raw provider errors never reach a technician — the parts service maps every
+one to *"Parts catalog is temporarily unavailable. You can still add the part
+manually."* A test asserts a secret inside an error does not survive into the
+response.
+
+## Free-tier quota protection
+
+The plan allows few calls per month, so an accidental request is not a
+performance problem — it is a broken feature at month end.
+
+- Reference data (`/languages/list`) cached **24h** in process
+- Identical in-flight requests **deduplicated** — a double-click costs one call
+- **Nothing fires on render**; a catalogue call happens only on explicit submit
+- No per-keystroke search
+- Reopening an estimate with a snapshotted part makes **no** provider call
+- CI uses fixtures; the connectivity script is never part of a test suite
+
+## Locale — not assumed from an example
+
+The dashboard example showed `lang-id/4` and `country-filter-id/63`. **Neither
+is hard-coded.** An id in an example is not documentation, and guessing that 4
+means English produces a catalogue in the wrong language with nobody noticing.
+
+`languageId` is resolved at runtime by matching the language **name** against
+`/languages/list`, then cached. If English is absent the resolver **refuses**
+rather than defaulting to the first row.
+
+`countryFilterId` is **unset in Phase 1**. A country filter silently narrows
+which parts exist, and filtering by a guessed country is worse than not
+filtering at all.
+
+## Connectivity proof
+
+```bash
+npx tsx --conditions=react-server scripts/qa-autopartsapi-connectivity.ts
+```
+
+Exit `0` proven · `1` a check failed · `2` could not run. The `--conditions`
+flag is required because the client is `server-only`; needing it is the guard
+working.
+
+**Current result — run 2026-08-24:**
+
+```
+Base URL:           https://auto-parts-catalog.apiprofile.com/api
+AUTOPARTS_API_KEY:  MISSING
+  PASS    URL construction
+  PASS    hostile paths refused (SSRF guard)
+  BLOCKED live connectivity — no key configured
+  BLOCKED authentication (x-apiprofile-key) — not exercised
+  BLOCKED reference lookup (/languages/list) — not attempted
+NOT PROVEN.
+```
+
+## Why catalogue search is not wired
+
+Two endpoints are confirmed: `/languages/list` and the country lookup. The
+catalogue/OEM **search** endpoint is not, and §37 is explicit that paths must
+not be assumed beyond current documentation.
+
+Guessing one fails in the most expensive way available: every attempt spends
+free-tier quota, a 404 is indistinguishable from "no parts found" unless
+classified, and a wrong-but-working path could return a different resource that
+normalises into plausible parts.
+
+Everything underneath — auth, base URL, timeout, error classification, locale
+resolution, quota protection, normalisation, fitment — is built and tested.
+Set `AUTOPARTS_SEARCH_PATH` once the endpoint is documented.
+
+## Catalogue fitment
+
+A catalogue publishes **identity**, not an offer. Normalised results carry no
+price, no shipping and no landed cost — `landedCostCompleteness: 'unknown'`,
+never a zero that would rank them as free.
+
+A catalogue match yields **`likely` at best**, and only on a real part-number
+or OEM match. It can never yield `verified`: "this article corresponds to that
+OEM number" is not "this fits the vehicle in bay three".
 
 ## What is NOT proven
 
