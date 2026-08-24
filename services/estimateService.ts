@@ -13,6 +13,19 @@ export interface EstimateLine {
   cost?: number;
   markup?: number;
   currency?: string;
+  /**
+   * Where this line's price came from, frozen at the moment it was quoted.
+   *
+   * Present only on lines added through Parts Intelligence; a hand-typed line
+   * has none and behaves exactly as before. It rides inside the `lines` JSONB
+   * rather than needing columns, so existing estimates are untouched and the
+   * table's own shop_id RLS already covers it.
+   *
+   * PROCUREMENT METADATA ONLY. `calculateEstimateTotals` reads `qty` and
+   * `rate` and never looks at this — a marketplace price change can therefore
+   * not move an issued estimate. See lib/parts/snapshot.ts.
+   */
+  partsSource?: import('@/lib/parts/snapshot').PartsSourceSnapshot;
 }
 
 export interface EstimateFull {

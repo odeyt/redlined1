@@ -15,6 +15,8 @@ import {
 } from '@/services/estimateService';
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
+import { PartsSearchModal, type AddPartPayload } from './PartsSearchModal';
+import { buildEstimateLineFromPart, type PartsSourceSnapshot } from '@/lib/parts/snapshot';
 import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
 import type { Vehicle } from '@/lib/types';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
@@ -33,7 +35,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // Form uses strings so the user can type freely (decimals, clearing)
-type FormLine = { description: string; laoDescription: string; qty: string; cost: string; markup: string; rate: string; currency: string };
+type FormLine = {
+  description: string; laoDescription: string; qty: string; cost: string;
+  markup: string; rate: string; currency: string;
+  /** Part number, when the line came from Parts Intelligence. */
+  note?: string;
+  /** Frozen provider snapshot. Absent on every hand-typed line. */
+  partsSource?: PartsSourceSnapshot;
+};
 const EMPTY_LINE: FormLine = { description: '', laoDescription: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
 
 async function translateToLao(text: string): Promise<string> {
@@ -138,6 +147,7 @@ export function EstimatesView() {
   const [custOpen, setCustOpen] = useState(false);
   const [vehQuery, setVehQuery] = useState('');
   const [vehOpen, setVehOpen] = useState(false);
+  const [partsSearchOpen, setPartsSearchOpen] = useState(false);
   const [allJobCards, setAllJobCards] = useState<JobCardFull[]>([]);
   const [jcQuery, setJcQuery] = useState('');
   const [jcOpen, setJcOpen] = useState(false);
@@ -333,6 +343,82 @@ export function EstimatesView() {
     }
   }
 
+  /**
+   * The vehicle this estimate is already about.
+   *
+   * Resolved from the estimate's own linked vehicle so the technician is never
+   * asked to retype what Redlined1 already holds. `form.vehicle` is the label
+   * the picker stores, which is how the rest of this screen identifies it.
+   */
+  const searchVehicle = (() => {
+    const match = allVehicles.find(v => (v.label ?? '') === form.vehicle)
+      ?? allVehicles.find(v => Boolean(form.vehicle) && (v.label ?? '').startsWith(form.vehicle));
+    if (!match) return { vehicle: {}, label: form.vehicle || '' };
+    const v = match as unknown as {
+      vin?: string; year?: number | string; make?: string; model?: string;
+      trim?: string; engine?: string; label?: string;
+    };
+    const year = Number(v.year);
+    return {
+      vehicle: {
+        vin: v.vin || undefined,
+        year: Number.isFinite(year) && year > 1900 ? year : undefined,
+        make: v.make || undefined,
+        model: v.model || undefined,
+        trim: v.trim || undefined,
+        engine: v.engine || undefined,
+      },
+      label: [v.year, v.make, v.model, v.engine].filter(Boolean).join(' ') || v.label || form.vehicle || '',
+    };
+  })();
+
+  /**
+   * A chosen marketplace result becomes one estimate line.
+   *
+   * It is APPENDED, never applied over the line being edited: overwriting
+   * something half-typed would lose work the technician did not ask to lose.
+   * The line lands in the same shape the form already uses — description,
+   * qty, cost, markup, rate — so from here on it behaves like any other line
+   * and the existing totals math applies unchanged.
+   */
+  function handleAddSearchedPart(payload: AddPartPayload) {
+    const built = buildEstimateLineFromPart({
+      part: payload.part,
+      qty: payload.qty,
+      markupType: payload.markupType,
+      markupValue: payload.markupValue,
+      currency: form.currency,
+    });
+
+    const newLine: FormLine = {
+      description: built.description,
+      laoDescription: '',
+      qty: String(built.qty),
+      cost: built.cost === undefined ? '' : String(built.cost),
+      markup: built.markup === undefined ? '' : String(built.markup),
+      rate: String(built.rate),
+      currency: '',
+      note: built.note,
+      partsSource: built.partsSource,
+    };
+
+    setForm(f => {
+      const ls = [...f.lines];
+      // A blank first line is the form's default; fill it rather than leaving
+      // an empty row above the part that was just added.
+      const blankIdx = ls.findIndex(l => !l.description.trim() && (!l.cost || l.cost === '') && l.rate === '0');
+      if (blankIdx !== -1) ls[blankIdx] = newLine;
+      else {
+        const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
+        if (lastIsLabor) ls.splice(ls.length - 1, 0, newLine);
+        else ls.push(newLine);
+      }
+      return { ...f, lines: ls };
+    });
+
+    notify(`${built.description} added at ${form.currency} ${built.rate}.`);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.customerName) return setError('Customer name is required.');
@@ -342,12 +428,16 @@ export function EstimatesView() {
       const cost = parseFloat(l.cost);
       const markup = parseFloat(l.markup);
       return {
-        note: '', description: l.description,
+        note: l.note ?? '', description: l.description,
         ...(l.laoDescription ? { laoDescription: l.laoDescription } : {}),
         qty: parseFloat(l.qty) || 0, rate: parseFloat(l.rate) || 0,
         ...(isNaN(cost) ? {} : { cost }),
         ...(isNaN(markup) ? {} : { markup }),
         ...(l.currency ? { currency: l.currency } : {}),
+        // Carried through untouched. The snapshot is written once, when the
+        // part is chosen, and editing the line afterwards must not silently
+        // rewrite what the market said at that moment.
+        ...(l.partsSource ? { partsSource: l.partsSource } : {}),
       };
     });
     try {
@@ -816,13 +906,21 @@ export function EstimatesView() {
               <div style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <label className="section-label" style={{ marginBottom: 0 }}>Line Items</label>
-                  <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
-                    const ls = [...f.lines];
-                    const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
-                    if (lastIsLabor) ls.splice(ls.length - 1, 0, { ...EMPTY_LINE });
-                    else ls.push({ ...EMPTY_LINE });
-                    return { ...f, lines: ls };
-                  })}>+ Add Line</button>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {/* Search Parts sits BESIDE Add Line rather than replacing
+                        it. Manual entry is the fallback whenever a provider is
+                        down, and it must never become the harder path. */}
+                    <button type="button" className="mini-btn" onClick={() => setPartsSearchOpen(true)}>
+                      🔍 Search Parts
+                    </button>
+                    <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
+                      const ls = [...f.lines];
+                      const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
+                      if (lastIsLabor) ls.splice(ls.length - 1, 0, { ...EMPTY_LINE });
+                      else ls.push({ ...EMPTY_LINE });
+                      return { ...f, lines: ls };
+                    })}>+ Add Line</button>
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 0.5fr 0.9fr 0.75fr 0.8fr 1fr auto', gap: 4, marginBottom: 4 }}>
                   {['Description (EN)', 'ລາຍລະອຽດ (ລາວ)', 'Qty', 'Cost', 'Markup %', '', ratesFetching ? 'Line Total ⟳' : 'Line Total', ''].map((h, idx) => (
@@ -959,6 +1057,22 @@ export function EstimatesView() {
               </div>
             </form>
           )}
+
+          {/* Outside the <form>: the modal has its own inputs and buttons, and
+              nesting them would let Enter inside the search box submit the
+              estimate. */}
+          {/* Mounted only while open, so closing genuinely discards its state
+              rather than leaving a previous search sitting behind a hidden
+              modal. */}
+          {partsSearchOpen && <PartsSearchModal
+            open={partsSearchOpen}
+            onClose={() => setPartsSearchOpen(false)}
+            shopId={getShopId()}
+            currency={form.currency}
+            vehicle={searchVehicle.vehicle}
+            vehicleLabel={searchVehicle.label}
+            onAdd={handleAddSearchedPart}
+          />}
 
           {loading && <p style={{ color: 'var(--muted)' }}>Loading estimates…</p>}
           {!loading && filtered.length === 0 && (
