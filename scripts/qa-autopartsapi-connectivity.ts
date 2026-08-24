@@ -24,6 +24,11 @@ import {
   credentialStatus, hasCredentials, resolveBaseUrl, buildProviderUrl,
   listLanguages, resolveLocale, PHASE1_LANGUAGE_NAME,
 } from '../lib/parts/providers/autopartsapi/client';
+import { autoPartsApiRequest } from '../lib/parts/providers/autopartsapi/client';
+import {
+  SEARCH_BY_OEM, searchByOemQuery, AUTOPARTS_ENGLISH_LANG_ID,
+} from '../lib/parts/providers/autopartsapi/endpoints';
+import { normalizeAutoPartsResponse } from '../lib/parts/providers/autopartsapi/normalize';
 import { AutoPartsApiError } from '../lib/parts/providers/autopartsapi/types';
 
 config({ path: '.env.local' });
@@ -78,7 +83,7 @@ async function main() {
     pass(`GET /languages/list -> ${rows.length} records`);
 
     const sample = rows.slice(0, 5)
-      .map(r => `${r.id ?? r.languageId ?? r.lang_id}:${r.name ?? r.language ?? r.code ?? '?'}`)
+      .map(r => `${r.lngId ?? r.id ?? '?'}:${r.lngDescription ?? r.name ?? r.lngIso2 ?? '?'}`)
       .join('  ');
     line(`         sample: ${sample}`);
 
@@ -92,10 +97,53 @@ async function main() {
       fail(`locale resolution: ${(e as AutoPartsApiError).kind ?? (e as Error).message}`);
     }
 
+    // ── Gate 2: exactly ONE OEM search ──────────────────────────────────────
+    //
+    // One call, not a loop. The free plan is small and an exploratory sweep
+    // is how a month's quota disappears in an afternoon.
+    const oem = process.env.AUTOPARTS_TEST_OEM?.trim() || '04465-0K340';
     line('');
-    line('Catalogue/OEM search: NOT ATTEMPTED — the search endpoint is not');
-    line('documented to this codebase. See AUTOPARTS_SEARCH_PATH in');
-    line('lib/parts/providers/autopartsapi/provider.ts.');
+    line(`OEM search: GET /${SEARCH_BY_OEM}?langId=${AUTOPARTS_ENGLISH_LANG_ID}&articleOemNo=${oem}`);
+
+    try {
+      const payload = await autoPartsApiRequest<unknown>(
+        SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID));
+
+      // Sanitised evidence only — shape and counts, never a full payload.
+      const topLevel = Array.isArray(payload)
+        ? `array(${payload.length})`
+        : `object{${Object.keys(payload as object).slice(0, 8).join(',')}}`;
+      pass(`HTTP 200, top-level ${topLevel}`);
+
+      const normalized = normalizeAutoPartsResponse(payload, {
+        query: oem, oemNumber: oem, currency: 'USD',
+      }, { checkedAt: new Date().toISOString() });
+
+      if (!normalized.length) {
+        fail('normalisation produced 0 records — the live shape differs from the fixtures');
+        line('         Capture a sanitised fixture and update normalize.ts.');
+        line('         Do NOT bend the live response to match guessed fields.');
+      } else {
+        pass(`normalisation -> ${normalized.length} article(s)`);
+        const a = normalized[0];
+        line('');
+        line('  SANITISED SAMPLE RESULT');
+        line(`    article id     ${a.providerListingId ?? '(none)'}`);
+        line(`    article no     ${a.manufacturerPartNumber ?? '(none)'}`);
+        line(`    brand          ${a.brand ?? '(none)'}`);
+        line(`    description    ${(a.title ?? '').slice(0, 70)}`);
+        line(`    OEM refs       ${a.oemNumbers?.length ?? 0}`);
+        line(`    image          ${a.imageUrl ? 'present' : 'none'}`);
+        line(`    price          ${a.itemPrice === undefined ? 'none (catalogue publishes identity, not offers)' : 'PRESENT — investigate'}`);
+        line(`    fitment        ${a.fitmentStatus}`);
+        line('');
+        line('  Vehicle applicability: requires a provider manufacturer-id,');
+        line('  which Redlined1 does not resolve yet. NOT ATTEMPTED (quota).');
+      }
+    } catch (e) {
+      const kind = e instanceof AutoPartsApiError ? e.kind : 'unknown';
+      fail(`OEM search failed: ${kind}`);
+    }
   } catch (e) {
     const kind = e instanceof AutoPartsApiError ? e.kind : 'unknown';
     fail(`live call failed: ${kind}`);

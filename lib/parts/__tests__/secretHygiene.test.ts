@@ -108,6 +108,10 @@ describe('the AutoPartsAPI key never leaves the environment', () => {
         if (!m) continue;
         // Known-safe: the obviously-fake key used by the unit tests.
         if (SAFE_LITERAL.test(m[1])) continue;
+        // A kebab-case slug is an endpoint path, not a credential — the
+        // provider's own paths run past 60 characters. A real key carries
+        // mixed case, digits and underscores rather than hyphenated words.
+        if (/^[a-z0-9]+(-[a-z0-9]+)+$/.test(m[1])) continue;
         suspicious.push(`${rel(f)}: ${m[1].slice(0, 12)}…`);
       }
     }

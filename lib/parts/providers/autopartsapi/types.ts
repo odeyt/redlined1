@@ -50,8 +50,22 @@ export interface AutoPartsLocale {
   countryFilterId?: number;
 }
 
-/** A row from `/languages/list`. Field names are tolerated in several forms. */
+/**
+ * A row from `/languages/list`, as the live API actually returns it.
+ *
+ * Observed 2026-08-24: `{ lngId: "4", lngIso2: "en", lngDescription: "English (GB)" }`.
+ * Note `lngId` is a STRING even though every path wants a number — reading it
+ * as one without coercion yields `NaN` in a URL, which is the sort of failure
+ * that looks like an authentication problem.
+ *
+ * The older speculative field names are retained as optional so a provider
+ * rename does not break the resolver outright.
+ */
 export interface AutoPartsLanguageRow {
+  lngId?: number | string;
+  lngIso2?: string;
+  lngDescription?: string;
+  // Tolerated fallbacks.
   id?: number | string;
   languageId?: number | string;
   lang_id?: number | string;
@@ -69,9 +83,41 @@ export interface AutoPartsLanguageRow {
  * us yet. Nothing in Phase 1 depends on a field being present; a row that
  * cannot produce a title is dropped rather than shown.
  */
+/**
+ * An article from `search-by-article-oem-no`, as the live API returns it.
+ *
+ * Observed 2026-08-24 against OEM `04465-0K340` (277 rows). The field names
+ * are nothing like the speculative ones this file previously carried, and two
+ * of them are actively misleading if read at face value:
+ *
+ *   articleNo        the AFTERMARKET part number ("T360A127")
+ *   supplierName     the PART BRAND ("NPS", "Omnicraft")
+ *   manufacturerName the VEHICLE MARQUE the OEM number belongs to
+ *                    ("CHRYSLER", "FORD") — NOT the part's brand
+ *
+ * Reading `manufacturerName` as the brand would put "CHRYSLER" on an estimate
+ * line for an NPS brake pad. Reading it as the vehicle marque is what makes it
+ * useful: see `vehicleManufacturer` in normalize.ts.
+ */
 export interface AutoPartsArticle {
-  id?: number | string;
   articleId?: number | string;
+  /** The OEM number this row was matched on, in the catalogue's formatting. */
+  articleSearchNo?: string;
+  /** The aftermarket part number. */
+  articleNo?: string;
+  articleProductName?: string;
+  /** The VEHICLE marque, not the part brand. */
+  manufacturerId?: number | string;
+  manufacturerName?: string;
+  /** The part brand. */
+  supplierId?: number | string;
+  supplierName?: string;
+  articleMediaType?: string;
+  articleMediaFileName?: string;
+  s3image?: string;
+
+  // Tolerated fallbacks, in case the provider renames.
+  id?: number | string;
   name?: string;
   title?: string;
   description?: string;

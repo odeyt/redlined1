@@ -4,45 +4,42 @@ import 'server-only';
  * AutoPartsAPI as a Redlined1 parts provider.
  *
  * It occupies the existing `catalog` slot rather than adding a registry entry:
- * the OEM cross-reference abstraction already exists, AutoPartsAPI is an
- * implementation of it, and a second entry would mean two places to switch a
- * catalogue on.
+ * the OEM cross-reference abstraction already exists and this is an
+ * implementation of it.
  *
- * ## Why search is not wired yet, deliberately
+ * ## What it searches, and what it does not
  *
- * Two endpoints are confirmed from the provider dashboard — `/languages/list`
- * and a country lookup. The catalogue/OEM SEARCH endpoint is not, and the
- * brief is explicit that paths must not be assumed beyond current
- * documentation.
+ * The OEM number is the query. `search-by-article-oem-no` is the primary
+ * endpoint, and it answers "which aftermarket articles correspond to this OEM
+ * number" — which is the question a parts counter actually asks.
  *
- * Guessing one would fail in the most expensive way available: every attempt
- * spends free-tier quota, a 404 is indistinguishable from "no parts found"
- * unless it is classified, and a wrong-but-working path could return a
- * different resource that normalises into plausible parts. So `searchParts`
- * returns nothing and `health()` says exactly what is missing.
+ * Free-text search for a KNOWN vehicle exists in the API
+ * (`selecting-oem-parts-vehicle-modification-description-product-group`) and
+ * is NOT wired, because it needs a provider `vehicle-id` and Redlined1 holds
+ * VINs and labels, not this provider's vehicle ids. Resolving one is its own
+ * piece of work with its own quota cost. So a search with no OEM number
+ * returns nothing here rather than guessing an id — eBay already covers
+ * free-text, and a catalogue guessing at a vehicle is worse than a catalogue
+ * staying quiet.
  *
- * Everything underneath it — auth, base URL, timeout, error classification,
- * locale resolution, quota protection, normalisation, fitment rules — is
- * built and tested. Wiring the search is one function and one path once the
- * endpoint is documented.
+ * ## Quota
+ *
+ * ONE call per search in the normal case. Applicability is fetched only when
+ * an OEM search actually returned articles AND the estimate has a vehicle to
+ * check against, because an applicability list with nothing to compare it to
+ * is a call spent for nothing.
  */
 import { logger } from '@/lib/logger';
-import { hasCredentials, resolveLocale } from './client';
+import { autoPartsApiRequest, hasCredentials } from './client';
+import {
+  SEARCH_BY_OEM, searchByOemQuery, equalOemPath, aftermarketCrossRefPath,
+  vehicleApplicabilityPath, toAutoPartsTypeId, AUTOPARTS_ENGLISH_LANG_ID,
+} from './endpoints';
+import { normalizeAutoPartsResponse, extractApplicability } from './normalize';
+import { buildVerdict, type EvidenceItem, type VehicleApplicability } from './evidence';
 import type {
   NormalizedPartResult, PartsProvider, PartsSearchInput, ProviderHealth,
 } from '../../types';
-
-/**
- * The documented catalogue search path, once known.
- *
- * Left as an environment-supplied value ONLY so the operator can enable it the
- * moment the documentation confirms it, without a code change. It is still
- * validated as a safe relative path by `buildProviderUrl` and can never
- * become an absolute URL or reach another host.
- */
-function configuredSearchPath(): string {
-  return (process.env.AUTOPARTS_SEARCH_PATH ?? '').trim();
-}
 
 export function autoPartsApiHealth(): ProviderHealth {
   if (!hasCredentials()) {
@@ -54,20 +51,21 @@ export function autoPartsApiHealth(): ProviderHealth {
       reason: 'AUTOPARTS_API_KEY is not configured for this environment.',
     };
   }
-
-  if (!configuredSearchPath()) {
-    return {
-      id: 'catalog',
-      name: 'AutoPartsAPI catalogue',
-      enabled: false,
-      status: 'disabled_by_config',
-      reason:
-        'Credentials are present and connectivity can be proven, but the catalogue ' +
-        'search endpoint has not been mapped from the provider documentation yet.',
-    };
-  }
-
   return { id: 'catalog', name: 'AutoPartsAPI catalogue', enabled: true, status: 'ready' };
+}
+
+/** The OEM number this search is about, if any. */
+function oemFor(input: PartsSearchInput): string | null {
+  const explicit = (input.oemNumber ?? '').trim();
+  if (explicit) return explicit;
+
+  // A query that IS an OEM number is common — a technician pastes it into the
+  // search box. Accepted only when the whole query looks like a part number,
+  // never when it is prose like "front brake pads".
+  const q = (input.query ?? '').trim();
+  if (/^[A-Za-z0-9][A-Za-z0-9._-]{4,29}$/.test(q) && /\d/.test(q)) return q;
+
+  return null;
 }
 
 export const autoPartsApiProvider: PartsProvider = {
@@ -83,21 +81,127 @@ export const autoPartsApiProvider: PartsProvider = {
   async searchParts(input: PartsSearchInput): Promise<NormalizedPartResult[]> {
     if (!this.enabled()) return [];
 
-    // Reached only once an endpoint is configured. The locale is resolved from
-    // the provider's own reference data (cached for a day) rather than from a
-    // hard-coded lang-id.
-    try {
-      const locale = await resolveLocale();
-      logger.info('parts.autopartsapi.locale_resolved', { languageId: locale.languageId });
-    } catch {
-      logger.warn('parts.autopartsapi.locale_unresolved', {});
+    const oem = oemFor(input);
+    if (!oem) {
+      // Not a failure. This provider answers OEM questions; a free-text
+      // search is eBay's job until vehicle-id resolution exists.
+      logger.info('parts.autopartsapi.skipped_no_oem', {});
       return [];
     }
 
-    // Intentionally not implemented. See the note at the top of this file:
-    // the search path is not documented to us, and inventing one spends quota
-    // to produce results nobody can trust.
-    void input;
-    return [];
+    const checkedAt = new Date().toISOString();
+
+    // ── 1. The one call every OEM search makes ──────────────────────────────
+    const payload = await autoPartsApiRequest<unknown>(
+      SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID));
+
+    const articles = normalizeAutoPartsResponse(payload, input, { checkedAt });
+    if (!articles.length) return [];
+
+    // ── 2. Applicability, only when it can actually be checked ──────────────
+    let applicability: VehicleApplicability[] = [];
+    const canCheckVehicle = Boolean(input.make && input.model);
+    const manufacturerId = Number((input as { manufacturerId?: number }).manufacturerId);
+
+    if (canCheckVehicle && Number.isInteger(manufacturerId) && manufacturerId > 0) {
+      try {
+        const applicabilityPayload = await autoPartsApiRequest<unknown>(
+          vehicleApplicabilityPath({
+            typeId: toAutoPartsTypeId('car'),
+            manufacturerId,
+            oem,
+          }));
+        applicability = extractApplicability(applicabilityPayload);
+      } catch {
+        // A failed applicability lookup costs the VERIFIED claim, not the
+        // search. The articles are still useful.
+        logger.warn('parts.autopartsapi.applicability_failed', {});
+      }
+    }
+
+    // ── 3. Evidence per article ─────────────────────────────────────────────
+    return articles.map(article => {
+      const evidence: EvidenceItem[] = [{
+        kind: 'exact_oem',
+        detail: `Returned by the catalogue for OEM number ${oem}.`,
+        source: 'articles-oem',
+      }];
+
+      if (article.manufacturerPartNumber
+        && (input.manufacturerPartNumber ?? '').trim().toUpperCase()
+          === article.manufacturerPartNumber.toUpperCase()) {
+        evidence.push({
+          kind: 'mpn_relation',
+          detail: `Manufacturer part number matches ${article.manufacturerPartNumber}.`,
+          source: 'articles-oem',
+        });
+      }
+
+      if (applicability.length) {
+        evidence.push({
+          kind: 'vehicle_applicability',
+          detail: `Catalogue lists ${applicability.length} vehicle application(s) for this number.`,
+          source: 'articles-oem',
+        });
+      }
+
+      const verdict = buildVerdict({
+        evidence,
+        applicability,
+        vehicle: { make: input.make, model: input.model, year: input.year },
+      });
+
+      return {
+        ...article,
+        fitmentStatus: verdict.fitmentStatus,
+        fitmentReason: verdict.fitmentReason,
+      };
+    });
   },
 };
+
+/**
+ * Deeper evidence for ONE article the technician is looking at.
+ *
+ * Deliberately not part of `searchParts`: running it per result would turn one
+ * search into a dozen calls and empty a free-tier month in an afternoon. It is
+ * called on demand, for a single article, when someone wants to know why.
+ */
+export async function fetchDeepEvidence(oem: string): Promise<EvidenceItem[]> {
+  if (!hasCredentials()) return [];
+  const evidence: EvidenceItem[] = [];
+
+  const [equal, cross] = await Promise.allSettled([
+    autoPartsApiRequest<unknown>(equalOemPath(oem)),
+    autoPartsApiRequest<unknown>(aftermarketCrossRefPath(oem)),
+  ]);
+
+  const count = (r: PromiseSettledResult<unknown>): number => {
+    if (r.status !== 'fulfilled') return 0;
+    const v = r.value as { data?: unknown[]; items?: unknown[] };
+    if (Array.isArray(r.value)) return (r.value as unknown[]).length;
+    if (Array.isArray(v?.data)) return v.data.length;
+    if (Array.isArray(v?.items)) return v.items.length;
+    return 0;
+  };
+
+  const equalCount = count(equal);
+  if (equalCount) {
+    evidence.push({
+      kind: 'equal_oem',
+      detail: `${equalCount} equal OEM reference(s) confirmed by the catalogue.`,
+      source: 'articles-oem',
+    });
+  }
+
+  const crossCount = count(cross);
+  if (crossCount) {
+    evidence.push({
+      kind: 'cross_reference',
+      detail: `${crossCount} aftermarket cross-reference(s) published for this OEM number.`,
+      source: 'artlookup',
+    });
+  }
+
+  return evidence;
+}

@@ -1,0 +1,41 @@
+[
+  {
+    "articleId": 9298688,
+    "articleSearchNo": "044650-K340",
+    "articleNo": "T360A127",
+    "articleProductName": "Brake Pad Set, disc brake",
+    "manufacturerId": 20,
+    "manufacturerName": "CHRYSLER",
+    "supplierId": 440,
+    "supplierName": "NPS",
+    "articleMediaType": "JPEG",
+    "articleMediaFileName": "REDACTED-MEDIA-FILENAME.jpg",
+    "s3image": "https://fsn1.your-objectstorage.com/tecdoc/REDACTED-1.jpg"
+  },
+  {
+    "articleId": 8658917,
+    "articleSearchNo": "04465-0K340",
+    "articleNo": "QBR122",
+    "articleProductName": "Brake Pad Set, disc brake",
+    "manufacturerId": 36,
+    "manufacturerName": "FORD",
+    "supplierId": 4380,
+    "supplierName": "Omnicraft",
+    "articleMediaType": "PNG",
+    "articleMediaFileName": "REDACTED-MEDIA-FILENAME.png",
+    "s3image": "https://fsn1.your-objectstorage.com/tecdoc/REDACTED-2.png"
+  },
+  {
+    "articleId": 7712004,
+    "articleSearchNo": "04465-0K340",
+    "articleNo": "ADT342192",
+    "articleProductName": "Brake Pad Set, disc brake",
+    "manufacturerId": 111,
+    "manufacturerName": "TOYOTA",
+    "supplierId": 199,
+    "supplierName": "BLUE PRINT",
+    "articleMediaType": "JPEG",
+    "articleMediaFileName": "REDACTED-MEDIA-FILENAME.jpg",
+    "s3image": "https://fsn1.your-objectstorage.com/tecdoc/REDACTED-3.jpg"
+  }
+]

@@ -80,7 +80,23 @@ export function credentialStatus(): 'PRESENT' | 'MISSING' {
  */
 const SAFE_SEGMENT = /^[A-Za-z0-9._~-]+$/;
 
-export function buildProviderUrl(path: string, baseUrl = resolveBaseUrl()): string {
+/**
+ * Query parameters we are willing to send.
+ *
+ * Kept separate from the path deliberately. The path grammar refuses `?`
+ * outright, so a caller cannot smuggle a query in through a path segment; a
+ * query has to be declared as data and is then encoded by `URLSearchParams`,
+ * which is the only thing that escapes it correctly.
+ */
+export type QueryParams = Record<string, string | number>;
+
+const SAFE_PARAM_NAME = /^[A-Za-z][A-Za-z0-9_]{0,40}$/;
+
+export function buildProviderUrl(
+  path: string,
+  query?: QueryParams,
+  baseUrl = resolveBaseUrl(),
+): string {
   const raw = String(path ?? '').trim();
 
   if (!raw) throw new AutoPartsApiError('bad_request', undefined, 'empty path');
@@ -103,6 +119,23 @@ export function buildProviderUrl(path: string, baseUrl = resolveBaseUrl()): stri
   // Belt and braces: whatever the pieces were, the result must still be a
   // https URL on the allowed host.
   const parsed = new URL(url);
+  if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith(ALLOWED_HOST_SUFFIX)) {
+    throw new AutoPartsApiError('bad_request', undefined, 'resolved host not allowed');
+  }
+
+  for (const [name, value] of Object.entries(query ?? {})) {
+    if (!SAFE_PARAM_NAME.test(name)) {
+      throw new AutoPartsApiError('bad_request', undefined, 'illegal query name');
+    }
+    const v = String(value);
+    if (v.length > 200) throw new AutoPartsApiError('bad_request', undefined, 'query value too long');
+    // set(), not string concatenation: this is what encodes a value correctly.
+    parsed.searchParams.set(name, v);
+  }
+
+  // Re-checked AFTER the query is applied. A value cannot move the host, but
+  // asserting it costs nothing and this is the function that must not be
+  // wrong.
   if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith(ALLOWED_HOST_SUFFIX)) {
     throw new AutoPartsApiError('bad_request', undefined, 'resolved host not allowed');
   }
@@ -130,11 +163,11 @@ function classify(status: number): AutoPartsApiError {
   return new AutoPartsApiError('bad_request', status);
 }
 
-export async function autoPartsApiRequest<T>(path: string): Promise<T> {
+export async function autoPartsApiRequest<T>(path: string, query?: QueryParams): Promise<T> {
   const key = (process.env.AUTOPARTS_API_KEY ?? '').trim();
   if (!key) throw new AutoPartsApiError('no_credentials');
 
-  const url = buildProviderUrl(path);
+  const url = buildProviderUrl(path, query);
 
   const existing = inFlight.get(url);
   if (existing) return existing as Promise<T>;
@@ -225,13 +258,21 @@ export async function listLanguages(now = Date.now()): Promise<AutoPartsLanguage
 }
 
 function rowId(row: AutoPartsLanguageRow): number | null {
-  const raw = row.id ?? row.languageId ?? row.lang_id;
+  // `lngId` arrives as a STRING ("4"). Coerced, because a NaN in a path reads
+  // downstream as an authentication failure rather than as a parsing one.
+  const raw = row.lngId ?? row.id ?? row.languageId ?? row.lang_id;
   const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : null;
 }
 
 function rowLabel(row: AutoPartsLanguageRow): string {
-  return String(row.name ?? row.language ?? row.title ?? row.code ?? row.iso ?? '').toLowerCase();
+  return String(
+    row.lngDescription ?? row.name ?? row.language ?? row.title ?? '',
+  ).toLowerCase();
+}
+
+function rowIso(row: AutoPartsLanguageRow): string {
+  return String(row.lngIso2 ?? row.code ?? row.iso ?? '').toLowerCase();
 }
 
 /**
@@ -253,10 +294,12 @@ export const PHASE1_LANGUAGE_NAME = 'english';
 export async function resolveLocale(): Promise<AutoPartsLocale> {
   const rows = await listLanguages();
 
+  // The live catalogue names it "English (GB)", so an exact-equality check on
+  // "english" finds nothing — startsWith and the ISO code both do.
   const match =
     rows.find(r => rowLabel(r) === PHASE1_LANGUAGE_NAME) ??
     rows.find(r => rowLabel(r).startsWith(PHASE1_LANGUAGE_NAME)) ??
-    rows.find(r => ['en', 'eng'].includes(rowLabel(r)));
+    rows.find(r => ['en', 'eng'].includes(rowIso(r)));
 
   const id = match ? rowId(match) : null;
   if (id === null) {

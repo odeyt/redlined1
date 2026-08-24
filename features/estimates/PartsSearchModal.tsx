@@ -216,9 +216,27 @@ export function PartsSearchModal({
 
   const qtyNum = Math.max(1, Number(qty) || 1);
   const landed = selected?.landedCost ?? selected?.itemPrice ?? 0;
+
+  /**
+   * Whether the SOURCE quoted a price at all.
+   *
+   * A catalogue (AutoPartsAPI) identifies a part; it does not sell it. With no
+   * source price a percentage markup has nothing to apply to — 35% of nothing
+   * is nothing — so the only honest control is the shop typing the sell price
+   * itself, through the estimate's existing manual pricing.
+   */
+  const hasSourcePrice = typeof selected?.landedCost === 'number'
+    || typeof selected?.itemPrice === 'number';
+
+  // Forced to manual when there is no source price, rather than silently
+  // producing a zero-cost line.
+  const effectiveMarkupType: MarkupType = hasSourcePrice ? markupType : 'manual';
+
   const markupNum = Number(markupValue);
   const markupReady = markupValue.trim() !== '' && Number.isFinite(markupNum);
-  const sellUnit = selected && markupReady ? sellPriceFor(landed, markupType, markupNum) : null;
+  const sellUnit = selected && markupReady
+    ? sellPriceFor(landed, effectiveMarkupType, markupNum)
+    : null;
 
   return (
     <div
@@ -520,7 +538,9 @@ export function PartsSearchModal({
               <label style={{ fontSize: 11, color: 'var(--muted)', flex: '0 0 120px' }}>
                 Markup
                 <select
-                  value={markupType}
+                  value={effectiveMarkupType}
+                  disabled={!hasSourcePrice}
+                  title={hasSourcePrice ? undefined : 'This source publishes no price, so the sell price is set directly.'}
                   onChange={e => setMarkupType(e.target.value as MarkupType)}
                   style={{ width: '100%', minHeight: 40, border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--surface-soft)', color: 'var(--text)' }}
                 >
@@ -531,7 +551,7 @@ export function PartsSearchModal({
               </label>
 
               <label style={{ fontSize: 11, color: 'var(--muted)', flex: '0 0 110px' }}>
-                {markupType === 'percentage' ? '%' : markupType === 'fixed' ? 'Amount' : 'Sell price'}
+                {effectiveMarkupType === 'percentage' ? '%' : effectiveMarkupType === 'fixed' ? 'Amount' : 'Sell price'}
                 <input
                   type="number" inputMode="decimal" value={markupValue}
                   onChange={e => setMarkupValue(e.target.value)}
@@ -543,7 +563,17 @@ export function PartsSearchModal({
               </label>
 
               <div style={{ flex: '1 1 140px', fontSize: 12 }}>
-                {canSeeCost && <div style={{ color: 'var(--muted)' }}>Landed {money(landed, selected.currency)}</div>}
+                {canSeeCost && (
+                  <div style={{ color: 'var(--muted)' }}>
+                    {/* A catalogue publishes what a part IS, not what it costs.
+                        Saying so is the honest answer; inventing a number here
+                        would put a price on a customer's estimate that no
+                        seller has ever quoted. */}
+                    {hasSourcePrice
+                      ? `Landed ${money(landed, selected.currency)}`
+                      : 'Price unavailable from this source'}
+                  </div>
+                )}
                 <div style={{ fontWeight: 800 }}>
                   Sell {sellUnit === null ? '—' : money(sellUnit, selected.currency)}
                   {qtyNum > 1 && sellUnit !== null && (
@@ -555,7 +585,7 @@ export function PartsSearchModal({
               <button
                 onClick={() => {
                   if (sellUnit === null) return;
-                  onAdd({ part: selected, qty: qtyNum, markupType, markupValue: markupNum });
+                  onAdd({ part: selected, qty: qtyNum, markupType: effectiveMarkupType, markupValue: markupNum });
                   onClose();
                 }}
                 disabled={sellUnit === null}
@@ -568,7 +598,9 @@ export function PartsSearchModal({
 
             {sellUnit === null && (
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-                Enter a markup to price this line. There is no shop default, so nothing is assumed.
+                {hasSourcePrice
+                  ? 'Enter a markup to price this line. There is no shop default, so nothing is assumed.'
+                  : 'This source lists the part but not a price. Enter the sell price to add it.'}
               </div>
             )}
           </div>

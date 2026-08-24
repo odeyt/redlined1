@@ -366,33 +366,111 @@ Exit `0` proven · `1` a check failed · `2` could not run. The `--conditions`
 flag is required because the client is `server-only`; needing it is the guard
 working.
 
-**Current result — run 2026-08-24:**
+**Current result — run 2026-08-24, LIVE:**
 
 ```
 Base URL:           https://auto-parts-catalog.apiprofile.com/api
-AUTOPARTS_API_KEY:  MISSING
+AUTOPARTS_API_KEY:  PRESENT
   PASS    URL construction
   PASS    hostile paths refused (SSRF guard)
-  BLOCKED live connectivity — no key configured
-  BLOCKED authentication (x-apiprofile-key) — not exercised
-  BLOCKED reference lookup (/languages/list) — not attempted
-NOT PROVEN.
+  PASS    authentication (x-apiprofile-key) accepted
+  PASS    GET /languages/list -> 42 records
+  PASS    locale resolved by NAME -> languageId 4
+  PASS    no country filter assumed in Phase 1
+  PASS    GET /articles-oem/search-by-article-oem-no -> array(277)
+  PASS    normalisation -> 277 articles
 ```
 
-## Why catalogue search is not wired
+## Documented endpoints in use
 
-Two endpoints are confirmed: `/languages/list` and the country lookup. The
-catalogue/OEM **search** endpoint is not, and §37 is explicit that paths must
-not be assumed beyond current documentation.
+| Purpose | Path |
+|---|---|
+| Reference / connectivity gate | `GET /languages/list` |
+| **Primary OEM search** | `GET /articles-oem/search-by-article-oem-no?langId=&articleOemNo=` |
+| Equal OEM references | `GET /articles-oem/search-all-equal-oem-no/lang-id/{}/article-oem-no/{}` |
+| Vehicle applicability | `GET /articles-oem/selecting-a-list-of-cars-for-oem-part-number/type-id/{}/lang-id/{}/country-filter-id/{}/manufacturer-id/{}/article-oem-no/{}` |
+| OEM parts for a known vehicle | `GET /articles-oem/selecting-oem-parts-vehicle-modification-description-product-group/…` — **not wired**, needs a provider `vehicle-id` |
+| Aftermarket cross-references | `GET /artlookup/search-for-the-oem-cross-references-through-aftermarket-parts-references/article-oem-no/{}` |
+| Analogues | `GET /artlookup/search-for-analogue-of-spare-parts-by-oem-number/article-oem-no/{}` |
+| Article cross-references | `GET /artlookup/select-article-cross-references/article-id/{}/lang-id/{}` |
+| Article by number | `GET /artlookup/search-articles-by-article-no?articleNo=&langId=` |
+| Partial match | `GET /artlookup/select-article-cross-references-partial-match?articleNo=&langId=` — **discovery only** |
 
-Guessing one fails in the most expensive way available: every attempt spends
-free-tier quota, a 404 is indistinguishable from "no parts found" unless
-classified, and a wrong-but-working path could return a different resource that
-normalises into plausible parts.
+`AUTOPARTS_SEARCH_PATH` is **removed**. It existed only while the endpoint was
+unknown.
 
-Everything underneath — auth, base URL, timeout, error classification, locale
-resolution, quota protection, normalisation, fitment — is built and tested.
-Set `AUTOPARTS_SEARCH_PATH` once the endpoint is documented.
+## The live response shape, and what it taught us
+
+Captured 2026-08-24. The first normaliser was written against guessed field
+names and produced **zero** records from a 277-row response.
+
+```
+/languages/list      { lngId: "4", lngIso2: "en", lngDescription: "English (GB)" }
+/articles-oem/…      { articleId, articleSearchNo, articleNo, articleProductName,
+                       manufacturerId, manufacturerName, supplierId, supplierName,
+                       articleMediaType, articleMediaFileName, s3image }
+```
+
+Three things were only discoverable by calling it:
+
+1. **`supplierName` is the part brand; `manufacturerName` is the vehicle
+   marque.** Reading `manufacturerName` as the brand would print "CHRYSLER" on
+   an estimate line for an NPS brake pad.
+2. **`lngId` is a string, and English is named "English (GB)".** An equality
+   check on `"english"` reported `malformed` against a perfectly good response.
+3. **OEM numbers collide across marques.** Searching Toyota's `04465-0K340`
+   returns rows under CHRYSLER and FORD as well as TOYOTA. An exact digit match
+   is therefore **not** on its own evidence about the vehicle on the estimate —
+   a row for the wrong marque is downgraded to `unverified` and says why.
+
+Fixture: `lib/parts/__tests__/fixtures/autopartsapi-oem-search.json` — 3 rows
+of 277, media filenames and image paths redacted, no credential.
+
+## Evidence model (§11–13)
+
+Six provider answers, kept distinct:
+
+| Evidence | Weight | Establishes equivalence? |
+|---|---|---|
+| exact OEM hit | 40 | **yes** |
+| cross-reference | 40 (shared) | **yes** |
+| vehicle applicability | 30 | no — it answers fitment |
+| MPN relation | 15 | no |
+| equal OEM | 10 | **yes** |
+| analogue | 5 | no |
+| partial match | **0** | no |
+
+`exact_oem` and `cross_reference` share one 40-point slot — both say nearly the
+same thing and holding both must not total 80. Each **kind** counts once, so a
+chatty endpoint cannot manufacture confidence.
+
+There is **no second-provider component**: one catalogue must not score as
+though two agreed.
+
+`VERIFIED EQUIVALENT` requires authoritative evidence — exact OEM, equal OEM,
+or an explicit cross-reference. **A score threshold can never produce it.**
+Partial matches are discovery only and can never independently create a
+verified equivalent or a verified fit.
+
+## Fitment from applicability only
+
+`verified` requires make **and** model to match a returned applicability
+record, with the estimate's year inside that record's window. A year outside
+the window is `likely`, **not** `incompatible` — the provider describes what it
+lists, and absence is not a rejection. This endpoint never produces
+`incompatible`.
+
+Applicability is fetched only when an OEM search returned articles **and** the
+estimate has a vehicle to check against — an applicability list with nothing to
+compare it to is a call spent for nothing.
+
+## Catalogue results carry no price
+
+`itemPrice`, `shippingCost` and `landedCost` are all absent;
+`landedCostCompleteness` is `unknown`, never a zero that would rank a catalogue
+row as the cheapest option. In the estimate the modal shows **"Price
+unavailable from this source"**, forces manual pricing, and the technician
+enters the sell price through the existing controls.
 
 ## Catalogue fitment
 
