@@ -916,22 +916,41 @@ export function PartsSearchModal({
                             across marques, so without this a Toyota part
                             number on a Mercedes estimate looks like any other
                             result. */}
-                        {r.vehicleManufacturer && (
-                          <span
-                            data-testid="row-marque"
-                            title={marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make)
-                              ? undefined
-                              : `Filed under ${r.vehicleManufacturer}, not ${vehicle.make}`}
-                            style={{
-                              fontWeight: 700,
-                              color: marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make)
-                                ? '#16a34a' : '#b45309',
-                            }}
-                          >
-                            {marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make) ? '' : '≠ '}
-                            {r.vehicleManufacturer}
-                          </span>
-                        )}
+                        {/**
+                          * THREE states, not two.
+                          *
+                          * With no vehicle on the estimate this printed
+                          * "≠ AUDI" — asserting the row's marque contradicts
+                          * a vehicle we do not have. Seen live on staging
+                          * against an unlinked vehicle.
+                          *
+                          * Absence is not contradiction, the same rule that
+                          * governs fitment. Without a marque to compare
+                          * against, the badge states the marque and stops.
+                          */}
+                        {r.vehicleManufacturer && (() => {
+                          const known = Boolean(vehicle.make);
+                          const matches = marqueMatchesVehicle(r.vehicleManufacturer, vehicle.make);
+                          const contradicts = known && !matches;
+                          return (
+                            <span
+                              data-testid="row-marque"
+                              data-marque-state={!known ? 'unknown' : matches ? 'match' : 'contradiction'}
+                              title={!known
+                                ? `Filed under ${r.vehicleManufacturer}. No vehicle on this estimate to compare against.`
+                                : contradicts
+                                  ? `Filed under ${r.vehicleManufacturer}, not ${vehicle.make}`
+                                  : undefined}
+                              style={{
+                                fontWeight: 700,
+                                color: !known ? 'var(--muted)' : matches ? '#16a34a' : '#b45309',
+                              }}
+                            >
+                              {contradicts ? '≠ ' : ''}
+                              {r.vehicleManufacturer}
+                            </span>
+                          );
+                        })()}
                         <span style={{ color: 'var(--muted)' }}>{r.provider}</span>
                         {r.condition && <span style={{ color: 'var(--muted)' }}>{r.condition}</span>}
                       </div>

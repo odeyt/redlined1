@@ -199,3 +199,28 @@ describe('model-level ambiguity is stated, never guessed past', () => {
     expect(MODAL).toContain("resolution.reasonCode !== 'model_ambiguous'");
   });
 });
+
+describe('a marque contradiction is only claimed when there is one', () => {
+  /**
+   * Seen live on staging: an OEM search on an estimate with no linked vehicle
+   * rendered "≠ AUDI". There was no vehicle to differ FROM. Absence is not
+   * contradiction — the same rule that governs fitment.
+   */
+  it('has three states, not two', () => {
+    expect(MODAL).toContain("data-marque-state={!known ? 'unknown' : matches ? 'match' : 'contradiction'}");
+  });
+
+  it('shows the ≠ mark only for a real contradiction', () => {
+    expect(MODAL).toContain("{contradicts ? '≠ ' : ''}");
+    expect(MODAL).toContain('const contradicts = known && !matches;');
+  });
+
+  it('says why it cannot compare when no vehicle is known', () => {
+    expect(MODAL).toContain('No vehicle on this estimate to compare against');
+  });
+
+  it('does not colour an unknown comparison as a warning', () => {
+    // Amber reads as "something is wrong". Nothing is wrong; we just cannot say.
+    expect(MODAL).toContain("color: !known ? 'var(--muted)' : matches ? '#16a34a' : '#b45309'");
+  });
+});
