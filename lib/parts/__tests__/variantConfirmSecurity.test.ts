@@ -82,8 +82,22 @@ describe('the route validates against candidates IT derived', () => {
   });
 
   it('reads the canonical vehicle server-side, never from the body', () => {
-    expect(ROUTE).toContain('async function loadVehicle');
-    expect(ROUTE).toContain(".eq('shop_id', shopId)");
+    /**
+     * The loader moved into lib/parts/vehicleResolution/loadVehicle.ts so the
+     * search route reads the vehicle the SAME way. It previously built its
+     * own from the request body, which omits transmission and fuelType, and
+     * the resulting fingerprint mismatch made this endpoint reject 95 of 115
+     * vehicles with 409 VEHICLE_CHANGED.
+     *
+     * The property under test is unchanged — server-side, scoped to the shop
+     * — so it is asserted where the code now lives.
+     */
+    expect(ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    const loader = readFileSync(
+      join(process.cwd(), 'lib/parts/vehicleResolution/loadVehicle.ts'), 'utf8');
+    expect(loader).toContain(".eq('shop_id', shopId)");
+    expect(loader).toContain(".eq('id', vehicleId)");
+
     const schema = ROUTE.slice(0, ROUTE.indexOf('async function getAuth'));
     expect(schema).not.toMatch(/\bengine\s*:/);
     expect(schema).not.toMatch(/\bmake\s*:/);

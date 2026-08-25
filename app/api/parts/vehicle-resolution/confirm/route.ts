@@ -8,8 +8,7 @@ import { vehicleFingerprint } from '@/lib/parts/vehicleResolution/fingerprint';
 import {
   writeMapping, vehicleBelongsToShop, candidateWasOffered,
 } from '@/lib/parts/vehicleResolution/mappingStore';
-import { getAdminDb } from '@/lib/supabaseServer';
-import type { CanonicalVehicle } from '@/lib/parts/vehicleResolution/types';
+import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
 
 /**
  * POST /api/parts/vehicle-resolution/confirm
@@ -77,30 +76,6 @@ async function getAuth(shopId: string) {
   return { userId: user.id, role: (row as { role?: string }).role ?? '' };
 }
 
-/** The canonical vehicle, read server-side. Never taken from the request. */
-async function loadVehicle(shopId: string, vehicleId: string): Promise<CanonicalVehicle | null> {
-  const { data } = await getAdminDb()
-    .from('vehicles')
-    .select('id, vin, year, make, model, trim, engine, transmission, fuel_type')
-    .eq('id', vehicleId)
-    .eq('shop_id', shopId)
-    .maybeSingle();
-
-  if (!data) return null;
-  const v = data as Record<string, unknown>;
-  return {
-    id: String(v.id),
-    vin: (v.vin as string) || undefined,
-    year: Number(v.year) || undefined,
-    make: (v.make as string) || undefined,
-    model: (v.model as string) || undefined,
-    trim: (v.trim as string) || undefined,
-    engine: (v.engine as string) || undefined,
-    transmission: (v.transmission as string) || undefined,
-    fuelType: (v.fuel_type as string) || undefined,
-  };
-}
-
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -127,7 +102,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }
 
-  const vehicle = await loadVehicle(input.shopId, input.vehicleId);
+  const vehicle = await loadCanonicalVehicle(input.shopId, input.vehicleId);
   if (!vehicle) {
     return NextResponse.json({ code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }

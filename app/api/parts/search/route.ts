@@ -10,6 +10,7 @@ import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
 import { readMapping, writeMapping } from '@/lib/parts/vehicleResolution/mappingStore';
 import { searchPartsForVehicle } from '@/lib/parts/vehicleFirst/search';
 import { vehicleFirstTarget } from '@/lib/parts/vehicleFirst/gate';
+import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
 
 /**
  * POST /api/parts/search — the only way the browser reaches a provider.
@@ -204,11 +205,21 @@ export async function POST(req: NextRequest) {
     let resolvedProviderVehicleId: number | undefined;
     if (input.vehicleId && input.make && input.model) {
       try {
-        const canonical = {
-          id: input.vehicleId,
-          vin: input.vin, year: input.year, make: input.make, model: input.model,
-          trim: input.trim, engine: input.engine,
-        };
+        /**
+         * Read from the database, NOT from the request body.
+         *
+         * The body carries what the estimate form holds — no `transmission`,
+         * no `fuelType` — and the fingerprint covers both. Resolving against
+         * the partial object produced a fingerprint the confirm route could
+         * never reproduce, so every technician confirming a variant got 409
+         * VEHICLE_CHANGED. On this shop's data that was 95 of 115 vehicles.
+         *
+         * It also means the fields that decide a fitment claim are no longer
+         * taken from the browser.
+         */
+        const canonical = await loadCanonicalVehicle(input.shopId, input.vehicleId);
+        if (!canonical) throw new Error('vehicle not available to this shop');
+
         const existingMapping = await readMapping(input.shopId, input.vehicleId);
         const outcome = await resolveProviderVehicle(canonical, {
           shopId: input.shopId,
