@@ -86,6 +86,7 @@ CREATE INDEX IF NOT EXISTS parts_provider_usage_context_idx
 DO $$
 DECLARE
   v_nullable TEXT;
+  v_col TEXT;
 BEGIN
   SELECT is_nullable INTO v_nullable
     FROM information_schema.columns
@@ -97,16 +98,17 @@ BEGIN
     RAISE EXCEPTION 'shop_id must be nullable so untenanted calls are still counted';
   END IF;
 
-  FOR v_nullable IN
-    SELECT unnest(ARRAY['call_context', 'outcome', 'status_class', 'latency_ms'])
+  -- A separate iterator. Reusing v_nullable would have worked and read as a
+  -- bug, which is its own kind of defect in a file people audit.
+  FOREACH v_col IN ARRAY ARRAY['call_context', 'outcome', 'status_class', 'latency_ms']
   LOOP
     IF NOT EXISTS (
       SELECT 1 FROM information_schema.columns
        WHERE table_schema = 'public'
          AND table_name = 'parts_provider_usage_events'
-         AND column_name = v_nullable
+         AND column_name = v_col
     ) THEN
-      RAISE EXCEPTION 'column % was not created', v_nullable;
+      RAISE EXCEPTION 'column % was not created', v_col;
     END IF;
   END LOOP;
 
