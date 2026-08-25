@@ -8,6 +8,8 @@ import { getAllProviderHealth, anyProviderEnabled } from '@/lib/parts/providerRe
 import { rankParts } from '@/lib/parts/recommendation';
 import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
 import { readMapping, writeMapping } from '@/lib/parts/vehicleResolution/mappingStore';
+import { searchPartsForVehicle } from '@/lib/parts/vehicleFirst/search';
+import { vehicleFirstTarget } from '@/lib/parts/vehicleFirst/gate';
 
 /**
  * POST /api/parts/search — the only way the browser reaches a provider.
@@ -199,6 +201,7 @@ export async function POST(req: NextRequest) {
      * and spending twelve.
      */
     let vehicleResolution: unknown;
+    let resolvedProviderVehicleId: number | undefined;
     if (input.vehicleId && input.make && input.model) {
       try {
         const canonical = {
@@ -223,6 +226,8 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        resolvedProviderVehicleId = vehicleFirstTarget(input, outcome.resolution);
+
         vehicleResolution = {
           status: outcome.resolution.resolutionStatus,
           reason: outcome.resolution.evidence.at(-1)?.detail ?? '',
@@ -241,6 +246,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    /**
+     * Vehicle-first discovery. The gate that decides whether this runs at all
+     * lives in `vehicleFirstTarget`, which returns the id to scope by.
+     *
+     * Non-fatal, like resolution: a failure here costs the vehicle-specific
+     * results, never the search.
+     */
+    let productGroups: unknown;
+
+    if (resolvedProviderVehicleId) {
+      try {
+        const vf = await searchPartsForVehicle({
+          shopId: input.shopId,
+          providerVehicleId: resolvedProviderVehicleId,
+          query: input.query,
+          currency: input.currency,
+        });
+        // Prepended: these are scoped to this vehicle, and a generic result
+        // has no business above one the catalogue listed for the car itself.
+        response.results.unshift(...vf.results);
+        productGroups = vf.productGroups;
+      } catch {
+        logger.warn('parts_vehicle_first_search_failed', { shopId: input.shopId });
+      }
+    }
+
     const scored = rankParts(response.results, { vehicleMake: input.make });
 
     logger.info('parts_search_completed', {
@@ -256,6 +287,7 @@ export async function POST(req: NextRequest) {
       searchedAt: response.searchedAt,
       role: auth.role,
       vehicleResolution,
+      productGroups,
     });
   } catch (err) {
     // Reaching here means the orchestrator itself failed, not a provider —

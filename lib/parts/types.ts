@@ -125,6 +125,25 @@ export interface NormalizedPartResult {
   fitmentStatus: FitmentStatus;
   fitmentReason?: string;
 
+  /**
+   * The provider's own grouping for this article — "Brake Pad Set".
+   *
+   * Carried per result so the category chips filter what is already on
+   * screen. Re-querying per chip would spend a provider call to narrow a list
+   * we are already holding.
+   */
+  productGroup?: string;
+
+  /**
+   * How well this answers what was TYPED — a third question, kept apart from
+   * part identity and from vehicle fitment on purpose. A brake disc can be a
+   * perfect part, correctly fitted, and a poor answer to "brake pads".
+   *
+   * Only set by a description search; an OEM lookup was not given words to
+   * be relevant to.
+   */
+  searchRelevance?: 'high' | 'medium' | 'low';
+
   /** ISO timestamp. Drives "checked 4 minutes ago" — never implies live. */
   sourceCheckedAt: string;
 }

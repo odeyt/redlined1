@@ -211,6 +211,8 @@ export async function searchPartsForVehicle(
       estimatedImportDuty: null,
       landedCost: undefined,
       landedCostCompleteness: 'unknown',
+      productGroup: g,
+      searchRelevance: searchRelevance(input.query, r),
       // LIKELY, never verified. See the note at the top of this file.
       fitmentStatus: 'likely',
       fitmentReason: 'Returned by the catalogue for the resolved vehicle variant. '

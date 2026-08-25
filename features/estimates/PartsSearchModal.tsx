@@ -135,6 +135,15 @@ export function messageForStatus(status: number): string {
  * A click that silently does nothing is the defect this milestone exists to
  * fix, so "we are between states" is not allowed to be one of them.
  */
+/**
+ * A provider product group present in the current results.
+ *
+ * Derived from the results themselves, not fetched from a category endpoint —
+ * there is no documented one, so these are always categories the catalogue
+ * genuinely used, never a Redlined1 taxonomy mapped onto it by guesswork.
+ */
+export interface ProductGroup { id?: string; name: string; count: number }
+
 export type SearchState =
   | 'idle'
   | 'loading'
@@ -170,6 +179,23 @@ const FITMENT_COLOR: Record<string, string> = {
   likely: '#d97706',
   unverified: '#6b7280',
   incompatible: '#dc2626',
+};
+
+/**
+ * Relevance is deliberately styled UNLIKE fitment.
+ *
+ * Fitment green means "this fits". If relevance reused the same green, a
+ * technician scanning the column would read a strong match for their words as
+ * a fitment claim. So relevance speaks in neutral ink and says what it means
+ * in words instead.
+ */
+const RELEVANCE_COLOR: Record<string, string> = {
+  high: 'var(--fg)', medium: 'var(--muted)', low: 'var(--muted)',
+};
+const RELEVANCE_LABEL: Record<string, string> = {
+  high: 'MATCHES YOUR SEARCH',
+  medium: 'PARTIAL SEARCH MATCH',
+  low: 'DIFFERENT PART',
 };
 
 const FITMENT_ORDER: Record<string, number> = {
@@ -216,6 +242,8 @@ export function PartsSearchModal({
   const [results, setResults] = useState<ScoredResult[]>([]);
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [outcomes, setOutcomes] = useState<ProviderOutcome[]>([]);
+  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [role, setRole] = useState('');
   const [sort, setSort] = useState<SortKey>('recommended');
@@ -358,6 +386,11 @@ export function PartsSearchModal({
       const rows = Array.isArray(json?.results) ? json.results : [];
       const provs = Array.isArray(json?.providers) ? json.providers : [];
       setResults(rows);
+      // Categories are whatever the provider actually filed these results
+      // under — they change with every search, so a stale selection from the
+      // previous search must not survive into this one.
+      setProductGroups(Array.isArray(json?.productGroups) ? json.productGroups : []);
+      setGroupFilter(null);
       setProviders(provs);
       setOutcomes(Array.isArray(json?.outcomes) ? json.outcomes : []);
       setRole(typeof json?.role === 'string' ? json.role : '');
@@ -395,7 +428,13 @@ export function PartsSearchModal({
   }
 
   const sorted = useMemo(() => {
-    const rows = [...results];
+    // Narrowing to a category filters what is already on screen rather than
+    // re-querying. A chip carries a count, so it must show exactly that many
+    // rows — which means an ungrouped result is hidden while a chip is
+    // active, and is reachable again by clearing it.
+    const rows = groupFilter
+      ? results.filter(r => r.productGroup === groupFilter)
+      : [...results];
     switch (sort) {
       case 'landed':
         return rows.sort((a, b) => (a.landedCost ?? Infinity) - (b.landedCost ?? Infinity));
@@ -412,7 +451,7 @@ export function PartsSearchModal({
       default:
         return rows.sort((a, b) => b.recommendation.score - a.recommendation.score);
     }
-  }, [results, sort]);
+  }, [results, sort, groupFilter]);
 
   /** Only providers that actually returned data appear in the comparison. */
   const comparison = useMemo(() => {
@@ -697,6 +736,54 @@ export function PartsSearchModal({
             </div>
           )}
 
+          {/* ── Categories ───────────────────────────────────────────────
+              Only the groups the catalogue actually used for THESE results.
+              Filtering is local, so a chip costs nothing to try and nothing
+              to undo. */}
+          {productGroups.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', letterSpacing: '.06em' }}>
+                CATEGORY
+              </span>
+              {[{ name: null as string | null, count: results.length }, ...productGroups].map(g => {
+                const active = groupFilter === g.name;
+                return (
+                  <button
+                    key={g.name ?? '__all'}
+                    onClick={() => setGroupFilter(g.name)}
+                    aria-pressed={active}
+                    style={{
+                      padding: '5px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', minHeight: 30,
+                      border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
+                      background: active ? 'var(--accent)' : 'transparent',
+                      color: active ? '#fff' : 'var(--text)',
+                    }}
+                  >
+                    {g.name ?? 'All'} ({g.count})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* A chip can legitimately empty the list. Say so, rather than
+              showing the blank panel that means "search found nothing". */}
+          {groupFilter && sorted.length === 0 && (
+            <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+              No results in {groupFilter}.{' '}
+              <button
+                onClick={() => setGroupFilter(null)}
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  color: 'var(--accent)', fontWeight: 700, fontSize: 13,
+                }}
+              >
+                Show all
+              </button>
+            </div>
+          )}
+
           {/* ── Results ──────────────────────────────────────────────────── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {sorted.map((r, i) => {
@@ -734,9 +821,26 @@ export function PartsSearchModal({
                       <div style={{ fontWeight: 700, fontSize: 14, wordBreak: 'break-word' }}>{r.title}</div>
 
                       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6, fontSize: 11 }}>
+                        {/* Three separate questions, never merged into one
+                            verdict. A brake disc can be a genuine part that
+                            fits this car perfectly and still be the wrong
+                            answer to "brake pads" — collapsing these would
+                            hide exactly that case. */}
                         <span style={{ fontWeight: 800, color: FITMENT_COLOR[r.fitmentStatus] }}>
                           {FITMENT_LABEL[r.fitmentStatus]}
                         </span>
+                        {r.searchRelevance && (
+                          <span
+                            data-testid="row-relevance"
+                            title={`How well this answers what you typed — not whether it fits the ${vehicle.make ?? 'vehicle'}`}
+                            style={{ fontWeight: 700, color: RELEVANCE_COLOR[r.searchRelevance] }}
+                          >
+                            {RELEVANCE_LABEL[r.searchRelevance]}
+                          </span>
+                        )}
+                        {r.productGroup && (
+                          <span style={{ color: 'var(--muted)' }}>{r.productGroup}</span>
+                        )}
                         {r.brand && <span style={{ color: 'var(--muted)' }}>{r.brand}</span>}
                         {r.manufacturerPartNumber && <span style={{ color: 'var(--muted)' }}>#{r.manufacturerPartNumber}</span>}
                         {/* The marque this catalogue row is filed under, and

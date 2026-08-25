@@ -111,9 +111,22 @@ describe('search relevance is its own question', () => {
   });
 
   it('never becomes a fitment claim', () => {
-    // Three questions, three answers. Relevance must not leak into either of
-    // the other two.
-    expect(SERVICE).not.toMatch(/relevance[\s\S]{0,80}fitmentStatus/i);
+    /**
+     * Three questions, three answers. Relevance must not leak into fitment.
+     *
+     * This used to be a proximity regex — "relevance must not appear within
+     * 80 characters of fitmentStatus" — which only measured where lines sit
+     * in an object literal, and which any reordering would satisfy without
+     * making the code one bit safer. The real invariant is that
+     * `fitmentStatus` is assigned a CONSTANT, never anything computed from
+     * the query.
+     */
+    const assignments = [...SERVICE.matchAll(/fitmentStatus:\s*([^,\n]+)/g)]
+      .map(m => m[1].trim());
+    expect(assignments.length).toBeGreaterThan(0);
+    for (const value of assignments) {
+      expect(value).toMatch(/^'(unknown|unlikely|likely|verified)'$/);
+    }
   });
 });
 
