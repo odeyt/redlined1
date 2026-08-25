@@ -658,6 +658,40 @@ export function PartsSearchModal({
             </div>
           )}
 
+          {/**
+            * The vehicle could not be pinned, and no choice can be offered.
+            *
+            * This is the gap the first live staging run found. Ambiguity at
+            * the MODEL step ("2 catalogue series match S-Class for 2009")
+            * produces no modification candidates, so the chooser above cannot
+            * render — and the technician was left with "No matching parts
+            * found", which says the catalogue holds nothing for their car.
+            * It does not. Redlined1 could not decide WHICH car, so the
+            * vehicle-scoped search never ran.
+            *
+            * Saying that plainly matters more than hiding it: the difference
+            * decides whether the technician searches again by part number or
+            * concludes the part does not exist.
+            */}
+          {resolution && resolution.status !== 'resolved'
+            && !(pendingSearch && (resolution.candidates?.length ?? 0) > 1) && (
+            <div data-testid="vehicle-unresolved" style={{
+              border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 12px',
+              background: 'var(--surface-soft)', marginBottom: 12, fontSize: 12,
+            }}>
+              <div style={{ fontWeight: 800, color: '#b45309' }}>
+                ⚠ This vehicle could not be identified in the parts catalogue
+              </div>
+              {resolution.reason && (
+                <div style={{ color: 'var(--muted)', marginTop: 4 }}>{resolution.reason}</div>
+              )}
+              <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+                Results are not filtered to this vehicle and fitment cannot be verified.
+                Searching by OEM or part number still works.
+              </div>
+            </div>
+          )}
+
           {/* Confirmed context, stated for exactly what it is. */}
           {resolution?.status === 'resolved' && resolution.modificationDescription && !pendingSearch && (
             <div data-testid="vehicle-banner" style={{

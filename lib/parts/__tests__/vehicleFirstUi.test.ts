@@ -79,6 +79,42 @@ describe('categories filter, they do not re-query', () => {
   });
 });
 
+describe('an unidentified vehicle says so, rather than blaming the catalogue', () => {
+  /**
+   * Found by the first live staging run. The 2009 S-Class resolved
+   * `ambiguous` at the MODEL step — two catalogue series matched — which
+   * yields no modification candidates, so the variant chooser could not
+   * render. The technician saw only "No matching parts found".
+   *
+   * That reads as "the catalogue has nothing for your car". The truth was
+   * that the vehicle-scoped search never ran.
+   */
+  it('renders a distinct state for an unresolved vehicle', () => {
+    expect(MODAL).toContain('data-testid="vehicle-unresolved"');
+    expect(MODAL).toContain('could not be identified in the parts catalogue');
+  });
+
+  it('covers every non-resolved status, not just ambiguous', () => {
+    // not_found and insufficient_data leave the technician equally stranded.
+    expect(MODAL).toContain("resolution.status !== 'resolved'");
+  });
+
+  it('does not fire while a real choice is on offer', () => {
+    // When the chooser CAN render, it owns the screen — two competing
+    // explanations of the same state is worse than one.
+    expect(MODAL).toContain("!(pendingSearch && (resolution.candidates?.length ?? 0) > 1)");
+  });
+
+  it('shows the reason the catalogue gave', () => {
+    expect(MODAL).toContain('{resolution.reason}');
+  });
+
+  it('says fitment cannot be verified, and names the way forward', () => {
+    expect(MODAL).toContain('fitment cannot be verified');
+    expect(MODAL).toContain('Searching by OEM or part number still works');
+  });
+});
+
 describe('the route only scopes a search it is entitled to scope', () => {
   it('delegates the decision to the tested gate', () => {
     expect(ROUTE).toContain('vehicleFirstTarget(input, outcome.resolution)');
