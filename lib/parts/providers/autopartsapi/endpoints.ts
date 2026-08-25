@@ -218,17 +218,40 @@ export function oemPartsForVehiclePath(args: {
   langId?: number;
 }): string {
   const langId = args.langId ?? AUTOPARTS_ENGLISH_LANG_ID;
-  const term = String(args.searchParam ?? '').trim();
-  if (!term || term.length > 60 || !/^[A-Za-z0-9._-]+$/.test(term)) {
-    // A multi-word search term cannot be a path segment. The caller must use
-    // the query-parameter endpoints for free text.
-    throw new Error('search-param must be a single safe token');
-  }
   return 'articles-oem/selecting-oem-parts-vehicle-modification-description-product-group'
     + `/type-id/${idSegment(args.typeId)}`
     + `/vehicle-id/${idSegment(args.vehicleId)}`
     + `/lang-id/${idSegment(langId)}`
-    + `/search-param/${term}`;
+    + `/search-param/${searchTermSegment(args.searchParam)}`;
+}
+
+/**
+ * A technician's search term, as a path segment.
+ *
+ * The earlier version refused anything with a space, which meant it refused
+ * "front brake pads" — the single most likely thing anyone types. That is not
+ * a safety rule, it is a broken feature wearing one.
+ *
+ * So the term is VALIDATED and then ENCODED, rather than rejected. Validation
+ * removes what could change the shape of the URL — a slash, a backslash, a
+ * query, a fragment, a percent, a control character. Encoding then makes the
+ * survivors safe to carry. Spaces and ordinary punctuation are fine once
+ * encoded; a slash never is, at any encoding, because `buildProviderUrl`
+ * splits on it and a smuggled one becomes a path segment of its own.
+ */
+export function searchTermSegment(raw: string): string {
+  const term = String(raw ?? '').trim();
+  if (!term) throw new Error('search term is empty');
+  if (term.length > 60) throw new Error('search term too long');
+
+  // Path characters by literal, control characters by code point — no
+  // control-character regex, which is the thing lint objects to and which is
+  // harder to read than the comparison it replaces.
+  if (/[/\\?#%]/.test(term) || [...term].some(c => (c.codePointAt(0) ?? 0) < 0x20)) {
+    throw new Error('search term contains a path character');
+  }
+
+  return encodeURIComponent(term);
 }
 
 // ─── Cross-reference ─────────────────────────────────────────────────────────

@@ -79,7 +79,20 @@ export function credentialStatus(): 'PRESENT' | 'MISSING' {
  * hostile path — anything with a scheme, an authority, a traversal segment or
  * a character outside the catalogue's own vocabulary is refused outright.
  */
-const SAFE_SEGMENT = /^[A-Za-z0-9._~-]+$/;
+/**
+ * A path segment we will send.
+ *
+ * Percent-encoding is allowed because a technician's search term has to reach
+ * the provider — "front brake pads" encodes to "front%20brake%20pads" and
+ * refusing it refuses the feature. What stays forbidden is any encoding that
+ * could change the SHAPE of the URL rather than the content of one segment:
+ * an encoded slash, backslash or dot-dot would be decoded by the provider
+ * into a path boundary we did not intend.
+ */
+const SAFE_SEGMENT = /^(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2})+$/;
+
+/** Encoded separators and traversal. Checked before the segment grammar. */
+const FORBIDDEN_ENCODINGS = /%(?:2f|5c|2e%2e)/i;
 
 /**
  * Query parameters we are willing to send.
@@ -107,6 +120,10 @@ export function buildProviderUrl(
   if (raw.startsWith('//') || raw.includes('\\')) throw new AutoPartsApiError('bad_request', undefined, 'authority in path');
   if (raw.includes('..') || /%2e%2e/i.test(raw)) throw new AutoPartsApiError('bad_request', undefined, 'traversal in path');
   if (raw.includes('?') || raw.includes('#')) throw new AutoPartsApiError('bad_request', undefined, 'query in path');
+
+  if (FORBIDDEN_ENCODINGS.test(raw)) {
+    throw new AutoPartsApiError('bad_request', undefined, 'encoded separator in path');
+  }
 
   const segments = raw.replace(/^\/+/, '').split('/');
   for (const s of segments) {

@@ -35,7 +35,9 @@ export type EndpointCategory =
   | 'vehicle_detail'
   | 'oem_search'
   | 'oem_applicability'
-  | 'cross_reference';
+  | 'cross_reference'
+  /** Vehicle-first description search — M-PARTS2C. */
+  | 'vehicle_parts_search';
 
 /**
  * Who made the call.

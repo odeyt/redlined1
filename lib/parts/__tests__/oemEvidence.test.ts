@@ -69,11 +69,23 @@ describe('documented endpoints are built, not guessed', () => {
     }
   });
 
-  it('refuses a multi-word search term as a path segment', () => {
-    // Free text cannot be a path segment; the caller must use a query endpoint.
-    expect(() => oemPartsForVehiclePath({
+  it('ENCODES a multi-word search term rather than refusing it', () => {
+    // Changed deliberately in M-PARTS2C. Refusing anything with a space
+    // refused "front brake pads" — the most likely thing a technician types —
+    // which was a broken feature wearing a safety rule. The term is now
+    // validated for path characters and then encoded.
+    const path = oemPartsForVehiclePath({
       typeId: 1, vehicleId: 5, searchParam: 'front brake pads',
-    })).toThrow();
+    });
+    expect(path).toContain('/search-param/front%20brake%20pads');
+  });
+
+  it('still refuses a term carrying a path character', () => {
+    for (const bad of ['brake/pads', 'pads?x=1', 'pads#f', 'pads%2fadmin']) {
+      expect(() => oemPartsForVehiclePath({
+        typeId: 1, vehicleId: 5, searchParam: bad,
+      })).toThrow();
+    }
   });
 
   it('keeps provider ids inside the adapter', () => {
