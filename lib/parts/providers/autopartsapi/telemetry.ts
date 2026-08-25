@@ -76,7 +76,12 @@ export interface UsageContext {
  *              waited on it. Spends nothing, and is NOT the same as a cache
  *              hit: nothing was stored, two callers shared one journey.
  */
-export type UsageOutcome = 'external' | 'cache_hit' | 'coalesced';
+/**
+ * `persistent_hit` is kept apart from `cache_hit` on purpose: it is the one
+ * that proves the cache survived a deployment. Folding both into one value
+ * would make M-PARTS2C.3 unobservable in the very numbers meant to show it.
+ */
+export type UsageOutcome = 'external' | 'cache_hit' | 'coalesced' | 'persistent_hit';
 
 export interface UsageRecord extends UsageContext {
   outcome: UsageOutcome;

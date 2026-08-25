@@ -16,18 +16,31 @@ import 'server-only';
  * search would exhaust it in a day of ordinary work, so these are not a
  * performance optimisation — they are what makes the feature usable at all.
  *
- * ## In process, not in Postgres
+ * ## Two tiers: memory, then Postgres (M-PARTS2C.3)
  *
- * Reference lists carry no tenant data and are identical for every shop, but
- * the provider's terms concern RETENTION, and a table of their catalogue is a
- * mirror of it. An in-process cache expires by construction. The honest
- * trade-off is that serverless instances each keep their own copy, so the hit
- * rate is lower than a shared store would give — acceptable, because the
- * thing being prevented is a per-search call, not every duplicate.
+ * This file used to argue for memory ONLY, on the grounds that the provider's
+ * terms concern retention and a table of their catalogue is a mirror of it.
+ * That reasoning was right about mirrors and wrong about what this is, and
+ * the cost of it was measured rather than theorised: on Vercel every
+ * deployment and every cold start empties the Map, so resolving one vehicle
+ * re-pays three calls. During M-PARTS2C.2 validation a single redeploy
+ * mid-run consumed the whole remaining budget. Against a ~100 call month that
+ * is the dominant cost, not a rounding error.
  *
- * The persisted vehicle MAPPING is different and lives in Postgres: it is
- * tenant data, it is fingerprint-driven rather than TTL-driven, and it is the
- * thing that must survive a cold start.
+ * What makes the second tier a cache rather than a mirror is enforced, not
+ * asserted:
+ *
+ *   - every row carries an expiry, and an expired row is never served
+ *   - expired rows are DELETED on encounter, so nothing accumulates
+ *   - only reference endpoints may persist. `isPersistable` refuses any path
+ *     carrying a free-text segment, so a search term cannot land in a table
+ *     however the caller was written
+ *
+ * Reference lists carry no tenant data and are identical for every shop, so
+ * the table has no shop_id and no RLS policy — service_role only.
+ *
+ * The persisted vehicle MAPPING remains a different thing: it is tenant data,
+ * fingerprint-driven rather than TTL-driven.
  */
 import { autoPartsApiRequest } from '../providers/autopartsapi/client';
 import type {
@@ -49,6 +62,33 @@ const MAX_ENTRIES = 500;
 
 export function clearReferenceCache(): void { store.clear(); }
 export function referenceCacheSize(): number { return store.size; }
+
+/** Where the persistent tier lives. */
+const CACHE_TABLE = 'parts_provider_reference_cache';
+
+/**
+ * Whether a provider path may be written to the durable tier.
+ *
+ * Reference paths carry catalogue ids and nothing else. The vehicle-first
+ * search path carries the technician's own words —
+ * `.../search-param/brake%20pads` — and a search term must never be stored.
+ *
+ * Written as an ALLOW-list of the reference categories rather than a
+ * blocklist of bad paths: a new endpoint added later is then non-persistable
+ * until someone decides otherwise, which is the safe direction to fail.
+ */
+const PERSISTABLE: ReadonlySet<EndpointCategory> = new Set<EndpointCategory>([
+  'manufacturers', 'models', 'vehicle_variants', 'vehicle_detail',
+]);
+
+export function isPersistable(category: EndpointCategory, path: string): boolean {
+  if (!PERSISTABLE.has(category)) return false;
+  // Belt and braces. Even inside an allowed category, a path carrying a
+  // free-text segment is refused — the category could be passed wrongly, and
+  // this is the last check before a term would be written to a table.
+  if (/search-param|%20|\?|#/i.test(path)) return false;
+  return true;
+}
 
 /**
  * Fetch through the cache.
@@ -90,6 +130,28 @@ export async function cachedFetch<T>(
     }
   }
 
+  /**
+   * Tier two: Postgres. This is the tier that survives a deployment, and the
+   * whole reason M-PARTS2C.3 exists.
+   *
+   * Every failure here is swallowed. A cache that cannot be read is a slow
+   * cache; a cache that throws is an outage. The provider call below is
+   * always still available.
+   */
+  if (!opts.bypass && isPersistable(category, path)) {
+    const hit = await readPersistent<T>(path, now);
+    if (hit !== undefined) {
+      // Promote into memory so the next call in this instance is free.
+      store.set(path, { value: hit, expiresAt: now + ttlMs });
+      const { recordUsage } = await import('../providers/autopartsapi/telemetry');
+      void recordUsage({
+        shopId: opts.shopId, category, callContext,
+        outcome: 'persistent_hit', success: true,
+      });
+      return hit;
+    }
+  }
+
   const value = await autoPartsApiRequest<T>(path, undefined, {
     shopId: opts.shopId,
     category,
@@ -101,5 +163,60 @@ export async function cachedFetch<T>(
     if (oldest) store.delete(oldest[0]);
   }
   store.set(path, { value, expiresAt: now + ttlMs });
+
+  if (isPersistable(category, path)) {
+    await writePersistent(path, category, value, now + ttlMs);
+  }
   return value;
+}
+
+/**
+ * Read the durable tier, refusing anything expired.
+ *
+ * An expired row is DELETED rather than left, so the table stays a cache: it
+ * holds what is currently valid and nothing older. Returns `undefined` for a
+ * miss, which is distinct from a cached `null` payload.
+ */
+async function readPersistent<T>(path: string, now: number): Promise<T | undefined> {
+  try {
+    const { getAdminDb } = await import('@/lib/supabaseServer');
+    const { data } = await getAdminDb()
+      .from(CACHE_TABLE)
+      .select('payload, expires_at')
+      .eq('cache_key', path)
+      .maybeSingle();
+
+    if (!data) return undefined;
+
+    const expiresAt = Date.parse((data as { expires_at: string }).expires_at);
+    if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+      // Sweep on encounter. No cron, no accumulation, and no chance of
+      // serving a stale catalogue because a sweeper did not run.
+      await getAdminDb().from(CACHE_TABLE).delete().eq('cache_key', path);
+      return undefined;
+    }
+    return (data as { payload: T }).payload;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Upsert, because two instances may resolve the same vehicle at once. */
+async function writePersistent(
+  path: string, category: EndpointCategory, payload: unknown, expiresAtMs: number,
+): Promise<void> {
+  try {
+    const { getAdminDb } = await import('@/lib/supabaseServer');
+    await getAdminDb()
+      .from(CACHE_TABLE)
+      .upsert({
+        cache_key: path,
+        category,
+        payload,
+        expires_at: new Date(expiresAtMs).toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'cache_key' });
+  } catch {
+    // A cache that cannot be written is a cache that misses. Nothing else.
+  }
 }
