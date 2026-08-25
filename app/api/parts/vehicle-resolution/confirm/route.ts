@@ -45,6 +45,11 @@ const ConfirmSchema = z.object({
   vehicleId: z.string().uuid(),
   providerVehicleId: z.number().int().positive(),
   /**
+   * The catalogue series chosen at the previous step, when the model was
+   * ambiguous. Optional: most vehicles resolve a series without asking.
+   */
+  modelId: z.number().int().positive().optional(),
+  /**
    * The fingerprint the browser resolved against.
    *
    * A technician can leave Search Parts open while somebody edits the vehicle
@@ -128,6 +133,20 @@ export async function POST(req: NextRequest) {
     outcome = await resolveProviderVehicle(vehicle, {
       shopId: input.shopId,
       bypassMapping: true,
+      /**
+       * The series the technician already chose, when there was a choice.
+       *
+       * Found live: without it, re-derivation re-runs model matching, goes
+       * ambiguous again, and produces NO modification candidates — so
+       * `candidateWasOffered` rejected a variant the technician had just been
+       * shown, and the two-stage flow dead-ended at its second step.
+       *
+       * The series is deliberately not persisted before the vehicle resolves,
+       * so it has to travel with the request. It is untrusted exactly like
+       * `providerVehicleId`, and the resolver checks it against the candidate
+       * list it derives itself before honouring it.
+       */
+      chosenModelId: input.modelId,
     });
   } catch {
     return NextResponse.json({

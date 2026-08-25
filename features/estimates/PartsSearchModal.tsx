@@ -171,6 +171,9 @@ export interface VehicleResolutionState {
   candidates?: ModificationCandidate[];
   /** Catalogue series to choose between, when the model step could not decide. */
   modelCandidates?: ModelSeriesCandidate[];
+  /** The series the technician picked, when they were asked. Sent with the
+   *  variant confirmation so the server can re-derive the same candidates. */
+  chosenModelId?: number;
   manufacturerName?: string;
   modelName?: string;
   modificationDescription?: string;
@@ -296,6 +299,9 @@ export function PartsSearchModal({
           shopId,
           vehicleId: resolution.vehicleId,
           providerVehicleId,
+          // Present only when a series was chosen. The server re-derives with
+          // it, and validates it, exactly as it does the vehicle id.
+          modelId: resolution.chosenModelId,
           fingerprint: resolution.fingerprint,
         }),
       });
@@ -377,6 +383,10 @@ export function PartsSearchModal({
           fingerprint: json.fingerprint ?? resolution.fingerprint,
           vehicleId: resolution.vehicleId,
           modelName: json.modelName,
+          // Remembered so the variant confirmation can re-derive the SAME
+          // candidate list. Without it the server re-runs model matching,
+          // goes ambiguous again, and rejects the variant it just offered.
+          chosenModelId: modelId,
           candidates: json.candidates ?? [],
         });
         return;

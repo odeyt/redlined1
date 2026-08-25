@@ -263,3 +263,46 @@ describe('choosing a series continues resolution rather than ending it', () => {
     expect(MODAL).toContain("(vr.modelCandidates?.length ?? 0) > 1");
   });
 });
+
+describe('the chosen series survives into the variant confirmation', () => {
+  /**
+   * Found live on staging, at the second step of the two-stage flow.
+   *
+   * The confirm route re-derives candidates server-side — that re-derivation
+   * IS the validation. Without the chosen series it re-ran model matching,
+   * went ambiguous again, produced no modification candidates, and
+   * `candidateWasOffered` rejected the variant the technician had just been
+   * shown: "That vehicle variant is no longer one of the options."
+   *
+   * The series is deliberately not persisted before the vehicle resolves, so
+   * it has to travel with the request — untrusted, and checked by the
+   * resolver against its own candidate list.
+   */
+  const CONFIRM_ROUTE = readFileSync(
+    join(process.cwd(), 'app/api/parts/vehicle-resolution/confirm/route.ts'), 'utf8');
+
+  it('accepts an optional series on the confirm request', () => {
+    expect(CONFIRM_ROUTE).toContain('modelId: z.number().int().positive().optional()');
+  });
+
+  it('re-derives WITH that series', () => {
+    expect(CONFIRM_ROUTE).toContain('chosenModelId: input.modelId');
+  });
+
+  it('still re-derives server-side rather than trusting the body', () => {
+    // The fix must not weaken the guard it was routed around.
+    expect(CONFIRM_ROUTE).toContain('bypassMapping: true');
+    expect(CONFIRM_ROUTE).toContain('candidateWasOffered(input.providerVehicleId, offered)');
+  });
+
+  it('the client remembers the series and sends it', () => {
+    expect(MODAL).toContain('chosenModelId: modelId');
+    expect(MODAL).toContain('modelId: resolution.chosenModelId');
+  });
+
+  it('the series stays optional, for vehicles that never needed a choice', () => {
+    // Most vehicles resolve a series without asking; requiring it would break
+    // every one of them.
+    expect(CONFIRM_ROUTE).toContain('.optional()');
+  });
+});
