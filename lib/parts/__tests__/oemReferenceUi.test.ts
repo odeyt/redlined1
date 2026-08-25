@@ -146,6 +146,29 @@ describe('the resolved vehicle survives the switch to OEM mode', () => {
   });
 });
 
+describe('the empty-parts message does not contradict the references', () => {
+  /**
+   * Found live on staging: "NO MATCHING PARTS FOUND. YOU CAN STILL ADD THE
+   * PART MANUALLY." printed directly above 91 OEM references the same search
+   * had just returned. Both sentences were true — no PURCHASABLE part
+   * matched — and together they read as a contradiction.
+   */
+  it('says something different when references were found', () => {
+    expect(MODAL).toContain('No priced parts matched directly');
+    expect(MODAL).toContain('pick one below to search it');
+  });
+
+  it('branches on whether any reference exists', () => {
+    expect(MODAL).toContain("state === 'empty' && (vehicleOem?.groups.length ?? 0) > 0");
+    expect(MODAL).toContain("state === 'empty' && !(vehicleOem?.groups.length ?? 0)");
+  });
+
+  it('keeps the manual fallback for a genuinely empty search', () => {
+    // With no parts AND no references, manual entry is still the way out.
+    expect(MODAL).toContain('No matching parts found. {MANUAL_FALLBACK}');
+  });
+});
+
 describe('model-level ambiguity is stated, never guessed past', () => {
   it('has its own screen', () => {
     expect(MODAL).toContain('data-testid="model-ambiguous"');

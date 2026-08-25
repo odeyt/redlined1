@@ -765,7 +765,23 @@ export function PartsSearchModal({
                 Searching parts...
               </div>
             )}
-            {state === 'empty' && (
+            {/**
+              * "No matching parts found" is about PURCHASABLE parts, and it
+              * printed directly above 91 OEM references the same search had
+              * just found. Both statements were true and together they read
+              * as a contradiction — found live on staging.
+              *
+              * When references exist the sentence changes to say what
+              * actually happened and what to do next. The references block
+              * below is then the answer, not a consolation.
+              */}
+            {state === 'empty' && (vehicleOem?.groups.length ?? 0) > 0 && (
+              <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                No priced parts matched directly. The catalog does list OEM references
+                for this vehicle — pick one below to search it.
+              </div>
+            )}
+            {state === 'empty' && !(vehicleOem?.groups.length ?? 0) && (
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
                 No matching parts found. {MANUAL_FALLBACK}
               </div>
