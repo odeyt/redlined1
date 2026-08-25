@@ -133,7 +133,7 @@ async function main() {
   // ── 1. Manufacturer ───────────────────────────────────────────────────────
   line('\n[1] GET /manufacturers/list/type-id/1');
   const manuPayload = await autoPartsApiRequest<unknown>(
-    manufacturersPath(), undefined, { ...ctx, category: 'manufacturers' });
+    manufacturersPath(), undefined, { ...ctx, category: 'manufacturers', callContext: 'qa' });
   spent += 1;
   line(`    shape: ${shape(manuPayload)}`);
   const manufacturers = readManufacturers(manuPayload);
@@ -150,7 +150,7 @@ async function main() {
   // ── 2. Model ──────────────────────────────────────────────────────────────
   line(`\n[2] GET /models/list/.../manufacturer-id/${manufacturerId}/...`);
   const modelPayload = await autoPartsApiRequest<unknown>(
-    modelsPath({ manufacturerId }), undefined, { ...ctx, category: 'models' });
+    modelsPath({ manufacturerId }), undefined, { ...ctx, category: 'models', callContext: 'qa' });
   spent += 1;
   line(`    shape: ${shape(modelPayload)}`);
   const models = readModels(modelPayload);
@@ -171,7 +171,7 @@ async function main() {
   // ── 3. Variants, with engine specs ────────────────────────────────────────
   line(`\n[3] GET /types/type-id/1/list-vehicles-types/${modelId}/...`);
   const variantPayload = await autoPartsApiRequest<unknown>(
-    vehicleVariantsPath({ modelId }), undefined, { ...ctx, category: 'vehicle_variants' });
+    vehicleVariantsPath({ modelId }), undefined, { ...ctx, category: 'vehicle_variants', callContext: 'qa' });
   spent += 1;
   line(`    shape: ${shape(variantPayload)}`);
   const variants = readVariants(variantPayload);
@@ -211,7 +211,7 @@ async function main() {
   try {
     applicabilityPayload = await autoPartsApiRequest<unknown>(
       vehicleApplicabilityPath({ typeId: 1, manufacturerId, oem: OEM }),
-      undefined, { ...ctx, category: 'oem_applicability' });
+      undefined, { ...ctx, category: 'oem_applicability', callContext: 'qa' });
     spent += 1;
     line(`    shape: ${shape(applicabilityPayload)}`);
   } catch (e) {

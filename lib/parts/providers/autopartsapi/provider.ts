@@ -92,8 +92,12 @@ export const autoPartsApiProvider: PartsProvider = {
     const checkedAt = new Date().toISOString();
 
     // ── 1. The one call every OEM search makes ──────────────────────────────
+    // Application traffic. This is the lookup a technician triggers, and it
+    // was the biggest hole in the old accounting: it passed no context, so
+    // every OEM search a shop ever ran was invisible in the monthly figure.
     const payload = await autoPartsApiRequest<unknown>(
-      SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID));
+      SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID),
+      { shopId: input.shopId, category: 'oem_search', callContext: 'application' });
 
     const articles = normalizeAutoPartsResponse(payload, input, { checkedAt });
     if (!articles.length) return [];
@@ -110,7 +114,9 @@ export const autoPartsApiProvider: PartsProvider = {
             typeId: toAutoPartsTypeId('car'),
             manufacturerId,
             oem,
-          }));
+          }),
+          undefined,
+          { shopId: input.shopId, category: 'oem_applicability', callContext: 'application' });
         applicability = extractApplicability(applicabilityPayload);
       } catch {
         // A failed applicability lookup costs the VERIFIED claim, not the
@@ -182,13 +188,15 @@ export const autoPartsApiProvider: PartsProvider = {
  * search into a dozen calls and empty a free-tier month in an afternoon. It is
  * called on demand, for a single article, when someone wants to know why.
  */
-export async function fetchDeepEvidence(oem: string): Promise<EvidenceItem[]> {
+export async function fetchDeepEvidence(oem: string, shopId?: string): Promise<EvidenceItem[]> {
   if (!hasCredentials()) return [];
   const evidence: EvidenceItem[] = [];
 
   const [equal, cross] = await Promise.allSettled([
-    autoPartsApiRequest<unknown>(equalOemPath(oem)),
-    autoPartsApiRequest<unknown>(aftermarketCrossRefPath(oem)),
+    autoPartsApiRequest<unknown>(equalOemPath(oem), undefined,
+      { shopId, category: 'cross_reference', callContext: 'application' }),
+    autoPartsApiRequest<unknown>(aftermarketCrossRefPath(oem), undefined,
+      { shopId, category: 'cross_reference', callContext: 'application' }),
   ]);
 
   const count = (r: PromiseSettledResult<unknown>): number => {

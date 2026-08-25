@@ -37,16 +37,54 @@ export type EndpointCategory =
   | 'oem_applicability'
   | 'cross_reference';
 
+/**
+ * Who made the call.
+ *
+ * Required on every request, because the alternative was tried: the context
+ * was optional, and the calls that omitted it vanished from accounting. That
+ * included `oem_search` — the lookup every technician triggers — not just
+ * ad-hoc scripts. A month's figure that silently excludes the main
+ * application path is worse than no figure, because it reads as complete.
+ *
+ * Making it required moves the problem from "remember to pass it" to "will
+ * not compile", which is the only version that stays true.
+ */
+export type PartsProviderCallContext =
+  | 'application'    // a technician's search, through the app
+  | 'qa'             // a repeatable QA/verification script
+  | 'migration'      // one-off data work
+  | 'maintenance'    // scheduled or operational
+  | 'manual_probe';  // exploratory, run by hand
+
 export interface UsageContext {
   shopId?: string;
   category: EndpointCategory;
+  callContext: PartsProviderCallContext;
 }
 
+/**
+ * What actually happened at the network boundary.
+ *
+ * Three outcomes, kept apart because one ambiguous counter cannot answer the
+ * only question that matters — how many upstream requests were spent.
+ *
+ *   external   a real request left this process. Spends quota.
+ *   cache_hit  our cache answered. Spends nothing.
+ *   coalesced  an identical request was already in flight and this caller
+ *              waited on it. Spends nothing, and is NOT the same as a cache
+ *              hit: nothing was stored, two callers shared one journey.
+ */
+export type UsageOutcome = 'external' | 'cache_hit' | 'coalesced';
+
 export interface UsageRecord extends UsageContext {
-  cacheHit: boolean;
+  outcome: UsageOutcome;
   success: boolean;
   /** A classified kind from AutoPartsApiError. Never a provider message. */
   failureKind?: string;
+  /** Round-trip milliseconds, external calls only. */
+  latencyMs?: number;
+  /** 2xx / 4xx / 5xx, never the body. */
+  statusClass?: string;
 }
 
 /**
@@ -58,17 +96,25 @@ export interface UsageRecord extends UsageContext {
  * tenant is unattributable noise.
  */
 export async function recordUsage(record: UsageRecord): Promise<void> {
-  if (!record.shopId) return;
+  // A call with no shop is still a call. QA scripts, probes and maintenance
+  // have no tenant, and dropping them is precisely how 10 real requests were
+  // recorded as 7. The column is nullable so they land.
   try {
     await getAdminDb().from('parts_provider_usage_events').insert({
-      shop_id: record.shopId,
+      shop_id: record.shopId ?? null,
       provider: 'autopartsapi',
       endpoint_category: record.category,
-      cache_hit: record.cacheHit,
+      call_context: record.callContext,
+      cache_hit: record.outcome !== 'external',
+      outcome: record.outcome,
       success: record.success,
       failure_kind: record.failureKind ?? null,
+      latency_ms: record.latencyMs ?? null,
+      status_class: record.statusClass ?? null,
     });
   } catch (err) {
+    // Telemetry failing must never fail a parts search. Losing a count is a
+    // reporting problem; losing the search is the technician's problem.
     logger.warn('parts.autopartsapi.usage_record_failed', {
       reason: err instanceof Error ? err.message.slice(0, 80) : 'unknown',
     });
@@ -103,38 +149,82 @@ export function quotaLevel(externalThisMonth: number, allowance = NOMINAL_MONTHL
 
 export interface UsageSummary {
   todayExternal: number;
-  monthExternal: number;
   todayCacheHits: number;
+  todayCoalesced: number;
+
+  monthExternal: number;
   monthCacheHits: number;
+  monthCoalesced: number;
+
+  /** External calls this month, split by who made them. */
+  monthByContext: Record<PartsProviderCallContext, number>;
+
   nominalAllowance: number;
   level: QuotaLevel;
-  /**
-   * Said out loud in the payload so no caller can render this as a balance.
-   */
+  /** Said out loud in the payload so no caller can render this as a balance. */
   note: string;
 }
 
-export async function usageSummary(shopId: string, now = new Date()): Promise<UsageSummary> {
+interface UsageRow {
+  cache_hit: boolean;
+  outcome: string | null;
+  call_context: string | null;
+  created_at: string;
+}
+
+const EMPTY_BY_CONTEXT: Record<PartsProviderCallContext, number> = {
+  application: 0, qa: 0, migration: 0, maintenance: 0, manual_probe: 0,
+};
+
+/**
+ * Usage for one shop, or across every context when `shopId` is null.
+ *
+ * The all-shops view exists because QA and probe calls have no tenant and
+ * would otherwise be invisible — which is the exact shape of the bug this
+ * milestone exists to fix.
+ */
+export async function usageSummary(
+  shopId: string | null,
+  now = new Date(),
+): Promise<UsageSummary> {
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-  const db = getAdminDb();
-  const { data } = await db
+  let q = getAdminDb()
     .from('parts_provider_usage_events')
-    .select('cache_hit, created_at')
-    .eq('shop_id', shopId)
+    .select('cache_hit, outcome, call_context, created_at')
     .gte('created_at', startOfMonth.toISOString());
+  if (shopId) q = q.eq('shop_id', shopId);
 
-  const rows = (data ?? []) as Array<{ cache_hit: boolean; created_at: string }>;
-  const inDay = (r: { created_at: string }) => Date.parse(r.created_at) >= startOfDay.getTime();
+  const { data } = await q;
+  const rows = (data ?? []) as UsageRow[];
 
-  const monthExternal = rows.filter(r => !r.cache_hit).length;
+  // `outcome` is authoritative where present; `cache_hit` is the fallback for
+  // rows written before the column existed.
+  const outcomeOf = (r: UsageRow): UsageOutcome =>
+    (r.outcome as UsageOutcome | null) ?? (r.cache_hit ? 'cache_hit' : 'external');
+  const inDay = (r: UsageRow) => Date.parse(r.created_at) >= startOfDay.getTime();
+  const count = (pred: (r: UsageRow) => boolean) => rows.filter(pred).length;
+
+  const monthByContext = { ...EMPTY_BY_CONTEXT };
+  for (const r of rows) {
+    if (outcomeOf(r) !== 'external') continue;
+    const ctx = (r.call_context as PartsProviderCallContext | null) ?? 'application';
+    if (ctx in monthByContext) monthByContext[ctx] += 1;
+  }
+
+  const monthExternal = count(r => outcomeOf(r) === 'external');
 
   return {
-    todayExternal: rows.filter(r => !r.cache_hit && inDay(r)).length,
+    todayExternal: count(r => outcomeOf(r) === 'external' && inDay(r)),
+    todayCacheHits: count(r => outcomeOf(r) === 'cache_hit' && inDay(r)),
+    todayCoalesced: count(r => outcomeOf(r) === 'coalesced' && inDay(r)),
+
     monthExternal,
-    todayCacheHits: rows.filter(r => r.cache_hit && inDay(r)).length,
-    monthCacheHits: rows.filter(r => r.cache_hit).length,
+    monthCacheHits: count(r => outcomeOf(r) === 'cache_hit'),
+    monthCoalesced: count(r => outcomeOf(r) === 'coalesced'),
+
+    monthByContext,
     nominalAllowance: NOMINAL_MONTHLY_ALLOWANCE,
     level: quotaLevel(monthExternal),
     note: 'Locally recorded calls. AutoPartsAPI does not report remaining quota, '

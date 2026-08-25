@@ -164,15 +164,25 @@ function classify(status: number): AutoPartsApiError {
   return new AutoPartsApiError('bad_request', status);
 }
 
+/**
+ * `usage` is REQUIRED.
+ *
+ * It was optional, and the calls that omitted it disappeared from accounting
+ * — including `oem_search`, the lookup every technician triggers. Ten real
+ * requests were recorded as seven. Requiring it turns "remember to pass a
+ * context" into "will not compile", which is the only version that stays true
+ * as the codebase grows.
+ */
 export async function autoPartsApiRequest<T>(
   path: string,
-  query?: QueryParams,
-  usage?: UsageContext,
+  query: QueryParams | undefined,
+  usage: UsageContext,
 ): Promise<T> {
   const key = (process.env.AUTOPARTS_API_KEY ?? '').trim();
   if (!key) throw new AutoPartsApiError('no_credentials');
 
   const url = buildProviderUrl(path, query);
+  const startedAt = Date.now();
 
   /**
    * Coalescing, and why it is not just a performance trick.
@@ -188,7 +198,11 @@ export async function autoPartsApiRequest<T>(
    */
   const existing = inFlight.get(url);
   if (existing) {
-    if (usage) void recordUsage({ ...usage, cacheHit: true, success: true });
+    // A coalesced waiter, recorded as its own outcome. It spent nothing
+    // upstream, but it is not a cache hit either — nothing was stored, two
+    // callers shared one journey. Collapsing the two would make the cache
+    // look more effective than it is.
+    void recordUsage({ ...usage, outcome: 'coalesced', success: true });
     return existing as Promise<T>;
   }
 
@@ -218,11 +232,19 @@ export async function autoPartsApiRequest<T>(
         // A failed call still SPENT a request at the provider, so it is
         // recorded as external. Counting only successes would understate the
         // month in the direction that hides a problem.
-        if (usage) void recordUsage({ ...usage, cacheHit: false, success: false, failureKind: err.kind });
+        void recordUsage({
+          ...usage, outcome: 'external', success: false, failureKind: err.kind,
+          latencyMs: Date.now() - startedAt,
+          statusClass: `${Math.floor(res.status / 100)}xx`,
+        });
         throw err;
       }
 
-      if (usage) void recordUsage({ ...usage, cacheHit: false, success: true });
+      void recordUsage({
+        ...usage, outcome: 'external', success: true,
+        latencyMs: Date.now() - startedAt,
+        statusClass: `${Math.floor(res.status / 100)}xx`,
+      });
 
       const text = await res.text();
       try {
@@ -263,10 +285,16 @@ export function __resetAutoPartsCaches() {
 }
 
 /** GET /languages/list — the documented reference endpoint. */
-export async function listLanguages(now = Date.now()): Promise<AutoPartsLanguageRow[]> {
-  if (languageCache && languageCache.expiresAt > now) return languageCache.rows;
+export async function listLanguages(
+  now = Date.now(),
+  usage: UsageContext = { category: 'reference', callContext: 'application' },
+): Promise<AutoPartsLanguageRow[]> {
+  if (languageCache && languageCache.expiresAt > now) {
+    void recordUsage({ ...usage, outcome: 'cache_hit', success: true });
+    return languageCache.rows;
+  }
 
-  const payload = await autoPartsApiRequest<unknown>('languages/list');
+  const payload = await autoPartsApiRequest<unknown>('languages/list', undefined, usage);
 
   // The envelope is not documented to us, so several shapes are tolerated
   // rather than one being assumed.
@@ -318,8 +346,10 @@ function rowIso(row: AutoPartsLanguageRow): string {
  */
 export const PHASE1_LANGUAGE_NAME = 'english';
 
-export async function resolveLocale(): Promise<AutoPartsLocale> {
-  const rows = await listLanguages();
+export async function resolveLocale(
+  usage: UsageContext = { category: 'reference', callContext: 'application' },
+): Promise<AutoPartsLocale> {
+  const rows = await listLanguages(Date.now(), usage);
 
   // The live catalogue names it "English (GB)", so an exact-equality check on
   // "english" finds nothing — startsWith and the ISO code both do.

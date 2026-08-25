@@ -130,6 +130,15 @@ export interface NormalizedPartResult {
 }
 
 export interface PartsSearchInput {
+  /**
+   * The shop the search is for.
+   *
+   * Carried so provider calls can be attributed in usage accounting. Never
+   * used to scope catalogue data — the catalogue is public reference data and
+   * identical for every tenant.
+   */
+  shopId?: string;
+
   query: string;
 
   vin?: string;

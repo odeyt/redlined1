@@ -166,6 +166,8 @@ export async function POST(req: NextRequest) {
   try {
     const response = await searchAllProviders(
       {
+        // Carried so provider calls are attributed in usage accounting.
+        shopId: input.shopId,
         query: input.query,
         vin: input.vin,
         year: input.year,

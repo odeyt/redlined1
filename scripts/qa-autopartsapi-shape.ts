@@ -49,7 +49,7 @@ async function main() {
   console.log('='.repeat(64));
 
   // 1. languages/list
-  const langs = await autoPartsApiRequest<unknown>(LANGUAGES_LIST);
+  const langs = await autoPartsApiRequest<unknown>(LANGUAGES_LIST, undefined, { category: 'reference', callContext: 'manual_probe' });
   console.log(`\n/${LANGUAGES_LIST}`);
   console.log(`  envelope: ${describe(langs)}`);
   const langRows = rowsOf(langs);
@@ -62,7 +62,7 @@ async function main() {
 
   // 2. one OEM search
   const oem = process.env.AUTOPARTS_TEST_OEM?.trim() || '04465-0K340';
-  const search = await autoPartsApiRequest<unknown>(SEARCH_BY_OEM, searchByOemQuery(oem));
+  const search = await autoPartsApiRequest<unknown>(SEARCH_BY_OEM, searchByOemQuery(oem), { category: 'oem_search', callContext: 'manual_probe' });
   console.log(`\n/${SEARCH_BY_OEM}?langId=4&articleOemNo=${oem}`);
   console.log(`  envelope: ${describe(search)}`);
   const rows = rowsOf(search);

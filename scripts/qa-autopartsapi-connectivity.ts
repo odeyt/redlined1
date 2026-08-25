@@ -78,7 +78,7 @@ async function main() {
 
   // 3. Live reference call.
   try {
-    const rows = await listLanguages();
+    const rows = await listLanguages(Date.now(), { category: 'reference', callContext: 'qa' });
     pass(`authentication (x-apiprofile-key) accepted`);
     pass(`GET /languages/list -> ${rows.length} records`);
 
@@ -89,7 +89,7 @@ async function main() {
 
     // 4. Locale resolution — the point where an assumed lang-id would show up.
     try {
-      const locale = await resolveLocale();
+      const locale = await resolveLocale({ category: 'reference', callContext: 'qa' });
       pass(`locale resolved by NAME ("${PHASE1_LANGUAGE_NAME}") -> languageId ${locale.languageId}`);
       if (locale.countryFilterId === undefined) pass('no country filter assumed in Phase 1');
       else fail('a country filter was set without a documented meaning');
@@ -107,7 +107,8 @@ async function main() {
 
     try {
       const payload = await autoPartsApiRequest<unknown>(
-        SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID));
+        SEARCH_BY_OEM, searchByOemQuery(oem, AUTOPARTS_ENGLISH_LANG_ID),
+        { category: 'oem_search', callContext: 'qa' });
 
       // Sanitised evidence only — shape and counts, never a full payload.
       const topLevel = Array.isArray(payload)

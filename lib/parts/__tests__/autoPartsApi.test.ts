@@ -17,6 +17,13 @@ import {
 import type { PartsSearchInput } from '../types';
 
 const BASE = 'https://auto-parts-catalog.apiprofile.com/api';
+
+/**
+ * Every request needs a call context now. The parameter was optional and the
+ * calls that omitted it vanished from accounting - including the OEM search
+ * every technician triggers.
+ */
+const QA = { category: 'reference', callContext: 'qa' } as const;
 const CHECKED_AT = '2026-08-24T00:00:00.000Z';
 const TACOMA: PartsSearchInput = {
   query: 'front brake pads',
@@ -115,7 +122,7 @@ describe('credentials', () => {
 
   it('refuses to call the provider with no key', async () => {
     delete process.env.AUTOPARTS_API_KEY;
-    await expect(autoPartsApiRequest('languages/list'))
+    await expect(autoPartsApiRequest('languages/list', undefined, QA))
       .rejects.toMatchObject({ kind: 'no_credentials' });
   });
 
@@ -128,7 +135,7 @@ describe('credentials', () => {
       return { jsonBody: { ok: true } };
     });
 
-    await autoPartsApiRequest('languages/list');
+    await autoPartsApiRequest('languages/list', undefined, QA);
 
     expect(seenHeaders['x-apiprofile-key']).toBe('test-key-not-a-real-secret');
     expect(seenHeaders['Content-Type']).toBe('application/json');
@@ -149,19 +156,19 @@ describe('provider errors are classified, not passed through', () => {
     [418, 'bad_request'],
   ])('maps HTTP %i to %s', async (status, kind) => {
     mockFetch(() => ({ ok: false, status }));
-    await expect(autoPartsApiRequest('languages/list')).rejects.toMatchObject({ kind });
+    await expect(autoPartsApiRequest('languages/list', undefined, QA)).rejects.toMatchObject({ kind });
   });
 
   it('flags a 200 with a non-JSON body as malformed', async () => {
     mockFetch(() => ({ jsonBody: '<html>gateway</html>' }));
-    await expect(autoPartsApiRequest('languages/list'))
+    await expect(autoPartsApiRequest('languages/list', undefined, QA))
       .rejects.toMatchObject({ kind: 'malformed' });
   });
 
   it('never puts the key into an error message', async () => {
     mockFetch(() => ({ ok: false, status: 401 }));
     try {
-      await autoPartsApiRequest('languages/list');
+      await autoPartsApiRequest('languages/list', undefined, QA);
       throw new Error('should have thrown');
     } catch (e) {
       expect(String((e as Error).message)).not.toContain('test-key-not-a-real-secret');
@@ -196,9 +203,9 @@ describe('free-tier quota protection', () => {
     mockFetch(() => { calls += 1; return { jsonBody: { ok: true } }; });
 
     await Promise.all([
-      autoPartsApiRequest('languages/list'),
-      autoPartsApiRequest('languages/list'),
-      autoPartsApiRequest('languages/list'),
+      autoPartsApiRequest('languages/list', undefined, QA),
+      autoPartsApiRequest('languages/list', undefined, QA),
+      autoPartsApiRequest('languages/list', undefined, QA),
     ]);
 
     // A double-click, or two components mounting, must cost one call.

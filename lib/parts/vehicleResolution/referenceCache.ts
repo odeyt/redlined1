@@ -30,7 +30,9 @@ import 'server-only';
  * thing that must survive a cold start.
  */
 import { autoPartsApiRequest } from '../providers/autopartsapi/client';
-import type { EndpointCategory } from '../providers/autopartsapi/telemetry';
+import type {
+  EndpointCategory, PartsProviderCallContext,
+} from '../providers/autopartsapi/telemetry';
 
 export const TTL = {
   manufacturers: 7 * 24 * 60 * 60_000,
@@ -63,16 +65,27 @@ export async function cachedFetch<T>(
   path: string,
   category: EndpointCategory,
   ttlMs: number,
-  opts: { shopId?: string; now?: number; bypass?: boolean } = {},
+  opts: {
+    shopId?: string;
+    now?: number;
+    bypass?: boolean;
+    /** Who is asking. Required for the same reason the client requires it. */
+    callContext?: PartsProviderCallContext;
+  } = {},
 ): Promise<T> {
   const now = opts.now ?? Date.now();
+  const callContext = opts.callContext ?? 'application';
 
   if (!opts.bypass) {
     const hit = store.get(path);
     if (hit && hit.expiresAt > now) {
-      // Recorded as a cache hit so the month's external count stays honest.
+      // Recorded as a cache hit so the month's external count stays honest,
+      // and so the cache's effectiveness is visible rather than inferred.
       const { recordUsage } = await import('../providers/autopartsapi/telemetry');
-      void recordUsage({ shopId: opts.shopId, category, cacheHit: true, success: true });
+      void recordUsage({
+        shopId: opts.shopId, category, callContext,
+        outcome: 'cache_hit', success: true,
+      });
       return hit.value as T;
     }
   }
@@ -80,6 +93,7 @@ export async function cachedFetch<T>(
   const value = await autoPartsApiRequest<T>(path, undefined, {
     shopId: opts.shopId,
     category,
+    callContext,
   });
 
   if (store.size >= MAX_ENTRIES) {
