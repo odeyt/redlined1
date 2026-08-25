@@ -241,6 +241,13 @@ export async function POST(req: NextRequest) {
 
         vehicleResolution = {
           status: outcome.resolution.resolutionStatus,
+          /**
+           * Carried so the client can distinguish WHY resolution stopped.
+           * `model_ambiguous` in particular needs its own screen: several
+           * catalogue series match, so there are no modification candidates
+           * to choose between and the variant chooser cannot help.
+           */
+          reasonCode: outcome.reasonCode,
           reason: outcome.resolution.evidence.at(-1)?.detail ?? '',
           fingerprint: outcome.resolution.fingerprint,
           vehicleId: input.vehicleId,

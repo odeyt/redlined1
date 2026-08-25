@@ -129,8 +129,15 @@ export interface VehicleFirstSearchInput {
   query: string;
 }
 
-/** Cap on OEM numbers kept per product group, so one query cannot flood the UI. */
-const MAX_OEM_PER_GROUP = 60;
+/**
+ * Group name used for matching, not for display.
+ *
+ * "Brake Pad Set, disc brake" and "BRAKE PAD SET,  DISC BRAKE" are one
+ * answer. The first spelling seen is what the technician is shown.
+ */
+function groupKey(name: string): string {
+  return name.toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
 export async function searchOemNumbersForVehicle(
   input: VehicleFirstSearchInput,
@@ -149,24 +156,83 @@ export async function searchOemNumbersForVehicle(
   const rows = rowsOf(payload);
   logger.info('parts_vehicle_first_search', { rows: rows.length });
 
-  const byName = new Map<string, Set<string>>();
+  const groups = groupOemReferences(rows, input.query);
+  return {
+    groups,
+    totalOemNumbers: groups.reduce((n, g) => n + g.oemNumbers.length, 0),
+    externalCalls: 1,
+  };
+}
+
+/**
+ * Rows to reference groups. Pure, so it can be tested against the real
+ * fixture rather than inferred from the shape of the code.
+ */
+export function groupOemReferences(
+  rows: VehicleOemRow[],
+  query: string,
+): VehicleOemGroup[] {
+  /**
+   * Keyed on the NORMALISED number, valued by the first display spelling.
+   *
+   * The previous version computed the normalised key and then added
+   * `oem.toUpperCase()` to a Set, so the key was discarded and
+   * "7L0 698 151 M" survived alongside "7L0698151M" as two references to one
+   * part. A source-text test asserted `normalizePartNumber(oem)` appeared in
+   * this file, which it did — while its value went nowhere.
+   */
+  const byName = new Map<string, { display: string; numbers: Map<string, string> }>();
   for (const r of rows) {
     const name = safeText(r.articleProductName, 120);
     const oem = safeText(r.articleOemNo, 60);
     if (!name || !oem) continue;
-    // Normalised so "7L0 698 151 M" and "7L0698151M" are one number.
     const key = normalizePartNumber(oem);
     if (!key) continue;
-    const set = byName.get(name) ?? new Set<string>();
-    set.add(oem.toUpperCase());
-    byName.set(name, set);
+
+    const gk = groupKey(name);
+    const group = byName.get(gk) ?? { display: name, numbers: new Map<string, string>() };
+
+    /**
+     * The displayed spelling is CANONICAL, not first-seen.
+     *
+     * "7L0698151M" and "7L0 698 151 M" are one reference, and first-seen made
+     * the label depend on the order the provider happened to return rows in.
+     * The reference set was stable but its React keys were not, so an
+     * identical search could remount the whole list.
+     *
+     * Shortest wins, ties broken lexicographically: deterministic whatever
+     * the input order, and it prefers the compact form a technician would
+     * actually type.
+     */
+    const shown = oem.toUpperCase();
+    const existing = group.numbers.get(key);
+    if (existing === undefined
+      || shown.length < existing.length
+      || (shown.length === existing.length && shown < existing)) {
+      group.numbers.set(key, shown);
+    }
+    byName.set(gk, group);
   }
 
-  const groups: VehicleOemGroup[] = [...byName.entries()]
-    .map(([productName, set]) => ({
-      productName,
-      oemNumbers: [...set].sort().slice(0, MAX_OEM_PER_GROUP),
-      relevance: searchRelevance(input.query, productName),
+  const groups: VehicleOemGroup[] = [...byName.values()]
+    .map(({ display, numbers }) => ({
+      productName: display,
+      /**
+       * EVERY reference, never a slice.
+       *
+       * There was a cap of 60 here, which silently discarded 126 of the 186
+       * numbers the catalogue returned while the count beside it still read
+       * like the whole answer. Long lists are a UI problem and are solved in
+       * the UI, by filtering and paging — not by dropping data on the server
+       * and not saying so.
+       *
+       * Sorted by the normalised key so ordering never depends on how a
+       * spelling happened to be punctuated.
+       */
+      oemNumbers: [...numbers.entries()]
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([, display]) => display),
+      relevance: searchRelevance(query, display),
     }))
     // Best answer to what was typed first, then the richest group.
     .sort((a, b) => {
@@ -176,9 +242,5 @@ export async function searchOemNumbersForVehicle(
         || a.productName.localeCompare(b.productName);
     });
 
-  return {
-    groups,
-    totalOemNumbers: groups.reduce((n, g) => n + g.oemNumbers.length, 0),
-    externalCalls: 1,
-  };
+  return groups;
 }

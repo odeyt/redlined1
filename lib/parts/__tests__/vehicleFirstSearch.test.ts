@@ -117,8 +117,12 @@ describe('the service answers with OEM numbers, not parts', () => {
     expect(SERVICE).toContain('normalizePartNumber(oem)');
   });
 
-  it('caps how many numbers one group may carry', () => {
-    expect(SERVICE).toContain('MAX_OEM_PER_GROUP');
+  it('caps nothing, and paging happens in the UI', () => {
+    // There was a MAX_OEM_PER_GROUP of 60, which silently discarded 126 of
+    // the 186 live references while the count still read like the whole
+    // answer. Narrowing is the list's job, not the fetch's.
+    expect(SERVICE).not.toContain('MAX_OEM_PER_GROUP');
+    expect(SERVICE).toContain('EVERY reference, never a slice');
   });
 
   it('skips rows missing either field', () => {

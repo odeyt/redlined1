@@ -29,6 +29,7 @@ import { sellPriceFor, type MarkupType } from '@/lib/parts/snapshot';
 import type { NormalizedPartResult, ProviderHealth, ProviderOutcome } from '@/lib/parts/types';
 import type { ModificationCandidate } from '@/lib/parts/vehicleResolution/types';
 import { VehicleVariantSelector } from './VehicleVariantSelector';
+import { VehicleOemReferences } from './VehicleOemReferences';
 
 export interface ScoredResult extends NormalizedPartResult {
   recommendation: Recommendation;
@@ -161,6 +162,8 @@ export type SearchState =
 /** What the server said about pinning this estimate's vehicle to a catalogue variant. */
 export interface VehicleResolutionState {
   status: 'resolved' | 'ambiguous' | 'insufficient_data' | 'not_found';
+  /** Why resolution stopped. `model_ambiguous` gets its own explanation. */
+  reasonCode?: string;
   reason: string;
   fingerprint: string;
   vehicleId?: string;
@@ -185,23 +188,6 @@ const FITMENT_COLOR: Record<string, string> = {
   likely: '#d97706',
   unverified: '#6b7280',
   incompatible: '#dc2626',
-};
-
-/**
- * Relevance is deliberately styled UNLIKE fitment.
- *
- * Fitment green means "this fits". If relevance reused the same green, a
- * technician scanning the column would read a strong match for their words as
- * a fitment claim. So relevance speaks in neutral ink and says what it means
- * in words instead.
- */
-const RELEVANCE_COLOR: Record<string, string> = {
-  high: 'var(--fg)', medium: 'var(--muted)', low: 'var(--muted)',
-};
-const RELEVANCE_LABEL: Record<string, string> = {
-  high: 'MATCHES YOUR SEARCH',
-  medium: 'PARTIAL SEARCH MATCH',
-  low: 'DIFFERENT PART',
 };
 
 const FITMENT_ORDER: Record<string, number> = {
@@ -670,7 +656,68 @@ export function PartsSearchModal({
             * decides whether the technician searches again by part number or
             * concludes the part does not exist.
             */}
+          {/**
+            * Several catalogue series match this vehicle.
+            *
+            * Proven live: a 2009 Mercedes-Benz S-Class matches two model
+            * series for that year. Ambiguity at the MODEL step produces no
+            * MODIFICATION candidates, so the variant chooser has nothing to
+            * offer and cannot render — and the technician was left reading
+            * "No matching parts found", which blames the catalogue for a
+            * question Redlined1 could not answer.
+            *
+            * Neither series is auto-selected. Picking one would be a guess
+            * presented as a fact, and it would then be cached as the
+            * vehicle's mapping. Choosing between them needs a model-series
+            * chooser the resolver cannot yet support — it counts model
+            * candidates into evidence and discards them. That is M-PARTS2C.2.
+            */}
+          {resolution?.reasonCode === 'model_ambiguous' && (
+            <div data-testid="model-ambiguous" style={{
+              border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 14px',
+              background: 'var(--surface-soft)', marginBottom: 12, fontSize: 12,
+            }}>
+              <div style={{ fontWeight: 800, color: '#b45309', fontSize: 13 }}>
+                VEHICLE MODEL AMBIGUOUS
+              </div>
+              <div style={{ color: 'var(--muted)', marginTop: 5 }}>
+                The catalog contains multiple model series matching this vehicle.
+                {resolution.reason ? ` ${resolution.reason}` : ''}
+              </div>
+              <div style={{ color: 'var(--muted)', marginTop: 4 }}>
+                More vehicle information or model-series selection is required before
+                vehicle-specific parts discovery can continue. Nothing has been assumed
+                about which series this vehicle is.
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => { setMode('oem'); setQuery(''); setState('idle'); }}
+                  style={{
+                    padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', minHeight: 34, border: '1px solid var(--accent)',
+                    background: 'var(--accent)', color: '#fff',
+                  }}
+                >
+                  Search by OEM Instead
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{
+                    padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', minHeight: 34, border: '1px solid var(--line)',
+                    background: 'transparent', color: 'var(--text)',
+                  }}
+                >
+                  Add Part Manually
+                </button>
+              </div>
+            </div>
+          )}
+
           {resolution && resolution.status !== 'resolved'
+            && resolution.reasonCode !== 'model_ambiguous'
             && !(pendingSearch && (resolution.candidates?.length ?? 0) > 1) && (
             <div data-testid="vehicle-unresolved" style={{
               border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 12px',
@@ -782,49 +829,17 @@ export function PartsSearchModal({
             * runs that search.
             */}
           {vehicleOem && vehicleOem.groups.length > 0 && (
-            <div data-testid="vehicle-oem" style={{
-              border: '1px solid var(--line)', borderRadius: 10, padding: 12,
-              background: 'var(--surface-soft)', marginBottom: 12,
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', marginBottom: 2 }}>
-                OEM NUMBERS FOR THIS VEHICLE
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
-                From the catalogue, for the confirmed variant. These are part numbers,
-                not offers — pick one to search it for brands and prices.
-              </div>
-
-              {vehicleOem.groups.map(g => (
-                <div key={g.productName} style={{ marginBottom: 10 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: 13 }}>{g.productName}</span>
-                    <span style={{ fontSize: 11, color: RELEVANCE_COLOR[g.relevance] }}>
-                      {RELEVANCE_LABEL[g.relevance]}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      {g.oemNumbers.length} number{g.oemNumbers.length === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                    {g.oemNumbers.map(oem => (
-                      <button
-                        key={oem}
-                        onClick={() => { setMode('oem'); setQuery(oem); void runSearch(false, { term: oem, mode: 'oem' }); }}
-                        title={`Search ${oem}`}
-                        style={{
-                          padding: '4px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                          fontFamily: 'ui-monospace, monospace', cursor: 'pointer', minHeight: 28,
-                          border: '1px solid var(--line)', background: 'transparent',
-                          color: 'var(--text)',
-                        }}
-                      >
-                        {oem}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <VehicleOemReferences
+              groups={vehicleOem.groups}
+              busy={loading}
+              onSelect={oem => {
+                // The canonical OEM path from M-PARTS2A. Vehicle context rides
+                // along unchanged because runSearch always sends it.
+                setMode('oem');
+                setQuery(oem);
+                void runSearch(false, { term: oem, mode: 'oem' });
+              }}
+            />
           )}
 
           {/* ── Results ──────────────────────────────────────────────────── */}

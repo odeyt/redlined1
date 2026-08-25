@@ -21,14 +21,11 @@ describe('OEM numbers are presented as numbers, not as parts', () => {
    * Rendering those as result cards produced 186 identical rows, each with a
    * 'Select this part' button a technician could only press at random.
    */
-  it('renders them in their own block', () => {
-    expect(MODAL).toContain('data-testid="vehicle-oem"');
-    expect(MODAL).toContain('OEM NUMBERS FOR THIS VEHICLE');
-  });
-
-  it('says plainly that they are not offers', () => {
-    expect(MODAL).toContain('These are part numbers,');
-    expect(MODAL).toContain('not offers');
+  it('delegates the reference list to its own component', () => {
+    // The block moved into VehicleOemReferences.tsx, which owns filtering and
+    // paging. What it is allowed to render is asserted in oemReferenceUi.
+    expect(MODAL).toContain('<VehicleOemReferences');
+    expect(MODAL).toContain('vehicleOem.groups');
   });
 
   it('makes each number run the OEM search that can price it', () => {
