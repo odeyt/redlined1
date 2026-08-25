@@ -216,6 +216,25 @@ async function readPersistent<T>(path: string, now: number): Promise<T | undefin
 }
 
 /** Upsert, because two instances may resolve the same vehicle at once. */
+/**
+ * The provider host a cached payload came from.
+ *
+ * HOST only — deliberately parsed out rather than storing the base URL, so a
+ * path, a query string or anything that could carry a credential cannot ride
+ * along into a provenance column. Falls back to the provider name rather than
+ * throwing: provenance failing must never fail a write, and a write failing
+ * must never fail a search.
+ */
+function providerHost(): string {
+  try {
+    const base = process.env.AUTOPARTS_API_BASE_URL
+      ?? 'https://auto-parts-catalog.apiprofile.com/api';
+    return new URL(base).host;
+  } catch {
+    return 'autopartsapi';
+  }
+}
+
 async function writePersistent(
   path: string, category: EndpointCategory, payload: unknown, expiresAtMs: number,
 ): Promise<void> {
@@ -229,6 +248,21 @@ async function writePersistent(
         payload,
         expires_at: new Date(expiresAtMs).toISOString(),
         updated_at: new Date().toISOString(),
+        /**
+         * Provenance, required by the production cache policy: which
+         * provider, from which host, fetched when.
+         *
+         * `fetched_at` is deliberately distinct from `created_at` — a
+         * refreshed row keeps its creation time but must report the age of
+         * the payload it currently holds, which is the number that decides
+         * whether this is a cache or a mirror.
+         *
+         * Host only. Never a full URL with parameters, and never the API
+         * key, which travels in a header and is not part of any key.
+         */
+        provider: 'autopartsapi',
+        fetched_at: new Date().toISOString(),
+        source_host: providerHost(),
       }, { onConflict: 'cache_key' });
   } catch {
     // A cache that cannot be written is a cache that misses. Nothing else.
