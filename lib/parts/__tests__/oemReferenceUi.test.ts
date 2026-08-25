@@ -169,58 +169,97 @@ describe('the empty-parts message does not contradict the references', () => {
   });
 });
 
-describe('model-level ambiguity is stated, never guessed past', () => {
-  it('has its own screen', () => {
-    expect(MODAL).toContain('data-testid="model-ambiguous"');
-    expect(MODAL).toContain('VEHICLE MODEL AMBIGUOUS');
+describe('model-level ambiguity is a real choice now, never a guess', () => {
+  /**
+   * M-PARTS2C.1 shipped this as a static panel that only STATED the problem —
+   * the resolver counted model candidates into evidence and discarded them, so
+   * no choice could be offered. M-PARTS2C.2 returns them and this is now a
+   * chooser. What must not change is that nothing is auto-selected.
+   */
+  const SELECTOR = readFileSync(
+    join(process.cwd(), 'features/estimates/VehicleModelSelector.tsx'), 'utf8');
+
+  it('renders a chooser rather than a dead end', () => {
+    expect(SELECTOR).toContain('data-testid="model-selector"');
+    expect(SELECTOR).toContain('VEHICLE MODEL AMBIGUOUS');
+    expect(MODAL).toContain('<VehicleModelSelector');
   });
 
-  it('is driven by the reason code, not by guessing from status', () => {
+  it('is driven by the reason code, not inferred from status', () => {
     expect(ROUTE).toContain('reasonCode: outcome.reasonCode');
     expect(MODAL).toContain("resolution?.reasonCode === 'model_ambiguous'");
   });
 
-  it('says what is required to continue', () => {
-    expect(MODAL).toContain('multiple model series matching this vehicle');
-    expect(MODAL).toContain('model-series selection is required');
+  it('only offers a choice when there is one to make', () => {
+    // One candidate is not a decision.
+    expect(MODAL).toContain('(resolution.modelCandidates?.length ?? 0) > 1');
   });
 
-  it('offers both ways forward', () => {
-    expect(MODAL).toContain('Search by OEM Instead');
-    expect(MODAL).toContain('Add Part Manually');
+  it('preselects nothing', () => {
+    // The resolver could not tell the series apart on the evidence it had. A
+    // default would be a guess wearing the resolver's authority, and the
+    // answer is stored as technician-confirmed.
+    expect(SELECTOR).toContain('useState<number | null>(null)');
+    expect(SELECTOR).toContain('disabled={chosen === null || busy}');
   });
 
-  it('states plainly that nothing was assumed', () => {
-    expect(MODAL).toContain('Nothing has been assumed');
+  it('says what is required to continue, and that nothing was assumed', () => {
+    expect(SELECTOR).toContain('model series matching this vehicle');
+    expect(SELECTOR).toContain('Nothing has been assumed');
   });
 
-  it('does not also show the generic unresolved banner', () => {
-    // Two competing explanations of one state is worse than one.
-    expect(MODAL).toContain("resolution.reasonCode !== 'model_ambiguous'");
+  it('keeps a way out that does not need the choice', () => {
+    expect(SELECTOR).toContain('Search by OEM Instead');
+    expect(SELECTOR).toContain('fitment will remain unverified');
+  });
+
+  it('shows each series with the years that distinguish it', () => {
+    expect(SELECTOR).toContain('Production {span}');
   });
 });
 
-describe('a marque contradiction is only claimed when there is one', () => {
-  /**
-   * Seen live on staging: an OEM search on an estimate with no linked vehicle
-   * rendered "≠ AUDI". There was no vehicle to differ FROM. Absence is not
-   * contradiction — the same rule that governs fitment.
-   */
-  it('has three states, not two', () => {
-    expect(MODAL).toContain("data-marque-state={!known ? 'unknown' : matches ? 'match' : 'contradiction'}");
+describe('choosing a series continues resolution rather than ending it', () => {
+  const SELECT_ROUTE = readFileSync(
+    join(process.cwd(), 'app/api/parts/vehicle-resolution/select-model/route.ts'), 'utf8');
+  const RESOLVER = readFileSync(
+    join(process.cwd(), 'lib/parts/vehicleResolution/resolver.ts'), 'utf8');
+
+  it('handles both outcomes: resolved, or a variant still to pick', () => {
+    expect(SELECT_ROUTE).toContain("code: 'RESOLVED'");
+    expect(SELECT_ROUTE).toContain("code: 'VARIANT_REQUIRED'");
+    expect(MODAL).toContain("json?.code === 'VARIANT_REQUIRED'");
   });
 
-  it('shows the ≠ mark only for a real contradiction', () => {
-    expect(MODAL).toContain("{contradicts ? '≠ ' : ''}");
-    expect(MODAL).toContain('const contradicts = known && !matches;');
+  it('writes a mapping ONLY when resolution actually completed', () => {
+    // A series alone is not a resolution. Storing one would later read as
+    // authoritative.
+    const variantBranch = SELECT_ROUTE.slice(SELECT_ROUTE.indexOf("code: 'VARIANT_REQUIRED'"));
+    expect(variantBranch).not.toContain('writeMapping');
+    expect(SELECT_ROUTE).toContain('NOTHING is written');
   });
 
-  it('says why it cannot compare when no vehicle is known', () => {
-    expect(MODAL).toContain('No vehicle on this estimate to compare against');
+  it('validates the chosen id inside the resolver, not at the call site', () => {
+    // Same structural reason as candidateWasOffered: the check cannot be
+    // skipped by a caller forgetting to call a helper.
+    expect(RESOLVER).toContain('chosenModel = offered.find(m => m.id === options.chosenModelId)');
+    expect(RESOLVER).toContain('if (!chosenModel)');
   });
 
-  it('does not colour an unknown comparison as a warning', () => {
-    // Amber reads as "something is wrong". Nothing is wrong; we just cannot say.
-    expect(MODAL).toContain("color: !known ? 'var(--muted)' : matches ? '#16a34a' : '#b45309'");
+  it('refuses a series the resolver never offered', () => {
+    expect(SELECT_ROUTE).toContain("code: 'MODEL_INVALID'");
+    expect(RESOLVER).toContain('no longer one of the options');
+  });
+
+  it('carries the same auth, ownership and fingerprint checks as the variant route', () => {
+    expect(SELECT_ROUTE).toContain('vehicleBelongsToShop(input.shopId, input.vehicleId)');
+    expect(SELECT_ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(SELECT_ROUTE).toContain("code: 'VEHICLE_CHANGED'");
+  });
+
+  it('holds the search so it resumes after the choice', () => {
+    // Model ambiguity carries no modification candidates, so a condition
+    // testing only `candidates` left the search unheld and resolving the
+    // series resumed nothing.
+    expect(MODAL).toContain("(vr.modelCandidates?.length ?? 0) > 1");
   });
 });

@@ -27,9 +27,10 @@ import { FITMENT_LABEL, FITMENT_WARNING, needsFitmentWarning } from '@/lib/parts
 import { LABEL_TEXT, type Recommendation } from '@/lib/parts/recommendation';
 import { sellPriceFor, type MarkupType } from '@/lib/parts/snapshot';
 import type { NormalizedPartResult, ProviderHealth, ProviderOutcome } from '@/lib/parts/types';
-import type { ModificationCandidate } from '@/lib/parts/vehicleResolution/types';
+import type { ModificationCandidate, ModelSeriesCandidate } from '@/lib/parts/vehicleResolution/types';
 import { VehicleVariantSelector } from './VehicleVariantSelector';
 import { VehicleOemReferences } from './VehicleOemReferences';
+import { VehicleModelSelector } from './VehicleModelSelector';
 
 export interface ScoredResult extends NormalizedPartResult {
   recommendation: Recommendation;
@@ -168,6 +169,8 @@ export interface VehicleResolutionState {
   fingerprint: string;
   vehicleId?: string;
   candidates?: ModificationCandidate[];
+  /** Catalogue series to choose between, when the model step could not decide. */
+  modelCandidates?: ModelSeriesCandidate[];
   manufacturerName?: string;
   modelName?: string;
   modificationDescription?: string;
@@ -181,6 +184,7 @@ const CONFIRM_MESSAGE: Record<string, string> = {
   UNAUTHORIZED: 'You are not authorised to change this vehicle.',
   PROVIDER_UNAVAILABLE: 'The parts catalogue could not be reached. You can still add parts manually.',
   PERSIST_FAILED: 'The vehicle variant could not be saved. Try again.',
+  MODEL_INVALID: 'That model series is no longer one of the options. Search again.',
 };
 
 const FITMENT_COLOR: Record<string, string> = {
@@ -323,6 +327,70 @@ export function PartsSearchModal({
     }
   }
 
+  /**
+   * A technician choosing which catalogue MODEL SERIES this vehicle is.
+   *
+   * Choosing a series is not the end of resolution — it narrows which
+   * variants exist. So this handles two outcomes: RESOLVED, where the series
+   * pinned one variant and the held search resumes; and VARIANT_REQUIRED,
+   * where the variant chooser takes over one level down.
+   */
+  async function selectModelSeries(modelId: number) {
+    if (!resolution?.vehicleId || confirming) return;
+    setConfirming(true);
+    setConfirmError('');
+    try {
+      const res = await fetch('/api/parts/vehicle-resolution/select-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId,
+          vehicleId: resolution.vehicleId,
+          modelId,
+          fingerprint: resolution.fingerprint,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (json?.code === 'RESOLVED') {
+        setResolution({
+          status: 'resolved',
+          reason: 'Catalogue series confirmed by technician.',
+          fingerprint: json.resolution.fingerprint,
+          vehicleId: resolution.vehicleId,
+          manufacturerName: json.resolution.manufacturerName,
+          modelName: json.resolution.modelName,
+          modificationDescription: json.resolution.modificationDescription,
+          confirmedByTechnician: true,
+        });
+        await resumeAfterConfirm();
+        return;
+      }
+
+      if (json?.code === 'VARIANT_REQUIRED') {
+        // Down a level: the series is settled, the variant is not. The held
+        // search stays held so it can resume after THAT choice.
+        setResolution({
+          status: 'ambiguous',
+          reasonCode: json.reasonCode,
+          reason: json.reason ?? '',
+          fingerprint: json.fingerprint ?? resolution.fingerprint,
+          vehicleId: resolution.vehicleId,
+          modelName: json.modelName,
+          candidates: json.candidates ?? [],
+        });
+        return;
+      }
+
+      setConfirmError(
+        CONFIRM_MESSAGE[json?.code] ?? 'The model series could not be confirmed.');
+    } catch {
+      setConfirmError('The model series could not be confirmed. You can still add parts manually.');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   /** Replay the term and mode the technician had already entered. */
   async function resumeAfterConfirm() {
     const pending = pendingSearch;
@@ -391,8 +459,17 @@ export function PartsSearchModal({
       const vr = json?.vehicleResolution as VehicleResolutionState | undefined;
       if (vr) {
         setResolution(vr);
-        if ((vr.status === 'ambiguous' || vr.status === 'insufficient_data')
-          && (vr.candidates?.length ?? 0) > 1) {
+        /**
+         * Hold the search whenever a choice can unblock it.
+         *
+         * Model ambiguity carries NO modification candidates — that is the
+         * whole reason it needed its own chooser — so a condition testing
+         * only `candidates` left the held search unset, and resolving the
+         * series then resumed nothing. Both kinds of choice hold it.
+         */
+        const canChoose = (vr.candidates?.length ?? 0) > 1
+          || (vr.modelCandidates?.length ?? 0) > 1;
+        if ((vr.status === 'ambiguous' || vr.status === 'insufficient_data') && canChoose) {
           setPendingSearch({ term: q, mode: activeMode });
         } else {
           setPendingSearch(null);
@@ -657,62 +734,33 @@ export function PartsSearchModal({
             * concludes the part does not exist.
             */}
           {/**
-            * Several catalogue series match this vehicle.
+            * Several catalogue series match this vehicle — now a real choice.
             *
-            * Proven live: a 2009 Mercedes-Benz S-Class matches two model
-            * series for that year. Ambiguity at the MODEL step produces no
-            * MODIFICATION candidates, so the variant chooser has nothing to
-            * offer and cannot render — and the technician was left reading
-            * "No matching parts found", which blames the catalogue for a
-            * question Redlined1 could not answer.
+            * A 2009 Mercedes-Benz S-Class matches two catalogue series.
+            * Ambiguity at the MODEL step produces no MODIFICATION candidates,
+            * so the variant chooser cannot help; this is its counterpart one
+            * level up. Choosing a series does not finish resolution — the
+            * variant chooser may still follow.
             *
-            * Neither series is auto-selected. Picking one would be a guess
-            * presented as a fact, and it would then be cached as the
-            * vehicle's mapping. Choosing between them needs a model-series
-            * chooser the resolver cannot yet support — it counts model
-            * candidates into evidence and discards them. That is M-PARTS2C.2.
+            * Shown INSTEAD of results, like the variant chooser, so a
+            * technician cannot add parts against an unresolved vehicle
+            * without meeting the question first.
             */}
-          {resolution?.reasonCode === 'model_ambiguous' && (
-            <div data-testid="model-ambiguous" style={{
-              border: '1px solid #f59e0b', borderRadius: 10, padding: '12px 14px',
-              background: 'var(--surface-soft)', marginBottom: 12, fontSize: 12,
+          {resolution?.reasonCode === 'model_ambiguous'
+            && (resolution.modelCandidates?.length ?? 0) > 1 && (
+            <div style={{
+              border: '1px solid var(--line)', borderRadius: 10, padding: 14,
+              background: 'var(--surface-soft)', marginBottom: 12,
             }}>
-              <div style={{ fontWeight: 800, color: '#b45309', fontSize: 13 }}>
-                VEHICLE MODEL AMBIGUOUS
-              </div>
-              <div style={{ color: 'var(--muted)', marginTop: 5 }}>
-                The catalog contains multiple model series matching this vehicle.
-                {resolution.reason ? ` ${resolution.reason}` : ''}
-              </div>
-              <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-                More vehicle information or model-series selection is required before
-                vehicle-specific parts discovery can continue. Nothing has been assumed
-                about which series this vehicle is.
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => { setMode('oem'); setQuery(''); setState('idle'); }}
-                  style={{
-                    padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                    cursor: 'pointer', minHeight: 34, border: '1px solid var(--accent)',
-                    background: 'var(--accent)', color: '#fff',
-                  }}
-                >
-                  Search by OEM Instead
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                    cursor: 'pointer', minHeight: 34, border: '1px solid var(--line)',
-                    background: 'transparent', color: 'var(--text)',
-                  }}
-                >
-                  Add Part Manually
-                </button>
-              </div>
+              <VehicleModelSelector
+                vehicleLabel={vehicleLabel || 'this vehicle'}
+                candidates={resolution.modelCandidates!}
+                reason={resolution.reason}
+                busy={confirming}
+                error={confirmError}
+                onConfirm={id => void selectModelSeries(id)}
+                onCancel={() => { setMode('oem'); setQuery(''); setState('idle'); setConfirmError(''); }}
+              />
             </div>
           )}
 

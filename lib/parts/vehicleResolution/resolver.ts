@@ -35,7 +35,7 @@ import { matchManufacturer, type ProviderManufacturer } from './manufacturer';
 import { matchModel, type ProviderModel } from './model';
 import { matchModification } from './modification';
 import type {
-  CanonicalVehicle, ModificationCandidate, ProviderVehicleResolution,
+  CanonicalVehicle, ModificationCandidate, ModelSeriesCandidate, ProviderVehicleResolution,
   VehicleResolutionEvidence,
 } from './types';
 
@@ -64,6 +64,15 @@ export interface ResolutionOutcome {
   reasonCode: ResolutionReasonCode;
   /** Present whenever a technician could resolve this by choosing. */
   candidates?: ModificationCandidate[];
+  /**
+   * Model series a technician may choose between, when the catalogue holds
+   * more than one for this vehicle.
+   *
+   * These used to be counted into evidence and then discarded, so nothing
+   * downstream could offer the choice and the technician was told only that
+   * no parts were found. Returning them is what makes the chooser possible.
+   */
+  modelCandidates?: ModelSeriesCandidate[];
   /** External calls this invocation actually spent. */
   externalCalls: number;
 }
@@ -188,12 +197,32 @@ function ccToLitres(v: unknown): number | undefined {
   return n > 100 ? Math.round(n / 100) / 10 : n;
 }
 
+/**
+ * Provider models to the shape a chooser can render.
+ *
+ * Deterministic order — oldest series first, then by name — so the same
+ * ambiguity always presents the same list in the same order.
+ */
+export function toModelCandidates(models: ProviderModel[]): ModelSeriesCandidate[] {
+  return [...models]
+    .map(m => ({ modelId: m.id, name: m.name, yearFrom: m.yearFrom, yearTo: m.yearTo }))
+    .sort((a, b) => (a.yearFrom ?? 0) - (b.yearFrom ?? 0) || a.name.localeCompare(b.name));
+}
+
 // ─── The resolver ────────────────────────────────────────────────────────────
 
 export interface ResolveOptions {
   shopId?: string;
   /** Skip the persisted mapping. Used by an explicit re-resolve. */
   bypassMapping?: boolean;
+  /**
+   * A model series the technician picked, when the catalogue held several.
+   *
+   * Untrusted: the resolver checks it against the candidates it derives
+   * itself, and ignores it if it was never offered. Passing one does NOT skip
+   * the model lookup — that lookup is what makes the check possible.
+   */
+  chosenModelId?: number;
   /** Already-loaded mapping, so the caller owns the database round trip. */
   existingMapping?: {
     vehicle_fingerprint: string;
@@ -308,7 +337,8 @@ export async function resolveProviderVehicle(
       modelsPath({ manufacturerId: manufacturer.id }), 'models', TTL.models, ctx);
     externalCalls += 1;
 
-    const modelMatch = matchModel(vehicle.model, vehicle.year, readModels(modelPayload));
+    const providerModels = readModels(modelPayload);
+    const modelMatch = matchModel(vehicle.model, vehicle.year, providerModels);
     evidence.push({
       step: 'model',
       outcome: modelMatch.status === 'matched' ? 'matched'
@@ -318,21 +348,58 @@ export async function resolveProviderVehicle(
       candidates: modelMatch.candidates?.length,
     });
 
-    if (modelMatch.status !== 'matched') {
+    /**
+     * A technician's chosen series, verified HERE rather than by the caller.
+     *
+     * The id arrives from a browser, so it is untrusted for exactly the reason
+     * `candidateWasOffered` exists: a confirmed mapping is the strongest
+     * evidence in the fitment chain. Checking it against the candidate list
+     * this resolver just derived — not against anything sent alongside it —
+     * means no caller can skip the check by forgetting to call a helper.
+     */
+    let chosenModel: ProviderModel | undefined;
+    if (options.chosenModelId !== undefined) {
+      const offered = modelMatch.candidates ?? [];
+      chosenModel = offered.find(m => m.id === options.chosenModelId);
+      if (!chosenModel) {
+        evidence.push({
+          step: 'model', outcome: 'no_match',
+          detail: 'That model series is no longer one of the options for this vehicle.',
+        });
+        return {
+          resolution: { ...resolution, resolutionStatus: 'ambiguous', evidence },
+          reasonCode: 'model_ambiguous',
+          modelCandidates: toModelCandidates(offered),
+          externalCalls,
+        };
+      }
+      evidence.push({
+        step: 'model', outcome: 'matched',
+        detail: `Technician chose the catalogue series "${chosenModel.name}".`,
+      });
+    }
+
+    if (!chosenModel && modelMatch.status !== 'matched') {
+      const ambiguous = modelMatch.status === 'ambiguous';
       return {
         resolution: {
           ...resolution,
-          resolutionStatus: modelMatch.status === 'ambiguous' ? 'ambiguous' : 'not_found',
+          resolutionStatus: ambiguous ? 'ambiguous' : 'not_found',
           evidence,
         },
-        reasonCode: modelMatch.status === 'ambiguous' ? 'model_ambiguous'
+        reasonCode: ambiguous ? 'model_ambiguous'
           : modelMatch.detail.includes('not in production') ? 'year_outside_range'
             : 'model_not_found',
+        // The choice the technician can make. Only meaningful when more than
+        // one series survived — one candidate is not a decision.
+        modelCandidates: ambiguous && (modelMatch.candidates?.length ?? 0) > 1
+          ? toModelCandidates(modelMatch.candidates!)
+          : undefined,
         externalCalls,
       };
     }
 
-    const model = modelMatch.model!;
+    const model = chosenModel ?? modelMatch.model!;
     resolution.modelId = model.id;
     resolution.modelName = model.name;
 

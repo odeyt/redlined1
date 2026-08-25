@@ -76,6 +76,26 @@ export interface ProviderVehicleResolution {
   confirmedByUserId?: string;
 }
 
+/**
+ * A provider MODEL SERIES a technician may be asked to choose between.
+ *
+ * Distinct from a modification. A 2009 Mercedes-Benz S-Class matches two
+ * catalogue series for that year, and neither is a variant of the other —
+ * choosing one narrows which variants exist at all. Model ambiguity therefore
+ * produces no modification candidates, which is why the variant chooser could
+ * not help and the technician saw nothing.
+ *
+ * Carries only what distinguishes one series from another on screen. A
+ * technician picking between "S-CLASS (W221)" and "S-CLASS Coupe (C216)" needs
+ * the name and the years it was built, and nothing else.
+ */
+export interface ModelSeriesCandidate {
+  modelId: number;
+  name: string;
+  yearFrom?: number;
+  yearTo?: number;
+}
+
 /** A provider modification a technician may be asked to choose between. */
 export interface ModificationCandidate {
   vehicleId: number;

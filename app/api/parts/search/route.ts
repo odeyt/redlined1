@@ -252,6 +252,9 @@ export async function POST(req: NextRequest) {
           fingerprint: outcome.resolution.fingerprint,
           vehicleId: input.vehicleId,
           candidates: outcome.candidates,
+          // The series choice, when the model step could not decide. Without
+          // these the technician sees the problem stated and no way to fix it.
+          modelCandidates: outcome.modelCandidates,
           manufacturerName: outcome.resolution.manufacturerName,
           modelName: outcome.resolution.modelName,
           modificationDescription: outcome.resolution.modificationDescription,
