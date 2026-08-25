@@ -66,3 +66,37 @@ tolerates free text without producing false alarms, which is real work.
 
 Until then the dialog's display of the structured identity is the mitigation,
 and it is a real one — but it depends on someone reading it.
+
+---
+
+## Update — M-PARTS2C.4 (2026-08-26)
+
+This document described the problem. It is now also handled in code.
+
+**What exists now:** a single analyzer (`lib/vehicles/quality.ts`), a
+catalogue comparison that spends no provider call
+(`lib/vehicles/catalogComparison.ts`), a technician-approved enrichment path
+with a write allowlist and server-derived values (`lib/vehicles/enrichment.ts`),
+and a read-only fleet audit
+(`scripts/qa-vehicle-data-quality-audit.ts`). See
+[M-PARTS2C4-VEHICLE-DATA-QUALITY.md](M-PARTS2C4-VEHICLE-DATA-QUALITY.md).
+
+**The C 200 / S-Class record is still untouched**, exactly as this document
+said it should be. It is now *detected* rather than merely known: the analyzer
+flags it as the single display-vs-structured conflict in the fleet, and the
+panel shows both sides and offers no way to apply either over the other.
+
+**The prediction in this document held.** It warned that parsing the label
+into `make`/`model` "would import that noise into the fields that decide
+fitment", and that only a narrow subset — labels naming a *different* model —
+is worth flagging. Measured against the real fleet, a naive rule flagged 10 of
+116 vehicles with a 90% false-positive rate. The calibrated rule flags 1.
+
+**Structured canonical fields remain authoritative for provider resolution.**
+Unchanged, and now enforced by the allowlist: `make` and `model` are not
+catalogue-enrichable, and `vin` never is.
+
+**Still open:** the repair workflow this document proposed — surfacing the
+contradiction on the vehicle record and letting a technician choose which
+source is right — is not built. The conflict is reported; resolving it remains
+a manual edit.
