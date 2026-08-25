@@ -1,0 +1,19 @@
+{
+  "_note": "Sanitized excerpt of the REAL response from articles-oem/selecting-oem-parts-vehicle-modification-description-product-group, captured 2026-08-25 for a resolved Porsche Cayenne (92A), search-param 'brake pads'. The live response was a bare ARRAY of 186 rows. Every row carried exactly these two string fields and nothing else: no brand, no supplier, no article id, no image, no price, no product group. OEM numbers are public part identifiers and carry no customer data.",
+  "_shape": {
+    "topLevel": "array",
+    "rowCount": 186,
+    "keysPerRow": ["articleOemNo", "articleProductName"],
+    "distinctArticleOemNo": 186,
+    "distinctArticleProductName": 1
+  },
+  "rows": [
+    { "articleOemNo": "7L0698151M", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "7L0698151R", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "95535193900", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "95835193900", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "7L0 698 151 M", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "", "articleProductName": "Brake Pad Set, disc brake" },
+    { "articleOemNo": "7L0698451A", "articleProductName": "" }
+  ]
+}

@@ -136,13 +136,19 @@ export function messageForStatus(status: number): string {
  * fix, so "we are between states" is not allowed to be one of them.
  */
 /**
- * A provider product group present in the current results.
+ * OEM numbers the catalogue lists for the confirmed vehicle variant.
  *
- * Derived from the results themselves, not fetched from a category endpoint —
- * there is no documented one, so these are always categories the catalogue
- * genuinely used, never a Redlined1 taxonomy mapped onto it by guesswork.
+ * NOT parts. The vehicle-scoped endpoint returns a part name and an OEM
+ * number and nothing else — no brand, no price, no image, no product group.
+ * Proven by one controlled live call; see lib/parts/vehicleFirst/search.ts.
+ *
+ * There were category chips here, derived from a `productGroup` field the
+ * response does not contain. They are gone rather than left to render never.
  */
-export interface ProductGroup { id?: string; name: string; count: number }
+export interface VehicleOemState {
+  groups: Array<{ productName: string; oemNumbers: string[]; relevance: 'high' | 'medium' | 'low' }>;
+  totalOemNumbers: number;
+}
 
 export type SearchState =
   | 'idle'
@@ -242,8 +248,7 @@ export function PartsSearchModal({
   const [results, setResults] = useState<ScoredResult[]>([]);
   const [providers, setProviders] = useState<ProviderHealth[]>([]);
   const [outcomes, setOutcomes] = useState<ProviderOutcome[]>([]);
-  const [productGroups, setProductGroups] = useState<ProductGroup[]>([]);
-  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [vehicleOem, setVehicleOem] = useState<VehicleOemState | null>(null);
   const [error, setError] = useState('');
   const [role, setRole] = useState('');
   const [sort, setSort] = useState<SortKey>('recommended');
@@ -386,11 +391,9 @@ export function PartsSearchModal({
       const rows = Array.isArray(json?.results) ? json.results : [];
       const provs = Array.isArray(json?.providers) ? json.providers : [];
       setResults(rows);
-      // Categories are whatever the provider actually filed these results
-      // under — they change with every search, so a stale selection from the
-      // previous search must not survive into this one.
-      setProductGroups(Array.isArray(json?.productGroups) ? json.productGroups : []);
-      setGroupFilter(null);
+      // Belongs to the vehicle AND the term that produced it, so it is
+      // replaced on every search rather than accumulated.
+      setVehicleOem(json?.vehicleOem ?? null);
       setProviders(provs);
       setOutcomes(Array.isArray(json?.outcomes) ? json.outcomes : []);
       setRole(typeof json?.role === 'string' ? json.role : '');
@@ -428,13 +431,7 @@ export function PartsSearchModal({
   }
 
   const sorted = useMemo(() => {
-    // Narrowing to a category filters what is already on screen rather than
-    // re-querying. A chip carries a count, so it must show exactly that many
-    // rows — which means an ungrouped result is hidden while a chip is
-    // active, and is reachable again by clearing it.
-    const rows = groupFilter
-      ? results.filter(r => r.productGroup === groupFilter)
-      : [...results];
+    const rows = [...results];
     switch (sort) {
       case 'landed':
         return rows.sort((a, b) => (a.landedCost ?? Infinity) - (b.landedCost ?? Infinity));
@@ -451,7 +448,7 @@ export function PartsSearchModal({
       default:
         return rows.sort((a, b) => b.recommendation.score - a.recommendation.score);
     }
-  }, [results, sort, groupFilter]);
+  }, [results, sort]);
 
   /** Only providers that actually returned data appear in the comparison. */
   const comparison = useMemo(() => {
@@ -770,51 +767,63 @@ export function PartsSearchModal({
             </div>
           )}
 
-          {/* ── Categories ───────────────────────────────────────────────
-              Only the groups the catalogue actually used for THESE results.
-              Filtering is local, so a chip costs nothing to try and nothing
-              to undo. */}
-          {productGroups.length > 1 && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted)', letterSpacing: '.06em' }}>
-                CATEGORY
-              </span>
-              {[{ name: null as string | null, count: results.length }, ...productGroups].map(g => {
-                const active = groupFilter === g.name;
-                return (
-                  <button
-                    key={g.name ?? '__all'}
-                    onClick={() => setGroupFilter(g.name)}
-                    aria-pressed={active}
-                    style={{
-                      padding: '5px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
-                      cursor: 'pointer', minHeight: 30,
-                      border: `1px solid ${active ? 'var(--accent)' : 'var(--line)'}`,
-                      background: active ? 'var(--accent)' : 'transparent',
-                      color: active ? '#fff' : 'var(--text)',
-                    }}
-                  >
-                    {g.name ?? 'All'} ({g.count})
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/**
+            * OEM numbers this vehicle takes, from the vehicle-scoped lookup.
+            *
+            * Presented as references, NOT as parts. The endpoint returns only
+            * a part name and an OEM number — no brand, no price, no
+            * availability — so rendering them as result cards produced 186
+            * identical rows with a "Select this part" button that could only
+            * be pressed at random.
+            *
+            * An OEM number is still the most useful thing a technician can be
+            * handed here: it is exactly the input the OEM search turns into
+            * brands, prices and applicability. So each one is a button that
+            * runs that search.
+            */}
+          {vehicleOem && vehicleOem.groups.length > 0 && (
+            <div data-testid="vehicle-oem" style={{
+              border: '1px solid var(--line)', borderRadius: 10, padding: 12,
+              background: 'var(--surface-soft)', marginBottom: 12,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', marginBottom: 2 }}>
+                OEM NUMBERS FOR THIS VEHICLE
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 10 }}>
+                From the catalogue, for the confirmed variant. These are part numbers,
+                not offers — pick one to search it for brands and prices.
+              </div>
 
-          {/* A chip can legitimately empty the list. Say so, rather than
-              showing the blank panel that means "search found nothing". */}
-          {groupFilter && sorted.length === 0 && (
-            <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-              No results in {groupFilter}.{' '}
-              <button
-                onClick={() => setGroupFilter(null)}
-                style={{
-                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                  color: 'var(--accent)', fontWeight: 700, fontSize: 13,
-                }}
-              >
-                Show all
-              </button>
+              {vehicleOem.groups.map(g => (
+                <div key={g.productName} style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{g.productName}</span>
+                    <span style={{ fontSize: 11, color: RELEVANCE_COLOR[g.relevance] }}>
+                      {RELEVANCE_LABEL[g.relevance]}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {g.oemNumbers.length} number{g.oemNumbers.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {g.oemNumbers.map(oem => (
+                      <button
+                        key={oem}
+                        onClick={() => { setMode('oem'); setQuery(oem); void runSearch(false, { term: oem, mode: 'oem' }); }}
+                        title={`Search ${oem}`}
+                        style={{
+                          padding: '4px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                          fontFamily: 'ui-monospace, monospace', cursor: 'pointer', minHeight: 28,
+                          border: '1px solid var(--line)', background: 'transparent',
+                          color: 'var(--text)',
+                        }}
+                      >
+                        {oem}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -863,18 +872,12 @@ export function PartsSearchModal({
                         <span style={{ fontWeight: 800, color: FITMENT_COLOR[r.fitmentStatus] }}>
                           {FITMENT_LABEL[r.fitmentStatus]}
                         </span>
-                        {r.searchRelevance && (
-                          <span
-                            data-testid="row-relevance"
-                            title={`How well this answers what you typed — not whether it fits the ${vehicle.make ?? 'vehicle'}`}
-                            style={{ fontWeight: 700, color: RELEVANCE_COLOR[r.searchRelevance] }}
-                          >
-                            {RELEVANCE_LABEL[r.searchRelevance]}
-                          </span>
-                        )}
-                        {r.productGroup && (
-                          <span style={{ color: 'var(--muted)' }}>{r.productGroup}</span>
-                        )}
+                        {/* No relevance or product-group badge here. Both were
+                            fed by the vehicle-scoped search, which turned out
+                            to return OEM numbers rather than articles — those
+                            now render in their own block above, where they can
+                            be labelled for what they are. Nothing populates
+                            these on a result card, so nothing pretends to. */}
                         {r.brand && <span style={{ color: 'var(--muted)' }}>{r.brand}</span>}
                         {r.manufacturerPartNumber && <span style={{ color: 'var(--muted)' }}>#{r.manufacturerPartNumber}</span>}
                         {/* The marque this catalogue row is filed under, and

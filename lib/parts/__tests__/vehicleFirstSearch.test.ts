@@ -1,16 +1,23 @@
 /**
- * Vehicle-first description search.
+ * Vehicle-first description search, against the contract the provider ACTUALLY
+ * has.
  *
- * The technician asks "front brake pads for this car" instead of supplying an
- * OEM number they are trying to find. Three questions stay separate, and the
- * separation is the whole design:
+ * ## What changed and why
  *
- *   SEARCH RELEVANCE  is this the kind of part I asked for?
- *   PART MATCH        is this article the part it claims to be?
- *   VEHICLE FITMENT   does it go on THIS car?
+ * The first version of this suite tested an imagined response: articles with
+ * a brand, a part number, an image and a product group. One controlled live
+ * call against a resolved Porsche Cayenne (92A) showed the endpoint returns
+ * 186 rows carrying exactly two string fields:
  *
- * A brake disc can be a perfect part, perfectly fitted, and a poor answer to
- * "brake pads".
+ *     articleOemNo         186 distinct values
+ *     articleProductName     1 distinct value
+ *
+ * Those tests passed the whole time. They asserted that the code did what I
+ * had assumed, which is not the same as asserting it works — and on staging it
+ * produced 186 identical, unpickable cards each claiming LIKELY FIT.
+ *
+ * So the fixture here is a sanitized copy of the real payload, and the tests
+ * assert against that instead of against my earlier guess.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -21,12 +28,11 @@ import { buildProviderUrl } from '../providers/autopartsapi/client';
 const BASE = 'https://auto-parts-catalog.apiprofile.com/api';
 const SERVICE = readFileSync(
   join(process.cwd(), 'lib/parts/vehicleFirst/search.ts'), 'utf8');
+const FIXTURE = JSON.parse(readFileSync(
+  join(process.cwd(), 'lib/parts/__tests__/fixtures/vehicleOemSearch.live.json'), 'utf8'));
 
 describe('a technician can type what they actually say', () => {
   it('accepts a multi-word term', () => {
-    // The earlier rule refused anything with a space, which refused the most
-    // likely thing anyone types. That is a broken feature wearing a safety
-    // rule.
     expect(searchTermSegment('front brake pads')).toBe('front%20brake%20pads');
   });
 
@@ -47,8 +53,6 @@ describe('a technician can type what they actually say', () => {
     ['a raw percent', 'pads%2fadmin'],
     ['empty', '   '],
   ])('refuses %s', (_label, term) => {
-    // Validate, then encode. What is removed is anything that could change
-    // the SHAPE of the URL rather than the content of one segment.
     expect(() => searchTermSegment(term)).toThrow();
   });
 
@@ -57,126 +61,113 @@ describe('a technician can type what they actually say', () => {
   });
 
   it('still refuses an ENCODED separator at the URL boundary', () => {
-    // Belt and braces: even if a term got past, the path builder rejects a
-    // smuggled %2f, which the provider would decode into a path boundary.
     expect(() => buildProviderUrl('articles-oem/x%2fadmin')).toThrow();
     expect(() => buildProviderUrl('articles-oem/%2e%2e')).toThrow();
   });
+});
 
-  it('allows ordinary percent-encoding through the path builder', () => {
-    expect(buildProviderUrl('a/front%20brake%20pads')).toBe(`${BASE}/a/front%20brake%20pads`);
+describe('the fixture records the real contract', () => {
+  it('is a bare array of two-field rows', () => {
+    expect(FIXTURE._shape.topLevel).toBe('array');
+    expect(FIXTURE._shape.keysPerRow).toEqual(['articleOemNo', 'articleProductName']);
+  });
+
+  it('carries none of the fields the first implementation assumed', () => {
+    const keys = new Set(FIXTURE.rows.flatMap((r: object) => Object.keys(r)));
+    for (const absent of [
+      'articleNo', 'supplierName', 'manufacturerName', 's3image',
+      'productGroup', 'productGroupName', 'articleId',
+    ]) {
+      expect(keys.has(absent)).toBe(false);
+    }
+  });
+
+  it('repeats one product name across many OEM numbers', () => {
+    // This is why the answer is grouped: 186 rows of one product name is one
+    // answer with many part numbers, not 186 answers.
+    expect(FIXTURE._shape.distinctArticleProductName).toBe(1);
+    expect(FIXTURE._shape.distinctArticleOemNo).toBe(FIXTURE._shape.rowCount);
+  });
+});
+
+describe('the service answers with OEM numbers, not parts', () => {
+  it('returns groups rather than results', () => {
+    expect(SERVICE).toContain('VehicleOemGroup');
+    expect(SERVICE).toContain('oemNumbers');
+  });
+
+  it('claims no brand, price, image or availability', () => {
+    // None of these can be honestly populated from a two-field response.
+    for (const invented of [
+      'itemPrice', 'landedCost', 'imageUrl', 'brand:',
+      'shippingCost', 'estimatedTax',
+    ]) {
+      expect(SERVICE).not.toContain(invented);
+    }
+  });
+
+  it('makes no fitment claim at all', () => {
+    // Fitment describes a part. These are numbers, so the field is absent
+    // rather than set to a hedge.
+    expect(SERVICE).not.toContain('fitmentStatus');
+  });
+
+  it('normalises OEM numbers so spacing does not split one part in two', () => {
+    // "7L0 698 151 M" and "7L0698151M" are the same number.
+    expect(SERVICE).toContain('normalizePartNumber(oem)');
+  });
+
+  it('caps how many numbers one group may carry', () => {
+    expect(SERVICE).toContain('MAX_OEM_PER_GROUP');
+  });
+
+  it('skips rows missing either field', () => {
+    // The fixture deliberately holds one row with an empty OEM number and one
+    // with an empty product name.
+    expect(SERVICE).toContain('if (!name || !oem) continue;');
   });
 });
 
 describe('search relevance is its own question', () => {
-  const row = (name: string, group?: string) =>
-    ({ articleProductName: name, productGroupName: group });
-
   it('rates an exact kind of part highly', () => {
-    expect(searchRelevance('brake pads', row('Brake Pad Set, disc brake', 'Brake Pad Set')))
-      .toBe('high');
+    expect(searchRelevance('brake pads', 'Brake Pad Set, disc brake')).toBe('high');
   });
 
   it('rates a different part in the same system lower', () => {
-    // A brake disc is a fine part and a poor answer to "brake pads".
-    expect(searchRelevance('brake pads', row('Brake Disc', 'Brake Disc')))
-      .not.toBe('high');
+    expect(searchRelevance('brake pads', 'Brake Disc')).not.toBe('high');
   });
 
   it('rates an unrelated part low', () => {
-    expect(searchRelevance('brake pads', row('Oil Filter', 'Oil Filter'))).toBe('low');
+    expect(searchRelevance('brake pads', 'Oil Filter')).toBe('low');
   });
 
   it('ignores short noise words', () => {
-    expect(searchRelevance('the pads for it', row('Brake Pad Set'))).not.toBe('low');
+    expect(searchRelevance('the pads for it', 'Brake Pad Set')).not.toBe('low');
   });
 
   it('matches a plural against the catalogue singular', () => {
-    // "brake pads" vs "Brake Pad Set" is the commonest search in a workshop,
-    // and without this it scored medium against a perfect answer.
-    expect(searchRelevance('pads', row('Brake Pad Set'))).toBe('high');
-    expect(searchRelevance('discs', row('Brake Disc'))).toBe('high');
+    expect(searchRelevance('pads', 'Brake Pad Set')).toBe('high');
+    expect(searchRelevance('discs', 'Brake Disc')).toBe('high');
   });
 
   it('does not merge words that are genuinely different parts', () => {
-    // The rule is one trailing "s" and nothing more — a real stemmer starts
-    // collapsing distinct components.
-    expect(searchRelevance('hose', row('Hoses'))).toBe('high');
-    expect(searchRelevance('bearing', row('Brake Pad Set'))).toBe('low');
+    expect(searchRelevance('hose', 'Hoses')).toBe('high');
+    expect(searchRelevance('bearing', 'Brake Pad Set')).toBe('low');
+  });
+
+  it('scores the real product name from the live response', () => {
+    expect(searchRelevance('brake pads', FIXTURE.rows[0].articleProductName)).toBe('high');
   });
 
   it('is deterministic', () => {
-    const r = row('Brake Pad Set, disc brake', 'Brake Pad Set');
-    expect(searchRelevance('brake pads', r)).toBe(searchRelevance('brake pads', r));
+    expect(searchRelevance('brake pads', 'Brake Pad Set, disc brake'))
+      .toBe(searchRelevance('brake pads', 'Brake Pad Set, disc brake'));
   });
 
-  it('never becomes a fitment claim', () => {
-    /**
-     * Three questions, three answers. Relevance must not leak into fitment.
-     *
-     * This used to be a proximity regex — "relevance must not appear within
-     * 80 characters of fitmentStatus" — which only measured where lines sit
-     * in an object literal, and which any reordering would satisfy without
-     * making the code one bit safer. The real invariant is that
-     * `fitmentStatus` is assigned a CONSTANT, never anything computed from
-     * the query.
-     */
-    const assignments = [...SERVICE.matchAll(/fitmentStatus:\s*([^,\n]+)/g)]
-      .map(m => m[1].trim());
-    expect(assignments.length).toBeGreaterThan(0);
-    for (const value of assignments) {
-      expect(value).toMatch(/^'(unknown|unlikely|likely|verified)'$/);
-    }
-  });
-});
-
-describe('a vehicle-scoped result is LIKELY, never verified', () => {
-  it('sets likely and says why', () => {
-    expect(SERVICE).toContain("fitmentStatus: 'likely'");
-    expect(SERVICE).toContain('does not state this list is exact');
-  });
-
-  it('never sets verified from catalogue membership', () => {
-    // Membership of a vehicle-scoped set is not proof the set is exact for
-    // the resolved variant. Only OEM applicability, matched against a
-    // specific variant, produces `verified`.
-    expect(SERVICE).not.toContain("fitmentStatus: 'verified'");
-  });
-
-  it('records the reason the upgrade is withheld', () => {
-    expect(SERVICE).toMatch(/vehicle_catalog_result/);
-  });
-});
-
-describe('results carry identity, never a price', () => {
-  it('claims no price', () => {
-    expect(SERVICE).toContain('itemPrice: undefined');
-    expect(SERVICE).toContain("landedCostCompleteness: 'unknown'");
-  });
-
-  it('reads supplierName as the brand, not manufacturerName', () => {
-    // The M-PARTS2A lesson: manufacturerName is the vehicle marque.
-    expect(SERVICE).toContain('brand = safeText(r.supplierName');
-    expect(SERVICE).toContain('vehicleManufacturer: safeText(r.manufacturerName');
-  });
-
-  it('only groups rows that share a brand AND a part number', () => {
-    // Two rows that merely look alike are not one part — the same
-    // description under two suppliers is two products.
-    expect(SERVICE).toContain('mpn && brand');
-  });
-});
-
-describe('categories are derived, never invented', () => {
-  it('groups by the provider product group present in results', () => {
-    // There is no documented category-listing endpoint. Building a
-    // Redlined1-to-provider category map without one would be a guess.
-    expect(SERVICE).toContain('productGroups');
-    expect(SERVICE).toContain('Derived from what came back');
-  });
-
-  it('spends no extra call to build them', () => {
-    expect(SERVICE).toContain('externalCalls: 1');
+  it('admits the endpoint pre-filters, so it rarely discriminates here', () => {
+    // Honesty in the source rather than a claim the score is doing more work
+    // than it is: the provider already filtered by the term.
+    expect(SERVICE).toContain('filters by the search term');
   });
 });
 
@@ -185,11 +176,14 @@ describe('the call is accounted for', () => {
     expect(SERVICE).toContain("category: 'vehicle_parts_search', callContext: 'application'");
   });
 
+  it('spends exactly one call', () => {
+    expect(SERVICE).toContain('externalCalls: 1');
+  });
+
   it('the category is permitted by the database constraint', () => {
     const migration = readFileSync(
       join(process.cwd(), 'supabase/migrations/2026-08-25_m_parts2c_endpoint_category.sql'), 'utf8');
     expect(migration).toContain("'vehicle_parts_search'");
-    // And the migration proves the constraint still refuses an unknown value.
     expect(migration).toContain('the category constraint accepted an unknown value');
   });
 });

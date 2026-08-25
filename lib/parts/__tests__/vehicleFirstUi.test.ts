@@ -1,13 +1,11 @@
 /**
- * What the vehicle-first result card is allowed to say.
+ * What the vehicle-first block is allowed to say.
  *
  * There is no React Testing Library in this project, so these read the source
  * rather than the rendered output. That limit is real and worth stating: they
  * prove the strings and the wiring exist, not that a technician sees them.
- * The screen itself is checked on staging, on a real device.
- *
- * What they DO catch is the failure that matters most here — three separate
- * questions quietly collapsing into one verdict.
+ * The screen itself is checked on staging, on a real device — which is how
+ * both of the bugs these tests now guard were found in the first place.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -17,65 +15,47 @@ const MODAL = readFileSync(
 const ROUTE = readFileSync(
   join(process.cwd(), 'app/api/parts/search/route.ts'), 'utf8');
 
-describe('relevance and fitment stay visibly different things', () => {
-  it('renders relevance as its own field', () => {
-    expect(MODAL).toContain('data-testid="row-relevance"');
+describe('OEM numbers are presented as numbers, not as parts', () => {
+  /**
+   * The live response carries a part name and an OEM number and nothing else.
+   * Rendering those as result cards produced 186 identical rows, each with a
+   * 'Select this part' button a technician could only press at random.
+   */
+  it('renders them in their own block', () => {
+    expect(MODAL).toContain('data-testid="vehicle-oem"');
+    expect(MODAL).toContain('OEM NUMBERS FOR THIS VEHICLE');
   });
 
-  it('never dresses relevance in the fitment palette', () => {
-    /**
-     * Fitment green means "this fits". Reusing it for a strong word match
-     * would read as a fitment claim to anyone scanning the column.
-     *
-     * Asserted as "the fitment palette is only ever indexed by fitment",
-     * which holds whichever way round the expression is written. The first
-     * version of this test matched `searchRelevance ... FITMENT_COLOR` on one
-     * line and so missed `FITMENT_COLOR[r.searchRelevance]` — the exact shape
-     * the bug would take.
-     */
-    expect(MODAL).toContain('RELEVANCE_COLOR');
+  it('says plainly that they are not offers', () => {
+    expect(MODAL).toContain('These are part numbers,');
+    expect(MODAL).toContain('not offers');
+  });
+
+  it('makes each number run the OEM search that can price it', () => {
+    expect(MODAL).toContain("setMode('oem')");
+    expect(MODAL).toContain("runSearch(false, { term: oem, mode: 'oem' })");
+  });
+
+  it('never gives them a fitment badge', () => {
+    // Fitment describes a part. A number is not a part.
+    const block = MODAL.slice(MODAL.indexOf('data-testid="vehicle-oem"'));
+    const end = block.indexOf('── Results ──');
+    expect(block.slice(0, end > 0 ? end : 2500)).not.toContain('FITMENT_LABEL');
+  });
+
+  it('carries no result-card relevance or product-group badge any more', () => {
+    // Both were fed by fields the provider does not send.
+    expect(MODAL).not.toContain('data-testid="row-relevance"');
+    expect(MODAL).not.toContain('r.productGroup');
+  });
+});
+
+describe('the fitment palette still means only fitment', () => {
+  it('is indexed by fitment status alone', () => {
     const indexes = [...MODAL.matchAll(/FITMENT_(?:COLOR|LABEL|ORDER)\[([^\]]+)\]/g)]
       .map(m => m[1].trim());
     expect(indexes.length).toBeGreaterThan(0);
     for (const expr of indexes) expect(expr).toMatch(/fitmentStatus$/);
-  });
-
-  it('says in words which question it answers', () => {
-    expect(MODAL).toContain('MATCHES YOUR SEARCH');
-    expect(MODAL).toContain('DIFFERENT PART');
-    // The tooltip has to draw the line explicitly, because the two fields sit
-    // side by side.
-    expect(MODAL).toContain('not whether it fits');
-  });
-
-  it('keeps the fitment label rendering from the fitment status alone', () => {
-    expect(MODAL).toContain('{FITMENT_LABEL[r.fitmentStatus]}');
-  });
-});
-
-describe('categories filter, they do not re-query', () => {
-  it('narrows results already held', () => {
-    expect(MODAL).toContain("results.filter(r => r.productGroup === groupFilter)");
-  });
-
-  it('does not run a search when a chip is clicked', () => {
-    expect(MODAL).toMatch(/onClick=\{\(\) => setGroupFilter\(g\.name\)\}/);
-  });
-
-  it('clears the selection on a new search', () => {
-    // Groups come from the results, so last search's category is meaningless
-    // against this one's — and worse, would silently hide everything.
-    const handler = MODAL.slice(MODAL.indexOf('setProductGroups('));
-    expect(handler.slice(0, 200)).toContain('setGroupFilter(null)');
-  });
-
-  it('explains an empty category instead of showing a blank panel', () => {
-    expect(MODAL).toContain('No results in {groupFilter}');
-    expect(MODAL).toContain('Show all');
-  });
-
-  it('hides the chip row when there is nothing to choose between', () => {
-    expect(MODAL).toContain('productGroups.length > 1');
   });
 });
 
@@ -121,14 +101,21 @@ describe('the route only scopes a search it is entitled to scope', () => {
   });
 
   it('does not re-derive the vehicle id at the call site', () => {
-    // The gate returns the id precisely so this cannot drift from it.
-    const call = ROUTE.slice(ROUTE.indexOf('searchPartsForVehicle({'));
+    const call = ROUTE.slice(ROUTE.indexOf('searchOemNumbersForVehicle({'));
     expect(call.slice(0, 300)).toContain('providerVehicleId: resolvedProviderVehicleId');
+  });
+
+  it('never merges OEM numbers into the parts result list', () => {
+    // They have no brand, price or availability. In the results array they
+    // became 186 unpickable cards.
+    const call = ROUTE.slice(ROUTE.indexOf('searchOemNumbersForVehicle({'));
+    expect(call.slice(0, 1200)).not.toContain('results.unshift');
+    expect(ROUTE).toContain('vehicleOem');
   });
 
   it('never lets a vehicle-first failure break the search', () => {
     expect(ROUTE).toContain('parts_vehicle_first_search_failed');
-    const block = ROUTE.slice(ROUTE.indexOf('searchPartsForVehicle({'));
-    expect(block.slice(0, 900)).toMatch(/\} catch \{/);
+    const block = ROUTE.slice(ROUTE.indexOf('searchOemNumbersForVehicle({'));
+    expect(block.slice(0, 1400)).toMatch(/\} catch \{/);
   });
 });

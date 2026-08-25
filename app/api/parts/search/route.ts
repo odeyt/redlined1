@@ -8,7 +8,7 @@ import { getAllProviderHealth, anyProviderEnabled } from '@/lib/parts/providerRe
 import { rankParts } from '@/lib/parts/recommendation';
 import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
 import { readMapping, writeMapping } from '@/lib/parts/vehicleResolution/mappingStore';
-import { searchPartsForVehicle } from '@/lib/parts/vehicleFirst/search';
+import { searchOemNumbersForVehicle } from '@/lib/parts/vehicleFirst/search';
 import { vehicleFirstTarget } from '@/lib/parts/vehicleFirst/gate';
 import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
 
@@ -264,20 +264,28 @@ export async function POST(req: NextRequest) {
      * Non-fatal, like resolution: a failure here costs the vehicle-specific
      * results, never the search.
      */
-    let productGroups: unknown;
+    let vehicleOem: unknown;
 
     if (resolvedProviderVehicleId) {
       try {
-        const vf = await searchPartsForVehicle({
+        const vf = await searchOemNumbersForVehicle({
           shopId: input.shopId,
           providerVehicleId: resolvedProviderVehicleId,
           query: input.query,
-          currency: input.currency,
         });
-        // Prepended: these are scoped to this vehicle, and a generic result
-        // has no business above one the catalogue listed for the car itself.
-        response.results.unshift(...vf.results);
-        productGroups = vf.productGroups;
+        /**
+         * Returned SEPARATELY from `results`, never merged into them.
+         *
+         * These are OEM numbers, not offers: no brand, no price, no
+         * availability. Putting them in the results list made 186
+         * indistinguishable cards with a "Select this part" button, which a
+         * technician could only press at random. They are a different kind of
+         * answer and they are presented as one.
+         */
+        vehicleOem = vf.groups.length ? {
+          groups: vf.groups,
+          totalOemNumbers: vf.totalOemNumbers,
+        } : undefined;
       } catch {
         logger.warn('parts_vehicle_first_search_failed', { shopId: input.shopId });
       }
@@ -298,7 +306,7 @@ export async function POST(req: NextRequest) {
       searchedAt: response.searchedAt,
       role: auth.role,
       vehicleResolution,
-      productGroups,
+      vehicleOem,
     });
   } catch (err) {
     // Reaching here means the orchestrator itself failed, not a provider —
