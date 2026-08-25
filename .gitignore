@@ -66,3 +66,6 @@ supabase/schema-snapshot.sql
 # Local-only: the two database connection strings for the schema clone.
 # Holds passwords. Delete it once the clone is done.
 .clone-env
+
+# Supabase CLI scratch (version cache) — not project state
+supabase/.temp/
