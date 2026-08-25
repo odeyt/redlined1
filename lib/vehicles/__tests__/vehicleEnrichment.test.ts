@@ -14,6 +14,9 @@ import {
 } from '../enrichment';
 import type { CatalogComparison, FieldSuggestion } from '../catalogComparison';
 import type { QualityVehicle } from '../quality';
+import {
+  vehicleFingerprint, FINGERPRINT_FIELDS,
+} from '../../parts/vehicleResolution/fingerprint';
 
 const PROVENANCE = {
   source: 'autopartsapi' as const,
@@ -153,16 +156,59 @@ describe('mass assignment cannot slip through', () => {
 });
 
 describe('the fingerprint consequence is decided before anything is written', () => {
-  it('a non-fingerprint field leaves the mapping alone', () => {
+  it('every enrichable field participates in stale-mapping detection', () => {
     /**
-     * engineCode, displacementL and cylinders are deliberately outside
-     * FINGERPRINT_FIELDS. Accepting an engine code offered BY the mapped
-     * variant must not invalidate the mapping that supplied it.
+     * These were briefly OUTSIDE the fingerprint, on the reasoning that they
+     * describe a vehicle without changing which vehicle it is. Wrong in the
+     * direction that matters: a later hand-typed engine code no variant
+     * supports would then sit beside a mapping still reading as valid, and
+     * could still produce VERIFIED FIT.
      */
-    const plan = planEnrichment(['engineCode'], comparison([suggestion({})]));
-    const d = decideFingerprint(vehicle, plan, true);
-    expect(d.changed).toBe(false);
-    expect(d.mapping).toBe('unchanged');
+    for (const f of ['engineCode', 'displacementL', 'cylinders', 'fuelType']) {
+      expect(FINGERPRINT_FIELDS as readonly string[]).toContain(f);
+    }
+  });
+
+  it('the loader reads every fingerprint column', () => {
+    /**
+     * The M-PARTS2C.1 bug in one assertion: two paths fingerprinting the same
+     * car differently rejected 95 of 115 vehicles. Derived from the field
+     * list, so the NEXT field added cannot be forgotten either.
+     */
+    const loader = readFileSync(
+      join(process.cwd(), 'lib/parts/vehicleResolution/loadVehicle.ts'), 'utf8');
+    const column: Record<string, string> = {
+      vin: 'vin', year: 'year', make: 'make', model: 'model', trim: 'trim',
+      engine: 'engine', transmission: 'transmission', fuelType: 'fuel_type',
+      engineCode: 'engine_code', displacementL: 'displacement_l', cylinders: 'cylinders',
+    };
+    for (const f of FINGERPRINT_FIELDS) {
+      expect(column[f]).toBeDefined();
+      expect(loader).toContain(column[f]);
+    }
+  });
+
+  it('1. accepting an engine code the variant supplied REBINDS the mapping', () => {
+    // Rule A: fingerprint A -> B, same providerVehicleId kept, no call.
+    const plan = planEnrichment(['engineCode'], comparison([
+      suggestion({ currentValue: null, suggestedValue: 'M 272.965' }),
+    ]));
+    const d = decideFingerprint({ ...vehicle, engineCode: undefined }, plan, true);
+    expect(d.changed).toBe(true);
+    expect(d.before).not.toBe(d.after);
+    expect(d.mapping).toBe('rebound');
+    expect(d.reason).toContain('supplied by the mapped variant itself');
+  });
+
+  it('2. accepting displacement and cylinders also rebinds', () => {
+    const plan = planEnrichment(['displacementL', 'cylinders'], comparison([
+      suggestion({ field: 'displacementL', label: 'Displacement', currentValue: null, suggestedValue: '3.5' }),
+      suggestion({ field: 'cylinders', label: 'Cylinders', currentValue: null, suggestedValue: '6' }),
+    ]));
+    const d = decideFingerprint(
+      { ...vehicle, displacementL: undefined, cylinders: undefined }, plan, true);
+    expect(d.changed).toBe(true);
+    expect(d.mapping).toBe('rebound');
   });
 
   it('a fingerprint field filled from the mapped variant is REBOUND, not lost', () => {
@@ -200,6 +246,76 @@ describe('the fingerprint consequence is decided before anything is written', ()
     // Recomputing from the vehicle as it will be must match `after`.
     const again = decideFingerprint({ ...start, fuelType: 'Diesel' }, { entries: [], refused: [] }, true);
     expect(again.before).toBe(d.after);
+  });
+});
+
+describe('B — a later unsupported change makes the mapping stale', () => {
+  /**
+   * Not an enrichment path: someone edits the vehicle by hand afterwards. The
+   * mapping was bound to the OLD fingerprint, so it must stop matching. This
+   * is what prevents a stale mapping producing VERIFIED FIT, and it is the
+   * whole reason these fields belong in the fingerprint.
+   */
+  const mapped: QualityVehicle = {
+    ...vehicle, engineCode: 'M 272.965', displacementL: 3.5, cylinders: 6,
+  };
+  const bound = vehicleFingerprint(mapped);
+
+  it('3. an engine code typed to an unsupported value no longer matches', () => {
+    expect(vehicleFingerprint({ ...mapped, engineCode: 'M 999.999' })).not.toBe(bound);
+  });
+
+  it('4. a displacement change makes the mapping stale', () => {
+    expect(vehicleFingerprint({ ...mapped, displacementL: 5.5 })).not.toBe(bound);
+  });
+
+  it('5. a cylinder-count change makes the mapping stale', () => {
+    expect(vehicleFingerprint({ ...mapped, cylinders: 8 })).not.toBe(bound);
+  });
+
+  it('the comparison refuses a mapping whose fingerprint no longer matches', () => {
+    const cmp = readFileSync(
+      join(process.cwd(), 'lib/vehicles/catalogComparison.ts'), 'utf8');
+    expect(cmp).toContain('m.vehicle_fingerprint !== currentFingerprint');
+    expect(cmp).toContain("unavailableReason: 'fingerprint_stale'");
+  });
+});
+
+describe('forged input is rejected before anything is written', () => {
+  it('6. a field the catalogue never offered writes nothing and rebinds nothing', () => {
+    /**
+     * The request carries field NAMES only, so a forged VALUE has nowhere to
+     * enter: the plan takes its value from the server-built comparison. A
+     * field absent from that comparison cannot be planned at all.
+     */
+    const absent = planEnrichment(['cylinders'], comparison([suggestion({})]));
+    expect(absent.entries).toHaveLength(0);
+    expect(absent.refused).toEqual([{ field: 'cylinders', reason: 'not_offered' }]);
+
+    const d = decideFingerprint(vehicle, absent, true);
+    expect(d.changed).toBe(false);
+    expect(d.mapping).toBe('unchanged');
+  });
+
+  it('7. a forged providerVehicleId cannot reach the comparison', () => {
+    // The route accepts no such field, and the mapping is read from the
+    // database by shop and vehicle rather than taken from the request.
+    const route = readFileSync(
+      join(process.cwd(), 'app/api/vehicles/quality/route.ts'), 'utf8');
+    expect(route).not.toMatch(/providerVehicleId\s*:\s*z\./);
+    const cmp = readFileSync(
+      join(process.cwd(), 'lib/vehicles/catalogComparison.ts'), 'utf8');
+    expect(cmp).toContain('num(m.provider_vehicle_id)');
+  });
+
+  it('8. one shop cannot enrich or rebind another shop vehicle', () => {
+    const route = readFileSync(
+      join(process.cwd(), 'app/api/vehicles/quality/route.ts'), 'utf8');
+    expect(route).toContain('vehicleBelongsToShop(input.shopId, input.vehicleId)');
+    // service_role bypasses RLS, so the shop predicate IS the boundary.
+    for (const file of ['lib/vehicles/enrichment.ts', 'lib/vehicles/catalogComparison.ts']) {
+      expect(readFileSync(join(process.cwd(), file), 'utf8')).toContain(".eq('shop_id', shopId)");
+    }
   });
 });
 

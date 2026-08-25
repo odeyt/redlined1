@@ -23,6 +23,10 @@ import type { CanonicalVehicle } from './types';
  */
 export const FINGERPRINT_FIELDS = [
   'vin', 'year', 'make', 'model', 'trim', 'engine', 'transmission', 'fuelType',
+  // M-PARTS2C.4. Fitment-significant, so stale-mapping detection must see
+  // them: a later hand-typed engine code that no variant supports has to
+  // invalidate the mapping rather than sit beside a still-"valid" one.
+  'engineCode', 'displacementL', 'cylinders',
 ] as const;
 
 function normalize(value: unknown): string {

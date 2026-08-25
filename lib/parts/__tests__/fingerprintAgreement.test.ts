@@ -57,6 +57,10 @@ describe('the loader supplies every field the fingerprint covers', () => {
       vin: 'vin', year: 'year', make: 'make', model: 'model',
       trim: 'trim', engine: 'engine', transmission: 'transmission',
       fuelType: 'fuel_type',
+      // M-PARTS2C.4. This test earned its keep here: adding these three to
+      // FINGERPRINT_FIELDS failed it immediately, which is precisely the
+      // silent divergence it was written to prevent.
+      engineCode: 'engine_code', displacementL: 'displacement_l', cylinders: 'cylinders',
     };
     for (const field of FINGERPRINT_FIELDS) {
       const column = columnFor[field];

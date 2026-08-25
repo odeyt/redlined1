@@ -39,15 +39,26 @@ export async function loadCanonicalVehicle(
   shopId: string,
   vehicleId: string,
 ): Promise<CanonicalVehicle | null> {
+  /**
+   * Every FINGERPRINT_FIELDS column, and nothing derived.
+   *
+   * When M-PARTS2C.4 added engineCode, displacementL and cylinders to the
+   * fingerprint, omitting them here would have recreated the exact bug this
+   * file exists to prevent: two code paths fingerprinting the same car
+   * differently, and confirm rejecting every technician. The fixture test
+   * asserts this SELECT covers FINGERPRINT_FIELDS so the next added field
+   * cannot be forgotten either.
+   */
   const { data } = await getAdminDb()
     .from('vehicles')
-    .select('id, vin, year, make, model, trim, engine, transmission, fuel_type')
+    .select('id, vin, year, make, model, trim, engine, transmission, fuel_type, '
+      + 'engine_code, displacement_l, cylinders')
     .eq('id', vehicleId)
     .eq('shop_id', shopId)
     .maybeSingle();
 
   if (!data) return null;
-  const v = data as Record<string, unknown>;
+  const v = data as unknown as Record<string, unknown>;
   return {
     id: String(v.id),
     vin: (v.vin as string) || undefined,
@@ -58,5 +69,8 @@ export async function loadCanonicalVehicle(
     engine: (v.engine as string) || undefined,
     transmission: (v.transmission as string) || undefined,
     fuelType: (v.fuel_type as string) || undefined,
+    engineCode: (v.engine_code as string) || undefined,
+    displacementL: v.displacement_l != null ? Number(v.displacement_l) : undefined,
+    cylinders: v.cylinders != null ? Number(v.cylinders) : undefined,
   };
 }

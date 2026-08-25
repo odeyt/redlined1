@@ -51,10 +51,14 @@ supplies exactly these (`engineCodes`, `capacityLt`, `numberOfCylinders`) and
 notably supplies **no transmission**, so without them enrichment would have
 reduced to `fuel_type` alone.
 
-They are **deliberately not part of the vehicle fingerprint**. They describe a
-vehicle in more detail; they do not change *which* vehicle it is. Including
-them would mean accepting an engine code offered *by* a confirmed variant
-immediately invalidated the mapping that supplied it.
+They **are part of the vehicle fingerprint**. They are fitment-significant,
+so stale-mapping detection must see them: with them outside, a later
+hand-typed engine code that no variant supports would sit beside a mapping
+still reading as valid and could still produce VERIFIED FIT.
+
+The loop that threatens — accepting a value offered *by* a confirmed variant
+instantly invalidating that mapping — is resolved by provenance instead, in
+`decideFingerprint()`.
 
 ## Conflict rules
 
@@ -150,7 +154,8 @@ recommendation.
 | situation | mapping |
 |---|---|
 | non-fingerprint field enriched (`engineCode`, `displacementL`, `cylinders`) | `unchanged` |
-| fingerprint field filled from the mapped variant itself | `rebound`, **no provider call** |
+| any field filled from the mapped variant itself | `rebound`, **no provider call** |
+| a later hand edit to an unsupported value | mapping goes **stale**, not reused |
 | conflicting fingerprint value replaced | `invalidated` — re-resolve |
 | no mapping exists | `unchanged` |
 

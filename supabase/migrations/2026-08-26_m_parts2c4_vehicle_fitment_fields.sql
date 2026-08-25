@@ -14,14 +14,18 @@
 --
 -- Additive. Nullable. No existing row changes and no existing column moves.
 --
--- ## Deliberately NOT part of the vehicle fingerprint
+-- ## Part of the vehicle fingerprint
 --
--- FINGERPRINT_FIELDS stays at its eight fields. These three describe a
--- vehicle in more detail; they do not change WHICH vehicle it is. Including
--- them would mean accepting an engine code offered BY a confirmed provider
--- variant immediately changed the fingerprint and invalidated the very
--- mapping that supplied it — the loop this milestone is explicitly told not
--- to create.
+-- FINGERPRINT_FIELDS goes from eight to eleven. These are fitment-significant,
+-- so stale-mapping detection has to see them: with them outside, someone
+-- could later type an engine code no variant supports and the mapping would
+-- still read as valid, which could still produce VERIFIED FIT.
+--
+-- The loop that threatens — accepting a value offered BY a confirmed variant
+-- instantly invalidating that mapping — is resolved by provenance instead. A
+-- value proven to have come from the mapped variant rebinds the mapping with
+-- no provider call; anything else invalidates it. See
+-- lib/vehicles/enrichment.ts decideFingerprint().
 
 ALTER TABLE public.vehicles
   -- The manufacturer's engine code, e.g. "M 272.974". Distinct from `engine`,
@@ -63,10 +67,21 @@ BEGIN
     RAISE EXCEPTION 'column existence check is not discriminating';
   END IF;
 
-  -- Nothing was overwritten: every existing vehicle starts with these null.
-  SELECT COUNT(*) INTO v_count FROM public.vehicles
-   WHERE engine_code IS NOT NULL OR displacement_l IS NOT NULL OR cylinders IS NOT NULL;
-  IF v_count <> 0 THEN
-    RAISE EXCEPTION 'expected no pre-populated fitment values, found %', v_count;
-  END IF;
+  /*
+   * "Every one of these is still NULL" is NOT asserted here.
+   *
+   * It is true immediately after the first run and false the moment a
+   * technician accepts their first enrichment — so as a migration invariant
+   * it would turn a correct re-run into a failure. A migration has to be
+   * idempotent; a one-time observation about the state of the data is a
+   * different thing and belongs outside it.
+   *
+   * The one-time verifier is in the milestone notes and was run once, before
+   * any enrichment:
+   *
+   *   SELECT COUNT(*) FROM public.vehicles
+   *    WHERE engine_code IS NOT NULL
+   *       OR displacement_l IS NOT NULL
+   *       OR cylinders IS NOT NULL;   -- expected 0 on first application
+   */
 END $$;

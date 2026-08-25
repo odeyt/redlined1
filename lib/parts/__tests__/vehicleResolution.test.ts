@@ -59,7 +59,14 @@ describe('the fingerprint decides when a cached provider id is stale', () => {
     for (const noise of ['mileage', 'plate', 'status', 'owner', 'notes']) {
       expect(src).not.toContain(noise);
     }
-    expect(FINGERPRINT_FIELDS).toHaveLength(8);
+
+    /**
+     * The count is asserted so a field cannot join the fingerprint without
+     * someone deciding it should. It went 8 -> 11 in M-PARTS2C.4, when
+     * engineCode, displacementL and cylinders were added: those DO change
+     * which parts fit, so a mapping must go stale when one of them changes.
+     */
+    expect(FINGERPRINT_FIELDS).toHaveLength(11);
   });
 
   it('needs make and model before it is worth asking the provider', () => {

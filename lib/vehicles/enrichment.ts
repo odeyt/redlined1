@@ -14,18 +14,20 @@ import 'server-only';
  *
  * ## Fingerprint consequences
  *
- * Three of the enrichable fields are NOT part of the fingerprint by design —
- * engineCode, displacementL and cylinders describe a vehicle without changing
- * which vehicle it is. Enriching them therefore cannot invalidate the mapping
- * that supplied them, which is the loop this milestone was told not to build.
+ * ALL FOUR enrichable fields are fingerprint fields, so accepting any of them
+ * changes the vehicle's fingerprint. That is deliberate: stale-mapping
+ * detection has to see a later hand-typed engine code that no variant
+ * supports. With those fields outside the fingerprint, a wrong value could
+ * sit beside a mapping that still read as valid and still produce VERIFIED
+ * FIT — which is the more dangerous failure.
  *
- * `fuelType` IS a fingerprint field, so accepting it changes the fingerprint.
- * That is handled explicitly rather than hidden: the mapping is rebound only
- * when the variant that is already mapped is itself the source of the new
- * value, and invalidated otherwise.
+ * The loop this threatens — a value offered BY the mapped variant instantly
+ * invalidating that mapping — is resolved by PROVENANCE rather than by
+ * excluding the field. A value proven to have come from the mapped variant
+ * rebinds the mapping without a provider call; anything else invalidates it.
  */
 import { getAdminDb } from '@/lib/supabaseServer';
-import { vehicleFingerprint } from '@/lib/parts/vehicleResolution/fingerprint';
+import { vehicleFingerprint, FINGERPRINT_FIELDS } from '@/lib/parts/vehicleResolution/fingerprint';
 import type { QualityVehicle } from './quality';
 import type { CatalogComparison, FieldSuggestion } from './catalogComparison';
 
@@ -65,8 +67,15 @@ const COLUMN: Record<EnrichableField, string> = {
   fuelType: 'fuel_type',
 };
 
-/** Fields that participate in the vehicle fingerprint. */
-const FINGERPRINT_RELEVANT: ReadonlySet<string> = new Set(['fuelType']);
+/**
+ * Fields that participate in the vehicle fingerprint.
+ *
+ * DERIVED from FINGERPRINT_FIELDS rather than hand-listed. A hand-listed copy
+ * silently stops matching the moment a field is added to one and not the
+ * other, and the failure mode is a mapping that should have gone stale
+ * quietly staying valid.
+ */
+const FINGERPRINT_RELEVANT: ReadonlySet<string> = new Set(FINGERPRINT_FIELDS);
 
 export function isEnrichableField(f: unknown): f is EnrichableField {
   return typeof f === 'string'

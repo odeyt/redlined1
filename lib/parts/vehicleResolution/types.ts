@@ -141,4 +141,21 @@ export interface CanonicalVehicle {
   engine?: string;
   transmission?: string;
   fuelType?: string;
+  /**
+   * Fitment detail, added in M-PARTS2C.4 and part of the fingerprint.
+   *
+   * They were briefly excluded on the reasoning that they describe a vehicle
+   * without changing which vehicle it is. That was wrong in the direction
+   * that matters: with them outside, someone could later type a WRONG engine
+   * code and the mapping would stay "valid", so a stale mapping could still
+   * produce VERIFIED FIT. Stale-mapping detection has to see them.
+   *
+   * The loop that exclusion was meant to avoid — accepting a value offered by
+   * the mapped variant instantly invalidating that mapping — is handled where
+   * it belongs, in `decideFingerprint`: values proven to come from the mapped
+   * variant rebind it instead.
+   */
+  engineCode?: string;
+  displacementL?: number;
+  cylinders?: number;
 }
