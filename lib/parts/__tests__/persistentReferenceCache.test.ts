@@ -26,7 +26,7 @@ describe('reference data may be kept', () => {
     expect(isPersistable('manufacturers', manufacturersPath())).toBe(true);
     expect(isPersistable('models', modelsPath({ manufacturerId: 74 }))).toBe(true);
     expect(isPersistable('vehicle_variants',
-      vehicleVariantsPath({ manufacturerId: 74, modelId: 221 }))).toBe(true);
+      vehicleVariantsPath({ modelId: 221 }))).toBe(true);
   });
 });
 
@@ -135,5 +135,47 @@ describe('the table is server-only and holds no tenant data', () => {
   it('pairs its existence check with a negative control', () => {
     // A head-count check once reported a non-existent table as present.
     expect(MIGRATION).toContain('definitely_not_a_real_table_xyz');
+  });
+});
+
+describe('the call counter counts calls, not lookups', () => {
+  /**
+   * Found by the cold-start proof itself: it reported "2 upstream steps" while
+   * spending 0 external calls, because the resolver incremented
+   * `externalCalls` after every cachedFetch regardless of which tier answered.
+   *
+   * The field's own comment says "External calls this invocation actually
+   * spent", and the search route uses it to decide whether to persist a
+   * mapping. Worse, it is the number that shows M-PARTS2C.3 working — a
+   * counter that cannot tell a hit from a call makes the milestone invisible
+   * in its own accounting.
+   */
+  const RESOLVER = readFileSync(
+    join(process.cwd(), 'lib/parts/vehicleResolution/resolver.ts'), 'utf8');
+
+  it('increments only when the provider was actually called', () => {
+    expect(RESOLVER).toContain("if (o === 'external') externalCalls += 1;");
+  });
+
+  it('no longer increments unconditionally after a lookup', () => {
+    // The old shape: a bare increment on the line after each cachedFetch.
+    expect(RESOLVER).not.toMatch(/TTL\.\w+, ctx\);\s*\r?\n\s*externalCalls \+= 1;/);
+  });
+
+  it('every increment in the file is guarded', () => {
+    // Derived rather than counted by eye: each occurrence must sit on the
+    // guarded line, so a new unguarded one fails here.
+    const increments = [...RESOLVER.matchAll(/externalCalls \+= 1;/g)];
+    expect(increments.length).toBeGreaterThan(0);
+    for (const m of increments) {
+      const line = RESOLVER.slice(RESOLVER.lastIndexOf('\n', m.index!) + 1, m.index! + 20);
+      expect(line).toContain("o === 'external'");
+    }
+  });
+
+  it('the cache reports which tier answered', () => {
+    for (const tier of ["onOutcome?.('cache_hit')", "onOutcome?.('persistent_hit')", "onOutcome?.('external')"]) {
+      expect(CACHE).toContain(tier);
+    }
   });
 });

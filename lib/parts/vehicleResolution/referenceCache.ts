@@ -44,7 +44,7 @@ import 'server-only';
  */
 import { autoPartsApiRequest } from '../providers/autopartsapi/client';
 import type {
-  EndpointCategory, PartsProviderCallContext,
+  EndpointCategory, PartsProviderCallContext, UsageOutcome,
 } from '../providers/autopartsapi/telemetry';
 
 export const TTL = {
@@ -111,6 +111,17 @@ export async function cachedFetch<T>(
     bypass?: boolean;
     /** Who is asking. Required for the same reason the client requires it. */
     callContext?: PartsProviderCallContext;
+    /**
+     * Told how the lookup was answered.
+     *
+     * The resolver used to increment its `externalCalls` after every
+     * cachedFetch, so a fully-cached resolution reported spending calls it
+     * had not spent. Harmless-looking, but that number is the budget figure,
+     * and after M-PARTS2C.3 it is the one that shows the durable cache
+     * working — a counter that cannot tell a hit from a call makes the
+     * milestone invisible in its own accounting.
+     */
+    onOutcome?: (outcome: UsageOutcome) => void;
   } = {},
 ): Promise<T> {
   const now = opts.now ?? Date.now();
@@ -126,6 +137,7 @@ export async function cachedFetch<T>(
         shopId: opts.shopId, category, callContext,
         outcome: 'cache_hit', success: true,
       });
+      opts.onOutcome?.('cache_hit');
       return hit.value as T;
     }
   }
@@ -148,6 +160,7 @@ export async function cachedFetch<T>(
         shopId: opts.shopId, category, callContext,
         outcome: 'persistent_hit', success: true,
       });
+      opts.onOutcome?.('persistent_hit');
       return hit;
     }
   }
@@ -157,6 +170,7 @@ export async function cachedFetch<T>(
     category,
     callContext,
   });
+  opts.onOutcome?.('external');
 
   if (store.size >= MAX_ENTRIES) {
     const oldest = [...store.entries()].sort((a, b) => a[1].expiresAt - b[1].expiresAt)[0];

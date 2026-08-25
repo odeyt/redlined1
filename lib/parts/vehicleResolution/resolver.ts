@@ -298,13 +298,26 @@ export async function resolveProviderVehicle(
     };
   }
 
-  const ctx = { shopId: options.shopId };
+  /**
+   * Counts only what was actually spent.
+   *
+   * This used to be  after every cachedFetch, so a
+   * fully-cached resolution reported spending calls it never made. That
+   * number is the budget figure and, since M-PARTS2C.3, the one that shows
+   * the durable cache working — a counter that cannot tell a hit from a call
+   * makes the milestone invisible in its own accounting.
+   */
+  const ctx = {
+    shopId: options.shopId,
+    onOutcome: (o: 'external' | 'cache_hit' | 'persistent_hit' | 'coalesced') => {
+      if (o === 'external') externalCalls += 1;
+    },
+  };
 
   try {
     // ── 1. Manufacturer ────────────────────────────────────────────────────
     const manuPayload = await cachedFetch<unknown>(
       manufacturersPath(), 'manufacturers', TTL.manufacturers, ctx);
-    externalCalls += 1;
 
     const manuMatch = matchManufacturer(vehicle.make, readManufacturers(manuPayload));
     evidence.push({
@@ -335,7 +348,6 @@ export async function resolveProviderVehicle(
     // ── 2. Model series ────────────────────────────────────────────────────
     const modelPayload = await cachedFetch<unknown>(
       modelsPath({ manufacturerId: manufacturer.id }), 'models', TTL.models, ctx);
-    externalCalls += 1;
 
     const providerModels = readModels(modelPayload);
     const modelMatch = matchModel(vehicle.model, vehicle.year, providerModels);
@@ -406,7 +418,6 @@ export async function resolveProviderVehicle(
     // ── 3. Variant, with engine specs ──────────────────────────────────────
     const variantPayload = await cachedFetch<unknown>(
       vehicleVariantsPath({ modelId: model.id }), 'vehicle_variants', TTL.vehicleVariants, ctx);
-    externalCalls += 1;
 
     const candidates = readVariants(variantPayload);
     const modMatch = matchModification({
