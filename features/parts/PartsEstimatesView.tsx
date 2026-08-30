@@ -1653,9 +1653,15 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     </tr>
                   </thead>
                   <tbody>
-                    {form.lineItems.map((item, idx) => (
-                      <tr key={idx}>
-                        <td style={tdStyle}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
+                    {form.lineItems.map((item, idx) => {
+                      // A quoted row is one with a real unit cost. With many
+                      // rows and a vendor who only priced some of them, this
+                      // is the fastest way to tell what's still outstanding
+                      // without reading every cell — reported 2026-08-29.
+                      const isQuoted = Number(item.unitCost) > 0;
+                      return (
+                      <tr key={idx} style={isQuoted ? { background: 'rgba(34,197,94,0.09)' } : undefined}>
+                        <td style={{ ...tdStyle, borderLeft: `3px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
                           <select value={item.vendorName || ''} onChange={e => updateLineItem(idx, 'vendorName', e.target.value)} style={{ ...cellInput, paddingRight: 6, minWidth: 130 }}>
@@ -1703,7 +1709,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                           </select>
                         </td>
-                        <td style={tdStyle}><input type="number" min={0} step="0.01" value={item.unitCost || ''} placeholder="0.00" onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)} style={cellInput} /></td>
+                        <td style={tdStyle}>
+                          <input type="number" min={0} step="0.01" value={item.unitCost || ''} placeholder="0.00" onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)}
+                            style={isQuoted ? { ...cellInput, borderColor: '#22c55e', background: 'rgba(34,197,94,0.14)' } : cellInput} />
+                        </td>
                         {/*
                           Shows the multiplication, not just the answer.
 
@@ -1727,7 +1736,8 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>✕</button>}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
