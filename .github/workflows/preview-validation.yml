@@ -90,6 +90,40 @@ jobs:
           echo "::error::Timed out waiting for a redlined1-s-projects-scoped 'Preview – redlined1' deployment for ${SHA}"
           exit 1
 
+      # Every run of this workflow so far has failed deep inside Playwright,
+      # 8+ minutes in, with signatures (Vercel's own SSO login page, 302s on
+      # /manifest.json and /sw.js) that all trace back to one cause: the
+      # bypass header not actually getting the request past Vercel's
+      # deployment-protection wall. The URL resolution above was confirmed
+      # correct (it does resolve a redlined1-s-projects-scoped URL — see
+      # docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and issue #15),
+      # so a still-failing bypass points at the secret value itself: either
+      # never matching what Vercel issued, or stale after a rotation.
+      #
+      # This step tests the exact header Playwright is about to send, before
+      # spending 8 minutes installing browsers and running the suite. If the
+      # secret is wrong, this fails in seconds with a message that says
+      # exactly what to fix, instead of a misleading pwa.spec.ts failure that
+      # looks like an app bug.
+      - name: Verify the protection bypass actually works
+        env:
+          URL: ${{ steps.vercel_preview.outputs.url }}
+          SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -z "$SECRET" ]; then
+            echo "::error::VERCEL_AUTOMATION_BYPASS_SECRET is not set — Preview is behind Vercel's deployment protection and no request will get through. Vercel dashboard → redlined1 project → Settings → Deployment Protection → Protection Bypass for Automation → generate one, then: gh secret set VERCEL_AUTOMATION_BYPASS_SECRET"
+            exit 1
+          fi
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "x-vercel-protection-bypass: ${SECRET}" \
+            -H "x-vercel-set-bypass-cookie: true" \
+            "${URL}/manifest.json")
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Bypass header did not get past Vercel's deployment protection for ${URL} (got HTTP ${STATUS} on /manifest.json, expected 200). The VERCEL_AUTOMATION_BYPASS_SECRET value no longer matches this project. Fix: Vercel dashboard -> redlined1 project -> Settings -> Deployment Protection -> Protection Bypass for Automation -> regenerate, then run: gh secret set VERCEL_AUTOMATION_BYPASS_SECRET --repo odeyt/redlined1 (paste the new value). See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and issue #15 for full history."
+            exit 1
+          fi
+          echo "Bypass verified — /manifest.json returned 200 through the protection wall."
+
       - name: Run public smoke tests against Preview
         run: npx playwright test --project=smoke-chromium
         env:

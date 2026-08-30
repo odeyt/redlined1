@@ -57,6 +57,42 @@ separate Vercel account owns it, which wasn't accessible in this session
 (confirmed: it doesn't appear in the team switcher for the account currently
 logged in). Worth revisiting once that login is found.
 
+## Update 2026-08-30: confirmed the secret itself is the remaining problem
+
+Checked PR #14 and #16's `Preview Validation` runs (both post-dating the
+secret being added). The URL resolution step is working correctly — it
+resolved `https://redlined1-icx31nrt8-redlined1-s-projects.vercel.app`, a
+properly `redlined1-s-projects`-scoped URL, ruling out the stray `d1-imports`
+race as the cause of these particular failures.
+
+Yet the failures show page navigations landing on **Vercel's own SSO login
+page** (`getByTestId('login/email-button')`, `getByRole('button', { name:
+'Show other options' })` — those are Vercel's account-login component names,
+not this app's), and `/manifest.json` / `/sw.js` both 302. That means the
+`x-vercel-protection-bypass` header is being sent (per `playwright.config.ts`)
+but Vercel isn't honoring it for this deployment — which, with the URL
+confirmed correct, leaves one explanation: **the
+`VERCEL_AUTOMATION_BYPASS_SECRET` GitHub secret's value doesn't match what
+Vercel currently expects** (never matched, or rotated since).
+
+Added a fast pre-check (`.github/workflows/preview-validation.yml`, step
+"Verify the protection bypass actually works") that curls `/manifest.json`
+with the same header Playwright would send, *before* installing browsers and
+running the suite. If the secret is wrong it now fails in ~2 seconds with an
+explicit message, instead of a confusing Playwright failure 8 minutes in that
+reads like an app bug.
+
+**What only you can do, still:** regenerate the bypass value.
+1. Vercel dashboard → `redlined1` project → **Settings → Deployment
+   Protection → Protection Bypass for Automation** → regenerate it, copy the
+   new value.
+2. Update the GitHub secret:
+   ```bash
+   gh secret set VERCEL_AUTOMATION_BYPASS_SECRET --repo odeyt/redlined1
+   ```
+3. Push any commit (or re-run the workflow on an open PR) — the new
+   pre-check step will confirm immediately whether it now works.
+
 ## What only you can do (the actual secret)
 
 Since the resolution step no longer targets one specific project, enable
