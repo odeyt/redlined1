@@ -1,6 +1,52 @@
 # Fixing the Preview Validation smoke test's 401
 
-## What's broken and why (two separate causes, both confirmed)
+## Update 2026-08-30 (later the same day): the static secret approach is dead — switched to OIDC Trusted Sources
+
+Regenerating `VERCEL_AUTOMATION_BYPASS_SECRET` (per the update below) did
+**not** fix it — same failure, now a 307 instead of a 302. Checked the
+`redlined1` project's Deployment Protection settings directly in the Vercel
+dashboard (Settings → Deployment Protection): **the "Protection Bypass for
+Automation" section is gone.** It's not disabled or misconfigured — it
+doesn't appear on the page at all anymore. Only three sections remain:
+Vercel Authentication, Password Protection, and **Trusted Sources**.
+
+Trusted Sources is Vercel's current mechanism for exactly this use case
+(confirmed via Vercel's own docs,
+https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/trusted-sources)
+— it replaces a shared static secret with a short-lived **OIDC token**
+that GitHub Actions mints per run and Vercel verifies against its issuer.
+No secret to rotate, nothing to leak from a log.
+
+**What changed in code** (`.github/workflows/preview-validation.yml`,
+`playwright.config.ts`):
+- The job now requests `permissions: id-token: write` (plus `contents:
+  read` and `deployments: read`, since setting any `permissions` key
+  switches GitHub from its broad default to exactly that list).
+- A new step (`Get Vercel Trusted-Source OIDC token`) calls
+  `core.getIDToken()` via `actions/github-script@v7` to mint a token with
+  the default audience `https://github.com/<org>`.
+- The verify step and the actual Playwright run now send that token as
+  `x-vercel-trusted-oidc-idp-token` instead of
+  `x-vercel-protection-bypass`.
+- `VERCEL_AUTOMATION_BYPASS_SECRET` is no longer read anywhere in this
+  repo — it's safe to delete from GitHub secrets whenever convenient
+  (kept for now in case of rollback).
+
+**What only you can do, still — the dashboard side of Trusted Sources:**
+1. Vercel dashboard → `redlined1` project → **Settings → Deployment
+   Protection → Trusted Sources → External Services → Add → GitHub
+   Actions**.
+2. Pick the GitHub account/org this repo lives under. Optionally narrow to
+   this repository (and a branch, if you want to scope it further).
+3. Under **Applies to environments**, check **Preview** (this workflow only
+   ever needs to reach Preview deployments).
+4. Leave the audience as default — `getIDToken()` with no argument sends
+   `https://github.com/<org>`, which is exactly what the guided form
+   configures automatically.
+5. Save, then re-run `Preview Validation` on any open PR (or push a new
+   commit) — the new pre-check step confirms it in seconds either way.
+
+## What's broken and why (two separate causes, both confirmed) — historical, applied to the now-removed static-secret approach
 
 `Preview Validation` → `Playwright Smoke (Preview)` failed on every PR. Two
 distinct issues stacked on top of each other:

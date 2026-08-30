@@ -14,6 +14,18 @@ jobs:
     name: Playwright Smoke (Preview)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # id-token: write lets this job mint a short-lived GitHub OIDC token
+    # (see the "Get Vercel Trusted-Source OIDC token" step) — Vercel's
+    # replacement for the old static VERCEL_AUTOMATION_BYPASS_SECRET, which
+    # stopped working because that dashboard feature no longer exists for
+    # this project (confirmed 2026-08-30, see issue #15). contents/deployments
+    # read are carried over explicitly because setting any `permissions` key
+    # switches the token from GitHub's broad default to exactly this list —
+    # dropping them would break the deployment-resolution step below.
+    permissions:
+      contents: read
+      deployments: read
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
@@ -50,13 +62,13 @@ jobs:
       # not a replacement for that.
       # Narrowed twice, deliberately: filters by BOTH the exact "Preview –
       # redlined1" environment name (this repo also has a second, legitimate
-      # project — "d1-redline" — auto-deploying from every push, whose
-      # bypass secret isn't configured; picking its URL would 401 even with
-      # a valid VERCEL_AUTOMATION_BYPASS_SECRET) AND the environment_url
+      # project — "d1-redline" — auto-deploying from every push, which isn't
+      # authorized as a Trusted Source; picking its URL would still be
+      # blocked even with a valid OIDC token) AND the environment_url
       # containing "redlined1-s-projects" (excludes the stray d1-imports
       # legacy integration, which posts under this SAME environment name —
       # confirmed via the raw API, see docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md).
-      # Only the "redlined1" project has a bypass secret provisioned today.
+      # Only the "redlined1" project is configured as a Trusted Source today.
       - name: Resolve Vercel Preview URL (redlined1 project, redlined1-s-projects scope only)
         id: vercel_preview
         env:
@@ -90,39 +102,45 @@ jobs:
           echo "::error::Timed out waiting for a redlined1-s-projects-scoped 'Preview – redlined1' deployment for ${SHA}"
           exit 1
 
-      # Every run of this workflow so far has failed deep inside Playwright,
-      # 8+ minutes in, with signatures (Vercel's own SSO login page, 302s on
-      # /manifest.json and /sw.js) that all trace back to one cause: the
-      # bypass header not actually getting the request past Vercel's
-      # deployment-protection wall. The URL resolution above was confirmed
-      # correct (it does resolve a redlined1-s-projects-scoped URL — see
-      # docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and issue #15),
-      # so a still-failing bypass points at the secret value itself: either
-      # never matching what Vercel issued, or stale after a rotation.
+      # Vercel replaced the static "Protection Bypass for Automation" secret
+      # with OIDC-based Trusted Sources — confirmed 2026-08-30 by checking
+      # the redlined1 project's Deployment Protection settings directly: that
+      # section no longer exists there, only "Trusted Sources" (external
+      # services present a short-lived OIDC token instead of a shared
+      # secret). See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and
+      # issue #15 for the full history of the old approach failing.
       #
-      # This step tests the exact header Playwright is about to send, before
-      # spending 8 minutes installing browsers and running the suite. If the
-      # secret is wrong, this fails in seconds with a message that says
-      # exactly what to fix, instead of a misleading pwa.spec.ts failure that
-      # looks like an app bug.
-      - name: Verify the protection bypass actually works
+      # This mints a token GitHub's own OIDC provider signs for this exact
+      # workflow run, requested with the default audience
+      # (https://github.com/<org>) that Vercel's guided "Add GitHub Actions"
+      # form configures automatically.
+      - name: Get Vercel Trusted-Source OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token);
+
+      # Tests the exact header Playwright is about to send, before spending
+      # 8 minutes installing browsers and running the suite. If this repo
+      # isn't authorized as a Trusted Source yet, this fails in seconds with
+      # a message that says exactly what to configure, instead of a
+      # misleading pwa.spec.ts failure that looks like an app bug.
+      - name: Verify the OIDC trusted-source bypass actually works
         env:
           URL: ${{ steps.vercel_preview.outputs.url }}
-          SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          TOKEN: ${{ steps.oidc.outputs.token }}
         run: |
-          if [ -z "$SECRET" ]; then
-            echo "::error::VERCEL_AUTOMATION_BYPASS_SECRET is not set — Preview is behind Vercel's deployment protection and no request will get through. Vercel dashboard → redlined1 project → Settings → Deployment Protection → Protection Bypass for Automation → generate one, then: gh secret set VERCEL_AUTOMATION_BYPASS_SECRET"
-            exit 1
-          fi
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "x-vercel-protection-bypass: ${SECRET}" \
-            -H "x-vercel-set-bypass-cookie: true" \
+            -H "x-vercel-trusted-oidc-idp-token: ${TOKEN}" \
             "${URL}/manifest.json")
           if [ "$STATUS" != "200" ]; then
-            echo "::error::Bypass header did not get past Vercel's deployment protection for ${URL} (got HTTP ${STATUS} on /manifest.json, expected 200). The VERCEL_AUTOMATION_BYPASS_SECRET value no longer matches this project. Fix: Vercel dashboard -> redlined1 project -> Settings -> Deployment Protection -> Protection Bypass for Automation -> regenerate, then run: gh secret set VERCEL_AUTOMATION_BYPASS_SECRET --repo odeyt/redlined1 (paste the new value). See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and issue #15 for full history."
+            echo "::error::OIDC trusted-source token did not get past Vercel's deployment protection for ${URL} (got HTTP ${STATUS} on /manifest.json, expected 200). Configure this repo as a Trusted Source: Vercel dashboard -> redlined1 project -> Settings -> Deployment Protection -> Trusted Sources -> External Services -> Add -> GitHub Actions -> pick this GitHub account (optionally scope to this repo/branch) -> check 'Preview' under Applies to environments -> Add. See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md and issue #15 for full history."
             exit 1
           fi
-          echo "Bypass verified — /manifest.json returned 200 through the protection wall."
+          echo "Trusted Source OIDC bypass verified — /manifest.json returned 200 through the protection wall."
 
       - name: Run public smoke tests against Preview
         run: npx playwright test --project=smoke-chromium
@@ -130,9 +148,10 @@ jobs:
           TEST_MODE: preview
           VERCEL_PREVIEW_URL: ${{ steps.vercel_preview.outputs.url }}
           # Playwright's own browser requests hit the same protection wall —
-          # the wait step bypasses it just for the readiness check, this
-          # makes playwright.config.ts do the same for the actual test run.
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          # the verify step above proves the token for the readiness check,
+          # this makes playwright.config.ts send the same token for the
+          # actual test run.
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           CI: true
 
       - name: Upload Playwright Report
