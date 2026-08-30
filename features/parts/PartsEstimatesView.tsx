@@ -1495,7 +1495,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
           onDragOver={e => e.preventDefault()}
           onDrop={e => e.preventDefault()}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-          <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+          <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 1160, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Quotation' : '+ New Parts Quotation'}</span>
@@ -1638,7 +1638,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 redistributing the extra width away from the other columns.
               */}
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-                <table style={{ width: '100%', minWidth: 1040, borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={thStyle}>Part Name *</th>
@@ -1646,9 +1646,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <th style={thStyle}>Vendor</th>
                       <th style={thStyle}>Condition</th>
                       <th style={{ ...thStyle, width: 150 }}>Qty / Unit</th>
-                      <th style={{ ...thStyle, width: 90 }}>Currency</th>
-                      <th style={{ ...thStyle, width: 110 }}>Unit Cost</th>
-                      <th style={{ ...thStyle, width: 100 }}>Line Total</th>
+                      <th style={{ ...thStyle, width: 78 }}>Currency</th>
+                      <th style={{ ...thStyle, width: 100 }}>Unit Cost</th>
+                      <th style={{ ...thStyle, width: 90 }}>Line Total</th>
                       <th style={{ ...thStyle, width: 36 }}></th>
                     </tr>
                   </thead>
@@ -1664,7 +1664,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td style={{ ...tdStyle, borderLeft: `3px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
-                          <select value={item.vendorName || ''} onChange={e => updateLineItem(idx, 'vendorName', e.target.value)} style={{ ...cellInput, paddingRight: 6, minWidth: 130 }}>
+                          <select value={item.vendorName || ''} onChange={e => updateLineItem(idx, 'vendorName', e.target.value)} style={{ ...cellInput, paddingRight: 6, minWidth: 110 }}>
                             <option value="">— Vendor —</option>
                             {vendors.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                             {item.vendorName && !vendors.find(v => v.name === item.vendorName) && <option value={item.vendorName}>{item.vendorName}</option>}
