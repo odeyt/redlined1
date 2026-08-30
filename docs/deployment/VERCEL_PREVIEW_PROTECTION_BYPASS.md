@@ -1,5 +1,44 @@
 # Fixing the Preview Validation smoke test's 401
 
+## Status
+
+- **Preview Validation check (issue #15): RESOLVED.** PR #19's OIDC
+  Trusted Sources fix is merged and confirmed green — the preview-URL
+  resolution step only accepts a URL containing `redlined1-s-projects`,
+  so the stray `d1-imports` deployment (below) can no longer cause CI
+  failures or get picked as the preview target.
+- **Stray `d1-imports` Vercel connection: OUTSTANDING, low priority.**
+  The separate project/account is still connected and will likely keep
+  triggering duplicate builds until its owner disconnects it. Not
+  blocking anything — see the item below for what's actually left to do.
+
+One infrastructure item from the investigation is still open, tracked
+here rather than as its own issue since it's cosmetic:
+
+- **Stray Vercel scope/project: `d1-imports`.** Appears to deploy the
+  `redlined1` repository from a separate, inaccessible Vercel
+  account/scope (confirmed 2026-08-30: navigating to `vercel.com/d1-imports`
+  from the account that owns `redlined1-s-projects` returns "Not Found" —
+  genuinely a different login, not just a different team switch). **Still
+  connected as of this writing** — nothing has disconnected it.
+- **Active production deployment is unaffected.** Production serves from
+  the `redlined1-s-projects` scope; `d1-imports` never received traffic.
+- **PR #19's OIDC Trusted Sources filtering safely ignores the stray
+  deployment for CI purposes** — it no longer causes `Preview Validation`
+  failures or gets picked as the preview target. This does **not** stop
+  the stray project from building — it only stops that build from
+  affecting this repo's checks.
+- **Current impact: duplicate Vercel build and deployment-status noise
+  only** — an extra build runs on every push, and an extra (unused) status
+  posts to the PR's checks, and will keep doing so until disconnected.
+  No functional or security impact.
+- **Manual owner action required (not yet done):** locate whichever
+  separate Vercel login owns the `d1-imports` scope, and disconnect only
+  *its* `redlined1` project's Git integration there.
+- **Do not** uninstall the shared "Vercel" GitHub App on the `odeyt`
+  account, and do not touch the active `redlined1-s-projects` integration
+  — both are what production actually runs on.
+
 ## Update 2026-08-30 (later the same day): the static secret approach is dead — switched to OIDC Trusted Sources
 
 Regenerating `VERCEL_AUTOMATION_BYPASS_SECRET` (per the update below) did
