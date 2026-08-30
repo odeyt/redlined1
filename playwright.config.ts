@@ -66,11 +66,18 @@ export default defineConfig({
     actionTimeout:     15_000,
     navigationTimeout: 20_000,
     // Preview deployments sit behind Vercel's deployment protection wall
-    // (401 to any request without this header) — only sent for preview
-    // runs, and only if the secret is actually configured, so local and
+    // (401/redirect to any request without this) — only sent for preview
+    // runs, and only if the token is actually present, so local and
     // production runs (neither protected) are never affected.
-    ...(MODE === 'preview' && process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-      ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } }
+    //
+    // This is a short-lived GitHub Actions OIDC token, not a static secret:
+    // Vercel removed the old "Protection Bypass for Automation" feature for
+    // this project in favor of OIDC-based Trusted Sources (confirmed
+    // 2026-08-30 — see docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md
+    // and issue #15). The workflow mints this token per run and sets it as
+    // VERCEL_TRUSTED_OIDC_TOKEN.
+    ...(MODE === 'preview' && process.env.VERCEL_TRUSTED_OIDC_TOKEN
+      ? { extraHTTPHeaders: { 'x-vercel-trusted-oidc-idp-token': process.env.VERCEL_TRUSTED_OIDC_TOKEN } }
       : {}),
   },
 
