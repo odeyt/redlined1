@@ -197,3 +197,4 @@ the bypass on **both** projects in `redlined1-s-projects` to be safe:
    secret store)
 4. Re-run the `Preview Validation` check on any open PR (or push a new
    commit) to confirm it goes green.
+<!-- verification ping: 2026-08-30T13:12:38Z -->
