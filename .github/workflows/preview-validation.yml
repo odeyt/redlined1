@@ -150,3 +150,4 @@ jobs:
           name: playwright-screenshots-${{ github.run_number }}
           path: tests/screenshots/
           retention-days: 7
+# Throwaway commit to trigger Preview Validation and confirm the bypass secret fix (issue #15).
