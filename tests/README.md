@@ -164,11 +164,15 @@ Triggers on every PR targeting `main`. Resolves the preview URL via the
 GitHub Deployments API (filtered to the `redlined1-s-projects` scope only —
 see the workflow file for why), then runs `@smoke` tests against it.
 
-**Secrets required in GitHub repo settings:**
-- `VERCEL_AUTOMATION_BYPASS_SECRET` — from the `redlined1-s-projects` Vercel
-  team's Deployment Protection settings ("Protection Bypass for Automation").
-  Required for the check to pass at all — preview deployments sit behind
-  Vercel's protection wall. See `docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md`.
+**No secret required.** Preview deployments sit behind Vercel's deployment
+protection wall, but the workflow gets past it with a short-lived GitHub
+Actions OIDC token (`permissions: id-token: write`) instead of a static
+secret. The `redlined1` Vercel project must have this repo's GitHub Actions
+authorized as a Trusted Source (Settings → Deployment Protection → Trusted
+Sources → External Services), scoped to the Preview environment. See
+`docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md` for the full history —
+this replaced an older static-secret approach (`VERCEL_AUTOMATION_BYPASS_SECRET`)
+that Vercel discontinued.
 
 ### Production smoke (manual)
 
