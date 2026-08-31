@@ -781,8 +781,13 @@ export function PartsSearchModal({
               border: '1px solid #f59e0b', borderRadius: 10, padding: '10px 12px',
               background: 'var(--surface-soft)', marginBottom: 12, fontSize: 12,
             }}>
+              {/* Two different problems, two different sentences. "Could not
+                  be identified in the catalogue" is wrong and confusing when
+                  the truth is that the vehicle belongs to another shop. */}
               <div style={{ fontWeight: 800, color: '#b45309' }}>
-                ⚠ This vehicle could not be identified in the parts catalogue
+                {resolution.reasonCode === 'vehicle_not_in_shop'
+                  ? '⚠ This vehicle belongs to a different shop location'
+                  : '⚠ This vehicle could not be identified in the parts catalogue'}
               </div>
               {resolution.reason && (
                 <div style={{ color: 'var(--muted)', marginTop: 4 }}>{resolution.reason}</div>

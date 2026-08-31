@@ -306,3 +306,65 @@ describe('the chosen series survives into the variant confirmation', () => {
     expect(CONFIRM_ROUTE).toContain('.optional()');
   });
 });
+
+describe('a vehicle from another shop says so', () => {
+  /**
+   * Reported from production on a real multi-location estimate: EST-0018
+   * sits in one shop and the vehicle it links to sits in another. The server
+   * correctly refused to resolve it — a shop must not learn about another
+   * shop's vehicle — but the refusal was a `throw`, the outer catch swallowed
+   * it, and the technician read "No matching parts found" for a car parked at
+   * the other branch.
+   *
+   * The same misleading silence M-PARTS2C.1 removed, arriving by a different
+   * route.
+   */
+  it('reports the situation instead of throwing it away', () => {
+    expect(ROUTE).toContain("reasonCode: 'vehicle_not_in_shop'");
+    expect(ROUTE).toContain('parts_vehicle_not_in_shop');
+  });
+
+  it('no longer throws on an unreadable vehicle', () => {
+    // A throw here lands in the generic catch, which cannot tell this apart
+    // from a provider outage and reports neither.
+    expect(ROUTE).not.toContain("throw new Error('vehicle not available to this shop')");
+  });
+
+  it('still refuses to resolve it', () => {
+    // The security behaviour is unchanged: resolution only runs when the
+    // vehicle loaded for THIS shop.
+    expect(ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(ROUTE).toContain('if (!canonical)');
+  });
+
+  it('gives it its own heading rather than blaming the catalogue', () => {
+    expect(MODAL).toContain("resolution.reasonCode === 'vehicle_not_in_shop'");
+    expect(MODAL).toContain('This vehicle belongs to a different shop location');
+  });
+
+  it('says nothing about the other shop', () => {
+    // No shop name, no id, no vehicle detail — only that it is elsewhere.
+    /**
+     * Anchored on the literal's own bounds rather than a character count —
+     * a fixed window broke the moment an explanatory comment was added
+     * between the anchor and the string.
+     */
+    const start = ROUTE.indexOf("reasonCode: 'vehicle_not_in_shop'");
+    const end = ROUTE.indexOf('vehicleId: input.vehicleId', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    /**
+     * Comments stripped before the ban is applied. The prose explaining WHY
+     * this exists legitimately mentions mirroring; the sentence the
+     * technician reads must not. Asserting over both flagged my own
+     * explanation — the recurring trap in this codebase.
+     */
+    const reason = ROUTE.slice(start, end)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+
+    expect(reason).toContain('recorded under a different shop location');
+    // Names no shop, exposes no id, describes no other record.
+    expect(reason).not.toMatch(/shopName|shop_name|otherShop|mirror/i);
+  });
+});

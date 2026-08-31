@@ -218,7 +218,40 @@ export async function POST(req: NextRequest) {
          * taken from the browser.
          */
         const canonical = await loadCanonicalVehicle(input.shopId, input.vehicleId);
-        if (!canonical) throw new Error('vehicle not available to this shop');
+
+        /**
+         * The vehicle is not readable by THIS shop.
+         *
+         * Refusing to resolve it is correct — a shop must not learn about
+         * another shop's vehicle. What was wrong was throwing: the outer
+         * catch swallowed it, `vehicleResolution` stayed undefined, no banner
+         * rendered, and the technician was left reading "No matching parts
+         * found" for a car sitting in another branch. Reported on a real
+         * multi-location estimate, and the same misleading silence
+         * M-PARTS2C.1 removed elsewhere.
+         *
+         * Says which situation it is without revealing anything about the
+         * other shop's record.
+         */
+        if (!canonical) {
+          logger.warn('parts_vehicle_not_in_shop', { shopId: input.shopId });
+          vehicleResolution = {
+            status: 'not_found',
+            reasonCode: 'vehicle_not_in_shop',
+            /**
+             * Written for the case that actually happens: an owner with two
+             * locations, whose vehicle lists are mirrored so the picker can
+             * offer a car the parts endpoints then refuse. "Switch location"
+             * is the step that works today; whether parts should follow the
+             * mirror is a separate decision.
+             */
+            reason: 'This vehicle is recorded under a different shop location, so parts '
+              + 'cannot be matched to it here. Switch to that location, or attach a '
+              + 'vehicle belonging to this one.',
+            fingerprint: '',
+            vehicleId: input.vehicleId,
+          };
+        } else {
 
         const existingMapping = await readMapping(input.shopId, input.vehicleId);
         const outcome = await resolveProviderVehicle(canonical, {
@@ -260,6 +293,7 @@ export async function POST(req: NextRequest) {
           modificationDescription: outcome.resolution.modificationDescription,
           confirmedByTechnician: alreadyConfirmed,
         };
+        }
       } catch {
         // Silent by design. The parts list is still worth returning, and the
         // fitment fields already default to unverified.
