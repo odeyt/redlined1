@@ -32,10 +32,28 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const QUOTES = 'features/parts/PartsEstimatesView.tsx';
 const ORDERS = 'features/parts/PartsOrdersView.tsx';
 
+/**
+ * The two tables no longer carry the same minimum width.
+ *
+ * This assertion was a single shared `minWidth: 1040` for both views. PR #16
+ * ("widen quoted-parts modal so the table fits without scrolling") retuned the
+ * QUOTES table to 980 while ORDERS kept 1040, and the shared expectation went
+ * red on main — a stale test of mine, not a regression in that change.
+ *
+ * Kept per-file rather than relaxed to `/minWidth: \d+/`. The point of the
+ * assertion is that each table HAS a deliberate floor wide enough for its own
+ * columns; a pattern matching any number would keep passing if someone set it
+ * to 10.
+ */
+const TABLE_MIN_WIDTH: Record<string, number> = {
+  [QUOTES]: 980,
+  [ORDERS]: 1040,
+};
+
 describe('the wider column keeps its width instead of giving it back', () => {
   for (const file of [QUOTES, ORDERS]) {
     it(`${file} gives the table a minimum width`, () => {
-      expect(read(file)).toMatch(/minWidth: 1040/);
+      expect(read(file)).toMatch(new RegExp(`minWidth: ${TABLE_MIN_WIDTH[file]}`));
     });
 
     it(`${file} still scrolls rather than clipping`, () => {
