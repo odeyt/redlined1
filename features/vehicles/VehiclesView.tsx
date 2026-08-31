@@ -23,6 +23,8 @@ import type { Customer } from '@/lib/types';
 import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/services/vehicleImageService';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
+import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
+import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -512,6 +514,19 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 2500); }
   function set(key: keyof VehicleRecord, val: unknown) { setF(prev => ({ ...prev, [key]: val })); }
+
+  /**
+   * Re-sync the form after catalogue enrichment wrote to the vehicle.
+   *
+   * `f` is snapshotted from `vehicle` when the drawer opens and is never
+   * re-read, so without this an applied `fuelType` would be sent back stale
+   * on the next Save and silently undone. The rule itself lives in
+   * `lib/vehicles/enrichmentSync.ts` because it is pure and therefore
+   * testable, which a closure inside this component would not be.
+   */
+  function syncEnrichedFields(applied: AppliedField[]) {
+    setF(prev => applyEnrichedFieldsToForm(prev, applied));
+  }
 
   async function pullFromRO(silent = false) {
     setPulling(true);
@@ -1486,6 +1501,19 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
             </select>
           ))}
           {row('Date Received', <input type="date" style={inp} value={f.dateReceived ?? ''} onChange={e => set('dateReceived', e.target.value || null)} />)}
+
+          {/* Vehicle data quality.
+              Placed at the foot of the identity column because that is what it
+              is about — VIN, make, model, engine, fuel type sit directly above
+              it. Costs no provider call to render: the GET behind it reads the
+              vehicle, the stored mapping and the persistent cache only. */}
+          <div style={{ marginTop: 16 }}>
+            <VehicleQualityPanel
+              shopId={drawerShopId}
+              vehicleId={vehicle.id}
+              onApplied={syncEnrichedFields}
+            />
+          </div>
 
           </div>{/* end left column */}
           <div>{/* ── RIGHT: Service Record ── */}

@@ -24,6 +24,7 @@
  * point.
  */
 import { useEffect, useState } from 'react';
+import type { AppliedField } from '@/lib/vehicles/enrichmentSync';
 
 interface Suggestion {
   field: string;
@@ -55,8 +56,21 @@ interface QualityResponse {
 interface Props {
   shopId: string;
   vehicleId: string;
-  /** Called after a successful update so the caller can refresh its own copy. */
-  onApplied?: () => void;
+  /**
+   * Called after a successful update, WITH the fields the server changed.
+   *
+   * The list is not decoration. This panel is mounted inside an edit form
+   * that snapshots the vehicle into local state when it opens and never
+   * re-reads it. Enrichment can write `fuelType`, which that form also edits,
+   * so a caller told merely "something happened" would keep its stale value
+   * and quietly write it back on the next save — undoing the enrichment
+   * without anyone seeing it fail.
+   *
+   * Handing back the exact fields lets a caller sync those and leave every
+   * other in-progress edit alone, which re-reading the whole record could
+   * not do.
+   */
+  onApplied?: (applied: AppliedField[]) => void;
 }
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; text: string }> = {
@@ -156,13 +170,17 @@ export function VehicleQualityPanel({ shopId, vehicleId, onApplied }: Props) {
         setError(json?.error ?? 'The vehicle could not be updated.');
         return;
       }
-      setApplied(`Updated ${json.applied.length} field${json.applied.length === 1 ? '' : 's'}.`);
+      const appliedFields: AppliedField[] = Array.isArray(json.applied)
+        ? json.applied.map((e: { field: string; after: string | number | null }) =>
+          ({ field: e.field, after: e.after }))
+        : [];
+      setApplied(`Updated ${appliedFields.length} field${appliedFields.length === 1 ? '' : 's'}.`);
       setSelected(new Set());
       setOpen(false);
       // Re-read through the effect rather than calling the fetch again.
       setLoading(true);
       setRefreshKey(k => k + 1);
-      onApplied?.();
+      onApplied?.(appliedFields);
     } catch {
       setError('The vehicle could not be updated.');
     } finally {
