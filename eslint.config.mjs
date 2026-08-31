@@ -36,6 +36,25 @@ export default defineConfig([
     'playwright-report/**',
     'test-results/**',
 
+    /**
+     * Agent scratch: git worktrees created by coding sessions.
+     *
+     * `.next/**` above matches only the ROOT build. A worktree here holds its
+     * own checkout, and once anything runs a build inside one it also holds
+     * its own `.next` — which the linter then walks.
+     *
+     * The effect on the ratchet was not subtle: 180 errors became 4123 and
+     * 168 warnings became 36283, with the growth in rules that only ever fire
+     * on bundled code — no-this-alias 715, no-require-imports 1425,
+     * no-empty-object-type 214. It read as a catastrophic regression in
+     * hand-written source and was neither: no file changed since the
+     * production baseline reports a single finding.
+     *
+     * A quality gate that can be broken by a parallel session building in a
+     * sibling directory is not measuring this project.
+     */
+    '.claude/**',
+
     // A SEPARATE npm project (`redlined1-youtube-bot`) that happens to live in
     // this folder: its own package.json, its own dependencies, not imported by
     // the app and not part of the Next build. `next lint` never looked at it,
