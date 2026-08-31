@@ -5,8 +5,9 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
 import { vehicleFingerprint } from '@/lib/parts/vehicleResolution/fingerprint';
-import { writeMapping, vehicleBelongsToShop } from '@/lib/parts/vehicleResolution/mappingStore';
+import { writeMapping } from '@/lib/parts/vehicleResolution/mappingStore';
 import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
+import { readableShopIds } from '@/lib/shops/mirrorScope';
 
 /**
  * POST /api/parts/vehicle-resolution/select-model
@@ -88,18 +89,20 @@ export async function POST(req: NextRequest) {
       { code: 'UNAUTHORIZED', error: 'Not authorised for this shop.' }, { status: 403 });
   }
 
-  // 2. The vehicle is this shop's. Checked against the database, not the body.
-  if (!await vehicleBelongsToShop(input.shopId, input.vehicleId)) {
+  /**
+   * 2. The vehicle is readable by this user from this shop. Checked against
+   *    the database, not the body. One load, which is the ownership gate —
+   *    same reasoning as the confirm route: two copies of the vehicle read
+   *    with mirror rules in each is how they drift apart.
+   */
+  const scope = await readableShopIds(auth.userId, input.shopId);
+  const loaded = await loadCanonicalVehicle(scope, input.vehicleId);
+  if (!loaded) {
     logger.warn('parts.select_model.foreign_vehicle', { shopId: input.shopId });
     return NextResponse.json(
       { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }
-
-  const vehicle = await loadCanonicalVehicle(input.shopId, input.vehicleId);
-  if (!vehicle) {
-    return NextResponse.json(
-      { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
-  }
+  const { vehicle, ownerShopId } = loaded;
 
   // 3. The vehicle has not changed since the technician saw the series list.
   const current = vehicleFingerprint(vehicle);
@@ -137,7 +140,9 @@ export async function POST(req: NextRequest) {
     // Resolved outright — the series was enough to pin one variant.
     if (outcome.resolution.resolutionStatus === 'resolved' && outcome.resolution.vehicleId) {
       const written = await writeMapping({
-        shopId: input.shopId,
+        // The vehicle's own shop, so both mirrored locations share the one
+        // mapping rather than each paying for its own resolution.
+        shopId: ownerShopId,
         vehicleId: input.vehicleId,
         resolution: { ...outcome.resolution, confirmedByUserId: auth.userId },
       });

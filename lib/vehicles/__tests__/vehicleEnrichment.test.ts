@@ -308,14 +308,63 @@ describe('forged input is rejected before anything is written', () => {
     expect(cmp).toContain('num(m.provider_vehicle_id)');
   });
 
-  it('8. one shop cannot enrich or rebind another shop vehicle', () => {
+  /**
+   * The boundary moved when the parts path learned about mirroring, and this
+   * test says so rather than being quietly relaxed.
+   *
+   * BEFORE: a vehicle was enrichable only from the shop that owned it.
+   * NOW:    it is enrichable from the owning shop and from any shop that
+   *         mirrors it AND that this user personally belongs to.
+   *
+   * That is a widening, and it is deliberate — `services/vehicleService.ts`
+   * has always allowed the same account to update and delete mirrored
+   * vehicles. What has NOT widened is the part that matters: the scope is
+   * derived on the server from `shop_mirrors`, so an unmirrored tenant's
+   * vehicle is as unreachable as it ever was, and no request body can say
+   * otherwise.
+   */
+  it('8. a shop cannot enrich a vehicle outside its server-derived scope', () => {
     const route = readFileSync(
       join(process.cwd(), 'app/api/vehicles/quality/route.ts'), 'utf8');
-    expect(route).toContain('vehicleBelongsToShop(input.shopId, input.vehicleId)');
+
+    // The scope comes from the session and the mirror table — never the body.
+    expect(route).toContain('await readableShopIds(auth.userId, input.shopId)');
+    expect(route).not.toMatch(/shopIds\s*:\s*z\./);
+    expect(route).not.toMatch(/scope\s*:\s*z\./);
+
+    // And it gates the load, which is what every later step reads from.
+    expect(route).toContain('await loadQualityVehicle(scope, input.vehicleId)');
+
     // service_role bypasses RLS, so the shop predicate IS the boundary.
     for (const file of ['lib/vehicles/enrichment.ts', 'lib/vehicles/catalogComparison.ts']) {
       expect(readFileSync(join(process.cwd(), file), 'utf8')).toContain(".eq('shop_id', shopId)");
     }
+  });
+
+  /**
+   * The widening must not leak into what gets WRITTEN. Enrichment updates the
+   * vehicle row, its mapping and its audit event; all three have to land on
+   * the owning shop. Passing the active shop would write a row that the
+   * owner's own queries cannot see — or, worse, nothing at all, silently.
+   */
+  it('8b. everything written is keyed to the vehicle owner, not the visitor', () => {
+    const route = readFileSync(
+      join(process.cwd(), 'app/api/vehicles/quality/route.ts'), 'utf8');
+    const post = route.slice(route.indexOf('export async function POST'));
+
+    // Scoped to the WRITE call, not the whole handler. `input.shopId` still
+    // appears in this function and correctly so — the log lines record which
+    // shop the request came from, which is a different question from which
+    // shop the data belongs to, and banning it outright would have forced
+    // those to lie.
+    const applyCall = post.slice(
+      post.indexOf('await applyEnrichment({'),
+      post.indexOf('logger.info(\'vehicles.enriched\''),
+    );
+    expect(applyCall).toContain('shopId: ownerShopId');
+    expect(applyCall).not.toContain('input.shopId');
+
+    expect(post).toContain('compareVehicleWithCatalog(ownerShopId');
   });
 });
 
@@ -343,10 +392,17 @@ describe('the route enforces what the planner assumes', () => {
   it('checks shop membership, then vehicle ownership, then fingerprint', () => {
     const post = ROUTE.slice(ROUTE.indexOf('export async function POST'));
     const auth = post.indexOf('getAuth(input.shopId)');
-    const owns = post.indexOf('vehicleBelongsToShop');
+    // The scope is derived only AFTER membership is established — it widens an
+    // authorised shop and must never be what authorises one.
+    const scope = post.indexOf('readableShopIds(');
+    // The load is now the ownership gate: it returns null for a vehicle in no
+    // readable shop, which is the same refusal the separate ownership check
+    // used to make.
+    const owns = post.indexOf('loadQualityVehicle(scope');
     const fp = post.indexOf('VEHICLE_CHANGED');
     expect(auth).toBeGreaterThan(-1);
-    expect(auth).toBeLessThan(owns);
+    expect(auth).toBeLessThan(scope);
+    expect(scope).toBeLessThan(owns);
     expect(owns).toBeLessThan(fp);
   });
 
@@ -357,7 +413,18 @@ describe('the route enforces what the planner assumes', () => {
 
   it('scopes the vehicle read to the shop', () => {
     // service_role bypasses RLS, so the predicate is the boundary.
-    expect(ROUTE).toContain(".eq('id', vehicleId).eq('shop_id', shopId)");
+    //
+    // The supplementary read pins to the OWNER the scoped read already
+    // settled on, rather than re-querying across the whole scope. Widening it
+    // could only match a different shop's row for the same id — which cannot
+    // happen for a primary key, but the narrow predicate is the one that
+    // stays correct if that ever stops being true.
+    expect(ROUTE).toContain(".eq('id', vehicleId).eq('shop_id', base.ownerShopId)");
+
+    // And the scoped read itself is bounded by the derived scope.
+    const loader = readFileSync(
+      join(process.cwd(), 'lib/parts/vehicleResolution/loadVehicle.ts'), 'utf8');
+    expect(loader).toContain(".in('shop_id', scope)");
   });
 
   it('spends no provider call on the read path', () => {

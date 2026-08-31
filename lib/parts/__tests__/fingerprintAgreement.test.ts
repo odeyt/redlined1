@@ -32,11 +32,33 @@ const LOADER = readFileSync(
 
 describe('both routes read the vehicle from one place', () => {
   it('search resolves against the canonical loader, not the request body', () => {
-    expect(SEARCH_ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(SEARCH_ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
   });
 
   it('confirm uses the same loader', () => {
-    expect(CONFIRM_ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(CONFIRM_ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
+  });
+
+  /**
+   * Since mirroring, agreeing on the LOADER is no longer sufficient: the two
+   * routes must also agree on the SCOPE they pass it. A search that resolved
+   * across mirrored shops while confirm looked only at the active one would
+   * reproduce the original failure exactly — the technician is offered
+   * candidates and then told the vehicle is not theirs — just through a
+   * different door.
+   */
+  it('and derives that scope the same way in both', () => {
+    for (const src of [SEARCH_ROUTE, CONFIRM_ROUTE]) {
+      expect(src).toContain('await readableShopIds(auth.userId, input.shopId)');
+    }
+  });
+
+  it('neither route narrows the scope back to a single shop at the call', () => {
+    // `loadCanonicalVehicle([input.shopId], …)` would typecheck, pass the
+    // loader test above, and silently undo mirroring.
+    for (const src of [SEARCH_ROUTE, CONFIRM_ROUTE]) {
+      expect(src).not.toMatch(/loadCanonicalVehicle\(\s*\[\s*input\.shopId\s*\]/);
+    }
   });
 
   it('neither route builds a vehicle object out of request fields', () => {

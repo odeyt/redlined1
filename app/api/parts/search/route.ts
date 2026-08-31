@@ -11,6 +11,7 @@ import { readMapping, writeMapping } from '@/lib/parts/vehicleResolution/mapping
 import { searchOemNumbersForVehicle } from '@/lib/parts/vehicleFirst/search';
 import { vehicleFirstTarget } from '@/lib/parts/vehicleFirst/gate';
 import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
+import { readableShopIds } from '@/lib/shops/mirrorScope';
 
 /**
  * POST /api/parts/search — the only way the browser reaches a provider.
@@ -206,55 +207,71 @@ export async function POST(req: NextRequest) {
     if (input.vehicleId && input.make && input.model) {
       try {
         /**
-         * Read from the database, NOT from the request body.
+         * Read from the database, NOT from the request body, and across the
+         * caller's whole read scope rather than one shop.
          *
          * The body carries what the estimate form holds — no `transmission`,
          * no `fuelType` — and the fingerprint covers both. Resolving against
          * the partial object produced a fingerprint the confirm route could
          * never reproduce, so every technician confirming a variant got 409
          * VEHICLE_CHANGED. On this shop's data that was 95 of 115 vehicles.
-         *
          * It also means the fields that decide a fitment claim are no longer
          * taken from the browser.
+         *
+         * The scope is the second half of the same lesson. The picker lists
+         * vehicles with `getShopIds()`, so on a mirrored account it offers
+         * cars from either branch; scoping this read to the single `shopId`
+         * in the body refused a car the technician had been shown a moment
+         * earlier. Derived server-side from `shop_mirrors` — the request body
+         * has no say in how wide it is.
          */
-        const canonical = await loadCanonicalVehicle(input.shopId, input.vehicleId);
+        const scope = await readableShopIds(auth.userId, input.shopId);
+        const canonical = await loadCanonicalVehicle(scope, input.vehicleId);
 
         /**
-         * The vehicle is not readable by THIS shop.
+         * Genuinely another tenant's vehicle — no mirror link, or a link this
+         * user is not on both sides of.
          *
-         * Refusing to resolve it is correct — a shop must not learn about
-         * another shop's vehicle. What was wrong was throwing: the outer
-         * catch swallowed it, `vehicleResolution` stayed undefined, no banner
-         * rendered, and the technician was left reading "No matching parts
-         * found" for a car sitting in another branch. Reported on a real
+         * Refusing to resolve it is correct: a shop must not learn about
+         * another shop's vehicle. What was wrong was throwing, because the
+         * outer catch swallowed it, `vehicleResolution` stayed undefined, no
+         * banner rendered, and the technician was left reading "No matching
+         * parts found" for a car that was really there. Reported on a real
          * multi-location estimate, and the same misleading silence
          * M-PARTS2C.1 removed elsewhere.
          *
-         * Says which situation it is without revealing anything about the
-         * other shop's record.
+         * Now that mirroring is followed, the common cause of this branch is
+         * gone and what remains is a genuine permissions boundary — so the
+         * message no longer suggests switching location, which would not have
+         * helped and, for a vehicle in an unmirrored tenant, would have hinted
+         * that the record exists somewhere.
          */
         if (!canonical) {
           logger.warn('parts_vehicle_not_in_shop', { shopId: input.shopId });
           vehicleResolution = {
             status: 'not_found',
             reasonCode: 'vehicle_not_in_shop',
-            /**
-             * Written for the case that actually happens: an owner with two
-             * locations, whose vehicle lists are mirrored so the picker can
-             * offer a car the parts endpoints then refuse. "Switch location"
-             * is the step that works today; whether parts should follow the
-             * mirror is a separate decision.
-             */
-            reason: 'This vehicle is recorded under a different shop location, so parts '
-              + 'cannot be matched to it here. Switch to that location, or attach a '
-              + 'vehicle belonging to this one.',
+            reason: 'This vehicle is not available to your shop, so parts cannot be '
+              + 'matched to it. Attach a vehicle belonging to this shop.',
             fingerprint: '',
             vehicleId: input.vehicleId,
           };
         } else {
 
-        const existingMapping = await readMapping(input.shopId, input.vehicleId);
-        const outcome = await resolveProviderVehicle(canonical, {
+        /**
+         * Keyed to the shop that OWNS the vehicle, not the one searching.
+         *
+         * Both branches of a mirrored account share one mapping per car, so a
+         * variant confirmed at one location is honoured at the other and the
+         * catalogue lookups behind it are paid for once. `writeMapping` would
+         * refuse the active shop outright for a mirrored vehicle, which would
+         * have meant re-resolving on every single search.
+         */
+        const ownerShopId = canonical.ownerShopId;
+        const existingMapping = await readMapping(ownerShopId, input.vehicleId);
+        const outcome = await resolveProviderVehicle(canonical.vehicle, {
+          // Accounting, not tenancy: the shop that made the request is the one
+          // whose budget the upstream calls belong to.
           shopId: input.shopId,
           existingMapping,
         });
@@ -264,7 +281,7 @@ export async function POST(req: NextRequest) {
         const alreadyConfirmed = Boolean(existingMapping?.confirmed_by_user_id);
         if (!alreadyConfirmed && outcome.externalCalls > 0) {
           await writeMapping({
-            shopId: input.shopId,
+            shopId: ownerShopId,
             vehicleId: input.vehicleId,
             resolution: outcome.resolution,
           });

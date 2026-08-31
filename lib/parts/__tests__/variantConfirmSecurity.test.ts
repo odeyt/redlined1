@@ -92,11 +92,16 @@ describe('the route validates against candidates IT derived', () => {
      * The property under test is unchanged — server-side, scoped to the shop
      * — so it is asserted where the code now lives.
      */
-    expect(ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
     const loader = readFileSync(
       join(process.cwd(), 'lib/parts/vehicleResolution/loadVehicle.ts'), 'utf8');
-    expect(loader).toContain(".eq('shop_id', shopId)");
+    // The shop predicate is now a set — the caller's read scope — but it is
+    // still the tenancy boundary, and service_role means it is the only one.
+    expect(loader).toContain(".in('shop_id', scope)");
     expect(loader).toContain(".eq('id', vehicleId)");
+    // An empty scope must match nothing rather than everything. Without this
+    // guard the boundary would rest on how PostgREST encodes `in.()`.
+    expect(loader).toContain('if (!scope.length');
 
     const schema = ROUTE.slice(0, ROUTE.indexOf('async function getAuth'));
     expect(schema).not.toMatch(/\bengine\s*:/);
@@ -107,16 +112,42 @@ describe('the route validates against candidates IT derived', () => {
 describe('authorization runs in the required order', () => {
   it('checks session, then shop membership, then vehicle ownership', () => {
     const iAuth = ROUTE.indexOf('await getAuth(input.shopId)');
-    const iVehicle = ROUTE.indexOf('await vehicleBelongsToShop(');
+    /**
+     * The scope is derived only after membership is established. Order
+     * matters and is not cosmetic: `readableShopIds` widens an ALREADY
+     * authorised shop. Called before `getAuth`, it would be deriving mirror
+     * links for a shop id straight out of the request body, from a caller who
+     * has not been shown to belong to it — turning a widening into the
+     * authorisation itself.
+     */
+    const iScope = ROUTE.indexOf('await readableShopIds(');
+    /**
+     * The scoped load IS the ownership gate now. It replaced a
+     * `vehicleBelongsToShop` call that ran the identical id-plus-shop
+     * predicate and returned false in exactly the cases this returns null.
+     * One vehicle read, not two — two is how search and confirm drifted apart
+     * and rejected 95 of 115 vehicles.
+     */
+    const iVehicle = ROUTE.indexOf('await loadCanonicalVehicle(');
     const iFingerprint = ROUTE.indexOf('vehicleFingerprint(vehicle)');
     const iResolve = ROUTE.indexOf('await resolveProviderVehicle(');
     const iWrite = ROUTE.indexOf('await writeMapping(');
 
     expect(iAuth).toBeGreaterThan(-1);
-    expect(iAuth).toBeLessThan(iVehicle);
+    expect(iAuth).toBeLessThan(iScope);
+    expect(iScope).toBeLessThan(iVehicle);
     expect(iVehicle).toBeLessThan(iFingerprint);
     expect(iFingerprint).toBeLessThan(iResolve);
     expect(iResolve).toBeLessThan(iWrite);
+  });
+
+  it('confirms against the vehicle owner, so a mirrored car keeps one mapping', () => {
+    // `writeMapping` re-checks that the vehicle belongs to the shop it is
+    // keyed under. Passing the requesting shop for a mirrored vehicle is
+    // therefore not a mild inaccuracy — the write is refused and the
+    // technician's confirmation is silently lost.
+    expect(ROUTE).toContain('shopId: ownerShopId');
+    expect(ROUTE).not.toMatch(/writeMapping\(\{[\s\S]{0,200}?shopId: input\.shopId/);
   });
 
   it('the store re-checks vehicle ownership before writing', () => {

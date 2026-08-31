@@ -6,9 +6,10 @@ import { logger } from '@/lib/logger';
 import { resolveProviderVehicle } from '@/lib/parts/vehicleResolution/resolver';
 import { vehicleFingerprint } from '@/lib/parts/vehicleResolution/fingerprint';
 import {
-  writeMapping, vehicleBelongsToShop, candidateWasOffered,
+  writeMapping, candidateWasOffered,
 } from '@/lib/parts/vehicleResolution/mappingStore';
 import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
+import { readableShopIds } from '@/lib/shops/mirrorScope';
 
 /**
  * POST /api/parts/vehicle-resolution/confirm
@@ -101,16 +102,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 'UNAUTHORIZED', error: 'Not authorised for this shop.' }, { status: 403 });
   }
 
-  // 2. The vehicle is this shop's. Checked against the database, not the body.
-  if (!await vehicleBelongsToShop(input.shopId, input.vehicleId)) {
+  /**
+   * 2. The vehicle is readable by this user from this shop. Checked against
+   *    the database, not the body.
+   *
+   *    This single load IS the ownership gate. It used to be preceded by a
+   *    `vehicleBelongsToShop` call running the identical predicate — id plus
+   *    shop — which returned false exactly when this returns null. Once the
+   *    scope became a set rather than one id, keeping both would have meant
+   *    writing the mirror rules twice and trusting them to stay in step. Two
+   *    copies of the vehicle read is precisely the shape of the bug that made
+   *    confirm reject 95 of 115 vehicles, so there is now one copy.
+   *
+   *    The store still re-checks ownership before it writes, which is the
+   *    belt-and-braces layer and is unaffected.
+   */
+  const scope = await readableShopIds(auth.userId, input.shopId);
+  const loaded = await loadCanonicalVehicle(scope, input.vehicleId);
+  if (!loaded) {
     logger.warn('parts.confirm.foreign_vehicle', { shopId: input.shopId });
     return NextResponse.json({ code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }
-
-  const vehicle = await loadCanonicalVehicle(input.shopId, input.vehicleId);
-  if (!vehicle) {
-    return NextResponse.json({ code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
-  }
+  const { vehicle, ownerShopId } = loaded;
 
   // 3. The vehicle has not changed since the technician saw the candidates.
   const current = vehicleFingerprint(vehicle);
@@ -178,7 +191,10 @@ export async function POST(req: NextRequest) {
   // 5. Persist. Upsert, so choosing the same variant twice is idempotent and
   //    two concurrent confirmations converge on one row rather than racing.
   const written = await writeMapping({
-    shopId: input.shopId,
+    // The vehicle's own shop. A confirmation is a person stating what the CAR
+    // is, so it belongs to the car's record and is honoured from whichever
+    // mirrored location the next search happens at.
+    shopId: ownerShopId,
     vehicleId: input.vehicleId,
     confirmedByUserId: auth.userId,
     resolution: {

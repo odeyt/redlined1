@@ -134,7 +134,7 @@ describe('the resolved vehicle survives the switch to OEM mode', () => {
 
   it('the server re-reads the canonical vehicle regardless of mode', () => {
     // Resolution is not conditional on the search mode.
-    expect(ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    expect(ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
   });
 
   it('an OEM search is not scoped by the vehicle-first gate', () => {
@@ -251,9 +251,21 @@ describe('choosing a series continues resolution rather than ending it', () => {
   });
 
   it('carries the same auth, ownership and fingerprint checks as the variant route', () => {
-    expect(SELECT_ROUTE).toContain('vehicleBelongsToShop(input.shopId, input.vehicleId)');
-    expect(SELECT_ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    // Ownership is now established by the scoped load itself rather than by a
+    // separate call running the identical predicate. Both routes do it the
+    // same way, which is the property this test is really defending.
+    expect(SELECT_ROUTE).toContain('await readableShopIds(auth.userId, input.shopId)');
+    expect(SELECT_ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
     expect(SELECT_ROUTE).toContain("code: 'VEHICLE_CHANGED'");
+    expect(SELECT_ROUTE).toContain("code: 'UNAUTHORIZED'");
+  });
+
+  it('writes the mapping against the vehicle owner, not the requesting shop', () => {
+    // A mirrored vehicle's mapping belongs to the shop that owns the car.
+    // Keyed to the visitor instead, `writeMapping` refuses it outright — so
+    // this would fail as a silent, permanent re-resolve on every search.
+    expect(SELECT_ROUTE).toContain('shopId: ownerShopId');
+    expect(SELECT_ROUTE).not.toMatch(/writeMapping\(\{\s*\n\s*shopId: input\.shopId/);
   });
 
   it('holds the search so it resumes after the choice', () => {
@@ -331,15 +343,53 @@ describe('a vehicle from another shop says so', () => {
   });
 
   it('still refuses to resolve it', () => {
-    // The security behaviour is unchanged: resolution only runs when the
-    // vehicle loaded for THIS shop.
-    expect(ROUTE).toContain('await loadCanonicalVehicle(input.shopId, input.vehicleId)');
+    // The security behaviour is unchanged in kind: resolution only runs when
+    // the vehicle loaded within the caller's scope. What changed is the
+    // scope's width — it now includes mirrored shops the user belongs to —
+    // and that scope is built on the server, never accepted from the body.
+    expect(ROUTE).toContain('await loadCanonicalVehicle(scope, input.vehicleId)');
+    expect(ROUTE).toContain('await readableShopIds(auth.userId, input.shopId)');
     expect(ROUTE).toContain('if (!canonical)');
+  });
+
+  it('does not let the request widen its own scope', () => {
+    // The one way this fix could become a tenancy hole: a body field that
+    // feeds the scope. The schema is strict, and neither name is in it.
+    /**
+     * The SCHEMA OBJECT itself — from `const SearchSchema` to its `.strict()`
+     * — not the whole preamble.
+     *
+     * A wider slice catches the import of `@/lib/shops/mirrorScope`, whose
+     * path contains the banned word. That is the module doing the work
+     * correctly; flagging it would be the test objecting to the fix.
+     */
+    const schema = ROUTE.slice(
+      ROUTE.indexOf('const SearchSchema'),
+      ROUTE.indexOf('}).strict();') + '}).strict();'.length,
+    ).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    expect(schema).toContain('.strict()');
+    expect(schema).not.toMatch(/shopIds\s*:/);
+    expect(schema).not.toMatch(/mirror/i);
+    expect(schema).not.toMatch(/scope/i);
   });
 
   it('gives it its own heading rather than blaming the catalogue', () => {
     expect(MODAL).toContain("resolution.reasonCode === 'vehicle_not_in_shop'");
-    expect(MODAL).toContain('This vehicle belongs to a different shop location');
+    /**
+     * Reworded with the mirroring fix. The old heading — "belongs to a
+     * different shop location" — described the mirrored case, which no longer
+     * reaches here because it works. What is left is a vehicle in a tenant
+     * the user has no claim on, so the heading must not imply it is one of
+     * their own branches, nor confirm the record exists at all.
+     */
+    expect(MODAL).toContain('This vehicle is not available in this shop');
+    // Over the RENDERED text only. The comment beside it quotes the old
+    // heading to explain why it changed, which is documentation, not UI.
+    const rendered = MODAL
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(rendered).not.toContain('belongs to a different shop location');
   });
 
   it('says nothing about the other shop', () => {
@@ -363,8 +413,11 @@ describe('a vehicle from another shop says so', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
 
-    expect(reason).toContain('recorded under a different shop location');
-    // Names no shop, exposes no id, describes no other record.
+    expect(reason).toContain('not available to your shop');
+    // Names no shop, exposes no id, describes no other record — and no longer
+    // asserts the vehicle is at another LOCATION, which was true only for the
+    // mirrored case the fix now handles.
     expect(reason).not.toMatch(/shopName|shop_name|otherShop|mirror/i);
+    expect(reason).not.toMatch(/different shop location|switch to that location/i);
   });
 });

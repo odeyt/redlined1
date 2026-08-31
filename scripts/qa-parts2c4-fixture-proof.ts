@@ -68,7 +68,7 @@ async function main() {
   console.log(`fixture vehicle created: ${vehicleId.slice(0, 8)}…\n`);
 
   try {
-    const v0 = (await loadCanonicalVehicle(shopId, vehicleId))!;
+    const v0 = (await loadCanonicalVehicle([shopId], vehicleId))!.vehicle;
     const fingerprintA = vehicleFingerprint(v0);
 
     // A mapping bound to fingerprint A, pointing at a variant that really is
@@ -140,7 +140,7 @@ async function main() {
 
     // ── 5. Verify the write ────────────────────────────────────────────────
     console.log('\n5. VEHICLE UPDATED');
-    const v1 = (await loadCanonicalVehicle(shopId, vehicleId))!;
+    const v1 = (await loadCanonicalVehicle([shopId], vehicleId))!.vehicle;
     check('engine_code written', v1.engineCode === 'M 272.974', v1.engineCode);
     check('displacement_l written', Number(v1.displacementL) === 3.5, v1.displacementL);
     check('cylinders written', Number(v1.cylinders) === 6, v1.cylinders);
@@ -174,7 +174,7 @@ async function main() {
     console.log('\n8. CONFLICT PATH (current X vs catalog Y)');
     await admin.from('vehicles').update({ engine_code: 'M 999.999' })
       .eq('id', vehicleId).eq('shop_id', shopId);
-    const v2 = (await loadCanonicalVehicle(shopId, vehicleId))!;
+    const v2 = (await loadCanonicalVehicle([shopId], vehicleId))!.vehicle;
     const fingerprintC = vehicleFingerprint(v2);
     check('a hand edit makes the mapping stale', fingerprintC !== fingerprintB);
 
@@ -195,7 +195,7 @@ async function main() {
     // Cancel = select nothing.
     const cancelled = planEnrichment([], conflictCmp);
     check('cancelling plans no write', cancelled.entries.length === 0);
-    const v3 = (await loadCanonicalVehicle(shopId, vehicleId))!;
+    const v3 = (await loadCanonicalVehicle([shopId], vehicleId))!.vehicle;
     check('value unchanged after cancel', v3.engineCode === 'M 999.999', v3.engineCode);
 
     // Accepting it explicitly INVALIDATES, because the record disagreed.

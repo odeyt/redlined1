@@ -30,15 +30,41 @@ import 'server-only';
 import { getAdminDb } from '@/lib/supabaseServer';
 import type { CanonicalVehicle } from './types';
 
+export interface LoadedVehicle {
+  vehicle: CanonicalVehicle;
+  /**
+   * The shop that OWNS this vehicle, which under mirroring is not necessarily
+   * the shop the request was made from.
+   *
+   * Returned rather than assumed because everything persisted ABOUT the
+   * vehicle has to be keyed to it. A mapping written under the active shop
+   * instead would be wrong three ways at once: `writeMapping` re-checks
+   * ownership and would refuse it outright, so resolution would silently
+   * re-run on every search forever; the two branches would each burn their own
+   * AutoPartsAPI calls on one car; and a technician's confirmation in one
+   * branch would be invisible in the other, even though a confirmation is a
+   * statement about the CAR and the car does not change when you switch
+   * location.
+   *
+   * Handing the caller the id makes the right key the one already in scope.
+   */
+  ownerShopId: string;
+}
+
 /**
- * Returns null when the vehicle is not this shop's, which callers must treat
- * as "not authorised" rather than "not found" — the two are the same answer
- * to anyone probing for another shop's vehicle ids.
+ * Returns null when the vehicle is in none of the given shops, which callers
+ * must treat as "not authorised" rather than "not found" — the two are the
+ * same answer to anyone probing for another shop's vehicle ids.
+ *
+ * `shopIds` is the caller's READ SCOPE: the active shop, plus any mirrored
+ * shops the user themselves belongs to. Build it with `readableShopIds` and
+ * never from a request body — see `lib/shops/mirrorScope.ts` for why the
+ * mirror link alone is not sufficient authority.
  */
 export async function loadCanonicalVehicle(
-  shopId: string,
+  shopIds: readonly string[],
   vehicleId: string,
-): Promise<CanonicalVehicle | null> {
+): Promise<LoadedVehicle | null> {
   /**
    * Every FINGERPRINT_FIELDS column, and nothing derived.
    *
@@ -49,28 +75,48 @@ export async function loadCanonicalVehicle(
    * asserts this SELECT covers FINGERPRINT_FIELDS so the next added field
    * cannot be forgotten either.
    */
+  // An empty scope must match NOTHING. PostgREST renders `.in('shop_id', [])`
+  // as an always-false predicate, but relying on that would make the tenancy
+  // boundary depend on a URL-encoding detail of a third-party client, so it is
+  // refused here where it is legible.
+  const scope = shopIds.filter(Boolean);
+  if (!scope.length || !vehicleId) return null;
+
   const { data } = await getAdminDb()
     .from('vehicles')
-    .select('id, vin, year, make, model, trim, engine, transmission, fuel_type, '
+    .select('id, shop_id, vin, year, make, model, trim, engine, transmission, fuel_type, '
       + 'engine_code, displacement_l, cylinders')
     .eq('id', vehicleId)
-    .eq('shop_id', shopId)
+    // The tenancy boundary. `service_role` bypasses RLS, so this predicate is
+    // not a filter over rows the database already restricted — it is the only
+    // thing restricting them.
+    .in('shop_id', scope)
     .maybeSingle();
 
   if (!data) return null;
   const v = data as unknown as Record<string, unknown>;
+
+  // Belt and braces against a widened scope arriving from somewhere it should
+  // not: the row's own shop must be one the caller asked for. Cheap, and the
+  // alternative is that a bug in scope construction is undetectable here.
+  const ownerShopId = String(v.shop_id ?? '');
+  if (!scope.includes(ownerShopId)) return null;
+
   return {
-    id: String(v.id),
-    vin: (v.vin as string) || undefined,
-    year: Number(v.year) || undefined,
-    make: (v.make as string) || undefined,
-    model: (v.model as string) || undefined,
-    trim: (v.trim as string) || undefined,
-    engine: (v.engine as string) || undefined,
-    transmission: (v.transmission as string) || undefined,
-    fuelType: (v.fuel_type as string) || undefined,
-    engineCode: (v.engine_code as string) || undefined,
-    displacementL: v.displacement_l != null ? Number(v.displacement_l) : undefined,
-    cylinders: v.cylinders != null ? Number(v.cylinders) : undefined,
+    ownerShopId,
+    vehicle: {
+      id: String(v.id),
+      vin: (v.vin as string) || undefined,
+      year: Number(v.year) || undefined,
+      make: (v.make as string) || undefined,
+      model: (v.model as string) || undefined,
+      trim: (v.trim as string) || undefined,
+      engine: (v.engine as string) || undefined,
+      transmission: (v.transmission as string) || undefined,
+      fuelType: (v.fuel_type as string) || undefined,
+      engineCode: (v.engine_code as string) || undefined,
+      displacementL: v.displacement_l != null ? Number(v.displacement_l) : undefined,
+      cylinders: v.cylinders != null ? Number(v.cylinders) : undefined,
+    },
   };
 }

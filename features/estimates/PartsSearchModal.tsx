@@ -783,10 +783,18 @@ export function PartsSearchModal({
             }}>
               {/* Two different problems, two different sentences. "Could not
                   be identified in the catalogue" is wrong and confusing when
-                  the truth is that the vehicle belongs to another shop. */}
+                  the truth is that the vehicle is not one this shop may read.
+
+                  Reworded once parts started following mirror links. It used
+                  to say "belongs to a different shop location", which was
+                  written for an owner whose two branches mirror each other —
+                  the case that now simply works. What reaches this branch
+                  today is a vehicle in a tenant the user has no claim on, and
+                  telling them it sits at "a different location" both misleads
+                  them and confirms the record exists somewhere. */}
               <div style={{ fontWeight: 800, color: '#b45309' }}>
                 {resolution.reasonCode === 'vehicle_not_in_shop'
-                  ? '⚠ This vehicle belongs to a different shop location'
+                  ? '⚠ This vehicle is not available in this shop'
                   : '⚠ This vehicle could not be identified in the parts catalogue'}
               </div>
               {resolution.reason && (

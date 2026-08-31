@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { loadCanonicalVehicle } from '@/lib/parts/vehicleResolution/loadVehicle';
-import { vehicleBelongsToShop } from '@/lib/parts/vehicleResolution/mappingStore';
+import { readableShopIds } from '@/lib/shops/mirrorScope';
 import { vehicleFingerprint } from '@/lib/parts/vehicleResolution/fingerprint';
 import { getAdminDb } from '@/lib/supabaseServer';
 import { analyzeVehicleQuality, qualitySummary, type QualityVehicle } from '@/lib/vehicles/quality';
@@ -70,25 +70,38 @@ async function getAuth(shopId: string) {
   return { userId: user.id, role: (row as { role?: string }).role ?? '' };
 }
 
-/** The canonical vehicle plus the three fields the fingerprint excludes. */
+/**
+ * The canonical vehicle plus the three fields the fingerprint excludes.
+ *
+ * Takes the caller's read scope, and reports which shop the vehicle turned out
+ * to belong to: under mirroring that is not necessarily the shop asking, and
+ * everything written afterwards — the vehicle row, its mapping, its audit
+ * event — has to be keyed to the owner rather than to the visitor.
+ */
 async function loadQualityVehicle(
-  shopId: string, vehicleId: string,
-): Promise<QualityVehicle | null> {
-  const base = await loadCanonicalVehicle(shopId, vehicleId);
+  shopIds: readonly string[], vehicleId: string,
+): Promise<{ vehicle: QualityVehicle; ownerShopId: string } | null> {
+  const base = await loadCanonicalVehicle(shopIds, vehicleId);
   if (!base) return null;
 
+  // Scoped to the owner specifically, not the whole scope: the first query
+  // already decided which shop's vehicle this is, and re-widening here could
+  // only ever match a different row.
   const { data } = await getAdminDb()
     .from('vehicles')
     .select('engine_code, displacement_l, cylinders, label')
-    .eq('id', vehicleId).eq('shop_id', shopId).maybeSingle();
+    .eq('id', vehicleId).eq('shop_id', base.ownerShopId).maybeSingle();
 
   const extra = (data ?? {}) as Record<string, unknown>;
   return {
-    ...base,
-    engineCode: (extra.engine_code as string) || undefined,
-    displacementL: extra.displacement_l != null ? Number(extra.displacement_l) : undefined,
-    cylinders: extra.cylinders != null ? Number(extra.cylinders) : undefined,
-    label: (extra.label as string) || undefined,
+    ownerShopId: base.ownerShopId,
+    vehicle: {
+      ...base.vehicle,
+      engineCode: (extra.engine_code as string) || undefined,
+      displacementL: extra.displacement_l != null ? Number(extra.displacement_l) : undefined,
+      cylinders: extra.cylinders != null ? Number(extra.cylinders) : undefined,
+      label: (extra.label as string) || undefined,
+    },
   };
 }
 
@@ -107,22 +120,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       { code: 'UNAUTHORIZED', error: 'Not authorised for this shop.' }, { status: 403 });
   }
-  if (!await vehicleBelongsToShop(input.shopId, input.vehicleId)) {
+  const scope = await readableShopIds(auth.userId, input.shopId);
+  const loaded = await loadQualityVehicle(scope, input.vehicleId);
+  if (!loaded) {
     logger.warn('vehicles.quality.foreign_vehicle', { shopId: input.shopId });
     return NextResponse.json(
       { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }
-
-  const vehicle = await loadQualityVehicle(input.shopId, input.vehicleId);
-  if (!vehicle) {
-    return NextResponse.json(
-      { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
-  }
+  const { vehicle, ownerShopId } = loaded;
 
   const fingerprint = vehicleFingerprint(vehicle);
   const quality = analyzeVehicleQuality(vehicle);
-  // Cache and stored mapping only. No provider call.
-  const catalog = await compareVehicleWithCatalog(input.shopId, vehicle, fingerprint);
+  // Cache and stored mapping only. No provider call. Keyed to the owner,
+  // because that is where this vehicle's mapping row lives.
+  const catalog = await compareVehicleWithCatalog(ownerShopId, vehicle, fingerprint);
 
   return NextResponse.json({
     fingerprint,
@@ -151,18 +162,23 @@ export async function POST(req: NextRequest) {
       { code: 'UNAUTHORIZED', error: 'Not authorised for this shop.' }, { status: 403 });
   }
 
-  // 2. The vehicle is this shop's, checked against the database.
-  if (!await vehicleBelongsToShop(input.shopId, input.vehicleId)) {
+  /**
+   * 2. The vehicle is readable by this user, checked against the database.
+   *
+   *    Mirrored vehicles are enrichable, matching what the rest of the app
+   *    already does: `services/vehicleService.ts` guards its update, delete
+   *    and reassign paths with `.in('shop_id', getShopIds())` and pins only
+   *    `insert` to the active shop. A mirror is a deliberate link between two
+   *    branches of one business, not a read-only window.
+   */
+  const scope = await readableShopIds(auth.userId, input.shopId);
+  const loaded = await loadQualityVehicle(scope, input.vehicleId);
+  if (!loaded) {
     logger.warn('vehicles.enrich.foreign_vehicle', { shopId: input.shopId });
     return NextResponse.json(
       { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
   }
-
-  const vehicle = await loadQualityVehicle(input.shopId, input.vehicleId);
-  if (!vehicle) {
-    return NextResponse.json(
-      { code: 'UNAUTHORIZED', error: 'Not authorised for this vehicle.' }, { status: 403 });
-  }
+  const { vehicle, ownerShopId } = loaded;
 
   // 3. The vehicle has not changed since the technician saw the comparison.
   const fingerprint = vehicleFingerprint(vehicle);
@@ -179,7 +195,7 @@ export async function POST(req: NextRequest) {
    *    come from here and from nowhere else, so the request can only choose
    *    among options the server itself derived.
    */
-  const catalog = await compareVehicleWithCatalog(input.shopId, vehicle, fingerprint);
+  const catalog = await compareVehicleWithCatalog(ownerShopId, vehicle, fingerprint);
   if (!catalog.available) {
     return NextResponse.json({
       code: 'NO_CATALOG_DATA',
@@ -201,7 +217,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await applyEnrichment({
-      shopId: input.shopId,
+      // The owner throughout: the vehicle row, its mapping and its audit event
+      // all belong where the vehicle does, not where the technician was
+      // standing when they approved the change.
+      shopId: ownerShopId,
       vehicle,
       plan,
       decision,
