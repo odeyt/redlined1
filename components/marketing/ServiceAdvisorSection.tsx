@@ -79,8 +79,13 @@ export function ServiceAdvisorSection() {
                     display: 'flex', alignItems: 'center', gap: '12px',
                     width: '100%', padding: '16px 20px', cursor: 'pointer',
                     background: isActive ? `${r.color}20` : 'transparent',
+                    /* Longhands only — see CustomerIntelligenceSection for the
+                       full account. `border: 'none'` after `borderLeft` wiped
+                       the accent on first paint, because React assigns style
+                       keys in object order. */
                     borderLeft: isActive ? `3px solid ${r.color}` : '3px solid transparent',
-                    border: 'none', borderBottom: i < REVIEW_ITEMS.length - 1 ? '1px solid rgba(250,250,250,0.1)' : 'none',
+                    borderRight: 'none', borderTop: 'none',
+                    borderBottom: i < REVIEW_ITEMS.length - 1 ? '1px solid rgba(250,250,250,0.1)' : 'none',
                     transition: 'all 0.2s ease', textAlign: 'left',
                   }}
                 >

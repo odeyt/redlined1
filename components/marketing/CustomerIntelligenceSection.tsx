@@ -88,8 +88,17 @@ export function CustomerIntelligenceSection() {
                     display: 'flex', gap: '14px', alignItems: 'center',
                     width: '100%', padding: '14px 20px', cursor: 'pointer',
                     background: isActive ? `${t.color}0f` : 'transparent',
+                    /* All four sides as longhands, never `border` alongside
+                       them. `border: 'none'` used to sit on the line below
+                       this one, and since React assigns style keys in object
+                       order it wiped the accent it had just set: on first
+                       paint the selected row rendered with NO left bar, and
+                       it only appeared once the selection changed and React
+                       diffed `borderLeft` on its own. That same diff is what
+                       made React warn about mixing the two forms. */
                     borderLeft: isActive ? `3px solid ${t.color}` : '3px solid transparent',
-                    border: 'none', borderBottom: i < TIMELINE.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
+                    borderRight: 'none', borderTop: 'none',
+                    borderBottom: i < TIMELINE.length - 1 ? `1px solid ${colors.borderLight}` : 'none',
                     transition: 'all 0.2s ease', textAlign: 'left',
                   }}
                 >

@@ -18,8 +18,23 @@ export function StatCard({ label, value, subtext, accent, active, onClick, trend
       onClick={onClick}
       style={{
         cursor: isClickable ? 'pointer' : 'default',
-        borderBottom: accent ? `3px solid ${accent}` : undefined,
-        border: active && accent ? `2px solid ${accent}` : undefined,
+        /**
+         * One border declaration or the other, never both in one object.
+         *
+         * These used to be two sibling keys, `borderBottom` then `border`.
+         * React assigns style keys in order, so on an active accented card the
+         * shorthand silently replaced the 3px underline that had just been
+         * set — and React warns about updating a longhand while a conflicting
+         * shorthand is present.
+         *
+         * Written to render EXACTLY what it rendered before, deliberately: an
+         * active accented card showed a uniform 2px ring, and that reads as
+         * intended alongside the glow below, so this is not the place to
+         * decide it should have been an underline instead.
+         */
+        ...(active && accent
+          ? { border: `2px solid ${accent}` }
+          : { borderBottom: accent ? `3px solid ${accent}` : undefined }),
         boxShadow: active && accent ? `0 0 0 1px ${accent}66, 0 0 14px ${accent}66, var(--shadow)` : undefined,
         transition: 'box-shadow 0.15s, background 0.15s, transform 0.1s',
         userSelect: 'none',
