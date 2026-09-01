@@ -49,6 +49,13 @@ export interface LineItem {
    * see `depositByCurrency`.
    */
   deposit?: number;
+  /**
+   * When this line was ordered, and when it arrived. Kept identical to
+   * EstimateLineItem so converting a quote to an order carries the dates
+   * already recorded rather than resetting them.
+   */
+  orderedAt?: string | null;
+  receivedAt?: string | null;
 }
 
 /**

@@ -7,7 +7,7 @@
  */
 import {
   lineState, lineDeposit, depositByCurrency, procurementCounts, hasProcurement,
-  stateStyle, PROCUREMENT_STATES,
+  stateStyle, PROCUREMENT_STATES, applyProcurementState, daysAwaiting, longestWait,
 } from '../lineProcurement';
 
 describe('a line written before this feature existed still reads', () => {
@@ -166,5 +166,105 @@ describe('every state is displayable and named', () => {
   it('offers the states in the order work moves through them', () => {
     expect(PROCUREMENT_STATES.map(s => s.value))
       .toEqual(['not_ordered', 'ordered', 'received']);
+  });
+});
+
+describe('dates are stamped on the transition, not on every save', () => {
+  const T1 = '2026-08-12T03:00:00.000Z';
+  const T2 = '2026-09-01T03:00:00.000Z';
+
+  it('stamps when a line is first ordered', () => {
+    expect(applyProcurementState({}, 'ordered', T1))
+      .toEqual({ orderState: 'ordered', orderedAt: T1, receivedAt: null });
+  });
+
+  it('does NOT re-stamp when the state is re-selected', () => {
+    /**
+     * The lesson the vehicles completion trigger records in its own
+     * migration: re-stamping on an unrelated edit moves a finished job into
+     * whatever month somebody happened to correct a typo.
+     */
+    const line = { orderState: 'ordered', orderedAt: T1 };
+    expect(applyProcurementState(line, 'ordered', T2).orderedAt).toBe(T1);
+  });
+
+  it('stamps arrival while keeping when it was ordered', () => {
+    const line = { orderState: 'ordered', orderedAt: T1 };
+    expect(applyProcurementState(line, 'received', T2))
+      .toEqual({ orderState: 'received', orderedAt: T1, receivedAt: T2 });
+  });
+
+  it('leaves an unknown ordered date unknown rather than inventing one', () => {
+    // A part collected over the counter was never ordered. Null reads as "we
+    // do not know"; today's date would read as fact.
+    expect(applyProcurementState({}, 'received', T2))
+      .toEqual({ orderState: 'received', orderedAt: null, receivedAt: T2 });
+  });
+});
+
+describe('moving a line backwards clears what is no longer true', () => {
+  const T1 = '2026-08-12T03:00:00.000Z';
+  const T2 = '2026-09-01T03:00:00.000Z';
+
+  it('drops both dates when a line goes back to not ordered', () => {
+    const line = { orderState: 'received', orderedAt: T1, receivedAt: T2 };
+    expect(applyProcurementState(line, 'not_ordered', T2))
+      .toEqual({ orderState: 'not_ordered', orderedAt: null, receivedAt: null });
+  });
+
+  it('drops the arrival date when a received line goes back to ordered', () => {
+    // Otherwise the row asserts it arrived on a date when, by its own status,
+    // it has not arrived.
+    const line = { orderState: 'received', orderedAt: T1, receivedAt: T2 };
+    expect(applyProcurementState(line, 'ordered', T2))
+      .toEqual({ orderState: 'ordered', orderedAt: T1, receivedAt: null });
+  });
+
+  it('does not treat coming back from received as a fresh order', () => {
+    const line = { orderState: 'received', orderedAt: T1, receivedAt: T2 };
+    expect(applyProcurementState(line, 'ordered', T2).orderedAt).toBe(T1);
+  });
+});
+
+describe('how long a part has been waiting', () => {
+  const ORDERED = '2026-08-12T03:00:00.000Z';
+  const NOW = '2026-09-01T03:00:00.000Z';   // 20 days later
+
+  it('counts whole days since it was ordered', () => {
+    expect(daysAwaiting({ orderState: 'ordered', orderedAt: ORDERED }, NOW)).toBe(20);
+  });
+
+  it('is null for a line that has arrived', () => {
+    // A received part is not waiting.
+    expect(daysAwaiting({ orderState: 'received', orderedAt: ORDERED, receivedAt: NOW }, NOW))
+      .toBeNull();
+  });
+
+  it('is null for a line that was never ordered', () => {
+    expect(daysAwaiting({}, NOW)).toBeNull();
+    expect(daysAwaiting({ orderState: 'ordered' }, NOW)).toBeNull();
+  });
+
+  it('reports 0 rather than a negative wait for a future date', () => {
+    expect(daysAwaiting({ orderState: 'ordered', orderedAt: NOW }, ORDERED)).toBe(0);
+  });
+
+  it('survives an unparseable date instead of throwing', () => {
+    expect(daysAwaiting({ orderState: 'ordered', orderedAt: 'not a date' }, NOW)).toBeNull();
+  });
+
+  it('reports the longest wait across the sheet', () => {
+    const sheet = [
+      { orderState: 'ordered', orderedAt: '2026-08-28T03:00:00.000Z' },  // 4 days
+      { orderState: 'ordered', orderedAt: ORDERED },                     // 20 days
+      { orderState: 'received', orderedAt: '2026-01-01T03:00:00.000Z' }, // arrived
+      {},
+    ];
+    expect(longestWait(sheet, NOW)).toBe(20);
+  });
+
+  it('is null when nothing is on order', () => {
+    expect(longestWait([{ orderState: 'received' }, {}], NOW)).toBeNull();
+    expect(longestWait([], NOW)).toBeNull();
   });
 });

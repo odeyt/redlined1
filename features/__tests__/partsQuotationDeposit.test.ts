@@ -191,3 +191,38 @@ describe('the quotations list shows the deposit', () => {
     expect(quotes).toMatch(/Math\.max\(\(e\.totalCost \|\| 0\) - e\.deposit, 0\)/);
   });
 });
+
+describe('the quotation writes order dates through the shared rule', () => {
+  /**
+   * The rule in lib/parts/lineProcurement.ts is tested by being run. What a
+   * source check can add is that the view actually USES it — a correct rule
+   * nothing calls is the same as no rule.
+   */
+  it('changes state through applyProcurementState, not by setting the field', () => {
+    // Setting `orderState` alone would leave a line marked Received carrying
+    // an arrival date from a previous pass, or none at all.
+    expect(quotes).toMatch(/applyProcurementState\(item, next, new Date\(\)\.toISOString\(\)\)/);
+    expect(quotes).not.toMatch(/updateLineItem\(idx, 'orderState'/);
+  });
+
+  it('measures every row against one instant', () => {
+    // Two clocks in one render can show a row waiting 13 days beside a summary
+    // saying the longest wait is 12.
+    expect(quotes).toMatch(/const nowIso = new Date\(\)\.toISOString\(\);/);
+    expect(quotes).toMatch(/daysAwaiting\(item, nowIso\)/);
+    expect(quotes).toMatch(/longestWait\(form\.lineItems, nowIso\)/);
+  });
+
+  it('derives everything line-dependent in one place', () => {
+    /**
+     * Five call sites changed lineItems and each re-derived totals itself.
+     * Adding the deposit derivation to only some of them is how the saved
+     * figure ends up disagreeing with the rows on screen — the display reads
+     * the lines directly, so it would look right while the stored total went
+     * stale.
+     */
+    expect(quotes).toMatch(/function recalc\(state: FormState\): FormState/);
+    // No line-editing path may re-implement the totalling inline.
+    expect(quotes).not.toMatch(/lineItems, \.\.\.calcTotal\(lineItems/);
+  });
+});

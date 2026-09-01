@@ -69,6 +69,15 @@ export interface EstimateLineItem {
    * currency and never summed across currencies — see `depositByCurrency`.
    */
   deposit?: number;
+  /**
+   * When this line was ordered, and when it arrived. ISO timestamps, written
+   * by `applyProcurementState` on the TRANSITION only — re-selecting the state
+   * a line is already in leaves them alone, and moving a line backwards clears
+   * what is no longer true. Both rules are the ones the vehicles completion
+   * trigger arrived at, for the same reasons.
+   */
+  orderedAt?: string | null;
+  receivedAt?: string | null;
 }
 
 export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired', 'Converted'];

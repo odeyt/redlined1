@@ -7,7 +7,8 @@ import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { getExchangeRate, convertAmount } from '@/lib/fx';
 import {
   PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency,
-  procurementCounts, hasProcurement, stateStyle,
+  procurementCounts, hasProcurement, stateStyle, applyProcurementState,
+  daysAwaiting, longestWait, type ProcurementState,
 } from '@/lib/parts/lineProcurement';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -163,6 +164,19 @@ function calcTotalByCurrency(items: EstimateLineItem[], coreCharge: number, main
   }
   map[mainCurrency] = (map[mainCurrency] || 0) + coreCharge;
   return map;
+}
+
+/**
+ * "12 Aug" — enough to recognise, short enough for a table cell.
+ *
+ * Falls back to nothing rather than "Invalid Date": a stored value that will
+ * not parse is a reason to show no date, not to print an error into the row.
+ */
+function shortDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function calcTotal(items: EstimateLineItem[], coreCharge: number, mainCurrency = 'USD') {
@@ -393,13 +407,33 @@ export function PartsEstimatesView() {
     return { ...state, deposit: amount, depositCurrency: cur };
   }
 
-  function setF(patch: Partial<FormState>) {
-    setForm(prev => {
-      const next = { ...prev, ...patch };
-      const totalled = { ...next, ...calcTotal(next.lineItems, next.coreCharge, next.currency) };
-      return withDerivedDeposit(totalled);
+  /**
+   * Everything that is derived from the lines, in one place.
+   *
+   * Five call sites changed `lineItems` and each re-derived the totals
+   * itself. Adding the deposit derivation to only some of them is how the
+   * saved figure ends up disagreeing with the rows on screen — the display
+   * reads the lines directly and would look right while the stored total went
+   * stale. One function, so a new line-editing path cannot forget half of it.
+   */
+  function recalc(state: FormState): FormState {
+    return withDerivedDeposit({
+      ...state,
+      ...calcTotal(state.lineItems, state.coreCharge, state.currency),
     });
   }
+
+  function setF(patch: Partial<FormState>) {
+    setForm(prev => recalc({ ...prev, ...patch }));
+  }
+
+  /**
+   * One instant for the whole render, so every row's "days waiting" and the
+   * summary's "longest wait" are measured against the same clock. Read
+   * per-render rather than held in state: it only feeds display, and a stale
+   * value would quietly under-report how long a part has been outstanding.
+   */
+  const nowIso = new Date().toISOString();
 
   /**
    * Changing the unit re-checks the quantity against it.
@@ -415,7 +449,25 @@ export function PartsEstimatesView() {
       const lineItems = prev.lineItems.map((item, i) =>
         i === idx ? { ...item, unit, quantity: normalizeQty(item.quantity, unit) } : item
       );
-      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
+      return recalc({ ...prev, lineItems });
+    });
+  }
+
+  /**
+   * Move one line to a new procurement state, dates and all.
+   *
+   * Separate from updateLineItem because this writes three fields together —
+   * the state and both dates — and the rule deciding them lives in
+   * lib/parts/lineProcurement.ts where it is tested by being run. Setting
+   * `orderState` alone would leave a line marked Received with an arrival date
+   * from a previous pass, or none at all.
+   */
+  function setLineProcurement(idx: number, next: ProcurementState) {
+    setForm(prev => {
+      const lineItems = prev.lineItems.map((item, i) =>
+        i === idx ? { ...item, ...applyProcurementState(item, next, new Date().toISOString()) } : item
+      );
+      return recalc({ ...prev, lineItems });
     });
   }
 
@@ -424,7 +476,7 @@ export function PartsEstimatesView() {
       const lineItems = prev.lineItems.map((item, i) =>
         i === idx ? { ...item, [field]: value } : item
       );
-      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
+      return recalc({ ...prev, lineItems });
     });
   }
 
@@ -438,7 +490,7 @@ export function PartsEstimatesView() {
   function removeLineItem(idx: number) {
     setForm(prev => {
       const lineItems = prev.lineItems.filter((_, i) => i !== idx);
-      return { ...prev, lineItems, ...calcTotal(lineItems, prev.coreCharge, prev.currency) };
+      return recalc({ ...prev, lineItems });
     });
   }
 
@@ -456,20 +508,23 @@ export function PartsEstimatesView() {
       partName: e.partName, partNumber: e.partNumber,
       condition: e.condition, quantity: e.quantity, unitCost: e.unitCost,
     }];
-    setForm({
+    // Through recalc like every other path: a saved quotation whose lines
+    // carry deposits must open showing the derived total, not the figure that
+    // happened to be stored beside them.
+    setForm(recalc({
       lineItems,
       vendorName: e.vendorName, vendorPhone: e.vendorPhone, vendorEmail: e.vendorEmail,
       coreCharge: e.coreCharge,
       deposit: e.deposit ?? 0,
       depositCurrency: e.depositCurrency || e.currency || DEFAULT_CURRENCY,
-      ...calcTotal(lineItems, e.coreCharge, e.currency || 'USD'),
       status: e.status,
       quoteDate: e.quoteDate, validUntil: e.validUntil,
       jobCardNumber: e.jobCardNumber, repairOrderNumber: e.repairOrderNumber,
       vehicle: e.vehicle, customerName: e.customerName,
       notes: e.notes,
       currency: e.currency || 'USD',
-    });
+      totalCost: e.totalCost,
+    }));
     setSelected(null); setShowForm(true);
   }
 
@@ -1786,7 +1841,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <td style={tdStyle}>
                           <select
                             value={lineState(item)}
-                            onChange={e => updateLineItem(idx, 'orderState', e.target.value)}
+                            // Through the transition rule, which stamps the
+                            // date only when the state actually changes and
+                            // clears what a backwards move makes untrue.
+                            onChange={e => setLineProcurement(idx, e.target.value as ProcurementState)}
                             aria-label={`Order status for ${item.partName || 'this part'}`}
                             style={{
                               ...cellInput, paddingRight: 4, fontSize: 12, fontWeight: 700,
@@ -1799,6 +1857,20 @@ CREATE POLICY "Shop members can manage their parts estimates"
                               <option key={s.value} value={s.value}>{s.label}</option>
                             ))}
                           </select>
+                          {/* When, and — while it is still coming — how long
+                              it has been. "Ordered" alone does not tell you a
+                              part has been three weeks late. */}
+                          {(() => {
+                            const waited = daysAwaiting(item, nowIso);
+                            const stamp = lineState(item) === 'received' ? item.receivedAt : item.orderedAt;
+                            if (!stamp) return null;
+                            return (
+                              <div style={{ fontSize: 10, color: waited !== null && waited >= 14 ? '#b45309' : 'var(--muted)', marginTop: 3, whiteSpace: 'nowrap' }}>
+                                {shortDate(stamp)}
+                                {waited !== null && waited > 0 && ` · ${waited}d`}
+                              </div>
+                            );
+                          })()}
                         </td>
                         {/* In THIS line's currency, like unit cost beside it.
                             Totalled per currency, never blended. */}
@@ -1843,6 +1915,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
               {hasProcurement(form.lineItems, form.currency) && (() => {
                 const counts = procurementCounts(form.lineItems);
                 const paid = Object.entries(depositByCurrency(form.lineItems, form.currency));
+                const waiting = longestWait(form.lineItems, nowIso);
                 const chip = (state: 'ordered' | 'received' | 'not_ordered', n: number) => {
                   const s = stateStyle(state);
                   return n > 0 ? (
@@ -1867,6 +1940,14 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <strong style={{ color: 'var(--text)' }}>
                           {paid.map(([cur, amt]) => fmt(amt, cur)).join('  +  ')}
                         </strong>
+                      </span>
+                    )}
+                    {/* The number the dates exist for: a part ordered three
+                        weeks ago and still not here is the one worth chasing,
+                        and it is invisible in a list of "Ordered" labels. */}
+                    {waiting !== null && waiting > 0 && (
+                      <span style={{ fontSize: 12, color: waiting >= 14 ? '#b45309' : 'var(--muted)', fontWeight: waiting >= 14 ? 700 : 400 }}>
+                        Longest wait: <strong>{waiting} day{waiting === 1 ? '' : 's'}</strong>
                       </span>
                     )}
                   </div>
