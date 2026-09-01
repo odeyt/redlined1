@@ -1756,9 +1756,28 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       // is the fastest way to tell what's still outstanding
                       // without reading every cell — reported 2026-08-29.
                       const isQuoted = Number(item.unitCost) > 0;
+                      /*
+                        Strengthened from 0.09 after the shop reported it was
+                        hard to see, which it measurably was: composited over
+                        the dark theme's surface, a 0.09 tint left a priced row
+                        only 1.13x from an unpriced one — and 1.08x on light.
+                        Not a matter of taste, it was below the threshold of
+                        noticing.
+
+                        0.34 puts dark at 1.94x and light at 1.34x, while the
+                        row's text stays at 8.3:1 and 14.1:1 against the tint —
+                        both above AAA, so nothing became harder to read to
+                        make the row easier to spot.
+
+                        The left bar does the heavier lifting at 5px: it reads
+                        at the same strength in both themes, costs no text
+                        contrast at all, and sits on the Part Name cell, which
+                        is the one column still on screen when this table is
+                        scrolled sideways.
+                      */
                       return (
-                      <tr key={idx} style={isQuoted ? { background: 'rgba(34,197,94,0.09)' } : undefined}>
-                        <td style={{ ...tdStyle, borderLeft: `3px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
+                      <tr key={idx} style={isQuoted ? { background: 'rgba(34,197,94,0.34)' } : undefined}>
+                        <td style={{ ...tdStyle, borderLeft: `5px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
                           <select value={item.vendorName || ''} onChange={e => updateLineItem(idx, 'vendorName', e.target.value)} style={{ ...cellInput, paddingRight: 6, minWidth: 110 }}>
@@ -1808,7 +1827,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         </td>
                         <td style={tdStyle}>
                           <input type="number" min={0} step="0.01" value={item.unitCost || ''} placeholder="0.00" onFocus={e => e.target.select()} onChange={e => updateLineItem(idx, 'unitCost', Number(e.target.value) || 0)}
-                            style={isQuoted ? { ...cellInput, borderColor: '#22c55e', background: 'rgba(34,197,94,0.14)' } : cellInput} />
+                            style={isQuoted
+                              ? { ...cellInput, borderColor: '#22c55e', background: 'rgba(34,197,94,0.30)', fontWeight: 700 }
+                              : cellInput} />
                         </td>
                         {/*
                           Shows the multiplication, not just the answer.
