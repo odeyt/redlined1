@@ -51,6 +51,24 @@ export interface EstimateLineItem {
    * a quote converts to an order without losing it.
    */
   unit?: string;
+  /**
+   * Where this line has got to with the vendor: not_ordered | ordered |
+   * received. Read through `lineState` in lib/parts/lineProcurement.ts, which
+   * defaults an absent or unrecognised value rather than trusting it.
+   *
+   * Same JSONB reasoning as `unit`, and likewise kept identical to
+   * partsOrderService.LineItem so converting a quote to an order carries the
+   * ordering already recorded against each part instead of resetting it.
+   */
+  orderState?: string;
+  /**
+   * Deposit already paid to the vendor for THIS line, in THIS line's currency.
+   *
+   * Per line because that is the question it answers: one deposit figure for a
+   * sheet of eight parts cannot say which parts were paid for. Totalled per
+   * currency and never summed across currencies — see `depositByCurrency`.
+   */
+  deposit?: number;
 }
 
 export const ESTIMATE_STATUSES = ['Draft', 'Quoted', 'Pending Customer', 'Approved', 'Declined', 'Expired', 'Converted'];

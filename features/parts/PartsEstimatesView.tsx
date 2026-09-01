@@ -5,6 +5,10 @@ import { StorageLink } from '@/components/StorageLink';
 import { useShop } from '@/lib/useShop';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { getExchangeRate, convertAmount } from '@/lib/fx';
+import {
+  PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency,
+  procurementCounts, hasProcurement, stateStyle,
+} from '@/lib/parts/lineProcurement';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { useAppDispatch } from '@/lib/store';
@@ -361,10 +365,39 @@ export function PartsEstimatesView() {
     return () => { cancelled = true; };
   }, [form.depositCurrency, form.lineItems, form.coreCharge, form.currency]);
 
+  /**
+   * The quotation's deposit, derived from the lines once any line carries one.
+   *
+   * Two behaviours on purpose, and the switch is "does any line have a
+   * deposit":
+   *
+   *   no line deposits -> the old single Deposit paid field, editable,
+   *     untouched. The quotations that already carry a deposit keep it and
+   *     nothing needed migrating.
+   *   any line deposit -> the field becomes derived and read-only, so the
+   *     total can never disagree with the lines it is supposed to be the sum
+   *     of. That was the point of putting deposits on lines.
+   *
+   * Deposits spanning more than one currency are NOT blended into a single
+   * stored number. The largest currency's total is stored so an existing
+   * single-currency consumer still gets something true, and the UI shows every
+   * currency and declines to state a balance — this file already refuses to
+   * show a figure computed at a guessed rate, and a summed one would be worse
+   * because nothing would mark it as a guess.
+   */
+  function withDerivedDeposit(state: FormState): FormState {
+    const byCur = depositByCurrency(state.lineItems, state.currency);
+    const entries = Object.entries(byCur);
+    if (!entries.length) return state;
+    const [cur, amount] = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
+    return { ...state, deposit: amount, depositCurrency: cur };
+  }
+
   function setF(patch: Partial<FormState>) {
     setForm(prev => {
       const next = { ...prev, ...patch };
-      return { ...next, ...calcTotal(next.lineItems, next.coreCharge, next.currency) };
+      const totalled = { ...next, ...calcTotal(next.lineItems, next.coreCharge, next.currency) };
+      return withDerivedDeposit(totalled);
     });
   }
 
@@ -1638,7 +1671,11 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 redistributing the extra width away from the other columns.
               */}
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-                <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
+                {/* 980 -> 1210 for the Status and Deposit columns. The table
+                    already scrolls horizontally rather than redistributing
+                    width away from the other columns, so widening it keeps
+                    every existing column at the size it was tuned to. */}
+                <table style={{ width: '100%', minWidth: 1210, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       <th style={thStyle}>Part Name *</th>
@@ -1649,6 +1686,11 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       <th style={{ ...thStyle, width: 78 }}>Currency</th>
                       <th style={{ ...thStyle, width: 100 }}>Unit Cost</th>
                       <th style={{ ...thStyle, width: 90 }}>Line Total</th>
+                      {/* Ordering and money-down, per line. One deposit figure
+                          for the whole sheet could not say WHICH parts were
+                          paid for, which is what was asked. */}
+                      <th style={{ ...thStyle, width: 128 }}>Status</th>
+                      <th style={{ ...thStyle, width: 100 }}>Deposit</th>
                       <th style={{ ...thStyle, width: 36 }}></th>
                     </tr>
                   </thead>
@@ -1732,6 +1774,47 @@ CREATE POLICY "Shop members can manage their parts estimates"
                           )}
                           {fmt(item.unitCost * item.quantity, item.currency || form.currency)}
                         </td>
+                        {/*
+                          Where this line has got to with the vendor.
+
+                          Coloured AND named. A colour-only status is invisible
+                          to a colour-blind technician and to a screen reader,
+                          and the row already uses a green tint to mean
+                          "priced" — a second silent colour on the same row
+                          would be unreadable.
+                        */}
+                        <td style={tdStyle}>
+                          <select
+                            value={lineState(item)}
+                            onChange={e => updateLineItem(idx, 'orderState', e.target.value)}
+                            aria-label={`Order status for ${item.partName || 'this part'}`}
+                            style={{
+                              ...cellInput, paddingRight: 4, fontSize: 12, fontWeight: 700,
+                              color: stateStyle(lineState(item)).fg,
+                              background: stateStyle(lineState(item)).bg,
+                              borderColor: stateStyle(lineState(item)).border,
+                            }}
+                          >
+                            {PROCUREMENT_STATES.map(s => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        {/* In THIS line's currency, like unit cost beside it.
+                            Totalled per currency, never blended. */}
+                        <td style={tdStyle}>
+                          <input
+                            type="number" min={0} step="0.01"
+                            value={item.deposit || ''}
+                            placeholder="0.00"
+                            aria-label={`Deposit paid for ${item.partName || 'this part'}`}
+                            onFocus={e => e.target.select()}
+                            onChange={e => updateLineItem(idx, 'deposit', Math.max(0, Number(e.target.value) || 0))}
+                            style={lineDeposit(item) > 0
+                              ? { ...cellInput, borderColor: 'rgba(245,158,11,0.55)', background: 'rgba(245,158,11,0.12)', fontWeight: 700 }
+                              : cellInput}
+                          />
+                        </td>
                         <td style={tdStyle}>
                           {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>✕</button>}
                         </td>
@@ -1744,6 +1827,51 @@ CREATE POLICY "Shop members can manage their parts estimates"
               <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
                 + Add Part
               </button>
+
+              {/*
+                The answer without reading every row.
+
+                The two questions asked were "which ones did we put a down
+                payment on" and "which ones are ordered already". The columns
+                above answer them per line; this answers them for the sheet, so
+                a quotation with eight parts does not have to be scanned to
+                find out where it stands.
+
+                Hidden until something has actually been ordered or paid — a
+                row of zeroes on a fresh quotation is noise.
+              */}
+              {hasProcurement(form.lineItems, form.currency) && (() => {
+                const counts = procurementCounts(form.lineItems);
+                const paid = Object.entries(depositByCurrency(form.lineItems, form.currency));
+                const chip = (state: 'ordered' | 'received' | 'not_ordered', n: number) => {
+                  const s = stateStyle(state);
+                  return n > 0 ? (
+                    <span key={state} style={{
+                      fontSize: 11, fontWeight: 800, color: s.fg, background: s.bg,
+                      border: `1px solid ${s.border}`, borderRadius: 999, padding: '4px 10px',
+                    }}>{n} {s.label.toLowerCase()}</span>
+                  ) : null;
+                };
+                return (
+                  <div style={{
+                    display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+                    marginTop: -12, marginBottom: 24,
+                  }}>
+                    {chip('received', counts.received)}
+                    {chip('ordered', counts.ordered)}
+                    {chip('not_ordered', counts.not_ordered)}
+                    {paid.length > 0 && (
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        {/* Per currency, listed. Never one blended number. */}
+                        Deposits paid:{' '}
+                        <strong style={{ color: 'var(--text)' }}>
+                          {paid.map(([cur, amt]) => fmt(amt, cur)).join('  +  ')}
+                        </strong>
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Deposit — a customer paying up front on a parts quotation is
                   routine, and until now there was nowhere to record it. The
@@ -1765,6 +1893,17 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   ? priced.reduce((a, b) => (b[1] > a[1] ? b : a))
                   : [form.currency, 0];
 
+                /**
+                 * Once any line carries a deposit, this figure is the sum of
+                 * them and is no longer typed here. Before that it is the
+                 * original single field, so the quotations that already have a
+                 * deposit keep it and nothing had to be migrated.
+                 */
+                const depByCur = depositByCurrency(form.lineItems, form.currency);
+                const depCurrencies = Object.entries(depByCur);
+                const derived = depCurrencies.length > 0;
+                const mixedDepositCurrencies = depCurrencies.length > 1;
+
                 const entered = Math.max(form.deposit || 0, 0);
                 const sameCur = form.depositCurrency === quoteCur;
                 // In the quote's currency. undefined while the rate loads,
@@ -1773,35 +1912,68 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   ? entered
                   : depositFx == null ? depositFx : entered * depositFx;
 
-                const applied = typeof depositInQuoteCur === 'number'
-                  ? Math.min(depositInQuoteCur, quoted)
-                  : null;
+                /**
+                 * Deposits in more than one currency produce NO balance.
+                 *
+                 * `entered` is only the largest currency's total, so a balance
+                 * from it would count less than was actually paid and bill the
+                 * customer the difference. This file already refuses to show a
+                 * figure computed at a guessed rate; showing one computed from
+                 * part of the money would be worse, because nothing on screen
+                 * would mark it as partial.
+                 */
+                const applied = mixedDepositCurrencies || typeof depositInQuoteCur !== 'number'
+                  ? null
+                  : Math.min(depositInQuoteCur, quoted);
                 const balance = applied === null ? null : Math.max(quoted - applied, 0);
 
                 return (
                   <div style={{ marginBottom: 20 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 1fr 1fr', gap: 12, alignItems: 'end' }}>
-                      {field('Deposit paid', (
-                        <input
-                          type="text" inputMode="decimal"
-                          value={form.deposit === 0 || form.deposit === undefined ? '' : String(form.deposit)}
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            setF({ deposit: raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0) });
-                          }}
-                          onFocus={e => e.target.select()}
-                          placeholder="0"
-                          style={{ width: '100%' }}
-                        />
+                      {field(derived ? 'Deposit paid (from the lines)' : 'Deposit paid', (
+                        derived ? (
+                          <div
+                            data-testid="deposit-derived"
+                            style={{
+                              width: '100%', padding: '9px 10px', borderRadius: 8,
+                              border: '1px solid var(--line)', background: 'var(--surface-soft)',
+                              fontWeight: 800, color: 'var(--text)',
+                            }}
+                          >
+                            {depCurrencies.map(([cur, amt]) => fmt(amt, cur)).join('  +  ')}
+                          </div>
+                        ) : (
+                          <input
+                            type="text" inputMode="decimal"
+                            value={form.deposit === 0 || form.deposit === undefined ? '' : String(form.deposit)}
+                            onChange={e => {
+                              const raw = e.target.value.replace(/[^0-9.]/g, '');
+                              setF({ deposit: raw === '' ? 0 : Math.max(0, parseFloat(raw) || 0) });
+                            }}
+                            onFocus={e => e.target.select()}
+                            placeholder="0"
+                            style={{ width: '100%' }}
+                          />
+                        )
                       ))}
                       {field('Paid in', (
-                        <select
-                          value={form.depositCurrency || quoteCur}
-                          onChange={e => setF({ depositCurrency: e.target.value })}
-                          style={{ width: '100%' }}
-                        >
-                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-                        </select>
+                        derived ? (
+                          <div style={{
+                            width: '100%', padding: '9px 10px', borderRadius: 8,
+                            border: '1px solid var(--line)', background: 'var(--surface-soft)',
+                            color: 'var(--muted)', fontWeight: 700,
+                          }}>
+                            {depCurrencies.map(([cur]) => cur).join(' + ')}
+                          </div>
+                        ) : (
+                          <select
+                            value={form.depositCurrency || quoteCur}
+                            onChange={e => setF({ depositCurrency: e.target.value })}
+                            style={{ width: '100%' }}
+                          >
+                            {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                          </select>
+                        )
                       ))}
                       <div>
                         <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Quoted total</div>
@@ -1811,13 +1983,23 @@ CREATE POLICY "Shop members can manage their parts estimates"
                         <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>Balance due</div>
                         <div style={{ fontWeight: 800, color: balance === 0 && entered > 0 ? '#22c55e' : 'var(--text)' }}>
                           {balance === null
-                            ? (depositFx === undefined ? 'Converting…' : '—')
+                            ? (mixedDepositCurrencies ? 'Needs one currency'
+                              : depositFx === undefined ? 'Converting…' : '—')
                             : fmt(balance, quoteCur)}
                         </div>
                       </div>
                     </div>
 
-                    {!sameCur && entered > 0 && (
+                    {mixedDepositCurrencies && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: '#b45309' }}>
+                        Deposits were paid in {depCurrencies.map(([c]) => c).join(' and ')}, so the
+                        balance is not worked out here — adding them together would count less than
+                        was actually paid. Record the deposits for this quotation in one currency,
+                        or read the per-currency totals above.
+                      </div>
+                    )}
+
+                    {!mixedDepositCurrencies && !sameCur && entered > 0 && (
                       <div style={{ marginTop: 8, fontSize: 12 }}>
                         {depositFx === undefined && (
                           <span style={{ color: 'var(--muted)' }}>Converting at today’s rate…</span>

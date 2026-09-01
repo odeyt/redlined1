@@ -56,8 +56,35 @@ describe('balance arithmetic', () => {
 
 describe('the quotation editor', () => {
   it('offers a deposit field with its own currency', () => {
-    expect(quotes).toMatch(/field\('Deposit paid'/);
+    /**
+     * The label is conditional since deposits moved onto the lines: it reads
+     * "Deposit paid" while the quotation still uses the single field, and
+     * "Deposit paid (from the lines)" once any line carries one, at which
+     * point the field is derived and read-only.
+     *
+     * Both spellings are asserted, so removing either path fails here rather
+     * than leaving a quotation with no way to record a deposit at all.
+     */
+    expect(quotes).toMatch(/'Deposit paid \(from the lines\)' : 'Deposit paid'/);
     expect(quotes).toMatch(/field\('Paid in'/);
+  });
+
+  it('stops accepting a typed total once the lines carry deposits', () => {
+    // Otherwise the sheet total and the lines under it can disagree, which is
+    // the thing per-line deposits were added to prevent.
+    expect(quotes).toContain('data-testid="deposit-derived"');
+    expect(quotes).toMatch(/const derived = depCurrencies\.length > 0;/);
+  });
+
+  it('refuses a balance when deposits span more than one currency', () => {
+    /**
+     * The stored figure is only the largest currency's total, so a balance
+     * from it would count less than was paid and bill the customer the
+     * difference. This file already declines to show a figure computed at a
+     * guessed rate; a partial one is worse, because nothing marks it partial.
+     */
+    expect(quotes).toMatch(/mixedDepositCurrencies \|\| typeof depositInQuoteCur !== 'number'/);
+    expect(quotes).toContain('Needs one currency');
   });
 
   it('shows the balance rather than leaving it to be worked out', () => {

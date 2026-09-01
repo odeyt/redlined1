@@ -30,6 +30,25 @@ export interface LineItem {
    * nothing to backfill.
    */
   unit?: string;
+  /**
+   * Where this line has got to with the vendor: not_ordered | ordered |
+   * received. Read through `lineState` in lib/parts/lineProcurement.ts, which
+   * defaults an absent or unrecognised value rather than trusting it.
+   *
+   * Rides in the JSONB for the same reason `unit` does — an older row has no
+   * `orderState` and reads as "not ordered", which is the truthful default.
+   */
+  orderState?: string;
+  /**
+   * Deposit already paid to the vendor for THIS line, in THIS line's
+   * currency.
+   *
+   * Per line rather than per quotation because that is the question being
+   * asked: a sheet of eight parts with one deposit figure cannot say which
+   * parts were paid for. Totalled per currency, never summed across them —
+   * see `depositByCurrency`.
+   */
+  deposit?: number;
 }
 
 /**
