@@ -70,6 +70,80 @@ describe('vehicleOptionLabel', () => {
   });
 });
 
+describe('it does not repeat a plate the name already states', () => {
+  /**
+   * Reported from production with a screenshot: the vehicle dropdown on a
+   * parts quotation read "Hyundai Starex #0919 · #0919".
+   *
+   * Shops here name a vehicle by its plate, so the label already carries it
+   * and appending it says the same thing twice. 13 of this shop's 121 named
+   * vehicles read that way. The fixtures below are their real names.
+   */
+  it('the reported case', () => {
+    expect(vehicleOptionLabel({ id: 'v1', label: 'Hyundai Starex #0919', plate: '#0919' }))
+      .toBe('Hyundai Starex #0919');
+  });
+
+  it('matches however the plate happens to be punctuated', () => {
+    // The column holds both '1268' and '#7002'; the label holds '#1268' and
+    // '# 3434'. None of that is identity.
+    const cases: Array<[string, string]> = [
+      ['Ford Ranger #1268', '1268'],
+      ['Geely #7002', '#7002'],
+      ['Toyota Land cruiser # 3434', '3434'],
+      ['Toyota Hilux Vigo #4689', '#4689'],
+      ['Toyota Landcruiser #7788', '7788'],
+    ];
+    for (const [label, plate] of cases) {
+      expect(vehicleOptionLabel({ id: 'v1', label, plate })).toBe(label);
+    }
+  });
+
+  it('finds the plate even when it is not the last word', () => {
+    const label = 'Honda Accord #9703  – Welkham to Laos';
+    expect(vehicleOptionLabel({ id: 'v1', label, plate: '9703' })).toBe(label);
+  });
+});
+
+describe('but it still shows a detail that adds something', () => {
+  /**
+   * The other 108. Dropping the detail wholesale would lose the only thing
+   * telling two "Toyota Hilux" apart, so this is the half that must not
+   * regress.
+   */
+  it('keeps a plate the name does not mention', () => {
+    expect(vehicleOptionLabel({ id: 'v1', label: '2020 Toyota Hilux', plate: '4521' }))
+      .toBe('2020 Toyota Hilux · 4521');
+  });
+
+  it('keeps a VIN the name does not mention', () => {
+    expect(vehicleOptionLabel({ id: 'v1', label: '2020 Camry', vin: VIN }))
+      .toBe(`2020 Camry · ${VIN}`);
+  });
+
+  it('does not mistake a plate for part of a longer number', () => {
+    /**
+     * Why whole tokens rather than a substring test. Plate '11' sits inside
+     * '2011', and a substring check would silently drop a real plate — worse
+     * than showing a repeated one, because nothing on screen would hint the
+     * plate existed.
+     */
+    expect(vehicleOptionLabel({ id: 'v1', label: '2011 Toyota Camry', plate: '11' }))
+      .toBe('2011 Toyota Camry · 11');
+  });
+
+  it('keeps a plate that differs only in its tail', () => {
+    expect(vehicleOptionLabel({ id: 'v1', label: 'Ford Ranger #1268', plate: '1269' }))
+      .toBe('Ford Ranger #1268 · 1269');
+  });
+
+  it('drops a detail that is only punctuation', () => {
+    // '#' on its own repeats nothing and adds nothing.
+    expect(vehicleOptionLabel({ id: 'v1', label: 'Ford Ranger', plate: '#' }))
+      .toBe('Ford Ranger');
+  });
+});
+
 describe('round trip: what is shown can be found again', () => {
   it('a value selected from the list matches exactly one vehicle', () => {
     // This is what the onChange handler does to resolve the VIN.
