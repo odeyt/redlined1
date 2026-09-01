@@ -1583,7 +1583,16 @@ CREATE POLICY "Shop members can manage their parts estimates"
           onDragOver={e => e.preventDefault()}
           onDrop={e => e.preventDefault()}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-          <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 1160, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+          {/*
+            Wide enough for the parts table inside it.
+
+            1160 left 1104 usable after padding, which fit the table's old
+            980 minWidth. Adding the Status and Deposit columns took the table
+            to 1210 and put it 106px over — so those two columns bought
+            per-line tracking at the cost of making every row scroll. Widened
+            with the table rather than left to be discovered.
+          */}
+          <div onClick={ev => ev.stopPropagation()} onDragOver={e => e.stopPropagation()} onDrop={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 1290, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Quotation' : '+ New Parts Quotation'}</span>

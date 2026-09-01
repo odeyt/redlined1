@@ -1176,7 +1176,19 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       {/* ── Add/Edit Form Modal ── */}
       {showForm && (
         <div onClick={() => { setShowForm(false); setEditingId(null); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 800, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
+          {/*
+            Wide enough for the parts table inside it.
+
+            Was 800, which after 28px of padding each side left 744px for a
+            table whose minWidth is 1040. That is a 296px shortfall, so the
+            parts rows scrolled sideways on EVERY screen no matter how large —
+            reported from a 1920px monitor with most of it unused.
+
+            1160 leaves 1104 usable, which clears 1040. Kept as maxWidth with
+            width:100%, so a genuinely narrow screen still shrinks the dialog
+            and scrolls the table rather than truncating a column.
+          */}
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 1160, boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 18, fontWeight: 800 }}>{editingId ? '✏ Edit Parts Order' : '+ New Parts Order'}</span>
