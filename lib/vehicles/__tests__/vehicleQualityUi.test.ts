@@ -113,8 +113,27 @@ describe('it is readable without colour and on a phone', () => {
   });
 
   it('gives controls a touch-sized target', () => {
-    expect(PANEL).toMatch(/minHeight: 38/);
+    /**
+     * Was `minHeight: 38`, which this test pinned only because that is what
+     * had been written. 38 is under the house convention of 44 — 22 uses
+     * against 7 — and this panel is operated on a phone, in a workshop, by
+     * someone who may be wearing gloves.
+     *
+     * Asserted as "no control under 44" rather than "contains a 44", so a
+     * fifth button added at 38 fails instead of passing on its neighbours.
+     */
+    const heights = [...PANEL.matchAll(/minHeight:\s*(\d+)/g)].map(m => Number(m[1]));
+    expect(heights.length).toBeGreaterThan(0);
+    expect(heights.filter(h => h < 44)).toEqual([]);
+
+    /**
+     * The checkbox itself stays 18px, and that is fine: it sits inside a
+     * `<label htmlFor>` that spans the whole row. Measured at 375px the label
+     * is 296x62, and tapping its text — not the box — was confirmed to toggle
+     * the checkbox. The visible box is an indicator; the row is the target.
+     */
     expect(PANEL).toMatch(/width: 18, height: 18/);
+    expect(PANEL).toContain('htmlFor={id}');
   });
 });
 
@@ -150,4 +169,31 @@ describe('there is no way to fix the whole fleet at once', () => {
     expect(ROUTE).toContain('vehicleId: z.string().uuid()');
     expect(ROUTE).not.toMatch(/vehicleIds\s*:/);
   });
+});
+
+describe('it survives the phone it was designed for', () => {
+  /**
+   * Measured, not assumed. The panel was rendered at 375px and 320px against a
+   * worst-case fixture — every enrichable field, a conflict, and a long
+   * catalogue description. The stacked layout held: no horizontal overflow at
+   * either width.
+   *
+   * Two things did not hold, and these pin the fixes.
+   */
+
+  it('breaks a long unbroken value instead of pushing the page sideways', () => {
+    /**
+     * The one input that defeated the layout. A value with no spaces to wrap
+     * on took the content to 435px inside a 320px viewport and the whole
+     * document scrolled horizontally.
+     *
+     * Not hypothetical: engine codes, plate strings and hand-typed model names
+     * are routinely a single unbroken token.
+     *
+     * `overflow-wrap` is inherited, so one declaration on the panel root
+     * covers the summary, the conflict box and every value beneath it.
+     */
+    expect(PANEL).toContain("overflowWrap: 'break-word'");
+  });
+
 });

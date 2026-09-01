@@ -192,6 +192,22 @@ export function VehicleQualityPanel({ shopId, vehicleId, onApplied }: Props) {
     <div data-testid="vehicle-quality" style={{
       border: '1px solid var(--line)', borderRadius: 10, padding: 14,
       background: 'var(--surface-soft)',
+      /**
+       * A value with nothing to wrap on must break rather than push the page
+       * sideways.
+       *
+       * Measured at 320px: a single unbroken token in a catalogue value took
+       * the layout to 435px and the whole document scrolled horizontally. The
+       * stacked design already survives 320px with real data — this is the one
+       * input that defeated it, and engine codes, plate strings and hand-typed
+       * model names are all routinely unbroken.
+       *
+       * `overflow-wrap` is inherited, so declaring it here covers the summary,
+       * the conflict box and every current/catalogue value without repeating
+       * it at each one. `break-word` rather than `anywhere` so it only breaks
+       * a word that would otherwise overflow, leaving normal wrapping alone.
+       */
+      overflowWrap: 'break-word',
     }}>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em' }}>
         VEHICLE DATA QUALITY
@@ -268,7 +284,7 @@ export function VehicleQualityPanel({ shopId, vehicleId, onApplied }: Props) {
           onClick={() => setOpen(true)}
           style={{
             marginTop: 10, padding: '8px 14px', borderRadius: 999, fontSize: 12,
-            fontWeight: 700, minHeight: 38, cursor: 'pointer',
+            fontWeight: 700, minHeight: 44, cursor: 'pointer',
             border: '1px solid var(--accent)', background: 'transparent', color: 'var(--text)',
           }}
         >
@@ -349,7 +365,7 @@ export function VehicleQualityPanel({ shopId, vehicleId, onApplied }: Props) {
               onClick={() => void apply()}
               style={{
                 padding: '9px 16px', borderRadius: 999, fontSize: 12, fontWeight: 800,
-                minHeight: 38, cursor: !selected.size || saving ? 'default' : 'pointer',
+                minHeight: 44, cursor: !selected.size || saving ? 'default' : 'pointer',
                 border: '1px solid var(--accent)',
                 background: !selected.size || saving ? 'transparent' : 'var(--accent)',
                 color: !selected.size || saving ? 'var(--muted)' : '#fff',
@@ -364,7 +380,7 @@ export function VehicleQualityPanel({ shopId, vehicleId, onApplied }: Props) {
               onClick={() => { setOpen(false); setSelected(new Set()); setError(''); }}
               style={{
                 padding: '9px 16px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                minHeight: 38, cursor: 'pointer', border: '1px solid var(--line)',
+                minHeight: 44, cursor: 'pointer', border: '1px solid var(--line)',
                 background: 'transparent', color: 'var(--text)',
               }}
             >
