@@ -1,5 +1,6 @@
 'use client';
 
+import { vehicleAutofill, fillBlanks } from '@/lib/vehicles/autofillFromVehicle';
 import { useEffect, useState } from 'react';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { usePagination } from '@/lib/usePagination';
@@ -1635,7 +1636,9 @@ export function RepairOrdersView() {
                         {matches.map(v => (
                           <div
                             key={v.id}
-                            onMouseDown={() => { setForm(f => ({ ...f, vehicle: v.label })); setVehicleQuery(''); setVehicleOpen(false); }}
+                            // Carries the vehicle's own details and its owner
+                            // across, filling only what is still blank.
+                            onMouseDown={() => { setForm(f => fillBlanks({ ...f, vehicle: v.label }, vehicleAutofill(v, customers))); setVehicleQuery(''); setVehicleOpen(false); }}
                             style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, background: form.vehicle === v.label ? 'rgba(204,0,0,0.07)' : 'transparent' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,0,0,0.07)')}
                             onMouseLeave={e => (e.currentTarget.style.background = form.vehicle === v.label ? 'rgba(204,0,0,0.07)' : 'transparent')}

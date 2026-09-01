@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { StorageLink } from '@/components/StorageLink';
 import { useShop } from '@/lib/useShop';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
+import { vehicleAutofill, fillBlanks } from '@/lib/vehicles/autofillFromVehicle';
 import { getExchangeRate, convertAmount } from '@/lib/fx';
 import {
   PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency,
@@ -425,6 +426,22 @@ export function PartsEstimatesView() {
 
   function setF(patch: Partial<FormState>) {
     setForm(prev => recalc({ ...prev, ...patch }));
+  }
+
+  /**
+   * Picking a vehicle also fills in whatever the quotation still lacks.
+   *
+   * Until now this set the vehicle and nothing else, so the technician typed
+   * the customer name that the vehicle already knew. `fillBlanks` only writes
+   * over empty fields, so a customer already chosen — a walk-in paying cash
+   * for someone else's car — survives.
+   */
+  function selectVehicle(value: string) {
+    setForm(prev => {
+      const chosen = vehicles.find(v => vehicleOptionValue(v) === value);
+      const withVehicle = { ...prev, vehicle: value };
+      return recalc(fillBlanks(withVehicle, vehicleAutofill(chosen, customers)));
+    });
   }
 
   /**
@@ -2172,7 +2189,9 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   />
                 ))}
                 {field('Vehicle', (
-                  <select value={form.vehicle} onChange={e => setF({ vehicle: e.target.value })} style={selStyle}>
+                  /* Choosing a vehicle brings its owner with it. Blank fields
+                     only — a customer already typed is never replaced. */
+                  <select value={form.vehicle} onChange={e => selectVehicle(e.target.value)} style={selStyle}>
                     <option value="">— Select vehicle —</option>
                     {customerVehicles.map(v => <option key={v.id} value={vehicleOptionValue(v)}>{vehicleOptionLabel(v)}</option>)}
                     {form.vehicle && !customerVehicles.find(v => v.label === form.vehicle) && <option value={form.vehicle}>{form.vehicle}</option>}

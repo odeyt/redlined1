@@ -1,5 +1,6 @@
 'use client';
 
+import { vehicleAutofill, fillBlanks } from '@/lib/vehicles/autofillFromVehicle';
 import { useEffect, useRef, useState } from 'react';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { GuidedInspection } from './GuidedInspection';
@@ -819,7 +820,14 @@ export function InspectionsView() {
                         {showDropdown ? (
                           <select value={form.vehicle} onChange={e => {
                             const v = allVehicles.find(v => vehicleOptionValue(v) === e.target.value);
-                            setForm(f => ({ ...f, vehicle: e.target.value, vin: v?.vin ?? f.vin }));
+                            /*
+                             * Was the VIN and nothing else — so an inspection
+                             * started from the vehicle list still needed the
+                             * customer typed in, even though the vehicle knew
+                             * who owned it. Fills every blank field the form
+                             * has and overwrites none that are already set.
+                             */
+                            setForm(f => fillBlanks({ ...f, vehicle: e.target.value }, vehicleAutofill(v, customers)));
                           }} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', width: '100%' }}>
                             <option value="">— select vehicle —</option>
                             {customerVehicles.length > 0 && (
