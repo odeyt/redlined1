@@ -109,6 +109,29 @@ export function depositByCurrency(
   return out;
 }
 
+/**
+ * How many lines the vendor has actually priced, out of how many there are.
+ *
+ * A priced row is already tinted green (see `isQuoted` in the quotation
+ * table), which answers "which ones". This answers "how many", which the
+ * colour cannot: with eight rows in a table that scrolls sideways, telling
+ * five-of-eight from six-of-eight means reading every row.
+ *
+ * A line with no cost is unpriced, and 0 is unpriced — a vendor quoting zero
+ * is not a quote, it is a row they have not come back on.
+ */
+export function pricedCount(
+  items: readonly { unitCost?: number | null }[] | null | undefined,
+): { priced: number; total: number } {
+  const list = items ?? [];
+  let priced = 0;
+  for (const item of list) {
+    const cost = Number(item?.unitCost ?? 0);
+    if (Number.isFinite(cost) && cost > 0) priced += 1;
+  }
+  return { priced, total: list.length };
+}
+
 /** How many lines sit in each state. Drives the summary line under the table. */
 export function procurementCounts(items: readonly ProcurableLine[] | null | undefined) {
   const counts = { not_ordered: 0, ordered: 0, received: 0 };

@@ -7,7 +7,7 @@ import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { getExchangeRate, convertAmount } from '@/lib/fx';
 import {
   PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency,
-  procurementCounts, hasProcurement, stateStyle, applyProcurementState,
+  procurementCounts, hasProcurement, stateStyle, applyProcurementState, pricedCount,
   daysAwaiting, longestWait, type ProcurementState,
 } from '@/lib/parts/lineProcurement';
 import { StorageImage } from '@/components/StorageImage';
@@ -1912,8 +1912,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 Hidden until something has actually been ordered or paid — a
                 row of zeroes on a fresh quotation is noise.
               */}
-              {hasProcurement(form.lineItems, form.currency) && (() => {
+              {(hasProcurement(form.lineItems, form.currency)
+                || pricedCount(form.lineItems).priced > 0) && (() => {
                 const counts = procurementCounts(form.lineItems);
+                const { priced, total } = pricedCount(form.lineItems);
                 const paid = Object.entries(depositByCurrency(form.lineItems, form.currency));
                 const waiting = longestWait(form.lineItems, nowIso);
                 const chip = (state: 'ordered' | 'received' | 'not_ordered', n: number) => {
@@ -1930,6 +1932,28 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
                     marginTop: -12, marginBottom: 24,
                   }}>
+                    {/*
+                      How many the vendor has come back on.
+
+                      The rows are already tinted green when priced, which says
+                      WHICH. This says HOW MANY, which the tint cannot: with
+                      eight rows in a table that scrolls sideways, telling five
+                      of eight from six of eight means reading every row —
+                      exactly the hassle this was asked to remove.
+
+                      Amber while the vendor still owes a price, green once
+                      every line has one.
+                    */}
+                    {total > 0 && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, borderRadius: 999, padding: '4px 10px',
+                        color: priced === total ? '#15803d' : '#b45309',
+                        background: priced === total ? 'rgba(34,197,94,0.16)' : 'rgba(245,158,11,0.14)',
+                        border: `1px solid ${priced === total ? 'rgba(34,197,94,0.55)' : 'rgba(245,158,11,0.55)'}`,
+                      }}>
+                        {priced} of {total} priced
+                      </span>
+                    )}
                     {chip('received', counts.received)}
                     {chip('ordered', counts.ordered)}
                     {chip('not_ordered', counts.not_ordered)}

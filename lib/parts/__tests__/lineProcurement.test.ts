@@ -7,7 +7,7 @@
  */
 import {
   lineState, lineDeposit, depositByCurrency, procurementCounts, hasProcurement,
-  stateStyle, PROCUREMENT_STATES, applyProcurementState, daysAwaiting, longestWait,
+  stateStyle, PROCUREMENT_STATES, applyProcurementState, daysAwaiting, longestWait, pricedCount,
 } from '../lineProcurement';
 
 describe('a line written before this feature existed still reads', () => {
@@ -266,5 +266,49 @@ describe('how long a part has been waiting', () => {
   it('is null when nothing is on order', () => {
     expect(longestWait([{ orderState: 'received' }, {}], NOW)).toBeNull();
     expect(longestWait([], NOW)).toBeNull();
+  });
+});
+
+describe('how many lines the vendor has actually priced', () => {
+  /**
+   * The rows are already tinted green when priced, which answers "which
+   * ones". This answers "how many" — the thing a colour cannot, once there
+   * are eight rows in a table that scrolls sideways.
+   */
+  it('counts the priced lines against the total', () => {
+    expect(pricedCount([
+      { unitCost: 3500 }, { unitCost: 0 }, { unitCost: 0 },
+    ])).toEqual({ priced: 1, total: 3 });
+  });
+
+  it('treats zero as not priced', () => {
+    // A vendor quoting zero has not quoted. That row is still outstanding.
+    expect(pricedCount([{ unitCost: 0 }])).toEqual({ priced: 0, total: 1 });
+    expect(pricedCount([{}])).toEqual({ priced: 0, total: 1 });
+    expect(pricedCount([{ unitCost: null }])).toEqual({ priced: 0, total: 1 });
+  });
+
+  it('ignores a value that is not a number', () => {
+    expect(pricedCount([{ unitCost: NaN }, { unitCost: 'abc' as unknown as number }]))
+      .toEqual({ priced: 0, total: 2 });
+  });
+
+  it('reports the fully-quoted case', () => {
+    expect(pricedCount([{ unitCost: 100 }, { unitCost: 250 }]))
+      .toEqual({ priced: 2, total: 2 });
+  });
+
+  it('survives an empty sheet', () => {
+    expect(pricedCount([])).toEqual({ priced: 0, total: 0 });
+    expect(pricedCount(null)).toEqual({ priced: 0, total: 0 });
+  });
+
+  it('matches the sheet from the report: 1 of 7 priced', () => {
+    // The screenshot: seven parts, only the thermostat housing quoted.
+    const sheet = [
+      { unitCost: 0 }, { unitCost: 0 }, { unitCost: 3500 }, { unitCost: 0 },
+      { unitCost: 0 }, { unitCost: 0 }, { unitCost: 0 },
+    ];
+    expect(pricedCount(sheet)).toEqual({ priced: 1, total: 7 });
   });
 });
