@@ -70,3 +70,47 @@ describe('light is the default', () => {
     expect(MANIFEST.background_color).toBe('#f0f0f0');
   });
 });
+
+describe('setting the theme before hydration is not reported as a bug', () => {
+  /**
+   * The boot script writes `data-theme` onto <html> before React hydrates, and
+   * the server cannot render that attribute because the theme lives in the
+   * visitor's localStorage. React therefore found an attribute it had not
+   * rendered and logged a hydration mismatch on EVERY page load.
+   *
+   * Harmless in itself. The cost was the console: a warning that fires every
+   * time is one nobody reads, and it buries the next one that matters.
+   */
+  it('marks <html> as intentionally mutated before hydration', () => {
+    expect(LAYOUT).toMatch(/<html[^>]*suppressHydrationWarning/);
+  });
+
+  it('keeps that suppression on <html> and nowhere else', () => {
+    /**
+     * The attribute suppresses mismatches one level deep — the element's own
+     * attributes and text. On <html> that covers exactly the boot script's
+     * write and nothing the app renders.
+     *
+     * On <body>, or on a component, it would hide real hydration bugs in the
+     * tree below. So the count is pinned: exactly one, on the element with the
+     * documented reason above it.
+     */
+    // Counted over CODE, not comments. The block explaining why the attribute
+    // is there names it several times, and counting those would flag the
+    // documentation rather than a second use.
+    const code = LAYOUT
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+    const occurrences = code.match(/suppressHydrationWarning/g) ?? [];
+    expect(occurrences).toHaveLength(1);
+    expect(code).not.toMatch(/<body[^>]*suppressHydrationWarning/);
+  });
+
+  it('still sets the theme before paint rather than in an effect', () => {
+    // The suppression is only justifiable while the write genuinely has to
+    // happen pre-hydration. Moved into an effect, the theme would flash and
+    // the suppression would be hiding nothing.
+    const head = LAYOUT.slice(LAYOUT.indexOf('<head>'), LAYOUT.indexOf('</head>'));
+    expect(head).toContain("document.documentElement.setAttribute('data-theme'");
+  });
+});

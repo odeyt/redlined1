@@ -36,9 +36,34 @@ export const metadata: Metadata = {
 
 const GA_ID = 'G-9QY4K8MZ1X';
 
+/**
+ * `suppressHydrationWarning` sits on <html> because the boot script in <head>
+ * DELIBERATELY changes that element before React hydrates.
+ *
+ * The server renders the element with no `data-theme` — it cannot know the
+ * theme, which lives in the visitor's localStorage. The inline script then
+ * sets the attribute before first paint, which is the entire reason it is
+ * inline rather than an effect. So by hydration time <html> carries an
+ * attribute React never rendered, and React reports a mismatch.
+ *
+ * The mismatch was real but harmless, and the warning was the only casualty:
+ * it fired on every single page load, which is how a console stops being worth
+ * reading. Silencing it matters mostly so the NEXT hydration warning is
+ * visible.
+ *
+ * Deliberately NOT fixed by rendering `data-theme="light"` server-side. That
+ * matches for light users and still mismatches for everyone on dark, so it
+ * would trade a warning-on-every-load for a warning-for-dark-users — harder to
+ * notice, no more correct — and it would have the server assert a theme it has
+ * no way of knowing.
+ *
+ * Scope is one level deep by design: this suppresses mismatches on <html>'s
+ * OWN attributes only, never in <body> or anything the app renders. A real
+ * hydration bug inside the tree still reports.
+ */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/*
           Which build this page was rendered from, readable without opening
