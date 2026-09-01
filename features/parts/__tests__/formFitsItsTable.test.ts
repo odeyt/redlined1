@@ -17,60 +17,103 @@
  * relationship is asserted rather than the numbers — retune either freely,
  * as long as the table still fits.
  */
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
-const VIEWS = [
-  { name: 'Parts Quotations', file: 'features/parts/PartsEstimatesView.tsx' },
-  { name: 'Parts Orders', file: 'features/parts/PartsOrdersView.tsx' },
-];
-
 /**
- * The dialog holding the parts table, identified by BEING the one that holds
- * it: the last `maxWidth:` declared before the table in source order. Each of
- * these files has several dialogs, and the small ones (vendor, confirm) must
- * not be mistaken for this one.
+ * Every fixed-width table in the app, not just the two that were reported.
+ *
+ * A sweep after the Parts Orders report found five tables with a `minWidth`.
+ * Three were already fine; the two parts forms were not. Naming those two here
+ * would guard the bugs already found and nothing else, and the next table
+ * added to a dialog is exactly as likely to overflow it.
  */
-function formAndTable(src: string) {
-  const tableAt = src.search(/<table style=\{\{ width: '100%', minWidth: \d+/);
-  if (tableAt === -1) throw new Error('no parts table found');
-
-  const minWidth = Number(src.slice(tableAt).match(/minWidth: (\d+)/)?.[1]);
-  const before = src.slice(0, tableAt);
-  const widths = [...before.matchAll(/maxWidth: (\d+)[,\s}]/g)];
-  const padding = Number(before.match(/padding: (\d+), width: '100%', maxWidth: \d+/)?.[1] ?? 28);
-
-  return {
-    maxWidth: Number(widths[widths.length - 1]?.[1]),
-    minWidth,
-    padding,
-  };
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  let entries: string[];
+  try { entries = readdirSync(dir); } catch { return out; }
+  for (const entry of entries) {
+    if (entry === 'node_modules' || entry === '__tests__' || entry.startsWith('.')) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) sourceFiles(full, out);
+    else if (entry.endsWith('.tsx')) out.push(full);
+  }
+  return out;
 }
 
-describe('the parts form is wide enough for its own table', () => {
-  for (const view of VIEWS) {
-    const src = readFileSync(join(process.cwd(), view.file), 'utf8');
-    const { maxWidth, minWidth, padding } = formAndTable(src);
+interface FixedTable {
+  file: string;
+  line: number;
+  minWidth: number;
+  /**
+   * The container holding it: the last `maxWidth` declared before the table in
+   * source order. These files hold several dialogs and the small ones —
+   * vendor, confirm, delete — must not be mistaken for the one the table is
+   * in. Null means the table sits on a full-width page, where there is no cap
+   * to overflow.
+   */
+  maxWidth: number | null;
+  padding: number;
+}
 
-    it(`${view.name}: the table fits without scrolling sideways`, () => {
-      // Both numbers must actually have been found, or this test would pass
-      // on NaN and guard nothing.
-      expect(Number.isFinite(maxWidth)).toBe(true);
-      expect(Number.isFinite(minWidth)).toBe(true);
+function fixedWidthTables(): FixedTable[] {
+  const root = join(__dirname, '..', '..', '..');
+  const found: FixedTable[] = [];
 
-      const usable = maxWidth - padding * 2;
-      expect(usable).toBeGreaterThanOrEqual(minWidth);
-    });
-
-    it(`${view.name}: still shrinks on a narrow screen`, () => {
-      /**
-       * maxWidth, not width. A fixed width would fit the table and then
-       * overflow the viewport on a laptop, trading a scrolling table for a
-       * scrolling page — which is worse, because the page has no visible
-       * bound to scroll back from.
-       */
-      const before = src.slice(0, src.search(/<table style=\{\{ width: '100%', minWidth: \d+/));
-      expect(before).toMatch(new RegExp(`width: '100%', maxWidth: ${maxWidth}`));
-    });
+  for (const dir of ['app', 'components', 'features']) {
+    for (const file of sourceFiles(join(root, dir))) {
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/<table style=\{\{[^}]*?minWidth: (\d+)/g)) {
+        const before = src.slice(0, m.index);
+        const caps = [...before.matchAll(/maxWidth: (\d{3,})[,\s}]/g)];
+        const pad = before.match(/padding: (\d+),[^\n]*maxWidth: \d{3,}/);
+        found.push({
+          file: file.slice(root.length + 1).split(/[\\/]/).join('/'),
+          line: before.split('\n').length,
+          minWidth: Number(m[1]),
+          maxWidth: caps.length ? Number(caps[caps.length - 1][1]) : null,
+          padding: pad ? Number(pad[1]) : 0,
+        });
+      }
+    }
   }
+  return found;
+}
+
+describe('a fixed-width table fits the container holding it', () => {
+  const tables = fixedWidthTables();
+
+  it('actually found the tables', () => {
+    // A sweep that silently returned nothing would make every check below
+    // pass for the worst possible reason.
+    expect(tables.length).toBeGreaterThanOrEqual(5);
+    expect(tables.some(t => t.file.endsWith('PartsOrdersView.tsx'))).toBe(true);
+    expect(tables.some(t => t.file.endsWith('PartsEstimatesView.tsx'))).toBe(true);
+  });
+
+  it('none is wider than the dialog it sits in', () => {
+    const tooWide = tables
+      .filter(t => t.maxWidth !== null)
+      .map(t => ({ ...t, usable: t.maxWidth! - t.padding * 2 }))
+      .filter(t => t.usable < t.minWidth)
+      .map(t => `${t.file}:${t.line} — table ${t.minWidth} in ${t.usable} usable `
+        + `(maxWidth ${t.maxWidth} less ${t.padding * 2} padding), ${t.minWidth - t.usable}px short`);
+
+    expect(tooWide).toEqual([]);
+  });
+
+  it('the parts forms shrink on a narrow screen rather than fixing their width', () => {
+    /**
+     * maxWidth, not width. A fixed width would fit the table and then overflow
+     * the viewport on a laptop, trading a scrolling table for a scrolling
+     * page — worse, because a page has no visible edge to scroll back from.
+     */
+    for (const file of [
+      'features/parts/PartsEstimatesView.tsx',
+      'features/parts/PartsOrdersView.tsx',
+    ]) {
+      const t = tables.find(x => x.file === file)!;
+      const src = readFileSync(join(__dirname, '..', '..', '..', file), 'utf8');
+      expect(src).toContain(`width: '100%', maxWidth: ${t.maxWidth}`);
+    }
+  });
 });
