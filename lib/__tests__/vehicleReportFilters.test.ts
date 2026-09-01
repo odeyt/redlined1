@@ -162,3 +162,51 @@ describe('the completion date is recorded going forward', () => {
     expect(migration).toMatch(/raise exception 'vehicles_stamp_completed_at did not attach'/);
   });
 });
+
+describe('the backfill fills from evidence, never from the arrival date', () => {
+  /**
+   * The owner asked for older months to be backfilled. Only 3 of the 18
+   * undated vehicles have a real record of when work finished — a closed
+   * repair order. The other 15 have nothing: audit_events begins 2026-08-17
+   * and no job card or invoice for them carries a closing date.
+   *
+   * date_received is available for all 18 and would have "completed" the job.
+   * Measured on the 17 vehicles where both dates are known, it lands in the
+   * WRONG MONTH 7 times out of 17 — and once written it is indistinguishable
+   * from a real completion date, so the ⚠ flag that tells the operator the
+   * number is soft would disappear along with the accuracy.
+   */
+  const backfill = read('supabase/migrations/2026-09-01_vehicles_completed_at_backfill_from_repair_orders.sql');
+
+  it('takes its date from a closed repair order', () => {
+    expect(backfill).toMatch(/from public\.repair_orders/);
+    expect(backfill).toMatch(/min\(r\.closed_date\)/);
+  });
+
+  it('never assigns date_received into completed_at', () => {
+    // The precise thing being refused, banned by shape rather than by comment.
+    const sql = backfill.replace(/^\s*--.*$/gm, '');
+    expect(sql).not.toMatch(/completed_at\s*=\s*[^;]*date_received/i);
+    expect(sql).not.toMatch(/set\s+completed_at\s*=\s*.*coalesce\([^)]*date_received/i);
+  });
+
+  it('only ever fills a null, so it cannot overwrite a real date', () => {
+    expect(backfill).toMatch(/v\.completed_at is null/);
+  });
+
+  it('refuses to guess when a name matches more than one vehicle', () => {
+    expect(backfill).toMatch(/kc\.n = 1/);
+  });
+
+  it('is deterministic when a vehicle has several repair orders', () => {
+    // Without the aggregate the result depends on join order, which makes the
+    // migration produce different data on different runs.
+    expect(backfill).toMatch(/select vk\.id, min\(e\.closed_at\)/);
+  });
+
+  it('leaves the vehicles with no evidence null and flagged', () => {
+    // The UI already counts and labels these; silently filling them is what
+    // would make the report look precise while being wrong.
+    expect(view).toMatch(/completedMissingDate = scoped\.filter\(v => isCompleted\(v\) && !v\.completedAt\)/);
+  });
+});
