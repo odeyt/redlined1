@@ -1314,7 +1314,7 @@ export function InspectionsView() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={() => setLightboxUrl('')}>
           <button onClick={() => setLightboxUrl('')} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', lineHeight: 1 }}>✕</button>
-          <StorageImage url={lightboxUrl} alt="Inspection photo"
+          <StorageImage url={lightboxUrl} alt="Inspection photo" loading="eager"
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }} />
           <a href={lightboxUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}

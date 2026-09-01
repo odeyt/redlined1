@@ -114,3 +114,55 @@ describe('setting the theme before hydration is not reported as a bug', () => {
     expect(head).toContain("document.documentElement.setAttribute('data-theme'");
   });
 });
+
+describe('every writer sets an explicit theme, never an empty attribute', () => {
+  /**
+   * Reported as "keeps changing light mode to dark mode on its own".
+   *
+   * SettingsView wrote `data-theme=""` for light, which is not
+   * `data-theme="light"`. The base palette still resolved — `:root` carries
+   * the light values — so the page looked broadly right and the bug hid. But
+   * nine rules in globals.css are written against `[data-theme="light"]`
+   * specifically: the topbar, the mobile menu button, all five badge colours
+   * and even-row table striping. Every one stopped applying.
+   *
+   * So opening Settings in light mode reverted those pieces to their dark
+   * styling while the rest of the page stayed light, and it persisted after
+   * navigating away because nothing set the attribute again until a reload
+   * ran the boot script.
+   *
+   * Three places write this attribute and only one was wrong. The invariant is
+   * asserted across all of them rather than the one that broke.
+   */
+  const WRITERS = [
+    'app/layout.tsx',
+    'components/Sidebar.tsx',
+    'features/settings/SettingsView.tsx',
+  ];
+
+  it('no writer can set data-theme to an empty string', () => {
+    const offenders: string[] = [];
+    for (const file of WRITERS) {
+      const src = read(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      for (const m of src.matchAll(/setAttribute\(\s*'data-theme'\s*,([^)]*)\)/g)) {
+        // The failure shape exactly: a ternary whose else-branch is ''.
+        if (/:\s*''/.test(m[1]) || /,\s*''\s*$/.test(m[1])) {
+          offenders.push(`${file} — setAttribute('data-theme',${m[1].trim()})`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('the light branch spells out "light"', () => {
+    const settings = read('features/settings/SettingsView.tsx');
+    expect(settings).toMatch(/'data-theme',\s*t === 'dark' \? 'dark' : 'light'/);
+    expect(settings).toMatch(/'data-theme',\s*saved === 'dark' \? 'dark' : 'light'/);
+  });
+
+  it('the rules that need the explicit value still exist', () => {
+    // If these ever disappear the assertion above stops mattering, and a
+    // future reader deserves to know why it was ever load-bearing.
+    expect(CSS.match(/\[data-theme="light"\]/g)?.length ?? 0).toBeGreaterThanOrEqual(5);
+  });
+});

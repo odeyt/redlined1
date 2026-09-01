@@ -127,7 +127,9 @@ export function SettingsView() {
 
   useEffect(() => {
     const saved = localStorage.getItem('redlined1-theme') as 'light' | 'dark' | null;
-    if (saved) { setTheme(saved); document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : ''); }
+    // Explicit 'light', never ''. See applyTheme below for what the empty
+    // string cost.
+    if (saved) { setTheme(saved); document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light'); }
     fetchShopSettings().then(s => {
       setCompanyName(s.companyName); setTagline(s.tagline); setLogoUrl(s.logoUrl);
       setAddress(s.address); setPhone(s.phone); setEmail(s.email); setWebsite(s.website);
@@ -199,10 +201,30 @@ export function SettingsView() {
     }
   }
 
+  /**
+   * Writes 'light' or 'dark' — never the empty string.
+   *
+   * This set `data-theme=""` for light, which is NOT `data-theme="light"`.
+   * The base palette still resolved, because `:root` carries the light values,
+   * so the page looked broadly right and the bug hid. But nine rules in
+   * globals.css are written against `[data-theme="light"]` specifically — the
+   * topbar, the mobile menu button, all five badge colours and even-row table
+   * striping — and every one of them stopped applying.
+   *
+   * The result: open Settings while in light mode and the badges, topbar and
+   * table striping revert to their dark styling while the rest of the page
+   * stays light. It persists after navigating away, because nothing sets the
+   * attribute again until a reload runs the boot script. Reported as "keeps
+   * changing light mode to dark mode on its own", which is exactly what it
+   * looks like from the outside.
+   *
+   * The boot script in app/layout.tsx and the sidebar toggle both write an
+   * explicit value. This was the only one that did not.
+   */
   function applyTheme(t: 'light' | 'dark') {
     setTheme(t);
     localStorage.setItem('redlined1-theme', t);
-    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : '');
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
   }
 
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {

@@ -931,7 +931,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <button onClick={() => setLightbox(null)}
             style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
-          <StorageImage url={lightbox} alt="" onClick={e => e.stopPropagation()}
+          <StorageImage url={lightbox} alt="" loading="eager" onClick={e => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}

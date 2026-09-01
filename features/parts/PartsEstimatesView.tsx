@@ -1301,7 +1301,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
               </button>
             )}
             {/* Image */}
-            <StorageImage url={lightbox.url} alt={lightbox.label} onClick={ev => ev.stopPropagation()} style={{ maxWidth: '80vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: 8 }} />
+            <StorageImage url={lightbox.url} alt={lightbox.label} loading="eager" onClick={ev => ev.stopPropagation()} style={{ maxWidth: '80vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: 8 }} />
             {/* Thumbnail strip */}
             {photoImages.length > 1 && (
               <div onClick={ev => ev.stopPropagation()} style={{ display: 'flex', gap: 6, overflowX: 'auto', maxWidth: '90vw', padding: '4px 0' }}>

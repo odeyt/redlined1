@@ -26,5 +26,30 @@ export function StorageImage({ url, alt = '', ...rest }: Props) {
   const src = useSignedStorageUrl(url);
 
   if (!url) return null;
-  return <img src={src} alt={alt} {...rest} />;
+  return (
+    <img
+      /**
+       * Off-screen photos wait until they are scrolled to.
+       *
+       * Nothing here was lazy, so every photo attached to a record was
+       * fetched the moment its list rendered — a quotation with a dozen
+       * attachments pulled all twelve before the first one was looked at, and
+       * that cost grows with every photo a shop adds. The bucket holds 889
+       * objects at a 90KB median, so no single image is heavy; the weight is
+       * in fetching them all at once.
+       *
+       * `decoding="async"` keeps the decode off the main thread, so a grid of
+       * thumbnails does not stall scrolling while they paint.
+       *
+       * Both are defaults, spread BEFORE `rest`, so a caller that needs an
+       * image immediately — a lightbox, a print sheet — can pass
+       * loading="eager" and win.
+       */
+      loading="lazy"
+      decoding="async"
+      src={src}
+      alt={alt}
+      {...rest}
+    />
+  );
 }
