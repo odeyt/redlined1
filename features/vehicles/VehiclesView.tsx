@@ -25,6 +25,7 @@ import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
 import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
+import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMonth';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -1900,32 +1901,37 @@ export function VehiclesView() {
   const STATUS_FILTERS: StatusFilter[] = ['All', 'In Progress', 'Pending Approval', 'Pending Parts', 'Completed', 'Returned Job', 'Pending', 'Active', 'No open jobs', 'Archived'];
   const custNameMap = Object.fromEntries(customers.map(c => [c.id, c.name]));
 
-  const isCompleted = (v: VehicleRecord) => /complet/i.test(v.status);
-
   /**
-   * The date a vehicle counts against for a monthly report.
-   *
-   * completedAt is the truth. date_received is a fallback for work finished
-   * before completedAt was recorded, and it is the wrong date — a car received
-   * in June and finished in July reports under June. The UI says so rather than
-   * presenting the two as equivalent.
+   * The month rule lives in lib/vehicles/reportMonth.ts so it can be tested by
+   * running it. It shipped wrong once and the test defending it matched source
+   * text, not behaviour — which is precisely why nothing caught it.
    */
-  const reportDate = (v: VehicleRecord) => (isCompleted(v) ? v.completedAt : null) ?? v.dateReceived;
-
-  const inSelectedMonth = (v: VehicleRecord) => {
-    if (!monthFilter) return true;
-    const raw = reportDate(v);
-    if (!raw) return false;
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return false;
-    return d.getFullYear() === yearFilter && d.getMonth() + 1 === monthFilter;
-  };
+  const isCompleted = (v: VehicleRecord) => isCompletedStatus(v.status);
+  const inSelectedMonth = (v: VehicleRecord) =>
+    matchesReportMonth(v, monthFilter, yearFilter);
 
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
-    // The month filter is about when work finished, so it only narrows
-    // completed vehicles. Applying it to open jobs would hide live work.
-    if (monthFilter && isCompleted(v) && !inSelectedMonth(v)) return false;
+    /**
+     * A month selection means COMPLETED IN that month, which is what the
+     * control above it says.
+     *
+     * This used to narrow only completed vehicles and let every open job
+     * through whatever its date, so that live work stayed visible. Reported
+     * from production: selecting August returned cars received in March and
+     * July, sitting at In Progress and Pending Approval. The control was
+     * labelled "COMPLETED IN" and was not doing that, and a filter that does
+     * not filter reads as broken — which is exactly how it was reported.
+     *
+     * The floor view is not lost. It is the DEFAULT: "Any month" is the
+     * starting state and shows everything. Choosing a month is an explicit
+     * reporting action, and clearing it restores the live list.
+     *
+     * A vehicle that has not been completed was not completed in any month,
+     * so it cannot match — the check is on the whole predicate, not just the
+     * date.
+     */
+    if (monthFilter && !(isCompleted(v) && inSelectedMonth(v))) return false;
     return true;
   });
 
@@ -2227,6 +2233,15 @@ export function VehiclesView() {
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
                 ✕ Clear filters
               </button>
+            )}
+
+            {/* Says what the month selection did, so the open-status chips
+                reading zero is understood rather than reported as the next
+                bug. Names the way back in the same breath. */}
+            {monthFilter > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '5px 9px' }}>
+                Completed work only — clear the month to see live jobs
+              </span>
             )}
 
             {monthFilter > 0 && completedMissingDate > 0 && (

@@ -47,23 +47,63 @@ describe('a location can be singled out of the mirror', () => {
 });
 
 describe('completion month filters on when work finished', () => {
-  it('prefers the completion date over the arrival date', () => {
-    expect(view).toMatch(/const reportDate = \(v: VehicleRecord\) => \(isCompleted\(v\) \? v\.completedAt : null\) \?\? v\.dateReceived;/);
+  /**
+   * These three used to assert the inline implementation here — the shape of
+   * `reportDate`, the year comparison, the NaN guard. They matched source
+   * text, so they passed while the surrounding predicate was letting every
+   * open job through, which is the bug the owner reported.
+   *
+   * The rule now lives in `lib/vehicles/reportMonth.ts` and is proven by
+   * RUNNING it in `lib/vehicles/__tests__/reportMonth.test.ts`, against the
+   * actual rows from that screenshot. What is left to check here is that the
+   * view uses the shared rule rather than growing a private copy that can
+   * drift from it.
+   */
+  it('uses the shared month rule rather than its own copy', () => {
+    expect(view).toContain("from '@/lib/vehicles/reportMonth'");
+    expect(view).toMatch(/matchesReportMonth\(v, monthFilter, yearFilter\)/);
+    expect(view).toMatch(/isCompletedStatus\(v\.status\)/);
   });
 
-  it('matches both month and year, not month alone', () => {
-    // Month-only would merge July 2025 into July 2026.
-    expect(view).toMatch(/d\.getFullYear\(\) === yearFilter && d\.getMonth\(\) \+ 1 === monthFilter/);
+  it('keeps no second date rule inline', () => {
+    // A local re-implementation is how the two would diverge silently.
+    expect(view).not.toMatch(/d\.getFullYear\(\) === yearFilter/);
+    expect(view).not.toMatch(/const reportDate = /);
   });
 
-  it('survives an unparseable date instead of throwing', () => {
-    expect(view).toMatch(/Number\.isNaN\(d\.getTime\(\)\)/);
+  /**
+   * REVERSED, deliberately, and the old reasoning is kept here because it was
+   * not wrong — it was just outweighed.
+   *
+   * It used to read: "narrows only completed vehicles, so open work stays
+   * visible", on the grounds that a month filter hiding live jobs would make
+   * the page useless for running the floor today.
+   *
+   * What that produced in production: selecting August returned cars received
+   * in March and July, sitting at In Progress and Pending Approval, under a
+   * control labelled COMPLETED IN. The owner reported it as broken, and by
+   * the label it was — 67 rows came back where 18 were completed in the month
+   * asked for.
+   *
+   * The floor view is not lost, because it is the DEFAULT. "Any month" is the
+   * starting state; choosing a month is an explicit reporting action and
+   * clearing it restores the live list.
+   */
+  it('shows only vehicles completed in the selected month', () => {
+    expect(view).toMatch(/if \(monthFilter && !\(isCompleted\(v\) && inSelectedMonth\(v\)\)\) return false;/);
   });
 
-  it('narrows only completed vehicles, so open work stays visible', () => {
-    // A month filter that hid live jobs would make the page useless for its
-    // primary purpose, which is running the floor today.
-    expect(view).toMatch(/if \(monthFilter && isCompleted\(v\) && !inSelectedMonth\(v\)\) return false;/);
+  it('does not let an open job through on its arrival date', () => {
+    // The precise regression: the old predicate tested `isCompleted(v) &&
+    // !inSelectedMonth(v)`, which is false for every open job, so every open
+    // job passed. Banned by shape, not by comment.
+    expect(view).not.toMatch(/monthFilter && isCompleted\(v\) && !inSelectedMonth\(v\)/);
+  });
+
+  it('tells the operator that a month means completed work only', () => {
+    // Otherwise the open-status chips reading zero becomes the next bug
+    // report. The message also names the way back.
+    expect(view).toContain('Completed work only — clear the month to see live jobs');
   });
 });
 
