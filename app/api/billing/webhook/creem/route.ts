@@ -9,6 +9,31 @@ function getAdminDb() {
 }
 
 /** HMAC-SHA256 of the raw body, hex encoded. */
+/**
+ * Keep `profiles.billing_status` in step with the subscription.
+ *
+ * Deliberately does NOT touch `profiles.plan`. `plan` is what planGate reads
+ * to decide access, and demoting it here would take a shop's data away the
+ * moment a card bounced — before any dunning, and `past_due` often resolves
+ * itself on a retry. Losing a month to a lapsed subscriber is a smaller
+ * failure than locking a paying shop out of its own job cards, so that policy
+ * is left alone and flagged rather than changed in passing.
+ *
+ * Failure is logged, never thrown. This runs AFTER the subscription row is
+ * written, and a bookkeeping column must not turn a processed event into a
+ * retried one — Creem would resend, and the customer's real state is already
+ * correct in shop_subscriptions.
+ */
+async function syncBillingStatus(
+  db: ReturnType<typeof getAdminDb>,
+  userId: string | null,
+  status: 'active' | 'cancelled' | 'past_due',
+): Promise<void> {
+  if (!userId) return;
+  const { error } = await db.from('profiles').update({ billing_status: status }).eq('id', userId);
+  if (error) console.error('[billing] profiles.billing_status sync failed:', status, error.message);
+}
+
 async function hmacHex(rawBody: string, secret: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -256,9 +281,33 @@ export async function POST(req: NextRequest) {
         // still answered 200, and Creem — correctly — never retried. The
         // customer was charged, the logs were clean, and nothing happened.
         if (userId) {
+          /**
+           * `billing_status` is written here too, and that is a repair.
+           *
+           * The column was only ever set by `syncSubscriptionFromProvider` in
+           * lib/billing/billing-service.ts, which is reached from
+           * /api/webhooks/creem — a SECOND Creem route that Creem does not
+           * call, is absent from PUBLIC_PATHS in proxy.ts, and would be
+           * answered 401 by the auth proxy if it ever were called. Its table,
+           * `subscriptions`, holds zero rows; the live route's
+           * `shop_subscriptions` holds the real ones.
+           *
+           * So `billing_status` read 'inactive' for all seventeen profiles,
+           * including paying customers and every internal pro account. Nothing
+           * gates on it today, which is the only reason that was harmless —
+           * and precisely what makes it dangerous. It is a plausible-looking
+           * column, and the day anyone writes `WHERE billing_status =
+           * 'active'` every customer is locked out at once, starting with the
+           * owner.
+           *
+           * Setting it here makes the column true, so that check would work
+           * rather than lock the estate out. `shop_subscriptions.status`
+           * remains the authority; this is the copy planGate-era code reads
+           * from, kept honest.
+           */
           const { error, count } = await db
             .from('profiles')
-            .update({ plan: planKey }, { count: 'exact' })
+            .update({ plan: planKey, billing_status: 'active' }, { count: 'exact' })
             .eq('id', userId);
           if (error) throw new Error(`profiles.plan update failed: ${error.message}`);
           // Zero rows matched is not an error to PostgREST, but it means the
@@ -335,6 +384,7 @@ export async function POST(req: NextRequest) {
           updated_at:   new Date().toISOString(),
         }).eq('shop_id', shopId);
         if (error) throw new Error(`cancellation update failed: ${error.message}`);
+        await syncBillingStatus(db, userId, 'cancelled');
 
       } else if (shopId && (eventType === 'subscription.past_due' || eventType === 'subscription.unpaid')) {
         const { error } = await db.from('shop_subscriptions').update({
@@ -343,6 +393,7 @@ export async function POST(req: NextRequest) {
           updated_at:  new Date().toISOString(),
         }).eq('shop_id', shopId);
         if (error) throw new Error(`past_due update failed: ${error.message}`);
+        await syncBillingStatus(db, userId, 'past_due');
       }
 
       if (eventRow?.id) {

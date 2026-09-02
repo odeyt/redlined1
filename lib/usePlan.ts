@@ -72,13 +72,40 @@ export function usePlan() {
 
         if (data && !error) {
           setProfileLoaded(true);
-          // Internal D1 shops are always 'pro' — bypass all plan/trial checks
-          if (data.shop_id && INTERNAL_SHOP_IDS.has(data.shop_id)) {
-            setStatus('pro');
-            setLoading(false);
-            return;
-          }
           const s = getPlanStatus(data.plan, data.trial_ends_at);
+
+          /**
+           * Internal D1 shops are always 'pro'.
+           *
+           * This used to read `profiles.shop_id`, which NOTHING WRITES — it is
+           * null on 16 of 17 profiles, including every D1 account — so the
+           * bypass had never once fired. It went unnoticed because those
+           * accounts carry plan='pro' anyway and took the ordinary paid path,
+           * which is the only reason a dead safety net looked like a working
+           * one.
+           *
+           * `shop_users` is the real membership record, and the only one that
+           * can answer for someone in two shops — which every D1 account is,
+           * and which a single `profiles.shop_id` could never represent.
+           *
+           * Checked only when the plan has NOT already granted pro: that is
+           * exactly when the bypass matters, and it keeps the extra query off
+           * the path every paying customer takes.
+           */
+          if (s !== 'pro') {
+            const { data: memberships } = await supabase
+              .from('shop_users')
+              .select('shop_id')
+              .eq('user_id', user.id);
+            const internal = (memberships ?? []).some(
+              (m: { shop_id: string }) => INTERNAL_SHOP_IDS.has(m.shop_id));
+            if (internal) {
+              setStatus('pro');
+              setLoading(false);
+              return;
+            }
+          }
+
           setStatus(s);
           if (s === 'trial') setDaysLeft(trialDaysLeft(data.trial_ends_at));
           // plan='free' means the user was explicitly provisioned as Free Forever,
