@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds, assertShopOwner } from './shopStore';
+import { visibleShops, type ArchivableShop } from './shops/visibleShops';
 
 export interface Shop {
   id: string;
@@ -170,10 +171,22 @@ export function useShop() {
       const shopIds = (suRows ?? []).map((r: Record<string, unknown>) => r.shop_id as string).filter(Boolean);
 
       const { data: shopRows } = shopIds.length > 0
-        ? await supabase.from('shops').select('id, name').in('id', shopIds)
+        ? await supabase.from('shops').select('id, name, archived_at').in('id', shopIds)
         : { data: [] };
 
-      const data = shopRows ?? [];
+      /**
+       * Archived shops drop out of the picker — unless that would leave the
+       * user with none.
+       *
+       * The guard is not defensive tidiness. Below, an empty list falls
+       * through to provisioning, and an active shop missing from the list
+       * sends the user to `list[0]` and reloads the page. So filtering an
+       * archived-only account down to nothing would turn an operator's
+       * tidying action into a lockout on a reload loop, with nothing on
+       * screen saying why. The rule lives in lib/shops/visibleShops.ts where
+       * it is tested by being run.
+       */
+      const data = visibleShops((shopRows ?? []) as ArchivableShop[]);
 
       if (data && data.length > 0) {
         const list: Shop[] = data as Shop[];
