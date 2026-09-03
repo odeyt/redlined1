@@ -26,6 +26,10 @@ import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstima
 import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
 import { fetchRepairOrders, deleteRepairOrder } from '@/services/repairOrderService';
 import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { useShopIdentity } from '@/lib/shops/useShopIdentity';
+import { ShopIdentityCard } from '@/features/shops/ShopIdentityCard';
+import { ShopIdentityBlockedDialog } from '@/features/shops/ShopIdentityBlockedDialog';
+import { SHOP_IDENTITY_INCOMPLETE, type ShopIdentityField } from '@/lib/shops/shopIdentity';
 import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
 import { FilterPills } from '@/components/FilterPills';
@@ -107,6 +111,16 @@ export function InvoicesView() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
+  /**
+   * Whether this shop may put its name on a customer document.
+   *
+   * Asked of the server, not derived from `shopSettings` above — that object
+   * substitutes "My Shop" for a missing name, so deriving readiness from it
+   * would read a value that had already been invented.
+   */
+  const identity = useShopIdentity(getShopId());
+  const [identityBlocked, setIdentityBlocked] =
+    useState<{ action: string; missing?: ShopIdentityField[] } | null>(null);
   const [invoicePayments, setInvoicePayments] = useState<Payment[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
@@ -245,7 +259,40 @@ export function InvoicesView() {
 
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3500); }
 
+  /**
+   * Leaves the operator exactly where they were, on the invoice they were
+   * working on, and takes them to the form that fixes the problem.
+   *
+   * `refresh()` on return means the card and the gate clear the moment the
+   * profile is complete, without a reload — the operator saves, comes back,
+   * and Print works.
+   */
+  function openShopSettings() {
+    setIdentityBlocked(null);
+    dispatch({ type: 'SET_MODULE', module: 'settings' });
+  }
+
+  /**
+   * The gate, in ONE place for both buttons.
+   *
+   * Print and Print/PDF both land in printInvoice, and email lands in
+   * handleSendEmail. Checking in each button instead would be two more places
+   * to forget — which is how three different surfaces ended up inventing three
+   * different names for a shop that had none.
+   *
+   * Returns true when the caller should stop.
+   */
+  function blockedForIdentity(action: string): boolean {
+    if (identity.loading || identity.ready) return false;
+    setIdentityBlocked({ action });
+    return true;
+  }
+
   async function printInvoice(inv: InvoiceFull, t: ReturnType<typeof calculateTotals>, payments: Payment[]) {
+    // Nothing is generated for a shop that cannot put its own name on it.
+    // The invoice itself is untouched; only the output is withheld.
+    if (blockedForIdentity('printed')) return;
+
     // Last gate before a customer sees it. An invoice that lists work but
     // totals zero is a quantity that never got filled in — printing it either
     // loses the shop the job's revenue or has to be retracted. The editor
@@ -734,6 +781,7 @@ export function InvoicesView() {
 
   async function handleSendEmail() {
     if (!emailModal) return;
+    if (blockedForIdentity('sent')) return;
     setEmailModal(m => m ? { ...m, sending: true } : null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -753,7 +801,26 @@ export function InvoicesView() {
           customerId: emailModal.customerId,
         }),
       });
-      const json = await res.json() as { sentTo?: string; emailSaved?: boolean; error?: string };
+      const json = await res.json() as {
+        sentTo?: string; emailSaved?: boolean; error?: string;
+        code?: string; missingFields?: ShopIdentityField[];
+      };
+
+      /**
+       * The server is the authority, and it can disagree with the browser.
+       *
+       * The client check above uses an answer fetched when the view loaded. If
+       * the profile changed since — or someone reached this by other means —
+       * the route still refuses, and the operator gets the same explanation
+       * rather than a raw error string. `refresh()` re-syncs the stale copy.
+       */
+      if (res.status === 409 && json.code === SHOP_IDENTITY_INCOMPLETE) {
+        setEmailModal(m => m ? { ...m, sending: false } : null);
+        identity.refresh();
+        setIdentityBlocked({ action: 'sent', missing: json.missingFields });
+        return;
+      }
+
       if (!res.ok) throw new Error(json.error);
       const wantSave = emailModal.saveEmail && isNewEmail && !!emailModal.customerId;
       let emailSaved = json.emailSaved ?? false;
@@ -877,6 +944,25 @@ export function InvoicesView() {
     <>
       <style>{`@keyframes clonePulse{0%,100%{box-shadow:0 2px 8px rgba(255,107,0,0.45)}50%{box-shadow:0 4px 20px rgba(255,107,0,0.75),0 0 0 4px rgba(255,107,0,0.15)}}`}</style>
       {toast && <div className="toast toast-visible">{toast}</div>}
+
+      {/* Above the list, where it is seen before a document is attempted
+          rather than after it is refused. Renders nothing once the profile is
+          complete, and nothing for a role that could not fix it. */}
+      <ShopIdentityCard
+        missingFields={identity.missingFields}
+        role={identity.role}
+        loading={identity.loading}
+        onOpenSettings={openShopSettings}
+      />
+
+      <ShopIdentityBlockedDialog
+        open={identityBlocked !== null}
+        missingFields={identityBlocked?.missing ?? identity.missingFields}
+        role={identity.role}
+        action={identityBlocked?.action ?? 'produced'}
+        onClose={() => setIdentityBlocked(null)}
+        onOpenSettings={openShopSettings}
+      />
 
       {/* Stats */}
       <div className="grid cols-4" style={{ marginBottom: 16 }}>

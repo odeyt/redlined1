@@ -1,3 +1,5 @@
+import { loadShopIdentity } from '@/lib/shops/shopIdentityServer';
+import { SHOP_IDENTITY_INCOMPLETE, describeMissing } from '@/lib/shops/shopIdentity';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
@@ -167,9 +169,33 @@ export async function POST(req: NextRequest) {
     const jwt = (req.headers.get('authorization') ?? '').replace('Bearer ', '').trim();
     const db = await getServerDb(jwt || undefined);
 
-    // Fetch shop settings
+    /**
+     * A document does not leave this shop without the shop's own identity on
+     * it.
+     *
+     * Enforced HERE, not only in the browser, so a direct POST is refused the
+     * same way a click is. Reproduced before this was written: a shop with no
+     * settings row sent an invoice headed "Redlined1" — our product name on
+     * their customer's document — and this very route answered PGRST116 from
+     * the `.single()` below, which told nobody anything.
+     *
+     * The refusal is machine-readable and names the missing fields, so the UI
+     * can offer the exact repair rather than a generic failure.
+     */
+    const identity = await loadShopIdentity(shopId);
+    if (!identity.ready) {
+      return NextResponse.json({
+        code: SHOP_IDENTITY_INCOMPLETE,
+        error: `Add your ${describeMissing(identity.missingFields)} before sending documents to customers.`,
+        missingFields: identity.missingFields,
+        reasonCode: identity.reasonCode,
+      }, { status: 409 });
+    }
+
+    // Fetch shop settings. maybeSingle, not single: a missing row is a state
+    // this route now refuses above rather than a database error to raise.
     const { data: shop } = await db.from('shops').select('name').eq('id', shopId).single();
-    const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', shopId).single();
+    const { data: settings } = await db.from('shop_settings').select('*').eq('shop_id', shopId).maybeSingle();
     const shopName: string = (shop as { name?: string } | null)?.name ?? 'My Shop';
     const shopAddress: string = (settings as Record<string, unknown> | null)?.address as string ?? '';
     const shopPhone: string   = (settings as Record<string, unknown> | null)?.phone as string ?? '';

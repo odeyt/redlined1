@@ -158,7 +158,30 @@ describe('no script can spend quota unaccounted, or in CI', () => {
   it('no script is wired into the test suite', () => {
     // A live provider call in CI is a quota that disappears by the 12th.
     const jestConfig = read('jest.config.ts');
+
+    // `scripts` is not a root, so nothing under it is even looked at.
     expect(jestConfig).not.toContain('scripts');
-    expect(jestConfig).toContain("testMatch: ['**/__tests__/**/*.test.ts']");
+
+    /**
+     * The pattern stays confined to `__tests__` directories.
+     *
+     * This asserted the literal `testMatch: ['**\/__tests__/**\/*.test.ts']`,
+     * which broke when M-ACTIVATION1 widened it to `.test.ts?(x)` so the
+     * repo's first component-rendering tests could be collected at all.
+     *
+     * The literal was a proxy for the property that actually matters — a
+     * script must never be picked up — and that property is unchanged: the
+     * pattern still requires a `__tests__` segment, and `scripts/` is still
+     * outside `roots`. Asserted directly now, so a future widening is judged
+     * on whether it could reach a script rather than on whether the string
+     * moved.
+     */
+    const testMatch = jestConfig.match(/testMatch: \[([^\]]+)\]/)?.[1] ?? '';
+    expect(testMatch).toContain('__tests__');
+    expect(testMatch).not.toContain('scripts');
+    // No pattern may match outside a __tests__ directory.
+    for (const pattern of testMatch.split(',').map(s => s.trim()).filter(Boolean)) {
+      expect(pattern).toMatch(/__tests__/);
+    }
   });
 });

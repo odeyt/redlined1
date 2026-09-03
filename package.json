@@ -60,6 +60,9 @@
   "devDependencies": {
     "@jest/globals": "^30.4.1",
     "@playwright/test": "^1.61.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
     "@types/dotenv": "^6.1.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
@@ -72,6 +75,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.2.9",
     "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.5.1",
     "pdfkit": "^0.19.1",
     "pg": "^8.23.0",
     "sharp": "^0.35.0",
