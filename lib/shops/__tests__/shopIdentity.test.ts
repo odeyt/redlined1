@@ -198,7 +198,15 @@ describe('the migration creates the row transactionally and invents nothing', ()
 
   it('a trigger on shops creates the settings row', () => {
     expect(sql).toMatch(/AFTER INSERT ON public\.shops/);
-    expect(sql).toMatch(/INSERT INTO public\.shop_settings \(shop_id\)/);
+    /**
+     * This required the BARE `INSERT (shop_id)` — the exact form that takes
+     * the 'Redline' column default. Written before that default was known, it
+     * would have failed the corrected migration and passed the broken one.
+     *
+     * The property is that the trigger inserts a settings row, not which
+     * columns it names; the blank VALUES are asserted below.
+     */
+    expect(sql).toMatch(/INSERT INTO public\.shop_settings \(shop_id/);
   });
 
   it('is idempotent, and has the constraint that makes it so', () => {
@@ -264,8 +272,58 @@ describe('the trigger must not let a column default stand in for identity', () =
 
   it('the probe proves the row is blank, not merely present', () => {
     // Counting rows would have passed while every one of them said "Redline".
-    expect(sql).toMatch(/RAISE EXCEPTION 'shops_create_settings wrote invented identity instead of blanks'/);
-    expect(sql).toMatch(/coalesce\(company_name, ''\) = ''/);
+    expect(sql).toMatch(/wrote invented identity instead of blanks/);
+    expect(sql).toMatch(/got_name <> '' OR got_address <> '' OR got_phone <> ''/);
+    // And it reports WHAT it found, so a failure names the value.
+    expect(sql).toMatch(/name=% address=% phone=%/);
+  });
+
+  /**
+   * The apply ORDER, and why it is a correctness property rather than tidiness.
+   *
+   * The trigger's `ON CONFLICT (shop_id)` needs the unique index to exist when
+   * it RUNS. Created trigger-first inside one transaction that is invisible.
+   * Applied separately — which is how this actually reached production — a
+   * trigger with no matching constraint raises on EVERY insert into `shops`,
+   * so signup stops working for everyone.
+   *
+   * The index therefore goes first, and the trigger, the statement that can
+   * break signup, goes last.
+   */
+  it('creates the unique index before the trigger that depends on it', () => {
+    const statements = sql.replace(/^\s*--.*$/gm, '');
+    const index = statements.indexOf('CREATE UNIQUE INDEX');
+    const trigger = statements.indexOf('CREATE TRIGGER');
+    expect(index).toBeGreaterThan(-1);
+    expect(trigger).toBeGreaterThan(-1);
+    expect(index).toBeLessThan(trigger);
+  });
+
+  /**
+   * The probe must not share a transaction with the repair.
+   *
+   * It did, and the probe failed, so the rollback took the repair with it.
+   * Production afterwards: trigger 0, function 0, index 0 — nothing applied,
+   * including the CREATE FUNCTION that ran first. A verification step that can
+   * destroy what it verifies reports "migration failed" when the truth is
+   * "migration was undone by its own test".
+   */
+  it('does not wrap the repair and the probe in one transaction', () => {
+    const statements = sql.replace(/^\s*--.*$/gm, '');
+    // A bare BEGIN;/COMMIT; is a transaction. plpgsql's own BEGIN (no
+    // semicolon, inside $fn$/$probe$) is block structure and stays.
+    expect(statements).not.toMatch(/^\s*BEGIN;\s*$/m);
+    expect(statements).not.toMatch(/^\s*COMMIT;\s*$/m);
+  });
+
+  it('the probe removes what it creates on every exit path', () => {
+    const probe = sql.slice(sql.indexOf('DO $probe$'));
+    // Three RAISE EXCEPTION paths after the shop exists, plus the success
+    // path: each must delete the probe shop before leaving.
+    const raises = probe.match(/RAISE EXCEPTION/g) ?? [];
+    const deletes = probe.match(/DELETE FROM public\.shops WHERE id = probe_shop/g) ?? [];
+    // One RAISE is the insert failure, before any shop exists to clean up.
+    expect(deletes.length).toBe(raises.length - 1 + 1);
   });
 
   it("and 'Redline' is not a name a shop can be ready with by default", () => {
