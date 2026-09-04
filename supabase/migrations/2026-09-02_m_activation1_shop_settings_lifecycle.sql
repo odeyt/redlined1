@@ -60,11 +60,28 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- ON CONFLICT makes this idempotent: a retried provision, a restored
-  -- backup, or a shop whose settings were created by the repair path below
-  -- all converge on one row rather than raising.
-  INSERT INTO public.shop_settings (shop_id)
-  VALUES (NEW.id)
+  /**
+   * The three identity columns are written EXPLICITLY BLANK, and that is the
+   * difference between this fixing the bug and re-creating it.
+   *
+   * `shop_settings.company_name` carries a column DEFAULT of 'Redline'.
+   * Inserting only `shop_id` therefore produces a row whose business name is
+   * our own product name — discovered by probing production, where a bare
+   * insert came back reading `company_name: "Redline"`.
+   *
+   * A readiness check sees that as a perfectly good name. A shop would then
+   * fill in its address and telephone, be marked ready, and print invoices
+   * headed "Redline" — which is the exact fault this milestone exists to end,
+   * re-introduced by its own fix and harder to spot, because nothing would be
+   * missing any more.
+   *
+   * '' rather than NULL so this holds whether or not the columns are NOT
+   * NULL, and because the readiness rule treats blank and whitespace alike.
+   */
+  INSERT INTO public.shop_settings (shop_id, company_name, address, phone)
+  VALUES (NEW.id, '', '', '')
+  -- Idempotent: a retried provision, a restored backup, or a shop whose
+  -- settings were created by the repair path all converge on one row.
   ON CONFLICT (shop_id) DO NOTHING;
   RETURN NEW;
 END;
@@ -101,6 +118,18 @@ BEGIN
 
   IF settings_count <> 1 THEN
     RAISE EXCEPTION 'shops_create_settings did not fire: expected 1 settings row, found %', settings_count;
+  END IF;
+
+  -- The row must be BLANK, not defaulted. company_name defaults to 'Redline',
+  -- so a trigger that let the default stand would mark every new shop as
+  -- having a business name it never chose.
+  PERFORM 1 FROM public.shop_settings
+  WHERE shop_id = probe_shop
+    AND coalesce(company_name, '') = ''
+    AND coalesce(address, '') = ''
+    AND coalesce(phone, '') = '';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'shops_create_settings wrote invented identity instead of blanks';
   END IF;
 
   -- Idempotency: a second insert of the same settings row must not raise.

@@ -211,14 +211,66 @@ describe('the migration creates the row transactionally and invents nothing', ()
     expect(sql).toMatch(/RAISE EXCEPTION 'shop_settings is not idempotent/);
   });
 
-  it('writes only shop_id — no invented identity', () => {
+  it('writes no invented identity', () => {
+    /**
+     * Asserted on the VALUES, not the column names.
+     *
+     * This banned the names outright, which was wrong: the trigger has to name
+     * company_name, address and phone precisely so it can write them BLANK and
+     * override the 'Redline' column default. Banning the names would have
+     * forced the bare insert that takes the default — the very bug.
+     *
+     * What must never appear is a non-empty literal in those columns.
+     */
     const body = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION'), sql.indexOf('DROP TRIGGER'));
-    expect(body).not.toMatch(/company_name|address|phone|tax|owner_id/);
+    const values = body.match(/VALUES \(([^)]*)\)/)?.[1] ?? '';
+    // NEW.id plus three empty strings, and nothing else.
+    expect(values.replace(/\s/g, '')).toBe("NEW.id,'','',''");
+    // No tax or owner information is touched at all.
+    expect(body).not.toMatch(/tax|owner_id/);
   });
 
   it('does not bulk-write production data', () => {
     // The backfill is present as a comment for approval, never executed.
     const statements = sql.replace(/^\s*--.*$/gm, '');
     expect(statements).not.toMatch(/INSERT INTO public\.shop_settings \(shop_id\)\s*\n\s*SELECT/);
+  });
+});
+
+describe('the trigger must not let a column default stand in for identity', () => {
+  const sql = readFileSync(
+    join(__dirname, '..', '..', '..',
+      'supabase/migrations/2026-09-02_m_activation1_shop_settings_lifecycle.sql'), 'utf8');
+
+  /**
+   * Found by probing production: `shop_settings.company_name` carries a column
+   * DEFAULT of 'Redline'. A bare `INSERT (shop_id)` therefore produces a row
+   * whose business name is our own product name.
+   *
+   * The readiness rule would accept that as a real name. The shop would fill
+   * in address and telephone, be marked ready, and print invoices headed
+   * "Redline" — this milestone's original bug, re-created by its own fix and
+   * harder to find, because nothing would read as missing.
+   */
+  it('writes the identity columns explicitly blank', () => {
+    expect(sql).toMatch(/INSERT INTO public\.shop_settings \(shop_id, company_name, address, phone\)/);
+    expect(sql).toMatch(/VALUES \(NEW\.id, '', '', ''\)/);
+  });
+
+  it('never inserts shop_id alone, which would take the default', () => {
+    const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION'), sql.indexOf('DROP TRIGGER'));
+    expect(fn).not.toMatch(/INSERT INTO public\.shop_settings \(shop_id\)\s*\n\s*VALUES \(NEW\.id\)/);
+  });
+
+  it('the probe proves the row is blank, not merely present', () => {
+    // Counting rows would have passed while every one of them said "Redline".
+    expect(sql).toMatch(/RAISE EXCEPTION 'shops_create_settings wrote invented identity instead of blanks'/);
+    expect(sql).toMatch(/coalesce\(company_name, ''\) = ''/);
+  });
+
+  it("and 'Redline' is not a name a shop can be ready with by default", () => {
+    // The behavioural consequence, stated against the rule itself: a blank
+    // name is missing however the blank arrived.
+    expect(evaluateShopIdentity('s', { company_name: '', address: 'x', phone: 'y' }).ready).toBe(false);
   });
 });
