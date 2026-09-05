@@ -481,37 +481,29 @@ export function PartsView() {
   }
 
   /**
-   * Stock moves at ONE location.
+   * Stock is one shared pool across both locations, so these stay mirror-wide
+   * and the local list is matched on part number alone — every row carrying
+   * this part number moved, not just the one on screen.
    *
-   * These wrote unscoped, so a part number stocked at both D1 Imports
-   * locations had both rows set to the same absolute quantity — reserve a
-   * filter here and the other location's count silently changed to match.
-   * The local list is matched on shop too, for the same reason: two rows share
-   * a part number and only one of them moved.
+   * Photos are the opposite and are scoped per location; see handlePhotoUpload.
    */
   async function handleReserve(p: Part) {
     if (p.quantity <= 0) return;
     try {
-      const newQ = await reservePart(p.partNumber, p.quantity, p.shopId);
-      setParts(prev => prev.map(x =>
-        x.partNumber === p.partNumber && x.shopId === p.shopId ? { ...x, quantity: newQ } : x));
-      if (selected?.partNumber === p.partNumber && selected.shopId === p.shopId) {
-        setSelected(s => s ? { ...s, quantity: newQ } : s);
-      }
+      const newQ = await reservePart(p.partNumber, p.quantity);
+      setParts(prev => prev.map(x => x.partNumber === p.partNumber ? { ...x, quantity: newQ } : x));
+      if (selected?.partNumber === p.partNumber) setSelected(s => s ? { ...s, quantity: newQ } : s);
       notify(`${p.partNumber} reserved. ${newQ} remaining.`);
     } catch (err: unknown) { setError('Reserve failed: ' + errMsg(err)); }
   }
 
-  async function handleUpdateQty(part: Part) {
+  async function handleUpdateQty(partNumber: string) {
     try {
-      await updatePart(part.partNumber, { quantity: newQty }, part.shopId);
-      setParts(prev => prev.map(p =>
-        p.partNumber === part.partNumber && p.shopId === part.shopId ? { ...p, quantity: newQty } : p));
-      if (selected?.partNumber === part.partNumber && selected.shopId === part.shopId) {
-        setSelected(s => s ? { ...s, quantity: newQty } : s);
-      }
+      await updatePart(partNumber, { quantity: newQty });
+      setParts(prev => prev.map(p => p.partNumber === partNumber ? { ...p, quantity: newQty } : p));
+      if (selected?.partNumber === partNumber) setSelected(s => s ? { ...s, quantity: newQty } : s);
       setEditingQty(null);
-      notify(`${part.partNumber} quantity updated to ${newQty}.`);
+      notify(`${partNumber} quantity updated to ${newQty}.`);
     } catch (err: unknown) { setError('Update failed: ' + errMsg(err)); }
   }
 
@@ -1078,7 +1070,7 @@ export function PartsView() {
                             {editingQty === p.partNumber ? (
                               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
                                 <input type="number" value={newQty} onChange={e => setNewQty(Number(e.target.value))} min="0" style={{ width: 52, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }} />
-                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p)}>✓</button>
+                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p.partNumber)}>✓</button>
                                 <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontSize: 12 }} onClick={() => setEditingQty(null)}>✕</button>
                               </div>
                             ) : (

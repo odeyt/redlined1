@@ -231,20 +231,26 @@ export async function deletePart(partNumber: string): Promise<void> {
 }
 
 /**
- * @param shopId  The location holding the stock. Pass it whenever it is known.
- *   Without it the write falls back to the mirror list, and a part number
- *   stocked at both D1 Imports locations had BOTH rows set to the same
- *   absolute quantity — reserve one filter at Location 2 and Location 1's
- *   count silently changed to match.
+ * Stock is ONE pool shared by every mirrored location, and these deliberately
+ * write mirror-wide so the locations stay in step.
+ *
+ * D1 Imports keeps a single count per part number across both locations
+ * (operator, 2026-09-05). Passing a shopId here would scope the write to one
+ * row and let the two drift apart — reserve a filter at Location 2 and
+ * Location 1 would still advertise the old count.
+ *
+ * That is why no shopId parameter is offered: it would read as the safer
+ * option and quietly break the invariant. Contrast deletePartPhoto, where
+ * per-location scoping is exactly what is wanted.
  */
-export async function reservePart(partNumber: string, currentQty: number, shopId?: string): Promise<number> {
+export async function reservePart(partNumber: string, currentQty: number): Promise<number> {
   const newQty = Math.max(0, currentQty - 1);
-  await updatePart(partNumber, { quantity: newQty }, shopId);
+  await updatePart(partNumber, { quantity: newQty });
   return newQty;
 }
 
-export async function updatePartQty(partNumber: string, qty: number, shopId?: string): Promise<void> {
-  await updatePart(partNumber, { quantity: qty }, shopId);
+export async function updatePartQty(partNumber: string, qty: number): Promise<void> {
+  await updatePart(partNumber, { quantity: qty });
 }
 
 export async function uploadPartPhoto(partNumber: string, file: File): Promise<string> {

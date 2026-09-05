@@ -21,9 +21,13 @@
  * Location 2's photos are gone — from Location 2 nobody touched anything, which
  * is exactly what "erased on its own" describes.
  *
- * The edit form already passes `selected.shopId` (PartsView:411). Every other
- * write omitted it, so the same defect applies to stock: reserving a part at
- * one location wrote the SAME absolute quantity to the other.
+ * The edit form already passes `selected.shopId` (PartsView:411). The photo
+ * paths omitted it.
+ *
+ * STOCK IS DIFFERENT and stays mirror-wide — see the second block below. The
+ * two rules live in one file on purpose: side by side it is obvious which
+ * writes are per-location and which are shared, and neither can be "made
+ * consistent" with the other by mistake.
  *
  * These assert the scope actually sent to PostgREST, because the caller cannot
  * see the difference — both forms return success.
@@ -99,26 +103,45 @@ describe('a photo write lands on one location, never across mirrored shops', () 
   });
 });
 
-describe('a stock movement changes one location', () => {
-  it('reservePart writes only to the shop it was reserved at', async () => {
-    // Unscoped, this set BOTH locations to the same absolute quantity: reserve
-    // one filter at Location 2 and Location 1's count silently changed too.
-    await reservePart('FLT-1', 3, SHOP_B);
-    expect(shopScope()).toEqual({ kind: 'one', shopId: SHOP_B });
+/**
+ * Stock is the OPPOSITE of photos, and deliberately so.
+ *
+ * D1 Imports keeps ONE count per part number across both locations — the
+ * operator confirmed this on 2026-09-05: "no stock is for both location keep
+ * them sync." So a reservation must reach every mirrored row; scoping it to
+ * one shop would let the two locations drift apart, and Location 1 would go on
+ * advertising stock that Location 2 had already taken.
+ *
+ * These tests exist because the mirror-wide write LOOKS like the photo bug.
+ * Anyone reading `updatePart(partNumber, { quantity })` with no shopId beside
+ * the scoped photo calls would reasonably "fix" it. It is not a bug, it is the
+ * inventory model, and this is where that is written down.
+ */
+describe('stock is one pool shared by both locations', () => {
+  it('reservePart writes across every mirrored shop', async () => {
+    await reservePart('FLT-1', 3);
+    expect(shopScope()).toEqual({ kind: 'mirror' });
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ quantity: 2 }));
   });
 
-  it('updatePartQty writes only to the shop given', async () => {
-    await updatePartQty('FLT-1', 7, SHOP_B);
-    expect(shopScope()).toEqual({ kind: 'one', shopId: SHOP_B });
+  it('updatePartQty writes across every mirrored shop', async () => {
+    await updatePartQty('FLT-1', 7);
+    expect(shopScope()).toEqual({ kind: 'mirror' });
+  });
+
+  it('offers no shopId parameter that would silently split the pool', () => {
+    // A third argument would read as the safer choice next to the photo calls
+    // and quietly break the shared count. Both take exactly their own args.
+    expect(reservePart.length).toBe(2);
+    expect(updatePartQty.length).toBe(2);
   });
 });
 
 describe('the mirror-wide fallback still exists for callers that cannot know the shop', () => {
   it('omitting shopId scopes to the mirror list, as documented', async () => {
-    // Deliberate: removing the fallback would break callers that legitimately
-    // have only a part number. The bug was never the fallback — it was photo
-    // and stock writes taking it when they knew the shop all along.
+    // Deliberate: stock depends on it, and so do callers that legitimately
+    // hold only a part number. The bug was never the fallback — it was the
+    // PHOTO writes taking it while knowing the shop all along.
     await updatePart('FLT-1', { retail: 10 });
     expect(shopScope()).toEqual({ kind: 'mirror' });
   });
