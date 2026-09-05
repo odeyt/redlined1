@@ -413,14 +413,19 @@ export function PartsView() {
         setSavedMessage(`${form.partNumber} saved — prices in ${savedCurrency}`);
       } else {
         /* create first, then upload any pending photos */
-        await createPart({ ...form, photos: [] });
+        // Scope the photo write to the row just created. Unscoped it matched
+        // the mirror list, so adding a part that ALREADY exists at the other
+        // location replaced that location's photos with this part's — the
+        // clearest form of "it erased on its own", because nobody touched the
+        // other shop.
+        const created = await createPart({ ...form, photos: [] });
         if (pendingPhotos.length > 0) {
           const urls: string[] = [];
           for (const file of pendingPhotos) {
             const url = await uploadPartPhoto(form.partNumber, file);
             urls.push(url);
           }
-          await updatePart(form.partNumber, { photos: urls });
+          await updatePart(form.partNumber, { photos: urls }, created.shopId);
         }
         notify(`${form.partNumber} added to inventory.`);
         setSavedMessage(`${form.partNumber} added — prices in ${savedCurrency}`);
@@ -475,23 +480,38 @@ export function PartsView() {
     } finally { setSaving(false); }
   }
 
+  /**
+   * Stock moves at ONE location.
+   *
+   * These wrote unscoped, so a part number stocked at both D1 Imports
+   * locations had both rows set to the same absolute quantity — reserve a
+   * filter here and the other location's count silently changed to match.
+   * The local list is matched on shop too, for the same reason: two rows share
+   * a part number and only one of them moved.
+   */
   async function handleReserve(p: Part) {
     if (p.quantity <= 0) return;
     try {
-      const newQ = await reservePart(p.partNumber, p.quantity);
-      setParts(prev => prev.map(x => x.partNumber === p.partNumber ? { ...x, quantity: newQ } : x));
-      if (selected?.partNumber === p.partNumber) setSelected(s => s ? { ...s, quantity: newQ } : s);
+      const newQ = await reservePart(p.partNumber, p.quantity, p.shopId);
+      setParts(prev => prev.map(x =>
+        x.partNumber === p.partNumber && x.shopId === p.shopId ? { ...x, quantity: newQ } : x));
+      if (selected?.partNumber === p.partNumber && selected.shopId === p.shopId) {
+        setSelected(s => s ? { ...s, quantity: newQ } : s);
+      }
       notify(`${p.partNumber} reserved. ${newQ} remaining.`);
     } catch (err: unknown) { setError('Reserve failed: ' + errMsg(err)); }
   }
 
-  async function handleUpdateQty(partNumber: string) {
+  async function handleUpdateQty(part: Part) {
     try {
-      await updatePart(partNumber, { quantity: newQty });
-      setParts(prev => prev.map(p => p.partNumber === partNumber ? { ...p, quantity: newQty } : p));
-      if (selected?.partNumber === partNumber) setSelected(s => s ? { ...s, quantity: newQty } : s);
+      await updatePart(part.partNumber, { quantity: newQty }, part.shopId);
+      setParts(prev => prev.map(p =>
+        p.partNumber === part.partNumber && p.shopId === part.shopId ? { ...p, quantity: newQty } : p));
+      if (selected?.partNumber === part.partNumber && selected.shopId === part.shopId) {
+        setSelected(s => s ? { ...s, quantity: newQty } : s);
+      }
       setEditingQty(null);
-      notify(`${partNumber} quantity updated to ${newQty}.`);
+      notify(`${part.partNumber} quantity updated to ${newQty}.`);
     } catch (err: unknown) { setError('Update failed: ' + errMsg(err)); }
   }
 
@@ -505,10 +525,13 @@ export function PartsView() {
         const url = await uploadPartPhoto(selected.partNumber, file);
         urls.push(url);
       }
+      // newPhotos is THIS location's list. Written unscoped it overwrote the
+      // other location's array with it, so adding a photo here emptied the
+      // same part's photos there.
       const newPhotos = [...(selected.photos ?? []), ...urls];
-      await updatePart(selected.partNumber, { photos: newPhotos });
+      await updatePart(selected.partNumber, { photos: newPhotos }, selected.shopId);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected.partNumber ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected.partNumber && p.shopId === selected.shopId ? { ...p, photos: newPhotos } : p));
       notify(`${urls.length} photo${urls.length > 1 ? 's' : ''} uploaded.`);
     } catch (err: unknown) {
       setError('Upload failed: ' + (err instanceof Error ? err.message : ''));
@@ -518,10 +541,10 @@ export function PartsView() {
   async function handleDeletePhoto(url: string) {
     if (!selected) return;
     try {
-      await deletePartPhoto(selected.partNumber, url, selected.photos);
+      await deletePartPhoto(selected.partNumber, url, selected.photos, selected.shopId);
       const newPhotos = selected.photos.filter(u => u !== url);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber && p.shopId === selected!.shopId ? { ...p, photos: newPhotos } : p));
       notify('Photo removed.');
     } catch (err: unknown) {
       setError('Delete photo failed: ' + (err instanceof Error ? err.message : ''));
@@ -1055,7 +1078,7 @@ export function PartsView() {
                             {editingQty === p.partNumber ? (
                               <div style={{ display: 'flex', gap: 4, alignItems: 'center' }} onClick={ev => ev.stopPropagation()}>
                                 <input type="number" value={newQty} onChange={e => setNewQty(Number(e.target.value))} min="0" style={{ width: 52, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }} />
-                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p.partNumber)}>✓</button>
+                                <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--green)', background: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12 }} onClick={() => handleUpdateQty(p)}>✓</button>
                                 <button style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', fontSize: 12 }} onClick={() => setEditingQty(null)}>✕</button>
                               </div>
                             ) : (
