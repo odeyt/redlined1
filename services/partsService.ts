@@ -230,6 +230,19 @@ export async function deletePart(partNumber: string): Promise<void> {
   });
 }
 
+/**
+ * Stock is ONE pool shared by every mirrored location, and these deliberately
+ * write mirror-wide so the locations stay in step.
+ *
+ * D1 Imports keeps a single count per part number across both locations
+ * (operator, 2026-09-05). Passing a shopId here would scope the write to one
+ * row and let the two drift apart — reserve a filter at Location 2 and
+ * Location 1 would still advertise the old count.
+ *
+ * That is why no shopId parameter is offered: it would read as the safer
+ * option and quietly break the invariant. Contrast deletePartPhoto, where
+ * per-location scoping is exactly what is wanted.
+ */
 export async function reservePart(partNumber: string, currentQty: number): Promise<number> {
   const newQty = Math.max(0, currentQty - 1);
   await updatePart(partNumber, { quantity: newQty });
@@ -253,7 +266,7 @@ export async function uploadPartPhoto(partNumber: string, file: File): Promise<s
   return data.publicUrl;
 }
 
-export async function deletePartPhoto(partNumber: string, url: string, allPhotos: string[]): Promise<void> {
+export async function deletePartPhoto(partNumber: string, url: string, allPhotos: string[], shopId?: string): Promise<void> {
   // toStoragePath, not a local slice.
   //
   // The slice this replaced handed storage a PERCENT-ENCODED path, so removing
@@ -270,5 +283,5 @@ export async function deletePartPhoto(partNumber: string, url: string, allPhotos
     if (error) console.error('[parts] could not remove ' + storagePath, error.message);
   }
   const newPhotos = allPhotos.filter(u => u !== url);
-  await updatePart(partNumber, { photos: newPhotos });
+  await updatePart(partNumber, { photos: newPhotos }, shopId);
 }

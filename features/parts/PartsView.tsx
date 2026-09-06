@@ -413,14 +413,19 @@ export function PartsView() {
         setSavedMessage(`${form.partNumber} saved — prices in ${savedCurrency}`);
       } else {
         /* create first, then upload any pending photos */
-        await createPart({ ...form, photos: [] });
+        // Scope the photo write to the row just created. Unscoped it matched
+        // the mirror list, so adding a part that ALREADY exists at the other
+        // location replaced that location's photos with this part's — the
+        // clearest form of "it erased on its own", because nobody touched the
+        // other shop.
+        const created = await createPart({ ...form, photos: [] });
         if (pendingPhotos.length > 0) {
           const urls: string[] = [];
           for (const file of pendingPhotos) {
             const url = await uploadPartPhoto(form.partNumber, file);
             urls.push(url);
           }
-          await updatePart(form.partNumber, { photos: urls });
+          await updatePart(form.partNumber, { photos: urls }, created.shopId);
         }
         notify(`${form.partNumber} added to inventory.`);
         setSavedMessage(`${form.partNumber} added — prices in ${savedCurrency}`);
@@ -475,6 +480,13 @@ export function PartsView() {
     } finally { setSaving(false); }
   }
 
+  /**
+   * Stock is one shared pool across both locations, so these stay mirror-wide
+   * and the local list is matched on part number alone — every row carrying
+   * this part number moved, not just the one on screen.
+   *
+   * Photos are the opposite and are scoped per location; see handlePhotoUpload.
+   */
   async function handleReserve(p: Part) {
     if (p.quantity <= 0) return;
     try {
@@ -505,10 +517,13 @@ export function PartsView() {
         const url = await uploadPartPhoto(selected.partNumber, file);
         urls.push(url);
       }
+      // newPhotos is THIS location's list. Written unscoped it overwrote the
+      // other location's array with it, so adding a photo here emptied the
+      // same part's photos there.
       const newPhotos = [...(selected.photos ?? []), ...urls];
-      await updatePart(selected.partNumber, { photos: newPhotos });
+      await updatePart(selected.partNumber, { photos: newPhotos }, selected.shopId);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected.partNumber ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected.partNumber && p.shopId === selected.shopId ? { ...p, photos: newPhotos } : p));
       notify(`${urls.length} photo${urls.length > 1 ? 's' : ''} uploaded.`);
     } catch (err: unknown) {
       setError('Upload failed: ' + (err instanceof Error ? err.message : ''));
@@ -518,10 +533,10 @@ export function PartsView() {
   async function handleDeletePhoto(url: string) {
     if (!selected) return;
     try {
-      await deletePartPhoto(selected.partNumber, url, selected.photos);
+      await deletePartPhoto(selected.partNumber, url, selected.photos, selected.shopId);
       const newPhotos = selected.photos.filter(u => u !== url);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber && p.shopId === selected!.shopId ? { ...p, photos: newPhotos } : p));
       notify('Photo removed.');
     } catch (err: unknown) {
       setError('Delete photo failed: ' + (err instanceof Error ? err.message : ''));
