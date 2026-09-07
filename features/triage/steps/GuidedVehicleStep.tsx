@@ -5,6 +5,8 @@ import { TriageVehicle } from '@/lib/triage/QuestionTypes';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { isCameraAvailable, scanVinFromFile, startVinVideoScan } from '@/lib/vin/scanVin';
+import { useAppDispatch } from '@/lib/store';
+import { setAlertFocus } from '@/lib/alerts/alertFocus';
 
 /**
  * Guided vehicle intake — one question at a time.
@@ -28,6 +30,12 @@ interface CustomerOption { id: string; name: string; phone?: string | null }
 interface VehicleOption {
   id: string; label: string; make: string; model: string; year: string;
   engine: string; mileage: string; fuelType: string; transmission: string; vin: string; plate: string;
+}
+interface InspectionSummary {
+  id: string; number: string; status: string; vehicle: string; technician: string; date: string;
+}
+interface RepairOrderSummary {
+  id: string; number: string; status: string; vehicle: string; concern: string; date: string;
 }
 
 type Question = {
@@ -109,6 +117,13 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  // Independent of the vehicle prefill above — its own fetch and loading
+  // flag, so a slow or failing history lookup can never delay or break the
+  // proven vehicle-prefill path.
+  const [inspectionHistory, setInspectionHistory] = useState<InspectionSummary[]>([]);
+  const [roHistory, setRoHistory] = useState<RepairOrderSummary[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const dispatch = useAppDispatch();
 
   // Adding a customer without leaving intake. Sending an advisor to the
   // Customers module mid-intake loses the vehicle details already entered.
@@ -163,6 +178,41 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
       vin: v.vin ?? '', plate: v.plate ?? '',
     })));
     setLoadingVehicles(false);
+
+    // A quick-reference history, not the record — light columns, capped to
+    // recent, and never allowed to block or fail the vehicle prefill above.
+    setLoadingHistory(true);
+    const [{ data: insData }, { data: roData }] = await Promise.all([
+      supabase.from('inspections')
+        .select('id, inspection_number, status, vehicle, technician, created_at')
+        .eq('shop_id', shopId).eq('customer_id', c.id)
+        .order('created_at', { ascending: false }).limit(5),
+      supabase.from('repair_orders')
+        .select('id, ro_number, status, vehicle, concern, opened_date')
+        .eq('shop_id', shopId).eq('customer_id', c.id)
+        .order('opened_date', { ascending: false }).limit(5),
+    ]);
+    setInspectionHistory((insData ?? []).map(r => ({
+      id: r.id, number: r.inspection_number ?? '', status: r.status ?? '',
+      vehicle: r.vehicle ?? '', technician: r.technician ?? '',
+      date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+    })));
+    setRoHistory((roData ?? []).map(r => ({
+      id: r.id, number: r.ro_number ?? '', status: r.status ?? '',
+      vehicle: r.vehicle ?? '', concern: r.concern ?? '',
+      date: r.opened_date ? new Date(r.opened_date).toLocaleDateString() : '',
+    })));
+    setLoadingHistory(false);
+  }
+
+  function openInspection(id: string) {
+    setAlertFocus({ entityType: 'inspection', entityId: id, module: 'inspections' });
+    dispatch({ type: 'SET_MODULE', module: 'inspections' });
+  }
+
+  function openRepairOrder(id: string) {
+    setAlertFocus({ entityType: 'repair_order', entityId: id, module: 'repair-orders' });
+    dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
   }
 
   async function saveNewCustomer() {
@@ -573,9 +623,59 @@ export function GuidedVehicleStep({ vehicle, onChange, onNext, onUseForm }: Prop
               </p>
             )}
 
+            {/* ── History — look, don't tap. A quick reference for a returning
+                customer; nothing here fills the intake. See openInspection /
+                openRepairOrder for why a row goes to the real module instead
+                of an inline detail view. ── */}
+            {loadingHistory && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 14 }}>Loading history…</p>}
+            {!loadingHistory && vehicle.customerId && (inspectionHistory.length > 0 || roHistory.length > 0) && (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+                  History
+                </div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {inspectionHistory.map(ins => (
+                    <div key={ins.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          🔍 {ins.number || 'Inspection'} — {ins.status}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {[ins.vehicle, ins.technician, ins.date].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <button onClick={() => openInspection(ins.id)} style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                        Open →
+                      </button>
+                    </div>
+                  ))}
+                  {roHistory.map(ro => (
+                    <div key={ro.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--gi-edge)', background: 'var(--gi-field)' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          🛠️ {ro.number || 'Repair order'} — {ro.status}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {[[ro.vehicle, ro.concern].filter(Boolean).join(' · '), ro.date].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <button onClick={() => openRepairOrder(ro.id)} style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                        Open →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!loadingHistory && vehicle.customerId && inspectionHistory.length === 0 && roHistory.length === 0 && (
+              <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 10 }}>
+                No inspection or repair history yet.
+              </p>
+            )}
+
             <div className="gi-row" style={{ marginTop: 22 }}>
               <button onClick={() => setIdx(0)} style={primary}>Continue</button>
-              <button onClick={() => { onChange({ ...vehicle, customerId: '', customerName: '' }); setIdx(0); }} style={ghost}>
+              <button onClick={() => { onChange({ ...vehicle, customerId: '', customerName: '' }); setInspectionHistory([]); setRoHistory([]); setIdx(0); }} style={ghost}>
                 Skip — walk-in
               </button>
             </div>

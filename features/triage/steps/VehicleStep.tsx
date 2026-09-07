@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { TriageVehicle } from '@/lib/triage/QuestionTypes';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
+import { useAppDispatch } from '@/lib/store';
+import { setAlertFocus } from '@/lib/alerts/alertFocus';
 
 const FUEL_TYPES     = ['Gasoline', 'Diesel', 'Hybrid', 'PHEV', 'Electric', 'E85', 'CNG', 'Unknown'];
 const TRANSMISSIONS  = ['Automatic', 'Manual', 'CVT', 'DCT', 'Unknown'];
@@ -17,6 +19,8 @@ interface Props {
 
 interface CustomerOption { id: string; name: string; phone?: string | null }
 interface VehicleOption  { id: string; label: string; make: string; model: string; year: string; engine: string; mileage: string; fuelType: string; transmission: string; vin: string; plate: string }
+interface InspectionSummary { id: string; number: string; status: string; vehicle: string; technician: string; date: string }
+interface RepairOrderSummary { id: string; number: string; status: string; vehicle: string; concern: string; date: string }
 
 const EMPTY_NEW = { name: '', phone: '', email: '', type: 'Retail' };
 
@@ -24,6 +28,12 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
   const [allCustomers, setAllCustomers]       = useState<CustomerOption[]>([]);
   const [vehicleOptions, setVehicleOptions]   = useState<VehicleOption[]>([]);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+  // Independent of the vehicle prefill above — see GuidedVehicleStep.tsx for
+  // why this is its own fetch and loading flag.
+  const [inspectionHistory, setInspectionHistory] = useState<InspectionSummary[]>([]);
+  const [roHistory, setRoHistory]                 = useState<RepairOrderSummary[]>([]);
+  const [loadingHistory, setLoadingHistory]       = useState(false);
+  const dispatch = useAppDispatch();
 
   // Search state
   const [query, setQuery]           = useState('');
@@ -103,6 +113,41 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
       transmission: v.transmission ?? '',
     })));
     setLoadingVehicles(false);
+
+    // A quick-reference history, not the record — light columns, capped to
+    // recent, and never allowed to block or fail the vehicle prefill above.
+    setLoadingHistory(true);
+    const [{ data: insData }, { data: roData }] = await Promise.all([
+      supabase.from('inspections')
+        .select('id, inspection_number, status, vehicle, technician, created_at')
+        .eq('shop_id', shopId).eq('customer_id', c.id)
+        .order('created_at', { ascending: false }).limit(5),
+      supabase.from('repair_orders')
+        .select('id, ro_number, status, vehicle, concern, opened_date')
+        .eq('shop_id', shopId).eq('customer_id', c.id)
+        .order('opened_date', { ascending: false }).limit(5),
+    ]);
+    setInspectionHistory((insData ?? []).map(r => ({
+      id: r.id, number: r.inspection_number ?? '', status: r.status ?? '',
+      vehicle: r.vehicle ?? '', technician: r.technician ?? '',
+      date: r.created_at ? new Date(r.created_at).toLocaleDateString() : '',
+    })));
+    setRoHistory((roData ?? []).map(r => ({
+      id: r.id, number: r.ro_number ?? '', status: r.status ?? '',
+      vehicle: r.vehicle ?? '', concern: r.concern ?? '',
+      date: r.opened_date ? new Date(r.opened_date).toLocaleDateString() : '',
+    })));
+    setLoadingHistory(false);
+  }
+
+  function openInspection(id: string) {
+    setAlertFocus({ entityType: 'inspection', entityId: id, module: 'inspections' });
+    dispatch({ type: 'SET_MODULE', module: 'inspections' });
+  }
+
+  function openRepairOrder(id: string) {
+    setAlertFocus({ entityType: 'repair_order', entityId: id, module: 'repair-orders' });
+    dispatch({ type: 'SET_MODULE', module: 'repair-orders' });
   }
 
   function handleClearCustomer() {
@@ -110,6 +155,8 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
     setSelectedName('');
     setShowDropdown(false);
     setVehicleOptions([]);
+    setInspectionHistory([]);
+    setRoHistory([]);
     onChange({ ...vehicle, customerId: '', customerName: '' });
   }
 
@@ -192,6 +239,8 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
                   onChange({ ...vehicle, customerId: '', customerName: '' });
                   setSelectedName('');
                   setVehicleOptions([]);
+                  setInspectionHistory([]);
+                  setRoHistory([]);
                 }
               }}
               onFocus={() => setShowDropdown(true)}
@@ -373,6 +422,54 @@ export function VehicleStep({ vehicle, onChange, onNext }: Props) {
             {vehicleOptions.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
           </select>
         </div>
+      )}
+
+      {/* History — look, don't tap. A quick reference for a returning
+          customer; nothing here fills the intake. */}
+      {loadingHistory && (
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>Loading history…</p>
+      )}
+      {!loadingHistory && vehicle.customerId && (inspectionHistory.length > 0 || roHistory.length > 0) && (
+        <div className="field" style={{ marginBottom: 16 }}>
+          <label>History</label>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {inspectionHistory.map(ins => (
+              <div key={ins.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    🔍 {ins.number || 'Inspection'} — {ins.status}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[ins.vehicle, ins.technician, ins.date].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <button type="button" onClick={() => openInspection(ins.id)} style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                  View →
+                </button>
+              </div>
+            ))}
+            {roHistory.map(ro => (
+              <div key={ro.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    🛠️ {ro.number || 'Repair order'} — {ro.status}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[[ro.vehicle, ro.concern].filter(Boolean).join(' · '), ro.date].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                <button type="button" onClick={() => openRepairOrder(ro.id)} style={{ flexShrink: 0, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                  View →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!loadingHistory && vehicle.customerId && inspectionHistory.length === 0 && roHistory.length === 0 && (
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+          No inspection or repair history yet.
+        </p>
       )}
 
       {/* Vehicle fields */}
