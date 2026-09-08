@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
@@ -157,6 +158,13 @@ export function EstimatesView() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  // Where the preview modal is portalled to. Resolved once, in a lazy
+  // initialiser rather than an effect: there is no document on the server, and
+  // nothing is portalled on the first render either way because showPreview
+  // starts false — the modal only exists after a click, long past hydration.
+  const [portalTarget] = useState<HTMLElement | null>(
+    () => (typeof document === 'undefined' ? null : document.body),
+  );
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
   // Exchange rates keyed by base currency, e.g. ratesCache['THB']['USD'] = 0.028
   const ratesCache = useRef<Record<string, Record<string, number>>>({});
@@ -1298,8 +1306,16 @@ export function EstimatesView() {
         )}
       </div>
 
-      {/* ── Preview Modal ── */}
-      {showPreview && selected && totals && (
+      {/* ── Preview Modal ──
+          Rendered into <body> rather than here in the tree. Printing is why:
+          the print stylesheet has to remove the app from the page so it does
+          not generate blank pages around the estimate, and it cannot do that
+          to an ancestor of the thing being printed. As a direct child of
+          <body> the estimate is the only element left in normal flow, so it
+          paginates on its own — an estimate long enough to need a second page
+          used to be cut off at the first, because the only way to stop the
+          app printing was to clamp the whole document to one page height. */}
+      {showPreview && selected && totals && portalTarget && createPortal(
         <div className="print-overlay" onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
           <div className="print-content" style={{ background: '#fff', color: '#111', borderRadius: 14, width: '100%', maxWidth: 720, padding: 48, position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,0.4)' }}>
             {/* UI controls — hidden on print via globals.css .no-print */}
@@ -1415,7 +1431,9 @@ export function EstimatesView() {
               }
               const entries = Object.entries(perCur).filter(([, v]) => v > 0);
               return (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                // print-keep-together: on a multi-page estimate the totals
+                // must not be split across the page break — see globals.css.
+                <div className="print-keep-together" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
                   <div style={{ width: 300 }}>
                     {entries.map(([cur, sub]) => {
                       const isMain = cur === selected.currency;
@@ -1493,7 +1511,8 @@ export function EstimatesView() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        portalTarget,
       )}
 
       {/* Send Modal — Email / SMS / WhatsApp / LINE / Telegram */}
