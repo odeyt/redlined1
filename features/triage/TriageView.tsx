@@ -27,6 +27,9 @@ import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/se
 import { createInspection, createInspectionFromTriage, nextInspectionNumber } from '@/services/inspectionService';
 import { saveVehicle } from '@/services/vehicleService';
 import { saveCustomer } from '@/services/customerService';
+import { createJobCard } from '@/services/jobCardService';
+import { createJobCardFollowOns } from '@/services/jobCardFollowOnService';
+import { urgencyToPriority, categoryToServiceHint } from '@/lib/triage/jobCardTriageAdapter';
 import { getShopId } from '@/lib/shopStore';
 
 import { VehicleStep }    from './steps/VehicleStep';
@@ -271,17 +274,85 @@ export function TriageView() {
       return;
     }
 
-    setSaving(false);
-    showToast('Triage saved — opening Job Cards…');
-    dispatch({
-      type: 'OPEN_NEW_JOB_CARD',
-      prefill: {
-        customerName: session.vehicle.customerName ?? '',
-        customerId:   resolvedCustomerId,
-        vehicle:      `${session.vehicle.year} ${session.vehicle.make} ${session.vehicle.model}`.trim(),
+    const customerName = session.vehicle.customerName?.trim() ?? '';
+    const vehicleLabel = `${session.vehicle.year ?? ''} ${session.vehicle.make} ${session.vehicle.model}`.trim();
+    const serviceType  = categoryToServiceHint(session.categoryId) ?? 'General Service';
+
+    const openPrefilledForm = (message: string) => {
+      showToast(message);
+      dispatch({
+        type: 'OPEN_NEW_JOB_CARD',
+        prefill: {
+          customerName,
+          customerId: resolvedCustomerId,
+          vehicle:    vehicleLabel,
+          notes:      session.complaintSummary,
+        },
+      });
+    };
+
+    // A job card belongs to somebody. With no name there is nobody to attach
+    // it to, so the prefilled form is still the right answer here — the
+    // advisor supplies the name and saves, which creates all three records
+    // through JobCardsView's own path.
+    if (!customerName) {
+      setSaving(false);
+      openPrefilledForm('Triage saved — add a customer to finish the job card…');
+      return;
+    }
+
+    // Created here, not handed off as a form to save.
+    //
+    // "Send to Job Card" used to only open a prefilled form, so the job card
+    // existed just as unsaved fields until somebody pressed Create. An intake
+    // run to the end produced a customer and a vehicle and nothing else —
+    // which is what "ran through intake and no job card, repair order or
+    // quotation appeared" is: not a failure, a step nobody knew was still
+    // outstanding. The repair order and quotation follow from the job card
+    // (services/jobCardFollowOnService.ts), so all three land together.
+    try {
+      const job = await createJobCard({
+        customer:     customerName,
+        vehicle:      vehicleLabel,
+        serviceType,
+        channel:      'Shop bay',
+        location:     '',
+        technicians:  [],
+        priority:     urgencyToPriority(session.techNotes.urgency),
+        approvalCode: '',
         notes:        session.complaintSummary,
-      },
-    });
+      });
+
+      const followOn = await createJobCardFollowOns({
+        jobCardId:    job.id,
+        customerName,
+        customerId:   resolvedCustomerId,
+        vehicle:      vehicleLabel,
+        serviceType,
+        notes:        session.complaintSummary,
+      });
+
+      const made = [
+        job.id,
+        followOn.roNumber,
+        followOn.quotationCreated ? 'parts quotation' : null,
+      ].filter(Boolean).join(' + ');
+
+      showToast(
+        followOn.errors.length
+          ? `Created ${made} — ${followOn.errors.join('; ')}`
+          : `Created ${made} — opening Job Cards…`,
+      );
+      dispatch({ type: 'SET_MODULE', module: 'job-cards' });
+    } catch (e) {
+      // The intake is already saved and the customer and vehicle are real;
+      // falling back to the form means the work so far is not lost.
+      openPrefilledForm(
+        `Could not create the job card: ${e instanceof Error ? e.message : 'unknown error'} — opening the form instead.`,
+      );
+    } finally {
+      setSaving(false);
+    }
   }, [session, startedAt, dispatch]);
 
   const handleSendToInspection = useCallback(async () => {
