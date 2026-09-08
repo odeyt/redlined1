@@ -16,6 +16,7 @@ import {
   fetchJobCards, fetchClosedJobs, createJobCard,
   updateJobCard, closeJob, deleteJobCard, type JobCardFull,
 } from '@/services/jobCardService';
+import { createJobCardFollowOns } from '@/services/jobCardFollowOnService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
@@ -548,6 +549,13 @@ export function JobCardsView() {
       // Notes: prefer Smart Intake edited summary, then prefill notes, then empty
       const notes = smartIntake?.editedComplaintSummary || fNotes || '';
 
+      // Captured before resetCreateForm() clears them below. The closure would
+      // hold the old values anyway, but reading form state after a reset reads
+      // as a bug even when it isn't.
+      const customerName = fCustomer;
+      const customerId   = customers.find(c => c.name === fCustomer)?.id ?? '';
+      const vehicleLabel = fVehicle;
+
       const job = await createJobCard({
         customer: fCustomer,
         vehicle: fVehicle,
@@ -561,7 +569,30 @@ export function JobCardsView() {
       });
       setJobs(prev => [job, ...prev]);
       resetCreateForm();
-      notify(`${job.id} created${smartIntake ? ' with Smart Intake' : ''}.`);
+
+      // Every job card gets its repair order and parts quotation. Deliberately
+      // after the job card is in state and the form is reset: this cannot fail
+      // the job card, and the advisor should see the card land whether or not
+      // the follow-ons do. See services/jobCardFollowOnService.ts.
+      const followOn = await createJobCardFollowOns({
+        jobCardId:    job.id,
+        customerName,
+        customerId,
+        vehicle:      vehicleLabel,
+        serviceType:  fullServiceType || 'General Service',
+        notes,
+      });
+
+      const madeParts = [
+        followOn.roNumber ? `repair order ${followOn.roNumber}` : null,
+        followOn.quotationCreated ? 'parts quotation' : null,
+      ].filter(Boolean).join(' + ');
+
+      notify(
+        followOn.errors.length
+          ? `${job.id} created${madeParts ? ` with ${madeParts}` : ''} — ${followOn.errors.join('; ')}`
+          : `${job.id} created${smartIntake ? ' with Smart Intake' : ''} + ${madeParts}.`,
+      );
       // The card is prepended, so it is the first row — but the intake form
       // is long, and without this you are left scrolled past both the
       // confirmation and the new card, unable to tell whether it saved.
