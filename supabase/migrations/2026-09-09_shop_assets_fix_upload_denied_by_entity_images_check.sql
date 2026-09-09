@@ -2,7 +2,12 @@
 -- shop-assets: fix "new row violates row-level security policy" on EVERY
 -- new photo upload to an entity_images-backed prefix
 --
--- READ THIS BEFORE RUNNING. Drafted 2026-09-09. Not yet applied.
+-- READ THIS BEFORE RUNNING. Drafted 2026-09-09. APPLIED to production
+-- 2026-09-09 (Part 1 run in the SQL editor against redlined1/main), and
+-- confirmed by the operator immediately afterwards: attaching a photo to a
+-- parts quotation works again. That upload is the only proof that matters
+-- here — see 2026-08-12_shop_assets_scoped_writes.sql on why no automated
+-- check in this repo can demonstrate this function returning TRUE.
 --
 -- SYMPTOM
 -- -------
