@@ -50,6 +50,15 @@ export interface LineItem {
    */
   deposit?: number;
   /**
+   * The currency the deposit was actually PAID in, when it differs from the
+   * one the line is quoted in. Absent means "same as the line".
+   *
+   * Kept identical to EstimateLineItem so converting a quote to an order
+   * carries the payment currency rather than silently re-reading a kip deposit
+   * as THB. Resolved through `lineDepositCurrency`, never read raw.
+   */
+  depositCurrency?: string;
+  /**
    * When this line was ordered, and when it arrived. Kept identical to
    * EstimateLineItem so converting a quote to an order carries the dates
    * already recorded rather than resetting them.
@@ -213,6 +222,23 @@ export interface PartsOrder {
   totalCost: number;
   coreCharge: number;
   depositPaid: number;
+  /**
+   * The currency `depositPaid` was handed over in. Absent means the order's
+   * own currency, which is what every deposit recorded before 2026-09-09 was.
+   */
+  depositCurrency?: string;
+  /**
+   * `depositPaid` expressed in the ORDER's currency, when the two differ.
+   *
+   * Supplied by the caller because converting needs a live rate and this file
+   * is synchronous. The alternative — subtracting a kip figure from a THB
+   * total because both are numbers — is the bug this exists to prevent, so
+   * when the currencies differ and no converted value is given, NOTHING is
+   * deducted and the balance stays the full amount. Overstating what is owed
+   * is recoverable; telling a shop a customer has paid when they have not is
+   * not.
+   */
+  depositBaseAmount?: number;
   balanceDue: number;
   status: string;
   paymentStatus: string;
@@ -276,6 +302,7 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
     totalCost:          total,
     coreCharge:         core,
     depositPaid:        deposit,
+    depositCurrency:    (r.deposit_currency as string) || (r.currency as string) || undefined,
     balanceDue:         Number(r.balance_due ?? Math.max(0, total + core - deposit)),
     status:             (r.status as string)           || 'Quote',
     paymentStatus:      (r.payment_status as string)   || 'Unpaid',
@@ -295,13 +322,33 @@ function mapOrder(r: Record<string, unknown>): PartsOrder {
   };
 }
 
-function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
+/**
+ * Exported for tests. It is pure — an order in, a row out — and it holds the
+ * rule that decides whether a deposit is deducted, which is the one thing here
+ * that can silently tell a shop a customer has paid when they have not.
+ */
+export function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
   const items = o.lineItems && o.lineItems.length > 0 ? o.lineItems : [{
     partName: o.partName, partNumber: o.partNumber,
     condition: o.condition, quantity: o.quantity, unitCost: o.unitCost,
   }];
   const total = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
-  const balance = Math.max(0, total + o.coreCharge - o.depositPaid);
+  /**
+   * Only ever deduct money expressed in THIS order's currency.
+   *
+   * A deposit paid in kip against a THB order is a different unit, and
+   * subtracting it at face value is exactly how a THB 900 order with 380,000
+   * kip down came to show a balance of zero. When the caller has a live rate
+   * it passes the converted figure; when it has none, nothing is deducted and
+   * the balance reads full. Overstating what is owed can be corrected on the
+   * spot — telling the shop a customer has paid when they have not cannot.
+   */
+  const sameCurrency = !o.depositCurrency || o.depositCurrency === o.currency;
+  const converted = Number(o.depositBaseAmount);
+  const deductible = sameCurrency
+    ? o.depositPaid
+    : (Number.isFinite(converted) && converted > 0 ? converted : 0);
+  const balance = Math.max(0, total + o.coreCharge - deductible);
   const firstItem = items[0];
   const partNameSummary = items.length === 1
     ? firstItem.partName
@@ -316,6 +363,10 @@ function buildOrderPayload(o: Omit<PartsOrder, 'id' | 'createdAt'>) {
     total_cost: total,
     core_charge: o.coreCharge,
     deposit_paid: o.depositPaid,
+    // Stored as handed over, never converted on the way in: converting here
+    // would bake in whatever the rate was that day with no record of the cash
+    // actually received.
+    deposit_currency: o.depositCurrency || o.currency || null,
     balance_due: balance,
     vendor_name: o.vendorName, vendor_phone: o.vendorPhone, vendor_email: o.vendorEmail,
     status: o.status, payment_status: o.paymentStatus,

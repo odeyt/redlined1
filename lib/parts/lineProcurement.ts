@@ -55,6 +55,20 @@ const VALID = new Set<string>(PROCUREMENT_STATES.map(s => s.value));
 export interface ProcurableLine {
   currency?: string | null;
   deposit?: number | null;
+  /**
+   * The currency the deposit was actually PAID in, when it differs from the
+   * currency the line is quoted in.
+   *
+   * These were assumed to be the same thing, and in Laos they routinely are
+   * not. Reported with a screenshot: a headlight quoted at THB 900 with
+   * 380,000 kip put down. The kip figure was read as THB 380,000, so the sheet
+   * showed a deposit four hundred times the quote and a balance due of zero.
+   *
+   * Optional, and absent means "same as the line" — every quotation written
+   * before this existed is still read correctly, and a single-currency shop
+   * never sees the field do anything.
+   */
+  depositCurrency?: string | null;
   orderState?: string | null;
   orderedAt?: string | null;
   receivedAt?: string | null;
@@ -89,7 +103,29 @@ export function lineDeposit(item: ProcurableLine | null | undefined): number {
 }
 
 /**
+ * The currency a line's deposit was PAID in.
+ *
+ * Falls back to the line's own currency, then the sheet's. A deposit with no
+ * currency of its own is the ordinary case — the customer paid in the currency
+ * the part was quoted in — so the absent field must keep meaning exactly that.
+ */
+export function lineDepositCurrency(
+  item: ProcurableLine | null | undefined,
+  fallbackCurrency: string,
+): string {
+  const paid = (item?.depositCurrency || '').trim();
+  if (paid) return paid;
+  const quoted = (item?.currency || '').trim();
+  if (quoted) return quoted;
+  return fallbackCurrency;
+}
+
+/**
  * Every deposit on the sheet, totalled per currency.
+ *
+ * Grouped by the currency the money was PAID in, which is not always the one
+ * the line is quoted in — a THB line can carry a kip deposit. Grouping by the
+ * line's currency instead is what turned 380,000 kip into THB 380,000.
  *
  * `fallbackCurrency` is used for a line that carries none, matching how line
  * costs are totalled. Currencies with a zero total are omitted, so the caller
@@ -103,7 +139,7 @@ export function depositByCurrency(
   for (const item of items ?? []) {
     const amount = lineDeposit(item);
     if (!amount) continue;
-    const cur = (item.currency || fallbackCurrency || '').trim() || fallbackCurrency;
+    const cur = lineDepositCurrency(item, fallbackCurrency);
     out[cur] = (out[cur] ?? 0) + amount;
   }
   return out;

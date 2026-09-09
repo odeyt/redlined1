@@ -16,6 +16,7 @@ import {
   allowsFraction, MIN_FRACTIONAL_QTY,
 } from '@/services/partsOrderService';
 import { StorageImage } from '@/components/StorageImage';
+import { getExchangeRate } from '@/lib/fx';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchVehicles, fetchVehiclesAll } from '@/services/vehicleService';
 import { createPartsEstimate, ESTIMATE_STATUSES } from '@/services/partsEstimateService';
@@ -119,6 +120,8 @@ type FormState = {
   lineItems: LineItem[];
   vendorName: string; vendorPhone: string; vendorEmail: string;
   coreCharge: number; depositPaid: number;
+  /** Currency the deposit was handed over in; '' means the order's own. */
+  depositCurrency: string;
   totalCost: number; balanceDue: number; paymentStatus: string;
   status: string;
   orderDate: string; etr: string; receivedDate: string;
@@ -131,7 +134,7 @@ type FormState = {
 const EMPTY_ORDER: FormState = {
   lineItems: [{ ...EMPTY_LINE }],
   vendorName: '', vendorPhone: '', vendorEmail: '',
-  coreCharge: 0, depositPaid: 0,
+  coreCharge: 0, depositPaid: 0, depositCurrency: '',
   totalCost: 0, balanceDue: 0, paymentStatus: 'Unpaid',
   status: 'Quote',
   orderDate: today(), etr: '', receivedDate: '',
@@ -143,10 +146,26 @@ const EMPTY_ORDER: FormState = {
 
 const EMPTY_VENDOR = { name: '', phone: '', email: '', website: '', notes: '' };
 
-function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number) {
+/**
+ * @param deductible  The deposit expressed in the ORDER's currency, or null
+ *   when that is not yet known — a kip deposit against a THB order while the
+ *   rate is still loading, or with no rate available at all.
+ *
+ * `null` deducts NOTHING and reports the balance in full. The alternative is
+ * subtracting a kip figure from a THB total because both are numbers, which is
+ * how a THB 900 order with 380,000 kip down came to read "paid". Overstating
+ * what is owed gets corrected at the counter; understating it does not.
+ */
+function calcTotals(items: LineItem[], coreCharge: number, depositPaid: number, deductible: number | null = depositPaid) {
   const total = items.reduce((s, i) => s + i.unitCost * i.quantity, 0);
-  const balance = Math.max(0, total + coreCharge - depositPaid);
-  const payStatus = depositPaid <= 0 ? 'Unpaid' : balance <= 0 ? 'Paid in Full' : 'Partial';
+  const applied = deductible ?? 0;
+  const balance = Math.max(0, total + coreCharge - applied);
+  // Status follows what was actually PAID, not what could be deducted: money
+  // has changed hands even while the rate is still loading, so an order with a
+  // deposit must never read "Unpaid".
+  const payStatus = depositPaid <= 0 ? 'Unpaid'
+    : (deductible !== null && balance <= 0) ? 'Paid in Full'
+    : 'Partial';
   return { totalCost: total, balanceDue: balance, paymentStatus: payStatus };
 }
 
@@ -171,6 +190,22 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   const [showForm, setShowForm]   = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm]           = useState<FormState>(EMPTY_ORDER);
+  /**
+   * Rate from the deposit's currency into the order's.
+   *
+   *   1          same currency, nothing to convert
+   *   number     a live rate
+   *   undefined  still loading
+   *   null       no rate available
+   *
+   * Held in a ref as well as state because the `setForm` updaters below run
+   * inside closures that would otherwise capture a stale rate — the state copy
+   * drives the render, the ref drives the arithmetic. Never defaults to 1 for
+   * an unknown pair: between LAK and THB that is a ~700x error, which would
+   * mark an unpaid order as settled.
+   */
+  const [depositFx, setDepositFx] = useState<number | null | undefined>(1);
+  const depositFxRef              = useRef<number | null | undefined>(1);
   const [saving, setSaving]       = useState(false);
 
   /* confirm modal */
@@ -241,6 +276,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
           condition: firstItem.condition, quantity: firstItem.quantity, unitCost: firstItem.unitCost,
           vendorName: form.vendorName, vendorPhone: form.vendorPhone, vendorEmail: form.vendorEmail,
           coreCharge: form.coreCharge, depositPaid: form.depositPaid,
+          depositCurrency: form.depositCurrency || form.currency,
+          depositBaseAmount: deductibleDeposit(form) ?? undefined,
           totalCost: form.totalCost, balanceDue: form.balanceDue,
           status: form.status, paymentStatus: form.paymentStatus,
           orderDate: form.orderDate, etr: form.etr, receivedDate: form.receivedDate,
@@ -331,10 +368,55 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
     : vehicles;
 
   /* patch form fields and recompute totals */
+  /**
+   * The deposit expressed in the order's currency, or null if that is not
+   * knowable right now.
+   *
+   * One function, used by every path that recomputes totals. Five call sites
+   * each doing their own conversion is how one of them ends up subtracting kip
+   * from baht — the same shape of bug as the deposit derivation that had to be
+   * consolidated in the quotation view.
+   */
+  function deductibleDeposit(state: Pick<FormState, 'depositPaid' | 'depositCurrency' | 'currency'>): number | null {
+    if (!state.depositPaid) return 0;
+    const from = state.depositCurrency || state.currency;
+    if (from === state.currency) return state.depositPaid;
+    const fx = depositFxRef.current;
+    return typeof fx === 'number' ? state.depositPaid * fx : null;
+  }
+
+  // Fetch the rate whenever the deposit's currency or the order's changes, and
+  // recompute the totals once it lands. Async, so the balance says
+  // "Converting…" rather than showing a figure worked out at a guessed rate.
+  useEffect(() => {
+    const from = form.depositCurrency || form.currency;
+    if (from === form.currency) {
+      depositFxRef.current = 1;
+      // Resolved in a microtask, not synchronously in the effect body: a
+      // synchronous setState here is a cascading render and an error under
+      // this repo's lint rules.
+      Promise.resolve().then(() => setDepositFx(1));
+      return;
+    }
+    let cancelled = false;
+    depositFxRef.current = undefined;
+    Promise.resolve().then(() => { if (!cancelled) setDepositFx(undefined); });
+    getExchangeRate(from, form.currency).then(rate => {
+      if (cancelled) return;
+      depositFxRef.current = rate;
+      setDepositFx(rate);
+      setForm(prev => ({
+        ...prev,
+        ...calcTotals(prev.lineItems, prev.coreCharge, prev.depositPaid, deductibleDeposit(prev)),
+      }));
+    });
+    return () => { cancelled = true; };
+  }, [form.depositCurrency, form.currency]);
+
   function setF(patch: Partial<FormState>) {
     setForm(prev => {
       const next = { ...prev, ...patch };
-      const totals = calcTotals(next.lineItems, next.coreCharge, next.depositPaid);
+      const totals = calcTotals(next.lineItems, next.coreCharge, next.depositPaid, deductibleDeposit(next));
       return { ...next, ...totals };
     });
   }
@@ -346,7 +428,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       const lineItems = prev.lineItems.map((item, i) =>
         i === idx ? { ...item, unit, quantity: normalizeQty(item.quantity, unit) } : item
       );
-      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid, deductibleDeposit(prev)) };
     });
   }
 
@@ -355,7 +437,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       const lineItems = prev.lineItems.map((item, i) =>
         i === idx ? { ...item, [field]: value } : item
       );
-      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid, deductibleDeposit(prev)) };
     });
   }
 
@@ -369,7 +451,7 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
   function removeLineItem(idx: number) {
     setForm(prev => {
       const lineItems = prev.lineItems.filter((_, i) => i !== idx);
-      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid) };
+      return { ...prev, lineItems, ...calcTotals(lineItems, prev.coreCharge, prev.depositPaid, deductibleDeposit(prev)) };
     });
   }
 
@@ -383,11 +465,19 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       partName: o.partName, partNumber: o.partNumber,
       condition: o.condition, quantity: o.quantity, unitCost: o.unitCost,
     }];
-    const totals = calcTotals(lineItems, o.coreCharge, o.depositPaid);
+    // '' when the deposit is in the order's own currency, so the selector
+    // shows the order currency and nothing reads as a foreign payment that
+    // isn't one.
+    const depositCurrency = o.depositCurrency && o.depositCurrency !== (o.currency || 'USD')
+      ? o.depositCurrency : '';
+    // The effect above refetches the rate for a foreign deposit and recomputes;
+    // until it lands nothing is deducted rather than a wrong figure being shown.
+    const totals = calcTotals(lineItems, o.coreCharge, o.depositPaid,
+      depositCurrency ? null : o.depositPaid);
     setForm({
       lineItems,
       vendorName: o.vendorName, vendorPhone: o.vendorPhone, vendorEmail: o.vendorEmail,
-      coreCharge: o.coreCharge, depositPaid: o.depositPaid,
+      coreCharge: o.coreCharge, depositPaid: o.depositPaid, depositCurrency,
       ...totals,
       status: o.status, paymentStatus: o.paymentStatus,
       orderDate: o.orderDate, etr: o.etr, receivedDate: o.receivedDate,
@@ -423,6 +513,8 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
       unitCost: form.lineItems.length === 1 ? form.lineItems[0].unitCost : 0,
       vendorName: form.vendorName, vendorPhone: form.vendorPhone, vendorEmail: form.vendorEmail,
       coreCharge: form.coreCharge, depositPaid: form.depositPaid,
+      depositCurrency: form.depositCurrency || form.currency,
+      depositBaseAmount: deductibleDeposit(form) ?? undefined,
       totalCost: form.totalCost, balanceDue: form.balanceDue,
       status: form.status, paymentStatus: form.paymentStatus,
       orderDate: form.orderDate, etr: form.etr, receivedDate: form.receivedDate,
@@ -1488,8 +1580,58 @@ export function PartsOrdersView({ initialFilterGroup }: { initialFilterGroup?: s
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 {field(`Core Charge (${form.currency})`, <input type="number" min={0} step="0.01" value={form.coreCharge || ''} placeholder="0.00" onChange={e => setF({ coreCharge: Number(e.target.value) || 0 })} />)}
-                {field(`Deposit Paid (${form.currency})`, <input type="number" min={0} step="0.01" value={form.depositPaid || ''} placeholder="0.00" onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })} />)}
+                {/* Amount and the currency it was HANDED OVER in. The label
+                    used to hard-code the order's currency, so 380,000 kip
+                    against a THB order was stored as THB 380,000 and the
+                    balance read zero. */}
+                {field('Deposit Paid', (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 92px', gap: 6 }}>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={form.depositPaid || ''}
+                      placeholder="0.00"
+                      onChange={e => setF({ depositPaid: Number(e.target.value) || 0 })}
+                    />
+                    <select
+                      value={form.depositCurrency || form.currency}
+                      aria-label="Currency the deposit was paid in"
+                      onChange={e => setF({
+                        depositCurrency: e.target.value === form.currency ? '' : e.target.value,
+                      })}
+                      style={(form.depositCurrency && form.depositCurrency !== form.currency)
+                        ? { borderColor: 'rgba(245,158,11,0.55)', color: '#b45309', fontWeight: 700 }
+                        : undefined}
+                    >
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                    </select>
+                  </div>
+                ))}
               </div>
+              {/* What the deposit is worth against this order, stated only when
+                  it is actually known. Never a figure at a guessed rate. */}
+              {form.depositPaid > 0 && form.depositCurrency && form.depositCurrency !== form.currency && (
+                <div style={{ marginTop: -4, marginBottom: 12, fontSize: 12 }}>
+                  {depositFx === undefined && (
+                    <span style={{ color: 'var(--muted)' }}>Converting the deposit at today’s rate…</span>
+                  )}
+                  {depositFx === null && (
+                    <span style={{ color: '#b45309' }}>
+                      No {form.depositCurrency}→{form.currency} rate available, so the deposit is not
+                      taken off the balance below. The amount paid is still recorded as
+                      {' '}{fmt(form.depositPaid, form.depositCurrency)}.
+                    </span>
+                  )}
+                  {typeof depositFx === 'number' && (
+                    <span style={{ color: 'var(--muted)' }}>
+                      {fmt(form.depositPaid, form.depositCurrency)} ≈{' '}
+                      <strong style={{ color: 'var(--text)' }}>
+                        {fmt(form.depositPaid * depositFx, form.currency)}
+                      </strong>{' '}
+                      at today’s rate — this is what comes off the balance.
+                    </span>
+                  )}
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <CalcBox label="Parts Total" value={(() => {
                   const map: Record<string, number> = {};

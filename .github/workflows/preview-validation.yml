@@ -69,7 +69,27 @@ jobs:
       # legacy integration, which posts under this SAME environment name —
       # confirmed via the raw API, see docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md).
       # Only the "redlined1" project is configured as a Trusted Source today.
-      - name: Resolve Vercel Preview URL (redlined1 project, redlined1-s-projects scope only)
+      # 2026-09-09: accepts EITHER scope, preferring the team one.
+      #
+      # On 2026-09-09 the team-scoped integration stopped posting a status
+      # altogether. PR #26 that morning carried both URLs; PR #27 hours later
+      # carried only d1-imports. So this step timed out with no test run at
+      # all, and every PR after it would have done the same — the smoke gate
+      # was failing open-ended rather than reporting on the code.
+      #
+      # Preference order, not equivalence. The team scope is still the only
+      # project configured as a Vercel Trusted Source, so its URL is the one
+      # known to pass deployment protection; d1-imports is the stray legacy
+      # integration this filter was written to exclude and is accepted only
+      # when nothing else showed up. Treating them as interchangeable would
+      # silently start smoking a different deployment.
+      #
+      # The fallback is deliberately LOUD: a ::warning:: annotation on the run,
+      # because falling back means the primary integration is not posting and
+      # that is worth fixing at the source rather than living with. A silent
+      # fallback would make this look solved while the real integration stayed
+      # broken indefinitely.
+      - name: Resolve Vercel Preview URL (redlined1 project, team scope preferred)
         id: vercel_preview
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,28 +98,44 @@ jobs:
         run: |
           MAX_ATTEMPTS=20
           SLEEP_SECONDS=15
-          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            URL=""
+          # Attempts before a non-team URL is allowed. The team integration
+          # posted ~29s after the other one when both were healthy, so this
+          # waits far longer than that before settling for the fallback.
+          PREFERRED_ONLY_ATTEMPTS=14
+
+          collect_urls() {
             DEPLOYMENT_IDS=$(gh api "repos/${REPO}/deployments?sha=${SHA}&per_page=100" \
               --jq '.[] | select(.environment == "Preview – redlined1") | .id')
             for id in $DEPLOYMENT_IDS; do
-              MATCH=$(gh api "repos/${REPO}/deployments/${id}/statuses?per_page=100" \
-                --jq '.[] | select(.state=="success") | select(.environment_url | contains("redlined1-s-projects")) | .environment_url' \
-                | head -n 1)
-              if [ -n "$MATCH" ]; then
-                URL="$MATCH"
-                break
-              fi
+              gh api "repos/${REPO}/deployments/${id}/statuses?per_page=100" \
+                --jq '.[] | select(.state=="success") | .environment_url | select(. != null)'
             done
-            if [ -n "$URL" ]; then
-              echo "Resolved redlined1 project preview URL: $URL"
-              echo "url=$URL" >> "$GITHUB_OUTPUT"
+          }
+
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            ALL_URLS=$(collect_urls)
+
+            PREFERRED=$(printf '%s\n' "$ALL_URLS" | grep 'redlined1-s-projects' | head -n 1 || true)
+            if [ -n "$PREFERRED" ]; then
+              echo "Resolved redlined1 preview URL (team scope): $PREFERRED"
+              echo "url=$PREFERRED" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "Attempt ${attempt}/${MAX_ATTEMPTS}: no matching redlined1 preview deployment ready yet, retrying in ${SLEEP_SECONDS}s..."
+
+            if [ "$attempt" -gt "$PREFERRED_ONLY_ATTEMPTS" ]; then
+              FALLBACK=$(printf '%s\n' "$ALL_URLS" | grep 'd1-imports' | head -n 1 || true)
+              if [ -n "$FALLBACK" ]; then
+                echo "::warning::No redlined1-s-projects-scoped preview appeared for ${SHA}; falling back to the d1-imports-scoped deployment (${FALLBACK}). The team-scoped Vercel integration is not posting a deployment status — fix that at the source; this fallback is not a substitute. See docs/deployment/VERCEL_PREVIEW_PROTECTION_BYPASS.md"
+                echo "Resolved redlined1 preview URL (fallback scope): $FALLBACK"
+                echo "url=$FALLBACK" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS}: no usable 'Preview – redlined1' deployment ready yet, retrying in ${SLEEP_SECONDS}s..."
             sleep "$SLEEP_SECONDS"
           done
-          echo "::error::Timed out waiting for a redlined1-s-projects-scoped 'Preview – redlined1' deployment for ${SHA}"
+          echo "::error::Timed out waiting for a 'Preview – redlined1' deployment for ${SHA} in either the redlined1-s-projects or d1-imports scope"
           exit 1
 
       # Vercel replaced the static "Protection Bypass for Automation" secret
