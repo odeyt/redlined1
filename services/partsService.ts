@@ -266,7 +266,60 @@ export async function uploadPartPhoto(partNumber: string, file: File): Promise<s
   return data.publicUrl;
 }
 
-export async function deletePartPhoto(partNumber: string, url: string, allPhotos: string[], shopId?: string): Promise<void> {
+/**
+ * Every photo this part carries, across every mirrored location.
+ *
+ * Read from the database rather than trusting the caller's copy. The browser
+ * holds ONE location's row; writing a list derived from it is what erased the
+ * other location's photos, because a part photographed at Location 2 is simply
+ * absent from Location 1's array.
+ */
+async function mergedPartPhotos(partNumber: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('parts').select('photos').eq('part_number', partNumber).in('shop_id', getShopIds());
+  if (error) throw error;
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const row of data ?? []) {
+    for (const u of (Array.isArray(row.photos) ? row.photos : []) as string[]) {
+      if (!seen.has(u)) { seen.add(u); merged.push(u); }
+    }
+  }
+  return merged;
+}
+
+/**
+ * Add photos to a part at EVERY location that stocks it.
+ *
+ * Photos are shared across locations, like stock and unlike the per-location
+ * scoping this replaced (operator, 2026-09-09). The same filter is the same
+ * filter, so a picture taken at one counter is useful at the other.
+ *
+ * The merge is what makes sharing safe. The obvious implementation —
+ * `[...rowInHand.photos, ...uploaded]` written mirror-wide — is precisely the
+ * bug that started this: it silently drops anything the OTHER location added,
+ * because the row in hand never had it. Reading the union back from the
+ * database first means a write can only ever add.
+ *
+ * Returns the merged list so the caller can render it without a refetch.
+ */
+export async function addPartPhotos(partNumber: string, urls: string[]): Promise<string[]> {
+  const existing = await mergedPartPhotos(partNumber);
+  const merged = [...existing];
+  for (const u of urls) if (!merged.includes(u)) merged.push(u);
+  // Mirror-wide on purpose: every location's row gets the same list.
+  await updatePart(partNumber, { photos: merged });
+  return merged;
+}
+
+/**
+ * @returns the photos remaining, shared across every location.
+ *
+ * Deleting is the one photo operation that SHOULD remove something, and it
+ * removes it everywhere — the file itself is gone from storage, so leaving the
+ * URL on another location's row would only produce a broken image there.
+ */
+export async function deletePartPhoto(partNumber: string, url: string): Promise<string[]> {
   // toStoragePath, not a local slice.
   //
   // The slice this replaced handed storage a PERCENT-ENCODED path, so removing
@@ -282,6 +335,10 @@ export async function deletePartPhoto(partNumber: string, url: string, allPhotos
     // is stuck looking at an image they asked to remove.
     if (error) console.error('[parts] could not remove ' + storagePath, error.message);
   }
-  const newPhotos = allPhotos.filter(u => u !== url);
-  await updatePart(partNumber, { photos: newPhotos }, shopId);
+  // Filter the DATABASE union, not the caller's array: dropping back to one
+  // location's list here would delete the requested photo and quietly take the
+  // other location's photos with it.
+  const newPhotos = (await mergedPartPhotos(partNumber)).filter(u => u !== url);
+  await updatePart(partNumber, { photos: newPhotos });
+  return newPhotos;
 }
