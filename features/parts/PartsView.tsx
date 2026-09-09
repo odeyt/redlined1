@@ -7,7 +7,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { useShop } from '@/lib/useShop';
 import {
   fetchParts, createPart, updatePart, deletePart,
-  reservePart, uploadPartPhoto, deletePartPhoto,
+  reservePart, uploadPartPhoto, deletePartPhoto, addPartPhotos,
   Part, PART_CATEGORIES,
 } from '@/services/partsService';
 import { formatMoney, DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/currencies';
@@ -417,15 +417,16 @@ export function PartsView() {
         // the mirror list, so adding a part that ALREADY exists at the other
         // location replaced that location's photos with this part's — the
         // clearest form of "it erased on its own", because nobody touched the
-        // other shop.
-        const created = await createPart({ ...form, photos: [] });
+        // other shop. addPartPhotos merges instead, so adding a part that
+        // already exists elsewhere keeps the pictures it already had.
+        await createPart({ ...form, photos: [] });
         if (pendingPhotos.length > 0) {
           const urls: string[] = [];
           for (const file of pendingPhotos) {
             const url = await uploadPartPhoto(form.partNumber, file);
             urls.push(url);
           }
-          await updatePart(form.partNumber, { photos: urls }, created.shopId);
+          await addPartPhotos(form.partNumber, urls);
         }
         notify(`${form.partNumber} added to inventory.`);
         setSavedMessage(`${form.partNumber} added — prices in ${savedCurrency}`);
@@ -517,13 +518,13 @@ export function PartsView() {
         const url = await uploadPartPhoto(selected.partNumber, file);
         urls.push(url);
       }
-      // newPhotos is THIS location's list. Written unscoped it overwrote the
-      // other location's array with it, so adding a photo here emptied the
-      // same part's photos there.
-      const newPhotos = [...(selected.photos ?? []), ...urls];
-      await updatePart(selected.partNumber, { photos: newPhotos }, selected.shopId);
+      // addPartPhotos merges against the database, so this cannot drop a photo
+      // the other location added — `selected.photos` is only one location's
+      // view and building the new list from it is what erased them before.
+      // It returns the shared list; every row with this part number now has it.
+      const newPhotos = await addPartPhotos(selected.partNumber, urls);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected.partNumber && p.shopId === selected.shopId ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected.partNumber ? { ...p, photos: newPhotos } : p));
       notify(`${urls.length} photo${urls.length > 1 ? 's' : ''} uploaded.`);
     } catch (err: unknown) {
       setError('Upload failed: ' + (err instanceof Error ? err.message : ''));
@@ -533,10 +534,11 @@ export function PartsView() {
   async function handleDeletePhoto(url: string) {
     if (!selected) return;
     try {
-      await deletePartPhoto(selected.partNumber, url, selected.photos, selected.shopId);
-      const newPhotos = selected.photos.filter(u => u !== url);
+      // The file is gone from storage, so it leaves every location at once —
+      // keeping the URL on the other row would only render a broken image.
+      const newPhotos = await deletePartPhoto(selected.partNumber, url);
       setSelected(s => s ? { ...s, photos: newPhotos } : s);
-      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber && p.shopId === selected!.shopId ? { ...p, photos: newPhotos } : p));
+      setParts(prev => prev.map(p => p.partNumber === selected!.partNumber ? { ...p, photos: newPhotos } : p));
       notify('Photo removed.');
     } catch (err: unknown) {
       setError('Delete photo failed: ' + (err instanceof Error ? err.message : ''));

@@ -1,36 +1,34 @@
 /**
- * A part write must land on ONE shop's row.
+ * A part is ONE item across both locations. Photos and stock are both shared.
  *
  * Reported from Location 2: "i put in pictures for these filter but it erased
  * on its own." Four filters that had photos were showing the empty placeholder.
  *
  * The rows were not corrupted and the images were not broken — the photos
- * array really had been emptied. `updatePart` scopes to `.in('shop_id',
- * getShopIds())` when no shopId is given, and getShopIds() is the MIRROR list:
- * every shop the operator can see. D1 Imports runs two locations that stock the
- * same filters under the same part numbers, so one row per location.
+ * array really had been emptied. D1 Imports runs two locations stocking the
+ * same filters under the same part numbers, so there is one row per location,
+ * and `updatePart` writes across all of them unless given a shopId.
  *
- * The photo handler builds the new array from the row it has in hand and then
- * writes it unscoped:
+ * Writing mirror-wide was never the problem. Writing a list DERIVED FROM ONE
+ * ROW mirror-wide was:
  *
  *   newPhotos = [...selected.photos, ...justUploaded]   // Location 1's list
- *   updatePart(partNumber, { photos: newPhotos })       // writes BOTH rows
+ *   updatePart(partNumber, { photos: newPhotos })       // onto BOTH rows
  *
- * So adding a photo at one location REPLACES the other location's photos with
- * this location's list. Add the first photo to a part at Location 1 and
- * Location 2's photos are gone — from Location 2 nobody touched anything, which
- * is exactly what "erased on its own" describes.
+ * `selected.photos` is one location's view and has never contained what the
+ * other location added, so the write silently deleted it. From Location 2
+ * nobody touched anything — "erased on its own", exactly.
  *
- * The edit form already passes `selected.shopId` (PartsView:411). The photo
- * paths omitted it.
+ * Sharing is therefore expressed as a MERGE read back from the database
+ * (`addPartPhotos`), never as a replace. A write can only ever add. The one
+ * operation that removes is an explicit delete, which removes everywhere
+ * because the file itself is gone from storage.
  *
- * STOCK IS DIFFERENT and stays mirror-wide — see the second block below. The
- * two rules live in one file on purpose: side by side it is obvious which
- * writes are per-location and which are shared, and neither can be "made
- * consistent" with the other by mistake.
+ * Scoping photos per location was tried first and rejected: the operator wants
+ * one picture of one filter, not two counters photographing it separately.
  *
- * These assert the scope actually sent to PostgREST, because the caller cannot
- * see the difference — both forms return success.
+ * These assert what is actually sent to PostgREST, because the caller cannot
+ * tell the difference — every one of these shapes returns success.
  */
 const SHOP_A = '11111111-1111-4111-8111-111111111111';
 const SHOP_B = '22222222-2222-4222-8222-222222222222';
@@ -57,16 +55,35 @@ jest.mock('@/lib/shopStore', () => ({
 }));
 jest.mock('@/lib/domain/auditFromBrowser', () => ({ recordAudit: jest.fn() }));
 
-import { updatePart, deletePartPhoto, reservePart, updatePartQty } from '../partsService';
+import { updatePart, deletePartPhoto, addPartPhotos, reservePart, updatePartQty } from '../partsService';
+
+// The READ chain is spied separately from the WRITE chain. Both end in
+// .in('shop_id', …), so sharing spies would make every merge-read look like a
+// mirror-wide write and shopScope() would stop discriminating.
+const mockReadSelect = jest.fn();
+const mockReadEqPart = jest.fn();
+const mockReadIn = jest.fn();
+
+/** Seed what each location's row currently holds, in mirror order. */
+function dbPhotos(rows: string[][]) {
+  mockReadIn.mockResolvedValue({ data: rows.map(photos => ({ photos })), error: null });
+}
 
 beforeEach(() => {
-  for (const m of [mockFrom, mockUpdate, mockEqPart, mockEqShop, mockIn, mockSelect, mockRemove]) {
+  for (const m of [mockFrom, mockUpdate, mockEqPart, mockEqShop, mockIn, mockSelect, mockRemove,
+                   mockReadSelect, mockReadEqPart, mockReadIn]) {
     m.mockReset();
   }
   mockRemove.mockResolvedValue({ error: null });
-  mockFrom.mockReturnValue({ update: mockUpdate });
+  mockFrom.mockReturnValue({ update: mockUpdate, select: mockReadSelect });
+
+  // read: .select('photos').eq('part_number', …).in('shop_id', […])
+  mockReadSelect.mockReturnValue({ eq: mockReadEqPart });
+  mockReadEqPart.mockReturnValue({ in: mockReadIn });
+  dbPhotos([[], []]);
+
+  // write: .update(row).eq('part_number', …) then the shop filter, either form
   mockUpdate.mockReturnValue({ eq: mockEqPart });
-  // .eq('part_number', …) → the shop filter goes on next, either form.
   mockEqPart.mockReturnValue({ eq: mockEqShop, in: mockIn });
   mockEqShop.mockReturnValue({ select: mockSelect });
   mockIn.mockReturnValue({ select: mockSelect });
@@ -82,40 +99,72 @@ function shopScope(): { kind: 'one'; shopId: string } | { kind: 'mirror' } | { k
   return { kind: 'none' };
 }
 
-describe('a photo write lands on one location, never across mirrored shops', () => {
-  it('scopes a photo update to the row it came from', async () => {
-    await updatePart('FLT-1', { photos: ['a.jpg'] }, SHOP_B);
-    expect(shopScope()).toEqual({ kind: 'one', shopId: SHOP_B });
-    expect(mockIn).not.toHaveBeenCalled();
+/** What the photos column was set to. */
+function writtenPhotos(): string[] {
+  const row = mockUpdate.mock.calls.at(-1)?.[0] as { photos?: string[] } | undefined;
+  return row?.photos ?? [];
+}
+
+describe('photos are shared across locations, and a write can only ever add', () => {
+  it('merges what BOTH locations already had before adding the new one', async () => {
+    // Location 1 has a.jpg, Location 2 has b.jpg — a real state, because each
+    // counter photographed the filter in front of it.
+    dbPhotos([['a.jpg'], ['b.jpg']]);
+    const merged = await addPartPhotos('FLT-1', ['c.jpg']);
+    expect(merged).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+    expect(writtenPhotos()).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
   });
 
-  it('deletePartPhoto scopes to the part it was opened from', async () => {
-    // Removing a photo at one location must not rewrite the other location's
-    // array — which is the same erasure in the other direction.
-    await deletePartPhoto('FLT-1', 'b.jpg', ['a.jpg', 'b.jpg'], SHOP_B);
-    expect(shopScope()).toEqual({ kind: 'one', shopId: SHOP_B });
+  it('NEVER drops a photo the other location added — the reported bug', async () => {
+    // The browser holds Location 1's row, which has never contained b.jpg.
+    // Building the new list from it and writing mirror-wide is what erased
+    // Location 2's photos. The merge is read from the database instead.
+    dbPhotos([['a.jpg'], ['b.jpg']]);
+    await addPartPhotos('FLT-1', ['c.jpg']);
+    expect(writtenPhotos()).toContain('b.jpg');
+  });
+
+  it('writes the shared list to every mirrored location', async () => {
+    dbPhotos([['a.jpg'], []]);
+    await addPartPhotos('FLT-1', ['c.jpg']);
+    expect(shopScope()).toEqual({ kind: 'mirror' });
+  });
+
+  it('does not duplicate a photo already present at either location', async () => {
+    dbPhotos([['a.jpg'], ['a.jpg', 'b.jpg']]);
+    const merged = await addPartPhotos('FLT-1', ['b.jpg']);
+    expect(merged).toEqual(['a.jpg', 'b.jpg']);
+  });
+
+  it('a delete removes only the named photo, and removes it everywhere', async () => {
+    // Deleting is the one operation that should remove something: the file is
+    // gone from storage, so leaving the URL elsewhere renders a broken image.
+    dbPhotos([['a.jpg', 'b.jpg'], ['b.jpg', 'c.jpg']]);
+    const left = await deletePartPhoto('FLT-1', 'b.jpg');
+    expect(left).toEqual(['a.jpg', 'c.jpg']);
+    expect(shopScope()).toEqual({ kind: 'mirror' });
   });
 
   it('still removes the file from storage', async () => {
-    await deletePartPhoto('FLT-1', 'https://x/storage/v1/object/public/shop-assets/parts/s/FLT-1/1.jpg',
-      ['https://x/storage/v1/object/public/shop-assets/parts/s/FLT-1/1.jpg'], SHOP_B);
+    const u = 'https://x/storage/v1/object/public/shop-assets/parts/s/FLT-1/1.jpg';
+    dbPhotos([[u], []]);
+    await deletePartPhoto('FLT-1', u);
     expect(mockRemove).toHaveBeenCalledTimes(1);
   });
 });
 
 /**
- * Stock is the OPPOSITE of photos, and deliberately so.
+ * Stock is shared too, and unlike photos it is a REPLACE — correctly.
  *
- * D1 Imports keeps ONE count per part number across both locations — the
- * operator confirmed this on 2026-09-05: "no stock is for both location keep
- * them sync." So a reservation must reach every mirrored row; scoping it to
- * one shop would let the two locations drift apart, and Location 1 would go on
- * advertising stock that Location 2 had already taken.
+ * D1 Imports keeps ONE count per part number across both locations (operator,
+ * 2026-09-05: "no stock is for both location keep them sync"). A reservation
+ * must reach every mirrored row; scoping it to one shop would let the counts
+ * drift, and Location 1 would go on advertising stock Location 2 had taken.
  *
- * These tests exist because the mirror-wide write LOOKS like the photo bug.
- * Anyone reading `updatePart(partNumber, { quantity })` with no shopId beside
- * the scoped photo calls would reasonably "fix" it. It is not a bug, it is the
- * inventory model, and this is where that is written down.
+ * A quantity is a single fact, so writing the new value over both rows is
+ * right. A photo list is an accumulation, so writing one row's copy over both
+ * destroys information. Same mirror-wide write, opposite requirement — which
+ * is why both rules are asserted in one file.
  */
 describe('stock is one pool shared by both locations', () => {
   it('reservePart writes across every mirrored shop', async () => {
