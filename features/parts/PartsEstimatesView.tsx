@@ -7,7 +7,7 @@ import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { vehicleAutofill, fillBlanks } from '@/lib/vehicles/autofillFromVehicle';
 import { getExchangeRate, convertAmount } from '@/lib/fx';
 import {
-  PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency,
+  PROCUREMENT_STATES, lineState, lineDeposit, depositByCurrency, lineDepositCurrency,
   procurementCounts, hasProcurement, stateStyle, applyProcurementState, pricedCount,
   daysAwaiting, longestWait, type ProcurementState,
 } from '@/lib/parts/lineProcurement';
@@ -1919,8 +1919,15 @@ CREATE POLICY "Shop members can manage their parts estimates"
                             );
                           })()}
                         </td>
-                        {/* In THIS line's currency, like unit cost beside it.
-                            Totalled per currency, never blended. */}
+                        {/* The deposit carries its OWN currency, because the
+                            money does not always arrive in the one the part is
+                            priced in — a THB headlight paid for with kip. Read
+                            as the line's currency, 380,000 kip became THB
+                            380,000 and the balance due read zero.
+
+                            The selector shows only once an amount is entered:
+                            an empty row needs one less control, and the default
+                            (same as the line) is the ordinary case. */}
                         <td style={tdStyle}>
                           <input
                             type="number" min={0} step="0.01"
@@ -1933,6 +1940,24 @@ CREATE POLICY "Shop members can manage their parts estimates"
                               ? { ...cellInput, borderColor: 'rgba(245,158,11,0.55)', background: 'rgba(245,158,11,0.12)', fontWeight: 700 }
                               : cellInput}
                           />
+                          {lineDeposit(item) > 0 && (
+                            <select
+                              value={lineDepositCurrency(item, form.currency)}
+                              aria-label={`Currency the deposit for ${item.partName || 'this part'} was paid in`}
+                              onChange={e => updateLineItem(idx, 'depositCurrency', e.target.value)}
+                              style={{
+                                ...cellInput, marginTop: 3, fontSize: 11, padding: '3px 4px',
+                                // Tinted when the money came in a different
+                                // currency from the quote, because that is the
+                                // case a reader must not skim past.
+                                ...(lineDepositCurrency(item, form.currency) !== (item.currency || form.currency)
+                                  ? { borderColor: 'rgba(245,158,11,0.55)', color: '#b45309', fontWeight: 700 }
+                                  : { color: 'var(--muted)' }),
+                              }}
+                            >
+                              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                            </select>
+                          )}
                         </td>
                         <td style={tdStyle}>
                           {form.lineItems.length > 1 && <button type="button" onClick={() => removeLineItem(idx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, padding: '4px 6px', lineHeight: 1 }}>✕</button>}

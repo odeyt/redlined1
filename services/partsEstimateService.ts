@@ -70,6 +70,23 @@ export interface EstimateLineItem {
    */
   deposit?: number;
   /**
+   * The currency the deposit was actually PAID in, when it differs from the
+   * one the line is quoted in.
+   *
+   * Absent means "same as the line", so every quotation written before this
+   * existed still reads correctly and a single-currency shop never sees it.
+   *
+   * Added because the two were assumed identical and here they routinely are
+   * not: a headlight quoted at THB 900 with 380,000 kip put down was recorded
+   * as THB 380,000 — four hundred times the quote — and the balance due showed
+   * zero. Resolved through `lineDepositCurrency`, never read raw.
+   *
+   * Same JSONB reasoning as `unit`, and kept identical to
+   * partsOrderService.LineItem so converting a quote to an order carries the
+   * payment currency instead of silently re-reading it as the line's.
+   */
+  depositCurrency?: string;
+  /**
    * When this line was ordered, and when it arrived. ISO timestamps, written
    * by `applyProcurementState` on the TRANSITION only — re-selecting the state
    * a line is already in leaves them alone, and moving a line backwards clears

@@ -6,7 +6,7 @@
  * looks like a number and is fiction. So it is run, not grepped.
  */
 import {
-  lineState, lineDeposit, depositByCurrency, procurementCounts, hasProcurement,
+  lineState, lineDeposit, depositByCurrency, lineDepositCurrency, procurementCounts, hasProcurement,
   stateStyle, PROCUREMENT_STATES, applyProcurementState, daysAwaiting, longestWait, pricedCount,
 } from '../lineProcurement';
 
@@ -310,5 +310,69 @@ describe('how many lines the vendor has actually priced', () => {
       { unitCost: 0 }, { unitCost: 0 }, { unitCost: 0 },
     ];
     expect(pricedCount(sheet)).toEqual({ priced: 1, total: 7 });
+  });
+});
+
+/**
+ * A deposit is paid in a currency of its own.
+ *
+ * Reported with a screenshot on 2026-09-09: a headlight quoted at THB 900 with
+ * 380,000 kip put down against it. The deposit was recorded as THB 380,000 —
+ * four hundred times the quote — and the balance due read THB 0.00, because
+ * the sheet had no way to say the money arrived in a different currency from
+ * the one the part was priced in.
+ *
+ * That is routine here: parts are quoted in THB or USD and customers pay cash
+ * in kip.
+ */
+describe('a deposit carries the currency it was actually paid in', () => {
+  it('groups a kip deposit under LAK even though the line is quoted in THB', () => {
+    const items = [{ currency: 'THB', deposit: 380000, depositCurrency: 'LAK' }];
+    expect(depositByCurrency(items, 'THB')).toEqual({ LAK: 380000 });
+  });
+
+  it('does NOT count it as THB — the exact figure from the report', () => {
+    // The bug, stated as the thing that must not happen again.
+    const items = [{ currency: 'THB', deposit: 380000, depositCurrency: 'LAK' }];
+    expect(depositByCurrency(items, 'THB').THB).toBeUndefined();
+  });
+
+  it('keeps meaning "same as the line" when absent, so old sheets are unchanged', () => {
+    expect(depositByCurrency([{ currency: 'THB', deposit: 900 }], 'USD')).toEqual({ THB: 900 });
+    expect(depositByCurrency([{ deposit: 900 }], 'USD')).toEqual({ USD: 900 });
+  });
+
+  it('treats blank or whitespace as absent rather than as a currency', () => {
+    expect(depositByCurrency([{ currency: 'THB', deposit: 50, depositCurrency: '' }], 'USD'))
+      .toEqual({ THB: 50 });
+    expect(depositByCurrency([{ currency: 'THB', deposit: 50, depositCurrency: '   ' }], 'USD'))
+      .toEqual({ THB: 50 });
+  });
+
+  it('adds deposits paid in the same currency across differently-quoted lines', () => {
+    // Two parts, one quoted THB and one USD, both paid for in kip. That is one
+    // kip total, not two separate ones.
+    const items = [
+      { currency: 'THB', deposit: 380000, depositCurrency: 'LAK' },
+      { currency: 'USD', deposit: 120000, depositCurrency: 'LAK' },
+    ];
+    expect(depositByCurrency(items, 'THB')).toEqual({ LAK: 500000 });
+  });
+
+  it('still separates genuinely different payment currencies', () => {
+    const items = [
+      { currency: 'THB', deposit: 380000, depositCurrency: 'LAK' },
+      { currency: 'THB', deposit: 500, depositCurrency: 'THB' },
+    ];
+    expect(depositByCurrency(items, 'THB')).toEqual({ LAK: 380000, THB: 500 });
+  });
+});
+
+describe('lineDepositCurrency resolves in the order a person would expect', () => {
+  it('prefers what was paid, then what was quoted, then the sheet', () => {
+    expect(lineDepositCurrency({ currency: 'THB', depositCurrency: 'LAK' }, 'USD')).toBe('LAK');
+    expect(lineDepositCurrency({ currency: 'THB' }, 'USD')).toBe('THB');
+    expect(lineDepositCurrency({}, 'USD')).toBe('USD');
+    expect(lineDepositCurrency(null, 'USD')).toBe('USD');
   });
 });
