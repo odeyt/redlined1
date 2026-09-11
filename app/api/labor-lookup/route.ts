@@ -2,6 +2,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     .select('labor_rate')
     .eq('shop_id', shopId)
     .single();
-  const laborRate: number = Number(settings?.labor_rate ?? 145);
+  const laborRate: number = Number(settings?.labor_rate ?? SHOP_PRICING_DEFAULTS.laborRate);
 
   // ── 5. Parse vehicle string ──────────────────────────────────────
   const parts = (vehicle ?? '').trim().split(/\s+/);

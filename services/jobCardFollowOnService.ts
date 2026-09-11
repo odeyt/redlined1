@@ -1,5 +1,6 @@
 import { createRepairOrder, findRepairOrderByJobCard, nextRONumber } from './repairOrderService';
 import { createPartsEstimate, findPartsEstimateByJobCard } from './partsEstimateService';
+import { fetchShopSettings, SHOP_PRICING_DEFAULTS } from './shopSettingsService';
 
 /**
  * The repair order and parts quotation that every job card gets.
@@ -29,10 +30,30 @@ import { createPartsEstimate, findPartsEstimateByJobCard } from './partsEstimate
  * The same reasoning the intake flow already applies to its own session save.
  */
 
-/** Matches RepairOrdersView's EMPTY_FORM, so an auto-created RO opens
- *  identically to one raised by hand. */
-const DEFAULT_LABOR_RATE = 145;
-const DEFAULT_CURRENCY = 'USD';
+/**
+ * The shop's own labour rate and currency, or the defined fallbacks.
+ *
+ * These used to be two literals here — 145 and 'USD' — which meant a shop
+ * that had set its rate to 90, or its currency to THB, still got a repair
+ * order opened at $145/hr. RepairOrdersView has always read shop settings for
+ * exactly this; the automatic path did not, so the same shop got different
+ * answers depending on whether a human or this raised the record.
+ *
+ * Never allowed to fail the job card, like everything else here: if settings
+ * cannot be read, fall back to the same values the settings service itself
+ * falls back to, rather than inventing a third answer.
+ */
+async function pricingContext(): Promise<{ laborRate: number; currency: string }> {
+  try {
+    const settings = await fetchShopSettings();
+    return {
+      laborRate: settings?.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate,
+      currency:  settings?.defaultCurrency || SHOP_PRICING_DEFAULTS.currency,
+    };
+  } catch {
+    return { laborRate: SHOP_PRICING_DEFAULTS.laborRate, currency: SHOP_PRICING_DEFAULTS.currency };
+  }
+}
 
 export interface JobCardFollowOnInput {
   /** The job card's id — what both follow-on records link back to. */
@@ -71,6 +92,7 @@ export async function createJobCardFollowOns(
   const errors: string[] = [];
   let roNumber: string | null = null;
   let roReused = false;
+  const pricing = await pricingContext();
 
   try {
     const existing = await findRepairOrderByJobCard(input.jobCardId);
@@ -96,9 +118,9 @@ export async function createJobCardFollowOns(
         technician:    '',
         laborHours:    0,
         partsTotal:    0,
-        laborRate:     DEFAULT_LABOR_RATE,
+        laborRate:     pricing.laborRate,
         notes:         input.findings ?? '',
-        currency:      DEFAULT_CURRENCY,
+        currency:      pricing.currency,
         openedDate:    new Date().toISOString(),
         closedDate:    null,
         parts:         [],
@@ -130,7 +152,7 @@ export async function createJobCardFollowOns(
       coreCharge: 0,
       totalCost:  0,
       deposit:    0,
-      depositCurrency: DEFAULT_CURRENCY,
+      depositCurrency: pricing.currency,
       status:     'Draft',
       quoteDate:  new Date().toISOString().slice(0, 10),
       validUntil: '',
@@ -141,7 +163,7 @@ export async function createJobCardFollowOns(
       vehicle:      input.vehicle,
       customerName: input.customerName,
       notes:        input.findings ?? '',
-      currency:     DEFAULT_CURRENCY,
+      currency:     pricing.currency,
     });
     return { roNumber, quotationCreated: true, roReused, quotationReused: false, errors };
   } catch (e) {

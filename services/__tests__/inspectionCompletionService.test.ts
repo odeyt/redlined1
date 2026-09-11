@@ -103,12 +103,15 @@ describe('completing an inspection', () => {
 
   it('never quotes what nobody priced', async () => {
     // A job card raised from an inspection has had no labour estimated and no
-    // parts chosen. The service-type defaults would put 1.6 hours and $96.50
-    // on it anyway, which reads as a quote to whoever opens it next.
+    // parts chosen. It must not ask for figures at all: createJobCard now
+    // writes zero hours and zero parts for everybody, and a caller passing
+    // its own would be the way that gets undone one argument at a time.
+    // See newJobHasNoFabricatedValues.test.ts for the guarantee itself.
     await completeInspection(inspection());
-    expect(mockCreateJobCard).toHaveBeenCalledWith(
-      expect.objectContaining({ laborHours: 0, partsTotal: 0 }),
-    );
+    const fields = mockCreateJobCard.mock.calls[0][0] as Record<string, unknown>;
+    expect(fields).not.toHaveProperty('laborHours');
+    expect(fields).not.toHaveProperty('partsTotal');
+    expect(JSON.stringify(fields)).not.toMatch(/96\.5|1\.6/);
   });
 
   it('assigns the job to the technician who did the inspection', async () => {

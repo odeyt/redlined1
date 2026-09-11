@@ -13,6 +13,7 @@ const mockCreateRepairOrder = jest.fn();
 const mockCreatePartsEstimate = jest.fn();
 const mockFindRO = jest.fn();
 const mockFindQuote = jest.fn();
+const mockFetchSettings = jest.fn();
 
 jest.mock('../repairOrderService', () => ({
   nextRONumber: (...a: unknown[]) => mockNextRONumber(...a),
@@ -22,6 +23,10 @@ jest.mock('../repairOrderService', () => ({
 jest.mock('../partsEstimateService', () => ({
   createPartsEstimate: (...a: unknown[]) => mockCreatePartsEstimate(...a),
   findPartsEstimateByJobCard: (...a: unknown[]) => mockFindQuote(...a),
+}));
+jest.mock('../shopSettingsService', () => ({
+  fetchShopSettings: (...a: unknown[]) => mockFetchSettings(...a),
+  SHOP_PRICING_DEFAULTS: { laborRate: 145, taxRate: 0.08, currency: 'USD' },
 }));
 
 import { createJobCardFollowOns } from '../jobCardFollowOnService';
@@ -41,6 +46,7 @@ beforeEach(() => {
   mockCreatePartsEstimate.mockReset().mockResolvedValue({ id: 'pe-1' });
   mockFindRO.mockReset().mockResolvedValue(null);
   mockFindQuote.mockReset().mockResolvedValue(null);
+  mockFetchSettings.mockReset().mockResolvedValue({ laborRate: 145, defaultCurrency: 'USD' });
 });
 
 describe('createJobCardFollowOns', () => {
@@ -170,6 +176,56 @@ describe('asked twice for the same job card', () => {
     await createJobCardFollowOns(INPUT);
     expect(mockFindRO).toHaveBeenCalledWith('JC-00042');
     expect(mockFindQuote).toHaveBeenCalledWith('JC-00042');
+  });
+});
+
+describe('the shop decides the rate and the currency', () => {
+  it('opens the repair order at the shop\'s configured rate, not a literal', async () => {
+    // A shop on 90/hr in baht was still handed a repair order at $145/hr,
+    // because this file kept its own copy of the default while every screen
+    // beside it read settings.
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborRate: 90, currency: 'THB' }),
+    );
+  });
+
+  it('quotes parts in the shop\'s currency too', async () => {
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    expect(mockCreatePartsEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'THB', depositCurrency: 'THB' }),
+    );
+  });
+
+  it('falls back to the defined default when settings cannot be read', async () => {
+    // Not a third answer invented here, and above all not a thrown error —
+    // the job card must survive a settings outage.
+    mockFetchSettings.mockRejectedValue(new Error('offline'));
+
+    const result = await createJobCardFollowOns(INPUT);
+
+    expect(result.errors).toEqual([]);
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborRate: 145, currency: 'USD' }),
+    );
+  });
+
+  it('still records no hours and no parts total, whatever the rate', async () => {
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    // A rate is a setting. Hours and parts are measurements of work nobody
+    // has done, so 90 x 0 is the only honest total here.
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborHours: 0, partsTotal: 0 }),
+    );
   });
 });
 

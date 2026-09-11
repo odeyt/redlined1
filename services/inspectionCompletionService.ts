@@ -172,10 +172,6 @@ async function runCompletion(inspection: Inspection): Promise<InspectionCompleti
       priority:     'Normal',
       approvalCode: '',
       notes:        findings,
-      // Nothing has been quoted. The service-type defaults would otherwise
-      // put hours and a parts total on a job nobody has priced.
-      laborHours:   0,
-      partsTotal:   0,
     });
     createdJobCard = true;
   }

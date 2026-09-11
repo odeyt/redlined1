@@ -22,7 +22,7 @@ import { fetchPartsEstimates } from '@/services/partsEstimateService';
 import { fetchCustomerNames, fetchVehicles, saveVehicle } from '@/services/vehicleService';
 import { saveCustomer } from '@/services/customerService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
-import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { fetchShopSettings, SHOP_PRICING_DEFAULTS, type ShopSettings } from '@/services/shopSettingsService';
 import { useShop } from '@/lib/useShop';
 import { useCapabilities } from '@/lib/auth/useCapabilities';
 import { OwnerInsights } from '@/components/OwnerInsights';
@@ -334,7 +334,7 @@ const EMPTY_FORM = {
   technician: '',
   laborHours: 0,
   partsTotal: 0,
-  laborRate: 145,
+  laborRate: SHOP_PRICING_DEFAULTS.laborRate,
   notes: '',
   currency: 'USD',
   openedDate: new Date().toISOString(),
@@ -523,7 +523,7 @@ export function RepairOrdersView() {
 
   async function openNew() {
     const num = await nextRONumber();
-    setForm({ ...EMPTY_FORM, roNumber: num, laborRate: shopSettings?.laborRate ?? 145, openedDate: new Date().toISOString() });
+    setForm({ ...EMPTY_FORM, roNumber: num, laborRate: shopSettings?.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate, openedDate: new Date().toISOString() });
     setEditingId(null);
     setShowForm(true);
     setSelected(null);

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { slugifyJob, parseVehicle } from '@/lib/slugify';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const shopId = memberships[0].shop_id as string;
   const hours = Number(laborHours);
-  const rate = Number(laborRate ?? 145);
+  const rate = Number(laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
   const { year, make, model } = parseVehicle(vehicle ?? '');
   const slug = slugifyJob(jobDescription);
 

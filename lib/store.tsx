@@ -170,8 +170,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         location: action.location, technician: action.technician,
         status: action.approvalCode ? 'Approved' : 'Booked',
         priority: action.priority, approval: action.approvalCode ? 'Approved' : 'Pending',
-        laborHours: action.workType.includes('Diagnostic') ? 1.1 : 1.6,
-        partsTotal: action.workType.includes('Diagnostic') ? 0 : 96.5,
+        // Empty, like every other new job card. This reducer is not reachable
+        // — nothing dispatches CREATE_JOB_CARD — but it is the shape somebody
+        // copies, and it is where the 1.6 hours / $96.50 parts total that
+        // reached the database originally came from.
+        laborHours: 0,
+        partsTotal: 0,
         workflow: action.approvalCode ? ['Booked', 'Approved'] : ['Booked'],
         nextAction: action.approvalCode ? 'Convert to repair order' : 'Request approval',
       };

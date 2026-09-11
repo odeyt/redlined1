@@ -16,6 +16,7 @@ import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -52,7 +53,7 @@ export function SettingsView() {
 
   // Portal / Business config
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
-  const [laborRate, setLaborRate] = useState(145);
+  const [laborRate, setLaborRate] = useState(SHOP_PRICING_DEFAULTS.laborRate);
   const [defaultTaxRate, setDefaultTaxRate] = useState(8.25);
   // USD for a shop that has never chosen — see the migration for why.
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
@@ -134,7 +135,7 @@ export function SettingsView() {
       setCompanyName(s.companyName); setTagline(s.tagline); setLogoUrl(s.logoUrl);
       setAddress(s.address); setPhone(s.phone); setEmail(s.email); setWebsite(s.website);
       setHiddenModules(s.hiddenModules ?? []);
-      setLaborRate(s.laborRate ?? 145);
+      setLaborRate(s.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
       setDefaultTaxRate((s.defaultTaxRate ?? 0.08) * 100);
       setDefaultCurrency(s.defaultCurrency || 'USD');
       setInvoicePrefix(s.invoicePrefix ?? 'INV-');

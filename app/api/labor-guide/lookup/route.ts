@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { slugifyJob, parseVehicle } from '@/lib/slugify';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
 
   const { data: settings } = await getAdmin()
     .from('shop_settings').select('labor_rate').eq('shop_id', shopId).single();
-  const laborRate = Number(settings?.labor_rate ?? 145);
+  const laborRate = Number(settings?.labor_rate ?? SHOP_PRICING_DEFAULTS.laborRate);
 
   const specific = staticRows.find((r: Record<string, unknown>) =>
     r.make !== '*' && make && (r.make as string).toLowerCase() === make.toLowerCase()

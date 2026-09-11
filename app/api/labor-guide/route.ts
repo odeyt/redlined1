@@ -2,6 +2,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 function getAdmin() { return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } }); }
 
@@ -56,7 +57,7 @@ export async function PATCH(req: NextRequest) {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (suggestedHours !== undefined) {
     patch.suggested_hours = Number(suggestedHours);
-    const rate = Number(laborRate ?? 145);
+    const rate = Number(laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
     patch.flat_rate_cost = parseFloat((Number(suggestedHours) * rate).toFixed(2));
   }
   if (laborRate !== undefined) patch.labor_rate = Number(laborRate);

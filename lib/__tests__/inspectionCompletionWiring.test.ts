@@ -88,8 +88,14 @@ describe('what the completion raises', () => {
 
   it('orders no parts and approves nothing', () => {
     expect(completion).not.toMatch(/createPartsOrder|orderParts|status: 'Ordered'|status: 'Approved'/);
-    expect(completion).toMatch(/laborHours:\s+0/);
-    expect(completion).toMatch(/partsTotal:\s+0/);
+  });
+
+  it('names no money at all — it has none to name', () => {
+    // Hours, parts totals, rates and currency are settled by createJobCard and
+    // the follow-on service, both of which now refuse to invent them. This
+    // file should carry no figure of its own to drift away from that.
+    const code = completion.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(code).not.toMatch(/laborRate|laborHours|partsTotal|taxRate|discount|deposit|currency/i);
   });
 });
 

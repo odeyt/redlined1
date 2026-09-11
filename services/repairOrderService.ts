@@ -3,6 +3,7 @@ import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
+import { SHOP_PRICING_DEFAULTS } from './shopSettingsService';
 
 export interface RoPart {
   description: string;
@@ -64,7 +65,7 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
     technician: (r.technician as string) || '',
     laborHours: Number(r.labor_hours ?? 0),
     partsTotal: Number(r.parts_total ?? 0),
-    laborRate: Number(r.labor_rate ?? 145),
+    laborRate: Number(r.labor_rate ?? SHOP_PRICING_DEFAULTS.laborRate),
     notes: (r.notes as string) || '',
     currency: (r.currency as string) || 'USD',
     openedDate: (r.opened_date as string) || '',

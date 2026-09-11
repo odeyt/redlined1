@@ -122,10 +122,7 @@ export async function createJobCard(fields: {
    * card. See services/inspectionCompletionService.ts.
    */
   id?: string;
-  /** Overrides the service-type guess below. */
-  laborHours?: number;
-  /** Overrides the service-type guess below. */
-  partsTotal?: number;
+
 }): Promise<JobCardFull> {
   const id = fields.id ?? `JC-${Date.now()}`;
   const approved = !!fields.approvalCode;
@@ -145,10 +142,17 @@ export async function createJobCard(fields: {
       status: approved ? 'Approved' : 'Booked',
       priority: fields.priority,
       approval: approved ? 'Approved' : 'Pending',
-      // Placeholder figures, not a quote. A caller that knows nothing has
-      // been priced yet passes 0 rather than inheriting them.
-      labor_hours: fields.laborHours ?? (fields.serviceType.includes('Diagnostic') ? 1.1 : 1.6),
-      parts_total: fields.partsTotal ?? (fields.serviceType.includes('Diagnostic') ? 0 : 96.5),
+      // A new job card has been looked at by nobody. It used to open holding
+      // 1.6 labour hours and $96.50 of parts — chosen from the service type,
+      // owed to no estimate, and written to the database as if somebody had
+      // quoted them. Staff read them as a quote, and the revenue engines that
+      // sum job_cards.parts_total read them as money.
+      //
+      // Hours and parts are measurements, not settings, so there is no shop
+      // default to fall back to either. They start empty and stay empty until
+      // somebody records what the job actually took.
+      labor_hours: 0,
+      parts_total: 0,
       workflow: approved ? ['Booked', 'Approved'] : ['Booked'],
       next_action: approved ? 'Convert to repair order' : 'Request approval',
       check_in_date: new Date().toISOString(),
@@ -244,13 +248,13 @@ export async function updateJobCard(id: string, fields: Partial<{
  * Draft, never Sent or Paid: a person still reviews and issues it.
  */
 async function draftInvoiceForJob(job: JobCardFull): Promise<string> {
-  const [{ nextInvoiceNumber, createInvoice }, { fetchShopSettings }] = await Promise.all([
+  const [{ nextInvoiceNumber, createInvoice }, { fetchShopSettings, SHOP_PRICING_DEFAULTS }] = await Promise.all([
     import('./invoiceService'),
     import('./shopSettingsService'),
   ]);
 
   const settings = await fetchShopSettings().catch(() => null);
-  const laborRate = settings?.laborRate ?? 145;
+  const laborRate = settings?.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate;
 
   const lines = [];
   if (job.laborHours > 0) {
