@@ -88,6 +88,21 @@ export async function fetchClosedJobs(): Promise<JobCardFull[]> {
   return (data ?? []).map(toJob);
 }
 
+/**
+ * One job card by id, or null when it is not this shop's.
+ *
+ * Wanted by any caller holding an id it may or may not have created already:
+ * completing an inspection a second time has to find the first job card
+ * rather than raise another. fetchJobCards() would pull the whole list to
+ * answer that.
+ */
+export async function fetchJobCardById(id: string): Promise<JobCardFull | null> {
+  const { data, error } = await supabase
+    .from('job_cards').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+  if (error) throw error;
+  return data ? toJob(data) : null;
+}
+
 export async function createJobCard(fields: {
   customer: string;
   vehicle: string;
@@ -98,8 +113,18 @@ export async function createJobCard(fields: {
   priority: string;
   approvalCode: string;
   notes?: string;
+  /**
+   * Use this exact id rather than a fresh one.
+   *
+   * Lets a caller settle the id before the insert, so it can be written
+   * somewhere durable first and the insert becomes retry-safe — a second
+   * attempt collides on the primary key instead of producing a second job
+   * card. See services/inspectionCompletionService.ts.
+   */
+  id?: string;
+
 }): Promise<JobCardFull> {
-  const id = `JC-${Date.now()}`;
+  const id = fields.id ?? `JC-${Date.now()}`;
   const approved = !!fields.approvalCode;
   const { data, error } = await supabase
     .from('job_cards')
@@ -117,8 +142,17 @@ export async function createJobCard(fields: {
       status: approved ? 'Approved' : 'Booked',
       priority: fields.priority,
       approval: approved ? 'Approved' : 'Pending',
-      labor_hours: fields.serviceType.includes('Diagnostic') ? 1.1 : 1.6,
-      parts_total: fields.serviceType.includes('Diagnostic') ? 0 : 96.5,
+      // A new job card has been looked at by nobody. It used to open holding
+      // 1.6 labour hours and $96.50 of parts — chosen from the service type,
+      // owed to no estimate, and written to the database as if somebody had
+      // quoted them. Staff read them as a quote, and the revenue engines that
+      // sum job_cards.parts_total read them as money.
+      //
+      // Hours and parts are measurements, not settings, so there is no shop
+      // default to fall back to either. They start empty and stay empty until
+      // somebody records what the job actually took.
+      labor_hours: 0,
+      parts_total: 0,
       workflow: approved ? ['Booked', 'Approved'] : ['Booked'],
       next_action: approved ? 'Convert to repair order' : 'Request approval',
       check_in_date: new Date().toISOString(),
@@ -214,13 +248,13 @@ export async function updateJobCard(id: string, fields: Partial<{
  * Draft, never Sent or Paid: a person still reviews and issues it.
  */
 async function draftInvoiceForJob(job: JobCardFull): Promise<string> {
-  const [{ nextInvoiceNumber, createInvoice }, { fetchShopSettings }] = await Promise.all([
+  const [{ nextInvoiceNumber, createInvoice }, { fetchShopSettings, SHOP_PRICING_DEFAULTS }] = await Promise.all([
     import('./invoiceService'),
     import('./shopSettingsService'),
   ]);
 
   const settings = await fetchShopSettings().catch(() => null);
-  const laborRate = settings?.laborRate ?? 145;
+  const laborRate = settings?.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate;
 
   const lines = [];
   if (job.laborHours > 0) {

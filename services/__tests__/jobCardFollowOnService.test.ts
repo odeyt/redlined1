@@ -11,13 +11,22 @@
 const mockNextRONumber = jest.fn();
 const mockCreateRepairOrder = jest.fn();
 const mockCreatePartsEstimate = jest.fn();
+const mockFindRO = jest.fn();
+const mockFindQuote = jest.fn();
+const mockFetchSettings = jest.fn();
 
 jest.mock('../repairOrderService', () => ({
   nextRONumber: (...a: unknown[]) => mockNextRONumber(...a),
   createRepairOrder: (...a: unknown[]) => mockCreateRepairOrder(...a),
+  findRepairOrderByJobCard: (...a: unknown[]) => mockFindRO(...a),
 }));
 jest.mock('../partsEstimateService', () => ({
   createPartsEstimate: (...a: unknown[]) => mockCreatePartsEstimate(...a),
+  findPartsEstimateByJobCard: (...a: unknown[]) => mockFindQuote(...a),
+}));
+jest.mock('../shopSettingsService', () => ({
+  fetchShopSettings: (...a: unknown[]) => mockFetchSettings(...a),
+  SHOP_PRICING_DEFAULTS: { laborRate: 145, taxRate: 0.08, currency: 'USD' },
 }));
 
 import { createJobCardFollowOns } from '../jobCardFollowOnService';
@@ -35,13 +44,19 @@ beforeEach(() => {
   mockNextRONumber.mockReset().mockResolvedValue('RO-00072');
   mockCreateRepairOrder.mockReset().mockResolvedValue({ id: 'ro-1' });
   mockCreatePartsEstimate.mockReset().mockResolvedValue({ id: 'pe-1' });
+  mockFindRO.mockReset().mockResolvedValue(null);
+  mockFindQuote.mockReset().mockResolvedValue(null);
+  mockFetchSettings.mockReset().mockResolvedValue({ laborRate: 145, defaultCurrency: 'USD' });
 });
 
 describe('createJobCardFollowOns', () => {
   it('links both records back to the job card', async () => {
     const result = await createJobCardFollowOns(INPUT);
 
-    expect(result).toEqual({ roNumber: 'RO-00072', quotationCreated: true, errors: [] });
+    expect(result).toEqual({
+      roNumber: 'RO-00072', quotationCreated: true,
+      roReused: false, quotationReused: false, errors: [],
+    });
     expect(mockCreateRepairOrder).toHaveBeenCalledWith(
       expect.objectContaining({ jobCardId: 'JC-00042', roNumber: 'RO-00072', status: 'Open' }),
     );
@@ -114,7 +129,123 @@ describe('createJobCardFollowOns', () => {
     expect(result).toEqual({
       roNumber: null,
       quotationCreated: false,
+      roReused: false,
+      quotationReused: false,
       errors: ['Repair order: numbering down', 'Parts quotation: insert failed'],
     });
+  });
+});
+
+describe('asked twice for the same job card', () => {
+  it('reuses the repair order that is already there', async () => {
+    mockFindRO.mockResolvedValue({ roNumber: 'RO-00072', id: 'ro-1' });
+
+    const result = await createJobCardFollowOns(INPUT);
+
+    expect(mockCreateRepairOrder).not.toHaveBeenCalled();
+    expect(mockNextRONumber).not.toHaveBeenCalled();
+    expect(result.roNumber).toBe('RO-00072');
+    expect(result.roReused).toBe(true);
+  });
+
+  it('reuses the quotation that is already there', async () => {
+    mockFindQuote.mockResolvedValue({ id: 'pe-1' });
+
+    const result = await createJobCardFollowOns(INPUT);
+
+    expect(mockCreatePartsEstimate).not.toHaveBeenCalled();
+    expect(result.quotationCreated).toBe(true);
+    expect(result.quotationReused).toBe(true);
+  });
+
+  it('creates nothing at all the second time round', async () => {
+    mockFindRO.mockResolvedValue({ roNumber: 'RO-00072' });
+    mockFindQuote.mockResolvedValue({ id: 'pe-1' });
+
+    const result = await createJobCardFollowOns(INPUT);
+
+    expect(mockCreateRepairOrder).not.toHaveBeenCalled();
+    expect(mockCreatePartsEstimate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      roNumber: 'RO-00072', quotationCreated: true,
+      roReused: true, quotationReused: true, errors: [],
+    });
+  });
+
+  it('looks both records up by the job card id, which is what links them', async () => {
+    await createJobCardFollowOns(INPUT);
+    expect(mockFindRO).toHaveBeenCalledWith('JC-00042');
+    expect(mockFindQuote).toHaveBeenCalledWith('JC-00042');
+  });
+});
+
+describe('the shop decides the rate and the currency', () => {
+  it('opens the repair order at the shop\'s configured rate, not a literal', async () => {
+    // A shop on 90/hr in baht was still handed a repair order at $145/hr,
+    // because this file kept its own copy of the default while every screen
+    // beside it read settings.
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborRate: 90, currency: 'THB' }),
+    );
+  });
+
+  it('quotes parts in the shop\'s currency too', async () => {
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    expect(mockCreatePartsEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: 'THB', depositCurrency: 'THB' }),
+    );
+  });
+
+  it('falls back to the defined default when settings cannot be read', async () => {
+    // Not a third answer invented here, and above all not a thrown error —
+    // the job card must survive a settings outage.
+    mockFetchSettings.mockRejectedValue(new Error('offline'));
+
+    const result = await createJobCardFollowOns(INPUT);
+
+    expect(result.errors).toEqual([]);
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborRate: 145, currency: 'USD' }),
+    );
+  });
+
+  it('still records no hours and no parts total, whatever the rate', async () => {
+    mockFetchSettings.mockResolvedValue({ laborRate: 90, defaultCurrency: 'THB' });
+
+    await createJobCardFollowOns(INPUT);
+
+    // A rate is a setting. Hours and parts are measurements of work nobody
+    // has done, so 90 x 0 is the only honest total here.
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ laborHours: 0, partsTotal: 0 }),
+    );
+  });
+});
+
+describe('what the technician found', () => {
+  it('opens both records stating it, so neither arrives blank', async () => {
+    await createJobCardFollowOns({ ...INPUT, findings: 'Failed (1):\n• Brakes — Front pads: 2mm' });
+
+    expect(mockCreateRepairOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ notes: expect.stringContaining('Front pads') }),
+    );
+    expect(mockCreatePartsEstimate).toHaveBeenCalledWith(
+      expect.objectContaining({ notes: expect.stringContaining('Front pads') }),
+    );
+  });
+
+  it('still opens the quotation with no prices on it', async () => {
+    await createJobCardFollowOns({ ...INPUT, findings: 'Failed (1):\n• Brakes — Front pads' });
+
+    expect(mockCreatePartsEstimate).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'Draft', lineItems: [], totalCost: 0, unitCost: 0, quantity: 0, deposit: 0,
+    }));
   });
 });

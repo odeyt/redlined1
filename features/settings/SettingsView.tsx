@@ -16,6 +16,7 @@ import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -52,8 +53,12 @@ export function SettingsView() {
 
   // Portal / Business config
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
-  const [laborRate, setLaborRate] = useState(145);
-  const [defaultTaxRate, setDefaultTaxRate] = useState(8.25);
+  const [laborRate, setLaborRate] = useState(SHOP_PRICING_DEFAULTS.laborRate);
+  // Zero until the shop says otherwise. Opening this field at 8.25 meant a
+  // shop that came here to set its logo, pressed Save, and never touched tax
+  // persisted 8.25% — a rate nobody chose, now indistinguishable from one
+  // somebody did.
+  const [defaultTaxRate, setDefaultTaxRate] = useState(SHOP_PRICING_DEFAULTS.taxRate * 100);
   // USD for a shop that has never chosen — see the migration for why.
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [invoicePrefix, setInvoicePrefix] = useState('INV-');
@@ -134,8 +139,8 @@ export function SettingsView() {
       setCompanyName(s.companyName); setTagline(s.tagline); setLogoUrl(s.logoUrl);
       setAddress(s.address); setPhone(s.phone); setEmail(s.email); setWebsite(s.website);
       setHiddenModules(s.hiddenModules ?? []);
-      setLaborRate(s.laborRate ?? 145);
-      setDefaultTaxRate((s.defaultTaxRate ?? 0.08) * 100);
+      setLaborRate(s.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
+      setDefaultTaxRate((s.defaultTaxRate ?? SHOP_PRICING_DEFAULTS.taxRate) * 100);
       setDefaultCurrency(s.defaultCurrency || 'USD');
       setInvoicePrefix(s.invoicePrefix ?? 'INV-');
       setEstimatePrefix(s.estimatePrefix ?? 'EST-');

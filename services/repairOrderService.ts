@@ -3,6 +3,7 @@ import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import { nextDocumentNumber } from './documentNumberService';
+import { SHOP_PRICING_DEFAULTS } from './shopSettingsService';
 
 export interface RoPart {
   description: string;
@@ -64,7 +65,7 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
     technician: (r.technician as string) || '',
     laborHours: Number(r.labor_hours ?? 0),
     partsTotal: Number(r.parts_total ?? 0),
-    laborRate: Number(r.labor_rate ?? 145),
+    laborRate: Number(r.labor_rate ?? SHOP_PRICING_DEFAULTS.laborRate),
     notes: (r.notes as string) || '',
     currency: (r.currency as string) || 'USD',
     openedDate: (r.opened_date as string) || '',
@@ -96,6 +97,28 @@ export async function fetchRepairOrders(): Promise<RepairOrder[]> {
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapRow);
+}
+
+/**
+ * The repair order already raised for a job card, if there is one.
+ *
+ * Asked before raising another, so a retried hand-off finds the existing RO
+ * instead of giving the job a second one. Oldest first: if a shop has more
+ * than one against a job card, the first is the one everything else already
+ * points at.
+ */
+export async function findRepairOrderByJobCard(jobCardId: string): Promise<RepairOrder | null> {
+  if (!jobCardId) return null;
+  const { data, error } = await supabase
+    .from('repair_orders')
+    .select('*')
+    .eq('job_card_id', jobCardId)
+    .in('shop_id', getShopIds())
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? mapRow(row) : null;
 }
 
 export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'>): Promise<RepairOrder> {

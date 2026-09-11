@@ -8,6 +8,11 @@ import { getShopId, getShopIds } from '@/lib/shopStore';
 export type RoleKey = 'manager' | 'advisor' | 'technician';
 export type RolePermissions = Record<RoleKey, string[]>;
 
+import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
+// Re-exported so existing callers can keep importing it from the settings
+// service, which is where you look for it.
+export { SHOP_PRICING_DEFAULTS };
+
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
     'dashboard', 'triage', 'customers', 'vehicles', 'appointments', 'job-cards',
@@ -85,6 +90,7 @@ export interface ShopSettings {
   serviceSubTypes: Record<string, string[]>;
 }
 
+
 export const DEFAULT_PAYMENT_METHODS = [
   'Cash', 'Check', 'Credit Card', 'Debit Card',
   'Apple Pay', 'Google Pay', 'Zelle', 'Venmo', 'PayPal', 'Cash App', 'Wise',
@@ -118,11 +124,11 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     rolePermissions: data?.role_permissions && Object.keys(data.role_permissions).length > 0
       ? data.role_permissions as RolePermissions
       : DEFAULT_ROLE_PERMISSIONS,
-    laborRate: Number(data?.labor_rate ?? 145),
-    defaultTaxRate: Number(data?.default_tax_rate ?? 0.08),
+    laborRate: Number(data?.labor_rate ?? SHOP_PRICING_DEFAULTS.laborRate),
+    defaultTaxRate: Number(data?.default_tax_rate ?? SHOP_PRICING_DEFAULTS.taxRate),
     // USD when the column is null — an existing shop that has never set one
     // keeps behaving exactly as it did, since USD was the hardcoded default.
-    defaultCurrency: (data?.default_currency as string | null) || 'USD',
+    defaultCurrency: (data?.default_currency as string | null) || SHOP_PRICING_DEFAULTS.currency,
     invoicePrefix: data?.invoice_prefix ?? 'INV-',
     estimatePrefix: data?.estimate_prefix ?? 'EST-',
     businessType: data?.business_type ?? 'Single repair shop',
