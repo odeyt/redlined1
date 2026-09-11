@@ -145,3 +145,44 @@ describe('the follow-on records still quote nothing', () => {
     expect(src).not.toMatch(/taxRate|discount|shopSupplies/);
   });
 });
+
+describe('tax is never invented', () => {
+  it('defaults to none, because no rate is right for an unknown jurisdiction', () => {
+    // 0.08 here meant every shop provisioned since the settings trigger
+    // stopped seeding a value — it writes only shop_id, company_name, address
+    // and phone, so default_tax_rate is NULL — had 8% US sales tax added to
+    // invoices raised from a job. RedlineD1 runs in Laos.
+    expect(SHOP_PRICING_DEFAULTS.taxRate).toBe(0);
+  });
+
+  it('leaves no 8% guess anywhere in the settings or pricing path', () => {
+    for (const path of [
+      'lib/shopPricingDefaults.ts',
+      'services/shopSettingsService.ts',
+      'features/settings/SettingsView.tsx',
+      'services/jobCardService.ts',
+      'features/repair-orders/RepairOrdersView.tsx',
+    ]) {
+      const code = read(path).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      expect(`${path}: ${code}`).not.toMatch(/0\.0825|\b8\.25\b/);
+      expect(`${path}: ${code}`).not.toMatch(/\?\?\s*0\.08\b/);
+    }
+  });
+
+  it('opens the Settings tax field at the default rather than its own number', () => {
+    // The trap this closes: a shop comes here to set its logo, presses Save,
+    // and persists whatever the field happened to open at. A guess that gets
+    // saved is indistinguishable afterwards from a rate somebody chose.
+    const src = read('features/settings/SettingsView.tsx');
+    expect(src).toMatch(/useState\(SHOP_PRICING_DEFAULTS\.taxRate \* 100\)/);
+    expect(src).toMatch(/setDefaultTaxRate\(\(s\.defaultTaxRate \?\? SHOP_PRICING_DEFAULTS\.taxRate\) \* 100\)/);
+  });
+
+  it('still lets a shop that has set a rate keep it', () => {
+    // The fix is to the fallback only. A stored value must pass through
+    // untouched, or this trades an unwanted tax for a missing one.
+    const src = read('services/shopSettingsService.ts');
+    expect(src).toMatch(/defaultTaxRate: Number\(data\?\.default_tax_rate \?\? SHOP_PRICING_DEFAULTS\.taxRate\)/);
+    expect(src).toMatch(/update\.default_tax_rate = settings\.defaultTaxRate/);
+  });
+});

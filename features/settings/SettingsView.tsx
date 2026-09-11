@@ -54,7 +54,11 @@ export function SettingsView() {
   // Portal / Business config
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [laborRate, setLaborRate] = useState(SHOP_PRICING_DEFAULTS.laborRate);
-  const [defaultTaxRate, setDefaultTaxRate] = useState(8.25);
+  // Zero until the shop says otherwise. Opening this field at 8.25 meant a
+  // shop that came here to set its logo, pressed Save, and never touched tax
+  // persisted 8.25% — a rate nobody chose, now indistinguishable from one
+  // somebody did.
+  const [defaultTaxRate, setDefaultTaxRate] = useState(SHOP_PRICING_DEFAULTS.taxRate * 100);
   // USD for a shop that has never chosen — see the migration for why.
   const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [invoicePrefix, setInvoicePrefix] = useState('INV-');
@@ -136,7 +140,7 @@ export function SettingsView() {
       setAddress(s.address); setPhone(s.phone); setEmail(s.email); setWebsite(s.website);
       setHiddenModules(s.hiddenModules ?? []);
       setLaborRate(s.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
-      setDefaultTaxRate((s.defaultTaxRate ?? 0.08) * 100);
+      setDefaultTaxRate((s.defaultTaxRate ?? SHOP_PRICING_DEFAULTS.taxRate) * 100);
       setDefaultCurrency(s.defaultCurrency || 'USD');
       setInvoicePrefix(s.invoicePrefix ?? 'INV-');
       setEstimatePrefix(s.estimatePrefix ?? 'EST-');
