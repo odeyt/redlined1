@@ -98,6 +98,28 @@ export async function fetchRepairOrders(): Promise<RepairOrder[]> {
   return (data ?? []).map(mapRow);
 }
 
+/**
+ * The repair order already raised for a job card, if there is one.
+ *
+ * Asked before raising another, so a retried hand-off finds the existing RO
+ * instead of giving the job a second one. Oldest first: if a shop has more
+ * than one against a job card, the first is the one everything else already
+ * points at.
+ */
+export async function findRepairOrderByJobCard(jobCardId: string): Promise<RepairOrder | null> {
+  if (!jobCardId) return null;
+  const { data, error } = await supabase
+    .from('repair_orders')
+    .select('*')
+    .eq('job_card_id', jobCardId)
+    .in('shop_id', getShopIds())
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? mapRow(row) : null;
+}
+
 export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'>): Promise<RepairOrder> {
   const { data, error } = await supabase
     .from('repair_orders')

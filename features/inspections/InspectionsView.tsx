@@ -3,6 +3,8 @@
 import { vehicleAutofill, fillBlanks } from '@/lib/vehicles/autofillFromVehicle';
 import { useEffect, useRef, useState } from 'react';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
+import { setAlertFocus } from '@/lib/alerts/alertFocus';
+import { completeInspection } from '@/services/inspectionCompletionService';
 import { GuidedInspection } from './GuidedInspection';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { useAppDispatch, useAppState } from '@/lib/store';
@@ -226,6 +228,9 @@ export function InspectionsView() {
   const [showForm, setShowForm] = useState(false);
   const [guidedOpen, setGuidedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Held apart from `saving` so the checklist stays usable while the job
+  // records are being raised, and so the button can say what it is doing.
+  const [completing, setCompleting] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [allVehicles, setAllVehicles] = useState<(Vehicle & { id: string })[]>([]);
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
@@ -268,7 +273,11 @@ export function InspectionsView() {
     vin: '',
     mileage: 0,
     technician: '',
-    status: 'In Progress' as const,
+    // Widened deliberately: the status dropdown below writes every value in
+    // INSPECTION_STATUSES into this field, so pinning the type to the initial
+    // literal only forced a cast that made the form claim it could never be
+    // anything else.
+    status: 'In Progress' as string,
     items: INSPECTION_TEMPLATE.map(freshItem),
     notes: '',
     customerEmail: '',
@@ -441,10 +450,22 @@ export function InspectionsView() {
     setSaving(true); setError('');
     try {
       if (editingId) {
+        const becameComplete = selected?.status !== 'Completed' && form.status === 'Completed';
         await updateInspection(editingId, { ...form });
         const updated = { ...selected!, ...form, id: editingId, createdAt: selected?.createdAt ?? '' };
         setInspections(prev => prev.map(i => i.id === editingId ? updated : i));
         setSelected(updated);
+        // The status dropdown is the other way to reach Completed. Left alone
+        // it produced an inspection marked done with no job card, repair order
+        // or quotation behind it — the same gap Mark Complete exists to close,
+        // reachable from a field two rows above it. Same call, so the same one
+        // set of records, whichever route was taken.
+        if (becameComplete) {
+          setShowForm(false); setEditingId(null);
+          await handleComplete(updated);
+          revealNewRecord();
+          return;
+        }
         notify(`${form.inspectionNumber} updated.`);
       } else {
         const saved = await createInspection(form);
@@ -497,14 +518,59 @@ export function InspectionsView() {
     finally { setUploadingItemId(null); setPhotoTargetItem(null); }
   }
 
+  /**
+   * Completing an inspection is the hand-off into the job, not a status flip.
+   *
+   * Everything below the button lives in completeInspection: the job card,
+   * the repair order and the parts quotation all come from the findings that
+   * were just recorded, and the inspection is only shown as Completed once
+   * they exist. A failure leaves it exactly as it was so this can be pressed
+   * again — which is safe, because the operation reuses whatever it already
+   * made rather than making a second set.
+   */
   async function handleComplete(ins: Inspection) {
+    if (completing) return;
+    setCompleting(true);
+    setError('');
     try {
-      await updateInspection(ins.id, { status: 'Completed', completedAt: new Date().toISOString() });
-      const updated = { ...ins, status: 'Completed', completedAt: new Date().toISOString() };
+      const result = await completeInspection(ins);
+      const updated = {
+        ...ins,
+        status: 'Completed',
+        completedAt: ins.completedAt ?? new Date().toISOString(),
+        jobCardId: result.jobCardId,
+      };
       setInspections(prev => prev.map(i => i.id === ins.id ? updated : i));
       setSelected(updated);
-      notify(`${ins.inspectionNumber} marked complete.`);
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : ''); }
+
+      const made = [
+        result.createdJobCard ? result.jobCardId : null,
+        result.roReused ? null : result.roNumber,
+        result.quotationCreated && !result.quotationReused ? 'parts quotation' : null,
+      ].filter(Boolean).join(' + ');
+
+      if (result.alreadyComplete) {
+        notify(`${ins.inspectionNumber} was already complete — ${result.jobCardId} is open.`);
+      } else if (result.errors.length) {
+        notify(`${ins.inspectionNumber} complete — created ${made}. ${result.errors.join('; ')}`);
+      } else {
+        notify(`${ins.inspectionNumber} complete — created ${made}.`);
+      }
+    } catch (e: unknown) {
+      // Deliberately no optimistic status: an inspection showing Completed
+      // with no job behind it is the state this exists to prevent.
+      setError(
+        `Could not complete ${ins.inspectionNumber}: ${e instanceof Error ? e.message : 'unknown error'}. ` +
+        'Nothing was lost — press Mark Complete again.',
+      );
+    } finally {
+      setCompleting(false);
+    }
+  }
+
+  function openJobCard(jobCardId: string) {
+    setAlertFocus({ entityType: 'job_card', entityId: jobCardId, module: 'job-cards' });
+    dispatch({ type: 'SET_MODULE', module: 'job-cards' });
   }
 
   async function handleDelete(ins: Inspection) {
@@ -777,7 +843,7 @@ export function InspectionsView() {
                   </div>
                   <div className="login-field">
                     <label>Status</label>
-                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as 'In Progress' }))}
+                    <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
                       style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)' }}>
                       {INSPECTION_STATUSES.map(s => <option key={s}>{s}</option>)}
                     </select>
@@ -1015,7 +1081,23 @@ export function InspectionsView() {
                   {sendingEmail ? '…Sending' : '✉️ Email Report'}
                 </button>
                 {selected.status !== 'Completed' && (
-                  <button className="btn" style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044' }} onClick={() => handleComplete(selected)}>✓ Mark Complete</button>
+                  <button className="btn" disabled={completing}
+                    style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044', opacity: completing ? 0.55 : 1, minHeight: 40 }}
+                    onClick={() => handleComplete(selected)}
+                    title="Completes the inspection and opens its job card, repair order and parts quotation">
+                    {completing ? '…Creating job card' : '✓ Mark Complete'}
+                  </button>
+                )}
+                {/* The point of completing is the job that follows, so say
+                    which one and offer the way there. Shown for any completed
+                    inspection carrying a job card, not only the one just
+                    finished — reopening the record should still lead to it. */}
+                {selected.status === 'Completed' && selected.jobCardId && (
+                  <button className="btn"
+                    style={{ background: 'rgba(76,175,80,0.1)', color: '#4caf50', border: '1px solid #4caf5044', fontWeight: 600, minHeight: 40 }}
+                    onClick={() => openJobCard(selected.jobCardId)}>
+                    🗂 Open {selected.jobCardId}
+                  </button>
                 )}
                 {selected.status === 'Completed' && (
                   <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344', fontWeight: 600 }}

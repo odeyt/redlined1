@@ -206,6 +206,26 @@ export async function fetchPartsEstimates(): Promise<PartsEstimate[]> {
   return (data ?? []).map(mapEstimate);
 }
 
+/**
+ * The parts quotation already opened for a job card, if there is one.
+ *
+ * Counterpart to findRepairOrderByJobCard — the same question, asked before
+ * a retried hand-off opens a second quote against one job.
+ */
+export async function findPartsEstimateByJobCard(jobCardNumber: string): Promise<PartsEstimate | null> {
+  if (!jobCardNumber) return null;
+  const { data, error } = await supabase
+    .from('parts_estimates')
+    .select('*')
+    .eq('job_card_number', jobCardNumber)
+    .in('shop_id', getShopIds())
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? mapEstimate(row) : null;
+}
+
 export async function createPartsEstimate(o: Omit<PartsEstimate, 'id' | 'createdAt'>): Promise<PartsEstimate> {
   const { data, error } = await supabase
     .from('parts_estimates')

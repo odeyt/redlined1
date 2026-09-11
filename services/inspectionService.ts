@@ -216,6 +216,71 @@ export async function updateInspection(id: string, updates: Partial<Inspection>)
   });
 }
 
+/**
+ * Reserve this inspection's job card id, and return whichever id won.
+ *
+ * The one guard standing between "Mark Complete" pressed twice and a shop
+ * with two job cards, two repair orders and two quotations for one car.
+ * Disabling the button is not enough: a slow network invites a second tap
+ * before the first response lands, the browser may replay the request, and a
+ * second device can be looking at the same inspection.
+ *
+ * This is a single UPDATE ... WHERE job_card_id IS NULL, so Postgres decides
+ * the winner, not the client. The loser gets zero rows back, reads the id the
+ * winner wrote, and carries on with that one — both callers end up naming the
+ * same job card. An inspection that already carries an id never reaches the
+ * update at all.
+ *
+ * Reserving the id before the job card exists is deliberate: the id is then
+ * durable, so creating the job card can be retried without inventing a new
+ * one. It does leave a window where the inspection names a job card that was
+ * never written — the caller closes that by creating the job card with this
+ * exact id, which is retry-safe on the primary key.
+ */
+export async function claimInspectionJobCard(id: string, candidateJobCardId: string): Promise<string> {
+  const won = await supabase
+    .from('inspections')
+    .update({ job_card_id: candidateJobCardId })
+    .eq('id', id)
+    .in('shop_id', getShopIds())
+    .is('job_card_id', null)
+    .select('job_card_id');
+  if (won.error) throw won.error;
+  if ((won.data ?? []).length > 0) return candidateJobCardId;
+
+  // Either somebody else got there first, or the row is not ours to write.
+  const { data: row, error } = await supabase
+    .from('inspections')
+    .select('job_card_id')
+    .eq('id', id)
+    .in('shop_id', getShopIds())
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) throw new Error('That inspection is not in this location — it may belong to another shop.');
+
+  const existing = ((row.job_card_id as string) ?? '').trim();
+  if (existing) return existing;
+
+  // Stored as '' rather than NULL. Every write here normalises to NULL, so
+  // this is only reachable for a row written before that was true; claim it
+  // the same way rather than leaving the inspection unable to complete.
+  const second = await supabase
+    .from('inspections')
+    .update({ job_card_id: candidateJobCardId })
+    .eq('id', id)
+    .in('shop_id', getShopIds())
+    .eq('job_card_id', '')
+    .select('job_card_id');
+  if (second.error) throw second.error;
+  if ((second.data ?? []).length > 0) return candidateJobCardId;
+
+  const { data: after } = await supabase
+    .from('inspections').select('job_card_id').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+  const settled = ((after?.job_card_id as string) ?? '').trim();
+  if (settled) return settled;
+  throw new Error('Could not reserve a job card for this inspection.');
+}
+
 export async function deleteInspection(id: string): Promise<void> {
   const { data: before } = await supabase
     .from('inspections').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();

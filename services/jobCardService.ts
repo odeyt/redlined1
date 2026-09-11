@@ -88,6 +88,21 @@ export async function fetchClosedJobs(): Promise<JobCardFull[]> {
   return (data ?? []).map(toJob);
 }
 
+/**
+ * One job card by id, or null when it is not this shop's.
+ *
+ * Wanted by any caller holding an id it may or may not have created already:
+ * completing an inspection a second time has to find the first job card
+ * rather than raise another. fetchJobCards() would pull the whole list to
+ * answer that.
+ */
+export async function fetchJobCardById(id: string): Promise<JobCardFull | null> {
+  const { data, error } = await supabase
+    .from('job_cards').select('*').eq('id', id).in('shop_id', getShopIds()).maybeSingle();
+  if (error) throw error;
+  return data ? toJob(data) : null;
+}
+
 export async function createJobCard(fields: {
   customer: string;
   vehicle: string;
@@ -98,8 +113,21 @@ export async function createJobCard(fields: {
   priority: string;
   approvalCode: string;
   notes?: string;
+  /**
+   * Use this exact id rather than a fresh one.
+   *
+   * Lets a caller settle the id before the insert, so it can be written
+   * somewhere durable first and the insert becomes retry-safe — a second
+   * attempt collides on the primary key instead of producing a second job
+   * card. See services/inspectionCompletionService.ts.
+   */
+  id?: string;
+  /** Overrides the service-type guess below. */
+  laborHours?: number;
+  /** Overrides the service-type guess below. */
+  partsTotal?: number;
 }): Promise<JobCardFull> {
-  const id = `JC-${Date.now()}`;
+  const id = fields.id ?? `JC-${Date.now()}`;
   const approved = !!fields.approvalCode;
   const { data, error } = await supabase
     .from('job_cards')
@@ -117,8 +145,10 @@ export async function createJobCard(fields: {
       status: approved ? 'Approved' : 'Booked',
       priority: fields.priority,
       approval: approved ? 'Approved' : 'Pending',
-      labor_hours: fields.serviceType.includes('Diagnostic') ? 1.1 : 1.6,
-      parts_total: fields.serviceType.includes('Diagnostic') ? 0 : 96.5,
+      // Placeholder figures, not a quote. A caller that knows nothing has
+      // been priced yet passes 0 rather than inheriting them.
+      labor_hours: fields.laborHours ?? (fields.serviceType.includes('Diagnostic') ? 1.1 : 1.6),
+      parts_total: fields.partsTotal ?? (fields.serviceType.includes('Diagnostic') ? 0 : 96.5),
       workflow: approved ? ['Booked', 'Approved'] : ['Booked'],
       next_action: approved ? 'Convert to repair order' : 'Request approval',
       check_in_date: new Date().toISOString(),
