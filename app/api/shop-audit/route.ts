@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { mailFrom, usingSandboxSender } from '@/lib/mail/sender';
+
+/**
+ * What happened to the notification, as three distinct outcomes.
+ *
+ * This was a boolean, and `false` meant either "no recipient is configured"
+ * or "Resend threw" — two problems with completely different fixes. Verifying
+ * the funnel in production cost two round trips precisely because the
+ * response could not say which one had occurred. The lead is stored either
+ * way; this only describes the email.
+ */
+export type NotifyState = 'sent' | 'skipped' | 'failed';
 
 /**
  * Book a Shop Audit — inbound lead capture.
@@ -130,7 +142,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Notification is best-effort from here. The lead is already safe.
-  let notified = false;
+  //
+  // 'skipped' is the honest answer when there is nothing to send with or
+  // nobody to send to — it is a configuration gap, not a delivery failure,
+  // and reporting it as a failure sends whoever is diagnosing to the wrong
+  // place.
+  let notified: NotifyState = 'skipped';
+  let notifyError: string | null = null;
   const to = process.env.SALES_NOTIFY_EMAIL?.trim() || process.env.CONTACT_SALES_EMAIL?.trim();
   if (process.env.RESEND_API_KEY?.trim() && to) {
     try {
@@ -140,7 +158,7 @@ export async function POST(req: NextRequest) {
           ? ''
           : `<tr><td style="padding:4px 10px 4px 0;color:#888">${label}</td><td style="padding:4px 0"><strong>${escapeHtml(String(value))}</strong></td></tr>`;
       await resend.emails.send({
-        from: 'RedlineD1 <onboarding@resend.dev>',
+        from: mailFrom('RedlineD1'),
         to,
         replyTo: email,
         subject: `Shop audit request — ${fullName}${lead.shop_name ? ` (${lead.shop_name})` : ''}`,
@@ -166,14 +184,23 @@ export async function POST(req: NextRequest) {
           `<p style="font-family:system-ui;font-size:12px;color:#888">Lead ${leadId ?? 'unknown'} — stored in shop_audit_leads.</p>`,
         ].join(''),
       });
-      notified = true;
+      notified = 'sent';
     } catch (e) {
+      notified = 'failed';
+      notifyError = e instanceof Error ? e.message : 'unknown error';
       try {
         const { logger } = await import('@/lib/logger');
-        logger.error('shopAudit.notify failed', e, { leadId });
+        logger.error('shopAudit.notify failed', e, { leadId, sandboxSender: usingSandboxSender() });
       } catch { /* the lead is stored; a logging failure changes nothing */ }
     }
   }
 
-  return NextResponse.json({ ok: true, id: leadId, notified }, { status: 201 });
+  // notifyError is the provider's own message (a rejected recipient, an
+  // unverified sending domain). It describes configuration, never the
+  // submitted form, so it is safe to return — and it is what turns a failed
+  // notification into something diagnosable without digging through logs.
+  return NextResponse.json(
+    { ok: true, id: leadId, notified, ...(notifyError ? { notifyError } : {}) },
+    { status: 201 },
+  );
 }

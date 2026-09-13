@@ -176,6 +176,40 @@ describe('audit leads are stored safely', () => {
     expect(auditApi).toMatch(/ok: true/);
   });
 
+  it('reports the notification outcome as three distinct states, not a boolean', () => {
+    // As a boolean, false meant either "no recipient configured" or "Resend
+    // threw" — two problems with different fixes. Telling them apart is the
+    // whole point; verifying this funnel in production cost two round trips
+    // because the response could not.
+    expect(auditApi).toMatch(/export type NotifyState = 'sent' \| 'skipped' \| 'failed'/);
+    expect(auditApi).toMatch(/let notified: NotifyState = 'skipped'/);
+    expect(auditApi).toMatch(/notified = 'sent'/);
+    expect(auditApi).toMatch(/notified = 'failed'/);
+    expect(auditApi).not.toMatch(/notified = true|notified = false/);
+  });
+
+  it('returns the provider message on failure, and only on failure', () => {
+    expect(auditApi).toMatch(/notifyError \? \{ notifyError \} : \{\}/);
+  });
+
+  it('resolves the sender from configuration instead of hardcoding the sandbox', () => {
+    expect(auditApi).toMatch(/from: mailFrom\('RedlineD1'\)/);
+    expect(auditApi).not.toMatch(/onboarding@resend\.dev/);
+  });
+});
+
+describe('the sending identity is configurable', () => {
+  it('defaults to the sandbox so an unverified domain cannot break sending', () => {
+    const sender = read('lib/mail/sender.ts');
+    expect(sender).toMatch(/MAIL_FROM_ADDRESS/);
+    expect(sender).toMatch(/SANDBOX_SENDER = 'onboarding@resend\.dev'/);
+  });
+
+  it('records whether mail still went out over the shared sandbox domain', () => {
+    // Without this the answer to "why did it land in spam" is invisible.
+    expect(auditApi).toMatch(/sandboxSender: usingSandboxSender\(\)/);
+  });
+
   it('caps every free-text field and bounds every number', () => {
     expect(auditApi).toMatch(/function text\(value: unknown, max: number\)/);
     expect(auditApi).toMatch(/function count\(value: unknown, max: number\)/);
