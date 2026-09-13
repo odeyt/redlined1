@@ -9,11 +9,20 @@ const PLANS = [
     name: 'Free Forever',
     monthly: 0,
     annual: 0,
-    tagline: 'Start managing jobs at no cost, no expiry.',
+    tagline: 'Seven days of full access, then keep the core tools free — no expiry, no card.',
     badge: null,
     featured: false,
     features: [
-      'Full platform access',
+      // 'Full platform access' used to head this list. It is true for the first
+
+      // seven days and not after: getPlanStatus() drops an expired trial to
+
+      // 'free', and canAccess() then allows FREE_MODULES only — so listing it as
+
+      // a Free Forever feature promised something the plan gate takes away.
+
+      '7 days of full access to start',
+      'Core tools free after that',
       'Up to 10 jobs',
       'Digital inspections',
       'Customer share links',
@@ -366,9 +375,17 @@ export function PricingSection() {
         {/* Bottom note */}
         <div style={{ textAlign: 'center', marginTop: '40px' }}>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.25)', lineHeight: 1.7 }}>
-            Free Forever requires no credit card. Paid plans billed monthly or annually.<br />
+            Every new account starts with seven days of full access — no card required. Afterward, keep the Free plan or upgrade.<br />
+            Paid plans billed monthly or annually.<br />
             Cancel anytime. Prices in USD.
           </p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', lineHeight: 1.7, marginTop: 14 }}>
+              Running several bays or locations?{' '}
+              <a href="/shop-audit" data-analytics="shop_audit_clicked" data-cta-location="pricing" style={{ color: '#e52020', fontWeight: 700, textDecoration: 'none' }}>
+                Book a shop audit
+              </a>{' '}
+              and we will review your workflow before you choose a plan.
+            </p>
         </div>
       </div>
     </section>

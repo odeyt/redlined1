@@ -148,6 +148,8 @@ export function HeroSection() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 32 }}>
           <Link
             href="/signup"
+            data-analytics="start_free_clicked"
+            data-cta-location="hero"
             className="hero-trial-btn"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -162,10 +164,26 @@ export function HeroSection() {
           >
             {/* Shimmer overlay */}
             <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.12) 50%, transparent 60%)', backgroundSize: '400px 100%', animation: 'hero-shimmer 3s linear infinite', pointerEvents: 'none' }} />
-            Get Your Shop Running — Free
+            Start Free
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
               <path d="M3 9h12M10 4l5 5-5 5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
+          </Link>
+          <Link
+            href="/shop-audit"
+            data-analytics="shop_audit_clicked"
+            data-cta-location="hero"
+            className="hero-secondary-btn"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '16px 28px', borderRadius: 12,
+              background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.85)',
+              fontWeight: 700, fontSize: 16, textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.18)',
+              transition: 'all 0.2s',
+            }}
+          >
+            Book a Shop Audit
           </Link>
           <a
             href="#workflow"
@@ -187,9 +205,25 @@ export function HeroSection() {
           </a>
         </div>
 
-        {/* ── Trust signals ───────────────────────────────── */}
+        {/* ── What the two paths mean ─────────────────────── */}
+
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'rgba(255,255,255,0.42)', maxWidth: 560, margin: '0 auto 14px' }}>
+
+          Start on your own, or let us review your shop&rsquo;s workflow and identify where time and
+
+          revenue are being lost.
+
+        </p>
+
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'rgba(255,255,255,0.32)', maxWidth: 560, margin: '0 auto 32px' }}>
+
+          Try every feature for seven days. No card required. Afterward, keep the Free plan or upgrade.
+
+        </p>
+
+        {/* ── Trust signals ────────────────────────────────── */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'center', marginBottom: 56 }}>
-          {['No credit card required', 'Full platform access', 'Cancel anytime', 'Built in a real repair shop'].map(t => (
+          {['No credit card required', '7 days of full access', 'Free plan afterwards', 'Built in a real repair shop'].map(t => (
             <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <circle cx="7" cy="7" r="7" fill="rgba(34,211,160,0.15)"/>

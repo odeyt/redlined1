@@ -9,8 +9,11 @@ export function FinalCTA() {
           Run your shop from one connected system.
         </h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center', marginTop: '28px' }}>
-          <Link href="/signup" data-analytics="trial_cta_click" style={buttonPrimary}>
+          <Link href="/signup" data-analytics="start_free_clicked" data-cta-location="final" style={buttonPrimary}>
             Start Free — No Credit Card
+          </Link>
+          <Link href="/shop-audit" data-analytics="shop_audit_clicked" data-cta-location="final" style={{ ...buttonSecondary, background: 'transparent', color: colors.textOnDark, borderColor: 'rgba(250,250,250,0.25)' }}>
+            Book a Shop Audit
           </Link>
           <Link href="/contact-sales?context=general" data-analytics="contact_sales_click" style={{ ...buttonSecondary, background: 'transparent', color: colors.textOnDark, borderColor: 'rgba(250,250,250,0.25)' }}>
             Talk to us

@@ -214,7 +214,7 @@ export default function SignupPage() {
               label: isPaidPlan ? 'Complete payment' : 'Sign in and explore',
               sub: isPaidPlan
                 ? `You'll be redirected to pay for the ${planMeta.name} plan (${displayPrice})`
-                : `Your ${TRIAL_DAYS}-day trial starts — every feature unlocked, no credit card`,
+                : `Every feature unlocked for ${TRIAL_DAYS} days — no card, and the Free plan continues afterwards`,
             },
           ].map((step, i) => (
             <div key={i} style={{
@@ -368,13 +368,13 @@ export default function SignupPage() {
               ? 'Creating account…'
               : isPaidPlan
                 ? `Get ${planMeta.name} — ${displayPrice}`
-                : 'Start Free Trial'}
+                : 'Start Free'}
           </button>
 
           <p style={{ textAlign: 'center', fontSize: 12, color: '#999', marginTop: 12 }}>
             {isPaidPlan
               ? 'After creating your account, confirm your email to proceed to payment.'
-              : `${TRIAL_DAYS} days of every feature, then free forever with core features. No credit card required.`}
+              : `Try every feature for ${TRIAL_DAYS} days. No card required. Afterward, keep the Free plan or upgrade.`}
           </p>
         </form>
 

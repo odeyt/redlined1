@@ -35,7 +35,11 @@ describe('signup copy', () => {
   });
 
   it('still says no credit card is required, because none is', () => {
-    expect(src).toMatch(/no credit card/i);
+    // Phrasing widened when the canonical offer copy landed: the page now
+    // reads 'No card required.' The claim being guarded is the same one —
+    // signup takes no payment details, and the trial comes from a DB trigger,
+    // not a checkout — so the assertion tracks the meaning, not one wording.
+    expect(src).toMatch(/no (credit )?card/i);
   });
 
   it('has a sane trial length to advertise', () => {

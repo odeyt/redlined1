@@ -33,8 +33,8 @@ function apiJson(status: number, error: string, detail: string) {
 const PUBLIC_PATHS = [
   '/login', '/signup', '/help', '/forgot-password', '/reset-password',
   '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy',
-  '/billing/success', '/billing/canceled', '/contact-sales',
-  '/api/billing/webhook', '/api/contact-sales', '/api/ping', '/api/push/send',
+  '/billing/success', '/billing/canceled', '/contact-sales', '/shop-audit',
+  '/api/billing/webhook', '/api/contact-sales', '/api/shop-audit', '/api/ping', '/api/push/send',
   '/api/v1',
 ];
 

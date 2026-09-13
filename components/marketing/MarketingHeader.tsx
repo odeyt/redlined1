@@ -203,7 +203,8 @@ export function MarketingHeader() {
               @keyframes nav-btn-shimmer { 0%{background-position:-200px 0}100%{background-position:200px 0} }
               .rd1-nav-trial:hover{animation:none!important;box-shadow:0 0 48px rgba(204,0,0,1),0 6px 36px rgba(204,0,0,0.8)!important;transform:translateY(-1px) scale(1.02)}
             `}</style>
-            <Link href="/signup" className="rd1-nav-trial" style={{
+            <Link href="/shop-audit" data-analytics="shop_audit_clicked" data-cta-location="nav" style={{ padding: '9px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.72)', textDecoration: 'none', border: '1px solid rgba(255,255,255,0.16)', marginRight: 10, display: 'inline-block' }}>Book a Shop Audit</Link>
+            <Link href="/signup" data-analytics="start_free_clicked" data-cta-location="nav" className="rd1-nav-trial" style={{
               padding: '9px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 700,
               color: '#fff', textDecoration: 'none',
               background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',
@@ -292,7 +293,14 @@ export function MarketingHeader() {
             }}>
               Sign In
             </Link>
-            <Link href="/signup" onClick={() => setOpen(false)} style={{
+            <Link href="/shop-audit" onClick={() => setOpen(false)} data-analytics="shop_audit_clicked" data-cta-location="nav-mobile" style={{
+              display: 'block', textAlign: 'center', padding: '13px', borderRadius: '10px',
+              color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontWeight: 600, fontSize: '15px',
+              border: '1px solid rgba(255,255,255,0.16)', marginBottom: 10,
+            }}>
+              Book a Shop Audit
+            </Link>
+            <Link href="/signup" onClick={() => setOpen(false)} data-analytics="start_free_clicked" data-cta-location="nav-mobile" style={{
               display: 'block', textAlign: 'center', padding: '13px', borderRadius: '10px',
               color: '#fff', textDecoration: 'none', fontWeight: 700, fontSize: '15px',
               background: 'linear-gradient(135deg, #e52020 0%, #aa0000 100%)',

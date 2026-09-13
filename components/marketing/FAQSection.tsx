@@ -39,7 +39,7 @@ const FAQS = [
   {
     cat: 'Billing & Plans',
     q: 'Do I need a credit card to get started?',
-    a: 'No. The Free Forever plan requires no credit card — start managing jobs right now, upgrade whenever you need more.',
+    a: 'No. Every account starts with seven days of full access and no card is required. Afterward you keep the Free plan — core tools, no expiry — or upgrade whenever you need more.',
     cta: { label: 'Start Free', href: '/signup', type: 'link' },
   },
   {
@@ -311,7 +311,7 @@ export function FAQSection() {
               Ready to get started?
             </div>
             <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-              Free Forever included. No credit card required.
+              Seven days of full access, then the Free plan. No credit card required.
             </p>
           </div>
 
