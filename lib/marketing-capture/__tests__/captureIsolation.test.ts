@@ -284,9 +284,15 @@ describe('the migration replaces exactly the reviewed functions, plus one line e
     const step4 = () => block('SELECT\n  (SELECT count(*) FROM public.shops)', "LIKE 'growth\\_%\\_v1';\n");
     const step3b = () => block('BEGIN;\n\nDO $probe_roles$', '$probe_roles$;\n\nROLLBACK;\n');
     const postCheck = () => block('BEGIN TRANSACTION READ ONLY;\n\nWITH\nchecks', 'ORDER BY ord;\n\nROLLBACK;');
+    const step1 = () => block('SELECT p.proname::text AS check_name,', "       'false';\n");
+    const postCheckLines = () => block('BEGIN TRANSACTION READ ONLY;\n\nWITH\nchecks', 'ORDER BY ord;\n\nROLLBACK;\n');
+    const preCheck = () => block('BEGIN TRANSACTION READ ONLY;\n\nWITH\nrel (table_name, rel) AS (VALUES', 'ORDER BY ord;\n\nROLLBACK;\n');
     const code = (t: string) => t.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''");
 
     it.each([
+      ['STEP 1', step1, '085469fb0f6c681ccd3c2d3554c697c300673840ccd0554676a85dab9ca94a03'],
+      ['POST-ROLLBACK CHECK', postCheckLines, '75d5e492c72e03edf76b5f4f80fa76bf327e4067373e5be41f226c0732f1a631'],
+      ['PRE-CHECK', preCheck, '1d81977d7fe2496ccf103f2ec232ff1f3569c1bb332d3250d95d33b291a82f95'],
       ['STEP 2', step2, '474f8473ebe9109882487df5846469f31178792d13b2224f92ccef2823385429'],
       ['STEP 3', step3, '33de41473a02d5c14e56ff301e903899e1e02007029cecef7044f74981fb31e0'],
       ['STEP 4', step4, '865ad24b110e4b363755e4ea2659c7b78c616bd25b7d681a5c7cc9bd9db8a9f1'],
@@ -334,6 +340,110 @@ describe('the migration replaces exactly the reviewed functions, plus one line e
       expect(step3b().split('EXCEPTION WHEN insufficient_privilege THEN').length - 1).toBe(2);
       expect(step3b().split(`IF msg <> '${raised[0]}' THEN`).length - 1).toBe(2);
       expect(step3b().split('GUARD FAILURE:').length - 1).toBe(2);
+    });
+
+    describe('the committed PRE-CHECK', () => {
+      it('is appended last, after the post-rollback check, and appears once', () => {
+        expect(sql.indexOf(preCheck())).toBeGreaterThan(sql.indexOf(postCheckLines()) + postCheckLines().length - 1);
+        expect(sql.split('rel (table_name, rel) AS (VALUES').length - 1).toBe(1);
+        expect(sql.trimEnd().endsWith(preCheck().trimEnd())).toBe(true);
+      });
+
+      it('begins with BEGIN TRANSACTION READ ONLY and ends with ROLLBACK', () => {
+        expect(preCheck().startsWith('BEGIN TRANSACTION READ ONLY;')).toBe(true);
+        expect(preCheck().trimEnd().endsWith('ROLLBACK;')).toBe(true);
+      });
+
+      it('contains no write, MERGE, DDL, role switch, HTTP call or writable function call', () => {
+        const body = code(preCheck());
+        expect(body).not.toMatch(/\b(insert|update|delete|merge|upsert|truncate|copy|alter|create|drop|grant|revoke|comment|security|vacuum|analyze|reindex|cluster|refresh|lock|commit|savepoint|do|execute|perform|call|listen|notify)\b/i);
+        expect(body).not.toMatch(/\b(set|reset)\b/i);
+        expect(body).not.toMatch(/set_config|nextval|setval|currval|pg_advisory|pg_terminate|pg_cancel|dblink/i);
+        expect(body).not.toMatch(/\bnet\s*\.|http_(get|post|put|delete|head|patch)|\bhttp\s*\(/i);
+        // Every function it calls is a read-only catalog, privilege or aggregate function.
+        const sqlWords = new Set(['values', 'as', 'in', 'exists', 'rel', 'checks']);
+        const calls = [...new Set([...body.matchAll(/\b([a-z_][a-z0-9_]*)\s*\(/gi)].map(m => m[1].toLowerCase()))]
+          .filter(c => !sqlWords.has(c)).sort();
+        expect(calls).toEqual([
+          'array_position', 'coalesce', 'count', 'has_table_privilege', 'pg_get_expr', 'pg_get_userbyid',
+          'pg_has_role', 'string_agg', 'to_regclass', 'to_regprocedure', 'unnest',
+        ]);
+      });
+
+      it('reports exactly the reviewed checks, in order, with the reviewed expectations', () => {
+        const rows = [...preCheck().matchAll(/SELECT (\d+), '([^']*)',\s*'([^']*)'/g)].map(m => [Number(m[1]), m[2], m[3]]);
+        expect(rows).toEqual([
+          [10, 'user triggers on shops', 'shops_create_settings (O), shops_guard_is_synthetic (O)'],
+          [11, 'user triggers on shop_settings', '(none)'],
+          [12, 'rewrite rules on shops / shop_settings', '(none)'],
+          [13, 'create_shop_settings_for_new_shop writes only shop_settings', 'yes'],
+          [14, 'shops columns NOT NULL without default (probe writes name, slug, is_synthetic)', 'subset of: name, slug'],
+          [15, 'shop_settings columns NOT NULL without default (trigger writes shop_id, company_name, address, phone)', 'subset of: address, company_name, phone, shop_id'],
+          [16, 'sequence-backed defaults (nextval is NOT undone by ROLLBACK)', '(informational)'],
+          [17, 'baseline: shops total', '14'],
+          [18, 'baseline: synthetic shops', '0'],
+          [19, 'baseline: probe shops', '0'],
+          [20, 'baseline: shop_settings rows', '(record)'],
+          [21, 'baseline: shop_settings_id_seq last_value', '(record)'],
+          [30, 'Step 3b prerequisite: postgres may SET ROLE to authenticated, anon, service_role', 'true, true, true'],
+          [31, 'Step 3b prerequisite: BYPASSRLS for authenticated, anon, service_role', 'false, false, true'],
+          [32, 'Step 3b prerequisite: INSERT privilege on shops for authenticated, anon; INSERT, UPDATE for service_role', 'true, true, true, true'],
+          [33, 'policies on shops (ordinary-role UPDATE is also blocked by RLS unless a policy allows it)', '(informational)'],
+        ]);
+      });
+
+      it('inspects the reviewed triggers, rules, required columns, sequences, baselines, roles, privileges and policies', () => {
+        const q = preCheck();
+        for (const fragment of [
+          // both tables the probes write
+          "('shops', to_regclass('public.shops'))",
+          "('shop_settings', to_regclass('public.shop_settings'))",
+          // user triggers only
+          'JOIN pg_trigger t ON t.tgrelid = r.rel AND NOT t.tgisinternal',
+          // rewrite rules
+          "JOIN pg_rewrite w ON w.ev_class = r.rel",
+          "WHERE w.rulename <> '_RETURN'",
+          // NOT NULL columns with no default, identity or generation
+          "WHERE a.attnotnull AND d.adbin IS NULL AND a.attidentity = '' AND a.attgenerated = ''",
+          // sequence-backed defaults
+          "WHERE a.attidentity <> '' OR pg_get_expr(d.adbin, d.adrelid) ILIKE '%nextval%'",
+          "FROM pg_sequences WHERE schemaname = 'public' AND sequencename = 'shop_settings_id_seq'",
+          // the settings trigger function, and what it must not touch
+          "to_regprocedure('public.create_shop_settings_for_new_shop()')",
+          "prosrc ILIKE '%insert into public.shop_settings%'",
+          // baselines
+          "(SELECT count(*)::text FROM public.shops)",
+          "(SELECT count(*)::text FROM public.shops WHERE is_synthetic)",
+          "(SELECT count(*)::text FROM public.shop_settings)",
+          // role capabilities
+          "pg_has_role('postgres', 'authenticated', 'SET')",
+          "pg_has_role('postgres', 'anon', 'SET')",
+          "pg_has_role('postgres', 'service_role', 'SET')",
+          "FROM pg_roles WHERE rolname IN ('authenticated', 'anon', 'service_role')",
+          // privileges
+          "has_table_privilege('authenticated', 'public.shops', 'INSERT')",
+          "has_table_privilege('anon', 'public.shops', 'INSERT')",
+          "has_table_privilege('service_role', 'public.shops', 'INSERT')",
+          "has_table_privilege('service_role', 'public.shops', 'UPDATE')",
+          // policies
+          "FROM pg_policy p WHERE p.polrelid = to_regclass('public.shops')",
+        ]) {
+          expect({ fragment, present: q.includes(fragment) }).toEqual({ fragment, present: true });
+        }
+        for (const forbidden of ['alert_events', 'net.', 'http', 'auth.', 'shop_users', 'profiles', 'invoice', 'payment', 'sapelee', 'outbox', 'update ', 'delete ']) {
+          expect(q).toContain(`prosrc NOT ILIKE '%${forbidden}%'`);
+        }
+      });
+
+      it('agrees with the rest of the migration: the triggers it expects, and the probe-name pattern', () => {
+        expect(sql).toContain('CREATE TRIGGER shops_guard_is_synthetic');
+        const probePattern = "name LIKE '\\_\\_probe\\_%'";
+        expect(preCheck()).toContain(probePattern);
+        expect(postCheck()).toContain(probePattern);
+        for (const name of [...step3().matchAll(/VALUES \('([^']+)'/g), ...step3b().matchAll(/VALUES \('([^']+)'/g)].map(m => m[1])) {
+          expect(name.startsWith('__probe_')).toBe(true);
+        }
+      });
     });
 
     it('the post-rollback check is read-only', () => {

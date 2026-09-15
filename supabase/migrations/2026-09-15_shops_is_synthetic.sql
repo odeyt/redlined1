@@ -469,3 +469,146 @@ FROM checks
 ORDER BY ord;
 
 ROLLBACK;
+
+
+-- ===========================================================================
+-- PRE-CHECK (read-only). Run after STEP 2, immediately before STEP 3.
+-- ===========================================================================
+--
+-- Owner-reviewed 2026-09-15 and committed verbatim; pinned by SHA-256 in
+-- lib/marketing-capture/__tests__/captureIsolation.test.ts. Appended last so the
+-- line ranges and hashes of every block above stay unchanged, although it runs
+-- before STEP 3.
+--
+-- It reads catalogs and counts only, inside a READ ONLY transaction that is
+-- rolled back, and confirms before any probe row is written:
+--   rows 10-13  the only user triggers are shops_create_settings and
+--               shops_guard_is_synthetic on shops; none on shop_settings; no
+--               rewrite rules; create_shop_settings_for_new_shop writes only
+--               shop_settings (no alerts, HTTP, auth, memberships, profiles,
+--               invoices, payments or Sapelee)
+--   rows 14-15  the probes supply every NOT NULL column that has no default
+--   row 16      sequence-backed defaults (nextval is not undone by ROLLBACK)
+--   rows 17-21  baselines: 14 shops, 0 synthetic, 0 probe shops, and the
+--               shop_settings row count and shop_settings_id_seq value that the
+--               POST-ROLLBACK CHECK is compared against
+--   rows 30-33  STEP 3b prerequisites: role switching, BYPASSRLS, INSERT and
+--               UPDATE privileges, and the policies on shops
+--
+-- The literal 14 is the production shop count on 2026-09-15, before any demo
+-- tenant existed.
+--
+-- STOP before STEP 3 if any of rows 10-15 or 17-19 is not PASS.
+-- STOP before STEP 3b if any of rows 30-32 is not PASS.
+-- Record rows 16, 20 and 21 for the POST-ROLLBACK CHECK.
+
+BEGIN TRANSACTION READ ONLY;
+
+WITH
+rel (table_name, rel) AS (VALUES
+  ('shops', to_regclass('public.shops')),
+  ('shop_settings', to_regclass('public.shop_settings'))
+),
+trg AS (
+  SELECT r.table_name, t.tgname::text AS trigger_name, t.tgenabled::text AS enabled, p.prosecdef,
+         p.pronamespace::regnamespace::text || '.' || p.proname AS fn
+  FROM rel r
+  JOIN pg_trigger t ON t.tgrelid = r.rel AND NOT t.tgisinternal
+  JOIN pg_proc p ON p.oid = t.tgfoid
+),
+rules AS (
+  SELECT r.table_name, w.rulename::text AS rule_name
+  FROM rel r JOIN pg_rewrite w ON w.ev_class = r.rel
+  WHERE w.rulename <> '_RETURN'
+),
+required_cols AS (
+  SELECT r.table_name, a.attname::text AS col
+  FROM rel r
+  JOIN pg_attribute a ON a.attrelid = r.rel AND a.attnum > 0 AND NOT a.attisdropped
+  LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+  WHERE a.attnotnull AND d.adbin IS NULL AND a.attidentity = '' AND a.attgenerated = ''
+),
+seq_defaults AS (
+  SELECT r.table_name || '.' || a.attname AS col, coalesce(pg_get_expr(d.adbin, d.adrelid), 'identity') AS default_expr
+  FROM rel r
+  JOIN pg_attribute a ON a.attrelid = r.rel AND a.attnum > 0 AND NOT a.attisdropped
+  LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+  WHERE a.attidentity <> '' OR pg_get_expr(d.adbin, d.adrelid) ILIKE '%nextval%'
+),
+settings_fn AS (
+  SELECT p.prosrc, p.prosecdef FROM pg_proc p WHERE p.oid = to_regprocedure('public.create_shop_settings_for_new_shop()')
+),
+pol AS (
+  SELECT p.polname::text AS policy_name,
+         CASE p.polcmd WHEN 'r' THEN 'SELECT' WHEN 'a' THEN 'INSERT' WHEN 'w' THEN 'UPDATE' WHEN 'd' THEN 'DELETE' ELSE 'ALL' END AS cmd,
+         (SELECT string_agg(CASE WHEN ro = 0 THEN 'PUBLIC' ELSE pg_get_userbyid(ro)::text END, ', ' ORDER BY ro) FROM unnest(p.polroles) ro) AS roles
+  FROM pg_policy p WHERE p.polrelid = to_regclass('public.shops')
+),
+checks (ord, check_name, expected, actual, result) AS (
+  SELECT 10, 'user triggers on shops', 'shops_create_settings (O), shops_guard_is_synthetic (O)',
+         (SELECT coalesce(string_agg(trigger_name || ' (' || enabled || ')', ', ' ORDER BY trigger_name), '(none)') FROM trg WHERE table_name = 'shops'),
+         NULL::text
+  UNION ALL
+  SELECT 11, 'user triggers on shop_settings', '(none)',
+         (SELECT coalesce(string_agg(trigger_name || ' (' || enabled || ')', ', ' ORDER BY trigger_name), '(none)') FROM trg WHERE table_name = 'shop_settings'),
+         NULL
+  UNION ALL
+  SELECT 12, 'rewrite rules on shops / shop_settings', '(none)',
+         (SELECT coalesce(string_agg(table_name || '.' || rule_name, ', '), '(none)') FROM rules), NULL
+  UNION ALL
+  SELECT 13, 'create_shop_settings_for_new_shop writes only shop_settings', 'yes',
+         (SELECT CASE WHEN prosrc IS NULL THEN '(function missing)'
+                      WHEN prosrc ILIKE '%insert into public.shop_settings%'
+                       AND prosrc NOT ILIKE '%alert_events%' AND prosrc NOT ILIKE '%net.%' AND prosrc NOT ILIKE '%http%'
+                       AND prosrc NOT ILIKE '%auth.%' AND prosrc NOT ILIKE '%shop_users%' AND prosrc NOT ILIKE '%profiles%'
+                       AND prosrc NOT ILIKE '%invoice%' AND prosrc NOT ILIKE '%payment%' AND prosrc NOT ILIKE '%sapelee%'
+                       AND prosrc NOT ILIKE '%outbox%' AND prosrc NOT ILIKE '%update %' AND prosrc NOT ILIKE '%delete %'
+                      THEN 'yes' ELSE 'no: body references another table or HTTP' END FROM settings_fn), NULL
+  UNION ALL
+  SELECT 14, 'shops columns NOT NULL without default (probe writes name, slug, is_synthetic)', 'subset of: name, slug',
+         (SELECT coalesce(string_agg(col, ', ' ORDER BY col), '(none)') FROM required_cols WHERE table_name = 'shops'),
+         CASE WHEN EXISTS (SELECT 1 FROM required_cols WHERE table_name = 'shops' AND col NOT IN ('name', 'slug')) THEN 'STOP' ELSE 'PASS' END
+  UNION ALL
+  SELECT 15, 'shop_settings columns NOT NULL without default (trigger writes shop_id, company_name, address, phone)',
+         'subset of: address, company_name, phone, shop_id',
+         (SELECT coalesce(string_agg(col, ', ' ORDER BY col), '(none)') FROM required_cols WHERE table_name = 'shop_settings'),
+         CASE WHEN EXISTS (SELECT 1 FROM required_cols WHERE table_name = 'shop_settings'
+                             AND col NOT IN ('shop_id', 'company_name', 'address', 'phone')) THEN 'STOP' ELSE 'PASS' END
+  UNION ALL
+  SELECT 16, 'sequence-backed defaults (nextval is NOT undone by ROLLBACK)', '(informational)',
+         (SELECT coalesce(string_agg(col || ' = ' || default_expr, '; ' ORDER BY col), '(none)') FROM seq_defaults), 'INFO'
+  UNION ALL
+  SELECT 17, 'baseline: shops total', '14', (SELECT count(*)::text FROM public.shops), NULL
+  UNION ALL
+  SELECT 18, 'baseline: synthetic shops', '0', (SELECT count(*)::text FROM public.shops WHERE is_synthetic), NULL
+  UNION ALL
+  SELECT 19, 'baseline: probe shops', '0', (SELECT count(*)::text FROM public.shops WHERE name LIKE '\_\_probe\_%'), NULL
+  UNION ALL
+  SELECT 20, 'baseline: shop_settings rows', '(record)', (SELECT count(*)::text FROM public.shop_settings), 'INFO'
+  UNION ALL
+  SELECT 21, 'baseline: shop_settings_id_seq last_value', '(record)',
+         (SELECT coalesce(last_value::text, '(never called)') FROM pg_sequences WHERE schemaname = 'public' AND sequencename = 'shop_settings_id_seq'), 'INFO'
+  UNION ALL
+  SELECT 30, 'Step 3b prerequisite: postgres may SET ROLE to authenticated, anon, service_role', 'true, true, true',
+         pg_has_role('postgres', 'authenticated', 'SET')::text || ', ' || pg_has_role('postgres', 'anon', 'SET')::text
+           || ', ' || pg_has_role('postgres', 'service_role', 'SET')::text, NULL
+  UNION ALL
+  SELECT 31, 'Step 3b prerequisite: BYPASSRLS for authenticated, anon, service_role', 'false, false, true',
+         (SELECT string_agg(rolbypassrls::text, ', ' ORDER BY array_position(ARRAY['authenticated', 'anon', 'service_role'], rolname::text))
+            FROM pg_roles WHERE rolname IN ('authenticated', 'anon', 'service_role')), NULL
+  UNION ALL
+  SELECT 32, 'Step 3b prerequisite: INSERT privilege on shops for authenticated, anon; INSERT, UPDATE for service_role',
+         'true, true, true, true',
+         has_table_privilege('authenticated', 'public.shops', 'INSERT')::text || ', ' || has_table_privilege('anon', 'public.shops', 'INSERT')::text
+           || ', ' || has_table_privilege('service_role', 'public.shops', 'INSERT')::text || ', '
+           || has_table_privilege('service_role', 'public.shops', 'UPDATE')::text, NULL
+  UNION ALL
+  SELECT 33, 'policies on shops (ordinary-role UPDATE is also blocked by RLS unless a policy allows it)', '(informational)',
+         (SELECT coalesce(string_agg(policy_name || ' [' || cmd || ' to ' || roles || ']', '; ' ORDER BY policy_name), '(none)') FROM pol), 'INFO'
+)
+SELECT check_name, expected, actual,
+       coalesce(result, CASE WHEN actual IS NULL THEN 'STOP (not found)' WHEN actual = expected THEN 'PASS' ELSE 'STOP' END) AS result
+FROM checks
+ORDER BY ord;
+
+ROLLBACK;

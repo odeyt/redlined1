@@ -21,15 +21,18 @@ nothing crossed the tenant boundary or left the platform.
 
 1. **Migration.** Run `supabase/migrations/2026-09-15_shops_is_synthetic.sql`
    in the SQL Editor one block at a time, each result reviewed before the next.
-   STEP 1 must show matching fingerprints; if it does not, stop. The owner-reviewed
-   STEP 2, 3 and 4 blocks are pinned by SHA-256 in
-   `lib/marketing-capture/__tests__/captureIsolation.test.ts`.
+   STEP 1 must show matching fingerprints; if it does not, stop. Every
+   owner-reviewed block (STEP 1, 2, 3, 3b, 4, the POST-ROLLBACK CHECK and the
+   PRE-CHECK) is pinned by SHA-256 in
+   `lib/marketing-capture/__tests__/captureIsolation.test.ts`. Blocks added after
+   review are appended at the end of the file, so the line ranges of earlier
+   blocks never move; the file's order is therefore not the run order below.
 
    | Order | Block | Writes | Notes |
    |---|---|---|---|
    | 1 | STEP 1 preflight | none | both fingerprints must match; column absent |
    | 2 | STEP 2 change | one transaction | the only committed change |
-   | 3 | read-only pre-check (from the owner review) | none | triggers, required columns, sequence baselines, STEP 3b prerequisites |
+   | 3 | PRE-CHECK (read-only; the last block in the migration file) | none | user triggers and rewrite rules on `shops` / `shop_settings`, what `create_shop_settings_for_new_shop` writes, NOT NULL columns without defaults, sequence-backed defaults, baselines (14 shops, 0 synthetic, 0 probes, `shop_settings` rows, `shop_settings_id_seq`), and the STEP 3b role capabilities, privileges and policies. **Stop before STEP 3** unless rows 10-15 and 17-19 are PASS; **stop before STEP 3b** unless rows 30-32 are PASS; record rows 16, 20 and 21 for the POST-ROLLBACK CHECK. |
    | 4 | STEP 3 probe | 2 probe shops + 2 blank settings rows, **rolled back** | `shop_settings_id_seq` advances by 2 |
    | 5 | POST-ROLLBACK CHECK | none | appended to the migration file |
    | 6 | STEP 3b guard-role probe (optional) | 1 probe shop + 1 settings row, **rolled back** | `shop_settings_id_seq` advances by 1 |
