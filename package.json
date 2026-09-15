@@ -35,7 +35,12 @@
     "events:health": "tsx scripts/event-health.ts",
     "events:dead": "tsx scripts/dead-domain-events.ts",
     "events:reconcile": "tsx scripts/reconcile-domain-events.ts",
-    "events:relay": "tsx scripts/relay-domain-events.ts"
+    "events:relay": "tsx scripts/relay-domain-events.ts",
+    "capture:marketing:seed": "tsx scripts/marketing/seed-demo-tenant.ts",
+    "capture:marketing:prepare": "playwright test --config playwright.marketing.config.ts --project marketing-prepare",
+    "capture:marketing:list": "playwright test --config playwright.marketing.config.ts --list",
+    "capture:marketing": "playwright test --config playwright.marketing.config.ts --project marketing-capture",
+    "capture:marketing:convert": "powershell -NoProfile -File scripts/marketing/convert-capture.ps1"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
