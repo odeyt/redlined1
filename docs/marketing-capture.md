@@ -20,8 +20,49 @@ nothing crossed the tenant boundary or left the platform.
 ## One-time setup (owner-approved steps, in order)
 
 1. **Migration.** Run `supabase/migrations/2026-09-15_shops_is_synthetic.sql`
-   in the SQL Editor as four separate executions. STEP 1 must show matching
-   fingerprints; if it does not, stop.
+   in the SQL Editor one block at a time, each result reviewed before the next.
+   STEP 1 must show matching fingerprints; if it does not, stop. The owner-reviewed
+   STEP 2, 3 and 4 blocks are pinned by SHA-256 in
+   `lib/marketing-capture/__tests__/captureIsolation.test.ts`.
+
+   | Order | Block | Writes | Notes |
+   |---|---|---|---|
+   | 1 | STEP 1 preflight | none | both fingerprints must match; column absent |
+   | 2 | STEP 2 change | one transaction | the only committed change |
+   | 3 | read-only pre-check (from the owner review) | none | triggers, required columns, sequence baselines, STEP 3b prerequisites |
+   | 4 | STEP 3 probe | 2 probe shops + 2 blank settings rows, **rolled back** | `shop_settings_id_seq` advances by 2 |
+   | 5 | POST-ROLLBACK CHECK | none | appended to the migration file |
+   | 6 | STEP 3b guard-role probe (optional) | 1 probe shop + 1 settings row, **rolled back** | `shop_settings_id_seq` advances by 1 |
+   | 7 | POST-ROLLBACK CHECK again | none | |
+   | 8 | STEP 4 verification | none | |
+
+   **STEP 3b** is appended after the rollback notes so STEPS 1-4 keep their
+   reviewed line numbers and hashes. STEP 3 proves synthetic shops leave the
+   growth figures and that `postgres` may set the flag; 3b proves the other
+   roles, inside a transaction it rolls back:
+   - `service_role` (the seed's path) may insert a synthetic shop and change the
+     flag (exactly one row updated, read back `false`);
+   - `authenticated` and `anon` may not insert one, and the refusal must carry the
+     guard's own message, `shops.is_synthetic is platform-managed`. A refusal
+     for any other reason stops the probe instead of passing it.
+
+   An ordinary role *changing* the flag cannot be exercised: `shops` exposes no
+   row for an ordinary role to update, so RLS refuses first; the guard's update
+   branch is covered by its reviewed body. Run 3b only when the pre-check shows
+   `postgres` may `SET ROLE` to all three roles, `service_role` alone has
+   `BYPASSRLS`, and the INSERT/UPDATE privileges are present. It writes nothing
+   outside `shops` and the blank settings row that `shops_create_settings` adds,
+   so no auth user, profile, membership, alert, notification, HTTP request,
+   invoice, payment or Sapelee event can result.
+
+   **Stop conditions for 3b:** any error, especially `GUARD FAILURE: … inserted
+   a synthetic shop` (critical), `… was refused, but not by the guard: …`,
+   `service_role flag change affected N rows` / `did not apply`, or `role was not
+   restored`. **Recovery:** run `ROLLBACK;` on its own, then the POST-ROLLBACK
+   CHECK, and report both. 3b contains no commit statement, so an error cannot
+   leave a probe row behind. After the check, `shop_settings` rows must equal the
+   pre-check baseline and `shop_settings_id_seq` must be exactly +2 after STEP 3
+   and +1 more after 3b; anything else is a stop.
 2. **Seed the demo tenant.**
    ```powershell
    $env:ALLOW_PRODUCTION_MARKETING_SEED = 'true'

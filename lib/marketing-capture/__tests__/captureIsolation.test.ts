@@ -270,6 +270,80 @@ describe('the migration replaces exactly the reviewed functions, plus one line e
     expect(probe).toMatch(/\$probe\$;\s*ROLLBACK;/);
   });
 
+  describe('owner-reviewed blocks are pinned byte-for-byte; STEP 3b is appended after them', () => {
+    const sha = (t: string) => createHash('sha256').update(t, 'utf8').digest('hex');
+    const block = (start: string, end: string, from = 0) => {
+      const a = sql.indexOf(start, from);
+      expect(a).toBeGreaterThan(-1);
+      const b = sql.indexOf(end, a);
+      expect(b).toBeGreaterThan(a);
+      return sql.slice(a, b + end.length);
+    };
+    const step2 = () => block('BEGIN;\n\nDO $guard$', 'COMMIT;\n');
+    const step3 = () => block('BEGIN;\n\nDO $probe$', '$probe$;\n\nROLLBACK;\n');
+    const step4 = () => block('SELECT\n  (SELECT count(*) FROM public.shops)', "LIKE 'growth\\_%\\_v1';\n");
+    const step3b = () => block('BEGIN;\n\nDO $probe_roles$', '$probe_roles$;\n\nROLLBACK;\n');
+    const postCheck = () => block('BEGIN TRANSACTION READ ONLY;\n\nWITH\nchecks', 'ORDER BY ord;\n\nROLLBACK;');
+    const code = (t: string) => t.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''");
+
+    it.each([
+      ['STEP 2', step2, '474f8473ebe9109882487df5846469f31178792d13b2224f92ccef2823385429'],
+      ['STEP 3', step3, '33de41473a02d5c14e56ff301e903899e1e02007029cecef7044f74981fb31e0'],
+      ['STEP 4', step4, '865ad24b110e4b363755e4ea2659c7b78c616bd25b7d681a5c7cc9bd9db8a9f1'],
+      ['STEP 3b', step3b, 'e6362bdf0754de0cab12c79915b94e001c738ba825b519ee9766a5dae7875bde'],
+    ])('%s still hashes to the owner-reviewed value', (_name, get, expected) => {
+      expect(sha(get())).toBe(expected);
+    });
+
+    it('STEP 3b and the post-rollback check sit after STEP 4 and the rollback notes', () => {
+      const afterReviewed = Math.max(sql.indexOf(step4()) + step4().length, sql.indexOf('-- Rollback'));
+      expect(sql.indexOf(step3b())).toBeGreaterThan(afterReviewed);
+      expect(sql.indexOf(postCheck())).toBeGreaterThan(sql.indexOf(step3b()));
+      expect(sql.split('DO $probe_roles$').length - 1).toBe(1);
+    });
+
+    it('STEP 3b is one rolled-back transaction with no commit', () => {
+      const probe = step3b();
+      expect(probe.startsWith('BEGIN;')).toBe(true);
+      expect(probe.trimEnd().endsWith('ROLLBACK;')).toBe(true);
+      expect(code(probe)).not.toMatch(/\bcommit\b/i);
+    });
+
+    it('STEP 3b switches only to service_role, authenticated and anon, and checks the role is restored', () => {
+      const roles = [...code(step3b()).matchAll(/SET LOCAL ROLE (\w+);/g)].map(m => m[1]);
+      expect(roles).toEqual(['service_role', 'authenticated', 'anon']);
+      expect(code(step3b())).toMatch(/RESET ROLE;/);
+      expect(step3b().split("IF current_user <> 'postgres' THEN RAISE EXCEPTION").length - 1).toBe(2);
+    });
+
+    it('STEP 3b writes only probe rows in public.shops, and nothing that could notify, bill or call out', () => {
+      const body = code(step3b());
+      expect([...body.matchAll(/\bINSERT INTO (\S+)/g)].map(m => m[1])).toEqual(['public.shops', 'public.shops', 'public.shops']);
+      expect([...body.matchAll(/\bUPDATE (\S+) SET/g)].map(m => m[1])).toEqual(['public.shops']);
+      expect(body).not.toMatch(/\b(delete|truncate|alter|create|drop|grant|revoke|nextval|setval|http_post|alert_events|shop_users|profiles|invoices|payments|sapelee|auth\.)\b/i);
+      const names = [...step3b().matchAll(/VALUES \('([^']+)'/g)].map(m => m[1]);
+      expect(names).toEqual(['__probe_service__', '__probe_authenticated__', '__probe_anon__']);
+      for (const n of names) expect(n.startsWith('__probe_')).toBe(true); // what the post-rollback check counts
+    });
+
+    it("STEP 3b's refusal checks match the guard's own message and SQLSTATE exactly", () => {
+      const guard = sql.slice(sql.indexOf('FUNCTION public.shops_guard_is_synthetic()'), sql.indexOf('$fn$;'));
+      const raised = [...guard.matchAll(/RAISE EXCEPTION '([^']+)' USING ERRCODE = '42501'/g)].map(m => m[1]);
+      expect(raised).toEqual(['shops.is_synthetic is platform-managed', 'shops.is_synthetic is platform-managed']);
+      // 42501 is the SQLSTATE PL/pgSQL names insufficient_privilege.
+      expect(step3b().split('EXCEPTION WHEN insufficient_privilege THEN').length - 1).toBe(2);
+      expect(step3b().split(`IF msg <> '${raised[0]}' THEN`).length - 1).toBe(2);
+      expect(step3b().split('GUARD FAILURE:').length - 1).toBe(2);
+    });
+
+    it('the post-rollback check is read-only', () => {
+      const check = postCheck();
+      expect(check.startsWith('BEGIN TRANSACTION READ ONLY;')).toBe(true);
+      expect(check.trimEnd().endsWith('ROLLBACK;')).toBe(true);
+      expect(code(check)).not.toMatch(/\b(insert|update|delete|truncate|alter|create|drop|grant|revoke|commit|nextval|setval)\b/i);
+    });
+  });
+
   it('the tenant guard is not SECURITY DEFINER, so current_user is the caller', () => {
     const fn = sql.slice(sql.indexOf('FUNCTION public.shops_guard_is_synthetic()'), sql.indexOf('$fn$;'));
     expect(fn).not.toMatch(/SECURITY DEFINER/i);

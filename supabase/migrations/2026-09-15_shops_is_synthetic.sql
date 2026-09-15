@@ -314,3 +314,158 @@ WHERE n.nspname = 'public' AND p.proname LIKE 'growth\_%\_v1';
 --
 --   Check first. Dropping the column returns every demo tenant to growth reporting:
 --   SELECT count(*) FROM public.shops WHERE is_synthetic;
+
+
+-- ===========================================================================
+-- STEP 3b (optional operator probe, owner-approved 2026-09-15): guard roles.
+-- Separate execution, after STEP 3 and its post-rollback check. Ends in ROLLBACK.
+-- ===========================================================================
+--
+-- Appended after the rollback notes on purpose: STEPS 1-4 above keep their line
+-- numbers and their reviewed SHA-256 hashes (asserted in
+-- lib/marketing-capture/__tests__/captureIsolation.test.ts).
+--
+-- WHY. STEP 3 proves the growth functions exclude a synthetic shop, and that the
+-- migration owner (postgres) may set the flag. It never exercises another role.
+-- This does, inside one transaction that is rolled back:
+--   1-2. service_role (the seed's path) may insert a synthetic shop and change
+--        its flag: the UPDATE must affect exactly one row and read back false.
+--   3-4. authenticated and anon may not insert a synthetic shop, and the refusal
+--        must carry the guard's own message. A refusal for any other reason (a
+--        missing privilege, an RLS check) stops the probe rather than passing it.
+-- An ordinary role CHANGING the flag cannot be exercised: shops exposes no row
+-- for an ordinary role to update (it has only a SELECT policy), so RLS refuses
+-- first. The guard's UPDATE branch is covered by its reviewed body.
+--
+-- PREREQUISITES (read-only pre-check, rows 30-32). postgres may SET ROLE to
+-- authenticated, anon and service_role; service_role has BYPASSRLS and
+-- authenticated and anon do not; authenticated and anon hold INSERT on shops;
+-- service_role holds INSERT and UPDATE. If any of these differ, do not run it.
+--
+-- WRITES, all rolled back: one '__probe_service__' shop, plus the blank
+-- shop_settings row that shops_create_settings adds for it. The two refused
+-- inserts write nothing. NOT undone by the rollback: shop_settings_id_seq
+-- advances by 1 (nextval is not transactional; a harmless id gap). It creates no
+-- auth user, profile, membership, alert, notification, HTTP request, invoice,
+-- payment or Sapelee event: the only triggers it reaches are
+-- shops_guard_is_synthetic and shops_create_settings.
+--
+-- EXPECTED: no error ("Success. No rows returned"; the NOTICE may not show).
+--
+-- STOP on any error, notably:
+--   GUARD FAILURE: ... inserted a synthetic shop    critical: a tenant role set the flag
+--   ... was refused, but not by the guard: ...       not proven: check privileges and RLS
+--   service_role flag change affected N rows / did not apply
+--   role was not restored after the refused insert
+--
+-- RECOVERY after any error: run ROLLBACK on its own (harmless if no transaction is
+-- open), then the POST-ROLLBACK CHECK below, and report both results. The block
+-- contains no commit statement, so an error can never leave a probe row behind.
+
+BEGIN;
+
+DO $probe_roles$
+DECLARE
+  svc_probe uuid;
+  rc int;
+  flag boolean;
+  msg text;
+BEGIN
+  -- 1. The seed's path: service_role may insert a synthetic shop.
+  SET LOCAL ROLE service_role;
+  INSERT INTO public.shops (name, slug, is_synthetic)
+  VALUES ('__probe_service__', '__probe-service-' || gen_random_uuid() || '__', true)
+  RETURNING id INTO svc_probe;
+
+  -- 2. service_role may change the flag.
+  UPDATE public.shops SET is_synthetic = false WHERE id = svc_probe;
+  GET DIAGNOSTICS rc = ROW_COUNT;
+  RESET ROLE;
+  IF rc <> 1 THEN RAISE EXCEPTION 'service_role flag change affected % rows, expected 1', rc; END IF;
+  SELECT is_synthetic INTO flag FROM public.shops WHERE id = svc_probe;
+  IF flag IS DISTINCT FROM false THEN RAISE EXCEPTION 'service_role flag change did not apply'; END IF;
+
+  -- 3. authenticated may not insert a synthetic shop, and it is the guard that refuses.
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    INSERT INTO public.shops (name, slug, is_synthetic)
+    VALUES ('__probe_authenticated__', '__probe-authenticated-' || gen_random_uuid() || '__', true);
+    RAISE EXCEPTION 'GUARD FAILURE: authenticated inserted a synthetic shop';
+  EXCEPTION WHEN insufficient_privilege THEN
+    GET STACKED DIAGNOSTICS msg = MESSAGE_TEXT;
+    IF msg <> 'shops.is_synthetic is platform-managed' THEN
+      RAISE EXCEPTION 'authenticated was refused, but not by the guard: %', msg;
+    END IF;
+  END;
+  IF current_user <> 'postgres' THEN RAISE EXCEPTION 'role was not restored after the refused insert (%)', current_user; END IF;
+
+  -- 4. anon likewise.
+  BEGIN
+    SET LOCAL ROLE anon;
+    INSERT INTO public.shops (name, slug, is_synthetic)
+    VALUES ('__probe_anon__', '__probe-anon-' || gen_random_uuid() || '__', true);
+    RAISE EXCEPTION 'GUARD FAILURE: anon inserted a synthetic shop';
+  EXCEPTION WHEN insufficient_privilege THEN
+    GET STACKED DIAGNOSTICS msg = MESSAGE_TEXT;
+    IF msg <> 'shops.is_synthetic is platform-managed' THEN
+      RAISE EXCEPTION 'anon was refused, but not by the guard: %', msg;
+    END IF;
+  END;
+  IF current_user <> 'postgres' THEN RAISE EXCEPTION 'role was not restored after the refused insert (%)', current_user; END IF;
+
+  RAISE NOTICE 'guard role probe passed: service_role may set and change is_synthetic; authenticated and anon are refused by the guard';
+END
+$probe_roles$;
+
+ROLLBACK;
+
+
+-- ===========================================================================
+-- POST-ROLLBACK CHECK (read-only). Run after STEP 3, and again after STEP 3b.
+-- ===========================================================================
+--
+-- The literal 14 is the production shop count on 2026-09-15, before any demo
+-- tenant existed. Update both occurrences if the baseline has changed.
+--
+-- Expect rows 1-6 PASS: 0 probe shops, 0 synthetic shops, 14 shops, 0 orphaned
+-- shop_settings rows, growth counts 14 / 14 / 14, guard trigger present.
+-- Rows 7-8 COMPARE with the pre-check: shop_settings rows EQUAL the baseline;
+-- shop_settings_id_seq last_value = baseline + 2 after STEP 3, + 1 more after
+-- STEP 3b. Any other value is a STOP: report the output and run nothing further.
+
+BEGIN TRANSACTION READ ONLY;
+
+WITH
+checks (ord, check_name, expected, actual) AS (
+  SELECT 1, 'probe shops remaining', '0', (SELECT count(*)::text FROM public.shops WHERE name LIKE '\_\_probe\_%')
+  UNION ALL
+  SELECT 2, 'synthetic shops', '0', (SELECT count(*)::text FROM public.shops WHERE is_synthetic)
+  UNION ALL
+  SELECT 3, 'shops total', '14', (SELECT count(*)::text FROM public.shops)
+  UNION ALL
+  SELECT 4, 'shop_settings rows without a shop', '0',
+         (SELECT count(*)::text FROM public.shop_settings ss
+           WHERE NOT EXISTS (SELECT 1 FROM public.shops s WHERE s.id::text = ss.shop_id::text))
+  UNION ALL
+  SELECT 5, 'growth counts equal shops total', '14 / 14 / 14',
+         (SELECT count(*) FROM public.growth_subscription_summary_v1())::text || ' / '
+           || (SELECT count(*) FROM public.growth_shop_activation_v1())::text || ' / '
+           || (SELECT count(*) FROM public.shops)::text
+  UNION ALL
+  SELECT 6, 'guard trigger still present', '1',
+         (SELECT count(*)::text FROM pg_trigger WHERE tgrelid = 'public.shops'::regclass AND tgname = 'shops_guard_is_synthetic')
+  UNION ALL
+  SELECT 7, 'shop_settings rows (compare with pre-check baseline)', '(equal to baseline)',
+         (SELECT count(*)::text FROM public.shop_settings)
+  UNION ALL
+  SELECT 8, 'shop_settings_id_seq last_value (baseline + 2 after Step 3; + 1 more after Step 3b)', '(baseline + expected increments)',
+         (SELECT coalesce(last_value::text, '(never called)') FROM pg_sequences WHERE schemaname = 'public' AND sequencename = 'shop_settings_id_seq')
+)
+SELECT check_name, expected, actual,
+       CASE WHEN ord IN (7, 8) THEN 'COMPARE'
+            WHEN actual IS NULL THEN 'STOP (not found)'
+            WHEN actual = expected THEN 'PASS' ELSE 'STOP' END AS result
+FROM checks
+ORDER BY ord;
+
+ROLLBACK;
