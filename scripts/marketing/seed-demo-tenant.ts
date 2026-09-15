@@ -19,6 +19,10 @@
  * - Run without ALLOW_PRODUCTION_MARKETING_SEED=true.
  * - Run before the shops.is_synthetic migration: the shop must be born excluded
  *   from growth reporting, not excluded afterwards.
+ * - Write anything before the live schema (PostgREST's OpenAPI description)
+ *   accepts every column it will write. Payloads come from
+ *   lib/marketing-capture/demoRecords.ts, which is tested against the shapes the
+ *   app reads.
  * - Send email. The owner is created with auth.admin.createUser and
  *   email_confirm: true, which delivers nothing (the same call the approved
  *   tests/helpers/synthetic-shop.ts uses). /signup and /api/invite, which DO
@@ -40,23 +44,19 @@ import { config as loadDotenv } from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ALERT_ROLES, eventsForRole, type AlertPreferences } from '../../lib/alerts/catalogue';
 import { DEMO, syntheticShopReadBackFailure } from '../../lib/marketing-capture/gates';
+import {
+  customerRow, invoiceLinkUpdate, invoiceRow, jobCardRow, organizationRow, ownerMembershipRow,
+  profileUpdate, repairOrderRow, schemaWriteFailures, seededInvoiceFailure, shopRow, shopSettingsUpdate,
+  technicianRow, vehicleRow,
+  type OpenApiSchema,
+} from '../../lib/marketing-capture/demoRecords';
 import { PRODUCTION_REF } from '../../tests/helpers/db-target';
 
 import { CREDENTIAL_FILE } from './credential-path';
 
 loadDotenv({ path: join(__dirname, '..', '..', '.env.local') });
 
-/** Fictional content. Nothing here is copied from any real customer, vehicle or job. */
-const CONTENT = {
-  concern: 'Check-engine light and reduced engine power',
-  cause: 'Charge-air pressure fault. Smoke test found a boost leak at a split intercooler boost hose.',
-  correction: 'Replace intercooler boost hose, clear stored fault codes, road test under load.',
-  mileage: '84250',
-  shopAddress: '1 Demo Street, Sample City',
-  shopPhone: '000-000-0000',
-  part: { description: 'Intercooler boost hose', partNumber: 'DEMO-IBH-001', qty: 1, unitCost: 95 },
-  laborRate: 120,
-} as const;
+const SUPABASE_URL = `https://${PRODUCTION_REF}.supabase.co`;
 
 function fail(message: string): never {
   console.error(`\n[seed-demo] REFUSED: ${message}\nNothing further was written.`);
@@ -66,7 +66,7 @@ function fail(message: string): never {
 function db(): SupabaseClient {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) fail('SUPABASE_SERVICE_ROLE_KEY is not set');
-  return createClient(`https://${PRODUCTION_REF}.supabase.co`, key, {
+  return createClient(SUPABASE_URL, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -104,11 +104,36 @@ async function confirmSyntheticShop(client: SupabaseClient, shopId: string) {
   if (failure) fail(`${failure}; refusing to write demo records`);
 }
 
+/**
+ * PostgREST's OpenAPI description of the live schema, read with the service role.
+ * GET only. Returns null on any failure, which schemaWriteFailures refuses.
+ */
+async function readLiveSchema(): Promise<OpenApiSchema | null> {
+  const auth = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+      method: 'GET',
+      headers: { apikey: auth, Authorization: `Bearer ${auth}`, Accept: 'application/openapi+json' },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as OpenApiSchema;
+  } catch {
+    return null;
+  }
+}
+
+/** Everything here reads; nothing is written until all of it has passed. */
 async function preflight(client: SupabaseClient) {
   if (process.env.ALLOW_PRODUCTION_MARKETING_SEED !== 'true') fail('ALLOW_PRODUCTION_MARKETING_SEED is not exactly "true"');
 
   const col = await client.from('shops').select('is_synthetic').limit(0);
   if (col.error) fail('shops.is_synthetic does not exist yet. Apply 2026-09-15_shops_is_synthetic.sql first.');
+
+  // Every column the seed will write must exist, and no insert may omit a
+  // NOT NULL column without a default. Checked before the first write, so a
+  // schema mismatch can never leave a half-built tenant behind.
+  const schemaFailures = schemaWriteFailures(await readLiveSchema());
+  if (schemaFailures.length) fail(`the live schema does not accept the seed's writes: ${schemaFailures.join('; ')}`);
 }
 
 async function create(client: SupabaseClient) {
@@ -139,11 +164,11 @@ async function create(client: SupabaseClient) {
   const userId = user.data.user.id;
 
   const slug = `demo-redlined1-mktg-${randomBytes(4).toString('hex')}`;
-  const org = await client.from('organizations').insert({ name: DEMO.shopName, slug: `${slug}-org` }).select('id').single();
+  const org = await client.from('organizations').insert(organizationRow(slug)).select('id').single();
   if (org.error) fail(`organization insert failed: ${org.error.message}`);
 
   const shop = await client.from('shops')
-    .insert({ name: DEMO.shopName, slug, organization_id: org.data.id, is_synthetic: true })
+    .insert(shopRow(String(org.data.id), slug))
     .select('id').single();
   if (shop.error) fail(`shop insert failed: ${shop.error.message}`);
   const shopId: string = shop.data.id;
@@ -155,11 +180,11 @@ async function create(client: SupabaseClient) {
   // Proven from the database, not assumed from the insert payload.
   await confirmSyntheticShop(client, shopId);
 
-  const member = await client.from('shop_users').insert({ user_id: userId, shop_id: shopId, role: 'owner' });
+  const member = await client.from('shop_users').insert(ownerMembershipRow(userId, shopId));
   if (member.error) fail(`owner membership failed: ${member.error.message}`);
 
   // Free Forever, exactly as tests/helpers/synthetic-shop.ts provisions an owner.
-  const profile = await client.from('profiles').update({ plan: 'free', trial_ends_at: null }).eq('id', userId);
+  const profile = await client.from('profiles').update(profileUpdate()).eq('id', userId);
   if (profile.error) fail(`profile update failed: ${profile.error.message}`);
 
   await ensureRecords(client, shopId);
@@ -172,13 +197,8 @@ async function ensureRecords(client: SupabaseClient, shopId: string) {
 
   // shops_create_settings made a blank row; give it a fictional identity so the
   // "complete your shop profile" card is not on camera, and mute every alert.
-  const settings = await client.from('shop_settings').update({
-    company_name: DEMO.shopName,
-    address: CONTENT.shopAddress,
-    phone: CONTENT.shopPhone,
-    default_currency: 'USD',
-    alert_preferences: allAlertsMuted(),
-  }).eq('shop_id', shopId).select('shop_id');
+  const settings = await client.from('shop_settings').update(shopSettingsUpdate(allAlertsMuted()))
+    .eq('shop_id', shopId).select('shop_id');
   if (settings.error || settings.data?.length !== 1) fail(`shop settings update did not apply to exactly one row: ${settings.error?.message ?? settings.data?.length}`);
 
   const findOne = async (table: string, column: string, value: string) => {
@@ -194,66 +214,43 @@ async function ensureRecords(client: SupabaseClient, shopId: string) {
     return r.data as Record<string, unknown>;
   };
 
-  const technician = await findOne('technicians', 'name', DEMO.technician) ?? await insertOne('technicians', {
-    name: DEMO.technician, role: 'Diagnostics Specialist', pay_type: 'Hourly', status: 'Active',
-    phone: null, email: null, user_id: null,
-  });
+  // The sole owner, who the draft invoice belongs to (see invoiceRow on owner_id).
+  const owners = await client.from('shop_users').select('user_id').eq('shop_id', shopId).eq('role', 'owner');
+  if (owners.error || owners.data?.length !== 1) fail('the demo shop must have exactly one owner before records are written');
+  const ownerId = String(owners.data[0].user_id);
 
-  const customer = await findOne('customers', 'name', DEMO.customer) ?? await insertOne('customers', {
-    name: DEMO.customer, phone: null, email: null, address: null,
-  });
+  const technician = await findOne('technicians', 'name', DEMO.technician) ?? await insertOne('technicians', technicianRow());
+
+  const customer = await findOne('customers', 'name', DEMO.customer) ?? await insertOne('customers', customerRow());
 
   if (!(await findOne('vehicles', 'plate', DEMO.plate))) {
-    await insertOne('vehicles', {
-      customer_id: customer.id, label: DEMO.vehicleLabel, year: '2021', make: 'BMW', model: '330i',
-      plate: DEMO.plate, mileage: CONTENT.mileage, vin: null, status: 'Open Job',
-    });
+    await insertOne('vehicles', vehicleRow(String(customer.id)));
   }
 
-  // Mirrors createJobCard() in services/jobCardService.ts. No technician yet:
-  // the walkthrough assigns Alex Morgan on camera, through the edit form.
-  const jobCard = await findOne('job_cards', 'customer', DEMO.customer) ?? await insertOne('job_cards', {
-    ro: DEMO.roNumber, invoice: null, customer: DEMO.customer, vehicle: DEMO.vehicleLabel,
-    service_type: 'Diagnostics', channel: 'Shop bay', location: '', technicians: [],
-    status: 'Booked', priority: 'Normal', approval: 'Pending', labor_hours: 0, parts_total: 0,
-    workflow: ['Booked'], next_action: 'Request approval', check_in_date: new Date().toISOString(),
-    notes: CONTENT.concern,
-  });
+  // No technician yet: the walkthrough assigns Alex Morgan on camera, through the edit form.
+  const jobCard = await findOne('job_cards', 'customer', DEMO.customer)
+    ?? await insertOne('job_cards', jobCardRow(new Date().toISOString()));
 
   // Draft only. Its fixed number is what keeps QA sign-off off the shared
   // sequence: draftInvoiceFor() runs only when the repair order has no invoice.
-  // Mirrors the invoice domain insert (lib/domain), which lets the database fill
-  // invoice_number and customer_name.
-  const invoice = await findOne('invoices', 'number', DEMO.invoiceNumber) ?? await insertOne('invoices', {
-    number: DEMO.invoiceNumber, customer: DEMO.customer, customer_id: customer.id, vehicle: DEMO.vehicleLabel,
-    job_card: jobCard.id, status: 'Draft', currency: 'USD', discount: 0, shop_supplies: 0, tax_rate: 0,
-    notes: 'Demo draft for the marketing walkthrough. Never sent.', due_date: null,
-    lines: [
-      ['Charge-air system diagnosis and boost leak test', 1, CONTENT.laborRate],
-      [CONTENT.part.description, CONTENT.part.qty, CONTENT.part.unitCost],
-      ['Replace intercooler boost hose', 0.5, CONTENT.laborRate],
-    ],
-  });
+  const invoice = await findOne('invoices', 'number', DEMO.invoiceNumber)
+    ?? await insertOne('invoices', invoiceRow({ customerId: String(customer.id), jobCardId: String(jobCard.id), ownerId }));
 
-  const ro = await findOne('repair_orders', 'ro_number', DEMO.roNumber) ?? await insertOne('repair_orders', {
-    ro_number: DEMO.roNumber, job_card_id: jobCard.id, invoice_number: invoice.number,
-    customer_name: DEMO.customer, customer_id: customer.id, vehicle: DEMO.vehicleLabel,
-    status: 'Open', concern: CONTENT.concern, cause: CONTENT.cause, correction: CONTENT.correction,
-    technician: DEMO.technician, labor_hours: 1.5, labor_rate: CONTENT.laborRate, currency: 'USD',
-    parts: [CONTENT.part], parts_total: CONTENT.part.qty * CONTENT.part.unitCost,
-    work_lines: [
-      { description: 'Charge-air system diagnosis and boost leak test', type: 'Diagnostic', qty: 1, rate: CONTENT.laborRate },
-      { description: 'Replace intercooler boost hose', type: 'Labor', qty: 0.5, rate: CONTENT.laborRate },
-    ],
-    opened_date: new Date().toISOString(),
-  });
+  const ro = await findOne('repair_orders', 'ro_number', DEMO.roNumber) ?? await insertOne('repair_orders', repairOrderRow({
+    jobCardId: String(jobCard.id), customerId: String(customer.id), openedDate: new Date().toISOString(),
+  }));
 
   // Link the invoice back to its repair order now that both exist.
   if (!invoice.repair_order_id) {
-    const link = await client.from('invoices').update({ repair_order_id: ro.id })
+    const link = await client.from('invoices').update(invoiceLinkUpdate(String(ro.id)))
       .eq('shop_id', shopId).eq('number', DEMO.invoiceNumber).select('number');
     if (link.error || link.data?.length !== 1) fail('could not link the demo invoice to its repair order');
   }
+
+  // The invoice as the app will read it back: object lines, the expected total.
+  const stored = await client.from('invoices').select('*').eq('shop_id', shopId).eq('number', DEMO.invoiceNumber).maybeSingle();
+  const invoiceFailure = seededInvoiceFailure(stored.error ? null : stored.data);
+  if (invoiceFailure) fail(invoiceFailure);
 
   // Drift is reported, never "fixed": an edit made on camera is not a defect.
   if (ro.invoice_number !== DEMO.invoiceNumber) fail(`repair order carries ${String(ro.invoice_number)}, not ${DEMO.invoiceNumber}`);

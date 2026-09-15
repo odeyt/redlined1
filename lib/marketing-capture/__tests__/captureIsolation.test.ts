@@ -161,6 +161,49 @@ describe('the capture and seed stay inside their lane', () => {
     });
   });
 
+  describe('the seed checks the live schema, and writes only through the tested builders', () => {
+    const fnBody = (fn: string) => {
+      const start = seed.indexOf(`async function ${fn}(`);
+      expect(start).toBeGreaterThan(-1);
+      const next = seed.indexOf('\nasync function ', start + 1);
+      return seed.slice(start, next === -1 ? undefined : next);
+    };
+
+    it('preflight refuses on any schema failure, and runs before either mode writes anything', () => {
+      expect(fnBody('preflight')).toMatch(/schemaWriteFailures\(await readLiveSchema\(\)\)/);
+      expect(fnBody('preflight')).toMatch(/if \(schemaFailures\.length\) fail\(/);
+      const main = fnBody('main');
+      const pre = main.indexOf('await preflight(client)');
+      expect(pre).toBeGreaterThan(-1);
+      expect(pre).toBeLessThan(main.indexOf('repair(client'));
+      expect(pre).toBeLessThan(main.indexOf('create(client)'));
+    });
+
+    it('reading the schema is a GET and nothing else', () => {
+      const read = fnBody('readLiveSchema');
+      expect(read).toMatch(/method: 'GET'/);
+      expect(read).not.toMatch(/method: '(POST|PUT|PATCH|DELETE)'/);
+    });
+
+    it('the invoice goes through invoiceRow (object lines, explicit owner_id) and is read back and judged', () => {
+      const ensure = fnBody('ensureRecords');
+      expect(ensure).toMatch(/insertOne\('invoices', invoiceRow\(\{ customerId: String\(customer\.id\), jobCardId: String\(jobCard\.id\), ownerId \}\)\)/);
+      expect(ensure).toMatch(/seededInvoiceFailure\(stored\.error \? null : stored\.data\)/);
+      expect(ensure).toMatch(/if \(invoiceFailure\) fail\(invoiceFailure\)/);
+      // No inline row literals left for the tables the builders own.
+      expect(seed).not.toMatch(/lines:\s*\[\s*\[/);
+      expect(seed).not.toMatch(/insertOne\('(technicians|customers|vehicles|job_cards|invoices|repair_orders)', \{/);
+    });
+
+    it('the invoice owner is the demo shop\'s sole owner, resolved before any record insert', () => {
+      const ensure = fnBody('ensureRecords');
+      const owner = ensure.indexOf(".eq('role', 'owner')");
+      expect(owner).toBeGreaterThan(-1);
+      expect(ensure).toMatch(/owners\.data\?\.length !== 1\) fail\(/);
+      expect(owner).toBeLessThan(ensure.indexOf("insertOne('technicians'"));
+    });
+  });
+
   it('seed output interpolates nothing sensitive', () => {
     // Every console line and every refusal message. Literal names such as
     // 'SUPABASE_SERVICE_ROLE_KEY is not set' are fine; interpolated VALUES are not.

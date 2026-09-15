@@ -34,6 +34,15 @@ nothing crossed the tenant boundary or left the platform.
    goes to `%USERPROFILE%\.redlined1-marketing\demo-owner.json`, readable by your
    account only. No email is sent. Before writing any demo record, the seed reads
    the shop back from the database and refuses unless `is_synthetic` is `true`.
+
+   Before its FIRST write, the seed reads the live schema (PostgREST's OpenAPI
+   description, GET only) and refuses if any column it writes is missing or an
+   insert would omit a NOT NULL column without a default. Every payload comes
+   from `lib/marketing-capture/demoRecords.ts`. The draft invoice `INV-DEMO-330`
+   is written with object lines (`{ note, description, qty, rate }`, the shape
+   the Invoices view and Command Center read) and an explicit `owner_id` (its
+   `auth.uid()` default is NULL under the service role). After writing, the seed
+   reads the invoice back and refuses unless it totals exactly USD 275.00.
 3. **Save the session** (off camera, no video):
    ```powershell
    $env:MARKETING_DEMO_SHOP_ID = '<DEMO_SHOP_ID>'
