@@ -35,9 +35,34 @@ nothing crossed the tenant boundary or left the platform.
    | 3 | PRE-CHECK (read-only; the last block in the migration file) | none | user triggers and rewrite rules on `shops` / `shop_settings`, what `create_shop_settings_for_new_shop` writes, NOT NULL columns without defaults, sequence-backed defaults, baselines (14 shops, 0 synthetic, 0 probes, `shop_settings` rows, `shop_settings_id_seq`), and the STEP 3b role capabilities, privileges and policies. **Stop before STEP 3** unless rows 10-15 and 17-19 are PASS; **stop before STEP 3b** unless rows 30-32 are PASS; record rows 16, 20 and 21 for the POST-ROLLBACK CHECK. |
    | 4 | STEP 3 probe | 2 probe shops + 2 blank settings rows, **rolled back** | `shop_settings_id_seq` advances by 2 |
    | 5 | POST-ROLLBACK CHECK | none | appended to the migration file |
-   | 6 | STEP 3b guard-role probe (optional) | 1 probe shop + 1 settings row, **rolled back** | `shop_settings_id_seq` advances by 1 |
-   | 7 | POST-ROLLBACK CHECK again | none | |
+   | 6 | ~~STEP 3b guard-role probe~~ | — | **DO NOT RUN in production.** See "STEP 3b is blocked" below |
+   | 7 | ~~POST-ROLLBACK CHECK again~~ | — | not needed; 3b did not run |
    | 8 | STEP 4 verification | none | |
+
+   Recorded outcome on 2026-09-16: STEP 1, 2, PRE-CHECK, 3, POST-ROLLBACK CHECK and
+   4 passed. After STEP 3, `shop_settings` rows were 10 (the baseline) and
+   `shop_settings_id_seq` was 27 (+2). STEP 4 showed 14 shops, 0 synthetic,
+   14/14 growth counts, 1 guard trigger, 0 probe leftovers, and all three growth
+   functions granted only to `postgres` and `sapelee_growth_reader`.
+
+   > **STEP 3b is blocked. Do not run it against this production database.**
+   >
+   > The PRE-CHECK (rows 30-32) showed that `authenticated` and `anon` have **no
+   > INSERT privilege on `public.shops`**. 3b's ordinary-role cases need that
+   > privilege to reach the `is_synthetic` guard trigger. Without it, PostgreSQL
+   > refuses the insert with `42501 permission denied` before any trigger runs. 3b
+   > treats a refusal that is not the guard's own as a stop, so it cannot pass
+   > here. It could only be made to pass by granting INSERT on `shops` to those
+   > roles, which would widen access to the tenant table for every browser user.
+   > **Do not grant, and do not weaken any privilege, to make 3b runnable.**
+   >
+   > This missing privilege is itself the stronger protection. An ordinary role
+   > cannot create a shop at all, synthetic or not, so the guard is a second
+   > layer behind it. STEP 3 already proved the `postgres` path. The seed's
+   > `service_role` path is proven when the seed reads the demo shop back and
+   > requires `is_synthetic = true` before its first record write. The 3b block
+   > stays in the migration file, pinned by hash, for a database where those
+   > privileges exist. Its presence is not an instruction to run it.
 
    **STEP 3b** is appended after the rollback notes so STEPS 1-4 keep their
    reviewed line numbers and hashes. STEP 3 proves synthetic shops leave the
@@ -57,6 +82,9 @@ nothing crossed the tenant boundary or left the platform.
    outside `shops` and the blank settings row that `shops_create_settings` adds,
    so no auth user, profile, membership, alert, notification, HTTP request,
    invoice, payment or Sapelee event can result.
+
+   The rest of this section describes 3b for reference only (see the block
+   notice above).
 
    **Stop conditions for 3b:** any error, especially `GUARD FAILURE: … inserted
    a synthetic shop` (critical), `… was refused, but not by the guard: …`,
