@@ -18,6 +18,8 @@ const CAPTURE_FILES = [
   'tests/marketing-capture/first-workflow.capture.ts',
   'tests/marketing-capture/demo-session.prepare.ts',
   'tests/marketing-capture/gate-facts.ts',
+  'tests/marketing-capture/alert-facts.ts',
+  'tests/marketing-capture/request-ledger.ts',
 ];
 
 describe('the default Playwright run can never pick up the capture', () => {
