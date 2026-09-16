@@ -146,6 +146,22 @@ describe('OWNER START SQL privilege audit', () => {
     expect(row(s, 50).actual).toBe('public.notify_push_on_alert, public.peek_responses');
   });
 
+  it('does not count an event-trigger function as a way in, but still catches callable ones', async () => {
+    // Supabase's own extensions.grant_pg_net_access returns event_trigger and
+    // holds PUBLIC EXECUTE. PostgreSQL refuses a direct call of any function
+    // returning trigger or event_trigger, so listing it was a false positive.
+    const db = await freshDb(`
+      CREATE SCHEMA extensions;
+      CREATE FUNCTION extensions.grant_pg_net_access() RETURNS event_trigger LANGUAGE plpgsql AS $$
+        BEGIN PERFORM 1 FROM net._http_response; END $$;
+      CREATE FUNCTION public.peek_queue() RETURNS bigint LANGUAGE sql SECURITY DEFINER
+        AS $$ SELECT count(*) FROM net.http_request_queue $$;`);
+    const s = await start(db);
+    expect(row(s, 40).actual).toContain('public.peek_queue');
+    expect(row(s, 40).actual).not.toContain('grant_pg_net_access');
+    expect(row(s, 40).verdict).toBe('STOP');
+  });
+
   it('STOPs when a second function makes HTTP calls, or a Database Webhook trigger exists', async () => {
     const db = await freshDb(`
       CREATE FUNCTION public.ping_out() RETURNS bigint LANGUAGE sql AS $$ SELECT net.http_post('https://example.com/') $$;

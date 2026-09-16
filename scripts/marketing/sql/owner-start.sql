@@ -125,7 +125,7 @@ seq_priv AS (
 ),
 fn AS (
   SELECT pr.oid, n.nspname, pr.proname, pr.prosrc, l.lanname,
-    pr.prorettype = 'trigger'::regtype AS is_trigger,
+    pr.prorettype IN ('trigger'::regtype, 'event_trigger'::regtype) AS is_trigger,
     EXISTS (SELECT 1 FROM pg_depend d
             WHERE d.classid = 'pg_proc'::regclass AND d.objid = pr.oid AND d.deptype = 'e') AS ext_member
   FROM pg_proc pr

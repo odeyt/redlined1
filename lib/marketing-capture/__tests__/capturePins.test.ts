@@ -21,7 +21,7 @@ const sha = (t: string) => createHash('sha256').update(t, 'utf8').digest('hex');
 
 describe('owner-reviewed artefacts are pinned', () => {
   it.each([
-    ['OWNER START SQL', 'scripts/marketing/sql/owner-start.sql', 'cd7128b8f043bea9f95ed5f7c083d66d15b8e193be3245b3f275b53fd49c818f'],
+    ['OWNER START SQL', 'scripts/marketing/sql/owner-start.sql', '9f4c4d2a464b7648001505d9e16e1032764315809dc0a10eed5e29922a275c0a'],
     ['OWNER FINISH SQL', 'scripts/marketing/sql/owner-finish.sql', '838520b5f64e9ada3580acb0db41ab37bb583bc0c036aaf6f57ed4c474bc2ca4'],
     ['automated start gates', 'lib/marketing-capture/alertStartGates.ts', '32fb5048c4fe9a69a3f99db74e87028c27912bf61fb693d6a601963772cf40cc'],
     ['automated finish gates', 'lib/marketing-capture/alertFinishGates.ts', '0d76389e5260e6a1679c2dae11549041f0b232bb0575f6e41af304ce06adc5a6'],
