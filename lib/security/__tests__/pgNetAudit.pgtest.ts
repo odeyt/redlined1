@@ -54,6 +54,7 @@ const dump = (rows: Row[]) => rows.map(r => [r.ord, r.section, r.label, r.expect
 describe('production as it was found', () => {
   const scenario = `${PRODUCTION_LIKE_NET_GRANTS}\n${GRANT_PG_NET_ACCESS_SQL}
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA net GRANT SELECT ON TABLES TO anon;
     GRANT USAGE ON SCHEMA net TO sapelee_growth_reader;`;
 
   it('names PUBLIC, anon and authenticated as exposed, with the secret-bearing columns', async () => {
@@ -104,13 +105,32 @@ describe('production as it was found', () => {
   it('flags default privileges that would recreate access, and login roles that hold it', async () => {
     const db = await freshDb(scenario);
     const rows = await audit(db);
+    // Only schema net can recreate THIS exposure; other schemas are reported apart.
     expect(row(rows, 50)).toMatchObject({ verdict: 'EXPOSED' });
     expect(row(rows, 50).actual).toContain('anon=');
+    expect(row(rows, 50).actual).not.toContain('public ');
+    expect(row(rows, 51)).toMatchObject({ verdict: 'REVIEW' });
+    expect(row(rows, 51).actual).toContain('public tables');
+    expect(row(rows, 52).verdict).toBe('INFO');
     expect(row(rows, 60).actual).toContain('authenticator');
     expect(row(rows, 60).actual).toContain('sapelee_growth_reader');
     expect(row(rows, 60).actual).toContain('password set');
     expect(row(rows, 61)).toMatchObject({ verdict: 'EXPOSED' });
     expect(row(rows, 61).actual).toContain('sapelee_growth_reader');
+  });
+
+  it('lists only functions that can actually be called: not trigger or event-trigger ones', async () => {
+    // A function returning event_trigger holds PUBLIC EXECUTE by default, but
+    // PostgreSQL refuses a direct call ("trigger functions can only be called as
+    // triggers"), so listing it as a way in was a false positive.
+    const db = await freshDb(`${scenario}
+      CREATE FUNCTION public.reachable_reader() RETURNS bigint LANGUAGE sql SECURITY DEFINER
+        AS $$ SELECT count(*) FROM net._http_response $$;`);
+    const rows = await audit(db);
+    const listed = roleRow(rows, 'anon').actual;
+    expect(listed).toContain('functions outside net=public.reachable_reader');
+    expect(listed).not.toContain('grant_pg_net_access');
+    expect(listed).not.toContain('notify_push_on_alert');
   });
 
   it('prints no queued header, no body, no response content and no secret', async () => {

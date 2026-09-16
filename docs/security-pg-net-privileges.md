@@ -25,7 +25,85 @@ queue holds a row only until the worker sends it, and pg_net keeps responses for
 `pg_net.ttl`; there is no access log for either. Treat the current push secret as
 potentially disclosed (Phase C) and prove the privileges are gone first.
 
-## Phase A — the read-only audit (built; not yet run)
+## Measured result — Phase A, run 2026-09-16
+
+The audit has now been run, read-only, against production. Verdict: **5 EXPOSED,
+15 REVIEW.**
+
+### What holds the privileges
+
+The grant is on **PUBLIC**, not on `anon` and `authenticated` individually:
+
+```
+net.http_request_queue   {supabase_admin=arwdDxtm/supabase_admin,=arwdDxtm/supabase_admin}
+net._http_response       {supabase_admin=arwdDxtm/supabase_admin,=arwdDxtm/supabase_admin}
+..._id_seq               {supabase_admin=rwU/supabase_admin,=rwU/supabase_admin}
+schema net               {supabase_admin=UC/...,=U/...,+ explicit USAGE to anon, authenticated,
+                          service_role, postgres, supabase_functions_admin}
+```
+
+The empty grantee is PUBLIC, so every role inherits it. All twelve `net`
+functions sit at the default **PUBLIC EXECUTE**, and at 0.20.3 none is SECURITY
+DEFINER — they run with the caller's rights, which PUBLIC's table grants supply.
+
+**Who can use it in practice:** ten login roles with passwords set, including
+`sapelee_growth_reader` (the reporting login created for Sapelee) and
+`cli_login_postgres` (expired 2026-09-08, still present). Row 42: **70 requests
+have passed through the queue**, and one row was live in it during the audit.
+
+### The blocker: this cannot be remediated from the SQL Editor
+
+`postgres` is **not a member of `supabase_admin`**, which owns every one of these
+objects. Reproduced against a real PostgreSQL (owner role, PUBLIC granted by the
+owner, a second role with schema USAGE but no membership):
+
+```
+is the revoking role a member of the owner? false
+REVOKE attempted by the non-member role -> no error
+  did anything change? {objowner=arwdDxtm/objowner,=arwdDxtm/objowner}
+```
+
+**A REVOKE run as `postgres` raises no error and changes nothing.** It is a
+silent no-op, which is worse than a failure: it looks like the fix landed.
+Remediation requires `supabase_admin` — a Supabase support action.
+
+### What the measurements changed in the plan
+
+- **The worker is safe.** `pg_net.username` is empty and the worker runs as
+  `supabase_admin`, the owner. A revoke from PUBLIC cannot starve it.
+- **Our push path is not.** `notify_push_on_alert` is owned by **`postgres`** and
+  is SECURITY DEFINER, but pg_net's functions at 0.20.3 are SECURITY *INVOKER*.
+  When PUBLIC loses the table and sequence privileges, `postgres` loses them too
+  and alerts stop queuing their request. The revoke must be paired with explicit
+  grants to `postgres`: EXECUTE on `net.http_post`, INSERT on the queue, USAGE on
+  the sequence, and `SELECT (id)` if the 0.20.3 body uses `INSERT … RETURNING id`.
+- **The re-grant vector is not the event trigger.** `grant_pg_net_access` grants
+  only schema USAGE; its SECURITY DEFINER and revoke branch applies solely to
+  versions `0.2 … 0.11.0`. At 0.20.3 that branch never runs. The table, sequence
+  and function grants therefore come from pg_net's own install script, so an
+  extension **upgrade or reinstall** re-applies them. Row 10 records the version,
+  which is how a change becomes visible.
+
+### Corrections this measurement forced in the audit itself
+
+1. **False positive, fixed.** Every role row listed
+   `extensions.grant_pg_net_access` under "functions outside net". PUBLIC does
+   hold EXECUTE on it, but PostgreSQL refuses a direct call of any function
+   returning `trigger` or `event_trigger`. Both return types are now excluded.
+2. **Verdict narrowed.** The default-ACL row flagged Supabase's platform defaults
+   in `auth`, `graphql`, `public` and `storage` as EXPOSED. Only schema `net` can
+   recreate this exposure, and **no default ACL exists for `net`**. Row 50 is now
+   scoped to `net`; row 51 reports broad defaults elsewhere as REVIEW; row 52
+   records the rest as INFO. One of those deserves its own look:
+   `public tables by supabase_admin: anon=arwdDxtm` means any table
+   `supabase_admin` creates in `public` grants `anon` everything.
+
+**Known defect, not yet corrected:** `scripts/marketing/sql/owner-start.sql` has
+the same event-trigger false positive in its row 40. It is a pinned,
+owner-reviewed artefact, and errs toward stopping the capture, so it is left for
+a separate approval rather than amended here.
+
+## Phase A — the read-only audit (built; run 2026-09-16)
 
 `scripts/security/sql/pg-net-privilege-audit.sql`. One read-only transaction,
 rolled back, with nothing to edit. It answers, for the whole database:

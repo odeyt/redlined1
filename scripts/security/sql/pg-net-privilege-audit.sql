@@ -82,11 +82,14 @@ net_fn AS (
     p.proname IN ('http_get', 'http_post', 'http_delete', 'http_collect_response', '_http_collect_response',
                   'worker_restart', 'wait_until_running', 'wake', 'check_worker_is_up') AS control
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang
-  WHERE n.nspname = 'net' AND p.prorettype <> 'trigger'::regtype
+  WHERE n.nspname = 'net' AND p.prorettype NOT IN ('trigger'::regtype, 'event_trigger'::regtype)
 ),
 outside_fn AS (
+  -- A function returning trigger or event_trigger cannot be called directly
+  -- ("trigger functions can only be called as triggers"), so holding EXECUTE on
+  -- one is not a way in, whatever the ACL says.
   SELECT p.oid, n.nspname || '.' || p.proname AS fname, p.prosecdef,
-    p.prorettype = 'trigger'::regtype AS is_trigger
+    p.prorettype IN ('trigger'::regtype, 'event_trigger'::regtype) AS not_callable
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang
   WHERE n.nspname NOT IN ('net', 'pg_catalog', 'information_schema')
     AND l.lanname IN ('sql', 'plpgsql')
@@ -121,7 +124,7 @@ matrix AS (
     (SELECT string_agg(f.proname, ', ' ORDER BY f.proname)
        FROM net_fn f WHERE NOT f.control AND has_function_privilege(r.rolname, f.oid, 'EXECUTE')) AS other_net_functions,
     (SELECT string_agg(f.fname, ', ' ORDER BY f.fname)
-       FROM outside_fn f WHERE NOT f.is_trigger AND has_function_privilege(r.rolname, f.oid, 'EXECUTE')) AS outside_functions
+       FROM outside_fn f WHERE NOT f.not_callable AND has_function_privilege(r.rolname, f.oid, 'EXECUTE')) AS outside_functions
   FROM roles r
 ),
 matrix_any AS (
@@ -165,6 +168,7 @@ defacl AS (
     CASE d.defaclobjtype WHEN 'r' THEN 'tables' WHEN 'S' THEN 'sequences' WHEN 'f' THEN 'functions'
          WHEN 'T' THEN 'types' WHEN 'n' THEN 'schemas' ELSE d.defaclobjtype::text END AS obj_type,
     d.defaclacl::text AS acl,
+    n.nspname IS NOT DISTINCT FROM 'net' AS in_net,
     d.defaclacl::text ~ '(^|,)=|"=|anon=|authenticated=' AS grants_broadly
   FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
 ),
@@ -289,12 +293,24 @@ checks (ord, section, finding, expected, actual, verdict) AS (
               FROM pg_stat_all_tables s WHERE s.schemaname = 'net'), '(no pg_net tables)'),
     'RECORD'
 
-  -- E. default privileges
+  -- E. default privileges. Only schema net can recreate the pg_net exposure;
+  -- broad defaults elsewhere are a separate question, reported separately.
   UNION ALL
-  SELECT 50, 'E default privileges', 'default ACLs that would grant access on newly created objects', 'none granting to PUBLIC, anon or authenticated',
+  SELECT 50, 'E default privileges', 'default ACLs in schema net that would grant access on new objects', '(none)',
+    coalesce((SELECT string_agg(d.obj_type || ' by ' || d.grantor || ': ' || d.acl, '; '
+                ORDER BY d.obj_type, d.grantor) FROM defacl d WHERE d.in_net), '(none)'),
+    CASE WHEN EXISTS (SELECT 1 FROM defacl WHERE in_net AND grants_broadly) THEN 'EXPOSED'
+         WHEN EXISTS (SELECT 1 FROM defacl WHERE in_net) THEN 'REVIEW' ELSE 'PASS' END
+  UNION ALL
+  SELECT 51, 'E default privileges', 'default ACLs in OTHER schemas granting to PUBLIC, anon or authenticated (separate issue)', '(record)',
     coalesce((SELECT string_agg(d.schema_name || ' ' || d.obj_type || ' by ' || d.grantor || ': ' || d.acl, '; '
-                ORDER BY d.schema_name, d.obj_type, d.grantor) FROM defacl d), '(none)'),
-    CASE WHEN EXISTS (SELECT 1 FROM defacl WHERE grants_broadly) THEN 'EXPOSED' ELSE 'PASS' END
+                ORDER BY d.schema_name, d.obj_type, d.grantor) FROM defacl d WHERE NOT d.in_net AND d.grants_broadly), '(none)'),
+    CASE WHEN EXISTS (SELECT 1 FROM defacl WHERE NOT in_net AND grants_broadly) THEN 'REVIEW' ELSE 'PASS' END
+  UNION ALL
+  SELECT 52, 'E default privileges', 'every other default ACL', '(record)',
+    coalesce((SELECT string_agg(d.schema_name || ' ' || d.obj_type || ' by ' || d.grantor || ': ' || d.acl, '; '
+                ORDER BY d.schema_name, d.obj_type, d.grantor) FROM defacl d WHERE NOT d.in_net AND NOT d.grants_broadly), '(none)'),
+    'INFO'
 
   -- F. credentials
   UNION ALL

@@ -21,7 +21,7 @@ describe('both audits are pinned by SHA-256', () => {
   // what was approved, so the hash must be updated in the same change and
   // reviewed with it. Hashes are over the file with CRLF normalised to LF.
   it.each([
-    ['PHASE A pg_net privilege audit', AUDIT, '81968b9cc86825c06f08252b8d0279f4f63f7fcbec848677da7589734046965f'],
+    ['PHASE A pg_net privilege audit', AUDIT, '0927f12569c1e827ec3e0f8dc540ec4318273f1626ba24c79eacbdc5b38a77b1'],
     ['PHASE D alert definition drift', DRIFT, 'd7c70d4169d2a2a455d5e384095f4e6aeecb4064f17ccc0ca246e4de13ae516d'],
   ])('%s still hashes to the reviewed value', (_name, path, expected) => {
     expect(createHash('sha256').update(read(path), 'utf8').digest('hex')).toBe(expected);
@@ -120,6 +120,19 @@ describe('the pg_net privilege audit', () => {
   it('withholds the granter source if it ever looks sensitive', () => {
     expect(sql).toContain("p.prosrc ~* 'secret|password|token|vault|decrypted|apikey|api_key|authorization' AS looks_sensitive");
     expect(sql).toContain('WITHHELD: source matches a secret-shaped pattern');
+  });
+
+  it('excludes trigger and event-trigger functions, which cannot be called directly', () => {
+    expect(sql).toContain("p.prorettype IN ('trigger'::regtype, 'event_trigger'::regtype) AS not_callable");
+    expect(sql).toContain("WHERE n.nspname = 'net' AND p.prorettype NOT IN ('trigger'::regtype, 'event_trigger'::regtype)");
+    expect(sql).toContain('WHERE NOT f.not_callable AND has_function_privilege');
+  });
+
+  it('scopes the default-ACL exposure to schema net, and reports other schemas separately', () => {
+    expect(sql).toContain("n.nspname IS NOT DISTINCT FROM 'net' AS in_net");
+    expect(sql).toContain("WHEN EXISTS (SELECT 1 FROM defacl WHERE in_net AND grants_broadly) THEN 'EXPOSED'");
+    expect(sql).toContain("WHERE NOT in_net AND grants_broadly) THEN 'REVIEW'");
+    expect(sql).toContain("SELECT 52, 'E default privileges', 'every other default ACL'");
   });
 
   it('treats PUBLIC, anon and authenticated holding anything as EXPOSED', () => {
