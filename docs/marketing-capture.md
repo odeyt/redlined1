@@ -1,5 +1,18 @@
 # Marketing capture: "How to Know What Every Car in Your Repair Shop Is Waiting For"
 
+> **SECURITY HOLD — 2026-09-16. Do not seed, create a session, or capture.**
+>
+> OWNER START SQL found that PUBLIC, `anon` and `authenticated` hold effective
+> privileges on pg_net's queue and response tables — including the queued
+> headers that carry the push secret — and that the live trigger and function
+> definitions differ from the repository, with `job_cards.trg_free_tier_limit`
+> absent. The five-alert expectation is therefore unproven.
+>
+> The hold lifts only when the privileges are remediated and verified, the push
+> secret is rotated afterwards, and the definition drift is reconciled. See
+> [security-pg-net-privileges.md](security-pg-net-privileges.md). Everything
+> below describes the harness as built; none of it may run until then.
+
 A Playwright recording of the first RedlineD1 walkthrough, made against
 **production** inside one dedicated demo tenant. This is not a test suite: it
 changes records (in the demo shop only) and produces a video.
@@ -42,7 +55,7 @@ pairing is proved by exclusion instead, and every part must agree:
 
 The count itself is not assumed. It is derived from the trigger functions'
 source in `supabase/migrations` (`lib/marketing-capture/alertExpectation.ts`,
-proved by executing them in `npm run test:marketing-sql`), and OWNER START SQL
+proved by executing them in `npm run test:sql`), and OWNER START SQL
 refuses to let the capture start unless the live production definitions hash to
 that same source.
 
@@ -216,7 +229,7 @@ Failure recovery for all of this is in
 Both SQL files, the gates, the ledger and the recovery instructions are pinned
 by SHA-256 in `lib/marketing-capture/__tests__/capturePins.test.ts`.
 
-`npm run test:marketing-sql` EXECUTES both SQL files against a real PostgreSQL —
+`npm run test:sql` EXECUTES both SQL files against a real PostgreSQL —
 a clean take, the privilege audit, a changed trigger, a concurrent real-shop
 alert, a sequence gap, a pending, lost, non-200, timed-out or wrong-bodied
 response, `sent > 0`, a `pruned` key, a subscription, a Sapelee row and a moved

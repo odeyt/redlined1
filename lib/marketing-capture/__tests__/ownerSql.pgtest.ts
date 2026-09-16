@@ -1,16 +1,11 @@
 /**
  * OWNER START SQL and OWNER FINISH SQL, EXECUTED against a real PostgreSQL.
  *
- *   npm run test:marketing-sql
+ *   npm run test:sql
  *
- * Not part of Unknown command: "test"
-
-
-Did you mean this?
-  npm test # Test a package
-To see a list of supported npm commands, run:
-  npm help: it needs a PostgreSQL to execute against, and it
- * fails rather than skips when there is none (see ./support/testDatabase.ts).
+ * Not part of the default Jest run: it needs a PostgreSQL to execute against,
+ * and it fails rather than skips when there is none (see
+ * ./support/testDatabase.ts).
  * Every scenario runs the unedited repository SQL files against a fresh
  * production-shaped fixture whose alert triggers are the repository's own
  * source (./support/ownerSqlFixture.ts).

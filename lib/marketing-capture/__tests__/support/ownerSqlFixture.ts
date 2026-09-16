@@ -50,6 +50,59 @@ DO $r$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
 END $r$;`;
 
+/**
+ * The rest of the roles the pg_net audit names, shaped like Supabase's: the
+ * PostgREST login role that can become anon/authenticated/service_role, the
+ * platform roles, and a reporting login that inherits nothing but PUBLIC.
+ */
+export const PLATFORM_ROLES_SQL = `
+DO $r$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticator') THEN
+    CREATE ROLE authenticator LOGIN PASSWORD 'fixture-not-a-real-password' NOINHERIT;
+    GRANT anon, authenticated, service_role TO authenticator;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN CREATE ROLE supabase_admin NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_functions_admin') THEN CREATE ROLE supabase_functions_admin NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sapelee_growth_reader') THEN
+    CREATE ROLE sapelee_growth_reader LOGIN PASSWORD 'fixture-not-a-real-password';
+  END IF;
+END $r$;`;
+
+/**
+ * Supabase re-grants pg_net access from an event trigger whenever the extension
+ * is created. This is that shape: the audit has to find it and say exactly when
+ * it fires and to whom.
+ */
+export const GRANT_PG_NET_ACCESS_SQL = `
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE OR REPLACE FUNCTION extensions.grant_pg_net_access() RETURNS event_trigger LANGUAGE plpgsql AS $egt$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_event_trigger_ddl_commands() c
+             JOIN pg_extension e ON e.oid = c.objid WHERE c.command_tag = 'CREATE EXTENSION' AND e.extname = 'pg_net')
+  THEN
+    GRANT USAGE ON SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
+    GRANT ALL ON ALL TABLES IN SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
+    GRANT ALL ON ALL SEQUENCES IN SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA net TO supabase_functions_admin, postgres, anon, authenticated, service_role;
+  END IF;
+END $egt$;
+DROP EVENT TRIGGER IF EXISTS issue_pg_net_access;
+CREATE EVENT TRIGGER issue_pg_net_access ON ddl_command_end
+  WHEN TAG IN ('CREATE EXTENSION') EXECUTE FUNCTION extensions.grant_pg_net_access();`;
+
+/** A value that must never appear in any audit output. */
+export const FIXTURE_FAKE_SECRET = 'FIXTURE-FAKE-PUSH-SECRET-DO-NOT-USE';
+
+/** One queued request and one response, both carrying the fake secret and a body. */
+export const QUEUE_WITH_SECRET_SQL = `
+INSERT INTO net.http_request_queue (method, url, headers, body)
+VALUES ('POST', 'https://www.redlined1.com/api/push/send',
+  jsonb_build_object('Content-Type', 'application/json', 'x-push-secret', '${FIXTURE_FAKE_SECRET}'),
+  convert_to('{"record":{"id":"00000000-0000-4000-8000-00000000dead"}}', 'UTF8'));
+INSERT INTO net._http_response (id, status_code, content_type, headers, content, timed_out)
+VALUES (999001, 200, 'application/json',
+  jsonb_build_object('x-echo', '${FIXTURE_FAKE_SECRET}'), '{"ok":true,"sent":0,"echo":"${FIXTURE_FAKE_SECRET}"}', false);`;
+
 export function templateSql(): string {
   const functions = PINNED_FUNCTIONS.map(f => functionStatement(readRepo(f.file), f.name)).join('\n\n');
   return `
@@ -88,6 +141,7 @@ CREATE TABLE public.shop_settings (id serial PRIMARY KEY, shop_id uuid UNIQUE, a
 CREATE TABLE public.push_subscriptions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, shop_id uuid NOT NULL, endpoint text NOT NULL);
 CREATE TABLE public.customers (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid, name text, phone text, email text);
 CREATE TABLE public.technicians (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid, name text, phone text, email text, user_id uuid);
+CREATE TABLE public.vehicles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid, plate text, label text);
 CREATE TABLE public.sapelee_event_outbox (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid, status text NOT NULL DEFAULT 'pending');
 CREATE TABLE public.shop_mirrors (shop_id uuid, mirror_shop_id uuid);
 CREATE TABLE public.repair_orders (id uuid PRIMARY KEY, shop_id uuid NOT NULL, ro_number text, status text, invoice_number text, customer_name text, vehicle text, notes text);
@@ -105,6 +159,9 @@ CREATE TABLE public.ro_status_events (
 );
 CREATE TABLE public.audit_events (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid NOT NULL, entity_type text, entity_id text);
 CREATE TABLE public.standard_labor_guides (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid NOT NULL, times_performed int NOT NULL DEFAULT 1);
+-- invoices is keyed on number, not id: that is what the 2026-08-16 fix to
+-- alert_invoice_paid was about, and the drift audit dates definitions by it.
+CREATE TABLE public.invoices (number text PRIMARY KEY, shop_id uuid, status text, customer text, vehicle text);
 CREATE SEQUENCE public.invoice_number_seq;
 SELECT setval('public.invoice_number_seq', 154);
 
@@ -122,6 +179,9 @@ BEGIN
   RETURN NEW;
 END
 $fn$;
+${functionStatement(readRepo('supabase/migrations/2026-08-16_fix_invoice_paid_trigger.sql'), 'alert_invoice_paid')}
+CREATE TRIGGER invoices_alert_paid AFTER UPDATE ON public.invoices FOR EACH ROW EXECUTE FUNCTION public.alert_invoice_paid();
+
 CREATE FUNCTION public.audit_events_are_append_only() RETURNS trigger LANGUAGE plpgsql AS $fn$
 BEGIN RAISE EXCEPTION 'audit_events is append-only (attempted %)', TG_OP; END $fn$;
 CREATE FUNCTION public.enforce_free_tier_count_limit() RETURNS trigger LANGUAGE plpgsql AS $fn$
@@ -162,7 +222,21 @@ GRANT USAGE, SELECT ON SEQUENCE net.http_request_queue_id_seq TO anon, authentic
 GRANT EXECUTE ON FUNCTION net.http_post(text, jsonb, jsonb, jsonb, integer) TO anon, authenticated;
 `;
 
-export interface Row { ord: number; section: string; check_name: string; expected: string; actual: string; verdict: string }
+/**
+ * A result row from any of the owner-run SQL files. The third column is named
+ * per file (check_name, finding, object); `label` is whichever it is.
+ */
+export interface Row {
+  ord: number;
+  section: string;
+  label: string;
+  expected: string;
+  actual: string;
+  verdict: string;
+  check_name?: string;
+  finding?: string;
+  object?: string;
+}
 
 /** Runs a whole owner SQL file as the editor would, returning the one result with rows. */
 export async function runOwnerSql(db: TestDb, file: string, replacements: Record<string, string>): Promise<Row[]> {
@@ -174,7 +248,11 @@ export async function runOwnerSql(db: TestDb, file: string, replacements: Record
   const results = await db.exec(text);
   const withRows = results.filter(r => r.fields && r.fields.length === 6) as unknown as { rows: Row[] }[];
   if (withRows.length !== 1) throw new Error(`${file}: expected one result set, got ${withRows.length}`);
-  return withRows[0].rows.map(r => ({ ...r, ord: Number(r.ord) }));
+  return withRows[0].rows.map(r => ({
+    ...r,
+    ord: Number(r.ord),
+    label: String(r.check_name ?? r.finding ?? r.object ?? ''),
+  }));
 }
 
 /** One repair-order status change, in its own transaction, as the demo owner. */

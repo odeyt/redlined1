@@ -1,0 +1,177 @@
+/**
+ * What the security audits must be true of without a database: read-only,
+ * ASCII, parameterless, and incapable of printing a secret. Their behaviour is
+ * proved by executing them (pgNetAudit.pgtest.ts, alertDrift.pgtest.ts).
+ */
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { PINNED_FUNCTIONS, functionBody, normalizedProsrcMd5, prosrcMd5 } from '../../marketing-capture/alertExpectation';
+
+const root = join(__dirname, '..', '..', '..');
+const read = (p: string) => readFileSync(join(root, p), 'utf8').replace(/\r/g, '');
+const AUDIT = 'scripts/security/sql/pg-net-privilege-audit.sql';
+const DRIFT = 'scripts/security/sql/alert-definition-drift.sql';
+const files = { AUDIT: read(AUDIT), DRIFT: read(DRIFT) };
+/** Comments and string literals removed, so keyword checks see only code. */
+const code = (t: string) => t.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''");
+
+describe('both audits are pinned by SHA-256', () => {
+  // A pin is a review boundary, not a quality check: changing either file changes
+  // what was approved, so the hash must be updated in the same change and
+  // reviewed with it. Hashes are over the file with CRLF normalised to LF.
+  it.each([
+    ['PHASE A pg_net privilege audit', AUDIT, '81968b9cc86825c06f08252b8d0279f4f63f7fcbec848677da7589734046965f'],
+    ['PHASE D alert definition drift', DRIFT, 'd7c70d4169d2a2a455d5e384095f4e6aeecb4064f17ccc0ca246e4de13ae516d'],
+  ])('%s still hashes to the reviewed value', (_name, path, expected) => {
+    expect(createHash('sha256').update(read(path), 'utf8').digest('hex')).toBe(expected);
+  });
+});
+
+describe.each(Object.entries(files))('%s', (_name, sql) => {
+  it('is one read-only transaction that rolls back', () => {
+    expect(sql).toContain('BEGIN TRANSACTION READ ONLY;');
+    expect(sql.trimEnd().endsWith('ROLLBACK;')).toBe(true);
+    expect(sql.split('BEGIN TRANSACTION READ ONLY;').length - 1).toBe(1);
+  });
+
+  it('contains no write, DDL, role switch, HTTP call or sequence movement', () => {
+    const body = code(sql);
+    expect(body).not.toMatch(/\b(insert|update|delete|merge|upsert|truncate|copy|alter|create|drop|grant|revoke|vacuum|analyze|reindex|cluster|refresh|lock|commit|savepoint|do|execute|perform|call|listen|notify)\b/i);
+    expect(body).not.toMatch(/\b(set|reset)\b/i);
+    expect(body).not.toMatch(/set_config|nextval|setval|currval|pg_advisory|pg_terminate|pg_cancel|dblink|pg_read_file|lo_import/i);
+    expect(body).not.toMatch(/net\s*\.\s*http_(get|post|put|patch|delete|head)/i);
+  });
+
+  it('needs no editing: it takes no parameter and has no placeholder', () => {
+    expect(sql).not.toMatch(/__[A-Z_]+__/);
+  });
+
+  it('is ASCII only, so a paste cannot alter a literal', () => {
+    expect(sql).toMatch(/^[\x09\x0a\x20-\x7e]*$/);
+  });
+
+  it('never reads a queued header, a request body, a response body or a password', () => {
+    const body = code(sql);
+    // These words may appear only inside string literals (column names passed to
+    // has_column_privilege, and marker patterns), never as columns being read.
+    expect(body).not.toMatch(/\bheaders\b/i);
+    expect(body).not.toMatch(/\bbody\b/i);
+    expect(body).not.toMatch(/\bcontent\b/i);
+    expect(body).not.toMatch(/\bdecrypted_secret\b/i);
+    expect(sql).not.toMatch(/FROM\s+(net\.)?http_request_queue/i);
+    expect(sql).not.toMatch(/FROM\s+net\._http_response/i);
+    expect(sql).not.toMatch(/FROM\s+vault\./i);
+    // pg_stat_activity is read for the worker's identity, never for query text.
+    if (sql.includes('pg_stat_activity')) expect(body).not.toMatch(/\bquery\b/i);
+  });
+
+  it('prints a password only as the fact that one exists', () => {
+    expect(files.AUDIT).not.toMatch(/SELECT[^;]*\brolpassword\b(?![^;]*IS NULL)/i);
+    expect(code(files.AUDIT)).not.toMatch(/\bpasswd\b|\bpg_shadow\b/i);
+  });
+});
+
+describe('the pg_net privilege audit', () => {
+  const sql = files.AUDIT;
+
+  it('audits every role the security hold names, plus every login role', () => {
+    for (const role of ['public', 'anon', 'authenticated', 'service_role', 'authenticator',
+      'postgres', 'supabase_admin', 'supabase_functions_admin', 'sapelee_growth_reader']) {
+      expect({ role, present: sql.includes(`('${role}',`) }).toEqual({ role, present: true });
+    }
+    expect(sql).toContain('WHERE r.rolcanlogin');
+  });
+
+  it('checks schema, table, column, sequence and function privileges', () => {
+    expect(sql).toContain("has_schema_privilege(r.rolname, 'net', 'USAGE')");
+    expect(sql).toContain("has_schema_privilege(r.rolname, 'net', 'CREATE')");
+    expect(sql).toContain('has_table_privilege(r.rolname, nr.oid, t.priv)');
+    expect(sql).toContain("has_column_privilege(r.rolname, nr.oid, nc.col, 'SELECT')");
+    expect(sql).toContain('has_sequence_privilege(r.rolname, s.oid, sp.priv)');
+    expect(sql).toContain("has_function_privilege(r.rolname, f.oid, 'EXECUTE')");
+    for (const priv of ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']) {
+      expect(sql).toContain(`('${priv}')`);
+    }
+  });
+
+  it('names the secret-bearing columns only as privilege arguments', () => {
+    const asArguments = [...sql.matchAll(/'(headers|body|content)'/g)].length;
+    expect(asArguments).toBe(4); // queue headers+body, response headers+content
+    expect(sql).toContain("('net.http_request_queue', 'headers'), ('net.http_request_queue', 'body')");
+  });
+
+  it('covers ownership, the re-granting event trigger, the worker and default privileges', () => {
+    for (const fragment of [
+      'n.nspowner::regrole::text AS owner',
+      'c.relowner::regrole::text',
+      'p.proowner::regrole::text AS owner',
+      "p.proname = 'grant_pg_net_access'",
+      'FROM pg_event_trigger e',
+      "s.name LIKE 'pg\\_net.%'",
+      'FROM pg_default_acl d',
+      'FROM pg_stat_all_tables s',
+      'pg_get_serial_sequence',
+    ]) {
+      expect({ fragment, present: sql.includes(fragment) }).toEqual({ fragment, present: true });
+    }
+  });
+
+  it('withholds the granter source if it ever looks sensitive', () => {
+    expect(sql).toContain("p.prosrc ~* 'secret|password|token|vault|decrypted|apikey|api_key|authorization' AS looks_sensitive");
+    expect(sql).toContain('WITHHELD: source matches a secret-shaped pattern');
+  });
+
+  it('treats PUBLIC, anon and authenticated holding anything as EXPOSED', () => {
+    expect(sql).toContain("WHEN m.rolname IN ('public', 'anon', 'authenticated') THEN 'EXPOSED'");
+    expect(sql).toContain("SELECT 999, 'VERDICT', 'exposures found', '0 EXPOSED'");
+  });
+});
+
+describe('the alert definition drift audit', () => {
+  const sql = files.DRIFT;
+
+  it('pins the repository fingerprints the capture derives its alert count from', () => {
+    for (const fn of PINNED_FUNCTIONS) {
+      const body = functionBody(read(fn.file), fn.name);
+      expect(body).not.toBeNull();
+      expect(sql).toContain(`'${fn.name}', '${prosrcMd5(body!)}', '${normalizedProsrcMd5(body!)}'`);
+    }
+  });
+
+  it('separates an exact match from a whitespace-only match', () => {
+    expect(sql).toContain("WHEN c.live_md5 = c.repo_md5 THEN 'MATCH'");
+    expect(sql).toContain("WHEN c.live_norm = c.repo_norm THEN 'WHITESPACE'");
+  });
+
+  it('dates definitions by markers, including the ones the security hold mentions', () => {
+    expect(sql).toContain("'alert_job_assigned', 'membership guard (2026-08-16)'");
+    expect(sql).toContain("'alert_invoice_paid', 'keys on NEW.number, not NEW.id (fixed 2026-08-16)'");
+    expect(sql).toContain("'alert_ro_status_changed', 'skips Pending Approval'");
+    expect(sql).toContain("'notify_push_on_alert', 'reads the secret from Vault, not a literal'");
+  });
+
+  it('looks for trg_free_tier_limit on all three tables it belongs to', () => {
+    expect(sql).toContain("free_tier (tbl) AS (VALUES ('customers'), ('vehicles'), ('job_cards'))");
+    expect(sql).toContain("t.tgname = 'trg_free_tier_limit'");
+  });
+
+  it('reports disabled triggers, which exist but fire nothing', () => {
+    expect(sql).toContain("WHERE t.enabled <> 'O'");
+  });
+
+  it('never prints the push trigger source, only its md5 and markers', () => {
+    const pushRow = sql.slice(sql.indexOf("SELECT 60, 'F push trigger'"));
+    expect(pushRow).toContain('source never printed');
+    expect(pushRow).toContain("string_agg(l.exact_md5, ',')");
+    expect(pushRow).not.toMatch(/l\.prosrc|\bsrc\b/);
+    // The only place a source is printed guards on a secret-shaped pattern first.
+    expect(sql).toContain('WHEN v.looks_sensitive THEN');
+    expect(sql).toContain('WITHHELD: this definition matches a secret-shaped pattern');
+  });
+
+  it('installs nothing: no repository definition appears in it', () => {
+    expect(sql).not.toMatch(/CREATE OR REPLACE FUNCTION/i);
+    expect(sql).toContain('no repository definition is installed from');
+  });
+});

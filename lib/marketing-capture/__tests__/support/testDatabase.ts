@@ -13,7 +13,7 @@
  *        MARKETING_SQL_TEST_PGLITE=<dir>/node_modules/@electric-sql/pglite
  *
  * Nothing is skipped when neither is available: createTestDb throws, so
- * `npm run test:marketing-sql` fails loudly rather than passing having run
+ * `npm run test:sql` fails loudly rather than passing having run
  * nothing.
  */
 import { Client } from 'pg';
