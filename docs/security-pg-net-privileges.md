@@ -67,6 +67,29 @@ REVOKE attempted by the non-member role -> no error
 silent no-op, which is worse than a failure: it looks like the fix landed.
 Remediation requires `supabase_admin` — a Supabase support action.
 
+### Supabase support request
+
+| | |
+|---|---|
+| Reference | **SU-476058** |
+| Submitted | 2026-09-16, by the owner |
+| Status | Acknowledged; substantive response pending |
+| Scope | The pg_net privilege remediation designed in Phase B below; correspondence is not reproduced here |
+
+Until the substantive response arrives, nothing in this document is run against
+production: no pg_net privilege change, no role change, no push-secret rotation,
+no HMAC implementation, and no demo tenant, session or capture. The order after
+it arrives is fixed:
+
+1. Supabase remediates the pg_net privileges, preserving `postgres`'s minimum push access.
+2. The ACLs are verified independently, by re-running the Phase A audit.
+3. A database-originated push request is verified to still succeed with `sent: 0`.
+4. The push secret is rotated, and the old secret is verified to be rejected.
+5. The alert-definition drift results are reviewed.
+6. Demo seeding is authorized.
+7. OWNER START runs with the resulting real demo-shop id.
+8. The session is created, and capture is authorized separately.
+
 ### What the measurements changed in the plan
 
 - **The worker is safe.** `pg_net.username` is empty and the worker runs as
