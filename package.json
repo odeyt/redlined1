@@ -36,6 +36,7 @@
     "events:dead": "tsx scripts/dead-domain-events.ts",
     "events:reconcile": "tsx scripts/reconcile-domain-events.ts",
     "events:relay": "tsx scripts/relay-domain-events.ts",
+    "test:marketing-sql": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config jest.marketing-sql.config.ts",
     "capture:marketing:seed": "tsx scripts/marketing/seed-demo-tenant.ts",
     "capture:marketing:prepare": "playwright test --config playwright.marketing.config.ts --project marketing-prepare",
     "capture:marketing:list": "playwright test --config playwright.marketing.config.ts --list",

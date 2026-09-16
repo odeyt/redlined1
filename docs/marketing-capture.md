@@ -17,6 +17,73 @@ QA sign-off never takes a number from the shared invoice sequence. The shop must
 have no Sapelee outbox rows. After the run, the same facts are re-read to confirm
 nothing crossed the tenant boundary or left the platform.
 
+## The alert and push gates (correlation Option A)
+
+Each repair-order status change writes an `alert_events` row, and a trigger
+turns every one of those into a pg_net request to `/api/push/send`. Those
+requests are allowed for the demo shop only, under gates that prove each one
+was harmless.
+
+Nothing links an alert to its request by observation: the trigger discards the
+request id, pg_net deletes the queued body that carries the alert id once it
+sends it, and the route answers `{"ok":true,"sent":0}` with no id in it. So the
+pairing is proved by exclusion instead, and every part must agree:
+
+- **transaction identity** — an alert and its `ro_status_events` row share `xmin`,
+  so the alert is tied to one exact status change, not to a timestamp;
+- **an exclusive window** — the pg_net request-id sequence advanced by exactly 5,
+  `alert_events` grew by exactly 5 across *all* shops, and every alert since T0
+  belongs to the demo shop, so no other caller took an id in between;
+- **exact responses** — request `S0+k` answered 200, with no timeout or error, and
+  a body that is exactly `{"ok":true,"sent":0}`. A `pruned` key or a `sent` above
+  zero would mean a device was reached, and is CRITICAL;
+- **the capture's own ledger** — the md5 of the ordered alert ids, carried in the
+  LEDGER TOKEN the capture prints, must match what the database reports.
+
+The count itself is not assumed. It is derived from the trigger functions'
+source in `supabase/migrations` (`lib/marketing-capture/alertExpectation.ts`,
+proved by executing them in `npm run test:marketing-sql`), and OWNER START SQL
+refuses to let the capture start unless the live production definitions hash to
+that same source.
+
+**Expected alerts: exactly 5.**
+
+| # | Status change | Alert |
+|---|---|---|
+| 1 | Open → In Progress | `ro.status_changed` |
+| 2 | In Progress → Pending Parts | `ro.status_changed` |
+| 3 | Pending Parts → In Progress | `ro.status_changed` |
+| 4 | In Progress → Pending Approval | `ro.pending_approval` *(only: `ro.status_changed` skips this status)* |
+| 5 | Pending Approval → Complete (QA sign-off) | `ro.status_changed` |
+
+Each has the demo `shop_id`, no target user or role, and `entity_id` =
+`RO-DEMO-330`. No `job.assigned` or `job.work_added` can fire: both need
+`technicians.user_id`, and Alex Morgan has no login.
+
+## The browser request ledger
+
+Every request the capture's browser makes is classified **before it leaves the
+browser** (`lib/marketing-capture/requestLedger.ts`), and anything not approved
+is aborted, not merely observed. Service workers are blocked in the config,
+because their requests would bypass it.
+
+- Google Analytics (the app loads gtag on every page) is blocked and counted.
+- Sentry is blocked, and any attempt fails the take.
+- Any host other than `www.redlined1.com` and the production Supabase project is
+  blocked.
+- The only mutations allowed are the walkthrough's own: `PATCH job_cards`,
+  `PATCH repair_orders`, `POST rpc/record_audit_event`, `POST
+  /api/labor-guide/seed` and the session refresh.
+- Entries hold the method, hostname and pathname only — never a query string,
+  body, cookie or header.
+
+Before the walkthrough, the ledger self-tests itself in the recording context:
+six probes (analytics, Sentry, an app mutation, a Supabase mutation, a third
+party) must each be aborted in the browser, or the capture refuses to start.
+
+Failure recovery for all of this is in
+[marketing-capture-recovery.md](marketing-capture-recovery.md).
+
 ## One-time setup (owner-approved steps, in order)
 
 1. **Migration.** Run `supabase/migrations/2026-09-15_shops_is_synthetic.sql`
@@ -124,11 +191,44 @@ nothing crossed the tenant boundary or left the platform.
 
 ## Recording
 
+1. **OWNER START SQL** (`scripts/marketing/sql/owner-start.sql`), in the SQL
+   Editor, immediately before the capture. Replace `__DEMO_SHOP_ID__` with the
+   demo shop id and change nothing else. It is read-only and rolls back. It
+   audits who can read or write pg_net's queue, responses and sequence; proves
+   `notify_push_on_alert` is the only HTTP caller; pins the live triggers and
+   function fingerprints against the repository source; and records the
+   baselines. **Start only if row 999 says CAPTURE MAY START.** Copy row 900,
+   the START TOKEN.
+2. **The capture.**
+   ```powershell
+   $env:ALLOW_PRODUCTION_MARKETING_CAPTURE = 'true'
+   $env:MARKETING_DEMO_SHOP_ID = '<DEMO_SHOP_ID>'
+   npm run capture:marketing
+   npm run capture:marketing:convert
+   ```
+   It prints where the capture ledger was written and one `LEDGER TOKEN` line.
+3. **OWNER FINISH SQL** (`scripts/marketing/sql/owner-finish.sql`), with the
+   START TOKEN and the LEDGER TOKEN pasted into its first CTE. Run it within
+   `pg_net.ttl` (START row 72) — responses are deleted after that. Rows 41-45
+   are the per-alert correlation; row 999 is the verdict. **The take is usable
+   only when it reads PROVEN.** Run it even when the capture stopped early.
+
+Both SQL files, the gates, the ledger and the recovery instructions are pinned
+by SHA-256 in `lib/marketing-capture/__tests__/capturePins.test.ts`.
+
+`npm run test:marketing-sql` EXECUTES both SQL files against a real PostgreSQL —
+a clean take, the privilege audit, a changed trigger, a concurrent real-shop
+alert, a sequence gap, a pending, lost, non-200, timed-out or wrong-bodied
+response, `sent > 0`, a `pruned` key, a subscription, a Sapelee row and a moved
+invoice sequence. It is not part of `npm test`, and it fails rather than skips
+when it has no database. Give it one of:
+
 ```powershell
-$env:ALLOW_PRODUCTION_MARKETING_CAPTURE = 'true'
-$env:MARKETING_DEMO_SHOP_ID = '<DEMO_SHOP_ID>'
-npm run capture:marketing
-npm run capture:marketing:convert
+# a disposable local server
+$env:MARKETING_SQL_TEST_DATABASE_URL = 'postgres://postgres@127.0.0.1:5432/postgres'
+# or PGlite (PostgreSQL compiled to WebAssembly), installed outside this repo
+npm install --prefix "$env:TEMP\pglite" @electric-sql/pglite
+$env:MARKETING_SQL_TEST_PGLITE = "$env:TEMP\pglite\node_modules\@electric-sql\pglite"
 ```
 
 Outputs, all gitignored:
@@ -136,6 +236,7 @@ Outputs, all gitignored:
 - `marketing-output/redlined1-first-workflow.webm` (1920×1080)
 - `marketing-output/redlined1-first-workflow-<date>.webm` (a copy, so a second take never overwrites the first)
 - `marketing-output/redlined1-first-workflow.mp4` (H.264, CRF 18, yuv420p, faststart, no audio). If ffmpeg is missing, the convert step prints the exact command instead of failing.
+- `marketing-output/capture-ledger-<timestamp>.json` — the alert ids, the status changes, the LEDGER TOKEN and every request the browser made (method, hostname, pathname). Written whatever the outcome.
 
 `npm run capture:marketing:list` shows what would run without running it.
 
@@ -149,8 +250,8 @@ Outputs, all gitignored:
 | 4 | Job Cards | assigns Alex Morgan through Edit → Save |
 | 5 | Job Cards | Approve → `Approved` |
 | 6 | Repair Orders → RO-DEMO-330 | none. Shows concern, cause (diagnostic finding), correction (recommended repair), part, labor |
-| 7 | Repair Orders | `Open` → `In Progress` → `Pending Parts` → `In Progress` → `Pending Approval` |
-| 8 | Repair Orders | QA Sign-Off → `Complete` (drafts nothing; the invoice already exists) |
+| 7 | Repair Orders | `Open` → `In Progress` → `Pending Parts` → `In Progress` → `Pending Approval`. Each raises one alert and one pg_net request; a checkpoint waits for exactly that alert before the next change |
+| 8 | Repair Orders | QA Sign-Off → `Complete` (drafts nothing; the invoice already exists). Also upserts one `standard_labor_guides` row in the demo shop, through `/api/labor-guide/seed` |
 | 9 | Command Center | none. Held for about 3.5 seconds |
 
 Suggested narration for steps 6 to 8: *the repair order holds the technical
@@ -170,3 +271,10 @@ findings and the parts; the job card runs the workshop flow.*
 Re-runs start from wherever the last take left the records. Before another take,
 reset the demo job card and repair order to `Booked` / `Open`. That reset is a
 production write and needs its own approval; it is not automated here.
+
+The reset changes a repair-order status, so it raises one further
+`ro.status_changed` alert and one more pg_net request. Run it inside its own
+START/FINISH window, expecting exactly one alert, rather than letting it fall
+into the next take's window — where it would make that take UNPROVEN. Never
+disable a trigger to avoid it. See
+[marketing-capture-recovery.md](marketing-capture-recovery.md).

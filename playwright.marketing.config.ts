@@ -14,7 +14,9 @@
  *   - the base URL is fixed here, not read from the environment. .env.e2e.local
  *     sets PLAYWRIGHT_BASE_URL and is deliberately NOT loaded;
  *   - one worker and zero retries: a failed run must never repeat status changes;
- *   - it refuses to load under CI at all.
+ *   - it refuses to load under CI at all;
+ *   - service workers are blocked: their requests would bypass the request
+ *     ledger's context.route, and no push subscription can be created.
  * The safety gates that decide whether a run may start live in
  * lib/marketing-capture/gates.ts.
  */
@@ -61,7 +63,7 @@ export default defineConfig({
       // Logs in once, off camera, and saves tests/.auth/marketing-demo.json.
       name: 'marketing-prepare',
       testMatch: /demo-session\.prepare\.ts$/,
-      use: { ...devices['Desktop Chrome'], viewport: HD, video: 'off' },
+      use: { ...devices['Desktop Chrome'], viewport: HD, video: 'off', serviceWorkers: 'block' },
     },
     {
       // Never depends on marketing-prepare: the recording must not include a login.
@@ -72,6 +74,7 @@ export default defineConfig({
         viewport: HD,
         deviceScaleFactor: 1,
         storageState: 'tests/.auth/marketing-demo.json',
+        serviceWorkers: 'block',
         video: { mode: 'on', size: HD },
       },
     },

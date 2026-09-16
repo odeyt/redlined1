@@ -460,3 +460,81 @@ describe('the migration replaces exactly the reviewed functions, plus one line e
     expect(fn).toMatch(/current_user IN \('postgres', 'service_role', 'supabase_admin'\)/);
   });
 });
+
+describe('the capture actually uses them', () => {
+  const capture = read('tests/marketing-capture/first-workflow.capture.ts');
+  const prepare = read('tests/marketing-capture/demo-session.prepare.ts');
+  const ledgerModule = read('tests/marketing-capture/request-ledger.ts');
+  const config = read('playwright.marketing.config.ts');
+  const facts = read('tests/marketing-capture/alert-facts.ts');
+
+  it('installs the request ledger on every context it opens, before any navigation', () => {
+    for (const [name, text] of [['capture', capture], ['prepare', prepare]] as const) {
+      const install = text.indexOf('installLedger(');
+      const firstGoto = text.indexOf('page.goto(');
+      expect({ name, install: install > -1 }).toEqual({ name, install: true });
+      expect({ name, order: install < firstGoto }).toEqual({ name, order: true });
+    }
+    // The probe context too, so the session check is behind the same rules.
+    expect(capture).toMatch(/const probe = await browser\.newContext\([\s\S]*?installLedger\(probe, 'probe'\)/);
+    expect(capture.split('installLedger(').length - 1).toBe(2);
+  });
+
+  it('blocks service workers, whose requests would bypass the ledger', () => {
+    expect(config.split("serviceWorkers: 'block'").length - 1).toBe(2);
+    expect(capture).toContain("serviceWorkers: 'block'");
+  });
+
+  it('aborts anything not allowed rather than observing it', () => {
+    expect(ledgerModule).toMatch(/if \(entry\.verdict === 'allowed'\) await route\.continue\(\);\s*else await route\.abort\('blockedbyclient'\);/);
+    expect(ledgerModule).toMatch(/if \(entry\.verdict === 'allowed'\) ws\.connectToServer\(\);\s*else ws\.close\(/);
+  });
+
+  it('records nothing from a request but its method, hostname and pathname', () => {
+    // Everything an entry holds comes from classifyRequest; the Playwright side reads no more.
+    expect(ledgerModule).not.toMatch(/\.headers\(\)|allHeaders|postData|\.cookies\(\)|storageState/);
+    expect(ledgerModule.match(/request\.\w+\(\)/g)?.sort()).toEqual(['request.method()', 'request.url()']);
+  });
+
+  it('self-tests the blocking in the recording context before the walkthrough', () => {
+    const selfTest = capture.indexOf('runLedgerSelfTest(');
+    const startGates = capture.indexOf('evaluateAlertStartGates(');
+    // The first navigation of the RECORDED page; the probe context's own goto is earlier in the file.
+    const firstStep = capture.indexOf("test.step('open the demo tenant");
+    expect(selfTest).toBeGreaterThan(-1);
+    expect(selfTest).toBeLessThan(startGates);
+    expect(startGates).toBeLessThan(firstStep);
+    expect(capture).toMatch(/refusing to record \(alert gates\)/);
+  });
+
+  it('checkpoints after the job card and after every status change, before the next press', () => {
+    const checkpoints = [...capture.matchAll(/await checkpoint\(start, ([^,]+), ledger\)/g)].map(m => m[1]);
+    expect(checkpoints).toEqual(['0', 'expected.k', 'EXPECTED_ALERTS[4].k']);
+    // The status loop checkpoints inside the loop, not after it.
+    const loop = capture.slice(capture.indexOf('for (const expected of EXPECTED_ALERTS'), capture.indexOf('QA sign-off to Complete'));
+    expect(loop).toContain('await checkpoint(start, expected.k, ledger)');
+  });
+
+  it('writes the capture ledger and token whatever happened, and prints no secret', () => {
+    const finallyBlock = capture.slice(capture.lastIndexOf('} finally {'));
+    expect(finallyBlock).toContain('writeJson(ledgerFile');
+    expect(finallyBlock).toContain('LEDGER TOKEN');
+    // Only two values are ever printed: the ledger's file name, and the ledger
+    // token (a shop id, a count and an md5 of alert ids - nothing secret).
+    const logged = capture.split('\n').filter(l => /console\.log/.test(l));
+    expect(logged.length).toBe(2);
+    const interpolated = logged.flatMap(l => [...l.matchAll(/\$\{([^}]*)\}/g)].map(m => m[1]));
+    expect(interpolated.sort()).toEqual(['ledgerFile', 'token']);
+  });
+
+  it('the ledger file holds ids, verdicts and paths only', () => {
+    const written = capture.slice(capture.indexOf('writeJson(ledgerFile'), capture.indexOf('});', capture.indexOf('writeJson(ledgerFile')));
+    expect(written).not.toMatch(/password|secret|cookie|header|apikey|authorization|phone|email/i);
+    expect(written).toContain('entries: ledger.entries');
+  });
+
+  it('collects facts read-only, through the service role', () => {
+    expect(facts).not.toMatch(/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/);
+    expect(facts.match(/method: '(\w+)'/g) ?? []).toEqual(["method: 'GET'"]);
+  });
+});
