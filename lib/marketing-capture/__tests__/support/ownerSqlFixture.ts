@@ -1,9 +1,12 @@
 /**
  * A database shaped like production for the parts the owner SQL reads.
  *
- * The six pinned trigger functions are created from the repository's own
- * migration text, byte for byte, so executing the walkthrough here runs the
- * real source. pg_net is simulated: a `net` schema with the same queue and
+ * The six pinned trigger functions are created either from the repository's
+ * own migration text or with the bodies production stores
+ * (../../productionDefinitions.ts), byte for byte, so executing the walkthrough
+ * here runs the real thing. OWNER START and OWNER FINISH pin production, so
+ * their tests use 'production'; the drift audit compares against the
+ * repository, so its tests use 'repository'. pg_net is simulated: a `net` schema with the same queue and
  * response tables, a sequence-backed request id, and an http_post that queues.
  * notify_push_on_alert is shaped like the live one (secret read from a vault
  * table, never a literal).
@@ -13,6 +16,7 @@ import { join } from 'path';
 import type { TestDb } from './testDatabase';
 import { ALERT_EVENTS, ALERT_ROLES } from '@/lib/alerts/catalogue';
 import { PINNED_FUNCTIONS, RO_WALKTHROUGH_TRANSITIONS } from '../../alertExpectation';
+import { productionDefinition } from '../../productionDefinitions';
 
 export const ROOT = join(__dirname, '..', '..', '..', '..');
 export const readRepo = (p: string) => readFileSync(join(ROOT, p), 'utf8').replace(/\r/g, '');
@@ -103,8 +107,29 @@ INSERT INTO net._http_response (id, status_code, content_type, headers, content,
 VALUES (999001, 200, 'application/json',
   jsonb_build_object('x-echo', '${FIXTURE_FAKE_SECRET}'), '{"ok":true,"sent":0,"echo":"${FIXTURE_FAKE_SECRET}"}', false);`;
 
-export function templateSql(): string {
-  const functions = PINNED_FUNCTIONS.map(f => functionStatement(readRepo(f.file), f.name)).join('\n\n');
+/**
+ * A migration's CREATE statement for public.<name>, with its body replaced by the
+ * one production stores. The header (arguments, SECURITY DEFINER, search_path)
+ * stays the migration's, which the 2026-09-16 drift audit found production shares.
+ */
+export function productionStatement(sql: string, name: string): string {
+  const stmt = functionStatement(sql, name);
+  const open = stmt.indexOf('$fn$') + 4;
+  const close = stmt.lastIndexOf('$fn$');
+  return stmt.slice(0, open) + productionDefinition(name).prosrc + stmt.slice(close);
+}
+
+/** Which text the six pinned functions are created from. */
+export type DefinitionSource = 'repository' | 'production';
+
+export function templateSql(definitions: DefinitionSource = 'repository'): string {
+  const statement = definitions === 'production' ? productionStatement : functionStatement;
+  const functions = PINNED_FUNCTIONS.map(f => statement(readRepo(f.file), f.name)).join('\n\n');
+  // Production has neither the free-tier function nor its trigger (drift audit rows 41-42).
+  const freeTierFunction = definitions === 'production' ? '' : `CREATE FUNCTION public.enforce_free_tier_count_limit() RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN RETURN NEW; END $fn$;`;
+  const freeTierTrigger = definitions === 'production' ? ''
+    : 'CREATE TRIGGER trg_free_tier_limit BEFORE INSERT ON public.job_cards FOR EACH ROW EXECUTE FUNCTION public.enforce_free_tier_count_limit();';
   return `
 CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
@@ -184,14 +209,13 @@ CREATE TRIGGER invoices_alert_paid AFTER UPDATE ON public.invoices FOR EACH ROW 
 
 CREATE FUNCTION public.audit_events_are_append_only() RETURNS trigger LANGUAGE plpgsql AS $fn$
 BEGIN RAISE EXCEPTION 'audit_events is append-only (attempted %)', TG_OP; END $fn$;
-CREATE FUNCTION public.enforce_free_tier_count_limit() RETURNS trigger LANGUAGE plpgsql AS $fn$
-BEGIN RETURN NEW; END $fn$;
+${freeTierFunction}
 
 CREATE TRIGGER alert_events_push AFTER INSERT ON public.alert_events FOR EACH ROW EXECUTE FUNCTION public.notify_push_on_alert();
 CREATE TRIGGER audit_events_no_update BEFORE UPDATE OR DELETE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION public.audit_events_are_append_only();
 CREATE TRIGGER job_cards_alert_assigned AFTER UPDATE ON public.job_cards FOR EACH ROW EXECUTE FUNCTION public.alert_job_assigned();
 CREATE TRIGGER job_cards_alert_work_added AFTER UPDATE ON public.job_cards FOR EACH ROW EXECUTE FUNCTION public.alert_job_work_added();
-CREATE TRIGGER trg_free_tier_limit BEFORE INSERT ON public.job_cards FOR EACH ROW EXECUTE FUNCTION public.enforce_free_tier_count_limit();
+${freeTierTrigger}
 CREATE TRIGGER repair_orders_alert_pending_approval AFTER UPDATE ON public.repair_orders FOR EACH ROW EXECUTE FUNCTION public.alert_ro_pending_approval();
 CREATE TRIGGER repair_orders_alert_status_changed AFTER UPDATE ON public.repair_orders FOR EACH ROW EXECUTE FUNCTION public.alert_ro_status_changed();
 CREATE TRIGGER repair_orders_status_change AFTER UPDATE ON public.repair_orders FOR EACH ROW EXECUTE FUNCTION public.record_ro_status_change();

@@ -21,13 +21,14 @@ const sha = (t: string) => createHash('sha256').update(t, 'utf8').digest('hex');
 
 describe('owner-reviewed artefacts are pinned', () => {
   it.each([
-    ['OWNER START SQL', 'scripts/marketing/sql/owner-start.sql', '9f4c4d2a464b7648001505d9e16e1032764315809dc0a10eed5e29922a275c0a'],
-    ['OWNER FINISH SQL', 'scripts/marketing/sql/owner-finish.sql', '838520b5f64e9ada3580acb0db41ab37bb583bc0c036aaf6f57ed4c474bc2ca4'],
+    ['OWNER START SQL', 'scripts/marketing/sql/owner-start.sql', '8da2693dc4d65a2faba7fe119c8aeaf0a4feebf2e4cdf296fb47d17e3343a8f0'],
+    ['OWNER FINISH SQL', 'scripts/marketing/sql/owner-finish.sql', '41961626cdf10a8df2d0d77361729458e803ef677cea94beaaa620613602dfbf'],
     ['automated start gates', 'lib/marketing-capture/alertStartGates.ts', '32fb5048c4fe9a69a3f99db74e87028c27912bf61fb693d6a601963772cf40cc'],
     ['automated finish gates', 'lib/marketing-capture/alertFinishGates.ts', '0d76389e5260e6a1679c2dae11549041f0b232bb0575f6e41af304ce06adc5a6'],
-    ['expected alerts', 'lib/marketing-capture/alertExpectation.ts', 'f56c2a4afb81e1af1202845ba4dfc4c40d1f0576f374c3f692a6a7788338e421'],
+    ['expected alerts', 'lib/marketing-capture/alertExpectation.ts', 'c519c363d24bac6afd3998106ce37c50c46ec962013c054208e7423d810da499'],
+    ['production definitions', 'lib/marketing-capture/productionDefinitions.ts', 'fb24b8b770226215377878762ff30e35b7772c8db7ba4e134b08bb6050322a9e'],
     ['browser request ledger', 'lib/marketing-capture/requestLedger.ts', 'bc36f75394098858c6764146355e7f54742027f701b90c4b5d7775e605ac4e28'],
-    ['failure-recovery instructions', 'docs/marketing-capture-recovery.md', '433118ede51638bf89d19d670aa2f1a12b7c147ff988e41f26d252369215f575'],
+    ['failure-recovery instructions', 'docs/marketing-capture-recovery.md', '5c6bb233e6d45627e005e5f19edd47b2cd95236d3a828b11e95a20c05a0d67a9'],
   ])('%s still hashes to the reviewed value', (_name, path, expected) => {
     expect(sha(read(path))).toBe(expected);
   });

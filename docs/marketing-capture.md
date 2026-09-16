@@ -209,7 +209,8 @@ Failure recovery for all of this is in
    demo shop id and change nothing else. It is read-only and rolls back. It
    audits who can read or write pg_net's queue, responses and sequence; proves
    `notify_push_on_alert` is the only HTTP caller; pins the live triggers and
-   function fingerprints against the repository source; and records the
+   function fingerprints against the production definitions measured on
+   2026-09-16 (`lib/marketing-capture/productionDefinitions.ts`); and records the
    baselines. **Start only if row 999 says CAPTURE MAY START.** Copy row 900,
    the START TOKEN.
 2. **The capture.**

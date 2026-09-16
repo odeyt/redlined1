@@ -7,16 +7,18 @@
  * and it fails rather than skips when there is none (see
  * ./support/testDatabase.ts).
  * Every scenario runs the unedited repository SQL files against a fresh
- * production-shaped fixture whose alert triggers are the repository's own
- * source (./support/ownerSqlFixture.ts).
+ * production-shaped fixture whose alert triggers carry the bodies production
+ * stores, byte for byte (../productionDefinitions.ts,
+ * ./support/ownerSqlFixture.ts).
  */
 import { EXPECTED_ALERTS } from '../alertExpectation';
 import { ledgerToken, orderedAlertIdsMd5, withChecksum } from '../alertFinishGates';
 import { backendDescription, createTestDb, type TestDb } from './support/testDatabase';
 import {
-  IDS, PRODUCTION_LIKE_NET_GRANTS, ROLES_SQL, changeStatus, drainQueue, newDemoAlertIds, readRepo, runOwnerSql,
-  templateSql, walkthrough, type Responder, type Row,
+  IDS, PRODUCTION_LIKE_NET_GRANTS, ROLES_SQL, changeStatus, drainQueue, functionStatement, newDemoAlertIds,
+  productionStatement, readRepo, runOwnerSql, templateSql, walkthrough, type Responder, type Row,
 } from './support/ownerSqlFixture';
+import { PINNED_FUNCTIONS } from '../alertExpectation';
 
 const START = 'scripts/marketing/sql/owner-start.sql';
 const FINISH = 'scripts/marketing/sql/owner-finish.sql';
@@ -36,7 +38,7 @@ async function freshDb(extraSql = ''): Promise<TestDb> {
   const db = await createTestDb();
   open.push(db);
   await db.exec(ROLES_SQL);
-  await db.exec(templateSql());
+  await db.exec(templateSql('production'));
   if (extraSql) await db.exec(extraSql);
   return db;
 }
@@ -83,7 +85,7 @@ describe('a clean take', () => {
     }
   });
 
-  it('executing the source triggers yields exactly EXPECTED_ALERTS; Pending Approval raises ro.pending_approval only', async () => {
+  it('executing the production trigger bodies yields exactly EXPECTED_ALERTS; Pending Approval raises ro.pending_approval only', async () => {
     const db = await freshDb();
     await walkthrough(db);
     const alerts = await db.query(`
@@ -200,9 +202,9 @@ describe('OWNER START SQL privilege audit', () => {
 describe('OWNER START SQL live-definition proof', () => {
   it('a changed alert trigger (Pending Approval also announced) STOPs START and FAILS FINISH on the count', async () => {
     const db = await freshDb();
-    const src = readRepo('supabase/migrations/2026-08-13_alert_ro_status_changed.sql');
-    const changed = src.slice(src.indexOf('CREATE OR REPLACE FUNCTION public.alert_ro_status_changed('), src.indexOf('$fn$;') + 5)
-      .replace("IF NEW.status <> 'Pending Approval' THEN", 'IF true THEN');
+    const live = productionStatement(readRepo('supabase/migrations/2026-08-13_alert_ro_status_changed.sql'), 'alert_ro_status_changed');
+    const changed = live.replace("IF NEW.status <> 'Pending Approval' THEN", 'IF true THEN');
+    expect(changed).not.toBe(live);
     await db.query(changed);
     const s = await start(db);
     expect(stops(s)).toEqual([55, 61]);
@@ -217,9 +219,10 @@ describe('OWNER START SQL live-definition proof', () => {
 
   it('a whitespace-only difference is REVIEW, never PASS', async () => {
     const db = await freshDb();
-    const src = readRepo('supabase/migrations/2026-08-03_ro_status_events.sql');
-    const stmt = src.slice(src.indexOf('CREATE OR REPLACE FUNCTION public.record_ro_status_change('));
-    await db.query(stmt.slice(0, stmt.indexOf('$fn$;') + 5).replace('BEGIN\n', 'BEGIN\n\n    '));
+    const live = productionStatement(readRepo('supabase/migrations/2026-08-03_ro_status_events.sql'), 'record_ro_status_change');
+    const spaced = live.replace('BEGIN\r\n', 'BEGIN\r\n\r\n    ');
+    expect(spaced).not.toBe(live);
+    await db.query(spaced);
     const s = await start(db);
     expect(row(s, 58).verdict).toBe('REVIEW');
     expect(stops(s)).toEqual([58, 61]);
@@ -228,11 +231,29 @@ describe('OWNER START SQL live-definition proof', () => {
   it('a disabled or extra trigger STOPs START', async () => {
     const db = await freshDb(`
       ALTER TABLE public.repair_orders DISABLE TRIGGER repair_orders_alert_status_changed;
-      CREATE TRIGGER zz_extra AFTER INSERT ON public.standard_labor_guides FOR EACH ROW EXECUTE FUNCTION public.enforce_free_tier_count_limit();`);
+      CREATE TRIGGER zz_extra AFTER INSERT ON public.standard_labor_guides FOR EACH ROW EXECUTE FUNCTION public.audit_events_are_append_only();`);
     const s = await start(db);
     expect(stops(s)).toEqual([54, 61]);
     expect(row(s, 54).actual).toContain('repair_orders.repair_orders_alert_status_changed D AFTER UPDATE ROW');
     expect(row(s, 54).actual).toContain('standard_labor_guides.zz_extra O AFTER INSERT ROW');
+  });
+
+  it("the migration text is not what production stores: START STOPs where the audit said DIFFERS and REVIEWs where it said WHITESPACE", async () => {
+    const db = await freshDb();
+    for (const f of PINNED_FUNCTIONS) await db.query(functionStatement(readRepo(f.file), f.name));
+    const s = await start(db);
+    expect([55, 56, 57, 58, 59, 60].map(ord => `${ord} ${row(s, ord).verdict}`))
+      .toEqual(['55 STOP', '56 REVIEW', '57 REVIEW', '58 REVIEW', '59 STOP', '60 STOP']);
+    expect(row(s, 61).verdict).toBe('STOP');
+  });
+
+  it('START pins production without trg_free_tier_limit: restoring that trigger STOPs row 54', async () => {
+    const db = await freshDb(`
+      CREATE FUNCTION public.enforce_free_tier_count_limit() RETURNS trigger LANGUAGE plpgsql AS $fn$ BEGIN RETURN NEW; END $fn$;
+      CREATE TRIGGER trg_free_tier_limit BEFORE INSERT ON public.job_cards FOR EACH ROW EXECUTE FUNCTION public.enforce_free_tier_count_limit();`);
+    const s = await start(db);
+    expect(stops(s)).toEqual([54, 61]);
+    expect(row(s, 54).actual).toContain('job_cards.trg_free_tier_limit O BEFORE INSERT ROW');
   });
 });
 

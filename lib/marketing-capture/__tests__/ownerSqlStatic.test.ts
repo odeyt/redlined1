@@ -6,7 +6,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ALERT_EVENTS, ALERT_ROLES } from '@/lib/alerts/catalogue';
-import { EXPECTED_ALERTS, PINNED_FUNCTIONS, functionBody, normalizedProsrcMd5, prosrcMd5 } from '../alertExpectation';
+import { EXPECTED_ALERTS, PINNED_FUNCTIONS, normalizedProsrcMd5, prosrcMd5 } from '../alertExpectation';
+import { PRODUCTION_DEFINITIONS } from '../productionDefinitions';
 
 const root = join(__dirname, '..', '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8').replace(/\r/g, '');
@@ -91,20 +92,21 @@ describe('the two files agree with each other and with the capture', () => {
     const pin = (sql: string) => block(sql, "    'alert_events.alert_events_push", 'AS expected,');
     expect(pin(files.START)).toBe(pin(files.FINISH));
     expect(pin(files.START)).toContain('repair_orders.repair_orders_alert_status_changed O AFTER UPDATE ROW public.alert_ro_status_changed');
+    // Production has no free-tier trigger (drift audit 2026-09-16, row 41); the pin is production's set.
+    expect(pin(files.START)).not.toContain('trg_free_tier_limit');
   });
 
-  it('pin the same function fingerprints, and they are the repository source', () => {
+  it('pin the same function fingerprints, and they are the production definitions', () => {
     const pin = (sql: string) => block(sql, 'fn_pin (ord, fname, exact_md5, normalized_md5) AS (VALUES', '\n),');
     expect(pin(files.START)).toBe(pin(files.FINISH));
     const rows = [...pin(files.START).matchAll(/\((\d+), '([a-z_]+)', '([0-9a-f]{32})', '([0-9a-f]{32})'\)/g)];
-    expect(rows).toHaveLength(PINNED_FUNCTIONS.length);
+    expect(rows.map(([, , name]) => name)).toEqual(PINNED_FUNCTIONS.map(f => f.name));
     rows.forEach(([, , name, exact, normalized]) => {
-      const fn = PINNED_FUNCTIONS.find(f => f.name === name);
-      expect(fn).toBeDefined();
-      const body = functionBody(read(fn!.file), name);
-      expect(body).not.toBeNull();
-      expect(exact).toBe(prosrcMd5(body!));
-      expect(normalized).toBe(normalizedProsrcMd5(body!));
+      const live = PRODUCTION_DEFINITIONS.find(d => d.name === name);
+      expect(live).toBeDefined();
+      // Hashed from the pinned body itself, not copied from the recorded value.
+      expect(exact).toBe(prosrcMd5(live!.prosrc));
+      expect(normalized).toBe(normalizedProsrcMd5(live!.prosrc));
     });
   });
 

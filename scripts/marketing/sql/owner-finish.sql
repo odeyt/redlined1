@@ -106,19 +106,19 @@ trig_pin AS (
     || 'audit_events.audit_events_no_update O BEFORE UPDATE OR DELETE ROW public.audit_events_are_append_only; '
     || 'job_cards.job_cards_alert_assigned O AFTER UPDATE ROW public.alert_job_assigned; '
     || 'job_cards.job_cards_alert_work_added O AFTER UPDATE ROW public.alert_job_work_added; '
-    || 'job_cards.trg_free_tier_limit O BEFORE INSERT ROW public.enforce_free_tier_count_limit; '
     || 'repair_orders.repair_orders_alert_pending_approval O AFTER UPDATE ROW public.alert_ro_pending_approval; '
     || 'repair_orders.repair_orders_alert_status_changed O AFTER UPDATE ROW public.alert_ro_status_changed; '
     || 'repair_orders.repair_orders_status_change O AFTER UPDATE ROW public.record_ro_status_change' AS expected,
     coalesce((SELECT string_agg(descr, '; ' ORDER BY relname COLLATE "C", tgname COLLATE "C") FROM trig), '(none)') AS actual
 ),
 fn_pin (ord, fname, exact_md5, normalized_md5) AS (VALUES
-  (55, 'alert_ro_status_changed', 'f5ada9b8f4ea481a8c809bcea94171ba', '131af272466ac2d370bbb0ccd83a089a'),
-  (56, 'alert_ro_pending_approval', 'e7005a0910cb37bb0444a7515030472a', '64d2a3a9ad137fc1ee48daf8c4107674'),
-  (57, 'emit_alert_event', '7ca2ecc78830f45619d5738410ae661b', '8fd2dbfabe529f640aedc1d79a9fd0bf'),
-  (58, 'record_ro_status_change', 'b4ae5ee9174d62d41e3d9ef78cb4249f', '4d46681b324bd342f4b7a0d99217f4e7'),
-  (59, 'alert_job_assigned', 'ad16d7dc2e0e27e485cf6a7ac057c722', 'a5c677036225a521fc3067504441a34f'),
-  (60, 'alert_job_work_added', '010c9883b74b759a08cef5ac6ef272a8', '2987c8c85f44f7b477b2b681505f1914')
+  -- The bodies production stores, measured 2026-09-16 (lib/marketing-capture/productionDefinitions.ts).
+  (55, 'alert_ro_status_changed', 'a2191579b54da621f31440a414a3985b', '570ef46ce24cae0d16080b3c4d3e6830'),
+  (56, 'alert_ro_pending_approval', '1ab02bf494eb4a26b0e30d94986687df', '64d2a3a9ad137fc1ee48daf8c4107674'),
+  (57, 'emit_alert_event', 'de591ac4c49b3955d6ab6484e961e319', '8fd2dbfabe529f640aedc1d79a9fd0bf'),
+  (58, 'record_ro_status_change', '29006f00617e1bbf1240c7cfa2a0d632', '4d46681b324bd342f4b7a0d99217f4e7'),
+  (59, 'alert_job_assigned', '701f06455314080c5864e3d429cde448', '91dd7e1083a24a21158863c6c07fdd8c'),
+  (60, 'alert_job_work_added', '0e105ae3cd75ed3da504bb5ac3939c5f', '873a5b316f9bada3535eb76ad2617afa')
 ),
 fn_live AS (
   SELECT fp.ord, fp.fname, fp.exact_md5,

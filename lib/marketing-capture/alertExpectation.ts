@@ -3,9 +3,13 @@
  *
  * The number is not assumed. It is derived from the trigger functions' source
  * in supabase/migrations, which lib/marketing-capture/__tests__ reads, parses
- * and EXECUTES against a real PostgreSQL. OWNER START SQL then requires the
- * live production definitions to hash to the same source (md5 of prosrc), so
- * the expectation holds in production only when those hashes match.
+ * and EXECUTES against a real PostgreSQL.
+ *
+ * Production does not store that text: it stores the bodies measured on
+ * 2026-09-16 in ./productionDefinitions.ts (CRLF, no comments, some lines
+ * joined). Tests prove those bodies raise the same alerts, and OWNER START SQL
+ * requires the live definitions to hash to them (md5 of prosrc), so the
+ * expectation holds in production only while those hashes match.
  *
  * Node-only (crypto): used by tests and the capture harness, never by the app.
  */
@@ -50,7 +54,8 @@ export const EXPECTED_ALERT_COUNT = EXPECTED_ALERTS.length;
 /**
  * Every function whose live definition decides the alert count or the
  * correlation, and the migration holding its latest source. OWNER START SQL
- * pins each by md5(prosrc).
+ * pins each by md5(prosrc) of its production body (./productionDefinitions.ts),
+ * not of this migration text.
  */
 export const PINNED_FUNCTIONS = [
   { name: 'alert_ro_status_changed', file: 'supabase/migrations/2026-08-13_alert_ro_status_changed.sql' },

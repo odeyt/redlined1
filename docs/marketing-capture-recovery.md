@@ -40,9 +40,11 @@ it again.
 - **Rows 50-52 (a second HTTP caller, or a Database Webhook).** The window can no
   longer be exclusive. Report it; do not remove the caller to make the capture run.
 - **Rows 54-61 (triggers and function fingerprints).** The live definitions no
-  longer equal the repository source, so the expected alert count is not proven.
-  A REVIEW verdict means only the whitespace matches; that is not a pass. Reconcile
-  first, the way the growth migrations were reconciled.
+  longer equal the production definitions measured on 2026-09-16
+  (`lib/marketing-capture/productionDefinitions.ts`), so production has changed
+  since and the expected alert count is not proven. A REVIEW verdict means only
+  the whitespace matches; that is not a pass. Re-run the drift audit and
+  re-measure; never edit a hash to make a gate pass.
 - **Rows 10-23 (isolation).** The demo tenant is not as it should be: fix the
   demo records (a production write, separately approved) and run START again.
 - **Row 71 (`cache_size`).** The request-id sequence hands out ids in batches, so

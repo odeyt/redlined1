@@ -280,7 +280,42 @@ grants the role issued disappear with it, so they have to be recorded first.
    rollback is re-creating the role and re-applying the ownerships and grants the
    audit recorded — which is why step 1 must run first.
 
-## Phase D — production drift (built; not yet run)
+## Phase D — production drift (built; run 2026-09-16; fingerprints reconciled)
+
+### Measured result, 2026-09-16
+
+Nine objects did not match the repository, and none of them differs in behaviour:
+
+- **Every semantic marker is present** (row 20), including the ones that decide
+  the alert count: `alert_ro_status_changed` skips Pending Approval and makes one
+  `emit_alert_event` call.
+- **The six function bodies differ in text only** (rows 10-15: three DIFFERS,
+  three WHITESPACE). Production stores them with CRLF line endings, no comments,
+  and a few statements joined onto one line. This is an uncommitted revision of
+  the same code, not a copy of the migration files; git history holds no version
+  of the text production has.
+- **Free-tier enforcement is absent** (rows 41-42): no
+  `enforce_free_tier_count_limit` and no `trg_free_tier_limit` on customers,
+  vehicles or job_cards. `supabase/migrations/free_tier_usage_limits.sql` was
+  never applied. This is a billing-integrity gap, tracked separately; it adds no
+  alert or request to the walkthrough.
+- **No trigger is disabled** (row 43), and there is exactly one
+  `notify_push_on_alert` (row 60, md5 `00ea435edc48748e23bf9197f15ec152`).
+  `alert_events_push` fires on every insert with no WHEN clause.
+- Separately confirmed on the same day: `shops.is_synthetic` exists in
+  production although its migration is not merged, and no demo tenant exists.
+
+### Reconciliation (repository only)
+
+OWNER START and OWNER FINISH now pin what production stores, not the migration
+text. The six bodies are in `lib/marketing-capture/productionDefinitions.ts`,
+each accepted only because its md5 equals the measured value, so each is
+byte-exact. Tests prove them token-identical to the migrations once comments and
+whitespace are set aside, and prove they raise exactly the five expected alerts,
+both by parsing and by executing them. The trigger pin is production's set,
+without `trg_free_tier_limit`. No production definition was changed.
+
+### The audit
 
 `scripts/security/sql/alert-definition-drift.sql`. Read-only, nothing to edit.
 For each of `alert_ro_status_changed`, `alert_ro_pending_approval`,
@@ -307,8 +342,9 @@ For each of `alert_ro_status_changed`, `alert_ro_pending_approval`,
 **It installs nothing.** No repository definition is written to production from
 this audit or from the capture harness. Reconciliation — deciding, per object,
 whether production or the repository is right — is separate work needing its own
-approval, and until it is done the five-alert expectation stays unproven and the
-capture stays stopped.
+approval. For the six alert functions it was done on 2026-09-16 in the
+repository only (above); the capture stays stopped for the pg_net reasons, not
+for drift.
 
 ## How these are tested
 
