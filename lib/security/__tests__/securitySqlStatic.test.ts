@@ -12,7 +12,8 @@ const root = join(__dirname, '..', '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8').replace(/\r/g, '');
 const AUDIT = 'scripts/security/sql/pg-net-privilege-audit.sql';
 const DRIFT = 'scripts/security/sql/alert-definition-drift.sql';
-const files = { AUDIT: read(AUDIT), DRIFT: read(DRIFT) };
+const CLI_ROLE = 'scripts/security/sql/cli-login-role-audit.sql';
+const files = { AUDIT: read(AUDIT), DRIFT: read(DRIFT), CLI_ROLE: read(CLI_ROLE) };
 /** Comments and string literals removed, so keyword checks see only code. */
 const code = (t: string) => t.replace(/--[^\n]*/g, '').replace(/'(?:[^']|'')*'/g, "''");
 
@@ -23,6 +24,7 @@ describe('both audits are pinned by SHA-256', () => {
   it.each([
     ['PHASE A pg_net privilege audit', AUDIT, '0927f12569c1e827ec3e0f8dc540ec4318273f1626ba24c79eacbdc5b38a77b1'],
     ['PHASE D alert definition drift', DRIFT, 'd7c70d4169d2a2a455d5e384095f4e6aeecb4064f17ccc0ca246e4de13ae516d'],
+    ['cli_login_postgres dependency audit', CLI_ROLE, 'ce675a40937c50942f4529f11d4c2ad560efee42dcefc11e1ab3922a77db186f'],
   ])('%s still hashes to the reviewed value', (_name, path, expected) => {
     expect(createHash('sha256').update(read(path), 'utf8').digest('hex')).toBe(expected);
   });
@@ -138,6 +140,60 @@ describe('the pg_net privilege audit', () => {
   it('treats PUBLIC, anon and authenticated holding anything as EXPOSED', () => {
     expect(sql).toContain("WHEN m.rolname IN ('public', 'anon', 'authenticated') THEN 'EXPOSED'");
     expect(sql).toContain("SELECT 999, 'VERDICT', 'exposures found', '0 EXPOSED'");
+  });
+});
+
+describe('the cli_login_postgres audit', () => {
+  const sql = files.CLI_ROLE;
+
+  it('contains no statement that could change the role or its objects', () => {
+    const body = code(sql);
+    expect(body).not.toMatch(/(alter|drop|reassign|grant|revoke|create)/i);
+    // The words appear only in prose telling the operator what to do next.
+    expect(sql).toContain('ALTER ROLE ... NOLOGIN');
+  });
+
+  it('names exactly one role, hard-coded, with no parameter', () => {
+    expect(sql).toContain("WHERE r.rolname = 'cli_login_postgres'");
+    expect([...new Set([...sql.matchAll(/'cli_login_postgres'/g)].map(m => m[0]))]).toHaveLength(1);
+  });
+
+  it('covers every dependency a DROP would trip over', () => {
+    for (const fragment of [
+      'FROM pg_stat_activity a JOIN target t',     // sessions
+      'FROM pg_auth_members m JOIN target t ON m.member = t.oid',  // memberships
+      'FROM pg_auth_members m JOIN target t ON m.roleid = t.oid',  // members
+      "pg_has_role(r.rolname, t.oid, 'SET')",      // SET ROLE reachability
+      'FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN target t ON c.relowner = t.oid',
+      'JOIN target t ON p.proowner = t.oid',
+      'JOIN target t ON n.nspowner = t.oid',
+      'JOIN target t ON ty.typowner = t.oid',
+      'JOIN target t ON d.datdba = t.oid',         // database ownership
+      'FROM pg_shdepend s JOIN target t',          // shared dependencies
+      'LATERAL aclexplode(c.relacl) a',            // grants it issued
+      'FROM pg_default_acl d LEFT JOIN pg_namespace n',
+      'FROM pg_policy p JOIN pg_class c',
+    ]) {
+      expect({ fragment, present: sql.includes(fragment) }).toEqual({ fragment, present: true });
+    }
+  });
+
+  it('blocks on an open session', () => {
+    // The non-zero branch cannot be reached by the executed tests: the harness
+    // has one connection and cannot open a second as another role. The branch is
+    // pinned here so it cannot be weakened silently.
+    expect(sql).toContain("CASE WHEN (SELECT n FROM sessions) = 0 THEN 'PASS' ELSE 'BLOCKS' END");
+    expect(sql).toContain("WHEN (SELECT n FROM sessions) > 0 THEN 'NOT YET: '");
+  });
+
+  it('separates the reversible step from the irreversible one', () => {
+    expect(sql).toContain("SELECT 900, 'VERDICT', 'is ALTER ROLE ... NOLOGIN safe? (reversible in one statement)'");
+    expect(sql).toContain("SELECT 901, 'VERDICT', 'is DROP ROLE safe? (not reversible in place)'");
+    expect(sql).toContain('Re-run in every other database before dropping');
+  });
+
+  it('says what password expiry does not prevent', () => {
+    expect(sql).toContain('does not stop SET ROLE by a member');
   });
 });
 

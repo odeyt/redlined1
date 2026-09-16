@@ -199,6 +199,64 @@ Rotating before the privileges are fixed would put a fresh secret into the same
 readable queue. **The secret is never printed, retrieved or echoed by anything
 in this repository**, including both audits.
 
+## The interim HMAC design (documented; NOT to be implemented)
+
+On hold while the Supabase support path is active. If support refuses or delays
+materially, this comes back as an implementation proposal needing its own
+approval. Recorded here so the design is not lost:
+
+- The trigger signs `alert_id | shop_id | issued_at | expires_at` (pipe-joined,
+  fixed order, UTC epoch seconds) and sends
+  `v1.<issued_at>.<expires_at>.<hex hmac-sha256>` instead of a reusable secret.
+- The route re-derives the message from the body's own `record.id` and
+  `record.shop_id` rather than trusting header copies, rejects a window wider
+  than 60s, rejects expired or future-dated signatures (30s skew allowance), and
+  compares with `crypto.timingSafeEqual` on equal-length buffers.
+- Replay is bounded by the window plus an in-memory seen-set keyed on alert id.
+- The key stays in Vault and in Vercel env. Only the derived signature enters the
+  queue, and it is useless after a minute and bound to one alert.
+- Signing failure must never abort an alert: the trigger body is wrapped so a
+  missing key raises a warning and loses a notification, never the alert row.
+- Deployment order: route accepts either scheme -> trigger switches to signing ->
+  soak -> route stops accepting the static secret. Each step rolls back alone.
+- Unverified prerequisite: whether `pgcrypto` is installed and `hmac()` is
+  executable by the trigger's owner.
+
+**What it does not fix:** the request body still carries the alert record into a
+world-readable queue. Only the revoke, or removing pg_net from the push path,
+closes that.
+
+## Retiring `cli_login_postgres`
+
+`cli_login_postgres` is an expired login role that still exists and still
+inherits PUBLIC's access to the queue. It is one of ten such credentials, so
+retiring it reduces the exposure without fixing it.
+
+`scripts/security/sql/cli-login-role-audit.sql` (read-only, parameter-free)
+reports, before anything is changed: the role's attributes and expiry; whether a
+password is set (never the hash); open sessions (never the query text);
+membership in both directions and which login roles can `SET ROLE` to it;
+everything it owns; every shared dependency; every grant it issued; the default
+privileges it created; policies naming it; and database ownership. Row 900 says
+whether `NOLOGIN` is safe, row 901 whether `DROP` is, and row 999 combines them.
+
+**Two things the audit exists to make obvious.** `VALID UNTIL` rejects password
+authentication only — it does not stop a member from `SET ROLE`, and on this
+database `postgres` is a member. And a `DROP` is not reversible in place: the
+grants the role issued disappear with it, so they have to be recorded first.
+
+**Disable-first procedure:**
+
+1. Run the audit in every database the role could own something in (row 41 names
+   the one it ran in). Record the output; it is the rollback plan.
+2. `ALTER ROLE cli_login_postgres NOLOGIN` — one statement, reversible by one
+   statement. Soak for a week.
+3. Only if nothing breaks, and only if row 901 says so, reassign or drop what it
+   owns and then drop the role.
+4. Rollback: `ALTER ROLE ... LOGIN` restores step 2 instantly. After step 3 the
+   rollback is re-creating the role and re-applying the ownerships and grants the
+   audit recorded — which is why step 1 must run first.
+
 ## Phase D — production drift (built; not yet run)
 
 `scripts/security/sql/alert-definition-drift.sql`. Read-only, nothing to edit.
