@@ -20,7 +20,7 @@ import { useCapabilities } from '@/lib/auth/useCapabilities';
 import type { VehicleRecord } from '@/services/vehicleService';
 import { fetchCustomers, saveCustomer } from '@/services/customerService';
 import type { Customer } from '@/lib/types';
-import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage } from '@/services/vehicleImageService';
+import { fetchVehicleImages, uploadVehicleImage, deleteVehicleImage, vehicleImageRef, type VehicleImage } from '@/services/vehicleImageService';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
@@ -414,18 +414,32 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   const [f, setF] = useState({ ...vehicle });
   const [saving, setSaving] = useState(false);
   // Local image state for lightbox + inline upload
-  const [drawerImages, setDrawerImages] = useState<Array<{id: string; url: string; label: string}>>([]);
+  const [drawerImages, setDrawerImages] = useState<Array<{id: string; url: string; storagePath?: string; label: string}>>([]);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const photoUploadRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Counts the fetches this drawer has started.
+   *
+   * A slow fetch for the previous vehicle, or one issued before an upload,
+   * must not paint over what is on screen now — that is the same "my photo
+   * vanished" report from a different direction. Only the newest request is
+   * allowed to write state; an upload bumps the counter too, so a response
+   * already in flight when the user adds a photo is discarded rather than
+   * replacing the new photo with the list that predates it.
+   */
+  const imagesRequest = useRef(0);
 
   // Seed from thumbUrls immediately, then fetch full list once
   useEffect(() => {
     if (thumbUrls?.length && drawerImages.length === 0) {
       setDrawerImages(thumbUrls.map((url, i) => ({ id: `seed-${i}`, url, label: '' })));
     }
+    const mine = ++imagesRequest.current;
     fetchVehicleImages(vehicle.id).then(imgs => {
+      if (imagesRequest.current !== mine) return;
       setDrawerImages(imgs);
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,7 +448,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
   async function handleInlineUpload(files: FileList | null) {
     if (!files?.length) return;
     setUploadingPhotos(true);
-    const uploaded: Array<{id: string; url: string; label: string}> = [];
+    // Invalidate any list fetch already in flight: it predates these uploads.
+    imagesRequest.current++;
+    const uploaded: VehicleImage[] = [];
     const failures: string[] = [];
     for (const file of Array.from(files)) {
       try {
@@ -449,9 +465,10 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
     }
     if (failures.length) notify(failures.length === 1 ? failures[0] : `${failures.length} photos were not uploaded. ${failures[0]}`);
     if (uploaded.length) {
+      imagesRequest.current++;
       setDrawerImages(prev => {
         const next = [...prev.filter(i => !i.id.startsWith('seed-')), ...uploaded];
-        onThumbsUpdated?.(vehicle.id, next.map(i => i.url));
+        onThumbsUpdated?.(vehicle.id, next.map(vehicleImageRef));
         return next;
       });
     }
@@ -982,7 +999,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent,#cc0000)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.transform = 'scale(1)'; }}
                   >
-                    <StorageImage url={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <StorageImage url={vehicleImageRef(img)} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </div>
                 ))}
                 <div
@@ -1082,8 +1099,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
 
                 {/* Main image */}
                 <StorageImage
-                  url={img.url}
+                  url={vehicleImageRef(img)}
                   alt={img.label}
+                  loading="eager"
                   style={{ maxWidth: '90vw', maxHeight: '75vh', objectFit: 'contain', borderRadius: 10, boxShadow: '0 8px 48px rgba(0,0,0,0.6)' }}
                 />
 
@@ -1113,7 +1131,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
                           opacity: i === lightboxIdx ? 1 : 0.55, transition: 'opacity .15s, border-color .15s',
                         }}
                       >
-                        <StorageImage url={im.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <StorageImage url={vehicleImageRef(im)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       </div>
                     ))}
                   </div>
@@ -1703,6 +1721,21 @@ export function VehiclesView() {
   const [transferring, setTransferring] = useState(false);
   const [returnModalVehicle, setReturnModalVehicle] = useState<VehicleRecord | null>(null);
   const [thumbs, setThumbs] = useState<Record<string, string[]>>({});
+  /**
+   * Per-vehicle request counter for the thumbnail fetches.
+   *
+   * These are fired one-per-vehicle from the load effect and can land in any
+   * order, long after the user has uploaded or deleted a photo in the drawer
+   * or the gallery. Only the newest request for a vehicle may write its
+   * thumbnails; anything that adds or removes a photo bumps the counter so the
+   * older answer is discarded rather than overwriting the newer truth.
+   */
+  const thumbRequests = useRef<Record<string, number>>({});
+  const bumpThumbRequest = useCallback((vehicleId: string) => {
+    const next = (thumbRequests.current[vehicleId] ?? 0) + 1;
+    thumbRequests.current[vehicleId] = next;
+    return next;
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [enableVehiclePhotos, setEnableVehiclePhotos] = useState(true);
   const [enableVehicleEdit, setEnableVehicleEdit] = useState(true);
@@ -1740,7 +1773,12 @@ export function VehiclesView() {
         setVehicles(v as VehicleRecord[]);
         setCustomers(c);
         v.forEach(vehicle => {
+          const mine = bumpThumbRequest(vehicle.id);
           fetchVehicleImages(vehicle.id).then(imgs => {
+            // A response that was overtaken — by a newer load, or by an upload
+            // in the drawer — is dropped. Painting it would put the pre-upload
+            // list back on screen, which reads as the new photo vanishing.
+            if (thumbRequests.current[vehicle.id] !== mine) return;
             // Apply saved photo order so list thumbnail matches carousel first photo
             if (vehicle.imageIds?.length) {
               const order = vehicle.imageIds;
@@ -1751,14 +1789,14 @@ export function VehiclesView() {
                 return ai - bi;
               });
             }
-            const urls = imgs.slice(0, 5).map(i => i.url);
+            const urls = imgs.slice(0, 5).map(vehicleImageRef).filter(Boolean);
             if (urls.length > 0) setThumbs(prev => ({ ...prev, [vehicle.id]: urls }));
           }).catch(() => {});
         });
       })
       .catch(err => setError('Load error: ' + (err?.message || '')))
       .finally(() => setLoading(false));
-  }, [currentShop?.id]);
+  }, [currentShop?.id, bumpThumbRequest]);
 
   // Deep-link: open a specific vehicle drawer from global search or other modules
   useEffect(() => {
@@ -2054,9 +2092,23 @@ export function VehiclesView() {
           subtitle={`${galleryVehicle.plate} · ${galleryVehicle.vin}`}
           fetchImages={() => fetchVehicleImages(galleryVehicle.id)}
           uploadImage={(file, label) => uploadVehicleImage(galleryVehicle.id, file, label)}
-          deleteImage={(id, url) => deleteVehicleImage(id, url)}
+          deleteImage={(id, url) => deleteVehicleImage(id, url, galleryVehicle.id)}
           saveOrder={async (ids) => { await updateVehicleServiceRecord(galleryVehicle.id, { imageIds: ids }); }}
           initialOrder={galleryVehicle.imageIds}
+          onImagesChanged={(imgs) => {
+            // The list behind the modal shows what it fetched on load. Without
+            // this, a photo added or removed here does not appear until the
+            // page is reloaded — which is indistinguishable from it not having
+            // been saved.
+            bumpThumbRequest(galleryVehicle.id);
+            const refs = imgs.slice(0, 5).map(i => i.storagePath || i.url).filter(Boolean);
+            setThumbs(prev => {
+              const next = { ...prev };
+              if (refs.length) next[galleryVehicle.id] = refs;
+              else delete next[galleryVehicle.id];
+              return next;
+            });
+          }}
           onClose={() => setGalleryVehicle(null)}
         />
       )}
@@ -2076,7 +2128,10 @@ export function VehiclesView() {
           }}
           onDelete={() => { handleDeleteVehicle(drawerVehicle); setDrawerVehicle(null); }}
           onPhotos={() => { setGalleryVehicle(drawerVehicle); }}
-          onThumbsUpdated={(vehicleId, urls) => setThumbs(prev => ({ ...prev, [vehicleId]: urls }))}
+          onThumbsUpdated={(vehicleId, urls) => {
+            bumpThumbRequest(vehicleId);
+            setThumbs(prev => ({ ...prev, [vehicleId]: urls }));
+          }}
           onJobCard={() => {
             const owner = customers.find(c => c.id === drawerVehicle.customerId);
             dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: owner?.name, customerId: drawerVehicle.customerId, vehicle: drawerVehicle.label } });

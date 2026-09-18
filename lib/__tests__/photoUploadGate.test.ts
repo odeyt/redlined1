@@ -106,12 +106,21 @@ describe('the camera reaches the surfaces that need it', () => {
 
 describe('uploads are attached to something', () => {
   it.each([
-    ['vehicleImageService', /vehicles\/\$\{vehicleId\}/],
     ['entityImageService', /\$\{entityType\}s\/\$\{entityId\}/],
     ['partsService', /parts\/\$\{getShopId\(\)\}/],
     ['inspectionService', /inspections\/\$\{inspectionId\}/],
   ])('%s scopes the storage path to its entity', (name, pattern) => {
     // No orphaned uploads: every object sits under the record it belongs to.
     expect(read(`services/${name}.ts`)).toMatch(pattern as RegExp);
+  });
+
+  // vehicleImageService.ts builds its path through the shared
+  // canonicalVehicleObjectPath(vehicleId, fileName) helper in
+  // lib/storage/vehiclePhotoRef.ts (which template-literals `vehicles/${vehicleId}/…`
+  // itself) rather than inlining the template — see vehiclePhotoRef.test.ts for the
+  // literal shape. The property this suite checks — every upload scoped under
+  // the record it belongs to — still holds, just through the shared helper.
+  it('vehicleImageService scopes the storage path to its entity via canonicalVehicleObjectPath', () => {
+    expect(read('services/vehicleImageService.ts')).toMatch(/canonicalVehicleObjectPath\(vehicleId,/);
   });
 });
