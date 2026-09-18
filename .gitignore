@@ -69,3 +69,6 @@ supabase/schema-snapshot.sql
 
 # Supabase CLI scratch (version cache) — not project state
 supabase/.temp/
+
+# Marketing capture output (videos, Playwright artefacts). Never committed.
+marketing-output/
