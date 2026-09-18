@@ -118,6 +118,54 @@ export function forbidden(reason: string): NextResponse {
 }
 
 /**
+ * Server Component guard — the page-level equivalent of verifyPlatformOwner().
+ * Same env-var source of truth, same cookie-based session read as
+ * app/admin/billing-health/page.tsx and app/admin/sapelee/page.tsx, factored
+ * out so every new owner-admin page shares one implementation instead of
+ * re-pasting the email check. Redirects to /login when the session is
+ * missing or the email is not on PLATFORM_OWNER_EMAIL. Call this first thing
+ * in every owner-admin Server Component page — it must not be the only guard
+ * a route relies on if that route also exposes an API handler, since a page
+ * guard cannot protect a fetch made directly against the API.
+ */
+export async function requirePlatformOwnerPage(): Promise<string> {
+  const { cookies } = await import('next/headers');
+  const { redirect } = await import('next/navigation');
+  const { createServerClient } = await import('@supabase/ssr');
+
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+
+  let email: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    email = user?.email?.toLowerCase() ?? null;
+  } catch {
+    email = null;
+  }
+
+  const authorized = getAuthorizedEmails();
+  if (!email || !authorized.has(email)) {
+    redirect('/login');
+    // redirect() always throws — this satisfies TypeScript's control-flow
+    // analysis, since the dynamically-imported redirect's return type isn't
+    // narrowed to `never` here the way a static import's would be.
+    throw new Error('unreachable');
+  }
+
+  return email;
+}
+
+/**
  * Validates and clamps a date range from query params.
  * Default: last 30 days. Max: 366 days.
  */
