@@ -5,8 +5,16 @@ import { StorageImage } from '@/components/StorageImage';
 
 export interface GalleryImage {
   id: string;
+  /** Legacy fully-qualified URL. */
   url: string;
+  /** Canonical, non-expiring object key. Preferred when present. */
+  storagePath?: string;
   label: string;
+}
+
+/** What the <img> is given: the key when there is one, the legacy URL otherwise. */
+export function galleryImageRef(img: GalleryImage): string {
+  return img.storagePath || img.url;
 }
 
 interface Props {
@@ -17,11 +25,16 @@ interface Props {
   deleteImage: (id: string, url: string) => Promise<void>;
   saveOrder?: (ids: string[]) => Promise<void>;
   initialOrder?: string[];
+  /**
+   * Fired whenever the set of photos changes, so a list behind this modal can
+   * update its thumbnails instead of showing what was true when it loaded.
+   */
+  onImagesChanged?: (images: GalleryImage[]) => void;
   onClose: () => void;
 }
 
 export function PhotoGalleryModal({
-  title, subtitle, fetchImages, uploadImage, deleteImage, saveOrder, initialOrder, onClose,
+  title, subtitle, fetchImages, uploadImage, deleteImage, saveOrder, initialOrder, onImagesChanged, onClose,
 }: Props) {
   const [images, setImages]           = useState<GalleryImage[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -35,6 +48,22 @@ export function PhotoGalleryModal({
   const [thumbDragFrom, setThumbDragFrom] = useState<number | null>(null);
   const [thumbDragOver, setThumbDragOver] = useState<number | null>(null);
   const [dropHover, setDropHover]         = useState(false);
+
+  /**
+   * Tell the list behind this modal what changed.
+   *
+   * Held in a ref so an inline callback from the parent does not re-fire this
+   * effect on every render; keyed on `images` so one notification follows each
+   * real change — an upload, a delete, a reorder — and none follows the
+   * initial load, which told the parent nothing it did not already know.
+   */
+  const notifyChanged = useRef(onImagesChanged);
+  notifyChanged.current = onImagesChanged;
+  const skipFirstChange = useRef(true);
+  useEffect(() => {
+    if (skipFirstChange.current) { skipFirstChange.current = false; return; }
+    notifyChanged.current?.(images);
+  }, [images]);
 
   const fileRef     = useRef<HTMLInputElement>(null);
   const cameraRef   = useRef<HTMLInputElement>(null);
@@ -307,7 +336,7 @@ export function PhotoGalleryModal({
                 }}
               >
                 {current && (
-                  <StorageImage key={current.id} url={current.url} alt={current.label}
+                  <StorageImage key={current.id} url={galleryImageRef(current)} alt={current.label}
                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', transition: 'opacity .15s' }} />
                 )}
                 {images.length > 1 && (
@@ -361,7 +390,7 @@ export function PhotoGalleryModal({
                       transform: thumbDragOver === i && thumbDragFrom !== i ? 'scale(1.08)' : 'scale(1)',
                     }}
                   >
-                    <StorageImage url={img.url} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
+                    <StorageImage url={galleryImageRef(img)} alt={img.label} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
                   </div>
                 ))}
               </div>

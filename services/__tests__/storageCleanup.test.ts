@@ -47,13 +47,26 @@ describe('toStoragePath on the names that leaked', () => {
 });
 
 describe('services do not hand-roll a storage path', () => {
-  const FILES = ['partsService.ts', 'vehicleImageService.ts', 'entityImageService.ts'];
+  const FILES = ['partsService.ts', 'entityImageService.ts'];
 
   it.each(FILES)('%s removes objects via toStoragePath', file => {
     const source = readFileSync(join(process.cwd(), 'services', file), 'utf8');
     expect(source).toContain('toStoragePath');
     // The two shapes that caused this bug. Either one back in a service means
     // an encoded path reaches storage.remove() again.
+    expect(source).not.toMatch(/match\(\/shop-assets/);
+    expect(source).not.toMatch(/url\.slice\(idx \+ marker\.length\)/);
+  });
+
+  // vehicleImageService.ts moved off toStoragePath onto the stricter
+  // lib/storage/vehiclePhotoRef.ts parse (see vehiclePhotoTenancy.test.ts and
+  // vehiclePhotoRef.test.ts) — decodeSegments() there decodeURIComponent()s
+  // every path segment the same way toStoragePath did, so the percent-encoding
+  // leak this file guards against cannot reappear through the new path either.
+  it('vehicleImageService.ts removes objects via the strict vehiclePhotoRef parse, not toStoragePath', () => {
+    const source = readFileSync(join(process.cwd(), 'services', 'vehicleImageService.ts'), 'utf8');
+    expect(source).toContain('parseVehiclePhotoRef');
+    expect(source).toContain('validateVehicleObjectPath');
     expect(source).not.toMatch(/match\(\/shop-assets/);
     expect(source).not.toMatch(/url\.slice\(idx \+ marker\.length\)/);
   });

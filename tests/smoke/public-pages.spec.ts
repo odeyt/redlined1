@@ -33,13 +33,15 @@ test.describe('Public pages @smoke', () => {
   });
 
   test('signup page shows the trial-then-free messaging', async ({ page }) => {
-    // The plan changed to "7 days of everything, then free forever" and the
-    // copy followed. This test still asserted the older free-only model and
-    // had been failing against production ever since — it forbade the very
-    // wording the product now leads with.
+    // The plan is "7 days of everything, then the Free plan continues" — see
+    // app/signup/page.tsx, which renders "keep the Free plan or upgrade" and
+    // "the Free plan continues afterwards". It never renders the literal
+    // string "free forever" (that phrase is pricing-table copy elsewhere),
+    // so asserting on it here was checking wording the signup page does not
+    // use rather than the trial-then-free concept this test is named for.
     await page.goto('/signup');
     const bodyText = (await page.locator('body').innerText()).toLowerCase();
-    expect(bodyText).toContain('free forever');
+    expect(bodyText).toContain('free plan');
     expect(bodyText).toContain('7');
   });
 

@@ -3,7 +3,7 @@ import type { Config } from 'jest';
 const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/lib', '<rootDir>/app', '<rootDir>/features', '<rootDir>/services', '<rootDir>/commercial'],
+  roots: ['<rootDir>/lib', '<rootDir>/app', '<rootDir>/features', '<rootDir>/services', '<rootDir>/commercial', '<rootDir>/components'],
   /**
    * `.tsx` as well as `.ts`.
    *
