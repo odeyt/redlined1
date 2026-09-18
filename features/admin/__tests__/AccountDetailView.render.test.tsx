@@ -9,13 +9,12 @@ const baseAccount: AccountDetail = {
   shop: { id: '66666666-6666-4666-8666-666666666666', name: 'Test Shop', createdAt: new Date().toISOString(), archivedAt: null },
   primaryContact: {
     profileId: '77777777-7777-4777-8777-777777777777',
-    name: 'Jane Test', email: 'jane@example-test.com', role: 'Owner', status: 'Active',
-    createdAt: new Date().toISOString(), billingStatus: 'active',
+    email: 'jane@example-test.com', role: 'Owner', billingStatus: 'active',
     lastSignInAt: new Date().toISOString(),
   },
   ownerResolved: true,
   members: [
-    { profileId: '77777777-7777-4777-8777-777777777777', name: 'Jane Test', email: 'jane@example-test.com', role: 'owner', isPrimaryContact: true },
+    { profileId: '77777777-7777-4777-8777-777777777777', email: 'jane@example-test.com', role: 'owner', isPrimaryContact: true },
   ],
   primaryContactOtherShops: [],
   mirroredShopIds: [],
@@ -38,9 +37,9 @@ describe('AccountDetailView', () => {
   it('renders shop name, primary contact, and status', () => {
     render(<AccountDetailView account={baseAccount} />);
     expect(screen.getByText('Test Shop')).toBeTruthy();
-    // "Jane Test" legitimately appears in the header line, the Primary
+    // The contact email legitimately appears in the header line, the Primary
     // Contact section, and the Members list — all three, not a bug.
-    expect(screen.getAllByText(/Jane Test/).length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText(/jane@example-test.com/).length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('Active (paid)')).toBeTruthy();
   });
 

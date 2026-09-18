@@ -48,7 +48,7 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
             <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{account.shop.name ?? '(unnamed shop)'}</h1>
             <div style={{ color: C.muted, fontSize: 13 }}>
               {account.primaryContact
-                ? `${account.primaryContact.name} · ${account.primaryContact.email ?? 'no email on file'}`
+                ? (account.primaryContact.email ?? 'no email on file')
                 : 'No primary contact resolved'}
             </div>
           </div>
@@ -94,7 +94,6 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
         <Section title="Primary contact">
           {account.primaryContact ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 4 }}>
-              <Field label="Name" value={account.primaryContact.name} />
               <Field label="Email" value={account.primaryContact.email ?? '—'} />
               <Field label="Job title (profiles.role)" value={account.primaryContact.role ?? '—'} />
               <Field
@@ -146,7 +145,7 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
               {account.members.map(m => (
                 <li key={m.profileId}>
-                  {m.name ?? '(no name)'} — {m.email ?? 'no email'} — {m.role}
+                  {m.email ?? 'no email'} — {m.role}
                   {m.isPrimaryContact && <strong> (primary contact)</strong>}
                 </li>
               ))}

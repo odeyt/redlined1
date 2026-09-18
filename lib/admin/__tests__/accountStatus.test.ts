@@ -50,6 +50,24 @@ describe('deriveAccountStatus', () => {
     expect(r.billingMismatch).toBe(false);
   });
 
+  it('a free plan with an active subscription stays free but is flagged as a mismatch (paying without paid access)', () => {
+    const r = deriveAccountStatus({
+      plan: 'free', trialEndsAt: null, billingStatus: 'inactive',
+      isInternal: false, subscription: { status: 'active', billingProvider: 'creem' },
+    });
+    expect(r.status).toBe('free');
+    expect(r.billingMismatch).toBe(true);
+    expect(r.mismatchReason).toMatch(/paying without receiving paid features/);
+  });
+
+  it('a free plan with no subscription, or a cancelled one, is an ordinary free account', () => {
+    for (const subscription of [null, { status: 'cancelled', billingProvider: 'creem' }]) {
+      const r = deriveAccountStatus({ plan: 'free', trialEndsAt: null, billingStatus: null, isInternal: false, subscription });
+      expect(r.status).toBe('free');
+      expect(r.billingMismatch).toBe(false);
+    }
+  });
+
   it('active subscription but profiles.billing_status disagrees is a genuine mismatch (both fields are written by the same handler)', () => {
     const r = deriveAccountStatus({
       plan: 'professional', trialEndsAt: null, billingStatus: 'past_due',

@@ -146,7 +146,7 @@ export function OwnerOverviewView({ overview }: { overview: OwnerOverview }) {
                       <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
                         <Link href={`/admin/accounts/${a.id}`} style={{ color: C.info, textDecoration: 'none' }}>{a.shopName}</Link>
                       </td>
-                      <td style={{ padding: '8px 12px', color: C.muted }}>{a.primaryContactName ?? (a.ownerResolved ? '—' : 'Unresolved')}</td>
+                      <td style={{ padding: '8px 12px', color: C.muted }}>{a.primaryContactEmail ?? (a.ownerResolved ? '—' : 'Unresolved')}</td>
                       <td style={{ padding: '8px 12px' }}>{a.planDisplayName ?? '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{ACCOUNT_STATUS_LABELS[a.status]}</td>
                       <td style={{ padding: '8px 12px', color: C.muted }}>{fmtDate(a.createdAt)}</td>
