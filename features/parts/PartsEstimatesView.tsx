@@ -1756,9 +1756,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                     already scrolls horizontally rather than redistributing
                     width away from the other columns, so widening it keeps
                     every existing column at the size it was tuned to. */}
-                <table style={{ width: '100%', minWidth: 1210, borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 1234, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
+                      <th style={{ ...thStyle, width: 24, padding: '8px 4px', textAlign: 'center' }}>#</th>
                       <th style={thStyle}>Part Name *</th>
                       <th style={thStyle}>Part # / SKU</th>
                       <th style={thStyle}>Vendor</th>
@@ -1803,6 +1804,7 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       */
                       return (
                       <tr key={idx} style={isQuoted ? { background: 'rgba(34,197,94,0.34)' } : undefined}>
+                        <td style={{ ...tdStyle, textAlign: 'center', color: 'var(--muted)', fontWeight: 700, fontSize: 12 }}>{idx + 1}</td>
                         <td style={{ ...tdStyle, borderLeft: `5px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
@@ -1968,9 +1970,19 @@ CREATE POLICY "Shop members can manage their parts estimates"
                   </tbody>
                 </table>
               </div>
-              <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 24 }}>
-                + Add Part
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                <button type="button" onClick={addLineItem} style={{ padding: '7px 16px', borderRadius: 999, border: '1px dashed var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  + Add Part
+                </button>
+                {(() => {
+                  const named = form.lineItems.filter(i => i.partName.trim()).length;
+                  return named > 0 ? (
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                      {named} part{named === 1 ? '' : 's'}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
 
               {/*
                 The answer without reading every row.

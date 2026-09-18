@@ -46,10 +46,11 @@ const ORDERS = 'features/parts/PartsOrdersView.tsx';
  * to 10.
  */
 const TABLE_MIN_WIDTH: Record<string, number> = {
-  // 980 -> 1210 when Status and Deposit joined the quotation table. The table
+  // 980 -> 1210 when Status and Deposit joined the quotation table, then
+  // 1210 -> 1234 when the leading "#" row-number column joined it. The table
   // scrolls rather than redistributing width, so the columns tuned earlier
   // keep the sizes they were given.
-  [QUOTES]: 1210,
+  [QUOTES]: 1234,
   [ORDERS]: 1040,
 };
 
