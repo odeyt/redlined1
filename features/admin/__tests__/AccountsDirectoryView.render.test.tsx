@@ -10,7 +10,6 @@ const item = (overrides: Partial<AccountListItem>): AccountListItem => ({
   shopName: 'Test Shop',
   shopArchived: false,
   createdAt: new Date().toISOString(),
-  primaryContactName: 'Jane Test',
   primaryContactEmail: 'jane@example-test.com',
   primaryContactRole: 'Owner',
   ownerResolved: true,
@@ -53,7 +52,6 @@ describe('AccountsDirectoryView', () => {
     const result: AccountListResult = {
       items: [item({
         shopName: 'An Extremely Long Shop Name That Could Wrap Or Overflow A Narrow Table Column If Not Handled',
-        primaryContactName: null,
         primaryContactEmail: null,
         ownerResolved: false,
         trialEndsAt: null,

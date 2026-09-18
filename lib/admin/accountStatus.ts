@@ -80,7 +80,20 @@ export function deriveAccountStatus(input: AccountStatusInput): AccountStatusRes
   const planState = getPlanStatus(input.plan, input.trialEndsAt);
 
   if (planState === 'free') {
-    return { status: 'free', planState, trialDaysLeft: null, billingMismatch: false, mismatchReason: null, policyNote: null };
+    // Entitlement (profiles.plan) says free, but the provider-synced record says
+    // the shop is being billed. The status stays "free" (that is what the product
+    // grants), but this must not look like an ordinary free account.
+    const billed = input.subscription?.status === 'active' || input.subscription?.status === 'past_due';
+    return {
+      status: 'free',
+      planState,
+      trialDaysLeft: null,
+      billingMismatch: billed,
+      mismatchReason: billed
+        ? `shop_subscriptions.status is "${input.subscription!.status}" but profiles.plan grants only free access — this shop may be paying without receiving paid features.`
+        : null,
+      policyNote: null,
+    };
   }
 
   if (planState === 'trial') {

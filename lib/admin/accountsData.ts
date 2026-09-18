@@ -99,7 +99,6 @@ export interface AccountListItem {
   shopArchived: boolean;
   createdAt: string; // shops.created_at — when this shop/tenant was provisioned
   /** The shop_users role='owner' member. Null fields mean no owner-role member could be resolved — see ownerResolved. */
-  primaryContactName: string | null;
   primaryContactEmail: string | null;
   primaryContactRole: string | null;
   /** False when no shop_users role='owner' row exists and a fallback (earliest-linked profile) was used instead, or no profile at all was found. */
@@ -136,13 +135,18 @@ export interface AccountListParams {
   sortDir?: string;
 }
 
+/**
+ * The only profiles columns this module may select. Production `profiles` has
+ * no `name`, `status` or `created_at` (docs/m0-architecture-audit.md §4, live
+ * schema): selecting any unknown column makes PostgREST reject the whole query,
+ * which once silently turned every account into "free" with no contact.
+ */
+export const PROFILE_COLUMNS = 'id, email, role, shop_id, plan, billing_status, trial_ends_at';
+
 interface ProfileRow {
   id: string;
-  name: string | null;
   email: string | null;
   role: string | null;
-  status: string | null;
-  created_at: string;
   shop_id: string | null;
   plan: string | null;
   billing_status: string | null;
@@ -222,6 +226,23 @@ function escapeIlike(value: string): string {
   return value.replace(/[%_]/g, c => `\\${c}`);
 }
 
+/**
+ * Thrown when a query this module's status/contact data depends on fails.
+ * A failed read must surface as an error, never as empty data: an empty
+ * profiles result is indistinguishable from "this shop is on the free plan".
+ */
+export class AdminDataError extends Error {
+  constructor(what: string, cause?: { message?: string; code?: string } | null) {
+    super(`admin data query failed: ${what}${cause?.code ? ` (${cause.code})` : ''}${cause?.message ? ` - ${cause.message}` : ''}`);
+    this.name = 'AdminDataError';
+  }
+}
+
+function mustRows<T>(res: { data: T[] | null; error: { message?: string; code?: string } | null }, what: string): T[] {
+  if (res.error) throw new AdminDataError(what, res.error);
+  return res.data ?? [];
+}
+
 // ─── Core scan (shared by listAccounts and getOwnerOverview) ─────────────────
 
 interface ClassifiedShop {
@@ -242,8 +263,8 @@ interface ScanResult {
 /**
  * Resolves candidate shop ids for a scan: either the MAX_SCAN_ROWS most
  * recently created shops, or — when a search term is given — the union of
- * shops whose name matches and shops whose owner-role member's name/email
- * matches, each sub-query itself bounded by MAX_SCAN_ROWS.
+ * shops whose name matches and shops whose linked profile's email matches,
+ * each sub-query itself bounded by MAX_SCAN_ROWS.
  */
 async function resolveCandidateShopIds(
   db: ReturnType<typeof getAdminDb>,
@@ -258,16 +279,19 @@ async function resolveCandidateShopIds(
 
   const [byShopName, byProfileMatch] = await Promise.all([
     db.from('shops').select('id').ilike('name', pattern).limit(MAX_SCAN_ROWS),
-    db.from('profiles').select('shop_id').or(`name.ilike.${pattern},email.ilike.${pattern}`).limit(MAX_SCAN_ROWS),
+    db.from('profiles').select('shop_id').ilike('email', pattern).limit(MAX_SCAN_ROWS),
   ]);
 
+  const shopNameRows = mustRows(byShopName, 'shops search');
+  const profileMatchRows = mustRows(byProfileMatch, 'profiles search');
+
   const truncated =
-    (byShopName.data?.length ?? 0) >= MAX_SCAN_ROWS ||
-    (byProfileMatch.data?.length ?? 0) >= MAX_SCAN_ROWS;
+    shopNameRows.length >= MAX_SCAN_ROWS ||
+    profileMatchRows.length >= MAX_SCAN_ROWS;
 
   const ids = new Set<string>();
-  for (const row of byShopName.data ?? []) ids.add(row.id);
-  for (const row of byProfileMatch.data ?? []) if (row.shop_id) ids.add(row.shop_id);
+  for (const row of shopNameRows) ids.add(row.id);
+  for (const row of profileMatchRows) if (row.shop_id) ids.add(row.shop_id);
 
   return { ids: [...ids].slice(0, MAX_SCAN_ROWS), truncated };
 }
@@ -289,23 +313,24 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
     shopQuery = shopQuery.in('id', candidateIds);
   }
 
-  const { data: shopRows, error: shopErr } = await shopQuery;
-  if (shopErr || !shopRows) return { shops: [], truncated: false };
+  const shopRows = mustRows(await shopQuery, 'shops scan');
 
   const truncated = searchTruncated || (candidateIds === null && shopRows.length >= MAX_SCAN_ROWS);
   const shopIds = shopRows.map(s => s.id);
 
   if (shopIds.length === 0) return { shops: [], truncated };
 
-  const [{ data: memberRows }, { data: subRows }] = await Promise.all([
+  const [memberResult, subResult] = await Promise.all([
     db.from('shop_users').select('shop_id, user_id, role').in('shop_id', shopIds),
     db
       .from('shop_subscriptions')
       .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, created_at')
       .in('shop_id', shopIds),
   ]);
+  const memberRows = mustRows(memberResult, 'shop_users scan');
+  const subRows = mustRows(subResult, 'shop_subscriptions scan');
 
-  const members = (memberRows ?? []) as MembershipRow[];
+  const members = memberRows as MembershipRow[];
   const memberCountByShop = new Map<string, number>();
   for (const m of members) memberCountByShop.set(m.shop_id, (memberCountByShop.get(m.shop_id) ?? 0) + 1);
 
@@ -316,31 +341,34 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
   }
 
   const ownerUserIds = [...new Set(ownerUserIdByShop.values())];
-  const { data: ownerProfileRows } = ownerUserIds.length
-    ? await db.from('profiles').select('id, name, email, role, status, created_at, shop_id, plan, billing_status, trial_ends_at').in('id', ownerUserIds)
-    : { data: [] as ProfileRow[] };
-  const profileById = new Map((ownerProfileRows ?? []).map(p => [p.id, p as ProfileRow]));
+  const ownerProfileRows = ownerUserIds.length
+    ? mustRows(await db.from('profiles').select(PROFILE_COLUMNS).in('id', ownerUserIds), 'owner profiles lookup')
+    : [];
+  const profileById = new Map((ownerProfileRows as ProfileRow[]).map(p => [p.id, p]));
 
-  // Shops with no shop_users role='owner' row: fall back to the earliest
-  // profile whose profiles.shop_id points at this shop (best effort — a
-  // legacy single-shop pointer, not a membership grant). Flagged via
-  // ownerResolved:false rather than presented as equivalent to a real
-  // owner-role membership.
+  // Shops with no shop_users role='owner' row: fall back to a profile whose
+  // profiles.shop_id points at this shop (best effort — a legacy single-shop
+  // pointer, not a membership grant; profiles has no created_at, so ties are
+  // broken by id, not "earliest"). Flagged via ownerResolved:false rather
+  // than presented as equivalent to a real owner-role membership.
   const shopsNeedingFallback = shopIds.filter(id => !ownerUserIdByShop.has(id));
   const fallbackProfileByShop = new Map<string, ProfileRow>();
   if (shopsNeedingFallback.length) {
-    const { data: fallbackRows } = await db
-      .from('profiles')
-      .select('id, name, email, role, status, created_at, shop_id, plan, billing_status, trial_ends_at')
-      .in('shop_id', shopsNeedingFallback)
-      .order('created_at', { ascending: true });
-    for (const row of (fallbackRows ?? []) as ProfileRow[]) {
+    const fallbackRows = mustRows(
+      await db
+        .from('profiles')
+        .select(PROFILE_COLUMNS)
+        .in('shop_id', shopsNeedingFallback)
+        .order('id', { ascending: true }),
+      'fallback profiles lookup',
+    );
+    for (const row of fallbackRows as ProfileRow[]) {
       if (row.shop_id && !fallbackProfileByShop.has(row.shop_id)) fallbackProfileByShop.set(row.shop_id, row);
     }
   }
 
   const subsByShop = new Map<string, SubscriptionRow>();
-  for (const row of [...((subRows ?? []) as SubscriptionRow[])].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+  for (const row of [...(subRows as SubscriptionRow[])].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
     if (!subsByShop.has(row.shop_id)) subsByShop.set(row.shop_id, row);
   }
 
@@ -395,7 +423,6 @@ function toListItem(row: ClassifiedShop, lastSignInAt: string | null | undefined
     shopName: row.shop.name ?? '(unnamed shop)',
     shopArchived: !!row.shop.archived_at,
     createdAt: row.shop.created_at,
-    primaryContactName: row.primaryProfile?.name ?? null,
     primaryContactEmail: row.primaryProfile?.email ?? null,
     primaryContactRole: row.primaryProfile?.role ?? null,
     ownerResolved: row.ownerResolved,
@@ -517,10 +544,11 @@ export async function getOwnerOverview(): Promise<OwnerOverview> {
     .slice(0, 10);
   const recentSignups: AccountListItem[] = recentShops.map(row => toListItem(row, undefined));
 
-  const { count: unlinkedProfiles } = await db
+  const { count: unlinkedProfiles, error: unlinkedErr } = await db
     .from('profiles')
     .select('id', { count: 'exact', head: true })
     .is('shop_id', null);
+  if (unlinkedErr) throw new AdminDataError('unlinked profiles count', unlinkedErr);
 
   return {
     totalSignups: external.length,
@@ -548,7 +576,6 @@ export async function getOwnerOverview(): Promise<OwnerOverview> {
 
 export interface ShopMember {
   profileId: string;
-  name: string | null;
   email: string | null;
   role: string;
   isPrimaryContact: boolean;
@@ -594,11 +621,8 @@ export interface AccountDetail {
   shop: { id: string; name: string | null; createdAt: string; archivedAt: string | null };
   primaryContact: {
     profileId: string;
-    name: string;
     email: string | null;
     role: string | null;
-    status: string | null;
-    createdAt: string;
     billingStatus: string | null;
     lastSignInAt: string | null;
   } | null;
@@ -640,7 +664,8 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     .eq('id', shopId)
     .maybeSingle();
 
-  if (shopErr || !shop) return null;
+  if (shopErr) throw new AdminDataError('shop lookup', shopErr);
+  if (!shop) return null;
 
   const warnings: string[] = [];
   const isInternal = internal.has(shop.id);
@@ -650,14 +675,15 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     db.from('shop_mirrors').select('mirror_shop_id').eq('shop_id', shop.id),
   ]);
 
-  const memberships = (membershipResult.data ?? []) as MembershipRow[];
+  const memberships = mustRows(membershipResult, 'shop_users lookup') as MembershipRow[];
   const mirroredShopIds = ((mirrorResult.data ?? []) as { mirror_shop_id: string }[]).map(r => r.mirror_shop_id);
+  if (mirrorResult.error) warnings.push('Mirrored-shop links could not be loaded.');
 
   const memberUserIds = [...new Set(memberships.map(m => m.user_id))];
-  const { data: memberProfileRows } = memberUserIds.length
-    ? await db.from('profiles').select('id, name, email, role, status, created_at, shop_id, plan, billing_status, trial_ends_at').in('id', memberUserIds)
-    : { data: [] as ProfileRow[] };
-  const profileById = new Map((memberProfileRows ?? []).map(p => [p.id, p as ProfileRow]));
+  const memberProfileRows = memberUserIds.length
+    ? mustRows(await db.from('profiles').select(PROFILE_COLUMNS).in('id', memberUserIds), 'member profiles lookup')
+    : [];
+  const profileById = new Map((memberProfileRows as ProfileRow[]).map(p => [p.id, p]));
 
   const ownerMembership = memberships.find(m => m.role === 'owner');
   let ownerResolved = !!ownerMembership;
@@ -667,13 +693,16 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     // No owner-role membership (or the owner's profile row is missing) —
     // fall back to the earliest profile whose profiles.shop_id points here.
     ownerResolved = false;
-    const { data: fallbackRows } = await db
-      .from('profiles')
-      .select('id, name, email, role, status, created_at, shop_id, plan, billing_status, trial_ends_at')
-      .eq('shop_id', shop.id)
-      .order('created_at', { ascending: true })
-      .limit(1);
-    primaryProfile = (fallbackRows && fallbackRows[0]) ?? null;
+    const fallbackRows = mustRows(
+      await db
+        .from('profiles')
+        .select(PROFILE_COLUMNS)
+        .eq('shop_id', shop.id)
+        .order('id', { ascending: true })
+        .limit(1),
+      'fallback profile lookup',
+    ) as ProfileRow[];
+    primaryProfile = fallbackRows[0] ?? null;
     warnings.push(
       ownerMembership
         ? 'The shop_users role=owner member has no matching profiles row.'
@@ -685,7 +714,6 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     const p = profileById.get(m.user_id);
     return {
       profileId: m.user_id,
-      name: p?.name ?? null,
       email: p?.email ?? null,
       role: m.role,
       isPrimaryContact: primaryProfile?.id === m.user_id,
@@ -715,23 +743,27 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
 
   let subscription: SubscriptionRow | null = null;
   {
-    const { data: subs } = await db
-      .from('shop_subscriptions')
-      .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, created_at')
-      .eq('shop_id', shop.id)
-      .order('created_at', { ascending: false })
-      .limit(1);
-    subscription = (subs && subs[0]) ?? null;
+    const subs = mustRows(
+      await db
+        .from('shop_subscriptions')
+        .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, created_at')
+        .eq('shop_id', shop.id)
+        .order('created_at', { ascending: false })
+        .limit(1),
+      'shop_subscriptions lookup',
+    ) as SubscriptionRow[];
+    subscription = subs[0] ?? null;
   }
 
   let billingEvents: BillingEventSummary[] = [];
   {
-    const { data: events } = await db
+    const { data: events, error: eventsErr } = await db
       .from('billing_events')
       .select('id, event_type, processed, processed_at, error, created_at')
       .eq('shop_id', shop.id)
       .order('created_at', { ascending: false })
       .limit(25);
+    if (eventsErr) warnings.push('Billing event history is unavailable.');
     billingEvents = (events ?? []).map(e => ({
       id: e.id, eventType: e.event_type, processed: e.processed,
       processedAt: e.processed_at, error: e.error, createdAt: e.created_at,
@@ -780,11 +812,8 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     shop: { id: shop.id, name: shop.name, createdAt: shop.created_at, archivedAt: shop.archived_at },
     primaryContact: primaryProfile ? {
       profileId: primaryProfile.id,
-      name: primaryProfile.name ?? '(no name)',
       email: primaryProfile.email,
       role: primaryProfile.role,
-      status: primaryProfile.status,
-      createdAt: primaryProfile.created_at,
       billingStatus: primaryProfile.billing_status,
       lastSignInAt,
     } : null,

@@ -147,7 +147,7 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
                         </Link>
                       </th>
                     ))}
-                    <th style={{ padding: '10px 12px' }}>Primary contact</th>
+                    <th style={{ padding: '10px 12px' }}>Owner</th>
                     <th style={{ padding: '10px 12px' }}>Members</th>
                     <th style={{ padding: '10px 12px' }}>Plan</th>
                     <th style={{ padding: '10px 12px' }}>Status</th>
@@ -170,7 +170,7 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
                       </td>
                       <td style={{ padding: '10px 12px', color: C.muted }}>{fmtDate(a.createdAt)}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        {a.primaryContactName ?? (a.ownerResolved ? '(no name)' : 'Unresolved')}
+                        {a.ownerResolved ? 'Resolved' : 'Unresolved'}
                         {isLoginInactive(a.lastSignInAt) && (
                           <span
                             title={`No login in ${LOGIN_INACTIVITY_THRESHOLD_DAYS}+ days — login recency only, not a measure of feature or product use`}
