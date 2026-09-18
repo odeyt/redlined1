@@ -1413,7 +1413,10 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 }]).map((item, idx) => (
                   <div key={idx} style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 8, padding: '10px 14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', minWidth: 0 }}>
+                        <span aria-label={`Part number ${idx + 1}`} style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>#{idx + 1}</span>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{item.partName}</div>
+                      </div>
                       {item.vendorName && (
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.25)', whiteSpace: 'nowrap', marginLeft: 8 }}>
                           🏭 {item.vendorName}
@@ -1752,13 +1755,14 @@ CREATE POLICY "Shop members can manage their parts estimates"
                 redistributing the extra width away from the other columns.
               */}
               <div style={{ overflowX: 'auto', marginBottom: 8 }}>
-                {/* 980 -> 1210 for the Status and Deposit columns. The table
+                {/* 980 -> 1230 for the row number, Status and Deposit columns. The table
                     already scrolls horizontally rather than redistributing
                     width away from the other columns, so widening it keeps
                     every existing column at the size it was tuned to. */}
-                <table style={{ width: '100%', minWidth: 1210, borderCollapse: 'collapse' }}>
+                <table style={{ width: '100%', minWidth: 1230, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
+                      <th scope="col" style={{ ...thStyle, width: 50, textAlign: 'center' }}>No.</th>
                       <th style={thStyle}>Part Name *</th>
                       <th style={thStyle}>Part # / SKU</th>
                       <th style={thStyle}>Vendor</th>
@@ -1803,6 +1807,15 @@ CREATE POLICY "Shop members can manage their parts estimates"
                       */
                       return (
                       <tr key={idx} style={isQuoted ? { background: 'rgba(34,197,94,0.34)' } : undefined}>
+                        {/* Display position only: no stored identifier. Adding or
+                            removing a row therefore renumbers the list without
+                            leaving gaps or changing any saved quotation data. */}
+                        <td
+                          aria-label={`Part number ${idx + 1}`}
+                          style={{ ...tdStyle, width: 50, textAlign: 'center', padding: '13px 6px 6px', fontWeight: 800, color: 'var(--muted)' }}
+                        >
+                          {idx + 1}
+                        </td>
                         <td style={{ ...tdStyle, borderLeft: `5px solid ${isQuoted ? '#22c55e' : 'transparent'}`, paddingLeft: 8 }}><input value={item.partName} onChange={e => updateLineItem(idx, 'partName', e.target.value)} placeholder="e.g. Brake Rotor" style={cellInput} /></td>
                         <td style={tdStyle}><input value={item.partNumber} onChange={e => updateLineItem(idx, 'partNumber', e.target.value)} placeholder="SKU" style={cellInput} /></td>
                         <td style={tdStyle}>
