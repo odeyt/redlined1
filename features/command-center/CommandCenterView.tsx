@@ -167,10 +167,10 @@ const D = {
   gold:    '#f59e0b',
   green:   '#22d3a0',
   blue:    '#60a5fa',
-  cardBg:  '#0d0d14',
-  cardBorder: 'rgba(255,255,255,0.07)',
-  cardShadow: '0 4px 24px rgba(0,0,0,0.4)',
-  cardShadowHover: '0 8px 36px rgba(0,0,0,0.55)',
+  cardBg:  'var(--cc-surface)',
+  cardBorder: 'var(--cc-border)',
+  cardShadow: 'var(--cc-shadow)',
+  cardShadowHover: 'var(--cc-shadow-hover)',
   radius: 18,
   radiusSm: 12,
 };
@@ -211,7 +211,7 @@ function HealthRing({ score }: { score: number }) {
   return (
     <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
       <svg width={110} height={110} viewBox="0 0 110 110">
-        <circle cx={55} cy={55} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={9} />
+        <circle cx={55} cy={55} r={r} fill="none" style={{ stroke: 'var(--cc-hero-track)' }} strokeWidth={9} />
         <circle
           cx={55} cy={55} r={r} fill="none"
           stroke={cfg.ring} strokeWidth={9}
@@ -272,21 +272,21 @@ function SummaryPill({
       onMouseLeave={() => setHovered(false)}
       style={{
         background: dimmed
-          ? 'linear-gradient(145deg,#111118,#0a0a10)'
+          ? 'var(--cc-dimmed-bg)'
           : urgency === 'critical'
-            ? 'linear-gradient(145deg,rgba(220,38,38,0.15),rgba(10,10,16,0.95))'
+            ? 'linear-gradient(145deg,rgba(220,38,38,0.15),var(--cc-surface))'
             : urgency === 'high'
-              ? 'linear-gradient(145deg,rgba(234,88,12,0.12),rgba(10,10,16,0.95))'
-              : 'linear-gradient(145deg,rgba(255,255,255,0.04),rgba(10,10,16,0.95))',
-        border: `1.5px solid ${dimmed ? 'rgba(255,255,255,0.08)' : accent + '55'}`,
+              ? 'linear-gradient(145deg,rgba(234,88,12,0.12),var(--cc-surface))'
+              : 'linear-gradient(145deg,var(--cc-tint-strong),var(--cc-surface))',
+        border: `1.5px solid ${dimmed ? 'var(--cc-border)' : accent + '55'}`,
         borderRadius: D.radius,
         padding: '18px 20px',
         display: 'flex', flexDirection: 'column', gap: 8,
         cursor: clickable ? 'pointer' : 'default',
         transform: hovered && clickable ? 'translateY(-3px) scale(1.015)' : 'none',
         boxShadow: hovered && clickable
-          ? `0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px ${accent}30`
-          : `0 4px 16px rgba(0,0,0,0.3)`,
+          ? `var(--cc-shadow-hover), 0 0 0 1px ${accent}30`
+          : 'var(--cc-shadow)',
         transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease',
         animation: isAlert ? `${animName} 2.2s ease-in-out infinite` : 'none',
         position: 'relative', overflow: 'hidden',
@@ -309,10 +309,10 @@ function SummaryPill({
         </div>
       )}
       <div style={{ fontSize: 22, lineHeight: 1 }}>{icon}</div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'var(--cc-fg-2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</div>
       <div style={{
         fontSize: 32, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1,
-        color: dimmed ? 'rgba(255,255,255,0.25)' : accent,
+        color: dimmed ? 'var(--cc-fg-3)' : accent,
         animation: !dimmed ? 'cc-count-in 0.4s ease' : 'none',
         textShadow: !dimmed && isAlert ? `0 0 20px ${accent}60` : 'none',
       }}>{value}</div>
@@ -327,7 +327,7 @@ function SummaryPill({
         </div>
       )}
       {dimmed && (
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontWeight: 600, letterSpacing: '0.05em' }}>All Clear ✓</div>
+        <div style={{ fontSize: 10, color: 'var(--cc-fg-3)', fontWeight: 600, letterSpacing: '0.05em' }}>All Clear ✓</div>
       )}
     </div>
   );
@@ -336,7 +336,7 @@ function SummaryPill({
 // ── Signal Tile ───────────────────────────────────────────────
 function SignalTile({ icon, label, value, accent, onClick }: { icon: string; label: string; value: string | number; accent?: string; onClick?: () => void }) {
   const [hovered, setHovered] = useState(false);
-  const a = accent ?? 'rgba(255,255,255,0.3)';
+  const a = accent ?? '#9ca3af';
   return (
     <div
       onClick={onClick}
@@ -344,9 +344,9 @@ function SignalTile({ icon, label, value, accent, onClick }: { icon: string; lab
       onMouseLeave={() => setHovered(false)}
       style={{
         background: hovered && onClick
-          ? `linear-gradient(160deg, ${a}18 0%, #0d0d14 70%)`
-          : '#0d0d14',
-        border: `1px solid ${hovered && onClick ? `${a}55` : 'rgba(255,255,255,0.07)'}`,
+          ? `linear-gradient(160deg, ${a}18 0%, var(--cc-surface) 70%)`
+          : 'var(--cc-surface)',
+        border: `1px solid ${hovered && onClick ? `${a}55` : 'var(--cc-border)'}`,
         borderTop: `2px solid ${a}`,
         borderRadius: D.radiusSm,
         padding: '14px 16px',
@@ -357,7 +357,7 @@ function SignalTile({ icon, label, value, accent, onClick }: { icon: string; lab
         transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
       }}>
       <div style={{ fontSize: 18 }}>{icon}</div>
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em' }}>{label}</div>
+      <div style={{ fontSize: 10, color: 'var(--cc-fg-2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900, color: accent ?? '#e8eaf0', letterSpacing: '-0.01em' }}>{value}</div>
       {onClick && (
         <div style={{ fontSize: 10, color: a, opacity: hovered ? 1 : 0.4, fontWeight: 700, transition: 'opacity 0.15s', letterSpacing: '0.05em' }}>
@@ -380,26 +380,26 @@ function RowItem({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '9px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: 13,
+        padding: '9px 10px', borderBottom: '1px solid var(--cc-border-soft)', fontSize: 13,
         cursor: onClick ? 'pointer' : 'default',
         borderRadius: hovered && onClick ? 8 : 0,
-        background: hovered && onClick ? (accent ? `${accent}12` : 'rgba(255,255,255,0.04)') : 'transparent',
+        background: hovered && onClick ? (accent ? `${accent}12` : 'var(--cc-tint-strong)') : 'transparent',
         marginInline: hovered && onClick ? -4 : 0,
         paddingInline: hovered && onClick ? 14 : 10,
         transition: 'all 0.14s ease',
       }}>
-      <span style={{ color: hovered ? '#e8eaf0' : 'rgba(255,255,255,0.65)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+      <span style={{ color: hovered ? 'var(--cc-fg)' : 'var(--cc-fg-2)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
         {label}
-        {onClick && <span style={{ fontSize: 10, color: accent ?? 'rgba(255,255,255,0.4)', opacity: hovered ? 1 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
+        {onClick && <span style={{ fontSize: 10, color: accent ?? 'var(--cc-fg-2)', opacity: hovered ? 1 : 0, transition: 'opacity 0.14s', fontWeight: 700 }}>→</span>}
       </span>
       <span style={{
         fontWeight: 800,
         color: accent ?? '#e8eaf0',
-        background: accent ? `${accent}20` : 'rgba(255,255,255,0.06)',
+        background: accent ? `${accent}20` : 'var(--cc-tint)',
         padding: '3px 11px',
         borderRadius: 20,
         fontSize: 12,
-        border: accent ? `1px solid ${accent}35` : '1px solid rgba(255,255,255,0.08)',
+        border: accent ? `1px solid ${accent}35` : '1px solid var(--cc-border)',
         transform: hovered && onClick ? 'scale(1.06)' : 'scale(1)',
         transition: 'transform 0.14s',
       }}>
@@ -497,7 +497,7 @@ function RecCard({
               💵 {fmtMoney(rec.estimatedRevenue)} opportunity
             </span>
           )}
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 7px' }}>
+          <span style={{ fontSize: 11, color: 'var(--cc-fg-2)', background: 'var(--cc-tint)', borderRadius: 6, padding: '2px 7px' }}>
             {confidencePct}% confidence
           </span>
           <button
@@ -529,7 +529,7 @@ function RecCard({
       {expanded && (
         <div style={{
           borderTop: `1px solid ${cfg.border}`,
-          background: 'rgba(0,0,0,0.35)',
+          background: 'var(--cc-inset)',
           padding: '14px 16px',
           display: 'flex', flexDirection: 'column', gap: 12,
         }}>
@@ -626,7 +626,7 @@ function ActionQueueCard({
 
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${scoreColor}10 0%, #0d0d14 60%)`,
+      background: `linear-gradient(135deg, ${scoreColor}10 0%, var(--cc-surface) 60%)`,
       border: `1px solid ${scoreColor}30`,
       borderLeft: `4px solid ${scoreColor}`,
       borderRadius: D.radiusSm,
@@ -654,10 +654,10 @@ function ActionQueueCard({
 
         {/* Meta row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 8px' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--cc-tint)', borderRadius: 6, padding: '2px 8px' }}>
             ⏱ {timeLabel}
           </span>
-          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: '2px 8px' }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--cc-tint)', borderRadius: 6, padding: '2px 8px' }}>
             {confidencePct}% confidence
           </span>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
@@ -683,7 +683,7 @@ function ActionQueueCard({
       {/* Expandable why + rationale */}
       {expanded && (
         <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.35)',
+          borderTop: '1px solid var(--cc-border)', background: 'var(--cc-inset)',
           padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           {item.whyItMatters && (
@@ -783,7 +783,7 @@ function fmtCur(amount: number, currency: string): string {
 
 function RevenueByCurrency({ byCurrency, accent }: { byCurrency: Record<string, number>; accent: string }) {
   const entries = Object.entries(byCurrency).filter(([, v]) => v > 0);
-  if (entries.length === 0) return <span style={{ color: 'rgba(255,255,255,0.25)' }}>฿0</span>;
+  if (entries.length === 0) return <span style={{ color: 'var(--cc-fg-3)' }}>฿0</span>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {entries.map(([cur, amt]) => (
@@ -1040,20 +1040,20 @@ export function CommandCenterView() {
     <Panel title="D1 Command Center">
       {/* ── Premium Header ─────────────────────────────────── */}
       <div style={{
-        background: `linear-gradient(135deg,#1a0404 0%,#0d0d14 60%,#0a0010 100%)`,
+        background: 'var(--cc-hero-bg)',
         borderRadius: 20,
         padding: '24px 28px',
         marginBottom: 24,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-        boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 40px rgba(0,0,0,0.5)`,
-        border: '1px solid rgba(220,38,38,0.2)',
+        boxShadow: 'var(--cc-hero-shadow)',
+        border: '1px solid var(--cc-hero-border)',
         position: 'relative', overflow: 'hidden',
         animation: 'cc-slide-up 0.35s ease',
       }}>
         {/* Grid texture */}
         <div style={{
           position: 'absolute', inset: 0, opacity: 0.025,
-          backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.5) 1px,transparent 1px)',
+          backgroundImage: 'linear-gradient(var(--cc-grid) 1px,transparent 1px),linear-gradient(90deg,var(--cc-grid) 1px,transparent 1px)',
           backgroundSize: '32px 32px', pointerEvents: 'none',
         }} />
         {/* Red glow orb */}
@@ -1076,10 +1076,10 @@ export function CommandCenterView() {
                 <span style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', letterSpacing: '0.12em', textTransform: 'uppercase' }}>Live</span>
               </div>
             </div>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: 'var(--cc-hero-title)', letterSpacing: '-0.025em', lineHeight: 1.1 }}>
               D1 Command Center
             </h2>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 11, color: 'var(--cc-hero-sub)', fontWeight: 600, marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Intelligence Dashboard · Owner &amp; Manager View
             </div>
           </div>
@@ -1090,8 +1090,8 @@ export function CommandCenterView() {
           style={{
             position: 'relative', display: 'flex', alignItems: 'center', gap: 9,
             padding: '12px 24px', borderRadius: 999,
-            background: generating ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#dc2626,#991b1b)',
-            color: '#fff', border: generating ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(220,38,38,0.6)',
+            background: generating ? 'var(--cc-tint)' : 'linear-gradient(135deg,#dc2626,#991b1b)',
+            color: generating ? 'var(--cc-fg-2)' : '#fff', border: generating ? '1.5px solid var(--cc-border)' : '1.5px solid rgba(220,38,38,0.6)',
             fontWeight: 800, fontSize: 13, cursor: generating ? 'not-allowed' : 'pointer',
             opacity: generating ? 0.65 : 1,
             boxShadow: generating ? 'none' : '0 4px 20px rgba(220,38,38,0.4), 0 1px 0 rgba(255,255,255,0.1) inset',
@@ -1177,7 +1177,7 @@ export function CommandCenterView() {
                 <SectionHeading icon="☀️" label="Morning Brief" />
                 {!brief ? (
                   <div style={{
-                    background: '#0d0d14', border: '1.5px dashed rgba(255,255,255,0.1)',
+                    background: 'var(--cc-surface)', border: '1.5px dashed var(--cc-border)',
                     borderRadius: D.radiusSm, padding: '16px 20px',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
                   }}>
@@ -1331,7 +1331,7 @@ export function CommandCenterView() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
             {/* Revenue */}
             <div style={{
-              background: `linear-gradient(160deg, rgba(34,211,160,0.08) 0%, #0d0d14 50%)`,
+              background: `linear-gradient(160deg, rgba(34,211,160,0.08) 0%, var(--cc-surface) 50%)`,
               border: `1px solid rgba(34,211,160,0.18)`,
               borderTop: `2px solid ${D.green}`,
               borderRadius: D.radius,
@@ -1357,7 +1357,7 @@ export function CommandCenterView() {
 
             {/* Risks */}
             <div style={{
-              background: `linear-gradient(160deg, rgba(231,76,60,0.08) 0%, #0d0d14 50%)`,
+              background: `linear-gradient(160deg, rgba(231,76,60,0.08) 0%, var(--cc-surface) 50%)`,
               border: `1px solid rgba(231,76,60,0.18)`,
               borderTop: `2px solid ${D.red}`,
               borderRadius: D.radius,

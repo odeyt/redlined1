@@ -90,6 +90,55 @@
   --purple: #7c3aed;
 }
 
+/* ── D1 Command Center surfaces ──
+   The Command Center paints its own cards rather than using --card, so it needs
+   its own light and dark values. Dark is what it always shipped with; light was
+   missing, which left near-black cards on a white page. */
+:root,
+[data-theme="light"] {
+  --cc-surface: #ffffff;
+  --cc-border: rgba(15, 23, 42, 0.14);
+  --cc-border-soft: rgba(15, 23, 42, 0.08);
+  --cc-fg: #111827;
+  --cc-fg-2: #4b5563;
+  --cc-fg-3: #6b7280;
+  --cc-tint: rgba(15, 23, 42, 0.06);
+  --cc-tint-strong: rgba(15, 23, 42, 0.04);
+  --cc-inset: rgba(15, 23, 42, 0.04);
+  --cc-shadow: 0 2px 12px rgba(15, 23, 42, 0.08);
+  --cc-shadow-hover: 0 8px 28px rgba(15, 23, 42, 0.16);
+  --cc-dimmed-bg: #f4f5f9;
+  --cc-hero-bg: linear-gradient(135deg, #fff1f1 0%, #ffffff 55%, #f4f1ff 100%);
+  --cc-hero-border: rgba(220, 38, 38, 0.25);
+  --cc-hero-shadow: 0 6px 24px rgba(15, 23, 42, 0.1);
+  --cc-hero-title: #111827;
+  --cc-hero-sub: #6b7280;
+  --cc-hero-track: rgba(15, 23, 42, 0.12);
+  --cc-grid: rgba(15, 23, 42, 0.5);
+}
+
+[data-theme="dark"] {
+  --cc-surface: #0d0d14;
+  --cc-border: rgba(255, 255, 255, 0.07);
+  --cc-border-soft: rgba(255, 255, 255, 0.05);
+  --cc-fg: #e8eaf0;
+  --cc-fg-2: rgba(255, 255, 255, 0.5);
+  --cc-fg-3: rgba(255, 255, 255, 0.25);
+  --cc-tint: rgba(255, 255, 255, 0.06);
+  --cc-tint-strong: rgba(255, 255, 255, 0.04);
+  --cc-inset: rgba(0, 0, 0, 0.35);
+  --cc-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --cc-shadow-hover: 0 8px 36px rgba(0, 0, 0, 0.55);
+  --cc-dimmed-bg: linear-gradient(145deg, #111118, #0a0a10);
+  --cc-hero-bg: linear-gradient(135deg, #1a0404 0%, #0d0d14 60%, #0a0010 100%);
+  --cc-hero-border: rgba(220, 38, 38, 0.2);
+  --cc-hero-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 8px 40px rgba(0, 0, 0, 0.5);
+  --cc-hero-title: #ffffff;
+  --cc-hero-sub: rgba(255, 255, 255, 0.4);
+  --cc-hero-track: rgba(255, 255, 255, 0.15);
+  --cc-grid: rgba(255, 255, 255, 0.5);
+}
+
 * {
   box-sizing: border-box;
 }
