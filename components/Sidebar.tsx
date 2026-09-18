@@ -633,6 +633,23 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
 
 {isPlatformOwner && (
         <a
+          href="/admin"
+          title="Owner Admin"
+          onMouseEnter={e => showTooltip(e, 'Owner Admin')}
+          onMouseLeave={hideTooltip}
+          style={{
+            padding: '10px 16px', background: 'transparent',
+            border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, color: '#818cf8',
+            fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+            textDecoration: 'none', marginBottom: 8,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+          }}
+        >
+          <span>🛠️</span>{!collapsed && ' Owner Admin'}
+        </a>
+      )}
+      {isPlatformOwner && (
+        <a
           href="/admin/billing-health"
           title="Billing Health"
           onMouseEnter={e => showTooltip(e, 'Billing Health')}
