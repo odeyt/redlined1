@@ -35,7 +35,8 @@ describe('2026-09-19_support_ticket_triage.sql', () => {
     expect(executable).not.toMatch(/\bUPDATE\b\s+\S+\s+SET\b/i);
     expect(executable).not.toMatch(/\bDELETE\s+FROM\b/i);
     expect(executable).not.toMatch(/\bINSERT\s+INTO\b/i);
-    expect(executable).not.toMatch(/\bTRUNCATE\b/i);
+    // A TRUNCATE *statement* (the word also appears, legitimately, in the privilege lists the migration asserts on).
+    expect(executable).not.toMatch(/\bTRUNCATE\s+(TABLE\s+)?(ONLY\s+)?[a-z_"]+\./i);
     expect(executable).not.toMatch(/\bDROP\s+(TABLE|COLUMN|SCHEMA|CONSTRAINT)\b/i);
   });
 
@@ -68,16 +69,43 @@ describe('2026-09-19_support_ticket_triage.sql', () => {
 
   it('gives customers no access at all: RLS on, no policy, every privilege revoked from anon and authenticated', () => {
     expect(executable).toMatch(/ALTER TABLE public\.support_ticket_triage_events ENABLE ROW LEVEL SECURITY;/);
-    expect(executable).toMatch(/REVOKE ALL ON public\.support_ticket_triage_events FROM PUBLIC, anon, authenticated;/);
+    expect(executable).toMatch(/REVOKE ALL ON public\.support_ticket_triage_events FROM PUBLIC, anon, authenticated, service_role;/);
     expect(executable).not.toMatch(/\bTO\s+(anon|authenticated|PUBLIC)\b/i);
     expect(executable).not.toMatch(/CREATE POLICY/i);
   });
 
-  it('asserts its own lock-down inside the transaction, so a bad state aborts instead of committing', () => {
+  // Regression: on a real Supabase project every new table is granted to service_role with ALL privileges by
+  // default. GRANT SELECT, INSERT adds to that and removes nothing, so the table was NOT append-only. Found by
+  // applying the migration to the staging project; the CI stand-in database had no default grants and missed it.
+  it('takes the Supabase default grants back from service_role as well, BEFORE granting SELECT and INSERT', () => {
+    const revoke = executable.indexOf('REVOKE ALL ON public.support_ticket_triage_events FROM PUBLIC, anon, authenticated, service_role;');
+    const grant = executable.indexOf('GRANT SELECT, INSERT ON public.support_ticket_triage_events TO service_role;');
+    expect(revoke).toBeGreaterThan(-1);
+    expect(grant).toBeGreaterThan(revoke);
+    expect(executable).not.toMatch(/REVOKE ALL ON public\.support_ticket_triage_events FROM PUBLIC, anon, authenticated;/);
+  });
+
+  it('also revokes the identity sequence, whose default grants would allow setval() to break "newest = highest id"', () => {
+    expect(executable).toMatch(/REVOKE ALL ON SEQUENCE %s FROM PUBLIC, anon, authenticated, service_role/);
+    expect(executable).toMatch(/pg_get_serial_sequence\('public\.support_ticket_triage_events', 'id'\)/);
+  });
+
+  it('asserts its own lock-down inside the transaction, against every privilege type, so a bad state aborts instead of committing', () => {
     expect(executable).toMatch(/relrowsecurity/);
-    expect(executable).toMatch(/has_table_privilege\('anon'/);
-    expect(executable).toMatch(/has_table_privilege\('authenticated'/);
+    expect(executable).toMatch(/FOREACH r IN ARRAY ARRAY\['anon', 'authenticated'\]/);
+    expect(executable).toMatch(/has_table_privilege\(r, t, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'\)/);
+    expect(executable).toMatch(/has_table_privilege\('service_role', t, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'\)/);
+    expect(executable).toMatch(/has_sequence_privilege\('service_role', seq, 'USAGE,SELECT,UPDATE'\)/);
     expect(executable).toMatch(/RAISE EXCEPTION/);
+  });
+
+  it('the CI workflow emulates Supabase default grants, so it can catch a migration that forgets to take one back', () => {
+    const wf = read('.github/workflows/support-triage-migration.yml');
+    expect(wf).toMatch(/ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role/);
+    expect(wf).toMatch(/ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role/);
+    // and those defaults are established BEFORE any table is created
+    expect(wf.indexOf('ALTER DEFAULT PRIVILEGES')).toBeLessThan(wf.indexOf('CREATE TABLE public.shops'));
+    expect(wf).toMatch(/SET ROLE service_role; TRUNCATE public\.support_ticket_triage_events/);
   });
 
   it('is safe to run twice', () => {

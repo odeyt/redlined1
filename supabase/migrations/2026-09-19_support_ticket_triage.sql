@@ -34,10 +34,11 @@
 --      newest row of 'unreviewed', means "unreviewed".
 --   2. Constrains the marker to real | test | spam | unreviewed ('unreviewed'
 --      clears a mistaken marking; it is a new row, never an edit).
---   3. Enables RLS with NO policy and revokes every privilege from anon and
---      authenticated, so neither can read or write it. Only service_role, which
---      is what the owner-only API route uses, can SELECT and INSERT. There is no
---      UPDATE or DELETE grant: history cannot be edited or removed.
+--   3. Enables RLS with NO policy and revokes EVERY privilege (including the ones
+--      Supabase grants by default) from anon, authenticated and service_role, then
+--      grants service_role SELECT and INSERT only, which is what the owner-only API
+--      route uses. History cannot be edited or removed by any API role. The
+--      transaction asserts this against every privilege type and aborts otherwise.
 --   4. Changes nothing else. No existing row, table, policy or grant is touched,
 --      and nothing is backfilled or reclassified.
 --
@@ -73,22 +74,47 @@ CREATE INDEX IF NOT EXISTS support_ticket_triage_events_ticket_idx
 
 ALTER TABLE public.support_ticket_triage_events ENABLE ROW LEVEL SECURITY;
 
--- Supabase grants new public tables to anon and authenticated by default; take that back.
-REVOKE ALL ON public.support_ticket_triage_events FROM PUBLIC, anon, authenticated;
+-- Supabase hands every new public table (and its sequences) to anon, authenticated AND service_role with
+-- ALL privileges by default. Granting SELECT, INSERT afterwards would only ADD to that, never remove it, so
+-- service_role would keep UPDATE, DELETE and TRUNCATE and the table would not be append-only. Take every
+-- default back from every API role, then grant exactly what is needed.
+REVOKE ALL ON public.support_ticket_triage_events FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT ON public.support_ticket_triage_events TO service_role;
 
--- RLS with no policy is only a guarantee if RLS is actually on and the grants are gone. Asserted, not assumed.
+-- The identity sequence gets the same default grants. setval() on it would let a caller break "newest row =
+-- highest id". Inserting into an identity column needs no privilege on its sequence.
 DO $$
 BEGIN
-  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.support_ticket_triage_events'::regclass) THEN
+  EXECUTE format('REVOKE ALL ON SEQUENCE %s FROM PUBLIC, anon, authenticated, service_role',
+                 pg_get_serial_sequence('public.support_ticket_triage_events', 'id'));
+END $$;
+
+-- RLS with no policy is only a guarantee if RLS is actually on and the grants are gone. Asserted, not assumed,
+-- against EVERY privilege type, so a default this file did not anticipate aborts the transaction instead of shipping.
+DO $$
+DECLARE
+  t   CONSTANT text := 'public.support_ticket_triage_events';
+  seq text := pg_get_serial_sequence('public.support_ticket_triage_events', 'id');
+  r   text;
+BEGIN
+  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = t::regclass) THEN
     RAISE EXCEPTION 'RLS did not enable on support_ticket_triage_events';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.support_ticket_triage_events'::regclass) THEN
+  IF EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = t::regclass) THEN
     RAISE EXCEPTION 'support_ticket_triage_events must have no policies';
   END IF;
-  IF has_table_privilege('anon', 'public.support_ticket_triage_events', 'SELECT,INSERT,UPDATE,DELETE')
-     OR has_table_privilege('authenticated', 'public.support_ticket_triage_events', 'SELECT,INSERT,UPDATE,DELETE') THEN
-    RAISE EXCEPTION 'anon/authenticated still hold a privilege on support_ticket_triage_events';
+  FOREACH r IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF has_table_privilege(r, t, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+       OR has_sequence_privilege(r, seq, 'USAGE,SELECT,UPDATE') THEN
+      RAISE EXCEPTION '% still holds a privilege on support_ticket_triage_events', r;
+    END IF;
+  END LOOP;
+  IF NOT has_table_privilege('service_role', t, 'SELECT') OR NOT has_table_privilege('service_role', t, 'INSERT') THEN
+    RAISE EXCEPTION 'service_role must be able to SELECT and INSERT support_ticket_triage_events';
+  END IF;
+  IF has_table_privilege('service_role', t, 'UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+     OR has_sequence_privilege('service_role', seq, 'USAGE,SELECT,UPDATE') THEN
+    RAISE EXCEPTION 'service_role holds more than SELECT and INSERT: the table would not be append-only';
   END IF;
 END $$;
 
@@ -103,9 +129,9 @@ COMMIT;
 --     FROM pg_class c WHERE c.oid = 'public.support_ticket_triage_events'::regclass;
 --     -- expect: true, 0, 0
 --
---   Who can touch it (expect only service_role, SELECT and INSERT):
+--   Who can touch it (expect only service_role, SELECT and INSERT, apart from the owner):
 --     SELECT grantee, privilege_type FROM information_schema.role_table_grants
---     WHERE table_schema = 'public' AND table_name = 'support_ticket_triage_events';
+--     WHERE table_schema = 'public' AND table_name = 'support_ticket_triage_events' AND grantee <> 'postgres';
 --
 --   support_tickets is unchanged: its policies are exactly those in 2026-08-03_support_tickets.sql.
 --
