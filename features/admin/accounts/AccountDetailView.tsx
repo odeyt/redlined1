@@ -13,7 +13,8 @@ import Link from 'next/link';
 import { C, fmtDate, fmtDateTime } from '@/features/admin/shared/theme';
 import { AdminHeader } from '@/features/admin/shared/AdminHeader';
 import type { AccountDetail } from '@/lib/admin/accountsData';
-import { ACCOUNT_STATUS_LABELS, isLoginInactive, LOGIN_INACTIVITY_THRESHOLD_DAYS } from '@/lib/admin/accountStatus';
+import { ACCOUNT_STATUS_LABELS, UNVERIFIED_REASON_LABELS, isLoginInactive, LOGIN_INACTIVITY_THRESHOLD_DAYS } from '@/lib/admin/accountStatus';
+import { displayPlan, EXPIRED_TRIAL_NOTE } from '@/lib/admin/terminology';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -69,7 +70,9 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
 
         {account.status.billingMismatch && account.status.mismatchReason && (
           <div style={{ background: C.warning + '18', border: `1px solid ${C.warning}44`, borderRadius: 10, padding: 16, marginBottom: 24 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.warning, marginBottom: 6, textTransform: 'uppercase' }}>Billing mismatch</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.warning, marginBottom: 6, textTransform: 'uppercase' }}>
+              {account.status.unverifiedReason ? UNVERIFIED_REASON_LABELS[account.status.unverifiedReason] : 'Billing mismatch'}
+            </div>
             <p style={{ margin: 0, fontSize: 13, color: C.text }}>{account.status.mismatchReason}</p>
           </div>
         )}
@@ -115,7 +118,7 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
               />
               {!account.ownerResolved && (
                 <p style={{ gridColumn: '1 / -1', fontSize: 12, color: C.warning, margin: '4px 0 0' }}>
-                  No shop_users role=owner membership was found for this shop — shown is the earliest linked profile as a fallback, not a confirmed owner.
+                  No shop_users role=owner membership was found for this shop — shown is a linked profile, used as a fallback. It is not a confirmed owner.
                 </p>
               )}
             </div>
@@ -158,18 +161,21 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
 
         <Section title="Plan &amp; subscription">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 4 }}>
-            <Field label="Plan" value={account.plan.displayName ?? '—'} />
+            <Field label="Plan" value={displayPlan({ trialExpired: account.plan.trialExpired, planDisplayName: account.plan.displayName })} />
             <Field label="Trial ends" value={account.plan.trialEndsAt ? `${fmtDate(account.plan.trialEndsAt)}${account.status.trialDaysLeft !== null ? ` (${account.status.trialDaysLeft}d left)` : ''}` : '—'} />
             <Field label="profiles.billing_status" value={account.primaryContact?.billingStatus ?? '—'} />
           </div>
+          {account.plan.trialExpired && (
+            <p data-testid="expired-trial-note" style={{ fontSize: 12, color: C.muted, margin: '8px 0 0' }}>{EXPIRED_TRIAL_NOTE}</p>
+          )}
 
           {account.subscription ? (
             <div style={{ marginTop: 12, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 16 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 4 }}>
                 <Field label="Subscription status" value={account.subscription.status} />
                 <Field label="Billing provider" value={account.subscription.billingProvider ?? '—'} />
-                <Field label="Provider customer" value={account.subscription.providerCustomerId?.masked ?? '—'} />
-                <Field label="Provider subscription" value={account.subscription.providerSubscriptionId?.masked ?? '—'} />
+                <Field label="Provider customer" value={account.subscription.hasCustomerReference ? 'Linked' : 'Not linked'} />
+                <Field label="Provider subscription" value={account.subscription.hasSubscriptionReference ? 'Linked' : 'Not linked'} />
                 <Field label="Current period" value={`${fmtDate(account.subscription.currentPeriodStart)} → ${fmtDate(account.subscription.currentPeriodEnd)}`} />
                 <Field label="Cancel at period end" value={account.subscription.cancelAtPeriodEnd ? 'Yes' : 'No'} />
                 {account.subscription.cancelledAt && <Field label="Cancelled at" value={fmtDate(account.subscription.cancelledAt)} />}
@@ -203,8 +209,8 @@ export function AccountDetailView({ account }: { account: AccountDetail }) {
                   {account.billingEvents.map(e => (
                     <tr key={e.id} style={{ borderBottom: `1px solid ${C.border}44` }}>
                       <td style={{ padding: '6px 10px' }}>{e.eventType}</td>
-                      <td style={{ padding: '6px 10px', color: e.error ? C.danger : (e.processed ? C.success : C.muted) }}>
-                        {e.error ? `Failed: ${e.error}` : e.processed ? 'Processed' : 'Pending'}
+                      <td style={{ padding: '6px 10px', color: e.failed ? C.danger : (e.processed ? C.success : C.muted) }}>
+                        {e.failed ? 'Failed' : e.processed ? 'Processed' : 'Pending'}
                       </td>
                       <td style={{ padding: '6px 10px', color: C.muted }}>{fmtDateTime(e.createdAt)}</td>
                     </tr>

@@ -11,9 +11,14 @@
  * This component only renders after the server page has confirmed access.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import type { BillingOverview } from '@/commercial/analytics/BillingAnalyticsService';
 import type { DataQualityIssue } from '@/commercial/analytics/BillingDataQualityService';
+import {
+  BILLING_PROVIDER_TRIALS_EXPLANATION, BILLING_PROVIDER_TRIALS_LABEL, RECONCILIATION_STATE_EXPLANATIONS,
+  RECONCILIATION_STATE_LABELS, TRIAL_ACCESS_LABEL, TRIAL_COUNTS_MAY_DIFFER,
+} from '@/lib/admin/terminology';
 
 // ─── Colour tokens (minimal — no Tailwind) ────────────────────────────────────
 
@@ -181,36 +186,41 @@ function HealthScoreRing({ score }: { score: number | null }) {
 
 export function BillingHealthDashboard() {
   const [days, setDays] = useState(30);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<{ overview: BillingOverview; dataQuality: DataQualityIssue[] } | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const to = new Date();
-      const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
-      const params = new URLSearchParams({
-        from: from.toISOString(),
-        to: to.toISOString(),
-      });
-      const res = await fetch(`/api/admin/billing-health/overview?${params}`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error ?? `HTTP ${res.status}`);
-      }
-      const json = await res.json() as { overview: BillingOverview; dataQuality: DataQualityIssue[] };
-      setData(json);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, [days]);
+  /**
+   * A counter, not a callback: the effect owns the whole fetch, so every setState
+   * happens inside a promise callback (react-hooks/set-state-in-effect) and a
+   * response for a range the owner has already left can never overwrite a newer
+   * one. Loading is derived from which request the current data answers.
+   */
+  const [refreshKey, setRefreshKey] = useState(0);
+  const requestKey = `${days}:${refreshKey}`;
+  const [data, setData] = useState<{ key: string; overview: BillingOverview; dataQuality: DataQualityIssue[] } | null>(null);
+  const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let alive = true;
+    const key = `${days}:${refreshKey}`;
+    const to = new Date();
+    const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+    const params = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
 
+    fetch(`/api/admin/billing-health/overview?${params}`)
+      .then(async res => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({})) as { error?: string };
+          throw new Error(body.error ?? `HTTP ${res.status}`);
+        }
+        return res.json() as Promise<{ overview: BillingOverview; dataQuality: DataQualityIssue[] }>;
+      })
+      .then(json => { if (alive) setData({ key, ...json }); })
+      .catch(err => { if (alive) setFailure({ key, message: err instanceof Error ? err.message : 'Unknown error' }); });
+
+    return () => { alive = false; };
+  }, [days, refreshKey]);
+
+  const error = failure?.key === requestKey ? failure.message : null;
+  const loading = data?.key !== requestKey && !error;
   const overview = data?.overview;
   const dq = data?.dataQuality ?? [];
 
@@ -247,7 +257,7 @@ export function BillingHealthDashboard() {
               {r.label}
             </button>
           ))}
-          <button onClick={() => void load()} style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          <button onClick={() => setRefreshKey(k => k + 1)} style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
             Refresh
           </button>
         </div>
@@ -293,6 +303,15 @@ export function BillingHealthDashboard() {
                 <KpiCard label="ARPA" value={fmtCurrency(overview.revenue.arpa)} sub="Per active paid shop" tooltip="MRR ÷ active paid shops" />
                 <KpiCard label="Revenue at Risk" value={fmtCurrency(overview.revenue.revenueAtRisk)} sub="Past-due + scheduled cancel" warn={(overview.revenue.revenueAtRisk ?? 0) > 0} />
               </div>
+              <div data-testid="bh-reconciliation" style={{ background: C.card, border: `1px solid ${overview.reconciliation === 'reconciled' ? C.border : C.warning}`, borderRadius: 8, padding: 14, fontSize: 12, color: C.muted, marginBottom: 12 }}>
+                <strong style={{ color: C.text }}>Billing reconciliation: {RECONCILIATION_STATE_LABELS[overview.reconciliation]}.</strong>{' '}
+                {RECONCILIATION_STATE_EXPLANATIONS[overview.reconciliation]}
+                {' '}Verified subscriptions counted: <strong style={{ color: C.text }}>{overview.revenue.verifiedRecurringShops}</strong>.
+                {' '}Excluded — unverified: {overview.revenue.excluded.unverified}, contradictory: {overview.revenue.excluded.mismatch},
+                {' '}not provider-backed: {overview.revenue.excluded.notProviderBacked}, unrecognised billing interval: {overview.revenue.excluded.unrecognisedInterval}, unpriced: {overview.revenue.excluded.unpriced}.
+                {(overview.orphanSubscriptions ?? 0) > 0 && <> Billing records with no shop: {overview.orphanSubscriptions}.</>}
+                {' '}The same indicator appears on the <Link href="/admin" style={{ color: C.info, textDecoration: 'none' }}>Owner Overview</Link>.
+              </div>
               <p style={{ fontSize: 11, color: C.muted, margin: 0 }}>{overview.revenue.note}</p>
             </Section>
 
@@ -300,7 +319,7 @@ export function BillingHealthDashboard() {
             <Section title="Subscription Health">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
                 <KpiCard label="Active" value={String(overview.subscriptions.active)} />
-                <KpiCard label="Trialing" value={String(overview.subscriptions.trialing)} />
+                <KpiCard label={BILLING_PROVIDER_TRIALS_LABEL} value={String(overview.subscriptions.trialing)} tooltip={BILLING_PROVIDER_TRIALS_EXPLANATION} />
                 <KpiCard label="Past Due" value={String(overview.subscriptions.pastDue)} warn={overview.subscriptions.pastDue > 0} />
                 <KpiCard label="Cancelled" value={String(overview.subscriptions.cancelled)} />
                 <KpiCard label="Expired" value={String(overview.subscriptions.expired)} />
@@ -324,10 +343,17 @@ export function BillingHealthDashboard() {
               )}
             </Section>
 
-            {/* Trial funnel */}
-            <Section title="Trial Funnel">
+            {/* Billing-provider trial funnel (subscription rows — not the profile-based "Trial access" count) */}
+            <div data-testid="billing-provider-trials">
+            <Section title={BILLING_PROVIDER_TRIALS_LABEL}>
+              <p data-testid="trial-terminology-note" style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, margin: '0 0 16px' }}>
+                {BILLING_PROVIDER_TRIALS_EXPLANATION} {TRIAL_COUNTS_MAY_DIFFER}{' '}
+                The {TRIAL_ACCESS_LABEL} count on the{' '}
+                <Link href="/admin" style={{ color: C.info, textDecoration: 'none' }}>Owner Overview</Link>{' '}
+                comes from profile entitlement, so the two numbers measure different things.
+              </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 12 }}>
-                <KpiCard label="Active Trials" value={String(overview.trials.active)} />
+                <KpiCard label="Trialing now" value={String(overview.trials.active)} />
                 <KpiCard label="Expiring in 24h" value={String(overview.trials.expiringIn1Day)} warn={overview.trials.expiringIn1Day > 0} />
                 <KpiCard label="Expiring in 3d" value={String(overview.trials.expiringIn3Days)} />
                 <KpiCard label="Converted" value={String(overview.trials.converted)} />
@@ -341,6 +367,7 @@ export function BillingHealthDashboard() {
               </div>
               <p style={{ fontSize: 11, color: C.muted, margin: 0 }}>{overview.trials.cohortNote}</p>
             </Section>
+            </div>
 
             {/* Retention & churn */}
             <Section title="Retention &amp; Churn">

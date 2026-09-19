@@ -11,19 +11,29 @@ import Link from 'next/link';
 import { C, fmtDate } from '@/features/admin/shared/theme';
 import { AdminHeader } from '@/features/admin/shared/AdminHeader';
 import { buildHref } from '@/features/admin/shared/queryString';
-import type { AccountListItem, AccountListResult, AccountSortKey, AccountStatusFilter } from '@/lib/admin/accountsData';
+import type { AccountArchiveFilter, AccountListItem, AccountListResult, AccountSortKey, AccountStatusFilter } from '@/lib/admin/accountsData';
 import { ACCOUNT_STATUS_LABELS, isLoginInactive, LOGIN_INACTIVITY_THRESHOLD_DAYS, type AccountStatus } from '@/lib/admin/accountStatus';
+import { displayPlan, EXPIRED_TRIAL_NOTE } from '@/lib/admin/terminology';
 
 const STATUS_OPTIONS: Array<{ value: AccountStatusFilter; label: string }> = [
   { value: 'all', label: 'All' },
-  { value: 'free', label: 'Free' },
-  { value: 'trialing', label: 'Trialing' },
+  { value: 'free', label: ACCOUNT_STATUS_LABELS.free },
+  { value: 'trialing', label: ACCOUNT_STATUS_LABELS.trialing },
   { value: 'trial_ending_soon', label: 'Trial ending soon (≤7d)' },
-  { value: 'active_paid', label: 'Active (paid)' },
+  { value: 'active_paid', label: ACCOUNT_STATUS_LABELS.active_paid },
+  { value: 'cancel_scheduled', label: ACCOUNT_STATUS_LABELS.cancel_scheduled },
   { value: 'past_due', label: 'Past due / payment failed' },
-  { value: 'cancelled_access_retained', label: 'Billing cancelled — access retained' },
-  { value: 'paid_billing_unverified', label: 'Paid — billing record unverified' },
-  { value: 'billing_mismatch', label: 'Billing mismatch' },
+  { value: 'cancelled_access_retained', label: ACCOUNT_STATUS_LABELS.cancelled_access_retained },
+  { value: 'expired', label: ACCOUNT_STATUS_LABELS.expired },
+  { value: 'paid_unverified', label: ACCOUNT_STATUS_LABELS.paid_unverified },
+  { value: 'billing_mismatch', label: ACCOUNT_STATUS_LABELS.billing_mismatch },
+];
+
+const ARCHIVE_OPTIONS: Array<{ value: AccountArchiveFilter; label: string }> = [
+  { value: 'all', label: 'All shops' },
+  { value: 'active', label: 'Active shops' },
+  { value: 'archived', label: 'Archived shops' },
+  { value: 'internal', label: 'Internal shops' },
 ];
 
 const SORT_COLUMNS: Array<{ key: AccountSortKey; label: string }> = [
@@ -35,8 +45,8 @@ const SORT_COLUMNS: Array<{ key: AccountSortKey; label: string }> = [
 
 function StatusBadge({ status }: { status: AccountStatus }) {
   const colorMap: Record<AccountStatus, string> = {
-    free: C.muted, trialing: C.info, active_paid: C.success, past_due: C.warning,
-    cancelled_access_retained: C.info, paid_billing_unverified: C.warning, internal: C.muted,
+    free: C.muted, trialing: C.info, active_paid: C.success, cancel_scheduled: C.warning, past_due: C.warning,
+    cancelled_access_retained: C.info, expired: C.muted, paid_unverified: C.warning, billing_mismatch: C.danger, internal: C.muted,
   };
   const color = colorMap[status];
   return (
@@ -50,6 +60,7 @@ export interface EffectiveParams {
   page: number;
   search: string;
   status: AccountStatusFilter;
+  archived: AccountArchiveFilter;
   sortKey: AccountSortKey;
   sortDir: 'asc' | 'desc';
 }
@@ -63,6 +74,7 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
     return buildHref(base, {
       search: merged.search || undefined,
       status: merged.status === 'all' ? undefined : merged.status,
+      archived: merged.archived === 'all' ? undefined : merged.archived,
       sortKey: merged.sortKey === 'created_at' ? undefined : merged.sortKey,
       sortDir: merged.sortDir === 'desc' ? undefined : merged.sortDir,
       page: merged.page === 1 ? undefined : merged.page,
@@ -81,12 +93,13 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
       <div style={{ maxWidth: 1300, margin: '0 auto', padding: '32px 24px' }}>
         <form action={base} method="GET" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20, alignItems: 'center' }}>
           <input type="hidden" name="status" value={params.status} />
+          <input type="hidden" name="archived" value={params.archived} />
           <input type="hidden" name="sortKey" value={params.sortKey} />
           <input type="hidden" name="sortDir" value={params.sortDir} />
           <input
             name="search"
             defaultValue={params.search}
-            placeholder="Search shop name, contact name, or email…"
+            placeholder="Search shop name or contact email…"
             maxLength={100}
             style={{
               flex: '1 1 280px', padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`,
@@ -100,6 +113,23 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
             Search
           </button>
         </form>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {ARCHIVE_OPTIONS.map(opt => (
+            <Link
+              key={opt.value}
+              href={hrefWith({ archived: opt.value, page: 1 })}
+              style={{
+                padding: '6px 12px', borderRadius: 6, fontSize: 12, textDecoration: 'none',
+                border: `1px solid ${params.archived === opt.value ? C.accent : C.border}`,
+                background: params.archived === opt.value ? C.accent + '22' : 'transparent',
+                color: params.archived === opt.value ? C.accent : C.muted,
+              }}
+            >
+              {opt.label}
+            </Link>
+          ))}
+        </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
           {STATUS_OPTIONS.map(opt => (
@@ -181,7 +211,11 @@ export function AccountsDirectoryView({ result, params }: { result: AccountListR
                         )}
                       </td>
                       <td style={{ padding: '10px 12px', color: C.muted }}>{a.memberCount}</td>
-                      <td style={{ padding: '10px 12px' }}>{a.planDisplayName ?? '—'}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {a.trialExpired
+                          ? <span title={EXPIRED_TRIAL_NOTE} style={{ color: C.muted }}>{displayPlan(a)}</span>
+                          : displayPlan(a)}
+                      </td>
                       <td style={{ padding: '10px 12px' }}><StatusBadge status={a.status} /></td>
                       <td style={{ padding: '10px 12px', color: C.muted }}>
                         {a.lastSignInAt === undefined ? 'Unavailable' : a.lastSignInAt === null ? 'Never' : fmtDate(a.lastSignInAt)}

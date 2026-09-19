@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { AccountsDirectoryView } from '../accounts/AccountsDirectoryView';
 import type { AccountListResult, AccountListItem } from '@/lib/admin/accountsData';
 
@@ -17,6 +17,7 @@ const item = (overrides: Partial<AccountListItem>): AccountListItem => ({
   plan: 'starter',
   planDisplayName: 'Starter',
   status: 'active_paid',
+  trialExpired: false,
   trialEndsAt: null,
   trialDaysLeft: null,
   billingMismatch: false,
@@ -25,7 +26,7 @@ const item = (overrides: Partial<AccountListItem>): AccountListItem => ({
   ...overrides,
 });
 
-const defaultParams = { page: 1, search: '', status: 'all' as const, sortKey: 'created_at' as const, sortDir: 'desc' as const };
+const defaultParams = { page: 1, search: '', status: 'all' as const, archived: 'all' as const, sortKey: 'created_at' as const, sortDir: 'desc' as const };
 
 describe('AccountsDirectoryView', () => {
   it('renders a normal list of accounts with search, status pills, and sortable columns', () => {
@@ -106,5 +107,51 @@ describe('AccountsDirectoryView', () => {
     const prev = screen.getByText('← Prev');
     expect(prev.tagName).toBe('A');
     expect(prev.getAttribute('href')).not.toContain('page='); // page 1 omits the param
+  });
+});
+
+describe('AccountsDirectoryView — clearer terminology and archived filter', () => {
+  const one = (o: Partial<AccountListItem>): AccountListResult => ({ items: [item(o)], total: 1, page: 1, pageSize: 25, truncated: false, maxScanRows: 2000 });
+
+  it('shows "Trial expired" instead of the stored plan name for a lapsed trial, while the status stays Free', () => {
+    render(<AccountsDirectoryView result={one({ plan: 'trial', planDisplayName: 'trial', status: 'free', trialExpired: true })} params={defaultParams} />);
+    const row = screen.getByText('Test Shop').closest('tr')!;
+    expect(within(row).getByText('Trial expired')).toBeTruthy();
+    expect(within(row).getByText('Free')).toBeTruthy();
+    expect(within(row).queryByText('trial')).toBeNull();
+    expect(within(row).queryByText('Trial access')).toBeNull();
+  });
+
+  it('still shows the plan name for a live trial and calls its status "Trial access"', () => {
+    render(<AccountsDirectoryView result={one({ plan: 'trial', planDisplayName: 'Trial', status: 'trialing', trialExpired: false })} params={defaultParams} />);
+    const row = screen.getByText('Test Shop').closest('tr')!;
+    expect(within(row).getByText('Trial access')).toBeTruthy();
+    expect(within(row).queryByText('Trial expired')).toBeNull();
+  });
+
+  it('labels unconfirmed paid access "Paid access, unverified", in the filter list and on the row', () => {
+    render(<AccountsDirectoryView result={one({ status: 'paid_unverified', billingMismatch: true })} params={defaultParams} />);
+    expect(screen.getAllByText('Paid access, unverified').length).toBeGreaterThanOrEqual(2); // filter pill + row badge
+    expect(screen.queryByText('Trialing')).toBeNull();
+    expect(screen.getByText('Trial access').closest('a')?.getAttribute('href')).toBe('/admin/accounts?status=trialing');
+  });
+
+  it('offers All / Active / Archived shop filters that keep archived shops reachable and preserve the status filter', () => {
+    render(<AccountsDirectoryView result={one({})} params={{ ...defaultParams, status: 'free' }} />);
+    expect(screen.getByText('All shops').closest('a')?.getAttribute('href')).toBe('/admin/accounts?status=free');
+    expect(screen.getByText('Active shops').closest('a')?.getAttribute('href')).toBe('/admin/accounts?status=free&archived=active');
+    expect(screen.getByText('Archived shops').closest('a')?.getAttribute('href')).toBe('/admin/accounts?status=free&archived=archived');
+  });
+
+  it('keeps the archive filter when changing status or page', () => {
+    const items = Array.from({ length: 25 }, (_, i) => item({ id: `55555555-5555-4555-8555-55555555555${i % 10}`, shopName: `Shop ${i}` }));
+    render(<AccountsDirectoryView result={{ items, total: 60, page: 1, pageSize: 25, truncated: false, maxScanRows: 2000 }} params={{ ...defaultParams, archived: 'archived' }} />);
+    expect(screen.getByText('Next →').getAttribute('href')).toContain('archived=archived');
+    expect(screen.getByText('Free').closest('a')?.getAttribute('href')).toContain('archived=archived');
+  });
+
+  it('marks archived shops in the list', () => {
+    render(<AccountsDirectoryView result={one({ shopArchived: true })} params={defaultParams} />);
+    expect(screen.getByText('Test Shop').parentElement?.textContent).toMatch(/\(archived\)/);
   });
 });

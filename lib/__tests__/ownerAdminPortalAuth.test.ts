@@ -21,6 +21,9 @@ const API_ROUTES = [
   'app/api/admin/accounts/route.ts',
   'app/api/admin/accounts/[id]/route.ts',
   'app/api/admin/support/route.ts',
+  'app/api/admin/reconciliation/route.ts',
+  'app/api/admin/profile-diagnostics/route.ts',
+  'app/api/admin/support/triage/route.ts',
 ];
 
 describe.each(API_ROUTES)('%s', route => {
@@ -95,7 +98,7 @@ const FEATURE_VIEW_FILES = [
 ];
 
 describe('server-only data modules', () => {
-  const modules = ['lib/admin/accountsData.ts', 'lib/admin/supportData.ts'];
+  const modules = ['lib/admin/accountsData.ts', 'lib/admin/supportData.ts', 'lib/admin/profileDiagnostics.ts', 'lib/admin/activationData.ts', 'lib/admin/fingerprint.ts'];
 
   it.each(modules)('%s imports the server-only guard', (mod) => {
     const src = read(mod);
@@ -143,14 +146,15 @@ describe('no raw billing payloads or unmasked provider ids leave the server modu
     expect(billingEventsBlock).not.toMatch(/payload/);
   });
 
-  it('provider customer/subscription ids are masked before being placed on the response type', () => {
-    expect(src).toMatch(/providerCustomerId:\s*maskRef\(/);
-    expect(src).toMatch(/providerSubscriptionId:\s*maskRef\(/);
+  it('provider customer/subscription ids are never placed on the response type — not raw, not masked', () => {
+    expect(src).not.toMatch(/providerCustomerId|providerSubscriptionId|maskRef|MaskedProviderRef/);
+    expect(src).toMatch(/hasSubscriptionReference:\s*!!subscription\.provider_subscription_id/);
+    expect(src).toMatch(/hasCustomerReference:\s*!!subscription\.provider_customer_id/);
   });
 
-  it('the mask helper keeps only the last 4 characters visible', () => {
-    const helper = src.slice(src.indexOf('function maskRef'), src.indexOf('function maskRef') + 300);
-    expect(helper).toMatch(/slice\(-4\)/);
+  it('the stored webhook error text is reduced to a boolean on the server, never returned', () => {
+    expect(src).toMatch(/failed:\s*!!e\.error/);
+    expect(src).not.toMatch(/error:\s*e\.error/);
   });
 });
 
@@ -200,14 +204,14 @@ describe('status claims are corrected — no unsupported fields', () => {
 
   it('cancelled-with-access-retained does not set billingMismatch', () => {
     const src = read('lib/admin/accountStatus.ts');
-    const block = src.slice(src.indexOf("sub.status === 'cancelled'"), src.indexOf("sub.status === 'cancelled'") + 300);
-    expect(block).toMatch(/billingMismatch:\s*false/);
+    // The whole branch is one return carrying only the policy note — no mismatch or unverified helper.
+    expect(src).toMatch(/if \(st === 'cancelled'\) \{\s*return result\('cancelled_access_retained', planState, \{ policyNote: CANCELLED_POLICY_NOTE \}, sub\);\s*\}/);
   });
 
   it('there is no "inactive_paid" status — it is named for what it actually measures (a billing record gap), not login/product inactivity', () => {
     const src = read('lib/admin/accountStatus.ts');
     expect(src).not.toMatch(/\binactive_paid\b/);
-    expect(src).toMatch(/paid_billing_unverified/);
+    expect(src).toMatch(/paid_unverified/);
   });
 
   it('the login-recency badge documents its threshold and is never called product/feature inactivity', () => {
@@ -247,6 +251,15 @@ describe('signup attribution is reported as MISSING, not derived from shop_audit
     expect(src).toMatch(/ANONYMOUS.*pre-signup/i);
     expect(src).toMatch(/never treated as signup attribution/i);
   });
+});
+
+describe('wording claims only what the data supports', () => {
+  it.each(['features/admin/accounts/AccountDetailView.tsx', 'lib/admin/accountsData.ts'])(
+    '%s never calls a fallback profile the "earliest" one — profiles has no creation date',
+    file => {
+      expect(read(file)).not.toMatch(/earliest[- ](linked )?profile/i);
+    },
+  );
 });
 
 describe('account identity and tenant isolation', () => {

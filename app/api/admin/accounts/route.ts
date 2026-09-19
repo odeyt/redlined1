@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     pageSize: url.searchParams.get('pageSize') ?? undefined,
     search: url.searchParams.get('search') ?? undefined,
     status: url.searchParams.get('status') ?? undefined,
+    archived: url.searchParams.get('archived') ?? undefined,
     sortKey: url.searchParams.get('sortKey') ?? undefined,
     sortDir: url.searchParams.get('sortDir') ?? undefined,
   };
