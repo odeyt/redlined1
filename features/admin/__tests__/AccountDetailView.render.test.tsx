@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { AccountDetailView } from '../accounts/AccountDetailView';
 import type { AccountDetail } from '@/lib/admin/accountsData';
 
@@ -18,12 +18,12 @@ const baseAccount: AccountDetail = {
   ],
   primaryContactOtherShops: [],
   mirroredShopIds: [],
-  plan: { key: 'professional', displayName: 'Professional', trialEndsAt: null },
-  status: { status: 'active_paid', planState: 'pro', trialDaysLeft: null, billingMismatch: false, mismatchReason: null, policyNote: null },
+  plan: { key: 'professional', displayName: 'Professional', trialEndsAt: null, trialExpired: false },
+  status: { status: 'active_paid', planState: 'pro', trialDaysLeft: null, trialExpired: false, billingMismatch: false, mismatchKind: null, unverifiedReason: null, revenueVerified: false, mismatchReason: null, policyNote: null },
   subscription: {
     status: 'active', planKey: 'professional', billingProvider: 'creem',
-    providerCustomerId: { raw: 'cust_abcdef1234', masked: '•••••••1234' },
-    providerSubscriptionId: { raw: 'sub_abcdef1234', masked: '•••••••1234' },
+    hasCustomerReference: true,
+    hasSubscriptionReference: true,
     currentPeriodStart: new Date().toISOString(), currentPeriodEnd: new Date().toISOString(),
     cancelAtPeriodEnd: false, cancelledAt: null, pastDueAt: null,
   },
@@ -40,7 +40,7 @@ describe('AccountDetailView', () => {
     // The contact email legitimately appears in the header line, the Primary
     // Contact section, and the Members list — all three, not a bug.
     expect(screen.getAllByText(/jane@example-test.com/).length).toBeGreaterThanOrEqual(3);
-    expect(screen.getByText('Active (paid)')).toBeTruthy();
+    expect(screen.getByText('Active paid')).toBeTruthy();
   });
 
   it('never displays raw webhook payloads', () => {
@@ -48,11 +48,16 @@ describe('AccountDetailView', () => {
     expect(document.body.textContent).toMatch(/never shown here/);
   });
 
-  it('masks the Creem provider ids rather than showing them raw', () => {
+  it('shows provider linkage as linked / not linked, never an identifier — not even a masked one', () => {
     render(<AccountDetailView account={baseAccount} />);
-    expect(screen.getAllByText('•••••••1234').length).toBe(2); // provider customer id + provider subscription id
-    expect(screen.queryByText('cust_abcdef1234')).toBeNull();
-    expect(screen.queryByText('sub_abcdef1234')).toBeNull();
+    expect(screen.getByText('Provider customer').parentElement?.textContent).toMatch(/Linked/);
+    expect(document.body.textContent).not.toMatch(/•|\bsub_|\bcus_|\bcust_/);
+  });
+
+  it('says "Not linked" when the subscription row carries no provider reference', () => {
+    const account: AccountDetail = { ...baseAccount, subscription: { ...baseAccount.subscription!, hasCustomerReference: false, hasSubscriptionReference: false } };
+    render(<AccountDetailView account={account} />);
+    expect(screen.getByText('Provider subscription').parentElement?.textContent).toMatch(/Not linked/);
   });
 
   it('states signup attribution is not configured, unconditionally', () => {
@@ -64,8 +69,8 @@ describe('AccountDetailView', () => {
     const account: AccountDetail = {
       ...baseAccount,
       status: {
-        status: 'cancelled_access_retained', planState: 'pro', trialDaysLeft: null,
-        billingMismatch: false, mismatchReason: null,
+        status: 'cancelled_access_retained', planState: 'pro', trialDaysLeft: null, trialExpired: false,
+        billingMismatch: false, mismatchKind: null, unverifiedReason: null, revenueVerified: false, mismatchReason: null,
         policyNote: 'Billing cancelled — access retained. Current product policy.',
       },
     };
@@ -78,13 +83,13 @@ describe('AccountDetailView', () => {
     const account: AccountDetail = {
       ...baseAccount,
       status: {
-        status: 'paid_billing_unverified', planState: 'pro', trialDaysLeft: null,
-        billingMismatch: true, mismatchReason: 'No shop_subscriptions row exists for this shop.',
+        status: 'billing_mismatch', planState: 'free', trialDaysLeft: null, trialExpired: false,
+        billingMismatch: true, mismatchKind: 'free_plan_active_subscription', unverifiedReason: null, revenueVerified: false, mismatchReason: 'No shop_subscriptions row exists for this shop.',
         policyNote: null,
       },
     };
     render(<AccountDetailView account={account} />);
-    expect(screen.getByText('Billing mismatch')).toBeTruthy();
+    expect(screen.getAllByText('Billing mismatch').length).toBeGreaterThanOrEqual(2); // status pill + warning heading
     expect(screen.getByText(/No shop_subscriptions row exists/)).toBeTruthy();
   });
 
@@ -128,5 +133,44 @@ describe('AccountDetailView', () => {
     const account: AccountDetail = { ...baseAccount, dataQualityWarnings: ['Usage data could not be loaded.'] };
     render(<AccountDetailView account={account} />);
     expect(screen.getByText('Usage data could not be loaded.')).toBeTruthy();
+  });
+});
+
+describe('AccountDetailView — clearer terminology and safer responses', () => {
+  it('labels paid access without a billing record plainly, without calling it a customer, subscription or internal', () => {
+    const account: AccountDetail = {
+      ...baseAccount, subscription: null,
+      status: { status: 'paid_unverified', planState: 'pro', trialDaysLeft: null, trialExpired: false, billingMismatch: true, mismatchKind: null, unverifiedReason: 'no_billing_record', revenueVerified: false, mismatchReason: 'No subscription row.', policyNote: null },
+    };
+    render(<AccountDetailView account={account} />);
+    expect(screen.getByText('Paid access, unverified')).toBeTruthy(); // the primary state
+    expect(screen.getByText('Paid access, no billing record')).toBeTruthy(); // the exact reason
+    expect(document.body.textContent).not.toMatch(/complimentary status: (yes|granted)|internal account|fraud/i);
+  });
+
+  it('explains an expired stored trial without implying current trial access', () => {
+    const account: AccountDetail = {
+      ...baseAccount, subscription: null,
+      plan: { key: 'trial', displayName: 'trial', trialEndsAt: new Date(Date.now() - 5 * 86400000).toISOString(), trialExpired: true },
+      status: { status: 'free', planState: 'free', trialDaysLeft: null, trialExpired: true, billingMismatch: false, mismatchKind: null, unverifiedReason: null, revenueVerified: false, mismatchReason: null, policyNote: null },
+    };
+    render(<AccountDetailView account={account} />);
+    expect(screen.getByText('Trial expired')).toBeTruthy();
+    expect(screen.getByTestId('expired-trial-note').textContent).toMatch(/on Free/);
+    expect(screen.queryByText('Trial access')).toBeNull();
+  });
+
+  it('shows a failed billing event as "Failed" without any provider error text', () => {
+    const account: AccountDetail = {
+      ...baseAccount,
+      billingEvents: [
+        { id: 'evt-1', eventType: 'subscription.update', processed: false, processedAt: null, failed: true, createdAt: new Date().toISOString() },
+        { id: 'evt-2', eventType: 'subscription.paid', processed: true, processedAt: new Date().toISOString(), failed: false, createdAt: new Date().toISOString() },
+      ],
+    };
+    render(<AccountDetailView account={account} />);
+    const failedRow = screen.getByText('subscription.update').closest('tr')!;
+    expect(within(failedRow).getByText('Failed')).toBeTruthy();
+    expect(within(screen.getByText('subscription.paid').closest('tr')!).getByText('Processed')).toBeTruthy();
   });
 });

@@ -47,6 +47,10 @@ import {
   type AccountStatus,
   type AccountStatusResult,
 } from '@/lib/admin/accountStatus';
+import type { ReconciliationReason } from '@/lib/admin/terminology';
+import { summarizeCommercial, type CommercialShop, type CommercialSummary } from '@/lib/admin/commercialSummary';
+import { computeActivation, type ActivationSummary } from '@/lib/admin/activationData';
+import { accountFingerprint } from '@/lib/admin/fingerprint';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,12 +87,25 @@ export const ACCOUNT_STATUS_FILTERS = [
   'trialing',
   'trial_ending_soon',
   'active_paid',
+  'cancel_scheduled',
   'past_due',
   'cancelled_access_retained',
-  'paid_billing_unverified',
+  'expired',
+  'paid_unverified',
   'billing_mismatch',
 ] as const;
 export type AccountStatusFilter = typeof ACCOUNT_STATUS_FILTERS[number];
+
+/**
+ * Directory scope. Exactly the three groups the Owner Overview counts:
+ *   active   = non-archived, non-internal shops   (Overview "Active external shops")
+ *   archived = archived, non-internal shops       (Overview "Archived external shops")
+ *   internal = shops in INTERNAL_SHOP_IDS, archived or not (Overview "Internal shops")
+ * so a figure on the Overview and the directory it links to always agree. Archived
+ * shops stay in the directory (under "all" and "archived"); nothing is deleted.
+ */
+export const ACCOUNT_ARCHIVE_FILTERS = ['all', 'active', 'archived', 'internal'] as const;
+export type AccountArchiveFilter = typeof ACCOUNT_ARCHIVE_FILTERS[number];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,12 +118,14 @@ export interface AccountListItem {
   /** The shop_users role='owner' member. Null fields mean no owner-role member could be resolved — see ownerResolved. */
   primaryContactEmail: string | null;
   primaryContactRole: string | null;
-  /** False when no shop_users role='owner' row exists and a fallback (earliest-linked profile) was used instead, or no profile at all was found. */
+  /** False when no shop_users role='owner' row exists and a fallback (a linked profile, chosen by id order) was used instead, or no profile at all was found. */
   ownerResolved: boolean;
   memberCount: number;
   plan: string | null;
   planDisplayName: string | null;
   status: AccountStatus;
+  /** Stored plan says 'trial' but the end date has passed: Free today, shown as "Trial expired". Read-only history. */
+  trialExpired: boolean;
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
   billingMismatch: boolean;
@@ -131,6 +150,7 @@ export interface AccountListParams {
   pageSize?: number | string;
   search?: string;
   status?: string;
+  archived?: string;
   sortKey?: string;
   sortDir?: string;
 }
@@ -180,6 +200,7 @@ interface SubscriptionRow {
   cancel_at_period_end: boolean | null;
   cancelled_at: string | null;
   past_due_at: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -216,6 +237,10 @@ export function sanitizeStatusFilter(status: unknown): AccountStatusFilter {
   return ACCOUNT_STATUS_FILTERS.includes(status as AccountStatusFilter) ? (status as AccountStatusFilter) : 'all';
 }
 
+export function sanitizeArchiveFilter(archived: unknown): AccountArchiveFilter {
+  return ACCOUNT_ARCHIVE_FILTERS.includes(archived as AccountArchiveFilter) ? (archived as AccountArchiveFilter) : 'all';
+}
+
 export function planDisplayName(planKey: string | null): string | null {
   if (!planKey) return null;
   const known = (PLANS as Record<string, { name: string } | undefined>)[planKey];
@@ -244,6 +269,16 @@ function mustRows<T>(res: { data: T[] | null; error: { message?: string; code?: 
 }
 
 // ─── Core scan (shared by listAccounts and getOwnerOverview) ─────────────────
+
+/** What the resolver may know about a billing row. The provider id itself never leaves this function. */
+function toSnapshot(sub: SubscriptionRow) {
+  return {
+    status: sub.status,
+    billingProvider: sub.billing_provider,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    hasProviderReference: !!sub.provider_subscription_id,
+  };
+}
 
 interface ClassifiedShop {
   shop: ShopRow;
@@ -324,7 +359,7 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
     db.from('shop_users').select('shop_id, user_id, role').in('shop_id', shopIds),
     db
       .from('shop_subscriptions')
-      .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, created_at')
+      .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, metadata, created_at')
       .in('shop_id', shopIds),
   ]);
   const memberRows = mustRows(memberResult, 'shop_users scan');
@@ -387,9 +422,7 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
       trialEndsAt: primaryProfile?.trial_ends_at ?? null,
       billingStatus: primaryProfile?.billing_status ?? null,
       isInternal,
-      subscription: subscription
-        ? { status: subscription.status, billingProvider: subscription.billing_provider }
-        : null,
+      subscription: subscription ? toSnapshot(subscription) : null,
     });
 
     return {
@@ -408,7 +441,6 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
 
 function matchesStatusFilter(row: ClassifiedShop, filter: AccountStatusFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'billing_mismatch') return row.classification.billingMismatch;
   if (filter === 'trial_ending_soon') {
     return row.classification.status === 'trialing'
       && row.classification.trialDaysLeft !== null
@@ -430,6 +462,7 @@ function toListItem(row: ClassifiedShop, lastSignInAt: string | null | undefined
     plan: row.primaryProfile?.plan ?? null,
     planDisplayName: planDisplayName(row.primaryProfile?.plan ?? null),
     status: row.classification.status,
+    trialExpired: row.classification.trialExpired,
     trialEndsAt: row.primaryProfile?.trial_ends_at ?? null,
     trialDaysLeft: row.classification.trialDaysLeft,
     billingMismatch: row.classification.billingMismatch,
@@ -440,16 +473,28 @@ function toListItem(row: ClassifiedShop, lastSignInAt: string | null | undefined
 
 // ─── Public API: account list ─────────────────────────────────────────────────
 
+function matchesArchiveFilter(a: { isInternal: boolean; shop: { archived_at: string | null } }, filter: AccountArchiveFilter): boolean {
+  switch (filter) {
+    case 'all': return true;
+    case 'internal': return a.isInternal;
+    case 'active': return !a.isInternal && !a.shop.archived_at;
+    case 'archived': return !a.isInternal && !!a.shop.archived_at;
+  }
+}
+
 export async function listAccounts(params: AccountListParams): Promise<AccountListResult> {
   const page = clampPage(params.page);
   const pageSize = clampPageSize(params.pageSize);
   const search = sanitizeSearch(params.search);
   const status = sanitizeStatusFilter(params.status);
+  const archived = sanitizeArchiveFilter(params.archived);
   const sortKey = sanitizeSortKey(params.sortKey);
   const sortDir = sanitizeSortDir(params.sortDir);
 
   const { shops, truncated } = await scanClassifiedShops(search);
-  const filtered = shops.filter(a => matchesStatusFilter(a, status));
+  const filtered = shops
+    .filter(a => matchesStatusFilter(a, status))
+    .filter(a => matchesArchiveFilter(a, archived));
 
   filtered.sort((a, b) => {
     let cmp = 0;
@@ -487,89 +532,317 @@ export async function listAccounts(params: AccountListParams): Promise<AccountLi
 
 // ─── Public API: owner overview ───────────────────────────────────────────────
 
+/**
+ * One count per AccountStatus except 'internal'. Internal shops are counted
+ * separately (OwnerOverview.internalShops) and never appear here, so a set of
+ * these counts is a partition of the shops it was built from.
+ */
+export interface OverviewStatusCounts {
+  free: number;
+  /** "Trial access": profile entitlement (profiles.plan + a future trial_ends_at). */
+  trialing: number;
+  activePaid: number;
+  cancelScheduled: number;
+  pastDue: number;
+  cancelledAccessRetained: number;
+  expired: number;
+  /** Paid access the billing record does not confirm (no record, or an unrecognised status). */
+  paidUnverified: number;
+  /** Billing records that contradict each other. Fails closed: never counted as revenue. */
+  billingMismatch: number;
+}
+
+const STATUS_COUNT_KEY: Record<Exclude<AccountStatus, 'internal'>, keyof OverviewStatusCounts> = {
+  free: 'free',
+  trialing: 'trialing',
+  active_paid: 'activePaid',
+  cancel_scheduled: 'cancelScheduled',
+  past_due: 'pastDue',
+  cancelled_access_retained: 'cancelledAccessRetained',
+  expired: 'expired',
+  paid_unverified: 'paidUnverified',
+  billing_mismatch: 'billingMismatch',
+};
+
+function tallyStatuses(shops: ClassifiedShop[]): OverviewStatusCounts {
+  const counts: OverviewStatusCounts = {
+    free: 0, trialing: 0, activePaid: 0, cancelScheduled: 0, pastDue: 0,
+    cancelledAccessRetained: 0, expired: 0, paidUnverified: 0, billingMismatch: 0,
+  };
+  for (const s of shops) {
+    const status = s.classification.status;
+    if (status === 'internal') continue; // never counted as an external status
+    counts[STATUS_COUNT_KEY[status]]++;
+  }
+  return counts;
+}
+
+/**
+ * The commercial figures shared by the Owner Overview and Billing Health.
+ * Both call this on the same classified shops, so they cannot disagree.
+ */
+export interface CommercialOverview extends CommercialSummary {
+  /**
+   * Subscription rows whose shop_id matches no shop (a billing record with no
+   * account). null when it cannot be determined safely (scan or table too large).
+   */
+  orphanSubscriptions: number | null;
+  /** billing_events rows with no shop_id at all. null when too many rows to count safely. */
+  unattributedBillingEvents: number | null;
+  truncated: boolean;
+}
+
+function toCommercialShop(s: ClassifiedShop): CommercialShop {
+  const meta = s.subscription?.metadata as Record<string, unknown> | null | undefined;
+  // Absent stays null (assumed monthly, reported). A value that is present but not text is
+  // as unrecognisable as an unknown word, so it must not fall back to "monthly".
+  const rawInterval = meta?.billing_interval;
+  const interval = rawInterval === undefined || rawInterval === null ? null : typeof rawInterval === 'string' ? rawInterval : '[not text]';
+  return {
+    shopId: s.shop.id,
+    archived: !!s.shop.archived_at,
+    result: s.classification,
+    planKey: s.subscription?.plan_key ?? null,
+    billingInterval: interval,
+    subscriptionStatus: s.subscription?.status ?? null,
+  };
+}
+
+async function countOrphanBillingRecords(
+  db: ReturnType<typeof getAdminDb>,
+  knownShopIds: Set<string>,
+  scanTruncated: boolean,
+): Promise<{ orphanSubscriptions: number | null; unattributedBillingEvents: number | null }> {
+  const [subsRes, eventsRes] = await Promise.all([
+    db.from('shop_subscriptions').select('shop_id').limit(MAX_SCAN_ROWS + 1),
+    db.from('billing_events').select('shop_id').limit(MAX_SCAN_ROWS + 1),
+  ]);
+  const subs = mustRows(subsRes, 'orphan subscription scan');
+  const events = mustRows(eventsRes, 'unattributed billing event scan');
+  return {
+    // Without the full shop list an "orphan" cannot be told from a shop outside the scan.
+    orphanSubscriptions: scanTruncated || subs.length > MAX_SCAN_ROWS
+      ? null
+      : subs.filter(r => !knownShopIds.has(r.shop_id)).length,
+    unattributedBillingEvents: events.length > MAX_SCAN_ROWS ? null : events.filter(r => !r.shop_id).length,
+  };
+}
+
+async function buildCommercialOverview(db: ReturnType<typeof getAdminDb>, scan: ScanResult): Promise<CommercialOverview> {
+  const summary = summarizeCommercial(scan.shops.map(toCommercialShop));
+  const orphans = await countOrphanBillingRecords(db, new Set(scan.shops.map(s => s.shop.id)), scan.truncated);
+  // A billing record with no account is a contradiction: fail closed.
+  const reconciliation = (orphans.orphanSubscriptions ?? 0) > 0 ? 'mismatch' : summary.reconciliation;
+  return { ...summary, reconciliation, ...orphans, truncated: scan.truncated };
+}
+
+/** Used by Billing Health so its subscription and revenue figures come from the same resolver as the Overview. */
+export async function getCommercialOverview(): Promise<CommercialOverview> {
+  const scan = await scanClassifiedShops('');
+  return buildCommercialOverview(getAdminDb(), scan);
+}
+
 export interface OwnerOverview {
-  totalSignups: number;
+  /** Every shop scanned: active external + archived external + internal. */
+  totalShops: number;
+  /** Non-archived shops that are not internal. The headline customer/signup count. */
+  activeExternalShops: number;
+  /** Archived shops that are not internal. Shown separately; never included in the active figures. */
+  archivedExternalShops: number;
+  /** Shops in INTERNAL_SHOP_IDS (explicit marker only), archived or not. */
+  internalShops: number;
+  /** Partition of activeExternalShops by primary status. */
+  active: OverviewStatusCounts;
+  /** Partition of archivedExternalShops by primary status. */
+  archived: OverviewStatusCounts;
+  // Signup and trial-timing figures cover ACTIVE external shops only.
   signupsToday: number;
   signupsLast7Days: number;
   signupsLast30Days: number;
-  free: number;
-  trialing: number;
+  /** Subsets of active.trialing — not additional statuses. */
   trialEndingIn3Days: number;
   trialEndingIn7Days: number;
-  activePaid: number;
-  pastDue: number;
-  cancelledAccessRetained: number;
-  paidBillingUnverified: number;
-  billingMismatches: number;
-  internal: number;
-  /** profiles with no shop_id — not counted as shop signups above; a separate, real gap. */
-  unlinkedProfiles: number;
+  /** Shops flagged for billing review (records contradict, or paid access is unverified). */
+  billingReviewActive: number;
+  billingReviewArchived: number;
+  /** Shared with Billing Health: reconciliation indicator, subscription counts and verified revenue. */
+  commercial: CommercialOverview;
+  /** Activation among active external shops (definition: lib/admin/activationRules.ts). Never throws; check `available`. */
+  activation: ActivationSummary;
+  /**
+   * profiles with no shop_users membership at all. Deliberately NOT based on the
+   * legacy profiles.shop_id pointer: a profile with a null shop_id but a real
+   * membership is linked. null when there are too many rows to scan safely.
+   */
+  profilesWithoutMembership: number | null;
   truncated: boolean;
   maxScanRows: number;
+  /** Most recent ACTIVE external shops. */
   recentSignups: AccountListItem[];
+}
+
+async function countProfilesWithoutMembership(db: ReturnType<typeof getAdminDb>): Promise<number | null> {
+  const [profilesRes, membersRes] = await Promise.all([
+    db.from('profiles').select('id').limit(MAX_SCAN_ROWS + 1),
+    db.from('shop_users').select('user_id').limit(MAX_SCAN_ROWS + 1),
+  ]);
+  const profiles = mustRows(profilesRes, 'profiles membership scan');
+  const members = mustRows(membersRes, 'shop_users membership scan');
+  // Over the cap the set difference would be wrong, not just partial: say so instead.
+  if (profiles.length > MAX_SCAN_ROWS || members.length > MAX_SCAN_ROWS) return null;
+  const linked = new Set(members.map(m => m.user_id));
+  return profiles.filter(p => !linked.has(p.id)).length;
 }
 
 export async function getOwnerOverview(): Promise<OwnerOverview> {
   const db = getAdminDb();
-  const { shops, truncated } = await scanClassifiedShops('');
+  const scan = await scanClassifiedShops('');
+  const { shops, truncated } = scan;
+  const internal = shops.filter(a => a.isInternal);
   const external = shops.filter(a => !a.isInternal);
+  const activeExternal = external.filter(a => !a.shop.archived_at);
+  const archivedExternal = external.filter(a => !!a.shop.archived_at);
 
   const now = Date.now();
   const dayMs = 86400000;
-  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = new Date(); startOfToday.setUTCHours(0, 0, 0, 0); // the label says 00:00 UTC, whatever the host's timezone
 
-  const signupsToday = external.filter(a => new Date(a.shop.created_at).getTime() >= startOfToday.getTime()).length;
-  const signupsLast7Days = external.filter(a => now - new Date(a.shop.created_at).getTime() <= 7 * dayMs).length;
-  const signupsLast30Days = external.filter(a => now - new Date(a.shop.created_at).getTime() <= 30 * dayMs).length;
+  const signupsToday = activeExternal.filter(a => new Date(a.shop.created_at).getTime() >= startOfToday.getTime()).length;
+  const signupsLast7Days = activeExternal.filter(a => now - new Date(a.shop.created_at).getTime() <= 7 * dayMs).length;
+  const signupsLast30Days = activeExternal.filter(a => now - new Date(a.shop.created_at).getTime() <= 30 * dayMs).length;
 
-  const counts: Record<AccountStatus, number> = {
-    free: 0, trialing: 0, active_paid: 0, past_due: 0,
-    cancelled_access_retained: 0, paid_billing_unverified: 0, internal: 0,
-  };
   let trialEndingIn3Days = 0;
   let trialEndingIn7Days = 0;
-  let billingMismatches = 0;
-
-  for (const a of shops) {
-    counts[a.classification.status]++;
-    if (a.classification.billingMismatch) billingMismatches++;
+  for (const a of activeExternal) {
     if (a.classification.status === 'trialing' && a.classification.trialDaysLeft !== null) {
       if (a.classification.trialDaysLeft <= 3) trialEndingIn3Days++;
       if (a.classification.trialDaysLeft <= 7) trialEndingIn7Days++;
     }
   }
 
-  const recentShops = [...external]
+  const recentSignups: AccountListItem[] = [...activeExternal]
     .sort((a, b) => b.shop.created_at.localeCompare(a.shop.created_at))
-    .slice(0, 10);
-  const recentSignups: AccountListItem[] = recentShops.map(row => toListItem(row, undefined));
-
-  const { count: unlinkedProfiles, error: unlinkedErr } = await db
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .is('shop_id', null);
-  if (unlinkedErr) throw new AdminDataError('unlinked profiles count', unlinkedErr);
+    .slice(0, 10)
+    .map(row => toListItem(row, undefined));
 
   return {
-    totalSignups: external.length,
+    totalShops: shops.length,
+    activeExternalShops: activeExternal.length,
+    archivedExternalShops: archivedExternal.length,
+    internalShops: internal.length,
+    active: tallyStatuses(activeExternal),
+    archived: tallyStatuses(archivedExternal),
     signupsToday,
     signupsLast7Days,
     signupsLast30Days,
-    free: counts.free,
-    trialing: counts.trialing,
     trialEndingIn3Days,
     trialEndingIn7Days,
-    activePaid: counts.active_paid,
-    pastDue: counts.past_due,
-    cancelledAccessRetained: counts.cancelled_access_retained,
-    paidBillingUnverified: counts.paid_billing_unverified,
-    billingMismatches,
-    internal: counts.internal,
-    unlinkedProfiles: unlinkedProfiles ?? 0,
+    billingReviewActive: activeExternal.filter(a => a.classification.billingMismatch).length,
+    billingReviewArchived: archivedExternal.filter(a => a.classification.billingMismatch).length,
+    commercial: await buildCommercialOverview(db, scan),
+    activation: (await computeActivation(db, activeExternal.map(a => ({
+      shopId: a.shop.id,
+      ownerUserId: a.primaryProfile?.id ?? null,
+      entitlement: a.classification.planState,
+      paidVerified: a.classification.revenueVerified,
+      createdAt: a.shop.created_at,
+    })))).summary,
+    profilesWithoutMembership: await countProfilesWithoutMembership(db),
     truncated,
     maxScanRows: MAX_SCAN_ROWS,
     recentSignups,
   };
+}
+
+// ─── Public API: billing reconciliation (read-only) ───────────────────────────
+
+const RECONCILIATION_DEFAULT_PAGE_SIZE = 25;
+const RECONCILIATION_MAX_PAGE_SIZE = 50;
+
+/**
+ * Only what an owner needs to reconcile one account, with the account id
+ * reduced to a masked reference. No emails, provider identifiers, payloads or
+ * error text — `hasSubscriptionReference` is a boolean, not an identifier.
+ */
+export interface ReconciliationItem {
+  /** One-way HMAC reference (see lib/admin/fingerprint.ts). Stable per account, not an id prefix, and cannot be matched to an id from another response. */
+  accountRef: string;
+  shopName: string;
+  archived: boolean;
+  /** The entitlement the product actually grants (lib/planGate getPlanStatus). */
+  entitlement: 'free' | 'trial' | 'pro';
+  profilePlan: string | null;
+  profileBillingStatus: string | null;
+  subscriptionStatus: string | null;
+  subscriptionPlanKey: string | null;
+  hasSubscriptionReference: boolean;
+  billingEventCount: number;
+  reasons: ReconciliationReason[];
+}
+
+export interface ReconciliationResult {
+  items: ReconciliationItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** True if a bounded scan hit its cap — total may be understated. */
+  truncated: boolean;
+  maxScanRows: number;
+}
+
+export async function getBillingReconciliation(params: { page?: number | string; pageSize?: number | string }): Promise<ReconciliationResult> {
+  const page = clampPage(params.page);
+  const pageSize = Math.min(clampPageSize(params.pageSize ?? RECONCILIATION_DEFAULT_PAGE_SIZE), RECONCILIATION_MAX_PAGE_SIZE);
+
+  const db = getAdminDb();
+  const { shops, truncated: scanTruncated } = await scanClassifiedShops('');
+
+  // shop_id only — never the payload or error columns.
+  const eventRows = mustRows(
+    await db.from('billing_events').select('shop_id').not('shop_id', 'is', null).limit(MAX_SCAN_ROWS),
+    'billing events scan',
+  );
+  const eventsTruncated = eventRows.length >= MAX_SCAN_ROWS;
+  const eventCountByShop = new Map<string, number>();
+  for (const e of eventRows) eventCountByShop.set(e.shop_id, (eventCountByShop.get(e.shop_id) ?? 0) + 1);
+
+  const flagged: Array<{ row: ClassifiedShop; reasons: ReconciliationReason[]; events: number }> = [];
+  for (const row of shops) {
+    if (row.isInternal) continue; // internal shops are outside billing framing
+    const c = row.classification;
+    const events = eventCountByShop.get(row.shop.id) ?? 0;
+    const reasons: ReconciliationReason[] = [];
+    if (c.planState === 'pro' && !row.subscription) reasons.push('paid_no_billing_record');
+    if (c.mismatchKind === 'free_plan_active_subscription') reasons.push('active_subscription_free_entitlement');
+    if (events > 0 && !row.subscription) reasons.push('billing_events_without_subscription');
+    if (c.mismatchKind && c.mismatchKind !== 'free_plan_active_subscription') reasons.push('billing_status_conflict');
+    if (c.unverifiedReason === 'unrecognised_subscription_status') reasons.push('unrecognised_subscription_status');
+    if (reasons.length > 0) flagged.push({ row, reasons, events });
+  }
+
+  // Active shops first, then archived; newest first within each, id as a stable tiebreak.
+  flagged.sort((a, b) => {
+    const archivedDiff = Number(!!a.row.shop.archived_at) - Number(!!b.row.shop.archived_at);
+    if (archivedDiff !== 0) return archivedDiff;
+    return b.row.shop.created_at.localeCompare(a.row.shop.created_at) || a.row.shop.id.localeCompare(b.row.shop.id);
+  });
+
+  const start = (page - 1) * pageSize;
+  const items: ReconciliationItem[] = flagged.slice(start, start + pageSize).map(({ row, reasons, events }) => ({
+    accountRef: accountFingerprint(row.shop.id),
+    shopName: row.shop.name ?? '(unnamed shop)',
+    archived: !!row.shop.archived_at,
+    entitlement: row.classification.planState,
+    profilePlan: row.primaryProfile?.plan ?? null,
+    profileBillingStatus: row.primaryProfile?.billing_status ?? null,
+    subscriptionStatus: row.subscription?.status ?? null,
+    subscriptionPlanKey: row.subscription?.plan_key ?? null,
+    hasSubscriptionReference: !!row.subscription?.provider_subscription_id,
+    billingEventCount: events,
+    reasons,
+  }));
+
+  return { items, total: flagged.length, page, pageSize, truncated: scanTruncated || eventsTruncated, maxScanRows: MAX_SCAN_ROWS };
 }
 
 // ─── Public API: account detail ───────────────────────────────────────────────
@@ -587,23 +860,19 @@ export interface OtherShopMembership {
   role: string;
 }
 
-export interface MaskedProviderRef {
-  raw: string;
-  masked: string;
-}
-
-function maskRef(value: string | null): MaskedProviderRef | null {
-  if (!value) return null;
-  const tail = value.slice(-4);
-  return { raw: value, masked: `${'•'.repeat(Math.max(0, value.length - 4))}${tail}` };
-}
-
+/**
+ * Deliberately no provider identifiers and no provider error text: a full
+ * subscription/customer id, a "masked" one that keeps its tail, or an error
+ * string quoted from a webhook could each be used to identify or reach the
+ * provider record. Linkage is reported as booleans only.
+ */
 export interface BillingEventSummary {
   id: string;
   eventType: string;
   processed: boolean;
   processedAt: string | null;
-  error: string | null;
+  /** True when the webhook handler recorded an error for this event. The error text is not returned. */
+  failed: boolean;
   createdAt: string;
 }
 
@@ -634,14 +903,16 @@ export interface AccountDetail {
     key: string | null;
     displayName: string | null;
     trialEndsAt: string | null;
+    /** Stored plan says 'trial' but the end date has passed: Free today. Nothing is written. */
+    trialExpired: boolean;
   };
   status: AccountStatusResult;
   subscription: {
     status: string;
     planKey: string;
     billingProvider: string | null;
-    providerCustomerId: MaskedProviderRef | null;
-    providerSubscriptionId: MaskedProviderRef | null;
+    hasCustomerReference: boolean;
+    hasSubscriptionReference: boolean;
     currentPeriodStart: string | null;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
@@ -691,7 +962,8 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
 
   if (!primaryProfile) {
     // No owner-role membership (or the owner's profile row is missing) —
-    // fall back to the earliest profile whose profiles.shop_id points here.
+    // fall back to a profile whose profiles.shop_id points here (first by id;
+    // profiles has no creation date, so this is deterministic, not chronological).
     ownerResolved = false;
     const fallbackRows = mustRows(
       await db
@@ -746,7 +1018,7 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     const subs = mustRows(
       await db
         .from('shop_subscriptions')
-        .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, created_at')
+        .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, metadata, created_at')
         .eq('shop_id', shop.id)
         .order('created_at', { ascending: false })
         .limit(1),
@@ -766,7 +1038,8 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     if (eventsErr) warnings.push('Billing event history is unavailable.');
     billingEvents = (events ?? []).map(e => ({
       id: e.id, eventType: e.event_type, processed: e.processed,
-      processedAt: e.processed_at, error: e.error, createdAt: e.created_at,
+      // The stored error text never leaves the server — only whether one exists.
+      processedAt: e.processed_at, failed: !!e.error, createdAt: e.created_at,
     }));
   }
 
@@ -800,9 +1073,7 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
     trialEndsAt: primaryProfile?.trial_ends_at ?? null,
     billingStatus: primaryProfile?.billing_status ?? null,
     isInternal,
-    subscription: subscription
-      ? { status: subscription.status, billingProvider: subscription.billing_provider }
-      : null,
+    subscription: subscription ? toSnapshot(subscription) : null,
   });
   if (classification.billingMismatch && classification.mismatchReason) {
     warnings.push(classification.mismatchReason);
@@ -825,14 +1096,15 @@ export async function getAccountDetail(shopId: string): Promise<AccountDetail | 
       key: primaryProfile?.plan ?? null,
       displayName: planDisplayName(primaryProfile?.plan ?? null),
       trialEndsAt: primaryProfile?.trial_ends_at ?? null,
+      trialExpired: classification.trialExpired,
     },
     status: classification,
     subscription: subscription ? {
       status: subscription.status,
       planKey: subscription.plan_key,
       billingProvider: subscription.billing_provider,
-      providerCustomerId: maskRef(subscription.provider_customer_id),
-      providerSubscriptionId: maskRef(subscription.provider_subscription_id),
+      hasCustomerReference: !!subscription.provider_customer_id,
+      hasSubscriptionReference: !!subscription.provider_subscription_id,
       currentPeriodStart: subscription.current_period_start,
       currentPeriodEnd: subscription.current_period_end,
       cancelAtPeriodEnd: !!subscription.cancel_at_period_end,

@@ -238,8 +238,10 @@ describe('getAccountDetail against the production profiles schema', () => {
   it('flags a paying shop whose profile plan is still free', async () => {
     tables.profiles = tables.profiles.map(p => (p.id === U_PAID ? { ...p, plan: 'free', billing_status: 'inactive' } : p));
     const detail = await getAccountDetail(SHOP_PAID);
-    expect(detail?.status.status).toBe('free');
-    expect(detail?.status.billingMismatch).toBe(true);
+    expect(detail?.status.status).toBe('billing_mismatch'); // fails closed, and never counted as revenue
+    expect(detail?.status.planState).toBe('free'); // entitlement is untouched
+    expect(detail?.status.mismatchKind).toBe('free_plan_active_subscription');
+    expect(detail?.status.revenueVerified).toBe(false);
     expect(detail?.dataQualityWarnings.join(' ')).toMatch(/paying without receiving paid features/);
   });
 });
@@ -247,10 +249,10 @@ describe('getAccountDetail against the production profiles schema', () => {
 describe('getOwnerOverview against the production profiles schema', () => {
   it('counts the paid shop as active_paid and excludes internal shops from signups', async () => {
     const o = await getOwnerOverview();
-    expect(o.activePaid).toBe(1);
-    expect(o.free).toBe(1);
-    expect(o.internal).toBe(1);
-    expect(o.totalSignups).toBe(2);
-    expect(o.billingMismatches).toBe(0);
+    expect(o.active.activePaid).toBe(1);
+    expect(o.active.free).toBe(1);
+    expect(o.internalShops).toBe(1);
+    expect(o.activeExternalShops).toBe(2);
+    expect(o.billingReviewActive).toBe(0);
   });
 });

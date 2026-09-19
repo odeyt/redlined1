@@ -1,11 +1,12 @@
 /**
  * /admin/billing-health — Platform owner only.
- * Uses next/headers cookies() directly (correct Server Component pattern).
+ * Guarded by the shared, fail-closed requirePlatformOwnerPage() — the same
+ * PLATFORM_OWNER_EMAIL check every other owner-admin page uses. If that
+ * variable is not configured, nobody gets in. The matching /api/admin/
+ * billing-health/* routes authorize independently via verifyPlatformOwner().
  */
 
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { createServerClient } from '@supabase/ssr';
+import { requirePlatformOwnerPage } from '@/lib/adminAuth';
 import { BillingHealthDashboard } from '@/features/admin/billing-health/BillingHealthDashboard';
 
 export const dynamic = 'force-dynamic';
@@ -15,35 +16,7 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-async function getSessionEmail(): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll() {},
-        },
-      }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.email?.toLowerCase() ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export default async function BillingHealthPage() {
-  const email = await getSessionEmail();
-
-  const raw = process.env.PLATFORM_OWNER_EMAIL ?? 'admin@redlined1.com';
-  const ownerEmails = raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-
-  if (!email || !ownerEmails.includes(email)) {
-    redirect('/login');
-  }
-
+  await requirePlatformOwnerPage();
   return <BillingHealthDashboard />;
 }
