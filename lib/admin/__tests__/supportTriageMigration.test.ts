@@ -56,8 +56,54 @@ describe('2026-09-19_support_ticket_triage.sql', () => {
     expect(executable).not.toMatch(/\bFROM\s+public\.support_tickets\b/i); // the migration never reads existing tickets
   });
 
-  it('ties every marking to a real ticket, and lets history follow the ticket if it is ever deleted', () => {
+  it('ties every marking to a real ticket', () => {
     expect(executable).toMatch(/ticket_id\s+UUID\s+NOT NULL REFERENCES public\.support_tickets\(id\) ON DELETE CASCADE/);
+  });
+
+  // The FK still cascades, but marker history must survive: an append-only trigger (the payments / audit_events
+  // pattern) refuses the cascaded DELETE, so a marked ticket or shop cannot be deleted. Only a synthetic-shop purge may.
+  describe('audit retention: the marker history cannot be deleted, including by a foreign-key cascade', () => {
+    it('refuses UPDATE, DELETE and TRUNCATE for everyone, not just the API roles', () => {
+      expect(executable).toMatch(/CREATE TRIGGER support_ticket_triage_events_no_update\s+BEFORE UPDATE OR DELETE ON public\.support_ticket_triage_events\s+FOR EACH ROW EXECUTE FUNCTION public\.support_ticket_triage_events_are_append_only\(\)/);
+      expect(executable).toMatch(/CREATE TRIGGER support_ticket_triage_events_no_truncate\s+BEFORE TRUNCATE ON public\.support_ticket_triage_events\s+FOR EACH STATEMENT EXECUTE FUNCTION/);
+      expect(executable).toMatch(/RAISE EXCEPTION 'support_ticket_triage_events is append-only[^;]*USING ERRCODE = 'insufficient_privilege'/);
+    });
+
+    it('has exactly one exemption: the flag purge_synthetic_shop() sets, read from the real purge function', () => {
+      const purge = read('supabase/migrations/2026-08-17_m6_purge_synthetic_shop.sql');
+      const flag = purge.match(/set_config\('([a-z0-9_.]+)', 'on', true\)/)?.[1];
+      expect(flag).toBe('redlined1.purging_synthetic_shop');
+      expect(executable).toContain(`current_setting('${flag}', true) = 'on'`);
+      expect((executable.match(/current_setting\(/g) ?? [])).toHaveLength(1);
+      // and the purge itself still refuses anything that is not an [E2E] shop
+      expect(purge).toMatch(/NOT LIKE '\[E2E\]%'/);
+    });
+
+    it('follows the same pattern as the existing append-only tables', () => {
+      // payments: created append-only in M2; M6 redefines the trigger function to add the synthetic-purge exemption.
+      const payments = read('supabase/migrations/2026-08-17_m2_payment_ledger.sql');
+      expect(payments).toMatch(/BEFORE UPDATE OR DELETE ON public\.payments\s+FOR EACH ROW/);
+      const purge = read('supabase/migrations/2026-08-17_m6_purge_synthetic_shop.sql');
+      expect(purge).toMatch(/CREATE OR REPLACE FUNCTION public\.payments_are_append_only\(\)[\s\S]*?redlined1\.purging_synthetic_shop[\s\S]*?insufficient_privilege/);
+    });
+
+    it('asserts inside the transaction that the triggers exist, so a migration without them aborts', () => {
+      expect(executable).toMatch(/tgname IN \('support_ticket_triage_events_no_update', 'support_ticket_triage_events_no_truncate'\)/);
+      expect(executable).toMatch(/append-only triggers on support_ticket_triage_events are missing/);
+    });
+
+    it('no longer claims a ticket deletion silently removes the history, and documents what does happen', () => {
+      expect(sql).not.toMatch(/cascades to that ticket's marker history/);
+      expect(sql).toMatch(/-- DELETION/);
+      expect(sql).toMatch(/cannot be deleted \(error 42501, nothing removed\)/);
+    });
+
+    it('the CI workflow proves the retention: a marked ticket cannot be deleted, a flagged purge can', () => {
+      const wf = read('.github/workflows/support-triage-migration.yml');
+      expect(wf).toMatch(/marker history survives/i);
+      expect(wf).toMatch(/DELETE FROM public\.support_tickets/);
+      expect(wf).toMatch(/redlined1\.purging_synthetic_shop/);
+    });
   });
 
   it('is append-only: service_role gets SELECT and INSERT and nothing that edits or removes history', () => {

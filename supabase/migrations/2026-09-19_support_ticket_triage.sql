@@ -39,7 +39,13 @@
 --      grants service_role SELECT and INSERT only, which is what the owner-only API
 --      route uses. History cannot be edited or removed by any API role. The
 --      transaction asserts this against every privilege type and aborts otherwise.
---   4. Changes nothing else. No existing row, table, policy or grant is touched,
+--   4. Adds an append-only TRIGGER, the same pattern payments and audit_events use
+--      (2026-08-16_m1, 2026-08-17_m2, 2026-08-17_m6): UPDATE, DELETE and TRUNCATE are
+--      refused for EVERYONE, including the table owner and the foreign-key cascade,
+--      except inside purge_synthetic_shop(), which only ever purges '[E2E]' test shops.
+--      So the audit history is retained even if someone tries to delete a marked ticket
+--      or shop: that delete fails, with nothing removed. See "DELETION" below.
+--   5. Changes nothing else. No existing row, table, policy or grant is touched,
 --      and nothing is backfilled or reclassified.
 --
 -- The application is written for this migration NOT being applied yet: it
@@ -52,7 +58,19 @@
 --   (for the foreign key). That table is small and the lock lasts for the one
 --   transaction. Nothing else is altered.
 --
--- Deleting a ticket (or its shop) cascades to that ticket's marker history.
+-- DELETION
+-- --------
+--   The application never deletes a support ticket (there is no such code path); tickets
+--   and their markers disappear only when a shop is deleted or by hand in SQL. The foreign
+--   key below stays ON DELETE CASCADE, but the append-only trigger makes that cascade refuse
+--   to remove marker rows, so:
+--     * a ticket or shop that has ANY marking cannot be deleted (error 42501, nothing removed),
+--       exactly as a shop with payments or audit_events cannot be. Unmarked tickets, and shops
+--       whose tickets were never marked, are deleted as before;
+--     * '[E2E]' synthetic shops are still purgeable, because purge_synthetic_shop() sets the
+--       existing 'redlined1.purging_synthetic_shop' flag that the trigger recognises.
+--   To remove a REAL marked ticket or shop deliberately, an owner-level procedure must first
+--   export the history (see Rollback, step 3); that decision is intentionally not automatic.
 -- ===========================================================================
 
 BEGIN;
@@ -89,6 +107,30 @@ BEGIN
                  pg_get_serial_sequence('public.support_ticket_triage_events', 'id'));
 END $$;
 
+-- Append-only for everyone, not only for the API roles (grants alone do not bind the table owner or a
+-- foreign-key cascade). Mirrors payments_are_append_only(): the single exemption is a purge of a synthetic
+-- '[E2E]' shop, which sets this transaction-local flag inside purge_synthetic_shop().
+CREATE OR REPLACE FUNCTION public.support_ticket_triage_events_are_append_only()
+RETURNS trigger LANGUAGE plpgsql AS $fn$
+BEGIN
+  IF current_setting('redlined1.purging_synthetic_shop', true) = 'on' THEN
+    IF TG_LEVEL = 'ROW' THEN RETURN OLD; END IF;
+    RETURN NULL;
+  END IF;
+  RAISE EXCEPTION 'support_ticket_triage_events is append-only (attempted %): a ticket or shop with marker history cannot be deleted', TG_OP
+    USING ERRCODE = 'insufficient_privilege';
+END $fn$;
+
+DROP TRIGGER IF EXISTS support_ticket_triage_events_no_update ON public.support_ticket_triage_events;
+CREATE TRIGGER support_ticket_triage_events_no_update
+  BEFORE UPDATE OR DELETE ON public.support_ticket_triage_events
+  FOR EACH ROW EXECUTE FUNCTION public.support_ticket_triage_events_are_append_only();
+
+DROP TRIGGER IF EXISTS support_ticket_triage_events_no_truncate ON public.support_ticket_triage_events;
+CREATE TRIGGER support_ticket_triage_events_no_truncate
+  BEFORE TRUNCATE ON public.support_ticket_triage_events
+  FOR EACH STATEMENT EXECUTE FUNCTION public.support_ticket_triage_events_are_append_only();
+
 -- RLS with no policy is only a guarantee if RLS is actually on and the grants are gone. Asserted, not assumed,
 -- against EVERY privilege type, so a default this file did not anticipate aborts the transaction instead of shipping.
 DO $$
@@ -99,6 +141,10 @@ DECLARE
 BEGIN
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = t::regclass) THEN
     RAISE EXCEPTION 'RLS did not enable on support_ticket_triage_events';
+  END IF;
+  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = t::regclass AND NOT tgisinternal
+        AND tgname IN ('support_ticket_triage_events_no_update', 'support_ticket_triage_events_no_truncate')) <> 2 THEN
+    RAISE EXCEPTION 'the append-only triggers on support_ticket_triage_events are missing';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = t::regclass) THEN
     RAISE EXCEPTION 'support_ticket_triage_events must have no policies';
@@ -160,6 +206,11 @@ COMMIT;
 --
 --        SELECT id, ticket_id, triage, set_by, created_at FROM public.support_ticket_triage_events ORDER BY id;   -- save this output
 --        ALTER TABLE public.support_ticket_triage_events RENAME TO support_ticket_triage_events_archive;
+--        ALTER INDEX public.support_ticket_triage_events_ticket_idx RENAME TO support_ticket_triage_events_archive_ticket_idx;
 --
---   Deleting a ticket (or its shop) deletes that ticket's marker history through the foreign key; nothing in a
---   rollback should do that.
+--      (Rename the index too: a later re-apply of this file would otherwise skip CREATE INDEX IF NOT EXISTS because
+--      the old name is taken, leaving the new table without it.)
+--
+--   The append-only trigger does not fire on DROP TABLE or RENAME, so the steps above work as written. It DOES refuse
+--   any DELETE of marker rows, including the one a ticket or shop deletion would cascade into; nothing in a rollback
+--   should try that.

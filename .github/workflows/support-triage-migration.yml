@@ -118,6 +118,48 @@ jobs:
           if psql -v ON_ERROR_STOP=1 -c "SET ROLE authenticated; SELECT nextval('public.support_ticket_triage_events_id_seq')" >/dev/null 2>&1; then
             echo "authenticated role unexpectedly used the marker id sequence"; exit 1
           fi
+      - name: Verify the marker history survives deletion of its ticket
+        run: |
+          # Runs as the table owner (postgres), which grants alone do not bind: the append-only trigger must.
+          # Each statement must be refused BY THE TRIGGER; the error text is checked so an unrelated failure
+          # (a typo, a missing table) cannot make this pass vacuously.
+          refuse() {
+            if err=$(psql -v ON_ERROR_STOP=1 -c "$1" 2>&1 >/dev/null); then
+              echo "NOT REFUSED: $1"; exit 1
+            fi
+            echo "$err" | grep -q "append-only" || { echo "refused, but not by the append-only trigger: $1 -> $err"; exit 1; }
+          }
+          refuse "DELETE FROM public.support_tickets WHERE id = '33333333-3333-3333-3333-333333333333'"
+          refuse "DELETE FROM public.support_ticket_triage_events"
+          refuse "UPDATE public.support_ticket_triage_events SET triage = 'spam'"
+          refuse "TRUNCATE public.support_ticket_triage_events"
+          refuse "TRUNCATE public.support_tickets CASCADE"
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM public.support_ticket_triage_events) <> 2
+               OR (SELECT count(*) FROM public.support_tickets) <> 1
+            THEN RAISE EXCEPTION 'a refused delete still removed a ticket or a marking'; END IF;
+          END $$;
+          SQL
+          # The one exemption: a synthetic-shop purge sets this transaction-local flag. The cascade then works.
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          SELECT set_config('redlined1.purging_synthetic_shop', 'on', true);
+          DELETE FROM public.support_tickets WHERE id = '33333333-3333-3333-3333-333333333333';
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM public.support_ticket_triage_events) <> 0
+            THEN RAISE EXCEPTION 'a flagged purge did not cascade to the markings'; END IF;
+          END $$;
+          ROLLBACK;
+          DO $$
+          BEGIN
+            IF (SELECT count(*) FROM public.support_ticket_triage_events) <> 2
+               OR (SELECT count(*) FROM public.support_tickets) <> 1
+            THEN RAISE EXCEPTION 'the rolled-back purge changed data'; END IF;
+          END $$;
+          SQL
       - name: Verify the documented rollback never discards audit rows
         run: |
           # The table holds 2 markings here. The documented guarded drop must refuse and leave everything in place.
@@ -141,6 +183,7 @@ jobs:
           END $$;
           -- Archive path: rename keeps every row and the lock-down.
           ALTER TABLE public.support_ticket_triage_events RENAME TO support_ticket_triage_events_archive;
+          ALTER INDEX public.support_ticket_triage_events_ticket_idx RENAME TO support_ticket_triage_events_archive_ticket_idx;
           DO $$
           DECLARE t CONSTANT text := 'public.support_ticket_triage_events_archive';
           BEGIN
