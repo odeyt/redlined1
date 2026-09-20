@@ -15,7 +15,7 @@
  * derivable instead of being approximated.
  */
 import type { OwnerOverview } from '@/lib/admin/accountsData';
-import type { SupportSummary } from '@/lib/admin/supportTriage';
+import { SUPPORT_OVERDUE_DAYS, type SupportSummary } from '@/lib/admin/supportTriage';
 import type { ProfileDiagnosticsSummary } from '@/lib/admin/profileDiagnostics';
 
 export interface TodayAction {
@@ -56,6 +56,17 @@ export const TODAYS_ACTIONS_NOT_DERIVABLE = ['Checkout started (not recorded any
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
+/**
+ * The support summary to hand to buildTodaysActions. A queue whose ticket source could not be read has
+ * a summary of zeros, which is indistinguishable from "nothing waiting": it becomes null so the panel
+ * says "unavailable" instead of "nothing needs attention".
+ */
+export function supportSummaryForToday(
+  result: { sources: { supportTickets: 'available' | 'unavailable' }; summary: SupportSummary },
+): SupportSummary | null {
+  return result.sources.supportTickets === 'available' ? result.summary : null;
+}
+
 export function buildTodaysActions(input: {
   overview: OwnerOverview;
   /** null = the support queue could not be read. */
@@ -94,7 +105,7 @@ export function buildTodaysActions(input: {
   if (support) {
     add({
       id: 'overdue-tickets', label: 'Overdue support tickets', count: support.overdueTickets,
-      detail: `Open and waiting on us for at least 2 days, counted from the first unanswered customer message${support.oldestOpenTicketAgeDays != null ? ` (oldest open ticket: ${plural(support.oldestOpenTicketAgeDays, 'day')} old)` : ''}. Confirmed test/spam excluded.`,
+      detail: `Open and waiting on us for at least ${SUPPORT_OVERDUE_DAYS} days, counted from the first unanswered customer message${support.oldestOpenTicketAgeDays != null ? ` (oldest open ticket: ${plural(support.oldestOpenTicketAgeDays, 'day')} old)` : ''}. Confirmed test/spam excluded.`,
       href: '/admin/support?view=overdue', linkKind: 'exact', priority: 15, urgent: true,
     });
     add({

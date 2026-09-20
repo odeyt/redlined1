@@ -95,7 +95,9 @@ export async function listSupportItems(now: number = Date.now()): Promise<Suppor
   return {
     items,
     sources: {
-      supportTickets: ticketsAvailable ? 'available' : 'unavailable',
+      // A ticket read that failed after the table probe passed (a bad column, a partial outage) is just as
+      // unavailable: an empty list from a failed read must never look like an empty queue.
+      supportTickets: ticketsAvailable && !ticketResult.failed ? 'available' : 'unavailable',
       shopAuditLeads: leadsAvailable ? 'available' : 'not_configured',
     },
     triageSupported: ticketResult.triageSupported,
@@ -148,7 +150,7 @@ async function readTriageMarkers(
 async function loadSupportTickets(
   db: ReturnType<typeof getAdminDb>,
   now: number,
-): Promise<{ items: SupportItem[]; triageSupported: boolean }> {
+): Promise<{ items: SupportItem[]; triageSupported: boolean; failed?: boolean }> {
   try {
     type TicketRow = {
       id: string; shop_id: string | null; created_by: string | null; kind: string; subject: string | null;
@@ -227,7 +229,7 @@ async function loadSupportTickets(
     });
     return { items, triageSupported };
   } catch {
-    return { items: [], triageSupported: false };
+    return { items: [], triageSupported: false, failed: true };
   }
 }
 

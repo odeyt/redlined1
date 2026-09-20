@@ -812,7 +812,10 @@ export async function getBillingReconciliation(params: { page?: number | string;
     const c = row.classification;
     const events = eventCountByShop.get(row.shop.id) ?? 0;
     const reasons: ReconciliationReason[] = [];
-    if (c.planState === 'pro' && !row.subscription) reasons.push('paid_no_billing_record');
+    // From the canonical classification, not re-derived from plan + subscription: a paid shop whose profile
+    // records past_due or cancelled is already explained (status past_due / cancelled_access_retained) and is
+    // not "flagged for billing review" anywhere else, so it must not be listed as if it were.
+    if (c.unverifiedReason === 'no_billing_record') reasons.push('paid_no_billing_record');
     if (c.mismatchKind === 'free_plan_active_subscription') reasons.push('active_subscription_free_entitlement');
     if (events > 0 && !row.subscription) reasons.push('billing_events_without_subscription');
     if (c.mismatchKind && c.mismatchKind !== 'free_plan_active_subscription') reasons.push('billing_status_conflict');

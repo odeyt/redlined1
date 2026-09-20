@@ -1,4 +1,4 @@
-import { buildTodaysActions } from '../todaysActions';
+import { buildTodaysActions, supportSummaryForToday } from '../todaysActions';
 import { ACCOUNT_ARCHIVE_FILTERS, ACCOUNT_STATUS_FILTERS } from '../accountsData';
 import { SUPPORT_VIEWS } from '../supportTriage';
 import type { OwnerOverview } from '../accountsData';
@@ -28,6 +28,25 @@ const diag = (n: number): ProfileDiagnosticsSummary => ({
 });
 
 const ids = (r: ReturnType<typeof buildTodaysActions>) => r.actions.map(a => a.id);
+
+// Found in review: the overview passed listSupportItems().summary straight through. When the ticket table could not be
+// read, that summary is all zeros, so the panel said "Nothing needs attention right now" about a queue it never saw.
+describe('supportSummaryForToday', () => {
+  it('passes the summary through when the ticket source was read', () => {
+    const s = support({ overdueTickets: 2 });
+    expect(supportSummaryForToday({ sources: { supportTickets: 'available' }, summary: s })).toBe(s);
+  });
+
+  it('turns an unreadable ticket source into null, so the panel says "unavailable" and never "all clear"', () => {
+    const zeros = support();
+    const s = supportSummaryForToday({ sources: { supportTickets: 'unavailable' }, summary: zeros });
+    expect(s).toBeNull();
+    const r = buildTodaysActions({ overview: overview(), support: s, diagnostics: diag(0) });
+    expect(r.allClear).toBe(false);
+    expect(r.unavailable.map(u => u.id)).toContain('support');
+    expect(r.actions).toEqual([]);
+  });
+});
 
 describe('buildTodaysActions', () => {
   it('is all clear only when every source was readable and nothing needs doing', () => {

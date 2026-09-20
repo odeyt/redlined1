@@ -143,6 +143,7 @@ function BillingReview({ data }: { data: ReconciliationResult }) {
       <p style={NOTE}>
         Showing {data.items.length} of {data.total} account{data.total === 1 ? '' : 's'} that need review
         {data.truncated ? ` (scan limited to ${data.maxScanRows} rows — the true total may be higher)` : ''}.
+        {' '}This list also includes accounts that have billing events but no subscription row; the &ldquo;flagged for billing review&rdquo; count above does not.
         {data.total > data.pageSize ? ' The rest are available page by page from the read-only reconciliation API.' : ''}
       </p>
     </div>
@@ -404,7 +405,7 @@ export function OwnerOverviewView({
               value={String(overview.billingReviewActive)}
               sub={overview.billingReviewArchived > 0 ? `${overview.billingReviewArchived} more in archived shops` : 'Active external shops'}
               warn={overview.billingReviewActive > 0}
-              tooltip="Active shops whose billing records contradict each other, or whose paid access is unverified. See the Billing review list below."
+              tooltip="Active shops whose billing records contradict each other, or whose paid access is unverified. The Billing review list below shows these and also accounts that have billing events but no subscription row."
             />
           </div>
           <p data-testid="revenue-exclusions" style={NOTE}>

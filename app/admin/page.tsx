@@ -7,7 +7,7 @@ import { requirePlatformOwnerPage } from '@/lib/adminAuth';
 import { getOwnerOverview, getBillingReconciliation } from '@/lib/admin/accountsData';
 import { listSupportItems } from '@/lib/admin/supportData';
 import { getProfileDiagnostics } from '@/lib/admin/profileDiagnostics';
-import { buildTodaysActions } from '@/lib/admin/todaysActions';
+import { buildTodaysActions, supportSummaryForToday } from '@/lib/admin/todaysActions';
 import { OwnerOverviewView } from '@/features/admin/overview/OwnerOverviewView';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export default async function OwnerAdminPage() {
     getOwnerOverview(),
     getBillingReconciliation({}),
     // Auxiliary panels: a failure here must never take the overview down.
-    listSupportItems().then(r => r.summary).catch(() => null),
+    listSupportItems().then(supportSummaryForToday).catch(() => null),
     getProfileDiagnostics().then(r => r.summary).catch(() => null),
   ]);
   const today = buildTodaysActions({ overview, support, diagnostics });

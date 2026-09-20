@@ -286,6 +286,34 @@ describe('Profiles without shop membership', () => {
 });
 
 describe('Billing reconciliation', () => {
+  // Found in review: the list re-derived "paid, no billing record" from raw plan + subscription, so a paid shop
+  // whose profile says past_due / cancelled (status past_due / cancelled_access_retained, indicator "reconciled",
+  // review count 0) was still listed as needing review. The list now follows the canonical classification.
+  it('does not list a paid shop that its profile billing flag already explains (past due / cancelled, no subscription row)', async () => {
+    fake.state.tables.shops.push(shop('e1000000-0000-4000-8000-000000000001', 'Past Due No Row Co'), shop('e2000000-0000-4000-8000-000000000002', 'Cancelled No Row Co'));
+    fake.state.tables.shop_users.push(owner(31, 'e1000000-0000-4000-8000-000000000001'), owner(32, 'e2000000-0000-4000-8000-000000000002'));
+    fake.state.tables.profiles.push(
+      ownerProfile(31, 'e1000000-0000-4000-8000-000000000001', 'pro', null, 'past_due'),
+      ownerProfile(32, 'e2000000-0000-4000-8000-000000000002', 'pro', null, 'cancelled'),
+    );
+    const before = (await getOwnerOverview()).billingReviewActive;
+    const o = await getOwnerOverview();
+    expect(o.active.pastDue).toBe(1);
+    expect(o.active.cancelledAccessRetained).toBe(1);
+    expect(o.billingReviewActive).toBe(before); // neither is flagged for review
+    const names = (await getBillingReconciliation({})).items.map(i => i.shopName);
+    expect(names).not.toContain('Past Due No Row Co');
+    expect(names).not.toContain('Cancelled No Row Co');
+  });
+
+  it('every shop counted as flagged for billing review is in the reconciliation list (the list may add the events check, never omit)', async () => {
+    const o = await getOwnerOverview();
+    const listed = new Set((await getBillingReconciliation({})).items.map(i => i.shopName));
+    const flagged = (await listAccounts({ pageSize: 100 })).items.filter(i => i.billingMismatch && i.status !== 'internal');
+    expect(flagged.length).toBe(o.billingReviewActive + o.billingReviewArchived);
+    for (const f of flagged) expect(listed.has(f.shopName)).toBe(true);
+  });
+
   it('lists each account that meets a reconciliation condition, with its reason', async () => {
     const r = await getBillingReconciliation({});
     const reasons = Object.fromEntries(r.items.map(i => [i.shopName, i.reasons]));

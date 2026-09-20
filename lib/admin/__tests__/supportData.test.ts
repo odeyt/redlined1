@@ -269,6 +269,15 @@ describe('what the support reader will and will not touch', () => {
     for (const i of r.items) expect(Object.keys(i)).not.toContain('email');
   });
 
+  it('reports the ticket source unavailable when the table probe passes but the ticket read itself fails', async () => {
+    // e.g. a column the query names is missing: the count probe (select *) succeeds, the real select does not.
+    fake.state.missingColumns = { support_tickets: ['severity'] };
+    const r = await listSupportItems(NOW);
+    expect(r.sources.supportTickets).toBe('unavailable');
+    expect(r.items.filter(i => i.source === 'support_ticket')).toHaveLength(0);
+    expect(r.summary.openTickets).toBe(0); // zeros from a failed read: callers must use `sources`, not the zeros
+  });
+
   it('degrades to an empty queue, not an exception, when the ticket table is unreadable', async () => {
     fake.state.failTables.add('support_tickets');
     const r = await listSupportItems(NOW);
