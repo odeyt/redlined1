@@ -48,13 +48,28 @@ only as far as it can be checked here.
 6. **Only after all of this** is `profiles.plan` written, and then `shop_subscriptions`. Nothing is granted while an event
    is held. A verified buyer with no `profiles` row is `no_buyer_profile` (a retry cannot create one).
 
-The checkout refuses technicians outright but allows an advisor. A paying advisor's event is therefore held
-(`buyer_not_eligible`) and visible to the owner, rather than granted. That is deliberate and fail-closed; if advisors
-should be able to buy, add the role to `BILLING_ELIGIBLE_ROLES` in `lib/billing/creemEvent.ts` in a separate change.
+The checkout applies the **same rule before it creates a Creem session** (`lib/billing/checkoutEligibility.ts`). It
+reads every membership row, selects the shop it will bill, and requires every row for that shop to be eligible —
+point 3 above, applied ahead of the payment rather than after it. An advisor or a technician is refused there, so
+neither is charged and then held. The allowlist is imported from `lib/billing/creemEvent.ts` rather than restated, so
+the two sides cannot drift: change `BILLING_ELIGIBLE_ROLES` and both pick it up at once.
 
-Known gap outside this change: the checkout route reads the buyer's role with `maybeSingle()`, which returns no row when
-a user has several memberships, and then skips its technician refusal. That is the checkout's to fix; this handler does
-not depend on it, because it checks the role itself.
+Advisors remain ineligible, deliberately. If they should be able to buy, adding the role to that one constant is the
+whole change.
+
+The handler does **not** depend on the checkout for any of this. It proves the buyer itself, so an event that reaches
+it by any other route — a payment link, a dashboard subscription, a redelivery — is judged the same way.
+
+### Follow-ups, not in this change
+
+* **A buyer eligible in more than one shop cannot choose which one is billed.** Selection prefers an `owner` row and
+  otherwise takes the first shop by id. That is deterministic and repeatable, but it is not a choice: an owner of two
+  shops always buys for the same one. A picker in the billing UI that sends an explicit `shop_id` for the route to
+  verify against the buyer's memberships would close it.
+* **The webhook reads at most five membership rows** (`.limit(5)` in `resolveBuyerShop`) where the checkout reads all
+  of them, so for a pair with more than five rows the two could disagree. It is fail-closed as it stands — the
+  checkout is the stricter side and refuses before any money moves — but the limit should be raised or removed so
+  both read the same set.
 
 ## Which plan was bought
 
