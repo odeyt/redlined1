@@ -4,13 +4,15 @@
  * Platform-owner diagnostic endpoint. Returns presence flags for all required
  * Creem billing env vars — never exposes actual values.
  *
- * Auth: Bearer JWT required. Must be the platform owner email
- * (PLATFORM_OWNER_EMAIL env var).
+ * Auth: the shared platform-owner guard (lib/adminAuth verifyPlatformOwner), the same
+ * one /admin and /api/admin/* use: PLATFORM_OWNER_EMAIL is a comma-separated list,
+ * matched trimmed and case-insensitively, from a Bearer token or the session cookie.
+ * It used to compare user.email to the raw variable with `!==`, so anyone /admin let in
+ * because of letter case, whitespace or a multi-owner list was refused here with 403.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { verifyPlatformOwner, forbidden } from '@/lib/adminAuth';
 
 const PAID_PLAN_VARS = [
   'CREEM_SOLO_MONTHLY_PRODUCT_ID',
@@ -23,36 +25,10 @@ const PAID_PLAN_VARS = [
   'CREEM_BUSINESS_ANNUAL_PRODUCT_ID',
 ];
 
-async function getAuthenticatedUser(req: NextRequest) {
-  // Accept Bearer token from Authorization header OR session cookie
-  const authHeader = req.headers.get('authorization') ?? '';
-  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } },
-  );
-
-  if (bearerToken) {
-    const { data: { user } } = await supabase.auth.getUser(bearerToken);
-    return user;
-  }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
 export async function GET(req: NextRequest) {
-  const user = await getAuthenticatedUser(req);
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const ownerEmail = process.env.PLATFORM_OWNER_EMAIL;
-  if (!ownerEmail || user.email !== ownerEmail) {
-    return NextResponse.json({ error: 'Forbidden — platform owner only' }, { status: 403 });
+  const auth = await verifyPlatformOwner(req);
+  if (!auth.authorized) {
+    return auth.email ? forbidden(auth.reason) : NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const apiKey = process.env.CREEM_API_KEY?.trim() ?? '';
