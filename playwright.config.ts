@@ -113,6 +113,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
 
+    // ── Owner portal: authenticated, staging only ───────────────────────────
+    // Signs in as a synthetic platform owner and a synthetic shop user. The spec itself
+    // refuses to run unless the Supabase URL is STAGING_PROJECT_REF.
+    {
+      name: 'owner-portal',
+      testMatch: /tests[/\\]owner-portal[/\\].*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+
     // ── Audit: trial/free account E2E audit ─────────────────────────────────
     {
       name: 'audit-setup',
