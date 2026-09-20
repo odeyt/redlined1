@@ -75,8 +75,14 @@ export interface RedlinedSubscription {
   planId: RedlinedPlanId;
   billingInterval: BillingInterval;
   status: SubscriptionStatus;
-  currentPeriodStart: Date;
-  currentPeriodEnd: Date;
+  /**
+   * NULLABLE on purpose. A provider that does not tell us the period must not be turned into a date.
+   * These were non-nullable, and the Creem mapper filled them with new Date(0) whenever the fields were
+   * missing — which was always, because it read field names Creem does not send. Every synced subscription
+   * stored a period of 1970-01-01. Unknown is a value; a fabricated date is a lie the database keeps.
+   */
+  currentPeriodStart: Date | null;
+  currentPeriodEnd: Date | null;
   trialStart: Date | null;
   trialEnd: Date | null;
   cancelAtPeriodEnd: boolean;

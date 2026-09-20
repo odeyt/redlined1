@@ -23,7 +23,7 @@ import type {
   RedlinedPlanId,
   BillingInterval,
 } from '../types';
-import { getProductId } from '@/config/plans';
+import { getProductId, PLANS, PLAN_ORDER } from '@/config/plans';
 
 /**
  * Creem exposes a separate sandbox host. CREEM_TEST_MODE existed as an
@@ -86,15 +86,92 @@ function normalizeStatus(raw: string | undefined | null): SubscriptionStatus {
   }
 }
 
-function toDate(value: unknown): Date {
-  if (typeof value === 'number') return new Date(value * 1000);
-  if (typeof value === 'string') return new Date(value);
-  return new Date(0);
+/**
+ * Thrown when Creem answered, but the answer cannot be turned into a subscription without inventing something.
+ *
+ * Deliberately NOT `null`: null means "no such subscription", and a caller may reasonably skip that. This means
+ * "there is a subscription and we cannot read it safely", which is a different thing and must not be mistaken
+ * for absence. Both callers already fail closed on a throw — neither writes anything — so raising it is safe.
+ */
+export class CreemSubscriptionUnusableError extends Error {
+  readonly reason: string;
+  constructor(reason: string, subscriptionId: string) {
+    super(`Creem subscription ${subscriptionId} cannot be read safely: ${reason}`);
+    this.name = 'CreemSubscriptionUnusableError';
+    this.reason = reason;
+  }
 }
 
-function toDateOrNull(value: unknown): Date | null {
-  if (!value) return null;
-  return toDate(value);
+/**
+ * A date, or nothing. Never new Date(0).
+ *
+ * This returned `new Date(0)` for anything it could not read, and the caller stored it. Combined with reading
+ * field names Creem does not send, every synced period became 1970-01-01 — a value that looks like data.
+ */
+function toDateOrUnknown(value: unknown): Date | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value * 1000);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const d = new Date(value.trim());
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/**
+ * The plan this subscription is for. NEVER defaulted.
+ *
+ * This was `metadata.plan_id ?? 'starter'`. syncSubscriptionFromProvider writes the result straight to
+ * profiles.plan, which planGate reads for entitlement, so a subscription whose metadata did not survive granted
+ * the customer Starter — a plan nobody bought and nobody is paying for.
+ *
+ * Order: the product Creem is actually billing wins, because that is what the customer is charged for; metadata
+ * is accepted only when it names a plan we sell and does not contradict the product.
+ */
+function resolvePlanStrict(data: Record<string, unknown>): RedlinedPlanId | { unusable: string } {
+  const sellable = PLAN_ORDER.filter(p => PLANS[p].monthlyPrice !== null && PLANS[p].annualPrice !== null);
+
+  const productId = (() => {
+    const v = data.product ?? data.product_id;
+    if (typeof v === 'string') return v.trim();
+    if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).id === 'string') {
+      return String((v as Record<string, unknown>).id).trim();
+    }
+    return '';
+  })();
+
+  const fromProduct: RedlinedPlanId[] = [];
+  if (productId) {
+    for (const plan of sellable) {
+      for (const interval of ['MONTHLY', 'ANNUAL']) {
+        if (process.env[`CREEM_${plan.toUpperCase()}_${interval}_PRODUCT_ID`]?.trim() === productId) {
+          if (!fromProduct.includes(plan)) fromProduct.push(plan);
+        }
+      }
+    }
+  }
+
+  const meta = (data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata))
+    ? (data.metadata as Record<string, string>) : {};
+  const claimed = String(meta.plan_key ?? meta.plan_id ?? '').trim().toLowerCase();
+  const claimedValid = sellable.includes(claimed as RedlinedPlanId) ? (claimed as RedlinedPlanId) : null;
+
+  if (fromProduct.length > 1) return { unusable: 'the product is configured for more than one plan' };
+  if (fromProduct.length === 1) {
+    if (claimedValid && claimedValid !== fromProduct[0]) {
+      return { unusable: 'the plan in metadata disagrees with the product being billed' };
+    }
+    return fromProduct[0];
+  }
+  // No product match. That is only safe when no product ids are configured at all; otherwise the subscription
+  // is for something we do not sell.
+  const anyConfigured = sellable.some(p => ['MONTHLY', 'ANNUAL']
+    .some(i => !!process.env[`CREEM_${p.toUpperCase()}_${i}_PRODUCT_ID`]?.trim()));
+  if (productId && anyConfigured) return { unusable: 'the product being billed is not a plan Redlined1 sells' };
+  if (claimedValid) return claimedValid;
+  return { unusable: claimed ? `metadata names an unknown plan` : 'the subscription names no plan' };
 }
 
 export class CreemPaymentProvider implements PaymentProvider {
@@ -165,19 +242,29 @@ export class CreemPaymentProvider implements PaymentProvider {
   /**
    * DO NOT USE THIS ON THE WEBHOOK PATH. It has two defects that billing work has already paid for once.
    *
-   * 1. mapSubscription() DEFAULTS THE PLAN to 'starter' (and the interval to 'monthly') when metadata is absent.
-   *    Silently defaulting a plan is the exact bug removed from the webhook, where the default was 'professional'
-   *    and customers were granted a plan nobody bought.
-   * 2. It reads `current_period_start` / `current_period_end`. Creem does not send those names — it sends
-   *    `current_period_start_date` / `current_period_end_date` (confirmed against stored production events).
-   *    toDate() returns new Date(0) on a miss, so every period resolves to 1970-01-01.
+   * 1. mapSubscription() DEFAULTED THE PLAN to 'starter' when metadata was absent. syncSubscriptionFromProvider
+   *    writes that straight to profiles.plan, which planGate reads for entitlement, so a subscription whose
+   *    metadata did not survive granted the customer Starter — a plan nobody bought and nobody is paying for.
+   * 2. It read `current_period_start` / `current_period_end`. Creem does not send those names — it sends
+   *    `current_period_start_date` / `current_period_end_date` (confirmed against stored production events) —
+   *    and toDate() returned new Date(0) on a miss, so every synced period was stored as 1970-01-01.
    *
-   * For subscription state that anything is decided from, use lib/billing/creemAuthoritative.ts, which resolves
-   * the plan through resolvePlan (never defaulted) and the period through readSubscriptionPeriod (the names the
-   * provider actually sends), and holds what it cannot read safely.
+   * A previous version of this comment said nothing on the billing path called it. That was WRONG:
+   * app/api/webhooks/creem/route.ts calls it on subscription.created / updated / renewed / canceled / expired /
+   * past_due, and feeds the result to syncSubscriptionFromProvider. Both defects were reachable in production.
    *
-   * This method is left as it is because nothing on the billing path calls it; fixing it is its own change with
-   * its own tests. Treat a caller appearing here as a review failure.
+   * Both are now fixed here rather than only documented:
+   *   - the plan comes from resolvePlanStrict — the product Creem is billing wins, metadata is accepted only when
+   *     it names a plan we sell and does not contradict the product, and anything else THROWS
+   *     CreemSubscriptionUnusableError rather than returning a guess;
+   *   - dates go through toDateOrUnknown, which returns null rather than an epoch, and the period reads the
+   *     names Creem actually sends, falling back to the old ones only when they are genuinely present.
+   *
+   * `null` still means exactly one thing: Creem has no such subscription (404). "Present but unreadable" is the
+   * thrown error, so a caller cannot mistake one for the other.
+   *
+   * For webhook-driven state, lib/billing/creemAuthoritative.ts remains the richer path: it distinguishes
+   * transient provider failure from an unusable answer and holds the event for the owner.
    */
   async getSubscription(providerSubscriptionId: string): Promise<RedlinedSubscription | null> {
     const response = await creemFetch(`/subscriptions/${providerSubscriptionId}`);
@@ -265,24 +352,34 @@ export class CreemPaymentProvider implements PaymentProvider {
   /** See the warning on getSubscription(): this mapper defaults the plan and reads period names Creem never sends. */
   private mapSubscription(data: Record<string, unknown>): RedlinedSubscription {
     const metadata = (data.metadata ?? {}) as Record<string, string>;
+
+    const subscriptionId = typeof data.id === 'string' ? data.id.trim() : '';
+    if (!subscriptionId) throw new CreemSubscriptionUnusableError('the response carries no subscription id', '(unknown)');
+
+    const plan = resolvePlanStrict(data);
+    if (typeof plan === 'object') throw new CreemSubscriptionUnusableError(plan.unusable, subscriptionId);
+    const planId = plan;
+
     return {
-      id: data.id as string,
+      id: subscriptionId,
       userId: metadata.user_id ?? '',
       provider: 'creem',
       providerCustomerId: (data.customer_id ?? data.customer) as string,
       providerSubscriptionId: data.id as string,
       providerPriceId: (data.price_id ?? data.product_id ?? null) as string | null,
-      planId: (metadata.plan_id ?? 'starter') as RedlinedPlanId,
+      planId,
       billingInterval: (metadata.billing_interval ?? 'monthly') as BillingInterval,
       status: normalizeStatus(data.status as string),
-      currentPeriodStart: toDate(data.current_period_start),
-      currentPeriodEnd: toDate(data.current_period_end),
-      trialStart: toDateOrNull(data.trial_start),
-      trialEnd: toDateOrNull(data.trial_end),
+      // Creem sends current_period_*_date. The old names are read only as a fallback, and only when actually
+      // present — they were never observed, and reading them first is what produced the 1970 periods.
+      currentPeriodStart: toDateOrUnknown(data.current_period_start_date ?? data.current_period_start),
+      currentPeriodEnd: toDateOrUnknown(data.current_period_end_date ?? data.current_period_end),
+      trialStart: toDateOrUnknown(data.trial_start),
+      trialEnd: toDateOrUnknown(data.trial_end),
       cancelAtPeriodEnd: (data.cancel_at_period_end as boolean) ?? false,
-      canceledAt: toDateOrNull(data.canceled_at),
-      createdAt: toDate(data.created_at),
-      updatedAt: toDate(data.updated_at ?? data.created_at),
+      canceledAt: toDateOrUnknown(data.canceled_at ?? data.cancelled_at),
+      createdAt: toDateOrUnknown(data.created_at) ?? new Date(),
+      updatedAt: toDateOrUnknown(data.updated_at ?? data.created_at) ?? new Date(),
     };
   }
 }

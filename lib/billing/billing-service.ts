@@ -28,8 +28,9 @@ export interface StoredSubscription {
   plan_id: RedlinedPlanId;
   billing_interval: string;
   status: SubscriptionStatus;
-  current_period_start: string;
-  current_period_end: string;
+  // Nullable, matching the columns and the provider: a period we were not told is null, not 1970.
+  current_period_start: string | null;
+  current_period_end: string | null;
   trial_start: string | null;
   trial_end: string | null;
   cancel_at_period_end: boolean;
@@ -160,8 +161,9 @@ export async function syncSubscriptionFromProvider(
       plan_id: sub.planId,
       billing_interval: sub.billingInterval,
       status: sub.status,
-      current_period_start: sub.currentPeriodStart.toISOString(),
-      current_period_end: sub.currentPeriodEnd.toISOString(),
+      // Unknown stays unknown. These used to be non-nullable and were filled with 1970-01-01.
+      current_period_start: sub.currentPeriodStart?.toISOString() ?? null,
+      current_period_end: sub.currentPeriodEnd?.toISOString() ?? null,
       trial_start: sub.trialStart?.toISOString() ?? null,
       trial_end: sub.trialEnd?.toISOString() ?? null,
       cancel_at_period_end: sub.cancelAtPeriodEnd,
