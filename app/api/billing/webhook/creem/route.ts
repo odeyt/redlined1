@@ -1,11 +1,116 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { alertBillingFailure, alertBillingException } from '@/lib/observability/billingAlerts';
+import {
+  ACTIVATION_EVENT_TYPES, CANCELLATION_EVENT_TYPES, PAST_DUE_EVENT_TYPES, UUID_RE,
+  asId, classifyCreemEvent, eventMetadata, needsShop, parseEnvelope, unresolvedError,
+  type CreemEventClass, type UnresolvedReason,
+} from '@/lib/billing/creemEvent';
+import { readSubscriptionPeriod } from '@/lib/billing/creemPeriod';
 
 function getAdminDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(url, key);
+}
+
+type Db = ReturnType<typeof getAdminDb>;
+
+/** Rows already recorded for this provider event id, oldest first. A failed lookup is logged and treated as "none". */
+async function findEventRows(db: Db, providerEventId: string): Promise<Array<{ id: string; processed: boolean }>> {
+  const { data, error } = await db
+    .from('billing_events')
+    .select('id, processed')
+    .eq('provider_event_id', providerEventId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('[webhook/creem] idempotency lookup failed:', error.message);
+    return [];
+  }
+  return (data ?? []).map(r => ({ id: String(r.id), processed: !!r.processed }));
+}
+
+/** Record the outcome on the event's row. Logged, never thrown: bookkeeping must not turn a handled event into a retried one. */
+async function markEvent(db: Db, id: string | null, state: { processed: boolean; error: string | null }): Promise<void> {
+  if (!id) return;
+  const { error } = await db
+    .from('billing_events')
+    .update({ processed: state.processed, processed_at: state.processed ? new Date().toISOString() : null, error: state.error })
+    .eq('id', id);
+  if (error) console.error('[webhook/creem] could not update the event record:', error.message);
+}
+
+/** The newest subscription row for a shop. Newest-first with limit 1, so duplicate rows can never make the lookup itself fail. */
+async function latestSubscriptionRow(db: Db, shopId: string): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await db
+    .from('shop_subscriptions')
+    .select('id')
+    .eq('shop_id', shopId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) return { id: null, error: error.message };
+  return { id: data && data.length ? String(data[0].id) : null, error: null };
+}
+
+type Resolution =
+  | { kind: 'shop'; shopId: string }
+  | { kind: 'unresolved'; reason: UnresolvedReason }
+  | { kind: 'error'; message: string };
+
+/**
+ * Which shop does this event belong to? NEVER a guess.
+ *  1. metadata.shop_id, and only if that shop exists;
+ *  2. otherwise metadata.user_id, and only if that user belongs to EXACTLY ONE shop.
+ * A user in several shops used to get whichever membership row came first, which could attach a payment to a
+ * shop the buyer did not mean. That is now an unresolved event for the owner to look at.
+ */
+async function resolveShop(db: Db, meta: Record<string, string>): Promise<Resolution> {
+  if (meta.shop_id) {
+    if (!UUID_RE.test(meta.shop_id)) return { kind: 'unresolved', reason: 'shop_not_found' };
+    const { data, error } = await db.from('shops').select('id').eq('id', meta.shop_id).limit(1);
+    if (error) return { kind: 'error', message: `shop lookup failed: ${error.message}` };
+    return data && data.length > 0
+      ? { kind: 'shop', shopId: meta.shop_id }
+      : { kind: 'unresolved', reason: 'shop_not_found' };
+  }
+  if (meta.user_id) {
+    if (!UUID_RE.test(meta.user_id)) return { kind: 'unresolved', reason: 'no_membership' };
+    const { data, error } = await db.from('shop_users').select('shop_id').eq('user_id', meta.user_id).limit(2);
+    if (error) return { kind: 'error', message: `membership lookup failed: ${error.message}` };
+    const shops = [...new Set((data ?? []).map(r => String(r.shop_id)))];
+    if (shops.length === 1) {
+      console.warn('[webhook/creem] metadata carried no shop_id; resolved it from the buyer\'s single shop membership.');
+      return { kind: 'shop', shopId: shops[0] };
+    }
+    return { kind: 'unresolved', reason: shops.length === 0 ? 'no_membership' : 'ambiguous_membership' };
+  }
+  return { kind: 'unresolved', reason: 'no_shop_metadata' };
+}
+
+/**
+ * A subscription event that must reach a shop but cannot. It is kept, visibly, and ACKNOWLEDGED.
+ *
+ *   processed = false, error = 'UNRESOLVED_SHOP:<reason>'
+ *
+ * That is exactly what the owner's Billing Health webhook view counts as failed, and the owner-only list at
+ * /api/admin/billing-health/unresolved shows it with a masked reference, without the payload.
+ *
+ * Why 200 and not 5xx: nothing about the event changes on retry (its metadata is fixed), so a 5xx would only
+ * make Creem redeliver the same unresolvable event, and every redelivery would be another alert. A 5xx is kept
+ * for TRANSIENT failures (a database error), where retrying can help. If the cause is later fixed (for example
+ * the buyer's membership is corrected) a redelivery re-evaluates the event, reuses this row, and clears it.
+ * No access is granted to any shop, and no subscription row is written, while it is unresolved.
+ */
+async function holdUnresolved(
+  db: Db,
+  eventRowId: string | null,
+  resolution: Resolution,
+  context: { eventType: string; providerEventId: string; eventClass: CreemEventClass; hasUserId: boolean },
+): Promise<NextResponse> {
+  const reason: UnresolvedReason = resolution.kind === 'unresolved' ? resolution.reason : 'no_shop_metadata';
+  await markEvent(db, eventRowId, { processed: false, error: unresolvedError(reason) });
+  alertBillingFailure('cannot resolve a shop — subscription record NOT updated', { ...context, reason });
+  return NextResponse.json({ received: true, unresolved: reason });
 }
 
 /** HMAC-SHA256 of the raw body, hex encoded. */
@@ -168,216 +273,163 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
-    // Creem's envelope is { id, eventType, created_at, object } — confirmed from
-    // a sandbox event on 2026-08-02. This handler was written against `type`
-    // and `data`, which no Creem event carries, so every event would have been
-    // treated as an unknown type and silently ignored even once signatures
-    // verified. The other spellings are kept as fallbacks and cost nothing.
-    const eventType       = String(payload.eventType ?? payload.type ?? payload.event_type ?? '');
-    const providerEventId = String(payload.id ?? payload.event_id ?? '');
-    const data            = (payload.object ?? payload.data ?? payload) as Record<string, unknown>;
-    const meta            = (data.metadata ?? {}) as Record<string, string>;
-    const userId          = meta.user_id || null;
+    // Creem's envelope is { id, eventType, created_at, object } — confirmed from a sandbox event on
+    // 2026-08-02 (see lib/billing/creemEvent.ts). The other spellings are kept as fallbacks.
+    const { eventType, providerEventId, data } = parseEnvelope(payload);
+    const meta   = eventMetadata(data);
+    const userId = meta.user_id || null;
+
+    // CLASSIFY BEFORE REQUIRING A SHOP. Only an event that is (or looks like) a subscription needs a shop.
+    // A one-time order from a payment link or the Creem dashboard carries no Redlined1 metadata and has no
+    // shop to find; it is recorded and acknowledged, not reported as a failed subscription.
+    const eventClass = classifyCreemEvent(eventType, data);
 
     const db = getAdminDb();
 
-    // Metadata is set by our own checkout route, but a subscription can also be
-    // created from Creem's dashboard, and older checkout sessions were sent
-    // without shop_id at all. Falling back to the membership table means those
-    // events still activate instead of being silently dropped — the customer
-    // has paid either way.
-    let shopId = meta.shop_id || null;
-    if (!shopId && userId) {
-      const { data: membership } = await db
-        .from('shop_users')
-        .select('shop_id')
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
-      shopId = membership?.shop_id ?? null;
-      if (shopId) {
-        console.warn('[webhook/creem] metadata carried no shop_id; resolved it from shop_users.');
-      }
-    }
-    if (!shopId) {
-      alertBillingFailure('cannot resolve a shop — subscription NOT activated', {
-        eventType, providerEventId, hasUserId: !!userId,
-      });
-    }
-
-    // Idempotency check
+    // ── Idempotency ─────────────────────────────────────────────────────────────────────────────────
+    // LIMITATION, stated plainly: this is a read-then-insert check made by the application. billing_events
+    // has no unique index on provider_event_id, so two deliveries of the same event that overlap in time can
+    // both pass the check and both insert. What this DOES guarantee is sequential behaviour: a redelivery of
+    // an already-processed event is skipped, and a redelivery of an event that failed or was left unresolved
+    // REUSES its row instead of adding another. True atomic idempotency needs a database unique constraint;
+    // when one exists the insert below returns 23505 and the loser of the race is treated as a duplicate.
+    // The proposed migration is documented in docs/billing-webhook-idempotency.md and is NOT part of this code.
+    let eventRowId: string | null = null;
     if (providerEventId) {
-      const { data: existing } = await db
-        .from('billing_events')
-        .select('id, processed')
-        .eq('provider_event_id', providerEventId)
-        .maybeSingle();
-      if (existing?.processed) {
+      const known = await findEventRows(db, providerEventId);
+      if (known.some(r => r.processed)) {
         return NextResponse.json({ received: true, skipped: 'duplicate' });
       }
+      if (known.length > 0) eventRowId = known[0].id;
     }
 
-    // Store event
-    const { data: eventRow, error: eventErr } = await db
-      .from('billing_events')
-      .insert({
-        shop_id:           shopId,
-        provider:          'creem',
-        event_type:        eventType,
-        provider_event_id: providerEventId,
-        payload,
-        processed:         false,
-      })
-      .select('id')
-      .single();
+    if (!eventRowId) {
+      const { data: inserted, error: eventErr } = await db
+        .from('billing_events')
+        .insert({
+          shop_id:           null,
+          provider:          'creem',
+          event_type:        eventType,
+          provider_event_id: providerEventId,
+          payload,
+          processed:         false,
+        })
+        .select('id')
+        .single();
 
-    if (eventErr) {
-      // Name the key class alongside the failure. "permission denied for table"
-      // is a GRANT error, and the sb_secret_ restricted keys carry no grants on
-      // the billing tables — so the two most likely causes (wrong key vs
-      // missing grant) are told apart here rather than by redeploying and
-      // guessing. The value is never logged, only which kind it is.
-      const k = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
-      const keyClass = !k ? 'missing'
-        : k.startsWith('eyJ') ? 'legacy-service-role-jwt'
-        : k.startsWith('sb_secret_') ? 'sb_secret-restricted'
-        : 'unrecognised';
-      alertBillingFailure('could not record the event', {
-        reason: eventErr.message, serviceKeyClass: keyClass, eventType, providerEventId,
-      });
+      if (eventErr) {
+        if (eventErr.code === '23505') {
+          // A concurrent delivery of the same event won the unique index. It is being handled.
+          return NextResponse.json({ received: true, skipped: 'duplicate' });
+        }
+        // Name the key class alongside the failure. "permission denied for table" is a GRANT error, and the
+        // sb_secret_ restricted keys carry no grants on the billing tables. The value is never logged.
+        const k = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '';
+        const keyClass = !k ? 'missing'
+          : k.startsWith('eyJ') ? 'legacy-service-role-jwt'
+          : k.startsWith('sb_secret_') ? 'sb_secret-restricted'
+          : 'unrecognised';
+        alertBillingFailure('could not record the event', {
+          reason: eventErr.message, serviceKeyClass: keyClass, eventType, providerEventId,
+        });
+      } else {
+        eventRowId = (inserted as { id: string } | null)?.id ?? null;
+      }
     }
 
-    // Handle subscription updates
     try {
-      // `subscription.paid` fires on every successful charge, including
-      // renewals — Creem sent one alongside checkout.completed in the sandbox.
-      // Without it a subscription activates on purchase and then never renews:
-      // current_period_end goes stale and the customer eventually looks lapsed
-      // despite paying every month.
-      const isActivation =
-        eventType === 'checkout.completed' ||
-        eventType === 'subscription.created' ||
-        eventType === 'subscription.active' ||
-        eventType === 'subscription.paid';
+      // ── Not a Redlined1 subscription's business: record and acknowledge. ──────────────────────────
+      if (!needsShop(eventType, eventClass)) {
+        await markEvent(db, eventRowId, { processed: true, error: null });
+        return NextResponse.json({ received: true, classified: eventClass });
+      }
+
+      // ── Find the shop. Never guess. ───────────────────────────────────────────────────────────────
+      const resolution = await resolveShop(db, meta);
+      if (resolution.kind === 'error') {
+        // A failed lookup is transient, not "unresolved": answer 5xx so Creem retries.
+        throw new Error(resolution.message);
+      }
+      const shopId = resolution.kind === 'shop' ? resolution.shopId : null;
+      if (shopId && eventRowId) {
+        const { error: linkErr } = await db.from('billing_events').update({ shop_id: shopId }).eq('id', eventRowId);
+        if (linkErr) console.error('[webhook/creem] could not link the event to its shop:', linkErr.message);
+      }
+
+      const isActivation = ACTIVATION_EVENT_TYPES.has(eventType);
 
       if (isActivation) {
-        // `plan_id` is what createCheckoutSession has always sent; `plan_key`
-        // is what this handler was written to read. Accept either, and only
-        // fall back to a default when neither is present — defaulting to
-        // 'professional' silently upgraded anyone who bought a cheaper plan.
+        // `plan_id` is what createCheckoutSession has always sent; `plan_key` is what this handler was written
+        // to read. Accept either, and only fall back to a default when neither is present.
         const planKey = meta.plan_key || meta.plan_id || 'professional';
         if (!meta.plan_key && !meta.plan_id) {
           console.warn('[webhook/creem] event carried no plan in metadata; defaulting to professional.');
         }
 
-        // Unlock the app for the buyer even if the shop row could not be
-        // resolved. usePlan() reads profiles.plan, so this is what the customer
-        // actually experiences — it must not depend on the subscription
-        // bookkeeping below succeeding.
-        //
-        // The result is checked. supabase-js returns errors instead of
-        // throwing, so an unchecked write fails in complete silence: a
-        // restricted API key made every write here fail while the endpoint
-        // still answered 200, and Creem — correctly — never retried. The
-        // customer was charged, the logs were clean, and nothing happened.
+        // Unlock the app for the buyer that OUR checkout identified (metadata.user_id), even if the shop could
+        // not be resolved: usePlan() reads profiles.plan. This never depends on a shop and never touches any
+        // shop's subscription. The result is checked: supabase-js returns errors instead of throwing, and an
+        // unchecked write once failed in complete silence while the endpoint answered 200.
         if (userId) {
-          /**
-           * `billing_status` is written here too, and that is a repair.
-           *
-           * The column was only ever set by `syncSubscriptionFromProvider` in
-           * lib/billing/billing-service.ts, which is reached from
-           * /api/webhooks/creem — a SECOND Creem route that Creem does not
-           * call, is absent from PUBLIC_PATHS in proxy.ts, and would be
-           * answered 401 by the auth proxy if it ever were called. Its table,
-           * `subscriptions`, holds zero rows; the live route's
-           * `shop_subscriptions` holds the real ones.
-           *
-           * So `billing_status` read 'inactive' for all seventeen profiles,
-           * including paying customers and every internal pro account. Nothing
-           * gates on it today, which is the only reason that was harmless —
-           * and precisely what makes it dangerous. It is a plausible-looking
-           * column, and the day anyone writes `WHERE billing_status =
-           * 'active'` every customer is locked out at once, starting with the
-           * owner.
-           *
-           * Setting it here makes the column true, so that check would work
-           * rather than lock the estate out. `shop_subscriptions.status`
-           * remains the authority; this is the copy planGate-era code reads
-           * from, kept honest.
-           */
           const { error, count } = await db
             .from('profiles')
             .update({ plan: planKey, billing_status: 'active' }, { count: 'exact' })
             .eq('id', userId);
           if (error) throw new Error(`profiles.plan update failed: ${error.message}`);
-          // Zero rows matched is not an error to PostgREST, but it means the
-          // customer is still on their old plan.
           if (count === 0) throw new Error(`profiles.plan update matched no row for user ${userId}`);
         }
 
-        // Creem nests these as objects, not flat *_id fields. Reading
-        // data.customer_id gave '' on every event, so provider_customer_id and
-        // provider_subscription_id were stored empty — and those are the
-        // handles needed to cancel, resume, change plan, or open the billing
-        // portal. Confirmed against a stored checkout.completed payload:
-        //   object.customer.id   cust_…
-        //   object.order.id      ord_…
-        //   object.product.id    prod_…
-        // checkout.completed carries NO subscription; that id first appears on
-        // the subscription.* events, which is why the write below must not
-        // overwrite a known id with an empty one.
-        const asId = (v: unknown): string =>
-          typeof v === 'string' ? v
-          : (v && typeof v === 'object' && typeof (v as { id?: unknown }).id === 'string')
-            ? (v as { id: string }).id
-            : '';
+        if (!shopId) return await holdUnresolved(db, eventRowId, resolution, { eventType, providerEventId, eventClass, hasUserId: !!userId });
 
+        // Creem nests provider ids as objects. checkout.completed carries the subscription id nested; the
+        // period comes from the provider's own fields (lib/billing/creemPeriod.ts), never from a guess.
         const providerCustomerId     = asId(data.customer) || asId(data.customer_id);
         const providerSubscriptionId = asId(data.subscription) || asId(data.subscription_id);
-        const periodStart = data.current_period_start ? new Date(data.current_period_start as string) : new Date();
-        const periodEnd   = data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000);
+        const period = readSubscriptionPeriod(data);
 
-        // Upsert subscription
-        const { data: existing } = shopId ? await db
-          .from('shop_subscriptions')
-          .select('id')
-          .eq('shop_id', shopId)
-          .maybeSingle() : { data: null };
+        const existing = await latestSubscriptionRow(db, shopId);
+        if (existing.error) throw new Error(`shop_subscriptions lookup failed: ${existing.error}`);
 
-        if (!shopId) {
-          // Already logged above. The buyer has their plan; the subscription
-          // row can be reconciled from billing_events, which holds the payload.
-        } else if (existing?.id) {
-          // Only write the provider ids and period when this event actually
-          // carries them. checkout.completed has no subscription and no period,
-          // so including them unconditionally would erase values a later
-          // subscription.* event had already supplied — losing the handle
-          // needed to cancel or manage the subscription.
-          const { error } = await db.from('shop_subscriptions').update({
-            plan_key:   planKey,
-            status:     'active',
-            updated_at: new Date().toISOString(),
-            ...(providerCustomerId     ? { provider_customer_id:     providerCustomerId }     : {}),
-            ...(providerSubscriptionId ? { provider_subscription_id: providerSubscriptionId } : {}),
-            ...(data.current_period_start ? { current_period_start: periodStart.toISOString() } : {}),
-            ...(data.current_period_end   ? { current_period_end:   periodEnd.toISOString() }   : {}),
-          }).eq('id', existing.id);
+        // Only write what this event actually carries. A checkout.completed without a period, or a renewal
+        // without a subscription id, must not erase a value an earlier event supplied.
+        const changes = {
+          plan_key:   planKey,
+          status:     'active',
+          updated_at: new Date().toISOString(),
+          ...(providerCustomerId     ? { provider_customer_id:     providerCustomerId }     : {}),
+          ...(providerSubscriptionId ? { provider_subscription_id: providerSubscriptionId } : {}),
+          ...(period.start ? { current_period_start: period.start.toISOString() } : {}),
+          ...(period.end   ? { current_period_end:   period.end.toISOString() }   : {}),
+        };
+
+        if (existing.id) {
+          const { error } = await db.from('shop_subscriptions').update(changes).eq('id', existing.id);
           if (error) throw new Error(`shop_subscriptions update failed: ${error.message}`);
         } else {
           const { error } = await db.from('shop_subscriptions').insert({
-            shop_id:                 shopId,
-            plan_key:                planKey,
-            status:                  'active',
-            billing_provider:        'creem',
-            provider_customer_id:    providerCustomerId,
+            shop_id:                  shopId,
+            billing_provider:         'creem',
+            provider_customer_id:     providerCustomerId,
             provider_subscription_id: providerSubscriptionId,
-            current_period_start:    periodStart.toISOString(),
-            current_period_end:      periodEnd.toISOString(),
+            ...changes,
+            // Unknown stays unknown (the columns are nullable). Never a guessed date.
+            current_period_start: period.start ? period.start.toISOString() : null,
+            current_period_end:   period.end   ? period.end.toISOString()   : null,
           });
-          if (error) throw new Error(`shop_subscriptions insert failed: ${error.message}`);
+          if (error && error.code === '23505') {
+            // A concurrent event created this shop's row first (possible once shop_id is unique). Apply this
+            // event to that row instead.
+            const raced = await latestSubscriptionRow(db, shopId);
+            if (!raced.id) throw new Error('shop_subscriptions insert conflicted but no row was found');
+            const { error: upErr } = await db.from('shop_subscriptions').update(changes).eq('id', raced.id);
+            if (upErr) throw new Error(`shop_subscriptions update failed: ${upErr.message}`);
+          } else if (error) {
+            throw new Error(`shop_subscriptions insert failed: ${error.message}`);
+          }
         }
 
-      } else if (shopId && (eventType === 'subscription.cancelled' || eventType === 'subscription.canceled' || eventType === 'subscription.expired')) {
+      } else if (CANCELLATION_EVENT_TYPES.has(eventType)) {
+        if (!shopId) return await holdUnresolved(db, eventRowId, resolution, { eventType, providerEventId, eventClass, hasUserId: !!userId });
         const { error } = await db.from('shop_subscriptions').update({
           status:       'cancelled',
           cancelled_at: new Date().toISOString(),
@@ -386,7 +438,8 @@ export async function POST(req: NextRequest) {
         if (error) throw new Error(`cancellation update failed: ${error.message}`);
         await syncBillingStatus(db, userId, 'cancelled');
 
-      } else if (shopId && (eventType === 'subscription.past_due' || eventType === 'subscription.unpaid')) {
+      } else if (PAST_DUE_EVENT_TYPES.has(eventType)) {
+        if (!shopId) return await holdUnresolved(db, eventRowId, resolution, { eventType, providerEventId, eventClass, hasUserId: !!userId });
         const { error } = await db.from('shop_subscriptions').update({
           status:      'past_due',
           past_due_at: new Date().toISOString(),
@@ -396,21 +449,15 @@ export async function POST(req: NextRequest) {
         await syncBillingStatus(db, userId, 'past_due');
       }
 
-      if (eventRow?.id) {
-        await db.from('billing_events').update({ processed: true, processed_at: new Date().toISOString() }).eq('id', eventRow.id);
-      }
+      await markEvent(db, eventRowId, { processed: true, error: null });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // The customer has been charged and has not received their plan. This is
-      // the single most important alert in the system.
-      alertBillingException(err, { stage: 'activation', eventType, providerEventId, shopId });
-      if (eventRow?.id) {
-        await db.from('billing_events').update({ error: msg }).eq('id', eventRow.id);
-      }
-      // Answer non-2xx so Creem retries. This previously returned 200 on
-      // failure, which told Creem the event was handled and permanently
-      // discarded the only automatic chance to recover — the customer had paid
-      // and the sole record of it was a log line.
+      // The customer has been charged and has not received their plan. This is the single most important
+      // alert in the system.
+      alertBillingException(err, { stage: 'activation', eventType, providerEventId, eventClass });
+      await markEvent(db, eventRowId, { processed: false, error: msg });
+      // Answer non-2xx so Creem retries. The retry REUSES this event's row (see above), so it does not add a
+      // second one, and every write above is safe to repeat.
       return NextResponse.json({ error: 'Activation failed', detail: msg }, { status: 500 });
     }
 
