@@ -34,6 +34,9 @@ export interface AuthoritativeState {
   providerCustomerId: string;
   /** The provider's own cancellation time, so the stored date belongs to the SAME subscription as the id. */
   canceledAt: Date | null;
+  /** shop_id as the SUBSCRIPTION itself carries it. The caller checks it against the shop it resolved, so a
+   *  subscription belonging to another shop can never be applied to this one. Empty when it carries none. */
+  metadataShopId: string;
 }
 
 export type AuthoritativeResult =
@@ -232,6 +235,7 @@ export function parseAuthoritativeSubscription(body: unknown): AuthoritativeResu
       period: readSubscriptionPeriod(data),
       providerCustomerId: idOf(data.customer) || idOf(data.customer_id),
       canceledAt: parseProviderDate(data.canceled_at) ?? parseProviderDate(data.cancelled_at),
+      metadataShopId: String(meta.shop_id ?? '').trim(),
     },
   };
 }

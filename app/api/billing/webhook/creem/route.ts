@@ -181,11 +181,18 @@ async function advancePeriod(db: Db, rowId: string, period: { start: Date | null
  *
  *   from the event    the normal case
  *   from the shop     the event names none, but this shop already has a subscription to reconcile against
- *   first activation  the event names none AND the shop has no subscription row: there is no prior state to
- *                     overwrite, so the ordering hazard cannot apply. The event-derived path is safe here, and
- *                     it is the ONLY way a first purchase can activate
- *   unidentified      the shop HAS a subscription row but no id on it or the event. Held, and RECOVERABLE:
+ *   first activation  nothing names a provider subscription AND the event grants rather than revokes. There is
+ *                     no PROVIDER state to overwrite, so the ordering hazard cannot apply, and the event-derived
+ *                     path is the only way a first purchase can activate
+ *   unidentified      nothing names a provider subscription and the event would REVOKE. Held, and RECOVERABLE:
  *                     once any later event stores an id, a redelivery of this one resolves
+ *
+ * A row with no provider_subscription_id is a LOCAL PLACEHOLDER, not provider state. commercial/subscriptions/
+ * subscriptionService.ts createTrialSubscription() inserts exactly that — shop_id, plan_key, status 'trialing',
+ * trial dates, and no provider columns — for a trial nobody paid for. Counting it as prior state would hold
+ * every subsequent purchase for a shop that had been given a trial, which is a paying customer blocked by a row
+ * their own signup created. It carries no provider subscription, so there is nothing a stale event could
+ * contradict, and the first proven purchase claims it.
  */
 type SubscriptionTarget =
   | { kind: 'id'; id: string; source: 'event' | 'stored' }
@@ -207,8 +214,9 @@ async function resolveSubscriptionTarget(
   if (existing.providerSubscriptionId) {
     return { kind: 'id', id: existing.providerSubscriptionId, source: 'stored' };
   }
-  // No row at all, and this event grants rather than revokes: nothing exists that a stale event could undo.
-  if (!existing.id && isActivation) return { kind: 'first_activation' };
+  // Past here nothing names a provider subscription: no row, or a placeholder row carrying no provider id.
+  // Granting is safe (nothing to undo); revoking is not (there is nothing identified to revoke).
+  if (isActivation) return { kind: 'first_activation' };
   return { kind: 'unidentified' };
 }
 
@@ -582,6 +590,13 @@ export async function POST(req: NextRequest) {
           // redelivery of an unchanged event cannot produce a different answer.
           if (result.kind === 'unusable') {
             return await holdEvent(db, eventRowId, 'provider_state_unusable', held, result.detail);
+          }
+          // The subscription Creem returned must belong to the shop this event was proved against. Without this
+          // check a subscription id on an event — or a stale id stored on the row — could apply another shop's
+          // subscription here, and a placeholder row would be claimed by something nobody bought for it.
+          if (result.state.metadataShopId && result.state.metadataShopId !== shopId) {
+            return await holdEvent(db, eventRowId, 'conflicting_metadata', held,
+              'the provider subscription belongs to a different shop');
           }
           return await applyAuthoritativeState(db, {
             shopId, userId, eventRowId, state: result.state, held,

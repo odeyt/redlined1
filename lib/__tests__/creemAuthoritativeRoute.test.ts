@@ -26,6 +26,7 @@ const SHOP = 'a1000000-0000-4000-8000-0000000000a1';
 const USER = 'c1000000-0000-4000-8000-0000000000c1';
 const SUB_1 = 'sub_test_one';
 const SUB_2 = 'sub_test_two';
+const OTHER_SHOP = 'a9000000-0000-4000-8000-0000000000a9';
 
 /** What the injected provider will answer on the next call. */
 let providerAnswer: () => Promise<Response>;
@@ -330,17 +331,18 @@ describe('an event with no subscription id', () => {
     expect(subs()[0].provider_subscription_id).toBe(SUB_1);
   });
 
-  it('HOLDS with a recoverable reason when a row exists but nothing names a subscription', async () => {
+  it('HOLDS a REVOKING event with a recoverable reason: there is nothing identified to revoke', async () => {
     mockDb.seed('shop_subscriptions', [{
       id: 'row-1', shop_id: SHOP, plan_key: 'solo', status: 'active',
       provider_subscription_id: null, created_at: '2026-09-01T00:00:00.000Z',
     }]);
 
-    const r = await deliver(noSub());
+    const r = await deliver(noSub('subscription.canceled'));
 
     expect(r.status).toBe(200);
     expect(r.body.unresolved).toBe('subscription_unidentified');
     expect(events()[0].processed).toBe(false);
+    expect(subs()[0].status).toBe('active');            // untouched
   });
 
   it('that hold RECOVERS on redelivery once a later event has stored an id', async () => {
@@ -348,16 +350,31 @@ describe('an event with no subscription id', () => {
       id: 'row-1', shop_id: SHOP, plan_key: 'solo', status: 'active',
       provider_subscription_id: null, created_at: '2026-09-01T00:00:00.000Z',
     }]);
-    const e = noSub();
+    const e = noSub('subscription.canceled');
     expect((await deliver(e)).body.unresolved).toBe('subscription_unidentified');
 
     // A later event names the subscription, which is what the held one was missing.
     await deliver(event('subscription.paid'));
+    providerAnswer = async () => okBody(providerSubscription({ status: 'canceled' }));
 
     const retry = await deliver(e);
     expect(retry.status).toBe(200);
     expect(retry.body.unresolved).toBeUndefined();
     expect(events().filter(r => r.processed === false)).toHaveLength(0);
+    expect(subs()[0].status).toBe('cancelled');
+  });
+
+  it('an ACTIVATION naming no subscription applies, even when a placeholder row exists', async () => {
+    mockDb.seed('shop_subscriptions', [{
+      id: 'row-1', shop_id: SHOP, plan_key: 'free', status: 'trialing',
+      provider_subscription_id: null, created_at: '2026-09-01T00:00:00.000Z',
+    }]);
+
+    const r = await deliver(noSub());
+
+    expect(r.status).toBe(200);
+    expect(r.body.unresolved).toBeUndefined();
+    expect(subs()[0].status).toBe('active');
   });
 
   it('a cancellation naming no subscription, for a shop with none, is held rather than applied', async () => {
@@ -365,6 +382,92 @@ describe('an event with no subscription id', () => {
 
     expect(r.body.unresolved).toBe('subscription_unidentified');
     expect(subs()).toHaveLength(0);
+  });
+});
+
+// ── the onboarding trial row ────────────────────────────────────────────────────────────────────────────────
+/**
+ * createTrialSubscription() inserts shop_id, plan_key, status 'trialing' and trial dates — and no provider
+ * columns at all. triggerShopOnboarding() has no callers today, so these pin the behaviour BEFORE it is wired
+ * up rather than after a paying customer is blocked by it.
+ */
+describe('a shop that already has a trial row with no provider_subscription_id', () => {
+  const seedTrial = () => mockDb.seed('shop_subscriptions', [{
+    id: 'trial-row', shop_id: SHOP, plan_key: 'professional', status: 'trialing',
+    provider_subscription_id: null, billing_provider: null, provider_customer_id: null,
+    trial_start: '2026-09-01T00:00:00.000Z', trial_end: '2026-09-15T00:00:00.000Z',
+    current_period_start: null, current_period_end: null,
+    created_at: '2026-09-01T00:00:00.000Z',
+  }]);
+
+  const noSub = (type = 'checkout.completed') => {
+    const e = event(type) as { object: Record<string, unknown> };
+    delete e.object.subscription;
+    return e;
+  };
+
+  it('A LEGITIMATE CHECKOUT NAMING A SUBSCRIPTION claims the trial row and activates', async () => {
+    seedTrial();
+    const r = await deliver(event('subscription.paid'));
+
+    expect(r.status).toBe(200);
+    expect(subs()).toHaveLength(1);                     // claimed, not duplicated
+    const row = subs()[0];
+    expect(row.id).toBe('trial-row');
+    expect(row.status).toBe('active');
+    expect(row.plan_key).toBe('solo');                  // what was bought, not the trial default
+    expect(row.provider_subscription_id).toBe(SUB_1);
+    expect(row.current_period_end).toBe('2026-10-01T00:00:00.000Z');
+    expect(profile().plan).toBe('solo');
+  });
+
+  it('A LEGITIMATE CHECKOUT NAMING NO SUBSCRIPTION still activates: a trial row is not provider state', async () => {
+    seedTrial();
+    const r = await deliver(noSub());
+
+    expect(r.status).toBe(200);
+    expect(r.body.unresolved).toBeUndefined();
+    expect(providerCalls).toBe(0);
+    expect(subs()).toHaveLength(1);
+    expect(subs()[0].status).toBe('active');
+    expect(subs()[0].plan_key).toBe('solo');
+    expect(profile().plan).toBe('solo');
+  });
+
+  it('AN UNRELATED SUBSCRIPTION CANNOT CLAIM THE ROW: the provider state must name this shop', async () => {
+    seedTrial();
+    providerAnswer = async () => okBody(providerSubscription({
+      metadata: { plan_key: 'solo', plan_id: 'solo', shop_id: OTHER_SHOP, user_id: USER },
+    }));
+
+    const r = await deliver(event('subscription.paid'));
+
+    expect(r.status).toBe(200);
+    expect(r.body.unresolved).toBe('conflicting_metadata');
+    const row = subs()[0];
+    expect(row.status).toBe('trialing');                // untouched
+    expect(row.provider_subscription_id).toBeNull();
+    expect(profile().plan).toBe('free');
+  });
+
+  it('a stale CANCELLATION cannot revoke a trial nobody paid for', async () => {
+    seedTrial();
+    const r = await deliver(noSub('subscription.canceled'));
+
+    expect(r.body.unresolved).toBe('subscription_unidentified');
+    expect(subs()[0].status).toBe('trialing');
+    expect(profile().billing_status).toBe('inactive');
+  });
+
+  it('once claimed, the row is reconciled against its stored id like any other', async () => {
+    seedTrial();
+    await deliver(event('subscription.paid'));
+    expect(subs()[0].provider_subscription_id).toBe(SUB_1);
+
+    providerAnswer = async () => okBody(providerSubscription({ status: 'canceled' }));
+    await deliver(noSub());                             // names nothing; resolved from the stored id
+
+    expect(subs()[0].status).toBe('cancelled');
   });
 });
 
