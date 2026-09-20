@@ -1,7 +1,7 @@
 /**
  * lib/billing/unresolvedEvents.ts
- * SERVER ONLY. Read-only list of Creem events the webhook received but could not link to a shop
- * (billing_events rows with processed = false and error = 'UNRESOLVED_SHOP:<reason>').
+ * SERVER ONLY. Read-only list of Creem events the webhook received but did not apply
+ * (billing_events rows with processed = false and error = 'UNRESOLVED:<reason>').
  *
  * What it returns, and what it deliberately does not:
  *   - the row id (billing_events.id, an internal id) so the owner can open the exact row in the SQL editor,
@@ -17,7 +17,7 @@
 import 'server-only';
 import { getAdminDb } from '@/lib/supabaseServer';
 import {
-  UNRESOLVED_PREFIX, UNRESOLVED_REASON_TEXT, classifyCreemEvent, eventMetadata, parseEnvelope, parseUnresolvedReason,
+  UNRESOLVED_PREFIX, UNRESOLVED_REASON_TEXT, classifyCreemEvent, parseEnvelope, parseUnresolvedReason, resolveEventMetadata,
   type CreemEventClass, type UnresolvedReason,
 } from '@/lib/billing/creemEvent';
 
@@ -55,8 +55,9 @@ export function maskEventRef(providerEventId: string | null | undefined): string
 const HOW_TO_INVESTIGATE = [
   'Open the billing_events row with the id shown (Supabase SQL editor). The payload is deliberately not returned by this API.',
   'Match the event reference against the event in the Creem dashboard to see what was ordered and by whom.',
-  'One-time orders made outside Redlined1 are not listed here: they are recorded as processed, since they have no shop to link to.',
-  'If the buyer is a Redlined1 customer, correct the cause (for a buyer in two shops, decide which shop), then ask Creem to redeliver the event. The redelivery re-evaluates it, reuses this row and clears it. Nothing is applied automatically.',
+  'Only a positively identified one-time order made outside Redlined1 is acknowledged quietly and not listed here. Everything else that was not applied is: events with no shop, a buyer who is not an eligible member, a missing or conflicting plan, refunds, unhandled subscription events, and events with no type or id.',
+  'If the buyer is a Redlined1 customer, correct the cause (a role, a membership, which of two shops), then ask Creem to redeliver the event. The redelivery re-evaluates it, reuses this row and clears it. Nothing is applied automatically.',
+  'An event with reason no_shop_metadata cannot be fixed by a redelivery, because its bytes never change. Follow "Resolving an event with no shop metadata" in docs/billing-webhook-idempotency.md; it does not edit any stored payload.',
 ];
 
 export async function listUnresolvedBillingEvents(): Promise<UnresolvedBillingEvents> {
@@ -77,7 +78,8 @@ export async function listUnresolvedBillingEvents(): Promise<UnresolvedBillingEv
     if (!reason) continue;   // an ordinary failure, or a lookalike: not this list's business
     const payload = (row.payload && typeof row.payload === 'object' ? row.payload : {}) as Record<string, unknown>;
     const { eventType, data: object } = parseEnvelope(payload);
-    const meta = eventMetadata(object);
+    const resolved = resolveEventMetadata(object);
+    const meta = resolved.kind === 'ok' ? resolved.meta : {};
     all.push({
       id: String(row.id),
       eventType: String(row.event_type ?? eventType),

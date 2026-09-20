@@ -2,7 +2,7 @@
  * An in-memory stand-in for the slice of the Supabase client the Creem webhook route uses:
  *   from(t).select(cols).eq(c, v)...order(c, {ascending}).limit(n)[.single() | .maybeSingle()]
  *   from(t).insert(row)[.select(cols).single()]
- *   from(t).update(patch, { count: 'exact' }).eq(c, v)
+ *   from(t).update(patch, { count: 'exact' }).eq(c, v)[.is(c, null) | .lt(c, v)]
  *
  * What makes it useful for the concurrency tests: EVERY operation yields to the event loop before it
  * executes, so two requests started together interleave at operation granularity. Two handlers can both
@@ -50,6 +50,7 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
   class Query implements PromiseLike<{ data: unknown; error: DbError | null; count?: number | null }> {
     private op: 'select' | 'insert' | 'update' = 'select';
     private filters: Array<[string, unknown]> = [];
+    private predicates: Array<(r: Row) => boolean> = [];
     private orderBy: { col: string; asc: boolean } | null = null;
     private limitN: number | null = null;
     private payload: Row = {};
@@ -64,6 +65,17 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
     insert(row: Row) { this.op = 'insert'; this.payload = row; return this; }
     update(patch: Row, opts?: { count?: string }) { this.op = 'update'; this.payload = patch; this.wantCount = opts?.count === 'exact'; return this; }
     eq(col: string, val: unknown) { this.filters.push([col, val]); return this; }
+    /** `.is(col, null)`: the column has no value (NULL). Only null is modelled. */
+    is(col: string, val: null) { this.predicates.push(r => r[col] === val || r[col] === undefined); return this; }
+    /** `.lt(col, v)`: the column is set and strictly less than v. Timestamps compare as instants, like timestamptz. */
+    lt(col: string, val: string | number) {
+      this.predicates.push(r => {
+        const a = r[col];
+        if (a === null || a === undefined) return false;   // NULL < x is unknown, so no match
+        return typeof val === 'string' ? Date.parse(String(a)) < Date.parse(val) : Number(a) < val;
+      });
+      return this;
+    }
     order(col: string, opts?: { ascending?: boolean }) { this.orderBy = { col, asc: opts?.ascending !== false }; return this; }
     limit(n: number) { this.limitN = n; return this; }
     single() { this.mode = 'single'; return this; }
@@ -90,7 +102,7 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
         const [f] = state.failures.splice(fi, 1);
         return { data: null, error: f.error };
       }
-      const matches = () => rowsOf(this.table).filter(r => this.filters.every(([c, v]) => r[c] === v));
+      const matches = () => rowsOf(this.table).filter(r => this.filters.every(([c, v]) => r[c] === v) && this.predicates.every(p => p(r)));
 
       if (this.op === 'insert') {
         const cols = state.unique[this.table];

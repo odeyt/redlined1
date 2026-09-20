@@ -39,7 +39,7 @@ const row = (n: number, o: Record<string, unknown> = {}) => ({
   event_type: 'subscription.paid',
   provider_event_id: `evt_secretive_${n}_ABCDEFGH`,
   created_at: `2026-09-${String(10 + (n % 15)).padStart(2, '0')}T00:00:00.000Z`,
-  error: 'UNRESOLVED_SHOP:no_shop_metadata',
+  error: 'UNRESOLVED:no_shop_metadata',
   payload: {
     id: `evt_secretive_${n}_ABCDEFGH`, eventType: 'subscription.paid',
     object: { object: 'subscription', id: 'sub_secret_123', customer: { id: 'cus_secret_456', email: 'customer.person@example-test.invalid', name: 'Pat Customer' } },
@@ -79,12 +79,36 @@ describe('what it returns', () => {
     stubResult = { data: [
       row(1),
       row(2, { error: 'shop_subscriptions insert failed: boom' }),
-      row(3, { error: 'UNRESOLVED_SHOP:made_up_reason' }),
-      row(4, { error: 'UNRESOLVED_SHOP:ambiguous_membership' }),
+      row(3, { error: 'UNRESOLVED:made_up_reason' }),
+      row(4, { error: 'UNRESOLVED:ambiguous_membership' }),
+      row(5, { error: 'UNRESOLVED_SHOP:no_shop_metadata' }),   // the earlier prefix is not this list's business
     ], error: null };
     const body = await (await GET(req())).json();
     expect(body.events.map((e: { reason: string }) => e.reason)).toEqual(['no_shop_metadata', 'ambiguous_membership']);
     expect(body.count).toBe(2);
+  });
+
+  it('lists every kind of held event, not only shop-linking failures, each with its own explanation', async () => {
+    const refund = { id: 'x', eventType: 'refund.created', object: { object: 'refund' } };
+    stubResult = { data: [
+      row(1, { error: 'UNRESOLVED:buyer_not_eligible' }),
+      row(2, { error: 'UNRESOLVED:plan_missing' }),
+      row(3, { error: 'UNRESOLVED:refund_or_dispute', event_type: 'refund.created', payload: refund }),
+      row(4, { error: 'UNRESOLVED:unhandled_subscription_event', event_type: 'subscription.update' }),
+      row(5, { error: 'UNRESOLVED:missing_event_id', provider_event_id: null }),
+    ], error: null };
+    const body = await (await GET(req())).json();
+    expect(body.events.map((e: { reason: string }) => e.reason)).toEqual(['buyer_not_eligible', 'plan_missing', 'refund_or_dispute', 'unhandled_subscription_event', 'missing_event_id']);
+    expect(body.events[2].classification).toBe('refund_or_dispute');
+    expect(body.events[4].eventRef).toBe('(none)');
+    expect(body.events.every((e: { reasonText: string }) => e.reasonText.length > 10)).toBe(true);
+  });
+
+  it('an event whose two metadata sources conflict reports no shop or user, rather than picking one', async () => {
+    const conflicting = { id: 'x', eventType: 'checkout.completed', object: { metadata: { shop_id: 's-1', user_id: 'u-1' }, subscription: { metadata: { shop_id: 's-2', user_id: 'u-1' } } } };
+    stubResult = { data: [row(1, { error: 'UNRESOLVED:conflicting_metadata', event_type: 'checkout.completed', payload: conflicting })], error: null };
+    const [e] = (await (await GET(req())).json()).events;
+    expect(e).toMatchObject({ reason: 'conflicting_metadata', carriesShopId: false, carriesUserId: false, classification: 'redlined_subscription' });
   });
 
   it('gives the owner what is needed to investigate: row id, type, time, reason, classification, masked reference, and what it carried', async () => {
@@ -131,6 +155,9 @@ describe('what it returns', () => {
     const { howToInvestigate } = await (await GET(req())).json();
     expect(howToInvestigate.join(' ')).toMatch(/billing_events/);
     expect(howToInvestigate.join(' ')).toMatch(/Nothing is applied automatically/);
+    // The no_shop_metadata runbook is documented, and it edits no stored payload.
+    expect(howToInvestigate.join(' ')).toMatch(/no_shop_metadata[\s\S]*docs\/billing-webhook-idempotency\.md/);
+    expect(howToInvestigate.join(' ')).not.toMatch(/edit the payload|update the payload/i);
   });
 });
 
