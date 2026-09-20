@@ -162,6 +162,23 @@ export class CreemPaymentProvider implements PaymentProvider {
     };
   }
 
+  /**
+   * DO NOT USE THIS ON THE WEBHOOK PATH. It has two defects that billing work has already paid for once.
+   *
+   * 1. mapSubscription() DEFAULTS THE PLAN to 'starter' (and the interval to 'monthly') when metadata is absent.
+   *    Silently defaulting a plan is the exact bug removed from the webhook, where the default was 'professional'
+   *    and customers were granted a plan nobody bought.
+   * 2. It reads `current_period_start` / `current_period_end`. Creem does not send those names — it sends
+   *    `current_period_start_date` / `current_period_end_date` (confirmed against stored production events).
+   *    toDate() returns new Date(0) on a miss, so every period resolves to 1970-01-01.
+   *
+   * For subscription state that anything is decided from, use lib/billing/creemAuthoritative.ts, which resolves
+   * the plan through resolvePlan (never defaulted) and the period through readSubscriptionPeriod (the names the
+   * provider actually sends), and holds what it cannot read safely.
+   *
+   * This method is left as it is because nothing on the billing path calls it; fixing it is its own change with
+   * its own tests. Treat a caller appearing here as a review failure.
+   */
   async getSubscription(providerSubscriptionId: string): Promise<RedlinedSubscription | null> {
     const response = await creemFetch(`/subscriptions/${providerSubscriptionId}`);
     if (response.status === 404) return null;
@@ -245,6 +262,7 @@ export class CreemPaymentProvider implements PaymentProvider {
 
   // ─── Private mapping helpers ───────────────────────────────────────────────
 
+  /** See the warning on getSubscription(): this mapper defaults the plan and reads period names Creem never sends. */
   private mapSubscription(data: Record<string, unknown>): RedlinedSubscription {
     const metadata = (data.metadata ?? {}) as Record<string, string>;
     return {

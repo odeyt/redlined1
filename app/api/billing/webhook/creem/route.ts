@@ -8,6 +8,9 @@ import {
 } from '@/lib/billing/creemEvent';
 import { readSubscriptionPeriod } from '@/lib/billing/creemPeriod';
 import { resolvePlan } from '@/lib/billing/creemPlan';
+import {
+  authoritativeStateEnabled, fetchAuthoritativeSubscription, type AuthoritativeState,
+} from '@/lib/billing/creemAuthoritative';
 
 function getAdminDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -17,11 +20,19 @@ function getAdminDb() {
 
 type Db = ReturnType<typeof getAdminDb>;
 
-/** Rows already recorded for this provider event id, oldest first. A failed lookup is logged and treated as "none". */
+/**
+ * Rows already recorded for this provider event id, oldest first. A failed lookup is logged and treated as "none".
+ *
+ * Filtered on (provider, provider_event_id) — the SAME pair as the proposed unique index. The lookup used to
+ * filter on provider_event_id alone, so the query and the constraint disagreed about what identifies an event:
+ * the index would have allowed two providers to share an id while the lookup returned both rows. Only 'creem'
+ * exists today, which is exactly why this is cheap to fix now.
+ */
 async function findEventRows(db: Db, providerEventId: string): Promise<Array<{ id: string; processed: boolean }>> {
   const { data, error } = await db
     .from('billing_events')
     .select('id, processed')
+    .eq('provider', 'creem')
     .eq('provider_event_id', providerEventId)
     .order('created_at', { ascending: true });
   if (error) {
@@ -42,15 +53,23 @@ async function markEvent(db: Db, id: string | null, state: { processed: boolean;
 }
 
 /** The newest subscription row for a shop. Newest-first with limit 1, so duplicate rows can never make the lookup itself fail. */
-async function latestSubscriptionRow(db: Db, shopId: string): Promise<{ id: string | null; error: string | null }> {
+async function latestSubscriptionRow(
+  db: Db,
+  shopId: string,
+): Promise<{ id: string | null; providerSubscriptionId: string; error: string | null }> {
   const { data, error } = await db
     .from('shop_subscriptions')
-    .select('id')
+    .select('id, provider_subscription_id')
     .eq('shop_id', shopId)
     .order('created_at', { ascending: false })
     .limit(1);
-  if (error) return { id: null, error: error.message };
-  return { id: data && data.length ? String(data[0].id) : null, error: null };
+  if (error) return { id: null, providerSubscriptionId: '', error: error.message };
+  const row = data && data.length ? data[0] : null;
+  return {
+    id: row ? String(row.id) : null,
+    providerSubscriptionId: row && row.provider_subscription_id ? String(row.provider_subscription_id) : '',
+    error: null,
+  };
 }
 
 type Resolution =
@@ -122,9 +141,11 @@ async function holdEvent(
   eventRowId: string | null,
   reason: UnresolvedReason,
   context: { eventType: string; providerEventId: string; eventClass: CreemEventClass },
+  /** Diagnostic only. It reaches the alert, never the stored error: that vocabulary is fixed on purpose. */
+  detail?: string,
 ): Promise<NextResponse> {
   await markEvent(db, eventRowId, { processed: false, error: unresolvedError(reason) });
-  alertBillingFailure('event held — nothing was applied', { ...context, reason });
+  alertBillingFailure('event held — nothing was applied', { ...context, reason, ...(detail ? { detail } : {}) });
   return NextResponse.json({ received: true, unresolved: reason });
 }
 
@@ -149,6 +170,141 @@ async function advancePeriod(db: Db, rowId: string, period: { start: Date | null
   if (unset.error) throw new Error(`shop_subscriptions period update failed: ${unset.error.message}`);
   const newer = await db.from('shop_subscriptions').update(values).eq('id', rowId).lt('current_period_end', values.current_period_end);
   if (newer.error) throw new Error(`shop_subscriptions period update failed: ${newer.error.message}`);
+}
+
+/**
+ * Which subscription should this event be reconciled against?
+ *
+ * Not every lifecycle event carries a subscription id — some checkout.completed shapes do not. Falling through
+ * to the event-derived path there would quietly reopen the ordering hole Option B exists to close, and holding
+ * every such event would block a legitimate first purchase, which is the worse failure of the two.
+ *
+ *   from the event    the normal case
+ *   from the shop     the event names none, but this shop already has a subscription to reconcile against
+ *   first activation  the event names none AND the shop has no subscription row: there is no prior state to
+ *                     overwrite, so the ordering hazard cannot apply. The event-derived path is safe here, and
+ *                     it is the ONLY way a first purchase can activate
+ *   unidentified      the shop HAS a subscription row but no id on it or the event. Held, and RECOVERABLE:
+ *                     once any later event stores an id, a redelivery of this one resolves
+ */
+type SubscriptionTarget =
+  | { kind: 'id'; id: string; source: 'event' | 'stored' }
+  | { kind: 'first_activation' }
+  | { kind: 'unidentified' };
+
+async function resolveSubscriptionTarget(
+  db: Db,
+  shopId: string,
+  data: Record<string, unknown>,
+  isActivation: boolean,
+): Promise<SubscriptionTarget | { kind: 'error'; message: string }> {
+  const fromEvent = asId(data.subscription) || asId(data.subscription_id);
+  if (fromEvent) return { kind: 'id', id: fromEvent, source: 'event' };
+
+  const existing = await latestSubscriptionRow(db, shopId);
+  if (existing.error) return { kind: 'error', message: `shop_subscriptions lookup failed: ${existing.error}` };
+
+  if (existing.providerSubscriptionId) {
+    return { kind: 'id', id: existing.providerSubscriptionId, source: 'stored' };
+  }
+  // No row at all, and this event grants rather than revokes: nothing exists that a stale event could undo.
+  if (!existing.id && isActivation) return { kind: 'first_activation' };
+  return { kind: 'unidentified' };
+}
+
+/**
+ * OPTION B write path: store exactly what the provider says, and nothing the event says.
+ *
+ * Mirrors the event-derived writes deliberately — same tables, same order, same forward-only period — so the two
+ * paths cannot drift in what they produce, only in where the values came from. profiles.plan is still never
+ * downgraded here; that policy lives in syncBillingStatus and is unchanged.
+ */
+async function applyAuthoritativeState(
+  db: Db,
+  args: {
+    shopId: string;
+    userId: string;
+    eventRowId: string | null;
+    state: AuthoritativeState;
+    held: { eventType: string; providerEventId: string; eventClass: CreemEventClass };
+  },
+): Promise<NextResponse> {
+  const { shopId, userId, eventRowId, state, held } = args;
+
+  if (state.status === 'active') {
+    const { error: profileErr, count } = await db
+      .from('profiles')
+      .update({ plan: state.planKey, billing_status: 'active' }, { count: 'exact' })
+      .eq('id', userId);
+    if (profileErr) throw new Error(`profiles.plan update failed: ${profileErr.message}`);
+    if (count === 0) return await holdEvent(db, eventRowId, 'no_buyer_profile', held);
+  }
+
+  const nowIso = new Date().toISOString();
+
+  // The lifecycle columns are DERIVED from the one status, never accumulated. A row that says active must not
+  // still carry a cancellation date, and vice versa. The date itself is the provider's own `canceled_at`, so it
+  // belongs to the same subscription as the id beside it.
+  const changes: Record<string, unknown> = {
+    status:                   state.status,
+    plan_key:                 state.planKey,
+    billing_provider:         'creem',
+    provider_subscription_id: state.subscriptionId,
+    updated_at:               nowIso,
+    cancelled_at: state.status === 'cancelled' ? (state.canceledAt?.toISOString() ?? nowIso) : null,
+    past_due_at:  state.status === 'past_due'  ? nowIso : null,
+    ...(state.providerCustomerId ? { provider_customer_id: state.providerCustomerId } : {}),
+  };
+
+  const existing = await latestSubscriptionRow(db, shopId);
+  if (existing.error) throw new Error(`shop_subscriptions lookup failed: ${existing.error}`);
+
+  if (existing.id) {
+    // A DIFFERENT subscription replaces the period outright; the same one may only move it forward.
+    //
+    // advancePeriod's forward-only rule guards against a late or duplicated event for ONE subscription. Applied
+    // across a resubscription it produces an incoherent row: SUB_2's id sitting on SUB_1's period, because a new
+    // subscription bought mid-period ends earlier than the old one. A different id is a different object, and its
+    // period is simply authoritative for it.
+    const sameSubscription = existing.providerSubscriptionId === state.subscriptionId;
+
+    const { error } = await db.from('shop_subscriptions').update(
+      sameSubscription ? changes : {
+        ...changes,
+        current_period_start: state.period.start ? state.period.start.toISOString() : null,
+        current_period_end:   state.period.end   ? state.period.end.toISOString()   : null,
+      },
+    ).eq('id', existing.id);
+    if (error) throw new Error(`shop_subscriptions update failed: ${error.message}`);
+    if (sameSubscription) await advancePeriod(db, existing.id, state.period);
+  } else {
+    const { error } = await db.from('shop_subscriptions').insert({
+      shop_id:              shopId,
+      ...changes,
+      current_period_start: state.period.start ? state.period.start.toISOString() : null,
+      current_period_end:   state.period.end   ? state.period.end.toISOString()   : null,
+    });
+    if (error && error.code === '23505') {
+      const raced = await latestSubscriptionRow(db, shopId);
+      if (!raced.id) throw new Error('shop_subscriptions insert conflicted but no row was found');
+      const sameSubscription = raced.providerSubscriptionId === state.subscriptionId;
+      const { error: upErr } = await db.from('shop_subscriptions').update(
+        sameSubscription ? changes : {
+          ...changes,
+          current_period_start: state.period.start ? state.period.start.toISOString() : null,
+          current_period_end:   state.period.end   ? state.period.end.toISOString()   : null,
+        },
+      ).eq('id', raced.id);
+      if (upErr) throw new Error(`shop_subscriptions update failed: ${upErr.message}`);
+      if (sameSubscription) await advancePeriod(db, raced.id, state.period);
+    } else if (error) {
+      throw new Error(`shop_subscriptions insert failed: ${error.message}`);
+    }
+  }
+
+  await syncBillingStatus(db, userId, state.status === 'cancelled' ? 'cancelled' : state.status === 'past_due' ? 'past_due' : 'active');
+  await markEvent(db, eventRowId, { processed: true, error: null });
+  return NextResponse.json({ received: true, applied: 'provider_state', status: state.status });
 }
 
 /** HMAC-SHA256 of the raw body, hex encoded. */
@@ -401,6 +557,37 @@ export async function POST(req: NextRequest) {
       if (eventRowId) {
         const { error: linkErr } = await db.from('billing_events').update({ shop_id: shopId }).eq('id', eventRowId);
         if (linkErr) console.error('[webhook/creem] could not link the event to its shop:', linkErr.message);
+      }
+
+      // ── OPTION B, behind BILLING_AUTHORITATIVE_STATE (default off) ───────────────────────────────────────
+      // Ask the provider what the subscription IS, and apply that instead of what this event says. The outcome
+      // stops depending on arrival order: a late activation cannot reactivate a subscription Creem considers
+      // cancelled, and a stale plan cannot be written back. With the flag off, every line below this block is
+      // byte-for-byte the behaviour that shipped.
+      //
+      // An event with no subscription id is reconciled against the shop's stored subscription instead; only a
+      // genuine first activation falls through to the event-derived path (see resolveSubscriptionTarget).
+      if (authoritativeStateEnabled()) {
+        const target = await resolveSubscriptionTarget(db, shopId, data, ACTIVATION_EVENT_TYPES.has(eventType));
+        if (target.kind === 'error') throw new Error(target.message);
+        if (target.kind === 'unidentified') {
+          return await holdEvent(db, eventRowId, 'subscription_unidentified', held);
+        }
+        if (target.kind === 'id') {
+          const result = await fetchAuthoritativeSubscription(target.id);
+          // Fail closed, transient: nothing is applied and Creem redelivers into the SAME event row. The shop
+          // keeps working throughout — only this billing event waits.
+          if (result.kind === 'unavailable') throw new Error(`provider state unavailable: ${result.detail}`);
+          // Fail closed, permanent for these bytes: hold it where the owner can see it. 200, because a
+          // redelivery of an unchanged event cannot produce a different answer.
+          if (result.kind === 'unusable') {
+            return await holdEvent(db, eventRowId, 'provider_state_unusable', held, result.detail);
+          }
+          return await applyAuthoritativeState(db, {
+            shopId, userId, eventRowId, state: result.state, held,
+          });
+        }
+        // target.kind === 'first_activation': fall through and apply what the event carries.
       }
 
       if (ACTIVATION_EVENT_TYPES.has(eventType)) {

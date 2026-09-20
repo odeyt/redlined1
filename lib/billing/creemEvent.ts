@@ -141,6 +141,8 @@ export type UnresolvedReason =
   | 'buyer_unverified' | 'buyer_not_member' | 'buyer_not_eligible' | 'conflicting_metadata' | 'no_buyer_profile'
   // what was bought
   | 'plan_missing' | 'plan_unknown' | 'plan_conflict'
+  // what the provider says the subscription IS (Option B)
+  | 'provider_state_unusable' | 'subscription_unidentified'
   // what the event is
   | 'missing_event_type' | 'missing_event_id' | 'malformed_object' | 'malformed_checkout'
   | 'refund_or_dispute' | 'unhandled_subscription_event' | 'unknown_event_type';
@@ -155,6 +157,8 @@ export const UNRESOLVED_REASON_TEXT: Record<UnresolvedReason, string> = {
   buyer_not_eligible:   'The buyer is a member of the shop but not in a role that manages billing (owner or manager).',
   conflicting_metadata: 'The event carries two different sets of Redlined1 metadata (on the event and on its subscription).',
   no_buyer_profile:     'The buyer has no profile row to grant the plan to.',
+  provider_state_unusable:   'The provider was reached but its subscription state could not be applied safely.',
+  subscription_unidentified: 'Neither the event nor the shop names a subscription to reconcile this against.',
   plan_missing:         'The event does not say which plan was bought.',
   plan_unknown:         'The event names a plan or product that is not a plan sold through Redlined1 checkout.',
   plan_conflict:        'The plan named in the metadata disagrees with itself or with the product actually purchased.',
