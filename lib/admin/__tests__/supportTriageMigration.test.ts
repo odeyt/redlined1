@@ -113,12 +113,22 @@ describe('2026-09-19_support_ticket_triage.sql', () => {
     expect(executable).toMatch(/CREATE INDEX IF NOT EXISTS/);
   });
 
-  it('documents verification and a rollback that only removes the new table', () => {
+  it('documents verification and a rollback that never discards audit rows', () => {
     expect(sql).toMatch(/── Verification/);
     const rollback = sql.slice(sql.indexOf('── Rollback'));
-    expect(rollback).toMatch(/DROP TABLE IF EXISTS public\.support_ticket_triage_events;/);
-    // Nothing else was changed, so nothing else needs restoring.
-    expect(rollback.match(/^--\s+(DROP|ALTER|CREATE)\b/gm)).toHaveLength(1);
+    // No unconditional drop: the only DROP is behind a guard that aborts when the table holds rows.
+    expect(rollback).not.toMatch(/DROP TABLE IF EXISTS/);
+    expect(rollback.match(/^--\s+DROP TABLE\b/gm)).toHaveLength(1);
+    const guard = rollback.indexOf('IF EXISTS (SELECT 1 FROM public.support_ticket_triage_events)');
+    const drop = rollback.indexOf('DROP TABLE public.support_ticket_triage_events');
+    expect(guard).toBeGreaterThan(-1);
+    expect(drop).toBeGreaterThan(guard);
+    expect(rollback.slice(guard, drop)).toMatch(/RAISE EXCEPTION/);
+    // An app rollback needs no database change, and a populated table is archived, not dropped.
+    expect(rollback).toMatch(/Rolling back the APPLICATION needs no database change/);
+    expect(rollback).toMatch(/RENAME TO support_ticket_triage_events_archive/);
+    // Nothing that deletes or cascades data appears as a rollback step.
+    expect(rollback).not.toMatch(/^--\s+(DELETE|TRUNCATE)\b|\bDROP\b[^\n]*\bCASCADE\b/gm);
   });
 
   it('matches what the application reads and writes: table and column names', () => {

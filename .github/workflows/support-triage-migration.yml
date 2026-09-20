@@ -118,15 +118,59 @@ jobs:
           if psql -v ON_ERROR_STOP=1 -c "SET ROLE authenticated; SELECT nextval('public.support_ticket_triage_events_id_seq')" >/dev/null 2>&1; then
             echo "authenticated role unexpectedly used the marker id sequence"; exit 1
           fi
-      - name: Verify rollback leaves original tickets intact
+      - name: Verify the documented rollback never discards audit rows
         run: |
-          psql -v ON_ERROR_STOP=1 <<'SQL'
+          # The table holds 2 markings here. The documented guarded drop must refuse and leave everything in place.
+          if psql -v ON_ERROR_STOP=1 <<'SQL' >/dev/null 2>&1
+          BEGIN;
+          DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM public.support_ticket_triage_events) THEN
+              RAISE EXCEPTION 'support_ticket_triage_events holds audit rows: keep or archive it, do not drop it';
+            END IF;
+          END $$;
           DROP TABLE public.support_ticket_triage_events;
+          COMMIT;
+          SQL
+          then echo "guarded rollback dropped a table that holds audit rows"; exit 1; fi
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.support_ticket_triage_events') IS NULL
+               OR (SELECT count(*) FROM public.support_ticket_triage_events) <> 2
+            THEN RAISE EXCEPTION 'refused drop still lost the table or its rows'; END IF;
+          END $$;
+          -- Archive path: rename keeps every row and the lock-down.
+          ALTER TABLE public.support_ticket_triage_events RENAME TO support_ticket_triage_events_archive;
+          DO $$
+          DECLARE t CONSTANT text := 'public.support_ticket_triage_events_archive';
+          BEGIN
+            IF to_regclass('public.support_ticket_triage_events') IS NOT NULL
+               OR (SELECT count(*) FROM public.support_ticket_triage_events_archive) <> 2
+               OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid = t::regclass)
+               OR has_table_privilege('anon', t, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
+               OR has_table_privilege('authenticated', t, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')
+               OR has_table_privilege('service_role', t, 'UPDATE,DELETE,TRUNCATE')
+               OR (SELECT count(*) FROM public.support_tickets) <> 1
+               OR EXISTS (SELECT * FROM public.support_tickets EXCEPT SELECT * FROM public.test_ticket_snapshot)
+            THEN RAISE EXCEPTION 'archive rollback lost rows, kept a grant it should not, or changed a ticket'; END IF;
+          END $$;
+          SQL
+          # Empty-table case: re-apply the migration (a fresh empty table), and the guarded drop succeeds.
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/2026-09-19_support_ticket_triage.sql
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM public.support_ticket_triage_events) THEN
+              RAISE EXCEPTION 'support_ticket_triage_events holds audit rows: keep or archive it, do not drop it';
+            END IF;
+          END $$;
+          DROP TABLE public.support_ticket_triage_events;
+          COMMIT;
           DO $$
           BEGIN
             IF to_regclass('public.support_ticket_triage_events') IS NOT NULL
+               OR (SELECT count(*) FROM public.support_ticket_triage_events_archive) <> 2
                OR (SELECT count(*) FROM public.support_tickets) <> 1
-               OR EXISTS (SELECT * FROM public.support_tickets EXCEPT SELECT * FROM public.test_ticket_snapshot)
-            THEN RAISE EXCEPTION 'rollback failed'; END IF;
+            THEN RAISE EXCEPTION 'empty-table rollback failed or touched the archive'; END IF;
           END $$;
           SQL

@@ -136,8 +136,30 @@ COMMIT;
 --   support_tickets is unchanged: its policies are exactly those in 2026-08-03_support_tickets.sql.
 --
 -- ── Rollback ────────────────────────────────────────────────────────────────
---   Nothing outside this table was changed, so removing it restores the previous state.
+--   Nothing outside this table was changed. This table is an AUDIT TRAIL: once it holds a marking it is
+--   never dropped as part of a rollback.
 --
---   DROP TABLE IF EXISTS public.support_ticket_triage_events;
+--   1. Rolling back the APPLICATION needs no database change. The previous build never reads or writes this
+--      table, and the current build treats a missing table as "every ticket unreviewed". Leave it in place.
 --
---   This discards every marking and its history.
+--   2. Removing the table is only for the case where it is still EMPTY (for example the migration was applied
+--      and then abandoned before any marking). The guard aborts, dropping nothing, if any row exists:
+--
+--        BEGIN;
+--        DO $$ BEGIN
+--          IF EXISTS (SELECT 1 FROM public.support_ticket_triage_events) THEN
+--            RAISE EXCEPTION 'support_ticket_triage_events holds audit rows: keep or archive it, do not drop it';
+--          END IF;
+--        END $$;
+--        DROP TABLE public.support_ticket_triage_events;
+--        COMMIT;
+--
+--   3. If markings exist and the feature must be switched off, keep the data. Export it first, then (only if the
+--      name must be freed) rename it. Its lock-down (RLS on, no policy, service_role SELECT+INSERT) is kept, and the
+--      application then behaves as if the table were absent:
+--
+--        SELECT id, ticket_id, triage, set_by, created_at FROM public.support_ticket_triage_events ORDER BY id;   -- save this output
+--        ALTER TABLE public.support_ticket_triage_events RENAME TO support_ticket_triage_events_archive;
+--
+--   Deleting a ticket (or its shop) deletes that ticket's marker history through the foreign key; nothing in a
+--   rollback should do that.
