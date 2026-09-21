@@ -170,7 +170,9 @@ export default defineConfig({
       grepInvert: /@visual/,
       // tests/marketing covers the public, unauthenticated /landing-preview
       // route and runs standalone under the "marketing" project instead.
-      testIgnore: [/tests\/marketing\//, ...NON_PLAYWRIGHT_SPECS],
+      // tests/owner-portal is staging-only and refuses any other target; it runs
+      // under its own "owner-portal" project. NON_PLAYWRIGHT_SPECS: see its note above.
+      testIgnore: [/tests[/\\](marketing|owner-portal)[/\\]/, ...NON_PLAYWRIGHT_SPECS],
     },
     {
       name: 'firefox',

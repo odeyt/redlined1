@@ -25,10 +25,15 @@ export interface FakeState {
   failAuth: boolean;
   /** Columns requested from each table, in call order — lets tests assert what was (not) selected. */
   selects: Array<{ table: string; columns: string[] }>;
+  /**
+   * Emulates hosted PostgREST's max-rows (1000 on Supabase): no read returns more rows than this,
+   * whatever .limit() asked for, and nothing says it was cut. Infinity (off) unless a test sets it.
+   */
+  serverMaxRows: number;
 }
 
 export function createFakeAdminDb(tables: Record<string, Row[]> = {}) {
-  const state: FakeState = { tables, failTables: new Set(), missingColumns: {}, authUsers: {}, failAuth: false, selects: [] };
+  const state: FakeState = { tables, failTables: new Set(), missingColumns: {}, authUsers: {}, failAuth: false, selects: [], serverMaxRows: Infinity };
 
   class FakeQuery {
     private cols: string[] = [];
@@ -85,7 +90,7 @@ export function createFakeAdminDb(tables: Record<string, Row[]> = {}) {
         const { col, asc } = this.orderBy;
         rows = [...rows].sort((a, b) => String(a[col] ?? '').localeCompare(String(b[col] ?? '')) * (asc ? 1 : -1));
       }
-      rows = rows.slice(0, this.max);
+      rows = rows.slice(0, Math.min(this.max, state.serverMaxRows));
       if (this.head) return { data: null, error: null, count: rows.length };
       if (this.single) return { data: rows[0] ?? null, error: null };
       return { data: rows, error: null };

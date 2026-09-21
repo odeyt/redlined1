@@ -38,6 +38,7 @@
  *  - billing_events: raw webhook log. Payloads are never surfaced here.
  */
 import 'server-only';
+import { cache } from 'react';
 import { getAdminDb } from '@/lib/supabaseServer';
 import { getInternalShopIds } from '@/lib/adminAuth';
 import { PLANS } from '@/config/plans';
@@ -51,6 +52,7 @@ import type { ReconciliationReason } from '@/lib/admin/terminology';
 import { summarizeCommercial, type CommercialShop, type CommercialSummary } from '@/lib/admin/commercialSummary';
 import { computeActivation, type ActivationSummary } from '@/lib/admin/activationData';
 import { accountFingerprint } from '@/lib/admin/fingerprint';
+import { allSettledLimited, AUTH_LOOKUP_CONCURRENCY } from '@/lib/admin/concurrency';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -69,8 +71,15 @@ import { accountFingerprint } from '@/lib/admin/fingerprint';
  * only the MAX_SCAN_ROWS most-recently-created shops (matching the search,
  * if one was given) were considered — older shops matching a filter may be
  * missing from the result, not just from the displayed page.
+ *
+ * The cap equals SERVER_ROW_LIMIT on purpose. Hosted PostgREST applies its own
+ * max-rows (1000 by default on Supabase) whatever .limit() asks for, and cuts
+ * silently. A cap above it could never be reached, so "truncated" would never
+ * be reported while the data was in fact cut short. At the cap, a result is
+ * treated as possibly incomplete.
  */
-const MAX_SCAN_ROWS = 2000;
+const SERVER_ROW_LIMIT = 1000;
+const MAX_SCAN_ROWS = SERVER_ROW_LIMIT;
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -268,6 +277,19 @@ function mustRows<T>(res: { data: T[] | null; error: { message?: string; code?: 
   return res.data ?? [];
 }
 
+/**
+ * For reads that have no cap of their own (every membership or subscription row of
+ * the scanned shops). A full server page may have been cut short, and a missing
+ * owner or subscription row would silently misclassify a shop, so fail loudly.
+ */
+function mustRowsComplete<T>(res: { data: T[] | null; error: { message?: string; code?: string } | null }, what: string): T[] {
+  const rows = mustRows(res, what);
+  if (rows.length >= SERVER_ROW_LIMIT) {
+    throw new AdminDataError(`${what} returned ${rows.length} rows, the server's row limit, so it may be incomplete`);
+  }
+  return rows;
+}
+
 // ─── Core scan (shared by listAccounts and getOwnerOverview) ─────────────────
 
 /** What the resolver may know about a billing row. The provider id itself never leaves this function. */
@@ -331,7 +353,16 @@ async function resolveCandidateShopIds(
   return { ids: [...ids].slice(0, MAX_SCAN_ROWS), truncated };
 }
 
-async function scanClassifiedShops(search: string): Promise<ScanResult> {
+/**
+ * One scan per server request. /admin renders the overview and the reconciliation
+ * list from the same shops; React's cache() lets them share one scan instead of
+ * repeating every query. Outside a Server Component render (API routes, tests)
+ * cache() is a plain passthrough, so each call reads fresh. Callers must treat the
+ * result as read-only: it may be shared.
+ */
+const scanClassifiedShops = cache(scanClassifiedShopsUncached);
+
+async function scanClassifiedShopsUncached(search: string): Promise<ScanResult> {
   const db = getAdminDb();
   const internal = getInternalShopIds();
 
@@ -362,8 +393,8 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
       .select('shop_id, status, plan_key, billing_provider, provider_customer_id, provider_subscription_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, cancelled_at, past_due_at, metadata, created_at')
       .in('shop_id', shopIds),
   ]);
-  const memberRows = mustRows(memberResult, 'shop_users scan');
-  const subRows = mustRows(subResult, 'shop_subscriptions scan');
+  const memberRows = mustRowsComplete(memberResult, 'shop_users scan');
+  const subRows = mustRowsComplete(subResult, 'shop_subscriptions scan');
 
   const members = memberRows as MembershipRow[];
   const memberCountByShop = new Map<string, number>();
@@ -389,7 +420,7 @@ async function scanClassifiedShops(search: string): Promise<ScanResult> {
   const shopsNeedingFallback = shopIds.filter(id => !ownerUserIdByShop.has(id));
   const fallbackProfileByShop = new Map<string, ProfileRow>();
   if (shopsNeedingFallback.length) {
-    const fallbackRows = mustRows(
+    const fallbackRows = mustRowsComplete(
       await db
         .from('profiles')
         .select(PROFILE_COLUMNS)
@@ -513,8 +544,8 @@ export async function listAccounts(params: AccountListParams): Promise<AccountLi
   // actually being rendered — bounded by pageSize, never by the full scan,
   // and never a whole-project scan of every auth user.
   const db = getAdminDb();
-  const lastSignIns = await Promise.allSettled(
-    pageSlice.map(row => row.primaryProfile ? db.auth.admin.getUserById(row.primaryProfile.id) : Promise.resolve(null))
+  const lastSignIns = await allSettledLimited(pageSlice, AUTH_LOOKUP_CONCURRENCY, row =>
+    row.primaryProfile ? db.auth.admin.getUserById(row.primaryProfile.id) : Promise.resolve(null),
   );
 
   const items: AccountListItem[] = pageSlice.map((row, i) => {
@@ -614,17 +645,18 @@ async function countOrphanBillingRecords(
   scanTruncated: boolean,
 ): Promise<{ orphanSubscriptions: number | null; unattributedBillingEvents: number | null }> {
   const [subsRes, eventsRes] = await Promise.all([
-    db.from('shop_subscriptions').select('shop_id').limit(MAX_SCAN_ROWS + 1),
-    db.from('billing_events').select('shop_id').limit(MAX_SCAN_ROWS + 1),
+    db.from('shop_subscriptions').select('shop_id').limit(MAX_SCAN_ROWS),
+    db.from('billing_events').select('shop_id').limit(MAX_SCAN_ROWS),
   ]);
   const subs = mustRows(subsRes, 'orphan subscription scan');
   const events = mustRows(eventsRes, 'unattributed billing event scan');
   return {
     // Without the full shop list an "orphan" cannot be told from a shop outside the scan.
-    orphanSubscriptions: scanTruncated || subs.length > MAX_SCAN_ROWS
+    // A read that reached the cap may have been cut short: unknown (null), never a partial count.
+    orphanSubscriptions: scanTruncated || subs.length >= MAX_SCAN_ROWS
       ? null
       : subs.filter(r => !knownShopIds.has(r.shop_id)).length,
-    unattributedBillingEvents: events.length > MAX_SCAN_ROWS ? null : events.filter(r => !r.shop_id).length,
+    unattributedBillingEvents: events.length >= MAX_SCAN_ROWS ? null : events.filter(r => !r.shop_id).length,
   };
 }
 
@@ -683,13 +715,13 @@ export interface OwnerOverview {
 
 async function countProfilesWithoutMembership(db: ReturnType<typeof getAdminDb>): Promise<number | null> {
   const [profilesRes, membersRes] = await Promise.all([
-    db.from('profiles').select('id').limit(MAX_SCAN_ROWS + 1),
-    db.from('shop_users').select('user_id').limit(MAX_SCAN_ROWS + 1),
+    db.from('profiles').select('id').limit(MAX_SCAN_ROWS),
+    db.from('shop_users').select('user_id').limit(MAX_SCAN_ROWS),
   ]);
   const profiles = mustRows(profilesRes, 'profiles membership scan');
   const members = mustRows(membersRes, 'shop_users membership scan');
-  // Over the cap the set difference would be wrong, not just partial: say so instead.
-  if (profiles.length > MAX_SCAN_ROWS || members.length > MAX_SCAN_ROWS) return null;
+  // At the cap the set difference would be wrong, not just partial: say so instead.
+  if (profiles.length >= MAX_SCAN_ROWS || members.length >= MAX_SCAN_ROWS) return null;
   const linked = new Set(members.map(m => m.user_id));
   return profiles.filter(p => !linked.has(p.id)).length;
 }
