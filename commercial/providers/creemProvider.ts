@@ -10,7 +10,7 @@
  */
 
 import type { IBillingProvider, WebhookHandleResult, RemoteSubscription } from './BillingProvider';
-import { RemoteSubscriptionUnusableError } from './BillingProvider';
+import { RemoteSubscriptionUnusableError, mapRemoteStatus } from './BillingProvider';
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
@@ -42,14 +42,6 @@ function creemApiBase(): string {
 
 /** Short on purpose: this sits in front of a caller that is itself answering something. */
 const SUBSCRIPTION_READ_TIMEOUT_MS = 5000;
-
-/**
- * Statuses this integration is prepared to store. An unknown one is held as unusable rather than mapped, because
- * every default available here ('active') is a grant.
- */
-const KNOWN_REMOTE_STATUSES: ReadonlySet<string> = new Set([
-  'active', 'trialing', 'past_due', 'unpaid', 'cancelled', 'canceled', 'expired', 'suspended', 'paused',
-]);
 
 /** A date, or nothing — never `now`, never Invalid Date. */
 function toDateOrUnknown(value: unknown): Date | null {
@@ -196,6 +188,9 @@ export const creemProvider: IBillingProvider = {
     const shopId         = meta.shop_id ?? null;
 
     let subscriptionUpdate: WebhookHandleResult['subscriptionUpdate'];
+    // Set when the event cannot be applied safely. processWebhook records it on the event row and leaves the
+    // event unprocessed — visible and retryable — instead of marking it done with nothing applied.
+    let unusable: string | undefined;
 
     if (eventType === 'checkout.completed' || eventType === 'subscription.created') {
       subscriptionUpdate = {
@@ -208,10 +203,18 @@ export const creemProvider: IBillingProvider = {
         currentPeriodEnd:        data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000),
       };
     } else if (eventType === 'subscription.updated') {
-      subscriptionUpdate = {
-        providerSubscriptionId: String(data.subscription_id ?? data.id ?? ''),
-        status:                 mapCreemStatus(String(data.status ?? 'active')),
-      };
+      // No default. This was mapCreemStatus(String(data.status ?? 'active')) — an absent status became active
+      // before the map saw it, and the map turned anything it did not recognise into active too.
+      const status = mapRemoteStatus(data.status);
+      if (status) {
+        subscriptionUpdate = {
+          providerSubscriptionId: String(data.subscription_id ?? data.id ?? ''),
+          status,
+        };
+      } else {
+        const raw = String(data.status ?? '').trim();
+        unusable = raw ? `unrecognised subscription status: ${raw}` : 'subscription.updated carries no status';
+      }
     } else if (eventType === 'subscription.cancelled' || eventType === 'subscription.canceled') {
       subscriptionUpdate = {
         providerSubscriptionId: String(data.subscription_id ?? data.id ?? ''),
@@ -226,7 +229,10 @@ export const creemProvider: IBillingProvider = {
       };
     }
 
-    return { valid: true, eventType, providerEventId, shopId, payload, subscriptionUpdate };
+    return {
+      valid: true, eventType, providerEventId, shopId, payload, subscriptionUpdate,
+      ...(unusable ? { error: unusable } : {}),
+    };
   },
 
   /**
@@ -289,7 +295,8 @@ export const creemProvider: IBillingProvider = {
 
     // Never defaulted. An unrecognised status must not become 'active' — that is a grant.
     const rawStatus = String(data.status ?? '').trim().toLowerCase();
-    if (!KNOWN_REMOTE_STATUSES.has(rawStatus)) {
+    // "Known" means the shared mapper can place it — one rule, so the accepted set cannot drift from the map.
+    if (mapRemoteStatus(rawStatus) === null) {
       throw new RemoteSubscriptionUnusableError(
         rawStatus ? `unrecognised provider status: ${rawStatus}` : 'the subscription carries no status', id,
       );
@@ -339,19 +346,6 @@ export const creemProvider: IBillingProvider = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function mapCreemStatus(creemStatus: string): 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | 'suspended' | 'manual' {
-  const map: Record<string, 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | 'suspended' | 'manual'> = {
-    active:     'active',
-    trialing:   'trialing',
-    past_due:   'past_due',
-    cancelled:  'cancelled',
-    canceled:   'cancelled',
-    expired:    'expired',
-    suspended:  'suspended',
-  };
-  return map[creemStatus] ?? 'active';
-}
 
 async function verifyCreemSignature(rawBody: string, signature: string, secret: string): Promise<boolean> {
   try {

@@ -9,6 +9,7 @@
 import { getAdminDb } from '@/lib/supabaseServer';
 import { creemProvider } from '@/commercial/providers/creemProvider';
 import type { IBillingProvider } from '@/commercial/providers/BillingProvider';
+import { mapRemoteStatus } from '@/commercial/providers/BillingProvider';
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
@@ -97,6 +98,11 @@ export async function processWebhook(
 
   // Apply subscription update if present
   try {
+    // The provider read the event but could not interpret it (an unrecognised status, say). Throwing lands in
+    // the catch below, which records the reason on the event row and leaves it unprocessed, so it is visible and
+    // can be retried — rather than being marked processed with nothing applied.
+    if (result.error) throw new Error(result.error);
+
     if (result.subscriptionUpdate && result.shopId) {
       const update = result.subscriptionUpdate;
 
@@ -260,7 +266,12 @@ export async function syncSubscriptionFromProvider(
     const remote = await getProvider().getSubscription(providerSubscriptionId);
     if (!remote) return false;
 
-    await updateSubscriptionStatus(shopId, mapProviderStatus(remote.status), {
+    // Never defaulted. This was mapProviderStatus(), which returned 'active' for anything it did not list —
+    // including 'unpaid' and 'paused', both of which getSubscription accepts as real statuses.
+    const status = mapRemoteStatus(remote.status);
+    if (!status) return false;
+
+    await updateSubscriptionStatus(shopId, status, {
       cancelAtPeriodEnd: remote.cancelAtPeriodEnd,
       cancelledAt:       remote.cancelledAt ?? undefined,
     });
@@ -270,11 +281,3 @@ export async function syncSubscriptionFromProvider(
   }
 }
 
-function mapProviderStatus(s: string): 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | 'suspended' | 'manual' {
-  if (s === 'trialing') return 'trialing';
-  if (s === 'past_due') return 'past_due';
-  if (s === 'cancelled' || s === 'canceled') return 'cancelled';
-  if (s === 'expired')   return 'expired';
-  if (s === 'suspended') return 'suspended';
-  return 'active';
-}

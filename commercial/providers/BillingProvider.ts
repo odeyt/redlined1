@@ -10,6 +10,7 @@ import type {
   BillingPortalInput,
   BillingPortalResult,
   ShopSubscription,
+  SubscriptionStatus,
 } from '@/commercial/shared/types';
 
 export interface IBillingProvider {
@@ -43,6 +44,39 @@ export interface WebhookHandleResult {
   error?: string;
   /** Normalized subscription update if this is a subscription event */
   subscriptionUpdate?: Partial<ShopSubscription> & { providerCustomerId?: string; providerSubscriptionId?: string };
+}
+
+/**
+ * A provider's subscription status, as this module stores it — or `null` when it cannot be read.
+ *
+ * ONE mapping for the whole commercial layer. There used to be two, and both ended the same way:
+ *   - creemProvider.ts  mapCreemStatus:    `return map[creemStatus] ?? 'active'`
+ *   - billingService.ts mapProviderStatus: a fall-through `return 'active'`
+ * Every unknown, empty or misspelled status became ACTIVE — a grant. The call site added a third default,
+ * `String(data.status ?? 'active')`, so even an absent status was active before either map saw it.
+ *
+ * A separate list of accepted statuses in creemProvider.getSubscription then drifted from the second map:
+ * it accepted 'unpaid' and 'paused', which mapProviderStatus did not handle, so both came out 'active'. That is
+ * why "is this status known" is now answered by THIS function returning non-null, and nothing else.
+ *
+ *   unpaid -> past_due    money is owed; the same answer lib/billing/creemAuthoritative.ts gives
+ *   paused -> suspended   service is not being provided. A judgment call: this union has no 'paused'
+ *
+ * 'manual' is an internal status and never comes from a provider, so it is not mapped from one.
+ */
+export function mapRemoteStatus(raw: unknown): SubscriptionStatus | null {
+  switch (String(raw ?? '').trim().toLowerCase()) {
+    case 'active':    return 'active';
+    case 'trialing':  return 'trialing';
+    case 'past_due':
+    case 'unpaid':    return 'past_due';
+    case 'cancelled':
+    case 'canceled':  return 'cancelled';
+    case 'expired':   return 'expired';
+    case 'suspended':
+    case 'paused':    return 'suspended';
+    default:          return null;
+  }
 }
 
 /**
