@@ -3,6 +3,10 @@
  *   from(t).select(cols).eq(c, v)...order(c, {ascending}).limit(n)[.single() | .maybeSingle()]
  *   from(t).insert(row)[.select(cols).single()]
  *   from(t).update(patch, { count: 'exact' }).eq(c, v)[.is(c, null) | .lt(c, v)]
+ *   from(t).upsert(row, { onConflict: 'col[,col]' })   — PostgreSQL ON CONFLICT DO UPDATE: on a clash, ONLY the
+ *                                                        columns supplied are updated; omitted columns keep their
+ *                                                        stored values. That is what lets a test prove a write did
+ *                                                        not erase data it was never given.
  *
  * What makes it useful for the concurrency tests: EVERY operation yields to the event loop before it
  * executes, so two requests started together interleave at operation granularity. Two handlers can both
@@ -16,9 +20,9 @@
  */
 export type Row = Record<string, unknown>;
 export interface DbError { message: string; code?: string }
-export interface WriteLog { table: string; op: 'insert' | 'update'; values: Row; matched?: number }
+export interface WriteLog { table: string; op: 'insert' | 'update' | 'upsert'; values: Row; matched?: number }
 
-interface Failure { table: string; op: 'select' | 'insert' | 'update'; error: DbError }
+interface Failure { table: string; op: 'select' | 'insert' | 'update' | 'upsert'; error: DbError }
 
 /**
  * A rendezvous: the first `parties` operations on (table, op) each WAIT until all of them have arrived, then
@@ -48,7 +52,8 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
   const rowsOf = (t: string): Row[] => (state.tables[t] ??= []);
 
   class Query implements PromiseLike<{ data: unknown; error: DbError | null; count?: number | null }> {
-    private op: 'select' | 'insert' | 'update' = 'select';
+    private op: 'select' | 'insert' | 'update' | 'upsert' = 'select';
+    private conflict: string[] = [];
     private filters: Array<[string, unknown]> = [];
     private predicates: Array<(r: Row) => boolean> = [];
     private orderBy: { col: string; asc: boolean } | null = null;
@@ -63,6 +68,11 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
     // The column list is ignored on purpose: every row is returned whole, which is a superset of any projection.
     select() { if (this.op !== 'select') this.returning = true; return this; }
     insert(row: Row) { this.op = 'insert'; this.payload = row; return this; }
+    upsert(row: Row, opts?: { onConflict?: string }) {
+      this.op = 'upsert'; this.payload = row;
+      this.conflict = (opts?.onConflict ?? 'id').split(',').map(c => c.trim()).filter(Boolean);
+      return this;
+    }
     update(patch: Row, opts?: { count?: string }) { this.op = 'update'; this.payload = patch; this.wantCount = opts?.count === 'exact'; return this; }
     eq(col: string, val: unknown) { this.filters.push([col, val]); return this; }
     /** `.is(col, null)`: the column has no value (NULL). Only null is modelled. */
@@ -120,6 +130,20 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
         return this.shape(this.returning ? [row] : null);
       }
 
+      if (this.op === 'upsert') {
+        const target = rowsOf(this.table).find(r => this.conflict.every(c => r[c] !== undefined && r[c] !== null && r[c] === this.payload[c]));
+        if (target) {
+          Object.assign(target, this.payload);              // ON CONFLICT DO UPDATE SET <supplied columns only>
+          state.writes.push({ table: this.table, op: 'upsert', values: { ...this.payload }, matched: 1 });
+          return this.shape(this.returning ? [target] : null);
+        }
+        state.seq += 1;
+        const row: Row = { id: `row-${this.table}-${state.seq}`, created_at: new Date(BASE + state.seq * 1000).toISOString(), ...this.payload };
+        rowsOf(this.table).push(row);
+        state.writes.push({ table: this.table, op: 'upsert', values: { ...this.payload }, matched: 0 });
+        return this.shape(this.returning ? [row] : null);
+      }
+
       if (this.op === 'update') {
         const hit = matches();
         for (const r of hit) Object.assign(r, this.payload);
@@ -152,7 +176,7 @@ export function createInMemoryDb(options: InMemoryDbOptions = {}) {
     failNext(table: string, op: Failure['op'], error: DbError = { message: 'simulated failure' }) { state.failures.push({ table, op, error }); },
     /** Hold the first `parties` matching operations until all have arrived, then release them together. */
     barrier(table: string, op: Barrier['op'], parties = 2) { state.barriers.push({ table, op, parties, waiting: [], released: false }); },
-    writesTo(table: string, op?: 'insert' | 'update'): WriteLog[] { return state.writes.filter(w => w.table === table && (!op || w.op === op)); },
+    writesTo(table: string, op?: 'insert' | 'update' | 'upsert'): WriteLog[] { return state.writes.filter(w => w.table === table && (!op || w.op === op)); },
     clearWrites() { state.writes.length = 0; },
   };
 }

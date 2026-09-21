@@ -43,7 +43,17 @@ export interface WebhookHandleResult {
   payload: Record<string, unknown>;
   error?: string;
   /** Normalized subscription update if this is a subscription event */
-  subscriptionUpdate?: Partial<ShopSubscription> & { providerCustomerId?: string; providerSubscriptionId?: string };
+  subscriptionUpdate?: Partial<ShopSubscription> & {
+    providerCustomerId?: string;
+    providerSubscriptionId?: string;
+    /**
+     * True for an event that GRANTS a paid subscription (checkout.completed, subscription.created). Such an
+     * update must carry a plan and both provider ids, or it is refused. Without this flag, processWebhook told
+     * an activation from a status change by whether the ids happened to be present, so an activation MISSING
+     * its ids fell through to a bare "set status active" — a grant with no plan and no subscription behind it.
+     */
+    activation?: boolean;
+  };
 }
 
 /**

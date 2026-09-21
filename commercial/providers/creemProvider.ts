@@ -11,12 +11,25 @@
 
 import type { IBillingProvider, WebhookHandleResult, RemoteSubscription } from './BillingProvider';
 import { RemoteSubscriptionUnusableError, mapRemoteStatus } from './BillingProvider';
+import type { PlanKey } from '@/commercial/shared/types';
+
+import { resolveProviderPlan, readProviderId, SELLABLE_PLANS } from '@/lib/billing/providerPlan';
+import { readSubscriptionPeriod } from '@/lib/billing/creemPeriod';
+
 import type {
   CheckoutSessionInput,
   CheckoutSessionResult,
   BillingPortalInput,
   BillingPortalResult,
 } from '@/commercial/shared/types';
+
+/**
+ * Plans this commercial layer can activate from a provider event: its own PlanKeys that checkout actually
+ * sells. Derived, not listed, so it cannot drift: 'enterprise' has no price (sold by conversation) and 'solo' is
+ * not a commercial PlanKey, so a solo product arriving here is refused rather than mapped to something else.
+ */
+const ACTIVATABLE_PLANS: readonly PlanKey[] = (['starter', 'professional', 'business', 'enterprise'] as PlanKey[])
+  .filter(p => (SELLABLE_PLANS as readonly string[]).includes(p));
 
 /**
  * The host, derived at CALL time from CREEM_TEST_MODE.
@@ -193,15 +206,40 @@ export const creemProvider: IBillingProvider = {
     let unusable: string | undefined;
 
     if (eventType === 'checkout.completed' || eventType === 'subscription.created') {
-      subscriptionUpdate = {
-        shopId:                  meta.shop_id ?? undefined,
-        planKey:                 (meta.plan_key ?? 'professional') as never,
-        status:                  'active',
-        providerCustomerId:      String(data.customer_id ?? ''),
-        providerSubscriptionId:  String(data.subscription_id ?? ''),
-        currentPeriodStart:      data.current_period_start ? new Date(data.current_period_start as string) : new Date(),
-        currentPeriodEnd:        data.current_period_end   ? new Date(data.current_period_end as string)   : new Date(Date.now() + 30 * 86400000),
-      };
+      // An activation GRANTS a paid plan, so every fact it rests on must come from the provider. This was:
+      //   planKey: meta.plan_key ?? 'professional'                        — no plan named became Professional
+      //   currentPeriodStart: ... : new Date()                            — no period became now
+      //   currentPeriodEnd:   ... : new Date(Date.now() + 30 * 86400000)  — and now + 30 days
+      // and it read current_period_start / current_period_end, names Creem does not send, so the invented
+      // period was the only one it ever produced. The ids were String(data.customer_id ?? ''), so a nested
+      // customer or subscription object, or a missing one, became '' or "[object Object]".
+      const plan = resolveProviderPlan(data, ACTIVATABLE_PLANS);
+      const nested = (data.subscription && typeof data.subscription === 'object' && !Array.isArray(data.subscription))
+        ? (data.subscription as Record<string, unknown>) : {};
+      const providerCustomerId = readProviderId(data.customer) || readProviderId(data.customer_id)
+        || readProviderId(nested.customer);
+      const providerSubscriptionId = readProviderId(data.subscription) || readProviderId(data.subscription_id)
+        || (eventType === 'subscription.created' ? readProviderId(data.id) : '');
+
+      if (plan.kind === 'unusable') {
+        unusable = `activation refused: ${plan.reason}`;
+      } else if (!providerCustomerId || !providerSubscriptionId) {
+        unusable = 'activation refused: the event names no provider customer id or no provider subscription id';
+      } else {
+        // The provider period, or unknown — never now, never now + 30 days. activateSubscription writes a period
+        // only when one was supplied, so an omitted period leaves a stored one intact.
+        const period = readSubscriptionPeriod(data);
+        subscriptionUpdate = {
+          activation:             true,
+          shopId:                 meta.shop_id ?? undefined,
+          planKey:                plan.plan,
+          status:                 'active',
+          providerCustomerId,
+          providerSubscriptionId,
+          currentPeriodStart:     period.start,
+          currentPeriodEnd:       period.end,
+        };
+      }
     } else if (eventType === 'subscription.updated') {
       // No default. This was mapCreemStatus(String(data.status ?? 'active')) — an absent status became active
       // before the map saw it, and the map turned anything it did not recognise into active too.

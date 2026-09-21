@@ -54,7 +54,7 @@ describe('syncSubscriptionFromProvider', () => {
   async function load(status: unknown) {
     const updates: unknown[][] = [];
     jest.doMock('@/commercial/subscriptions/subscriptionService', () => ({
-      updateSubscriptionStatus: async (...a: unknown[]) => { updates.push(a); },
+      updateSubscriptionStatus: async (...a: unknown[]) => { updates.push(a); return true; },
       activateSubscription: async () => {},
     }));
     process.env.CREEM_API_KEY = 'creem_test_key_for_unit_tests';
@@ -130,6 +130,7 @@ describe('processWebhook', () => {
       let values: Record<string, unknown> = {};
       q.select = () => q;
       q.eq = () => q;
+      q.order = () => q;
       q.insert = (v: Record<string, unknown>) => { op = 'insert'; values = v; return q; };
       q.update = (v: Record<string, unknown>) => { op = 'update'; values = v; writes.push({ op, values }); return q; };
       q.maybeSingle = async () => ({ data: null, error: null });
@@ -148,7 +149,7 @@ describe('processWebhook', () => {
     const statusUpdates: unknown[][] = [];
     jest.doMock('@/lib/supabaseServer', () => ({ getAdminDb: () => db }));
     jest.doMock('@/commercial/subscriptions/subscriptionService', () => ({
-      updateSubscriptionStatus: async (...a: unknown[]) => { statusUpdates.push(a); },
+      updateSubscriptionStatus: async (...a: unknown[]) => { statusUpdates.push(a); return true; },
       activateSubscription: async () => {},
     }));
     delete process.env.CREEM_WEBHOOK_SECRET;

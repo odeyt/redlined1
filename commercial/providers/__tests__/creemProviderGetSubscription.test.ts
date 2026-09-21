@@ -205,7 +205,7 @@ describe('the one caller still fails closed', () => {
     jest.resetModules();
     const updates: unknown[][] = [];
     jest.doMock('@/commercial/subscriptions/subscriptionService', () => ({
-      updateSubscriptionStatus: async (...a: unknown[]) => { updates.push(a); },
+      updateSubscriptionStatus: async (...a: unknown[]) => { updates.push(a); return true; },
     }));
     process.env.BILLING_PROVIDER = 'creem';
     const { syncSubscriptionFromProvider } = await import('@/commercial/billing/billingService');

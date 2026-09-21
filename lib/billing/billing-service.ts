@@ -14,6 +14,25 @@ import type { RedlinedSubscription, PaymentWebhookEvent, SubscriptionStatus, Red
 import type { PlanConfig } from '@/config/plans';
 import { PLANS } from '@/config/plans';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { resolveProviderPlan, readProviderId, SELLABLE_PLANS } from '@/lib/billing/providerPlan';
+import { readSubscriptionPeriod } from '@/lib/billing/creemPeriod';
+
+/**
+ * A billing event that names a buyer, but not the facts needed to grant anything safely. Thrown rather than
+ * returned as null: null from extractSubscriptionFromCheckout means "not a Redlined1 checkout", which the route
+ * acknowledges. This means "ours, and unreadable", which must stay unprocessed so it can be retried.
+ * The reason is our own vocabulary and carries no customer data.
+ */
+export class BillingFactsError extends Error {
+  readonly reason: string;
+  constructor(reason: string) {
+    super(`billing facts unusable: ${reason}`);
+    this.name = 'BillingFactsError';
+    this.reason = reason;
+  }
+}
+
+const isPlainRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,15 +117,22 @@ export async function recordPaymentEvent(event: PaymentWebhookEvent): Promise<bo
   try {
     const db = getAdminDb();
 
-    // Check idempotency — skip if already processed
+    // Idempotency. payment_events is UNIQUE on (provider, provider_event_id), so there is at most one row and
+    // maybeSingle is safe here. Only a PROCESSED row is a duplicate.
+    //
+    // This returned false for ANY existing row, so an event that failed — its row recorded, processed = false —
+    // could never be processed again, not even by a manual resend once the missing fact was fixed. An unprocessed
+    // row is now a retry: the same row is reused (the unique index forbids a second), and markEventProcessed
+    // flips it only when the event actually applies.
     const { data: existing } = await db
       .from('payment_events')
-      .select('id')
+      .select('id, processed')
       .eq('provider_event_id', event.providerEventId)
       .eq('provider', event.provider)
       .maybeSingle();
 
-    if (existing) return false; // already processed
+    if (existing?.processed) return false; // already processed
+    if (existing) return true;             // recorded earlier, never applied: process it now
 
     const { error } = await db.from('payment_events').insert({
       provider: event.provider,
@@ -161,9 +187,11 @@ export async function syncSubscriptionFromProvider(
       plan_id: sub.planId,
       billing_interval: sub.billingInterval,
       status: sub.status,
-      // Unknown stays unknown. These used to be non-nullable and were filled with 1970-01-01.
-      current_period_start: sub.currentPeriodStart?.toISOString() ?? null,
-      current_period_end: sub.currentPeriodEnd?.toISOString() ?? null,
+      // A period is written only when the provider supplied one. An upsert that sends null would ERASE a
+      // valid period already stored for this subscription — an event omitting its period is not evidence the
+      // period is gone. Never invented either: these were once filled with 1970-01-01.
+      ...(sub.currentPeriodStart ? { current_period_start: sub.currentPeriodStart.toISOString() } : {}),
+      ...(sub.currentPeriodEnd   ? { current_period_end:   sub.currentPeriodEnd.toISOString() }   : {}),
       trial_start: sub.trialStart?.toISOString() ?? null,
       trial_end: sub.trialEnd?.toISOString() ?? null,
       cancel_at_period_end: sub.cancelAtPeriodEnd,
@@ -189,37 +217,61 @@ export async function syncSubscriptionFromProvider(
   }
 }
 
-/** Extracts a RedlinedSubscription from a checkout.completed event payload. */
+/**
+ * Extracts a RedlinedSubscription from a checkout.completed event payload.
+ *
+ *   null               NOT a Redlined1 checkout — no buyer and no plan named. Nothing is granted; the route
+ *                      acknowledges it.
+ *   BillingFactsError  ours, but a required fact is missing, unknown or contradictory. Thrown, so the route
+ *                      skips markEventProcessed and the event stays unprocessed and retryable.
+ *
+ * What it used to do, on the live /api/webhooks/creem route:
+ *   - period: now and now + 30 days, always — invented, and written to subscriptions.current_period_*;
+ *   - plan:   meta.plan_id ?? 'starter', and any non-empty plan_id at all, sellable or not, went straight to
+ *             profiles.plan, which planGate reads for entitlement;
+ *   - ids:    String(d.subscription_id ?? '') — a missing subscription id became '', and every such checkout
+ *             upserted onto the SAME subscriptions row (onConflict provider_subscription_id). A nested
+ *             customer object became the string "[object Object]";
+ *   - errors: any exception returned null, which the route then marked processed.
+ */
 export function extractSubscriptionFromCheckout(event: PaymentWebhookEvent): RedlinedSubscription | null {
-  try {
-    const d = event.data as Record<string, unknown>;
-    const meta = (d.metadata ?? {}) as Record<string, string>;
+  const d = (isPlainRecord(event.data) ? event.data : {}) as Record<string, unknown>;
+  const nested = isPlainRecord(d.subscription) ? d.subscription : {};
+  const meta = (isPlainRecord(d.metadata) ? d.metadata : isPlainRecord(nested.metadata) ? nested.metadata : {}) as Record<string, unknown>;
 
-    if (!meta.user_id || !meta.plan_id) return null;
+  const userId = typeof meta.user_id === 'string' ? meta.user_id.trim() : '';
+  const namesPlan = [meta.plan_key, meta.plan_id].some(v => typeof v === 'string' && v.trim() !== '');
+  if (!userId && !namesPlan) return null;
+  if (!userId) throw new BillingFactsError('the checkout names a plan but no buyer');
 
-    const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  // The plan through the authoritative product mapping. Never defaulted.
+  const plan = resolveProviderPlan(d, SELLABLE_PLANS);
+  if (plan.kind === 'unusable') throw new BillingFactsError(plan.reason);
 
-    return {
-      id: String(d.subscription_id ?? d.id ?? ''),
-      userId: meta.user_id,
-      provider: event.provider,
-      providerCustomerId: String(d.customer_id ?? d.customer ?? ''),
-      providerSubscriptionId: String(d.subscription_id ?? ''),
-      providerPriceId: String(d.price_id ?? d.product_id ?? ''),
-      planId: (meta.plan_id ?? 'starter') as RedlinedPlanId,
-      billingInterval: (meta.billing_interval ?? 'monthly') as 'monthly' | 'annual',
-      status: 'active',
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-      trialStart: null,
-      trialEnd: null,
-      cancelAtPeriodEnd: false,
-      canceledAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-  } catch {
-    return null;
-  }
+  const subscriptionId = readProviderId(d.subscription) || readProviderId(d.subscription_id);
+  if (!subscriptionId) throw new BillingFactsError('the checkout names no provider subscription id');
+
+  // The provider period, or unknown. Never now, never now + 30 days.
+  const period = readSubscriptionPeriod(d);
+  const now = new Date();
+
+  return {
+    id: subscriptionId,
+    userId,
+    provider: event.provider,
+    providerCustomerId: readProviderId(d.customer) || readProviderId(d.customer_id),
+    providerSubscriptionId: subscriptionId,
+    providerPriceId: readProviderId(d.product) || readProviderId(nested.product) || readProviderId(d.product_id) || null,
+    planId: plan.plan,
+    billingInterval: meta.billing_interval === 'annual' ? 'annual' : 'monthly',
+    status: 'active',
+    currentPeriodStart: period.start,
+    currentPeriodEnd: period.end,
+    trialStart: null,
+    trialEnd: null,
+    cancelAtPeriodEnd: false,
+    canceledAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }

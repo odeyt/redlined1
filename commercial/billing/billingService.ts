@@ -69,32 +69,49 @@ export async function processWebhook(
     return { success: false, error: result.error ?? 'Invalid webhook' };
   }
 
-  // Idempotency — skip if already processed
+  // Idempotency, on (provider, provider_event_id).
+  //
+  // This used .maybeSingle(), which resolves to { data: null } — with its error unread — as soon as there are
+  // TWO rows for the event. And every retry inserted a fresh row. So one failed attempt plus one successful retry
+  // left two rows, and the next redelivery saw "no existing row", was applied AGAIN, and added a third.
+  // Now: any processed row means done; otherwise the earliest unprocessed row is REUSED, so a retry updates the
+  // row that recorded the failure instead of adding one. A lookup that fails is not "none": nothing is applied.
+  let eventRowId: string | null = null;
   if (result.providerEventId) {
-    const { data: existing } = await db
+    const { data: rows, error: lookupError } = await db
       .from('billing_events')
       .select('id, processed')
+      .eq('provider', providerName)
       .eq('provider_event_id', result.providerEventId)
-      .maybeSingle();
+      .order('created_at', { ascending: true });
+    if (lookupError) return { success: false, error: `event lookup failed: ${lookupError.message}` };
 
-    if (existing?.processed) {
-      return { success: true }; // already handled
-    }
+    const found = (rows ?? []) as Array<{ id: string; processed: boolean | null }>;
+    if (found.some(r => r.processed)) return { success: true }; // already handled
+    if (found.length > 0) eventRowId = String(found[0].id);
   }
 
-  // Store raw event
-  const { data: eventRow } = await db
-    .from('billing_events')
-    .insert({
-      shop_id:           result.shopId,
-      provider:          providerName,
-      event_type:        result.eventType,
-      provider_event_id: result.providerEventId,
-      payload:           result.payload,
-      processed:         false,
-    })
-    .select('id')
-    .single();
+  // Store raw event — only if there is no earlier attempt to reuse. An event we cannot record is not applied:
+  // without its row, a failure could not be kept visible and a success could not be recognised on redelivery.
+  if (!eventRowId) {
+    const { data: inserted, error: insertError } = await db
+      .from('billing_events')
+      .insert({
+        shop_id:           result.shopId,
+        provider:          providerName,
+        event_type:        result.eventType,
+        provider_event_id: result.providerEventId,
+        payload:           result.payload,
+        processed:         false,
+      })
+      .select('id')
+      .single();
+    if (insertError || !inserted?.id) {
+      return { success: false, error: `event could not be recorded: ${insertError?.message ?? 'no row returned'}` };
+    }
+    eventRowId = String(inserted.id);
+  }
+  const eventRow = { id: eventRowId };
 
   // Apply subscription update if present
   try {
@@ -103,32 +120,54 @@ export async function processWebhook(
     // can be retried — rather than being marked processed with nothing applied.
     if (result.error) throw new Error(result.error);
 
-    if (result.subscriptionUpdate && result.shopId) {
+    if (result.subscriptionUpdate) {
       const update = result.subscriptionUpdate;
 
-      if (update.status === 'active' && update.providerCustomerId && update.providerSubscriptionId) {
-        await activateSubscription(result.shopId, {
-          providerCustomerId:    update.providerCustomerId,
+      // A subscription change with no shop cannot be applied anywhere. It used to be skipped and the event then
+      // marked processed, which lost it silently.
+      if (!result.shopId) throw new Error('subscription event names no shop');
+
+      if (update.activation) {
+        // Activation GRANTS a paid plan. Every fact is required and none is defaulted. This was:
+        //   planKey:     update.planKey ?? 'professional'
+        //   periodStart: update.currentPeriodStart ?? new Date()
+        //   periodEnd:   update.currentPeriodEnd   ?? new Date(Date.now() + 30 * 86400000)
+        // The provider layer already refuses these; this is the second lock, so a provider that omits a fact
+        // can never reach a grant.
+        if (!update.planKey) throw new Error('activation carries no plan');
+        if (!update.providerCustomerId || !update.providerSubscriptionId) {
+          throw new Error('activation carries no provider customer id or no provider subscription id');
+        }
+        const activated = await activateSubscription(result.shopId, {
+          providerCustomerId:     update.providerCustomerId,
           providerSubscriptionId: update.providerSubscriptionId,
-          planKey:               update.planKey ?? 'professional',
-          provider:              providerName,
-          periodStart:           update.currentPeriodStart ?? new Date(),
-          periodEnd:             update.currentPeriodEnd   ?? new Date(Date.now() + 30 * 86400000),
+          planKey:                update.planKey,
+          provider:               providerName,
+          periodStart:            update.currentPeriodStart ?? null,
+          periodEnd:              update.currentPeriodEnd   ?? null,
         });
+        // activateSubscription reports a failed write as false rather than throwing, and this used to ignore it
+        // and mark the event processed — so a failed activation could never be retried.
+        if (!activated) throw new Error('activation write failed');
       } else if (update.status) {
-        await updateSubscriptionStatus(result.shopId, update.status, {
+        // A status change touches only status and its own timestamps — never the plan, the provider ids or the
+        // period. That is what lets 'suspended' be a temporary loss of entitlement rather than a cancellation:
+        // everything needed to resume is left exactly as it was.
+        const updated = await updateSubscriptionStatus(result.shopId, update.status, {
           cancelledAt:      update.cancelledAt ?? undefined,
           pastDueAt:        update.pastDueAt ?? undefined,
           cancelAtPeriodEnd: update.cancelAtPeriodEnd,
         });
+        if (!updated) throw new Error('status write failed');
       }
     }
 
-    // Mark event processed
+    // Mark event processed — and clear the reason a previous attempt recorded. A retry that succeeds reuses the
+    // row that held the failure, and an applied event must not keep saying why it once could not be applied.
     if (eventRow?.id) {
       await db
         .from('billing_events')
-        .update({ processed: true, processed_at: new Date().toISOString() })
+        .update({ processed: true, processed_at: new Date().toISOString(), error: null })
         .eq('id', eventRow.id);
     }
   } catch (err) {
@@ -271,11 +310,11 @@ export async function syncSubscriptionFromProvider(
     const status = mapRemoteStatus(remote.status);
     if (!status) return false;
 
-    await updateSubscriptionStatus(shopId, status, {
+    // The write's own result, not an unconditional true: updateSubscriptionStatus reports failure as false.
+    return await updateSubscriptionStatus(shopId, status, {
       cancelAtPeriodEnd: remote.cancelAtPeriodEnd,
       cancelledAt:       remote.cancelledAt ?? undefined,
     });
-    return true;
   } catch {
     return false;
   }

@@ -23,7 +23,8 @@ import type {
   RedlinedPlanId,
   BillingInterval,
 } from '../types';
-import { getProductId, PLANS, PLAN_ORDER } from '@/config/plans';
+import { getProductId } from '@/config/plans';
+import { resolveProviderPlan, SELLABLE_PLANS } from '@/lib/billing/providerPlan';
 
 /**
  * Creem exposes a separate sandbox host. CREEM_TEST_MODE existed as an
@@ -131,47 +132,9 @@ function toDateOrUnknown(value: unknown): Date | null {
  * is accepted only when it names a plan we sell and does not contradict the product.
  */
 function resolvePlanStrict(data: Record<string, unknown>): RedlinedPlanId | { unusable: string } {
-  const sellable = PLAN_ORDER.filter(p => PLANS[p].monthlyPrice !== null && PLANS[p].annualPrice !== null);
-
-  const productId = (() => {
-    const v = data.product ?? data.product_id;
-    if (typeof v === 'string') return v.trim();
-    if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).id === 'string') {
-      return String((v as Record<string, unknown>).id).trim();
-    }
-    return '';
-  })();
-
-  const fromProduct: RedlinedPlanId[] = [];
-  if (productId) {
-    for (const plan of sellable) {
-      for (const interval of ['MONTHLY', 'ANNUAL']) {
-        if (process.env[`CREEM_${plan.toUpperCase()}_${interval}_PRODUCT_ID`]?.trim() === productId) {
-          if (!fromProduct.includes(plan)) fromProduct.push(plan);
-        }
-      }
-    }
-  }
-
-  const meta = (data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata))
-    ? (data.metadata as Record<string, string>) : {};
-  const claimed = String(meta.plan_key ?? meta.plan_id ?? '').trim().toLowerCase();
-  const claimedValid = sellable.includes(claimed as RedlinedPlanId) ? (claimed as RedlinedPlanId) : null;
-
-  if (fromProduct.length > 1) return { unusable: 'the product is configured for more than one plan' };
-  if (fromProduct.length === 1) {
-    if (claimedValid && claimedValid !== fromProduct[0]) {
-      return { unusable: 'the plan in metadata disagrees with the product being billed' };
-    }
-    return fromProduct[0];
-  }
-  // No product match. That is only safe when no product ids are configured at all; otherwise the subscription
-  // is for something we do not sell.
-  const anyConfigured = sellable.some(p => ['MONTHLY', 'ANNUAL']
-    .some(i => !!process.env[`CREEM_${p.toUpperCase()}_${i}_PRODUCT_ID`]?.trim()));
-  if (productId && anyConfigured) return { unusable: 'the product being billed is not a plan Redlined1 sells' };
-  if (claimedValid) return claimedValid;
-  return { unusable: claimed ? `metadata names an unknown plan` : 'the subscription names no plan' };
+  // One rule for every billing path: lib/billing/providerPlan.ts.
+  const result = resolveProviderPlan(data, SELLABLE_PLANS);
+  return result.kind === 'plan' ? result.plan : { unusable: result.reason };
 }
 
 export class CreemPaymentProvider implements PaymentProvider {
