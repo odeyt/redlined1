@@ -5,6 +5,28 @@ import path from 'path';
 // Read before any dotenv call — shell vars are already present.
 const EARLY_MODE = process.env.TEST_MODE ?? 'local';
 
+/**
+ * Files under tests/ that are NOT Playwright tests: they are written for Jest
+ * (jest.mock, or Jest's global test()/describe() without importing them from
+ * @playwright/test). Playwright cannot load them, and one load error fails
+ * collection for the whole project, which is why the chromium project listed
+ * zero tests. Jest does not run them either (its roots exclude tests/ and it
+ * matches *.test.ts only), so ignoring them here changes nothing that ran.
+ * Moving them into a Jest root is tracked as separate work.
+ */
+const NON_PLAYWRIGHT_SPECS = [
+  '**/tests/commercial/billing-analytics-service.spec.ts',
+  '**/tests/commercial/billing-health-access.spec.ts',
+  '**/tests/commercial/internal-shop-exclusion.spec.ts',
+  '**/tests/intelligence/customer-explanation-builder.spec.ts',
+  '**/tests/intelligence/estimate-follow-up-engine.spec.ts',
+  '**/tests/intelligence/estimate-quality-engine.spec.ts',
+  '**/tests/intelligence/intelligent-service-advisor-api.spec.ts',
+  '**/tests/intelligence/intelligent-service-advisor-isolation.spec.ts',
+  '**/tests/intelligence/related-service-engine.spec.ts',
+  '**/tests/intelligence/service-advisor-context.spec.ts',
+];
+
 // Load Supabase keys (needed by audit auth setup for API-based session injection)
 loadDotenv({ path: path.resolve(__dirname, '.env.local') });
 
@@ -149,8 +171,8 @@ export default defineConfig({
       // tests/marketing covers the public, unauthenticated /landing-preview
       // route and runs standalone under the "marketing" project instead.
       // tests/owner-portal is staging-only and refuses any other target; it runs
-      // under its own "owner-portal" project.
-      testIgnore: /tests[/\\](marketing|owner-portal)[/\\]/,
+      // under its own "owner-portal" project. NON_PLAYWRIGHT_SPECS: see its note above.
+      testIgnore: [/tests[/\\](marketing|owner-portal)[/\\]/, ...NON_PLAYWRIGHT_SPECS],
     },
     {
       name: 'firefox',
