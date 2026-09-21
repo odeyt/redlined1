@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { AdminSignOutButton } from '@/features/admin/shared/AdminSignOutButton';
 
 // Same colour tokens as features/admin/billing-health/BillingHealthDashboard.tsx
 const C = {
@@ -107,9 +108,12 @@ export function SapeleeOutboxDashboard() {
             Sapelee Event Outbox
           </h1>
         </div>
-        <button onClick={() => void load()} style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-          Refresh
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => void load()} style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+            Refresh
+          </button>
+          <AdminSignOutButton />
+        </div>
       </div>
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>

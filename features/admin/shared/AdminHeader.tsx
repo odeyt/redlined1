@@ -2,11 +2,13 @@
  * features/admin/shared/AdminHeader.tsx
  * Shared header + cross-links for the owner-admin portal pages
  * (/admin, /admin/accounts, /admin/support, /admin/billing-health).
- * A plain Server Component — pure navigation, no client state needed.
+ * A plain Server Component — pure navigation. The only client piece is the
+ * Sign out button (AdminSignOutButton), rendered as its own client island.
  * Purely presentational — every page still runs its own server-side guard.
  */
 import Link from 'next/link';
 import { C } from './theme';
+import { AdminSignOutButton } from './AdminSignOutButton';
 
 const NAV_ITEMS: Array<{ href: string; label: string }> = [
   { href: '/admin', label: 'Overview' },
@@ -27,7 +29,7 @@ export function AdminHeader({ title, active }: { title: string; active: string }
         </div>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: C.text, margin: 0 }}>{title}</h1>
       </div>
-      <nav style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <nav style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {NAV_ITEMS.map(item => (
           <Link
             key={item.href}
@@ -42,6 +44,7 @@ export function AdminHeader({ title, active }: { title: string; active: string }
             {item.label}
           </Link>
         ))}
+        <AdminSignOutButton />
       </nav>
     </div>
   );

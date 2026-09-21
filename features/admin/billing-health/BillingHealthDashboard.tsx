@@ -13,6 +13,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { AdminSignOutButton } from '@/features/admin/shared/AdminSignOutButton';
 import type { BillingOverview } from '@/commercial/analytics/BillingAnalyticsService';
 import type { DataQualityIssue } from '@/commercial/analytics/BillingDataQualityService';
 import {
@@ -260,6 +261,7 @@ export function BillingHealthDashboard() {
           <button onClick={() => setRefreshKey(k => k + 1)} style={{ padding: '6px 14px', borderRadius: 6, background: C.accent, color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
             Refresh
           </button>
+          <AdminSignOutButton />
         </div>
       </div>
 
