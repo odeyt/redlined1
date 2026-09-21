@@ -24,7 +24,7 @@ import type {
   BillingInterval,
 } from '../types';
 import { getProductId } from '@/config/plans';
-import { resolveProviderPlan, SELLABLE_PLANS } from '@/lib/billing/providerPlan';
+import { resolveProviderPlan, readProviderId, SELLABLE_PLANS } from '@/lib/billing/providerPlan';
 
 /**
  * Creem exposes a separate sandbox host. CREEM_TEST_MODE existed as an
@@ -83,6 +83,10 @@ function normalizeStatus(raw: string | undefined | null): SubscriptionStatus {
     case 'incomplete':
     case 'incomplete_expired':    return 'incomplete';
     case 'expired':               return 'expired';
+    // Approved rule: paused -> suspended. It used to fall to 'unknown', and the sync then wrote the paid plan to
+    // profiles.plan regardless, so a paused subscription kept full access.
+    case 'paused':
+    case 'suspended':             return 'suspended';
     default:                      return 'unknown';
   }
 }
@@ -327,9 +331,11 @@ export class CreemPaymentProvider implements PaymentProvider {
       id: subscriptionId,
       userId: metadata.user_id ?? '',
       provider: 'creem',
-      providerCustomerId: (data.customer_id ?? data.customer) as string,
+      // Read as an id. This was (data.customer_id ?? data.customer) as string: Creem nests the customer as { id }, so
+      // the OBJECT was stored in provider_customer_id — the id this subscription is billed to, lost.
+      providerCustomerId: readProviderId(data.customer_id) || readProviderId(data.customer),
       providerSubscriptionId: data.id as string,
-      providerPriceId: (data.price_id ?? data.product_id ?? null) as string | null,
+      providerPriceId: readProviderId(data.price_id) || readProviderId(data.product_id) || readProviderId(data.product) || null,
       planId,
       billingInterval: (metadata.billing_interval ?? 'monthly') as BillingInterval,
       status: normalizeStatus(data.status as string),

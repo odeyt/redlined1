@@ -18,6 +18,7 @@ const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; color: string; 
   unpaid:     { label: 'Unpaid',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
   incomplete: { label: 'Incomplete',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
   expired:    { label: 'Expired',     color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+  suspended:  { label: 'Paused',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
   unknown:    { label: 'Unknown',     color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
 };
 

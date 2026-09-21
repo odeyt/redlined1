@@ -22,6 +22,11 @@ export type SubscriptionStatus =
   | 'unpaid'
   | 'incomplete'
   | 'expired'
+  /**
+   * Paused at the provider. A TEMPORARY loss of paid entitlement — not a cancellation. The purchased plan, the
+   * provider ids and the billing period are all kept, and a later active state restores access.
+   */
+  | 'suspended'
   | 'unknown';
 
 // ─── Input types ──────────────────────────────────────────────────────────────

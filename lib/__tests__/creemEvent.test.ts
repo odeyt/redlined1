@@ -164,8 +164,10 @@ describe('resolvePlan: never a default', () => {
       expect(resolvePlan({ plan_key: 'solo' }, { product: { id: 'prod_solo_m' }, subscription: { product: { id: 'prod_biz_m' } } })).toEqual({ kind: 'unresolved', reason: 'plan_conflict' });
     });
 
-    it('an event that names no product relies on the validated metadata', () => {
-      expect(resolvePlan({ plan_key: 'solo' }, {})).toEqual({ kind: 'plan', planKey: 'solo' });
+    it('with a mapping configured, an event that names NO product is missing its plan — metadata is not a substitute', () => {
+      // This used to accept the metadata plan on its own, which made this resolver disagree with
+      // lib/billing/providerPlan.ts. One rule now: once a mapping exists, the product is required.
+      expect(resolvePlan({ plan_key: 'solo' }, {})).toEqual({ kind: 'unresolved', reason: 'plan_missing' });
     });
 
     it('one product id configured for two plans is ambiguous, never assumed', () => {
