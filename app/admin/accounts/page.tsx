@@ -7,7 +7,7 @@
 import { requirePlatformOwnerPage } from '@/lib/adminAuth';
 import {
   listAccounts,
-  sanitizeSearch, sanitizeStatusFilter, sanitizeSortKey, sanitizeSortDir, clampPage,
+  sanitizeSearch, sanitizeStatusFilter, sanitizeArchiveFilter, sanitizeSortKey, sanitizeSortDir, clampPage,
 } from '@/lib/admin/accountsData';
 import { AccountsDirectoryView } from '@/features/admin/accounts/AccountsDirectoryView';
 import { firstParam, type RawSearchParams } from '@/features/admin/shared/queryString';
@@ -31,6 +31,7 @@ export default async function AdminAccountsPage({
     page: clampPage(firstParam(sp.page)),
     search: sanitizeSearch(firstParam(sp.search)),
     status: sanitizeStatusFilter(firstParam(sp.status)),
+    archived: sanitizeArchiveFilter(firstParam(sp.archived)),
     sortKey: sanitizeSortKey(firstParam(sp.sortKey)),
     sortDir: sanitizeSortDir(firstParam(sp.sortDir)),
   };

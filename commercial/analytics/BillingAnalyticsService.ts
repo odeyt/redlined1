@@ -8,7 +8,9 @@
 
 import { getAdminDb } from '@/lib/supabaseServer';
 import { getInternalShopIds } from '@/lib/adminAuth';
-import { PLANS } from '@/config/plans';
+import { normalizedMonthlyRevenue } from '@/commercial/analytics/pricing';
+import { getCommercialOverview, type CommercialOverview } from '@/lib/admin/accountsData';
+import type { ReconciliationState } from '@/lib/admin/accountStatus';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,10 @@ export interface BillingOverview {
   renewals: RenewalHealth;
   value: LtvCacMetrics;
   warnings: string[];
+  /** Shared with the Owner Overview: reconciled | unverified | mismatch. */
+  reconciliation: ReconciliationState;
+  /** Subscription rows whose shop_id matches no shop. null = could not be determined safely. */
+  orphanSubscriptions: number | null;
   generatedAt: string;
 }
 
@@ -40,6 +46,12 @@ export interface SubscriptionSummary {
   suspended: number;
   byPlan: Record<string, number>;
   internalShops: number;
+  /** Confirmed subscriptions whose cancellation is scheduled (included in `active`). */
+  cancelScheduled: number;
+  /** Paid entitlements the billing record does not confirm. Never counted as active revenue. */
+  unverified: number;
+  /** Shops whose billing records contradict each other. Never counted as active revenue. */
+  mismatch: number;
 }
 
 export interface RevenueMetrics {
@@ -49,6 +61,12 @@ export interface RevenueMetrics {
   currency: string;
   mrrByPlan: Record<string, number>;
   revenueAtRisk: number;
+  /** Verified, priced, provider-backed recurring subscriptions — the ARPA denominator. */
+  verifiedRecurringShops: number;
+  /** Shops deliberately left out of MRR, by reason. */
+  excluded: { unverified: number; mismatch: number; notProviderBacked: number; unrecognisedInterval: number; unpriced: number };
+  /** Verified subscriptions with no recorded billing interval, counted as monthly. */
+  assumedMonthlyInterval: number;
   note: string;
 }
 
@@ -125,141 +143,40 @@ export interface PlanDistribution {
   pctOfTotal: number;
 }
 
-// ─── Internal D1 plan prices (USD) ────────────────────────────────────────────
+// ─── Subscription summary & revenue (canonical) ───────────────────────────────
+//
+// Both figures come from the one commercial-state resolver
+// (lib/admin/accountStatus.ts), via the same shop scan the Owner Overview uses.
+// This module no longer re-derives a subscription state from raw shop_subscriptions
+// rows, so Billing Health and the Owner Overview cannot disagree about the same shops.
 
-const PLAN_MONTHLY_PRICE: Record<string, number> = {
-  solo:         PLANS.solo?.monthlyPrice         ?? 24,
-  starter:      PLANS.starter?.monthlyPrice      ?? 49,
-  professional: PLANS.professional?.monthlyPrice ?? 99,
-  business:     PLANS.business?.monthlyPrice     ?? 179,
-  enterprise:   0,
-  trial:        0,
-  internal:     0,
-};
-
-const PLAN_ANNUAL_MONTHLY: Record<string, number> = {
-  solo:         (PLANS.solo?.annualPrice         ?? 240)  / 12,
-  starter:      (PLANS.starter?.annualPrice      ?? 490)  / 12,
-  professional: (PLANS.professional?.annualPrice ?? 990)  / 12,
-  business:     (PLANS.business?.annualPrice     ?? 1790) / 12,
-  enterprise:   0,
-  trial:        0,
-  internal:     0,
-};
-
-function normalizedMonthlyRevenue(planKey: string, billingInterval: string | null): number {
-  if (!billingInterval || billingInterval === 'monthly') {
-    return PLAN_MONTHLY_PRICE[planKey] ?? 0;
-  }
-  return PLAN_ANNUAL_MONTHLY[planKey] ?? 0;
+function subscriptionSummaryFrom(c: CommercialOverview): SubscriptionSummary {
+  return { ...c.subscriptions, suspended: c.subscriptions.suspended };
 }
 
-// ─── Subscription summary ─────────────────────────────────────────────────────
+function revenueMetricsFrom(c: CommercialOverview): RevenueMetrics {
+  const r = c.revenue;
+  return {
+    mrr: r.mrr,
+    arr: r.arr,
+    arpa: r.arpa,
+    currency: 'USD',
+    mrrByPlan: r.mrrByPlan,
+    revenueAtRisk: r.revenueAtRisk,
+    verifiedRecurringShops: r.pricedRecurringShops,
+    excluded: r.excluded,
+    assumedMonthlyInterval: r.assumedMonthlyInterval,
+    note: 'ARR is run-rate (MRR × 12), not booked revenue. Only verified, provider-backed active recurring subscriptions count. '
+      + 'Unverified, contradictory, manual-provider and unpriced (e.g. enterprise) subscriptions contribute $0 — no value is invented for them.',
+  };
+}
 
 export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
-  const db = getAdminDb();
-  const internal = getInternalShopIds();
-
-  const { data, error } = await db
-    .from('shop_subscriptions')
-    .select('shop_id, plan_key, status')
-    .order('created_at', { ascending: false });
-
-  if (error || !data) {
-    return {
-      total: 0, active: 0, trialing: 0, pastDue: 0,
-      cancelled: 0, expired: 0, suspended: 0,
-      byPlan: {}, internalShops: 0,
-    };
-  }
-
-  // Deduplicate: one subscription per shop (latest)
-  const seenShops = new Map<string, { plan_key: string; status: string }>();
-  for (const row of data) {
-    if (!seenShops.has(row.shop_id)) {
-      seenShops.set(row.shop_id, { plan_key: row.plan_key, status: row.status });
-    }
-  }
-
-  let active = 0, trialing = 0, pastDue = 0, cancelled = 0,
-    expired = 0, suspended = 0, internalShops = 0;
-  const byPlan: Record<string, number> = {};
-
-  for (const [shopId, sub] of seenShops) {
-    if (internal.has(shopId)) { internalShops++; continue; }
-
-    byPlan[sub.plan_key] = (byPlan[sub.plan_key] ?? 0) + 1;
-    const s = sub.status;
-    if (s === 'active')    active++;
-    else if (s === 'trialing')  trialing++;
-    else if (s === 'past_due')  pastDue++;
-    else if (s === 'cancelled' || s === 'canceled') cancelled++;
-    else if (s === 'expired')   expired++;
-    else if (s === 'suspended') suspended++;
-  }
-
-  return {
-    total: seenShops.size - internalShops,
-    active, trialing, pastDue, cancelled,
-    expired, suspended, byPlan, internalShops,
-  };
+  return subscriptionSummaryFrom(await getCommercialOverview());
 }
 
-// ─── Revenue metrics ──────────────────────────────────────────────────────────
-
 export async function getRevenueMetrics(): Promise<RevenueMetrics> {
-  const db = getAdminDb();
-  const internal = getInternalShopIds();
-
-  const { data, error } = await db
-    .from('shop_subscriptions')
-    .select('shop_id, plan_key, status, metadata, cancel_at_period_end')
-    .order('created_at', { ascending: false });
-
-  if (error || !data) {
-    return { mrr: 0, arr: 0, arpa: 0, currency: 'USD', mrrByPlan: {}, revenueAtRisk: 0, note: 'No subscription data' };
-  }
-
-  const seenShops = new Map<string, typeof data[0]>();
-  for (const row of data) {
-    if (!seenShops.has(row.shop_id)) seenShops.set(row.shop_id, row);
-  }
-
-  let mrr = 0;
-  let activePaidShops = 0;
-  let revenueAtRisk = 0;
-  const mrrByPlan: Record<string, number> = {};
-
-  for (const [shopId, sub] of seenShops) {
-    if (internal.has(shopId)) continue;
-
-    const status = sub.status;
-    const interval = (sub.metadata as Record<string, string> | null)?.billing_interval ?? 'monthly';
-    const planKey = sub.plan_key;
-
-    if (status === 'active' || (status === 'active' && sub.cancel_at_period_end)) {
-      const rev = normalizedMonthlyRevenue(planKey, interval);
-      mrr += rev;
-      mrrByPlan[planKey] = (mrrByPlan[planKey] ?? 0) + rev;
-      if (rev > 0) activePaidShops++;
-      if (sub.cancel_at_period_end) revenueAtRisk += rev;
-    } else if (status === 'past_due') {
-      const rev = normalizedMonthlyRevenue(planKey, interval);
-      revenueAtRisk += rev;
-    }
-  }
-
-  const arpa = activePaidShops > 0 ? mrr / activePaidShops : 0;
-
-  return {
-    mrr: Math.round(mrr * 100) / 100,
-    arr: Math.round(mrr * 12 * 100) / 100,
-    arpa: Math.round(arpa * 100) / 100,
-    currency: 'USD',
-    mrrByPlan,
-    revenueAtRisk: Math.round(revenueAtRisk * 100) / 100,
-    note: 'ARR is run-rate (MRR × 12), not booked revenue. Enterprise contracts with unknown recurring value contribute $0.',
-  };
+  return revenueMetricsFrom(await getCommercialOverview());
 }
 
 // ─── Trial metrics ────────────────────────────────────────────────────────────
@@ -502,7 +419,22 @@ export async function getWebhookHealth(range: DateRange): Promise<WebhookHealth>
 
 // ─── Renewal health ───────────────────────────────────────────────────────────
 
+/**
+ * Past-due count and past-due MRR come from the one commercial resolver, so this block
+ * cannot disagree with the Subscriptions and Revenue blocks on the same page (a raw
+ * status='past_due' row can belong to a shop the resolver calls a billing mismatch).
+ * Only the failed-renewal event counts are read from billing_events here.
+ */
+export function withCanonicalPastDue(renewals: RenewalHealth, commercial: CommercialOverview): RenewalHealth {
+  return { ...renewals, pastDueCount: commercial.subscriptions.pastDue, mrrAtRisk: commercial.revenue.pastDueRevenue };
+}
+
 export async function getRenewalHealth(range: DateRange): Promise<RenewalHealth> {
+  const [events, commercial] = await Promise.all([getRenewalEvents(range), getCommercialOverview()]);
+  return withCanonicalPastDue(events, commercial);
+}
+
+async function getRenewalEvents(range: DateRange): Promise<RenewalHealth> {
   const db = getAdminDb();
   const internal = getInternalShopIds();
 
@@ -821,6 +753,9 @@ export function getMetricWarnings(
   if (subscriptions.pastDue > 0) {
     warnings.push(`${subscriptions.pastDue} subscription(s) currently past due.`);
   }
+  if (subscriptions.mismatch > 0) {
+    warnings.push(`${subscriptions.mismatch} shop(s) have contradictory billing records and are excluded from revenue until reviewed.`);
+  }
   if (churn.logoRate !== null && churn.logoRate > 5) {
     warnings.push(`Logo churn rate ${churn.logoRate}% exceeds 5% monthly threshold.`);
   }
@@ -838,27 +773,30 @@ export function getMetricWarnings(
 
 export async function getBillingOverview(range: DateRange): Promise<BillingOverview> {
   const [
-    subscriptions,
-    revenue,
+    commercial,
     trials,
     churn,
     webhook,
-    renewals,
+    renewalEvents,
     refunds,
-    acquisition,
-  ] = await Promise.all([
-    getSubscriptionSummary(),
-    getRevenueMetrics(),
+    acquisition,  ] = await Promise.all([
+    getCommercialOverview(),
     getTrialMetrics(range),
     getChurnMetrics(range),
     getWebhookHealth(range),
-    getRenewalHealth(range),
+    getRenewalEvents(range),
     getRefundMetrics(range),
     getAcquisitionMetrics(range),
   ]);
 
+  const renewals = withCanonicalPastDue(renewalEvents, commercial);
+  const subscriptions = subscriptionSummaryFrom(commercial);
+  const revenue = revenueMetricsFrom(commercial);
   const value = await getLifetimeValue(revenue, churn, acquisition);
   const warnings = getMetricWarnings(subscriptions, webhook, renewals, trials, churn, refunds);
+  if ((commercial.orphanSubscriptions ?? 0) > 0) {
+    warnings.push(`${commercial.orphanSubscriptions} subscription record(s) belong to no shop.`);
+  }
 
   return {
     range: { from: range.from.toISOString(), to: range.to.toISOString() },
@@ -870,6 +808,8 @@ export async function getBillingOverview(range: DateRange): Promise<BillingOverv
     renewals,
     value,
     warnings,
+    reconciliation: commercial.reconciliation,
+    orphanSubscriptions: commercial.orphanSubscriptions,
     generatedAt: new Date().toISOString(),
   };
 }
