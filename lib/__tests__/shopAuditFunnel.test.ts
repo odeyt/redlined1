@@ -48,10 +48,18 @@ describe('the homepage offers both paths', () => {
     expect(finalCta).toMatch(/href="\/shop-audit"/);
   });
 
-  it('does not strip the contextual CTA that was already there', () => {
-    // "See How It Works" serves a different intent than either funnel and was
-    // deliberately kept rather than replaced.
-    expect(hero).toMatch(/See How It Works/);
+  it('keeps the third, watch-first CTA, pointing at the Vehicle Intake demo', () => {
+    // This CTA serves a different intent than either funnel and was deliberately
+    // kept. It was "See How It Works" (an in-page #workflow anchor); it now opens
+    // a video of Vehicle Intake only, so the label says exactly that rather than
+    // promising a walkthrough of the whole platform.
+    expect(hero).toMatch(/Watch Vehicle Intake Demo/);
+    expect(hero).not.toMatch(/See How It Works/);
+    const link = hero.slice(hero.indexOf('href="https://youtu.be/CBdgrO1ONms'), hero.indexOf('Watch Vehicle Intake Demo'));
+    expect(link).toMatch(/href="https:\/\/youtu\.be\/CBdgrO1ONms\?si=_7kwi8Rknxp1PNz0"/);
+    expect(link).toMatch(/target="_blank"/);
+    expect(link).toMatch(/rel="noopener noreferrer"/);
+    expect(link).toMatch(/className="hero-secondary-btn"/);
   });
 });
 
