@@ -109,8 +109,15 @@ export const CANCELLATION_EVENT_TYPES: ReadonlySet<string> = new Set([
   'subscription.cancelled', 'subscription.canceled', 'subscription.expired',
 ]);
 export const PAST_DUE_EVENT_TYPES: ReadonlySet<string> = new Set(['subscription.past_due', 'subscription.unpaid']);
+/**
+ * Approved rule: paused -> suspended, a TEMPORARY loss of paid access. It was held as an unhandled subscription
+ * event, so a paused customer kept full access indefinitely. Restoring access is an ordinary activation
+ * (subscription.active / subscription.paid), whose plan comes from the product through resolvePlan.
+ */
+export const SUSPENSION_EVENT_TYPES: ReadonlySet<string> = new Set(['subscription.paused']);
 
-const isApplyType = (t: string) => ACTIVATION_EVENT_TYPES.has(t) || CANCELLATION_EVENT_TYPES.has(t) || PAST_DUE_EVENT_TYPES.has(t);
+const isApplyType = (t: string) => ACTIVATION_EVENT_TYPES.has(t) || CANCELLATION_EVENT_TYPES.has(t)
+  || PAST_DUE_EVENT_TYPES.has(t) || SUSPENSION_EVENT_TYPES.has(t);
 
 export type CreemEventClass =
   /** Carries Redlined1 checkout metadata: it is ours and must be proven to belong to a shop. */
@@ -142,7 +149,7 @@ export type UnresolvedReason =
   // what was bought
   | 'plan_missing' | 'plan_unknown' | 'plan_conflict'
   // what the provider says the subscription IS (Option B)
-  | 'provider_state_unusable' | 'subscription_unidentified'
+  | 'provider_state_unusable' | 'subscription_unidentified' | 'subscription_mismatch'
   // what the event is
   | 'missing_event_type' | 'missing_event_id' | 'malformed_object' | 'malformed_checkout'
   | 'refund_or_dispute' | 'unhandled_subscription_event' | 'unknown_event_type';
@@ -159,6 +166,7 @@ export const UNRESOLVED_REASON_TEXT: Record<UnresolvedReason, string> = {
   no_buyer_profile:     'The buyer has no profile row to grant the plan to.',
   provider_state_unusable:   'The provider was reached but its subscription state could not be applied safely.',
   subscription_unidentified: 'Neither the event nor the shop names a subscription to reconcile this against.',
+  subscription_mismatch:     'The event names a different subscription than the one stored for this shop, so it was not applied.',
   plan_missing:         'The event does not say which plan was bought.',
   plan_unknown:         'The event names a plan or product that is not a plan sold through Redlined1 checkout.',
   plan_conflict:        'The plan named in the metadata disagrees with itself or with the product actually purchased.',

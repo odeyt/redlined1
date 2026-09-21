@@ -192,7 +192,8 @@ describe('parsing — nothing is defaulted', () => {
   });
 
   it('holds a status it does not recognise rather than mapping it to active', () => {
-    for (const status of ['incomplete', 'paused', '', 'whatever']) {
+    // 'paused' left this list: it now maps to suspended under the approved rule (see the table below).
+    for (const status of ['incomplete', '', 'whatever']) {
       expect(parseAuthoritativeSubscription(subscription({ status })).kind).toBe('unusable');
     }
   });
@@ -201,6 +202,7 @@ describe('parsing — nothing is defaulted', () => {
     ['active', 'active'], ['trialing', 'active'], ['paid', 'active'],
     ['canceled', 'cancelled'], ['cancelled', 'cancelled'], ['expired', 'cancelled'],
     ['past_due', 'past_due'], ['unpaid', 'past_due'],
+    ['paused', 'suspended'], ['suspended', 'suspended'],
   ])('narrows provider status %s to %s', (raw, expected) => {
     const r = parseAuthoritativeSubscription(subscription({ status: raw }));
     expect(r.kind).toBe('state');

@@ -24,7 +24,7 @@ import { resolvePlan } from '@/lib/billing/creemPlan';
 import { readSubscriptionPeriod, parseProviderDate, type SubscriptionPeriod } from '@/lib/billing/creemPeriod';
 
 /** The three states this system stores. Anything else Creem reports is unusable rather than mapped to a guess. */
-export type AuthoritativeStatus = 'active' | 'cancelled' | 'past_due';
+export type AuthoritativeStatus = 'active' | 'cancelled' | 'past_due' | 'suspended';
 
 export interface AuthoritativeState {
   subscriptionId: string;
@@ -96,6 +96,10 @@ function narrowStatus(raw: unknown): AuthoritativeStatus | null {
     case 'expired':    return 'cancelled';
     case 'past_due':
     case 'unpaid':     return 'past_due';
+    // Approved rule: paused -> suspended. It was unrecognised here, so with the flag on a pause was held and the
+    // customer kept access — the opposite of the event-derived path.
+    case 'paused':
+    case 'suspended':  return 'suspended';
     default:           return null;
   }
 }

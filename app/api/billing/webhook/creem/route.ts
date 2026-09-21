@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { alertBillingFailure, alertBillingException } from '@/lib/observability/billingAlerts';
 import {
-  ACTIVATION_EVENT_TYPES, BILLING_ELIGIBLE_ROLES, CANCELLATION_EVENT_TYPES, PAST_DUE_EVENT_TYPES, UUID_RE,
+  ACTIVATION_EVENT_TYPES, BILLING_ELIGIBLE_ROLES, CANCELLATION_EVENT_TYPES, PAST_DUE_EVENT_TYPES, SUSPENSION_EVENT_TYPES, UUID_RE,
   asId, decideCreemEvent, parseEnvelope, resolveEventMetadata, unresolvedError,
   type CreemEventClass, type UnresolvedReason,
 } from '@/lib/billing/creemEvent';
@@ -239,10 +239,15 @@ async function applyAuthoritativeState(
 ): Promise<NextResponse> {
   const { shopId, userId, eventRowId, state, held } = args;
 
-  if (state.status === 'active') {
+  if (state.status === 'active' || state.status === 'suspended') {
+    // active GRANTS the provider's plan. suspended REMOVES paid access — profiles.plan is the one field planGate
+    // reads — while the purchased plan stays on the subscription row (plan_key below), with its ids and period.
+    const entitlement = state.status === 'active'
+      ? { plan: state.planKey, billing_status: 'active' }
+      : { plan: 'free',        billing_status: 'suspended' };
     const { error: profileErr, count } = await db
       .from('profiles')
-      .update({ plan: state.planKey, billing_status: 'active' }, { count: 'exact' })
+      .update(entitlement, { count: 'exact' })
       .eq('id', userId);
     if (profileErr) throw new Error(`profiles.plan update failed: ${profileErr.message}`);
     if (count === 0) return await holdEvent(db, eventRowId, 'no_buyer_profile', held);
@@ -310,7 +315,10 @@ async function applyAuthoritativeState(
     }
   }
 
-  await syncBillingStatus(db, userId, state.status === 'cancelled' ? 'cancelled' : state.status === 'past_due' ? 'past_due' : 'active');
+  // A suspension already wrote billing_status with the entitlement above.
+  if (state.status !== 'suspended') {
+    await syncBillingStatus(db, userId, state.status === 'cancelled' ? 'cancelled' : state.status === 'past_due' ? 'past_due' : 'active');
+  }
   await markEvent(db, eventRowId, { processed: true, error: null });
   return NextResponse.json({ received: true, applied: 'provider_state', status: state.status });
 }
@@ -458,7 +466,10 @@ export async function POST(req: NextRequest) {
         signatureHeaders: [...req.headers.keys()].filter(h => /sign|hmac|digest/i.test(h)),
         payloadKeys,
         received: signature.slice(0, 96),
-        expectedHmacSha256Hex: (await hmacHex(rawBody, secret)).slice(0, 96),
+        // The EXPECTED signature is deliberately not logged. It is the valid HMAC of a body the sender chose, so
+        // anyone who could read this log could resubmit that body with it and have a forged event accepted —
+        // log access would become the ability to grant a paid plan. matchingScheme below still diagnoses a
+        // format mismatch (hex / base64 / key encoding) without revealing any value.
         matchingScheme: await identifySigningScheme(rawBody, signature.replace(/^sha256=/, '')),
         note: 'If a payment succeeded but the plan did not activate, compare these two. A mismatch in FORMAT (base64 vs hex, or a "t=...,v1=..." scheme) means verifySignature needs to match Creem\'s scheme.',
       }));
@@ -687,6 +698,42 @@ export async function POST(req: NextRequest) {
         }).eq('shop_id', shopId);
         if (error) throw new Error(`past_due update failed: ${error.message}`);
         await syncBillingStatus(db, userId, 'past_due');
+
+      } else if (SUSPENSION_EVENT_TYPES.has(eventType)) {
+        // Approved rule: paused -> suspended. A TEMPORARY loss of paid access, not a cancellation.
+        //
+        // Applied only to the subscription the shop actually has. A pause for a different subscription — an old
+        // one, delivered after the customer resubscribed — must not remove access the current one paid for. A
+        // pause that names none, or a shop whose row names none, cannot be matched at all. Both are held.
+        //
+        // No plan is resolved or written here: suspending needs no plan, and inventing one to write would be
+        // exactly the fabrication this handler refuses. The purchased plan, the provider ids and the period stay
+        // on the row as they are; only status changes. Access returns with an ordinary activation, whose plan
+        // comes from the product.
+        const eventSubscriptionId = asId(data.subscription) || asId(data.subscription_id) || asId(data.id);
+        const row = await latestSubscriptionRow(db, shopId);
+        if (row.error) throw new Error(`shop_subscriptions lookup failed: ${row.error}`);
+        if (!row.id || !row.providerSubscriptionId || !eventSubscriptionId) {
+          return await holdEvent(db, eventRowId, 'subscription_unidentified', held);
+        }
+        if (row.providerSubscriptionId !== eventSubscriptionId) {
+          return await holdEvent(db, eventRowId, 'subscription_mismatch', held);
+        }
+
+        // profiles.plan is what planGate reads, so this is the write that removes access. 'free' is the existing
+        // "no paid plan" value the signup trigger writes — not a plan chosen here.
+        const { error: profileErr, count } = await db
+          .from('profiles')
+          .update({ plan: 'free', billing_status: 'suspended' }, { count: 'exact' })
+          .eq('id', userId);
+        if (profileErr) throw new Error(`profiles suspension failed: ${profileErr.message}`);
+        if (count === 0) return await holdEvent(db, eventRowId, 'no_buyer_profile', held);
+
+        const { error } = await db.from('shop_subscriptions').update({
+          status:     'suspended',
+          updated_at: new Date().toISOString(),
+        }).eq('id', row.id);
+        if (error) throw new Error(`suspension update failed: ${error.message}`);
       }
 
       await markEvent(db, eventRowId, { processed: true, error: null });
@@ -698,7 +745,9 @@ export async function POST(req: NextRequest) {
       await markEvent(db, eventRowId, { processed: false, error: msg });
       // Answer non-2xx so Creem retries. The retry REUSES this event's row (see above), so it does not add a
       // second one, and every write above is safe to repeat.
-      return NextResponse.json({ error: 'Activation failed', detail: msg }, { status: 500 });
+      // The reason is kept on the event row and in the alert. It is not echoed to the caller: it is internal
+      // database error text, and nothing outside needs it to decide to retry.
+      return NextResponse.json({ error: 'Activation failed' }, { status: 500 });
     }
 
     return NextResponse.json({ received: true });

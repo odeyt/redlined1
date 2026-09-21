@@ -833,14 +833,15 @@ describe('event classification: only a positively identified external order is q
   it('UNHANDLED SUBSCRIPTION EVENTS (an update or upgrade) are held visibly, and the stored plan is unchanged', async () => {
     await deliver(initial());
     mockDb.clearWrites();
-    for (const type of ['subscription.update', 'subscription.trialing', 'subscription.scheduled_cancel', 'subscription.paused']) {
+    // subscription.paused was in this list; it is now APPLIED under the approved rule paused -> suspended.
+    for (const type of ['subscription.update', 'subscription.trialing', 'subscription.scheduled_cancel']) {
       const r = await deliver(renewal({ id: `evt_${type}`, type, metadata: meta({ plan_key: 'business', plan_id: 'business' }) }));
       expect(r).toEqual(held('unhandled_subscription_event'));
     }
     expect(mockDb.writesTo('profiles')).toHaveLength(0);
     expect(mockDb.writesTo('shop_subscriptions')).toHaveLength(0);
     expect(subs()[0].plan_key).toBe('solo');
-    expect(events().filter(e => e.error === 'UNRESOLVED:unhandled_subscription_event')).toHaveLength(4);
+    expect(events().filter(e => e.error === 'UNRESOLVED:unhandled_subscription_event')).toHaveLength(3);
   });
 
   it('an unknown event type is held', async () => {
