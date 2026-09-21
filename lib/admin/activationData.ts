@@ -11,6 +11,7 @@
  */
 import 'server-only';
 import type { getAdminDb } from '@/lib/supabaseServer';
+import { allSettledLimited, AUTH_LOOKUP_CONCURRENCY } from '@/lib/admin/concurrency';
 import {
   NEW_SHOP_WINDOW_DAYS, activationStage, approachingFreeLimit, isActivatedShop,
   returnedAfterFirstSession, type ActivationStage, type ShopMilestones,
@@ -171,8 +172,8 @@ export async function computeActivation(
     const unavailableSources = tables.filter(([, r]) => r.rowsByShop === null).map(([name]) => name);
 
     // Owner sign-in history, for "returned after the first session". Bounded to the shops examined.
-    const authResults = await Promise.allSettled(
-      inputs.map(i => (i.ownerUserId ? db.auth.admin.getUserById(i.ownerUserId) : Promise.resolve(null))),
+    const authResults = await allSettledLimited(inputs, AUTH_LOOKUP_CONCURRENCY, i =>
+      (i.ownerUserId ? db.auth.admin.getUserById(i.ownerUserId) : Promise.resolve(null)),
     );
 
     const monthStart = new Date(now); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);

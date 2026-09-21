@@ -5,6 +5,7 @@
  */
 import {
   listAccounts, getOwnerOverview, getAccountDetail, getBillingReconciliation, getCommercialOverview, sanitizeArchiveFilter,
+  MAX_SCAN_ROWS,
 } from '../accountsData';
 import { getRevenueMetrics, getSubscriptionSummary, withCanonicalPastDue } from '@/commercial/analytics/BillingAnalyticsService';
 import { PLAN_MONTHLY_PRICE } from '@/commercial/analytics/pricing';
@@ -388,13 +389,13 @@ describe('Billing reconciliation', () => {
 
   it('reports the result as truncated when the billing-events scan reaches its cap', async () => {
     expect((await getBillingReconciliation({})).truncated).toBe(false);
-    const filler: Row[] = Array.from({ length: 2000 }, (_, i) => ({
+    const filler: Row[] = Array.from({ length: MAX_SCAN_ROWS }, (_, i) => ({
       id: `cap${i}`, shop_id: S.eventsNoSub, event_type: 'checkout.completed', processed: true, processed_at: NOW, error: null, created_at: NOW,
     }));
     fake.state.tables.billing_events = filler;
     const r = await getBillingReconciliation({});
     expect(r.truncated).toBe(true);
-    expect(r.maxScanRows).toBe(2000);
+    expect(r.maxScanRows).toBe(MAX_SCAN_ROWS);
   });
 });
 

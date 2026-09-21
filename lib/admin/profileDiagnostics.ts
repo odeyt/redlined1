@@ -27,10 +27,17 @@
 import 'server-only';
 import { getAdminDb } from '@/lib/supabaseServer';
 import { accountFingerprint } from '@/lib/admin/fingerprint';
+import { allSettledLimited, AUTH_LOOKUP_CONCURRENCY } from '@/lib/admin/concurrency';
 
 type Db = ReturnType<typeof getAdminDb>;
 
-const SCAN_CAP = 2000;
+/**
+ * Equal to the server's own row limit (Supabase's PostgREST max-rows, 1000 by
+ * default), which cuts a larger read silently. A read that reaches it may be
+ * incomplete, and an incomplete membership list would report linked profiles as
+ * unlinked, so reaching it means "too many to diagnose", never a partial answer.
+ */
+const SCAN_CAP = 1000;
 const AUTH_CAP = 200;
 const ID_CHUNK = 100;
 
@@ -117,15 +124,15 @@ export async function getProfileDiagnostics(): Promise<{ summary: ProfileDiagnos
     const [profilesRes, membersRes] = await Promise.all([
       // Ordered so that when more than AUTH_CAP profiles need examining, the same ones are
       // examined every time (an unordered read could return a different subset per request).
-      db.from('profiles').select('id, email, shop_id').order('id', { ascending: true }).limit(SCAN_CAP + 1),
-      db.from('shop_users').select('user_id').limit(SCAN_CAP + 1),
+      db.from('profiles').select('id, email, shop_id').order('id', { ascending: true }).limit(SCAN_CAP),
+      db.from('shop_users').select('user_id').limit(SCAN_CAP),
     ]);
     if (profilesRes.error || membersRes.error) {
       return { summary: unavailableDiagnostics('Profiles or memberships could not be read.'), items: [] };
     }
     const profiles = (profilesRes.data ?? []) as Array<{ id: string; email: string | null; shop_id: string | null }>;
     const members = (membersRes.data ?? []) as Array<{ user_id: string }>;
-    if (profiles.length > SCAN_CAP || members.length > SCAN_CAP) {
+    if (profiles.length >= SCAN_CAP || members.length >= SCAN_CAP) {
       return { summary: unavailableDiagnostics('Too many rows to diagnose safely.'), items: [] };
     }
 
@@ -155,7 +162,7 @@ export async function getProfileDiagnostics(): Promise<{ summary: ProfileDiagnos
     }
 
     const examined = orphans.slice(0, AUTH_CAP);
-    const authResults = await Promise.allSettled(examined.map(p => db.auth.admin.getUserById(p.id)));
+    const authResults = await allSettledLimited(examined, AUTH_LOOKUP_CONCURRENCY, p => db.auth.admin.getUserById(p.id));
 
     const items: ProfileDiagnostic[] = examined.map((p, idx) => {
       const r = authResults[idx];
