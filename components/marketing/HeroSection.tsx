@@ -186,7 +186,9 @@ export function HeroSection() {
             Book a Shop Audit
           </Link>
           <a
-            href="#workflow"
+            href="https://youtu.be/CBdgrO1ONms?si=_7kwi8Rknxp1PNz0"
+            target="_blank"
+            rel="noopener noreferrer"
             className="hero-secondary-btn"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -197,11 +199,18 @@ export function HeroSection() {
               transition: 'all 0.2s',
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <circle cx="8" cy="8" r="7" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5"/>
               <path d="M6 5.5l5 2.5-5 2.5V5.5z" fill="rgba(255,255,255,0.6)"/>
             </svg>
-            See How It Works
+            Watch Vehicle Intake Demo
+            {/* Announced to screen readers only: this link leaves for YouTube in a new tab. */}
+            <span style={{
+              position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+              overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0,
+            }}>
+              {' '}(opens YouTube in a new tab)
+            </span>
           </a>
         </div>
 
