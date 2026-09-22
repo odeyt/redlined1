@@ -13,6 +13,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getPaymentProvider } from '@/lib/payments/payment-service';
 import { getInternalShopIds } from '@/lib/adminAuth';
+import { selectBillingShop, type MembershipRow } from '@/lib/billing/checkoutEligibility';
 import type { RedlinedPlanId, BillingInterval } from '@/lib/payments/types';
 import { PLANS, PLAN_ORDER } from '@/config/plans';
 
@@ -24,15 +25,30 @@ async function getAuthContext() {
     { cookies: { getAll: () => cookieStore.getAll() } },
   );
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { user: null, shopUser: null };
+  if (!user) return { user: null, memberships: [] as MembershipRow[] };
 
-  const { data: shopUser } = await supabase
+  // EVERY membership row, not `.maybeSingle()`.
+  //
+  // `.maybeSingle()` resolves to { data: null, error: PGRST116 } when a user
+  // has more than one shop_users row, and this code read only `data`. A buyer
+  // who belongs to two shops therefore looked shop-less, which silently opened
+  // the two gates below that depend on knowing their shop: the role refusal,
+  // and the internal-shop exemption. Both failed open for precisely the users
+  // most likely to be staff — including anyone in both mirrored D1 shops.
+  //
+  // Ordered, so that repeated requests from the same buyer select the same
+  // shop rather than whichever row the database happened to return first.
+  const { data: memberships, error } = await supabase
     .from('shop_users')
     .select('role, shop_id')
     .eq('user_id', user.id)
-    .maybeSingle();
+    .order('shop_id', { ascending: true });
 
-  return { user, shopUser };
+  // Fail closed. Swallowing this would look identical to "has no shop", and
+  // that path provisions a brand-new shop and bills it.
+  if (error) throw new Error(`membership lookup failed: ${error.message}`);
+
+  return { user, memberships: (memberships ?? []) as MembershipRow[] };
 }
 
 export async function POST(req: NextRequest) {
@@ -46,14 +62,31 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { user, shopUser } = await getAuthContext();
+    const { user, memberships } = await getAuthContext();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (shopUser?.role === 'technician') {
-      return NextResponse.json({ error: 'Technicians cannot manage billing' }, { status: 403 });
+    // Judge the role in the shop this checkout will actually bill, and refuse
+    // before a Creem session exists. The webhook applies the same allowlist
+    // after payment, so anything allowed past here must be allowed there too:
+    // a buyer refused only at the webhook has already been charged, and their
+    // event is held as `buyer_not_eligible` with nothing activated.
+    const selection = selectBillingShop(memberships);
+    if (selection.kind === 'not_eligible') {
+      // Phrased to read correctly whether the buyer holds one role or several,
+      // and when the row carries a role this code does not recognise.
+      const held = selection.roles.length ? selection.roles.join(', ') : 'no recognised role';
+      return NextResponse.json(
+        {
+          error: 'Only a shop owner or manager can start a subscription.',
+          detail: `Billing is limited to the owner and manager roles; this account holds: ${held}. Ask an owner or manager of the shop to buy the plan.`,
+          roles: selection.roles,
+        },
+        { status: 403 },
+      );
     }
+    const selectedShopId = selection.kind === 'shop' ? selection.shopId : '';
 
     // Block internal staff from being billed.
     // PLATFORM_OWNER_EMAIL / NEXT_PUBLIC_PLATFORM_OWNER_EMAIL — comma-separated exact emails
@@ -76,7 +109,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This account is not subject to billing' }, { status: 403 });
     }
 
-    if (shopUser?.shop_id && getInternalShopIds().has(shopUser.shop_id)) {
+    if (selectedShopId && getInternalShopIds().has(selectedShopId)) {
       return NextResponse.json({ error: 'Internal accounts are not subject to billing' }, { status: 403 });
     }
 
@@ -136,7 +169,7 @@ export async function POST(req: NextRequest) {
     //
     // Provisioning here closes that: it is idempotent, and this is the last
     // point before money moves at which a shop can still be created.
-    let shopId = shopUser?.shop_id ?? '';
+    let shopId = selectedShopId;
     if (!shopId) {
       const meta = user.user_metadata as { full_name?: string; shop_name?: string } | null;
       const { shopId: provisioned } = await getOrCreatePrimaryShop(user.id, {

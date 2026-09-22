@@ -103,8 +103,13 @@ export async function activateSubscription(
     providerSubscriptionId: string;
     planKey: PlanKey;
     provider: string;
-    periodStart: Date;
-    periodEnd: Date;
+    /**
+     * Nullable, and OMITTED from the write when null. This was a required Date that processWebhook filled with
+     * now / now + 30 days when the event had none. An upsert that sent null instead would erase a valid period
+     * already stored for the shop: an activation omitting its period is not evidence the period is gone.
+     */
+    periodStart: Date | null;
+    periodEnd: Date | null;
   },
 ): Promise<boolean> {
   try {
@@ -118,8 +123,8 @@ export async function activateSubscription(
         billing_provider:        providerData.provider,
         provider_customer_id:    providerData.providerCustomerId,
         provider_subscription_id:providerData.providerSubscriptionId,
-        current_period_start:    providerData.periodStart.toISOString(),
-        current_period_end:      providerData.periodEnd.toISOString(),
+        ...(providerData.periodStart ? { current_period_start: providerData.periodStart.toISOString() } : {}),
+        ...(providerData.periodEnd   ? { current_period_end:   providerData.periodEnd.toISOString() }   : {}),
         updated_at:              new Date().toISOString(),
       }, { onConflict: 'shop_id' });
 

@@ -14,14 +14,9 @@
  * reading the wrong field.
  */
 
-/** Mirrors the envelope parsing in app/api/billing/webhook/creem/route.ts. */
-function parseEnvelope(payload: Record<string, unknown>) {
-  return {
-    eventType:       String(payload.eventType ?? payload.type ?? payload.event_type ?? ''),
-    providerEventId: String(payload.id ?? payload.event_id ?? ''),
-    data:            (payload.object ?? payload.data ?? payload) as Record<string, unknown>,
-  };
-}
+// The REAL parser the route uses. This test used to keep its own copy of it, which could not catch the route
+// drifting from the copy.
+import { parseEnvelope } from '../billing/creemEvent';
 
 describe('Creem event envelope', () => {
   // Field names as delivered by Creem; values are illustrative.
