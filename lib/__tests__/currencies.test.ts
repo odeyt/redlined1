@@ -6,6 +6,8 @@ import {
   ALL_CURRENCIES,
   PRIORITY_CURRENCIES,
   DEFAULT_CURRENCY,
+  MONEY_LOCALE,
+  resolveShopCurrency,
 } from '../currencies';
 
 // Strips non-breaking / narrow-no-break spaces that Intl inserts between the
@@ -94,5 +96,43 @@ describe('currency catalogue', () => {
     for (const c of PRIORITY_CURRENCIES) {
       expect(currencySymbol(c.code).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('USD by default, in a US locale', () => {
+  it('formats USD exactly as $1,234.56 regardless of the viewer\'s browser locale', () => {
+    expect(MONEY_LOCALE).toBe('en-US');
+    expect(formatMoney(1234.56, 'USD')).toBe('$1,234.56');
+    expect(formatMoney(1234.56)).toBe('$1,234.56');
+  });
+
+  it('formats zero and large values with grouping and cents', () => {
+    expect(formatMoney(0, 'USD')).toBe('$0.00');
+    expect(formatMoney(5240, 'USD')).toBe('$5,240.00');
+    expect(formatMoney(1_234_567.891, 'USD')).toBe('$1,234,567.89');
+  });
+
+  it('never renders a USD amount with a baht sign', () => {
+    expect(formatMoney(3860, 'USD')).not.toContain('฿');
+    expect(formatMoney(3860, 'USD')).not.toContain('THB');
+  });
+});
+
+describe('resolveShopCurrency — reading a shop\'s stored preference', () => {
+  it('defaults a shop that never chose a currency to USD', () => {
+    expect(resolveShopCurrency(null)).toBe('USD');
+    expect(resolveShopCurrency(undefined)).toBe('USD');
+    expect(resolveShopCurrency('')).toBe('USD');
+    expect(resolveShopCurrency('   ')).toBe('USD');
+  });
+
+  it('keeps an explicitly selected currency — it is never replaced by the USD default', () => {
+    expect(resolveShopCurrency('THB')).toBe('THB');
+    expect(resolveShopCurrency('LAK')).toBe('LAK');
+    expect(resolveShopCurrency('EUR')).toBe('EUR');
+  });
+
+  it('normalises case and whitespace without changing which currency was chosen', () => {
+    expect(resolveShopCurrency(' thb ')).toBe('THB');
   });
 });

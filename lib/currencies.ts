@@ -182,7 +182,27 @@ export const ALL_CURRENCIES: Currency[] = [...PRIORITY_CURRENCIES, ...OTHER_CURR
 
 export const DEFAULT_CURRENCY = 'USD';
 
+/**
+ * One locale for every amount, so the same figure reads the same on every
+ * screen and in every browser: USD renders as "$1,234.56". Previously the
+ * viewer's browser locale decided, so one invoice could read "$1,234.56" to
+ * one person and "1.234,56 US$" to another.
+ */
+export const MONEY_LOCALE = 'en-US';
+
 const NAME_BY_CODE = new Map(ALL_CURRENCIES.map(c => [c.code, c.name]));
+
+/**
+ * The currency a shop works in, from its stored `shop_settings.default_currency`.
+ *
+ * An explicit choice is kept as written. A shop that set THB stays THB. Only a
+ * missing or blank value falls back to USD, which is also the column's default
+ * for new shops. Nothing here overwrites a preference; it only reads one.
+ */
+export function resolveShopCurrency(stored: string | null | undefined): string {
+  const code = typeof stored === 'string' ? stored.trim().toUpperCase() : '';
+  return code || DEFAULT_CURRENCY;
+}
 
 export function currencyName(code: string): string {
   return NAME_BY_CODE.get(code) ?? code;
@@ -199,7 +219,7 @@ export function isSupportedCurrency(code: string | null | undefined): boolean {
 export function formatMoney(value: number, code: string = DEFAULT_CURRENCY): string {
   const amount = Number.isFinite(value) ? value : 0;
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount);
+    return new Intl.NumberFormat(MONEY_LOCALE, { style: 'currency', currency: code }).format(amount);
   } catch {
     return `${amount.toLocaleString()} ${code}`;
   }
@@ -208,7 +228,7 @@ export function formatMoney(value: number, code: string = DEFAULT_CURRENCY): str
 /** Symbol only — for compact table headers and inline labels. */
 export function currencySymbol(code: string = DEFAULT_CURRENCY): string {
   try {
-    const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency: code })
+    const parts = new Intl.NumberFormat(MONEY_LOCALE, { style: 'currency', currency: code })
       .formatToParts(0);
     return parts.find(p => p.type === 'currency')?.value ?? code;
   } catch {

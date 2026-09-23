@@ -11,7 +11,8 @@ import { LearningDashboardSection } from '@/features/intelligence-learning/Learn
 import { FeatureGate } from '@/components/featureFlags/FeatureFlagProvider';
 import { OperationalMetricsSection } from './OperationalMetricsSection';
 import { useOperationalStats } from '@/features/dashboard/shared/useOperationalStats';
-import { CURRENCIES } from '@/services/invoiceService';
+import { formatMoney, DEFAULT_CURRENCY } from '@/lib/currencies';
+import { fetchShopSettings } from '@/services/shopSettingsService';
 
 // ── Types ────────────────────────────────────────────────────
 interface ShopMetrics {
@@ -197,9 +198,12 @@ function fmtNum(v: number | string | null | undefined): string {
   return Number(v).toLocaleString();
 }
 
-function fmtMoney(v: number | string | null | undefined): string {
+// Every amount goes through the shared formatter, in the shop's own currency.
+// This file used to prefix "$" by hand in one place and print a literal baht
+// zero in another, so an empty USD shop read as a baht account.
+function fmtMoney(v: number | string | null | undefined, currency: string): string {
   if (v === null || v === undefined) return '—';
-  return `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return formatMoney(Number(v), currency);
 }
 
 // ── Health Ring SVG ───────────────────────────────────────────
@@ -433,10 +437,11 @@ interface EvidenceBundle {
 
 // ── Recommendation Card ───────────────────────────────────────
 function RecCard({
-  rec, shopId, onDone, onDismiss,
+  rec, shopId, currency, onDone, onDismiss,
 }: {
   rec: Recommendation;
   shopId: string;
+  currency: string;
   onDone: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
@@ -494,7 +499,7 @@ function RecCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
             <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-              💵 {fmtMoney(rec.estimatedRevenue)} opportunity
+              💵 {fmtMoney(rec.estimatedRevenue, currency)} opportunity
             </span>
           )}
           <span style={{ fontSize: 11, color: 'var(--cc-fg-2)', background: 'var(--cc-tint)', borderRadius: 6, padding: '2px 7px' }}>
@@ -610,8 +615,8 @@ function RecCard({
 
 // ── Action Queue Card (SI-6) ──────────────────────────────────
 function ActionQueueCard({
-  item, onNavigate,
-}: { item: RankedAction; onNavigate: (module: string) => void }) {
+  item, currency, onNavigate,
+}: { item: RankedAction; currency: string; onNavigate: (module: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const score = item.score.decisionScore;
   const scoreColor = score >= 700 ? '#dc2626' : score >= 450 ? '#d97706' : '#2563eb';
@@ -662,7 +667,7 @@ function ActionQueueCard({
           </span>
           {rec.estimatedRevenue != null && rec.estimatedRevenue > 0 && (
             <span style={{ fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.12)', borderRadius: 6, padding: '2px 8px' }}>
-              💵 {fmtMoney(rec.estimatedRevenue)}
+              💵 {fmtMoney(rec.estimatedRevenue, currency)}
             </span>
           )}
           {/* Quick nav buttons */}
@@ -775,20 +780,14 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
 }
 
 // ── Main Component ────────────────────────────────────────────
-function fmtCur(amount: number, currency: string): string {
-  const cur = CURRENCIES.find(c => c.code === currency);
-  const symbol = cur?.symbol ?? currency;
-  return `${symbol}${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
-
-function RevenueByCurrency({ byCurrency, accent }: { byCurrency: Record<string, number>; accent: string }) {
+function RevenueByCurrency({ byCurrency, accent, currency }: { byCurrency: Record<string, number>; accent: string; currency: string }) {
   const entries = Object.entries(byCurrency).filter(([, v]) => v > 0);
-  if (entries.length === 0) return <span style={{ color: 'var(--cc-fg-3)' }}>฿0</span>;
+  if (entries.length === 0) return <span style={{ color: 'var(--cc-fg-3)' }}>{formatMoney(0, currency)}</span>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {entries.map(([cur, amt]) => (
         <span key={cur} style={{ fontSize: entries.length > 1 ? 22 : 32, fontWeight: 900, color: accent, lineHeight: 1.1 }}>
-          {fmtCur(amt, cur)}
+          {formatMoney(amt, cur)}
         </span>
       ))}
     </div>
@@ -822,6 +821,9 @@ export function CommandCenterView() {
   const [businessMemory, setBusinessMemory] = useState<MemorySummaryShape | null>(null);
   // SI-10
   const [vehicleHighRiskCount, setVehicleHighRiskCount] = useState<number | null>(null);
+  // The shop's own currency. USD until settings load, and USD when the shop
+  // has never chosen one; an explicit choice (e.g. THB) is shown as chosen.
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
 
   const shopHeaders = { 'x-shop-id': shopId };
 
@@ -914,6 +916,15 @@ export function CommandCenterView() {
       setVehicleHighRiskCount(body.highRiskCount);
     } catch { /* fail silently — SI-10 is additive */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId]);
+
+  useEffect(() => {
+    if (!shopId) return;
+    let cancelled = false;
+    fetchShopSettings()
+      .then(s => { if (!cancelled) setCurrency(s.defaultCurrency); })
+      .catch(() => { /* keep the USD default — formatting must never block the dashboard */ });
+    return () => { cancelled = true; };
   }, [shopId]);
 
   useEffect(() => {
@@ -1146,8 +1157,8 @@ export function CommandCenterView() {
               onClick={overdueCount > 0 ? () => nav('invoices') : undefined} />
             <SummaryPill icon="💵" label="Revenue Today"
               value={liveStats?.revenueTodayByCurrency
-                ? <RevenueByCurrency byCurrency={liveStats.revenueTodayByCurrency} accent="#22d3a0" />
-                : fmtMoney(revenueToday)}
+                ? <RevenueByCurrency byCurrency={liveStats.revenueTodayByCurrency} accent="#22d3a0" currency={currency} />
+                : fmtMoney(revenueToday, currency)}
               accent="#22d3a0"
               dimmed={liveStats ? Object.values(liveStats.revenueTodayByCurrency ?? {}).every(v => v === 0) : revenueToday === 0}
               urgency="none"
@@ -1292,7 +1303,7 @@ export function CommandCenterView() {
               <SectionHeading icon="🎯" label="Today's Action Queue" />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {actionQueue.map(item => (
-                  <ActionQueueCard key={item.recommendation.id} item={item} onNavigate={nav} />
+                  <ActionQueueCard key={item.recommendation.id} item={item} currency={currency} onNavigate={nav} />
                 ))}
               </div>
             </div>
@@ -1316,7 +1327,7 @@ export function CommandCenterView() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {top5.map(r => (
-                  <RecCard key={r.id} rec={r} shopId={shopId} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} />
+                  <RecCard key={r.id} rec={r} shopId={shopId} currency={currency} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} />
                 ))}
                 {recList.length > 5 && (
                   <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', paddingTop: 4 }}>
@@ -1344,13 +1355,13 @@ export function CommandCenterView() {
               <RowItem label="Completed, not invoiced" value={notInvoiced}  tag="jobs"      accent={notInvoiced  > 0 ? '#dc2626' : undefined} onClick={() => nav('job-cards')} />
               <RowItem label="Revenue today"
                 value={liveStats?.revenueTodayByCurrency && Object.keys(liveStats.revenueTodayByCurrency).length > 0
-                  ? Object.entries(liveStats.revenueTodayByCurrency).filter(([,v]) => v > 0).map(([cur, amt]) => fmtCur(amt, cur)).join(' + ') || '—'
-                  : fmtMoney(revenueToday)}
+                  ? Object.entries(liveStats.revenueTodayByCurrency).filter(([,v]) => v > 0).map(([cur, amt]) => formatMoney(amt, cur)).join(' + ') || '—'
+                  : fmtMoney(revenueToday, currency)}
                 accent={revenueToday > 0 ? D.green : undefined} onClick={() => nav('payments')} />
               {revenueOpportunity > 0 && (
                 <div style={{ marginTop: 10, padding: '10px 14px', background: 'rgba(34,211,160,0.12)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#4ade80' }}>Total Opportunity</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: '#4ade80' }}>{fmtMoney(revenueOpportunity)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: '#4ade80' }}>{fmtMoney(revenueOpportunity, currency)}</span>
                 </div>
               )}
             </div>
@@ -1483,6 +1494,7 @@ export function CommandCenterView() {
     {briefModalOpen && morningBrief && morningBrief.status !== 'dismissed' && (
       <MorningBriefModal
         brief={morningBrief as Parameters<typeof MorningBriefModal>[0]['brief']}
+        currency={currency}
         onClose={() => setBriefModalOpen(false)}
         onDismiss={handleDismissBrief}
       />

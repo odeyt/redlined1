@@ -69,3 +69,28 @@ describe('fetchShopSettings — column allowlist', () => {
     expect(JSON.stringify(settings)).not.toContain('unexpected-field-must-not-surface');
   });
 });
+
+describe('fetchShopSettings — default currency', () => {
+  it('reads a shop with no stored currency as USD', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { default_currency: null }, error: null });
+    expect((await fetchShopSettings()).defaultCurrency).toBe('USD');
+  });
+
+  it('reads a shop with no settings row at all as USD', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    expect((await fetchShopSettings()).defaultCurrency).toBe('USD');
+  });
+
+  it('preserves a currency the shop explicitly selected', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { default_currency: 'THB' }, error: null });
+    expect((await fetchShopSettings()).defaultCurrency).toBe('THB');
+  });
+
+  it('is read-only: loading settings never writes the currency back', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { default_currency: 'THB' }, error: null });
+    await fetchShopSettings();
+    // Only the one select chain: no update/upsert is ever built on load.
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+  });
+});
