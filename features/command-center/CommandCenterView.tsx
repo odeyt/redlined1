@@ -786,7 +786,9 @@ function RevenueByCurrency({ byCurrency, accent, currency }: { byCurrency: Recor
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {entries.map(([cur, amt]) => (
-        <span key={cur} style={{ fontSize: entries.length > 1 ? 22 : 32, fontWeight: 900, color: accent, lineHeight: 1.1 }}>
+        // Scales with the viewport: with cents, "$3,860.00" at a fixed 32px
+        // overflowed a half-width card on a phone.
+        <span key={cur} style={{ fontSize: entries.length > 1 ? 22 : 'clamp(20px, 5.4vw, 32px)', fontWeight: 900, color: accent, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
           {formatMoney(amt, cur)}
         </span>
       ))}
