@@ -28,12 +28,13 @@
  *   - Draw an invoice number from the shared sequence (numbers are SAF-INV-…).
  *   - Send email, SMS or push, or queue Sapelee events (service-role writes
  *     publish nothing).
- *   - Change the owner's plan, the shop's name, or any grant or policy.
+ *   - Change the owner's plan, the shops row, or any grant or policy. (`apply`
+ *     does set the demo shop's own shop_settings: its name, and USD.)
  */
 import { join } from 'path';
 import { config as loadDotenv } from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { buildSummitDataset, expectedTotals, SUMMIT, type SummitDataset } from '../../lib/demo-seed/summitDataset';
+import { buildSummitDataset, demoShopSettings, expectedTotals, SUMMIT, type SummitDataset } from '../../lib/demo-seed/summitDataset';
 import { demoTargetFailures, type SeedMode } from '../../lib/demo-seed/guards';
 import {
   TABLE_SPECS, columnsWritten, generationOf, isStaleGeneration, planInserts, plannedRowCount, schemaFailures,
@@ -286,7 +287,18 @@ async function main() {
   const written = columnsWritten(dataset);
   for (const t of owners) written[t] = [...written[t], 'owner_id'];
   const schemaProblems = schemaFailures(schema, written);
+  // The settings UPDATE: columns must exist (no insert, so no required-column check).
+  const settingsCols = new Set(Object.keys(schema?.definitions?.shop_settings?.properties ?? {}));
+  for (const c of Object.keys(demoShopSettings())) {
+    if (!settingsCols.has(c)) schemaProblems.push(`shop_settings.${c}: column does not exist`);
+  }
   if (schemaProblems.length) fail(`the live schema does not accept the seed's writes:\n  - ${schemaProblems.join('\n  - ')}`);
+
+  const current = await db.from('shop_settings').select('company_name, default_currency').eq('shop_id', shopId).maybeSingle();
+  if (current.error) fail(`could not read the demo shop's settings: ${current.error.message}`);
+  if (!current.data) fail('the demo shop has no shop_settings row (shops_create_settings should have made one)');
+  console.log(`[demo-seed] demo shop settings now: name=${String(current.data.company_name)} currency=${String(current.data.default_currency)}`
+    + (current.data.default_currency === SUMMIT.currency ? '' : ` → apply sets ${SUMMIT.currency}`));
 
   const existing = await existingSeedKeys(db, shopId, dataset);
   const plan = planInserts(dataset, existing);
@@ -300,6 +312,13 @@ async function main() {
   if (!ownerId) fail('no owner id');
 
   if (mode === 'apply') {
+    // USD only, for this one verified demo shop. shop_settings has no alert
+    // trigger, so this UPDATE is safe; it must touch exactly one row.
+    const settings = await db.from('shop_settings').update(demoShopSettings()).eq('shop_id', shopId).select('shop_id, default_currency');
+    if (settings.error || settings.data?.length !== 1) {
+      fail(`demo shop settings update did not apply to exactly one row: ${settings.error?.message ?? settings.data?.length}`);
+    }
+    console.log(`[demo-seed] demo shop is ${SUMMIT.shopName}, currency ${settings.data[0].default_currency}`);
     if (plannedRowCount(plan) === 0) console.log('[demo-seed] every record already exists — nothing to insert.');
     else await apply(db, shopId, ownerId, dataset, owners, existing);
   } else {

@@ -26,7 +26,7 @@
  *
  * ## Money
  *
- * USD, no tax, labour at $140/h. Every document total is a whole multiple of
+ * USD, no tax, labour at $165/h. Every document total is a whole multiple of
  * $10: the invoice and payment screens format through services/invoiceService
  * formatMoney, which rounds UP to the nearest 10 for display. Round totals
  * read identically there and on the Command Center.
@@ -40,7 +40,7 @@ export const SUMMIT = {
   shopName: 'Summit Auto & Fleet Service',
   timeZone: DEMO_TIME_ZONE,
   currency: 'USD',
-  laborRate: 140,
+  laborRate: 165,
   address: '1200 Summit Ridge Road, Sample City, IL (fictional)',
   phone: '(312) 555-0100',
   email: 'service@example.com',
@@ -49,6 +49,24 @@ export const SUMMIT = {
   docPrefix: 'SAF',
   note: 'Fictional record created by the Summit demo seed.',
 } as const;
+
+/**
+ * The demo shop's settings: its name, and USD as its only currency. Written by
+ * `apply` to the verified demo shop's shop_settings row only; no other shop's
+ * currency preference is ever read for writing or changed.
+ */
+export function demoShopSettings() {
+  return {
+    company_name: SUMMIT.shopName,
+    tagline: 'Auto repair & fleet service',
+    address: SUMMIT.address,
+    phone: SUMMIT.phone,
+    email: SUMMIT.email,
+    default_currency: SUMMIT.currency,
+    labor_rate: SUMMIT.laborRate,
+    default_tax_rate: 0,
+  };
+}
 
 // ── Row types: exactly the columns written, in the app's own column names ──
 
@@ -247,23 +265,23 @@ export const lineTotal = (lines: readonly Line[]) => lines.reduce((s, l) => s + 
 /** The documents, keyed by their role in the story. Totals are asserted in tests. */
 const INVOICE_SPECS = {
   // Paid today, at pickup: these three are Revenue Today.
-  brakes:     { customer: 'Maria Delgado', plate: 101, lines: [labor('Brake service labor — four wheels', 3.5), L('Front ceramic brake pads', 1, 150), L('Rear ceramic brake pads', 1, 130), L('Front rotors (pair)', 1, 260), L('Rear rotors (pair)', 1, 220), L('Brake fluid exchange', 1, 130)] },
-  cooling:    { customer: 'James Whitaker', plate: 102, lines: [labor('Cooling system labor', 3.0), L('Water pump', 1, 310), L('Thermostat & housing', 1, 120), L('Extended-life coolant (gal)', 4, 30), L('Serpentine belt', 1, 90), L('Upper & lower radiator hoses', 1, 100)] },
-  struts:     { customer: 'Riverbend Courier Co.', plate: 103, lines: [labor('Front strut replacement labor', 3.5), L('Front quick-strut assemblies', 2, 300), L('Four-wheel alignment', 1, 150), L('Strut mount hardware kit', 1, 80)] },
+  brakes:     { customer: 'Maria Delgado', plate: 101, lines: [labor('CVT transmission replacement labor', 8.0), L('Remanufactured CVT assembly', 1, 2850), L('CVT fluid (qt)', 6, 25), L('Transmission mounts', 1, 240), L('TCM programming & relearn', 1, 300)] },
+  cooling:    { customer: 'James Whitaker', plate: 102, lines: [labor('Water pump & timing chain labor', 7.0), L('Water pump', 1, 420), L('Timing chain kit', 1, 680), L('Extended-life coolant (gal)', 4, 30), L('Thermostat & housing', 1, 120), L('Upper & lower radiator hoses', 1, 195)] },
+  struts:     { customer: 'Riverbend Courier Co.', plate: 103, lines: [labor('Suspension & brake labor', 5.0), L('Front quick-strut assemblies', 2, 300), L('Rear shocks', 2, 140), L('Front brake pads & rotors', 1, 375), L('Four-wheel alignment', 1, 170)] },
   // Completed this month, invoiced, not yet due.
-  fleetPm:    { customer: 'Riverbend Courier Co.', plate: 104, lines: [labor('Fleet PM-A labor', 2.0), L('0W-20 synthetic oil (qt)', 7, 12), L('Oil filter', 1, 16), L('Engine air filter', 1, 45), L('Cabin air filter', 1, 40), L('Wiper blades', 2, 30), L('Tire rotation', 1, 25)] },
-  drain:      { customer: 'Kevin Brennan', plate: 106, lines: [labor('Parasitic draw diagnosis', 1.5), labor('Circuit repair labor', 2.0), L('Group H6 AGM battery', 1, 240), L('Relay', 1, 65), L('Harness repair kit', 1, 65)] },
+  fleetPm:    { customer: 'Riverbend Courier Co.', plate: 104, lines: [labor('Fleet PM-A, tires & brakes labor', 4.0), L('Commercial tires', 4, 210), L('Mount & balance', 4, 25), L('0W-20 synthetic oil (qt)', 7, 12), L('Oil filter', 1, 16), L('Engine air filter', 1, 45), L('Cabin air filter', 1, 40), L('Wiper blades', 2, 30), L('Rear brake pads', 1, 135)] },
+  drain:      { customer: 'Kevin Brennan', plate: 106, lines: [labor('Parasitic draw diagnosis', 2.0), labor('Module & circuit repair labor', 4.0), L('Group H6 AGM battery', 1, 240), L('Body control module', 1, 380), L('Harness repair kit', 1, 100)] },
   // Overdue.
-  acClutch:   { customer: 'Patricia Nguyen', plate: 107, lines: [labor('A/C diagnosis & repair labor', 2.5), L('A/C compressor clutch kit', 1, 330), L('R-1234yf refrigerant charge', 1, 110), L('Dye & O-ring kit', 1, 50)] },
-  wheelBear:  { customer: 'Harbor Street Landscaping', plate: 108, lines: [labor('Rear hub & brake labor', 2.0), L('Rear hub bearing assembly', 1, 240), L('Rear brake pads', 1, 120)] },
+  acClutch:   { customer: 'Patricia Nguyen', plate: 107, lines: [labor('A/C compressor replacement labor', 4.0), L('A/C compressor', 1, 890), L('A/C condenser', 1, 380), L('Receiver drier', 1, 90), L('R-1234yf refrigerant charge', 1, 140)] },
+  wheelBear:  { customer: 'Harbor Street Landscaping', plate: 108, lines: [labor('Rear hub & brake labor', 3.0), L('Rear hub bearing assemblies', 2, 320), L('Rear brake pads & rotors', 1, 405)] },
 } as const;
 
 const ESTIMATE_SPECS = {
-  frontEnd:     { customer: 'Victor Alvarez', plate: 119, daysAgo: 5, lines: [labor('Front end rebuild labor', 4.0), L('Lower control arms', 2, 260), L('Outer tie rod ends', 2, 85), L('Sway bar end links', 2, 75), L('Four-wheel alignment', 1, 150), L('Hardware & fasteners', 1, 100)] },
-  driveline:    { customer: 'Harbor Street Landscaping', plate: 109, daysAgo: 8, lines: [labor('Driveline service labor', 4.0), L('ATF (qt)', 12, 20), L('Transmission filter & gasket kit', 1, 120), L('Front differential service', 1, 150), L('Rear differential service', 1, 150), L('Transfer case service', 1, 200)] },
-  evaporator:   { customer: 'Tom Hendricks', plate: 117, daysAgo: 12, lines: [labor('A/C evaporator replacement labor', 4.5), L('A/C evaporator core', 1, 360), L('Blend door actuator', 1, 90), L('Refrigerant charge', 1, 100)] },
+  frontEnd:     { customer: 'Victor Alvarez', plate: 119, daysAgo: 5, lines: [labor('Front end rebuild labor', 7.0), L('Upper & lower control arms', 4, 260), L('Outer tie rod ends', 2, 85), L('Sway bar end links', 2, 75), L('Front wheel bearings', 2, 310), L('Four-wheel alignment', 1, 170), L('Hardware & fasteners', 1, 95)] },
+  driveline:    { customer: 'Harbor Street Landscaping', plate: 109, daysAgo: 8, lines: [labor('Transmission rebuild labor', 12.0), L('Transmission rebuild kit', 1, 1450), L('Torque converter', 1, 620), L('ATF (qt)', 14, 20), L('Transmission cooler lines', 1, 170), L('Transfer case service', 1, 300), L('Front & rear differential service', 2, 200)] },
+  evaporator:   { customer: 'Tom Hendricks', plate: 117, daysAgo: 12, lines: [labor('A/C evaporator replacement labor', 6.0), L('A/C evaporator core', 1, 360), L('A/C condenser', 1, 410), L('Expansion valve', 1, 120), L('Blend door actuator', 1, 90), L('Refrigerant charge', 1, 140), L('Dye & O-ring kit', 1, 50), L('Cabin air filter', 1, 40)] },
   // Sent today: open, not stale.
-  rearBrakes:   { customer: 'Laura Kim', plate: 112, daysAgo: 0, lines: [labor('Rear brake labor', 1.5), L('Rear brake pads', 1, 120), L('Rear rotors (pair)', 1, 220), L('Brake fluid exchange', 1, 140)] },
+  rearBrakes:   { customer: 'Laura Kim', plate: 112, daysAgo: 0, lines: [labor('Rear brake labor', 2.0), L('Rear brake pads', 1, 120), L('Rear rotors (pair)', 1, 220), L('Brake fluid exchange', 1, 140)] },
 } as const;
 
 export function buildSummitDataset(now: Date): SummitDataset {
@@ -300,13 +318,13 @@ export function buildSummitDataset(now: Date): SummitDataset {
   };
   const jobCards: JobCardRow[] = [
     open(1, 'Laura Kim', 112, 'Oil Change', 'Booked', 'Normal', [], today(0), 'Synthetic oil service and tire rotation.', false, 'Request approval'),
-    open(2, 'Anita Shah', 110, 'Engine', 'Approved', 'Normal', ['Luis Romero'], today(1), 'Timing belt and water pump — customer approved, parts deposit taken.', false, 'Convert to repair order'),
+    open(2, 'Anita Shah', 110, 'Engine', 'Approved', 'Normal', ['Luis Romero'], today(1), 'Head gasket repair — customer approved, deposit taken.', false, 'Convert to repair order'),
     open(3, 'Marcus Bell', 111, 'Brakes', 'In Progress', 'High', ['Andre Mitchell'], today(2), 'Grinding on braking; front pads to backing plate.', true, 'Complete repair'),
     open(4, 'Daniel Ortiz', 113, 'Engine', 'In Progress', 'Normal', ['Luis Romero'], at(-1, 9, 30), 'Overheating in traffic; radiator and thermostat.', true, 'Complete repair'),
     // The intentionally stuck job: checked in five days ago, waiting on a backordered alternator.
     open(5, 'Tom Hendricks', 117, 'Electrical', 'Pending Parts', 'High', ['Jenna Walsh'], at(-5, 8, 15), 'Charging system fault. Alternator on backorder from supplier.', true, 'Chase backordered alternator'),
     open(6, 'Sofia Petrova', 114, 'Diagnostics', 'In Progress', 'Normal', ['Jenna Walsh'], at(-1, 13, 0), 'Check-engine light, cylinder 3 misfire.', true, 'Complete diagnosis'),
-    open(7, 'Greenway Property Services', 115, 'Preventive Maintenance', 'Approved', 'Normal', ['Tyler Brooks'], at(-1, 15, 45), 'Fleet PM-B service, Unit 21.', false, 'Convert to repair order'),
+    open(7, 'Greenway Property Services', 115, 'Preventive Maintenance', 'Approved', 'Normal', ['Tyler Brooks'], at(-1, 15, 45), 'Fleet PM-B service and front brakes, Unit 21.', false, 'Convert to repair order'),
     open(8, 'Victor Alvarez', 119, 'Inspection', 'Booked', 'Normal', [], today(3), 'Clunk over bumps; front suspension inspection.', false, 'Request approval'),
   ];
 
@@ -318,8 +336,8 @@ export function buildSummitDataset(now: Date): SummitDataset {
     workflow: ['Booked', 'Approved', 'In Progress', 'Completed'], next_action: 'Create invoice', check_in_date: checkIn, notes,
   });
   jobCards.push(
-    done(9, 'Rachel Moore', 118, 'Brakes', 'Andre Mitchell', at(-1, 10, 0), 4.5, 480, 'Rear brakes and caliper service. Ready for invoicing.'),
-    done(10, 'Emily Carter', 120, 'Alignment', 'Andre Mitchell', today(4), 3.5, 580, 'Front struts and four-wheel alignment. Ready for invoicing.'),
+    done(9, 'Rachel Moore', 118, 'Brakes', 'Andre Mitchell', at(-1, 10, 0), 9.0, 1015, 'Four-wheel brakes, calipers and rear wheel bearings. Ready for invoicing.'),
+    done(10, 'Emily Carter', 120, 'Alignment', 'Andre Mitchell', today(4), 7.0, 1345, 'Front struts, control arms and four-wheel alignment. Ready for invoicing.'),
   );
 
   // ── Invoices.
@@ -359,9 +377,9 @@ export function buildSummitDataset(now: Date): SummitDataset {
     };
   };
   const closedJobs: ClosedJobRow[] = [
-    closed(11, 1, 'brakes', 'Brakes', 'Andre Mitchell', today(5), at(-1, 8, 30)),
+    closed(11, 1, 'brakes', 'Transmission', 'Andre Mitchell', today(5), at(-1, 8, 30)),
     closed(12, 2, 'cooling', 'Engine', 'Luis Romero', today(6), at(-1, 9, 0)),
-    closed(13, 3, 'struts', 'Alignment', 'Andre Mitchell', today(7), at(-2, 8, 0)),
+    closed(13, 3, 'struts', 'Suspension', 'Andre Mitchell', today(7), at(-2, 8, 0)),
     closed(14, 4, 'fleetPm', 'Preventive Maintenance', 'Tyler Brooks', at(closeDayFleet, 16, 0), at(closeDayFleet, 8, 0)),
     closed(15, 5, 'drain', 'Electrical', 'Jenna Walsh', at(closeDayDrain, 17, 0), at(closeDayDrain - 1, 9, 0)),
   ];
@@ -429,9 +447,9 @@ export function buildSummitDataset(now: Date): SummitDataset {
     pay(1, 'Maria Delgado', paidTotal(1), 'Credit Card', doc('INV', 1), 'Paid at pickup.', today(8)),
     pay(2, 'James Whitaker', paidTotal(2), 'Debit Card', doc('INV', 2), 'Paid at pickup.', today(9)),
     pay(3, 'Riverbend Courier Co.', paidTotal(3), 'Bank Transfer', doc('INV', 3), 'Fleet account payment.', today(10)),
-    pay(4, 'Anita Shah', 620, 'Credit Card', null, `Parts deposit — timing belt kit (${doc('JC', 2)}).`, today(12)),
-    pay(5, 'Greenway Property Services', 460, 'Check', null, `Parts deposit — fleet PM-B (${doc('JC', 7)}).`, today(13)),
-    pay(6, 'Victor Alvarez', 300, 'Cash', null, `Deposit for suspension inspection and parts (${doc('JC', 8)}).`, today(14)),
+    pay(4, 'Anita Shah', 1500, 'Credit Card', null, `Deposit — head gasket repair (${doc('JC', 2)}).`, today(12)),
+    pay(5, 'Greenway Property Services', 1400, 'Check', null, `Deposit — fleet PM-B and brakes (${doc('JC', 7)}).`, today(13)),
+    pay(6, 'Victor Alvarez', 800, 'Debit Card', null, `Deposit — suspension parts (${doc('JC', 8)}).`, today(14)),
   ];
 
   // ── Repair cases documented today, one per completed job.
@@ -446,11 +464,11 @@ export function buildSummitDataset(now: Date): SummitDataset {
     };
   };
   const repairCases: RepairCaseRow[] = [
-    rc(0, 'Pulsation and squeal when braking.', 'Front rotors 0.004 in. runout; rear pads at 2 mm.', 'Four-wheel pads and rotors, fluid exchange.', 'Measure rotor runout before quoting pads alone.', 92),
-    rc(1, 'Coolant smell and slow leak at front of engine.', 'Weep hole at water pump wet; thermostat slow to open.', 'Water pump, thermostat, belt and hoses replaced.', 'Replace thermostat with the pump on this engine — same labor.', 88),
-    rc(2, 'Van wanders at highway speed; front clunk.', 'Front strut mounts collapsed; toe out of spec.', 'Front quick-struts and alignment.', 'Fleet vans over 100k miles: inspect strut mounts at every PM.', 90),
-    rc(3, 'Scheduled fleet PM-A.', 'No faults. Cabin filter heavily loaded.', 'PM-A completed per fleet schedule.', 'Cabin filters on courier vans need a shorter interval.', 85),
-    rc(4, 'Battery dead after sitting overnight.', 'Parasitic draw 420 mA; traced to a stuck relay.', 'Relay replaced, harness repaired, new battery.', 'Check relay circuits before condemning the battery.', 87),
+    rc(0, 'Shudder and slipping on acceleration.', 'CVT judder codes; fluid dark with metal; pulley wear confirmed.', 'Remanufactured CVT installed, mounts replaced, TCM relearn.', 'Check CVT fluid condition at every service past 50k miles.', 92),
+    rc(1, 'Coolant loss and rattle on cold start.', 'Internal water pump weeping; timing chain stretch codes.', 'Water pump, timing chain kit, thermostat and hoses replaced.', 'On this engine, quote the timing chain with the pump — same teardown.', 88),
+    rc(2, 'Van wanders at highway speed; front clunk.', 'Front strut mounts collapsed; rear shocks leaking; toe out of spec.', 'Front struts, rear shocks, front brakes and alignment.', 'Fleet vans over 100k miles: inspect strut mounts at every PM.', 90),
+    rc(3, 'Scheduled fleet PM-A; tires at 3/32 in.', 'Tires at wear bars; rear pads at 3 mm; cabin filter loaded.', 'PM-A, four tires and rear pads.', 'Cabin filters on courier vans need a shorter interval.', 85),
+    rc(4, 'Battery dead after sitting overnight.', 'Parasitic draw 420 mA; body control module not sleeping.', 'Body control module replaced, harness repaired, new battery.', 'Confirm module sleep current before condemning the battery.', 87),
   ];
 
   return {

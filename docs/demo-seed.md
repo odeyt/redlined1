@@ -26,17 +26,17 @@ No dashboard number is written anywhere.
 
 | Command Center | Value | From |
 |---|---|---|
-| Revenue Today | **$3,860.00** | 3 invoices paid at pickup today |
-| Payments Today (tile) | **6** (total $5,240) | those 3 plus 3 parts deposits |
+| Revenue Today | **$9,800.00** | 3 invoices paid at pickup today (CVT replacement, timing chain, fleet suspension) |
+| Payments Today (tile) | **6** (total $13,500) | those 3 plus 3 deposits |
 | Open Jobs | **8** | Booked 2, Approved 2, In Progress 3, Pending Parts 1 |
 | High Priority | **2** | rules: unpaid invoices (4, more than 3) and completed-not-invoiced |
 | Critical | **0** | no rule computes one |
 | Open Recs | **5** | + stale estimates, low inventory, stuck repair order (all medium) |
-| Overdue Invoices | **2** ($1,480) | Sent, 12 and 5 days past due |
-| Unpaid invoices | 4 ($2,890) | 2 overdue + 2 Sent, not yet due |
-| Stale estimates | 3 ($4,250) | Sent 5, 8 and 12 days ago |
-| Completed, not invoiced | 2 ($2,180 at $140/h) | job cards marked Completed, no invoice |
-| Total Opportunity | **$7,140.00** | unpaid + stale, the existing formula |
+| Overdue Invoices | **2** ($3,700) | Sent, 12 and 5 days past due |
+| Unpaid invoices | 4 ($7,390) | 2 overdue + 2 Sent, not yet due |
+| Stale estimates | 3 ($10,800) | Sent 5, 8 and 12 days ago |
+| Completed, not invoiced | 2 ($5,000 at $165/h) | job cards marked Completed, no invoice |
+| Total Opportunity | **$18,190.00** | unpaid + stale, the existing formula |
 | Stuck repair orders | 1 | Pending Parts since 5 days ago (alternator backorder) |
 | Low inventory | 4 | parts at or below threshold |
 | Repair cases today | 5 | one per completed job |
@@ -179,18 +179,13 @@ RETURNING id, name;   -- expect exactly one row
 
 **3. Owner plan.** See the Owner plan section above.
 
-**4. Name the shop and set USD.** This touches the demo shop's settings row only:
-
-```sql
-UPDATE public.shop_settings ss
-SET company_name = 'Summit Auto & Fleet Service',
-    address = '1200 Summit Ridge Road, Sample City, IL (fictional)',
-    phone = '(312) 555-0100', email = 'service@example.com',
-    default_currency = 'USD', labor_rate = 140, default_tax_rate = 0
-FROM public.shops s
-WHERE s.id = ss.shop_id AND s.id = '<DEMO_SHOP_ID>' AND s.is_synthetic
-RETURNING ss.shop_id, ss.company_name, ss.default_currency;
-```
+**4. Name the shop and set USD.** `apply` does this itself. It updates the
+verified demo shop's own `shop_settings` row, and only that row, to "Summit
+Auto & Fleet Service", `default_currency = 'USD'`, labor $165/h and no tax. The
+demo shop shows USD only. D1 Imports and every other shop keep their own
+currency setting; the seed never reads another shop's settings for writing.
+`plan` prints the demo shop's current name and currency before anything
+changes.
 
 **5. Dry run.** It reads only and writes nothing. It prints every gate, the
 schema check and the per-table insert plan. Run it from the main checkout,
@@ -210,7 +205,7 @@ $env:ALLOW_PRODUCTION_DEMO_SEED = 'true'
 npm run demo:seed -- apply
 ```
 
-It inserts the missing rows, recomputes the shop's metrics and recommendations
+It sets the demo shop to USD, inserts the missing rows, recomputes the shop's metrics and recommendations
 with the app's own engine, and prints what the Command Center now reads.
 Running it again the same day inserts nothing.
 

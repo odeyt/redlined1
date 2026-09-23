@@ -1,4 +1,4 @@
-import { buildSummitDataset, SUMMIT } from '../summitDataset';
+import { buildSummitDataset, demoShopSettings, SUMMIT } from '../summitDataset';
 import { todayWindow, generationKey, localDateString } from '../clock';
 import { planInserts, plannedRowCount, generationOf, isStaleGeneration, schemaFailures, columnsWritten, TABLE_SPECS } from '../plan';
 
@@ -143,5 +143,21 @@ describe('live-schema check', () => {
     expect(schemaFailures(schemaFrom(missing), written)).toContain('parts.currency: column does not exist');
     expect(schemaFailures(schemaFrom(written, { invoices: { required: ['owner_id'] } }), written))
       .toContain('invoices.owner_id: required on insert but not written');
+  });
+});
+
+describe('money', () => {
+  it('never prices a part at the labor rate (labor lines are recognised by their rate)', () => {
+    for (const doc of [...d.invoices, ...d.estimates]) {
+      for (const l of doc.lines) {
+        if (l.rate === SUMMIT.laborRate) expect(l.description).toMatch(/labor|diagnosis/i);
+      }
+    }
+  });
+
+  it('settles the demo shop on USD only', () => {
+    expect(demoShopSettings()).toMatchObject({ default_currency: 'USD', company_name: SUMMIT.shopName, labor_rate: SUMMIT.laborRate });
+    expect(d.parts.every(p => p.currency === 'USD')).toBe(true);
+    expect([...d.invoices, ...d.estimates, ...d.payments, ...d.repairOrders].every(r => r.currency === 'USD')).toBe(true);
   });
 });

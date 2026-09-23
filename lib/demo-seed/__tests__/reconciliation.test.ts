@@ -104,19 +104,20 @@ describe.each(RUN_TIMES)('seeded at %s', iso => {
     expect(errors).toEqual([]);
 
     expect(metrics.paymentsToday).toBe(6);
-    expect(metrics.revenueToday).toBe(5240);          // payments recorded today
+    expect(metrics.revenueToday).toBe(13500);         // payments recorded today
     expect(metrics.unpaidInvoiceCount).toBe(4);
     expect(metrics.overdueInvoiceCount).toBe(2);
-    expect(metrics.overdueInvoiceTotal).toBe(1480);   // requested ≈ $1,475
+    expect(metrics.overdueInvoiceTotal).toBe(3700);
     expect(metrics.staleEstimateCount).toBe(3);
-    expect(metrics.staleEstimateTotal).toBe(4250);
+    expect(metrics.staleEstimateTotal).toBe(10800);
     expect(metrics.openEstimateCount).toBe(4);
     expect(metrics.openJobCount).toBe(8);
     expect(metrics.stuckJobCount).toBe(1);
     expect(metrics.completedNotInvoicedCount).toBe(2);
     expect(metrics.lowInventoryCount).toBe(4);
     expect(metrics.repairCasesToday).toBe(5);
-    expect(metrics.revenueOpportunityTotal).toBe(2890 + 4250);
+    expect(metrics.unpaidInvoiceTotal).toBe(7390);
+    expect(metrics.revenueOpportunityTotal).toBe(7390 + 10800);
   });
 
   it('agrees with the expectation derived from the dataset itself', async () => {
@@ -137,13 +138,13 @@ describe.each(RUN_TIMES)('seeded at %s', iso => {
     expect(metrics.repairCasesToday).toBe(e.repairCasesToday);
   });
 
-  it('Revenue Today (browser, invoices paid today) is $3,860 in USD only', () => {
-    expect(browserRevenueToday(d, now)).toEqual({ USD: 3860 });
-    expect(expectedTotals(d).revenueToday).toBe(3860);
+  it('Revenue Today (browser, invoices paid today) is $9,800 in USD only', () => {
+    expect(browserRevenueToday(d, now)).toEqual({ USD: 9800 });
+    expect(expectedTotals(d).revenueToday).toBe(9800);
   });
 
-  it('the not-yet-invoiced completed jobs are worth $2,180 at the shop labor rate', () => {
-    expect(expectedTotals(d).completedNotInvoicedValue).toBe(2180);
+  it('the not-yet-invoiced completed jobs are worth $5,000 at the shop labor rate', () => {
+    expect(expectedTotals(d).completedNotInvoicedValue).toBe(5000);
   });
 
   it('shop health is what the existing rule computes — reported, not tuned', async () => {
