@@ -35,7 +35,8 @@
     "events:health": "tsx scripts/event-health.ts",
     "events:dead": "tsx scripts/dead-domain-events.ts",
     "events:reconcile": "tsx scripts/reconcile-domain-events.ts",
-    "events:relay": "tsx scripts/relay-domain-events.ts"
+    "events:relay": "tsx scripts/relay-domain-events.ts",
+    "demo:seed": "cross-env TZ=UTC tsx scripts/demo/seed-summit-demo.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
