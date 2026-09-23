@@ -4,6 +4,7 @@
 // Owner/manager only. Read-only view. Navigation links only.
 
 import { useAppDispatch } from '@/lib/store';
+import { formatMoney, DEFAULT_CURRENCY } from '@/lib/currencies';
 
 interface BriefSection {
   key: string;
@@ -81,9 +82,6 @@ const D = {
   radius: 12, radiusSm: 8,
 };
 
-function fmtMoney(v: number): string {
-  return `$${v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-}
 
 function SectionHead({ icon, label }: { icon: string; label: string }) {
   return (
@@ -105,14 +103,18 @@ function urgencyColor(u?: string): string {
 
 export function MorningBriefModal({
   brief,
+  currency = DEFAULT_CURRENCY,
   onClose,
   onDismiss,
 }: {
   brief: MorningBriefData;
+  /** The shop's currency. Amounts were a hand-built "$" prefix before. */
+  currency?: string;
   onClose: () => void;
   onDismiss: (id: string) => void;
 }) {
   const dispatch = useAppDispatch();
+  const fmtMoney = (v: number) => formatMoney(v, currency);
   function nav(module: string) {
     dispatch({ type: 'SET_MODULE', module });
     onClose();

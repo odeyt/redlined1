@@ -9,6 +9,7 @@ export type RoleKey = 'manager' | 'advisor' | 'technician';
 export type RolePermissions = Record<RoleKey, string[]>;
 
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
+import { resolveShopCurrency } from '@/lib/currencies';
 // Re-exported so existing callers can keep importing it from the settings
 // service, which is where you look for it.
 export { SHOP_PRICING_DEFAULTS };
@@ -128,7 +129,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
     defaultTaxRate: Number(data?.default_tax_rate ?? SHOP_PRICING_DEFAULTS.taxRate),
     // USD when the column is null — an existing shop that has never set one
     // keeps behaving exactly as it did, since USD was the hardcoded default.
-    defaultCurrency: (data?.default_currency as string | null) || SHOP_PRICING_DEFAULTS.currency,
+    defaultCurrency: resolveShopCurrency(data?.default_currency as string | null),
     invoicePrefix: data?.invoice_prefix ?? 'INV-',
     estimatePrefix: data?.estimate_prefix ?? 'EST-',
     businessType: data?.business_type ?? 'Single repair shop',
