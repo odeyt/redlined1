@@ -51,7 +51,10 @@ const VALID = { fullName: 'Jane Smith', email: 'jane@example.com' };
 
 const ENV = { ...process.env };
 beforeEach(() => {
-  mockSend.mockReset().mockResolvedValue({ id: 'email-1' });
+  // The SDK's real success shape. This mock used to resolve `{ id }`, which
+  // is not what Resend returns — and let a route that never read the result
+  // pass.
+  mockSend.mockReset().mockResolvedValue({ data: { id: 'email-1' }, error: null, headers: null });
   mockFrom.mockClear();
   mockInsertResult.data = { id: 'lead-1' };
   mockInsertResult.error = null;
@@ -65,8 +68,48 @@ describe('notification outcome', () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json).toMatchObject({ ok: true, id: 'lead-1', notified: 'sent' });
+    expect(json).toMatchObject({ ok: true, id: 'lead-1', notified: 'sent', messageId: 'email-1' });
     expect(json.notifyError).toBeUndefined();
+  });
+
+  it("reports 'failed' when Resend RETURNS an error instead of throwing", async () => {
+    // The SDK's refusal path: resolved, not rejected. This is what the sandbox
+    // sender does for a recipient that is not the Resend account owner.
+    mockSend.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'validation_error',
+        statusCode: 403,
+        message: 'You can only send testing emails to your own email address.',
+      },
+      headers: null,
+    });
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await POST(request({ ...VALID, source: 'shop-owner-demo' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json).toMatchObject({
+      ok: true,
+      id: 'lead-1',
+      notified: 'failed',
+      notifyError: 'validation_error (403): You can only send testing emails to your own email address.',
+    });
+    expect(json.messageId).toBeUndefined();
+    // And it is logged, so it shows up in the Vercel runtime logs.
+    expect(errorSpy.mock.calls.some(c => String(c[0]).includes('shopAudit.notify failed'))).toBe(true);
+    errorSpy.mockRestore();
+  });
+
+  it("does not report 'sent' for a success that carries no message id", async () => {
+    mockSend.mockResolvedValue({ data: null, error: null, headers: null });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const json = await (await POST(request(VALID))).json();
+
+    expect(json).toMatchObject({ notified: 'failed', notifyError: 'Resend returned no message id' });
+    jest.restoreAllMocks();
   });
 
   it("reports 'skipped' when no recipient is configured — not a failure", async () => {
@@ -89,9 +132,9 @@ describe('notification outcome', () => {
     expect(mockSend).not.toHaveBeenCalled();
   });
 
-  it("reports 'failed' with the provider's reason when the send is refused", async () => {
-    // The message names configuration — an unverified domain, a rejected
-    // recipient — never anything the visitor typed.
+  it("reports 'failed' with the reason when the send THROWS", async () => {
+    // The other failure path: the request never completes. The message names
+    // configuration or transport, never anything the visitor typed.
     mockSend.mockRejectedValue(new Error('The redlined1.com domain is not verified'));
 
     const json = await (await POST(request(VALID))).json();
