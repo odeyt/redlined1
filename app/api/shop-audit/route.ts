@@ -169,7 +169,30 @@ export async function POST(req: NextRequest) {
   // place.
   let notified: NotifyState = 'skipped';
   let notifyError: string | null = null;
+  let messageId: string | null = null;
   const to = process.env.SALES_NOTIFY_EMAIL?.trim() || process.env.CONTACT_SALES_EMAIL?.trim();
+
+  // A refusal must never be reported as 'sent'. The Resend SDK has two ways
+  // to fail and only one of them throws:
+  //   - the API answers with an error (sandbox sender to a non-owner, an
+  //     unverified `from` domain, a revoked key, a quota) → RETURNED as
+  //     `{ data: null, error: { name, message, statusCode } }`, no throw;
+  //   - the request never completes (network, bad input to the SDK) → thrown.
+  // This used to `await` the send and assume success, so every returned
+  // refusal became notified:'sent' with nothing logged — which is exactly
+  // how a /shop-owner-demo lead on 2026-09-24 reported 'sent' while no email
+  // existed in Resend at all.
+  const reportFailure = async (reason: string, cause: unknown) => {
+    notified = 'failed';
+    notifyError = reason;
+    try {
+      const { logger } = await import('@/lib/logger');
+      logger.error('shopAudit.notify failed', cause, {
+        leadId, source: lead.source, reason, sandboxSender: usingSandboxSender(),
+      });
+    } catch { /* the lead is stored; a logging failure changes nothing */ }
+  };
+
   if (process.env.RESEND_API_KEY?.trim() && to) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -177,7 +200,7 @@ export async function POST(req: NextRequest) {
         value === null || value === ''
           ? ''
           : `<tr><td style="padding:4px 10px 4px 0;color:#888">${label}</td><td style="padding:4px 0"><strong>${escapeHtml(String(value))}</strong></td></tr>`;
-      await resend.emails.send({
+      const { data, error } = await resend.emails.send({
         from: mailFrom('RedlineD1'),
         to,
         replyTo: email,
@@ -204,14 +227,19 @@ export async function POST(req: NextRequest) {
           `<p style="font-family:system-ui;font-size:12px;color:#888">Lead ${leadId ?? 'unknown'} — stored in shop_audit_leads.</p>`,
         ].join(''),
       });
-      notified = 'sent';
+      if (error) {
+        const status = error.statusCode ? ` (${error.statusCode})` : '';
+        await reportFailure(`${error.name}${status}: ${error.message}`, error);
+      } else if (!data?.id) {
+        // Success without a message id is not something Resend documents;
+        // treat it as unconfirmed rather than claim a send nobody can trace.
+        await reportFailure('Resend returned no message id', null);
+      } else {
+        notified = 'sent';
+        messageId = data.id;
+      }
     } catch (e) {
-      notified = 'failed';
-      notifyError = e instanceof Error ? e.message : 'unknown error';
-      try {
-        const { logger } = await import('@/lib/logger');
-        logger.error('shopAudit.notify failed', e, { leadId, sandboxSender: usingSandboxSender() });
-      } catch { /* the lead is stored; a logging failure changes nothing */ }
+      await reportFailure(e instanceof Error ? e.message : 'unknown error', e);
     }
   }
 
@@ -219,8 +247,14 @@ export async function POST(req: NextRequest) {
   // unverified sending domain). It describes configuration, never the
   // submitted form, so it is safe to return — and it is what turns a failed
   // notification into something diagnosable without digging through logs.
+  // messageId is Resend's id for the accepted email: look it up under
+  // Resend → Emails to see whether it was actually delivered.
   return NextResponse.json(
-    { ok: true, id: leadId, notified, ...(notifyError ? { notifyError } : {}) },
+    {
+      ok: true, id: leadId, notified,
+      ...(messageId ? { messageId } : {}),
+      ...(notifyError ? { notifyError } : {}),
+    },
     { status: 201 },
   );
 }
