@@ -22,7 +22,7 @@ async function getAuthCtx(req: NextRequest) {
   return { userId: user.id, shopId, role, jwt };
 }
 
-// GET — calculate live metrics for this shop (always fresh, no caching required)
+// GET — metrics for this shop: a saved row under 5 minutes old, else live
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getAuthCtx(req);
@@ -30,16 +30,19 @@ export async function GET(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
-    const { calculateShopMetrics, saveShopMetrics, getLatestShopMetrics } = await import('@/intelligence/metrics/MetricsBuilder');
+    const { calculateShopMetrics, saveShopMetrics, getLatestShopMetrics, isFresh } = await import('@/intelligence/metrics/MetricsBuilder');
 
-    // Try saved row first (fast path)
+    // Try saved row first (fast path) — but only while it is recent. The row is
+    // one per shop per day, so reusing it all day froze every figure at the
+    // day's first calculation: an invoice paid at 10:00 stayed "overdue" on
+    // the Command Center until midnight.
     const saved = await getLatestShopMetrics(ctx.shopId);
     const today = new Date().toISOString().split('T')[0];
-    if (saved && saved.metricDate === today) {
+    if (saved && saved.metricDate === today && isFresh(saved.calculatedAt)) {
       return NextResponse.json({ metrics: saved, source: 'cache' });
     }
 
-    // No saved row for today — calculate live with user's JWT so RLS works
+    // No recent saved row — calculate live
     console.warn('[metrics] shopId:', ctx.shopId, 'calculating live');
     const result = await calculateShopMetrics(ctx.shopId, ctx.jwt);
     if (result.warnings.length > 0) {

@@ -6,6 +6,10 @@ import type {
   MetricCalculationContext,
   MetricCalculationResult,
 } from './types';
+import { mapInvoiceRow } from '@/lib/domain/invoiceMath';
+import { mapPaymentRow } from '@/lib/domain/payments';
+import { receivablesFrom } from '@/lib/domain/receivables';
+import { DEFAULT_CURRENCY, resolveShopCurrency } from '@/lib/currencies';
 
 // Use getAdminDb (service role key) — bypasses RLS so shop_id filter is the only guard.
 // If SUPABASE_SERVICE_ROLE_KEY is missing, falls back to anon (logged as error).
@@ -43,6 +47,28 @@ function buildContext(shopId: string): MetricCalculationContext {
     staleThresholdDays: 3,
     stuckThresholdDays: 2,
   };
+}
+
+/**
+ * The currency the Command Center shows this shop's money in — the same
+ * resolution the page uses (services/shopSettingsService → resolveShopCurrency).
+ * A read failure falls back to the default and is reported, never thrown.
+ */
+async function loadShopCurrency(shopId: string, warnings: string[], jwt?: string): Promise<string> {
+  try {
+    const db = await getDb(jwt);
+    const { data, error } = await db
+      .from('shop_settings')
+      .select('default_currency')
+      .eq('shop_id', shopId)
+      .limit(1);
+    if (error) throw error;
+    const row = ((data ?? []) as { default_currency?: string | null }[])[0];
+    return resolveShopCurrency(row?.default_currency ?? null);
+  } catch (e) {
+    warnings.push('shop_currency: ' + errMsg(e));
+    return DEFAULT_CURRENCY;
+  }
 }
 
 function daysAgo(n: number): string {
@@ -100,19 +126,26 @@ export async function calculateRevenueMetrics(
   jwt?: string,
 ): Promise<Pick<ShopIntelligenceMetrics, 'revenueToday' | 'revenueYesterday' | 'paymentsToday'>> {
   const result = { revenueToday: 0, revenueYesterday: 0, paymentsToday: 0 };
+  // Money is summed in the shop's currency only (the card formats it in that
+  // currency); the payment count includes every currency.
+  const currency = ctx.currency ?? DEFAULT_CURRENCY;
+  const sumInCurrency = (rows: { amount?: number; currency?: string | null }[]) =>
+    roundMoney(rows
+      .filter(r => (r.currency || DEFAULT_CURRENCY) === currency)
+      .reduce((s, r) => s + (Number(r.amount) || 0), 0));
 
   try {
     const db = await getDb(jwt);
     const todayDateStr = ctx.todayStart.split('T')[0]; // 'YYYY-MM-DD'
     const { data, error } = await db
       .from('payments')
-      .select('amount, status')
+      .select('amount, status, currency')
       .eq('shop_id', ctx.shopId)
       .gte('payment_date', todayDateStr)
       .in('status', ['Recorded', 'Verified']);
     if (error) throw error;
-    const rows = (data ?? []) as { amount?: number }[];
-    result.revenueToday = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const rows = (data ?? []) as { amount?: number; currency?: string | null }[];
+    result.revenueToday = sumInCurrency(rows);
     result.paymentsToday = rows.length;
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] revenue_today:', m); warnings.push('revenue_today: ' + m); }
 
@@ -122,15 +155,13 @@ export async function calculateRevenueMetrics(
     const yEnd   = ctx.yesterdayEnd.split('T')[0];
     const { data, error } = await db
       .from('payments')
-      .select('amount')
+      .select('amount, currency')
       .eq('shop_id', ctx.shopId)
       .gte('payment_date', yStart)
       .lte('payment_date', yEnd)
       .in('status', ['Recorded', 'Verified']);
     if (error) throw error;
-    result.revenueYesterday = (data ?? []).reduce(
-      (s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0,
-    );
+    result.revenueYesterday = sumInCurrency((data ?? []) as { amount?: number; currency?: string | null }[]);
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] revenue_yesterday:', m); warnings.push('revenue_yesterday: ' + m); }
 
   return result;
@@ -138,7 +169,25 @@ export async function calculateRevenueMetrics(
 
 // ── Invoices ──────────────────────────────────────────────────
 // invoices table: PK = number (string), status ('Draft','Sent','Paid','Void'), due_date
-// No total column — total is computed from lines jsonb
+// No total column — total is computed from lines jsonb.
+//
+// Unpaid and overdue use the SAME rule as the Invoices screen and Money Owed
+// (lib/domain/receivables): a draft is not owed; the balance is the effective
+// total minus every payment entry against it (reversals are negative, so the
+// sum is already net); an invoice is unpaid while its balance is above zero,
+// and overdue when it is unpaid and its due date is before today.
+// Counts include every currency. Totals include only the shop's currency, since
+// the Command Center formats them in it and never converts.
+
+/** Statuses that are never owed. Mirrors SETTLED_STATUSES in lib/domain/receivables. */
+const NOT_OWED_INVOICE_STATUSES = ['Paid', 'Cancelled', 'Void', 'Draft'];
+
+/** Keep each `in (...)` list well under PostgREST's URL limits. */
+const INVOICE_NUMBER_CHUNK = 150;
+
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
 export async function calculateInvoiceMetrics(
   ctx: MetricCalculationContext,
@@ -148,40 +197,46 @@ export async function calculateInvoiceMetrics(
   const result = { unpaidInvoiceCount: 0, unpaidInvoiceTotal: 0, overdueInvoiceCount: 0, overdueInvoiceTotal: 0 };
   try {
     const db = await getDb(jwt);
-    const nowStr = ctx.now.toISOString().split('T')[0];
+    const today = ctx.now.toISOString().split('T')[0];
+    const currency = ctx.currency ?? DEFAULT_CURRENCY;
+
     const { data, error } = await db
       .from('invoices')
-      .select('number, due_date, lines, discount, shop_supplies, tax_rate, currency')
+      .select('*')
       .eq('shop_id', ctx.shopId)
-      .in('status', ['Draft', 'Sent']);
+      .not('status', 'in', `(${NOT_OWED_INVOICE_STATUSES.map(s => `"${s}"`).join(',')})`);
     if (error) throw error;
-    const rows = (data ?? []) as {
-      number: string;
-      due_date?: string;
-      lines?: { qty: number; rate: number; currency?: string }[];
-      discount?: number;
-      shop_supplies?: number;
-      tax_rate?: number;
-      currency?: string;
-    }[];
-    result.unpaidInvoiceCount = rows.length;
+    const invoices = ((data ?? []) as Record<string, unknown>[]).map(mapInvoiceRow);
 
-    let unpaidTotal = 0; let overdueCount = 0; let overdueTotal = 0;
-    for (const r of rows) {
-      const lines = r.lines ?? [];
-      const baseCur = r.currency || 'USD';
-      const subtotal = lines
-        .filter(l => !l.currency || l.currency === baseCur)
-        .reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
-      const afterDiscount = Math.max(subtotal - (r.discount ?? 0), 0);
-      const taxable = afterDiscount + (r.shop_supplies ?? 0);
-      const total = taxable + taxable * (r.tax_rate ?? 0);
-      unpaidTotal += total;
-      if (r.due_date && r.due_date < nowStr) { overdueCount++; overdueTotal += total; }
+    // Payments for these invoices only, in this shop only: invoice numbers are
+    // per-shop, so the same number can exist in another tenant.
+    const numbers = [...new Set(invoices.map(i => i.invoiceNumber).filter(Boolean))];
+    const paymentRows: Record<string, unknown>[] = [];
+    for (let i = 0; i < numbers.length; i += INVOICE_NUMBER_CHUNK) {
+      const { data: pays, error: payError } = await db
+        .from('payments')
+        .select('*')
+        .eq('shop_id', ctx.shopId)
+        .in('invoice_number', numbers.slice(i, i + INVOICE_NUMBER_CHUNK));
+      if (payError) throw payError;
+      paymentRows.push(...((pays ?? []) as Record<string, unknown>[]));
     }
-    result.unpaidInvoiceTotal = unpaidTotal;
-    result.overdueInvoiceCount = overdueCount;
-    result.overdueInvoiceTotal = overdueTotal;
+
+    const unpaid = receivablesFrom(invoices, paymentRows.map(mapPaymentRow), today)
+      .filter(r => r.balance > 0);
+    const overdue = unpaid.filter(r => r.daysOverdue > 0);
+    const inShopCurrency = (list: typeof unpaid) =>
+      roundMoney(list.filter(r => r.currency === currency).reduce((s, r) => s + r.balance, 0));
+
+    result.unpaidInvoiceCount = unpaid.length;
+    result.unpaidInvoiceTotal = inShopCurrency(unpaid);
+    result.overdueInvoiceCount = overdue.length;
+    result.overdueInvoiceTotal = inShopCurrency(overdue);
+
+    const foreign = overdue.filter(r => r.currency !== currency).length;
+    if (foreign > 0) {
+      warnings.push(`invoices: ${foreign} overdue invoice(s) in another currency are counted but not in the ${currency} total`);
+    }
   } catch (e) { const m = errMsg(e); console.error('[MetricsBuilder] invoices:', m); warnings.push('invoices: ' + m); }
   return result;
 }
@@ -218,9 +273,11 @@ export async function calculateEstimateMetrics(
     result.approvedNotScheduledCount = rows.filter(r => r.status === 'Approved').length;
     const staleRows = openRows.filter(r => r.created_at < staleThreshold);
     result.staleEstimateCount = staleRows.length;
-    result.staleEstimateTotal = staleRows.reduce((sum, r) => {
+    // Total in the shop's currency only, like every other Command Center amount.
+    const currency = ctx.currency ?? DEFAULT_CURRENCY;
+    result.staleEstimateTotal = staleRows.filter(r => (r.currency || DEFAULT_CURRENCY) === currency).reduce((sum, r) => {
       const lines = r.lines ?? [];
-      const baseCur = r.currency || 'USD';
+      const baseCur = r.currency || DEFAULT_CURRENCY;
       const subtotal = lines.filter(l => !l.currency || l.currency === baseCur)
         .reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.rate) || 0), 0);
       const taxable = Math.max(subtotal - (r.discount ?? 0), 0) + (r.shop_supplies ?? 0);
@@ -381,6 +438,7 @@ export async function calculateShopMetrics(shopId: string, jwt?: string): Promis
   console.warn('[MetricsBuilder] calculating for shopId:', shopId, 'hasJwt:', !!jwt);
 
   try {
+    ctx.currency = await loadShopCurrency(shopId, warnings, jwt);
     const [revenue, invoices, estimates, jobs, repairOrders, repairIntelligence, inventory, technicians] =
       await Promise.all([
         calculateRevenueMetrics(ctx, warnings, jwt),
@@ -421,6 +479,19 @@ export async function calculateShopMetrics(shopId: string, jwt?: string): Promis
     errors.push(msg);
     return { metrics: base, warnings, errors, durationMs: Date.now() - start };
   }
+}
+
+// ── Cache freshness ───────────────────────────────────────────
+
+/** How long a saved metrics row may be served before the GET route recalculates. */
+export const METRICS_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+/** Whether a saved row calculated at `calculatedAt` is recent enough to serve. */
+export function isFresh(calculatedAt: string | undefined, now = Date.now()): boolean {
+  if (!calculatedAt) return false;
+  const at = Date.parse(calculatedAt);
+  if (Number.isNaN(at)) return false;
+  return now - at >= 0 && now - at < METRICS_CACHE_MAX_AGE_MS;
 }
 
 // ── Persist / Load ────────────────────────────────────────────

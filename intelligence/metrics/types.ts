@@ -63,6 +63,13 @@ export interface MetricCalculationContext {
   yesterdayEnd: string;
   staleThresholdDays: number;
   stuckThresholdDays: number;
+  /**
+   * The shop's display currency (shop_settings.default_currency). Money totals
+   * count only amounts in this currency: the Command Center formats every total
+   * in it, and adding THB to USD would produce a number that is neither.
+   * Defaults to DEFAULT_CURRENCY when unset.
+   */
+  currency?: string;
 }
 
 export interface MetricCalculationResult {
