@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { isShopFlagEnabled } from '@/lib/featureFlags/shopFlags';
 
 async function getAuthCtx(req: NextRequest) {
   const cookieStore = await cookies();
@@ -24,16 +25,6 @@ async function getAuthCtx(req: NextRequest) {
   return { userId: user.id, shopId, role };
 }
 
-async function isFlagEnabled(flagKey: string): Promise<boolean> {
-  try {
-    const { getAdminDb } = await import('@/lib/supabaseServer');
-    const { data, error } = await getAdminDb().from('feature_flags')
-      .select('enabled').eq('flag_key', flagKey).maybeSingle();
-    if (error) return true;
-    return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch { return true; }
-}
-
 // GET — return today's brief
 export async function GET(req: NextRequest) {
   try {
@@ -42,7 +33,7 @@ export async function GET(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role))
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const enabled = await isFlagEnabled('morning_brief_engine');
+    const enabled = await isShopFlagEnabled('morning_brief_engine', ctx);
     if (!enabled) return NextResponse.json({ disabled: true, brief: null });
 
     const url  = new URL(req.url);
@@ -72,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role))
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const enabled = await isFlagEnabled('morning_brief_engine');
+    const enabled = await isShopFlagEnabled('morning_brief_engine', ctx);
     if (!enabled) return NextResponse.json({ disabled: true, brief: null });
 
     let body: Record<string, unknown> = {};

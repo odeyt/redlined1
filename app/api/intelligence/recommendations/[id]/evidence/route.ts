@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getShopIds } from '@/lib/shopStore';
+import { isShopFlagEnabled } from '@/lib/featureFlags/shopFlags';
 
 async function getAuthCtx(req: NextRequest) {
   const cookieStore = await cookies();
@@ -24,15 +25,6 @@ async function getAuthCtx(req: NextRequest) {
   return { userId: user.id, shopId, role };
 }
 
-async function isFlagEnabled(flagKey: string): Promise<boolean> {
-  try {
-    const { getAdminDb } = await import('@/lib/supabaseServer');
-    const db = getAdminDb();
-    const { data } = await db.from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
-    return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch { return false; }
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -44,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const flagOn = await isFlagEnabled('evidence_engine');
+    const flagOn = await isShopFlagEnabled('evidence_engine', ctx);
     if (!flagOn) {
       return NextResponse.json({ disabled: true, evidence: null, message: 'Evidence Engine is not enabled.' });
     }
