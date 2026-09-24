@@ -156,3 +156,41 @@ describe('the sender address', () => {
     );
   });
 });
+
+describe('spam protection', () => {
+  it('accepts a filled honeypot as if it succeeded, but stores and sends nothing', async () => {
+    const res = await POST(request({ ...VALID, website: 'http://spam.example' }));
+    const json = await res.json();
+
+    // Indistinguishable from success to the bot…
+    expect(res.status).toBe(201);
+    expect(json.ok).toBe(true);
+    // …but nothing reaches the owner's lead workflow.
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty honeypot as a person', async () => {
+    const res = await POST(request({ ...VALID, website: '' }));
+    expect(res.status).toBe(201);
+    expect(mockFrom).toHaveBeenCalledWith('shop_audit_leads');
+  });
+});
+
+describe('which request arrived', () => {
+  it('names a /shop-owner-demo submission a walkthrough request', async () => {
+    await POST(request({ ...VALID, source: 'shop-owner-demo' }));
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: 'Walkthrough request — Jane Smith' }),
+    );
+  });
+
+  it('keeps the shop audit subject for the audit form and for unknown sources', async () => {
+    await POST(request({ ...VALID, source: 'shop-audit' }));
+    await POST(request({ ...VALID, source: 'something-else' }));
+    expect(mockSend.mock.calls.map(c => (c[0] as { subject: string }).subject)).toEqual([
+      'Shop audit request — Jane Smith',
+      'Shop audit request — Jane Smith',
+    ]);
+  });
+});
