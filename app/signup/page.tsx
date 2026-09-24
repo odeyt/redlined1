@@ -99,10 +99,14 @@ export default function SignupPage() {
           } catch { /* unavailable */ }
         }
 
+        // Owner alert. Fire-and-forget — signup never waits on it. The route
+        // reads name and shop from the account itself, so only the id and
+        // email are sent. keepalive lets it finish if the page moves on.
         fetch('/api/signup-notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, shopName, email, plan: selectedPlan, period }),
+          body: JSON.stringify({ userId: data.user.id, email }),
+          keepalive: true,
         }).catch(() => {});
       }
       setSuccess(true);

@@ -36,6 +36,10 @@ const PUBLIC_PATHS = [
   '/billing/success', '/billing/canceled', '/contact-sales', '/shop-audit',
   '/shop-owner-demo',
   '/api/billing/webhook', '/api/contact-sales', '/api/shop-audit', '/api/ping', '/api/push/send',
+  // Called right after signUp(), before the new user has a session — gated
+  // here it answered 401 to every production signup. The route verifies the
+  // account itself (fresh, email matches) and sends at most one alert.
+  '/api/signup-notify',
   '/api/v1',
 ];
 
