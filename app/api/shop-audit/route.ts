@@ -70,6 +70,14 @@ function looksLikeEmail(value: string): boolean {
 
 const CONTACT_METHODS = new Set(['email', 'phone', 'whatsapp']);
 
+/** How the owner's notification names each form that posts here, keyed by
+ *  `source`. Anything unrecognised is described as a shop audit, which is
+ *  what this endpoint was built for. */
+const REQUEST_KINDS: Record<string, { subject: string; heading: string }> = {
+  'shop-audit': { subject: 'Shop audit request', heading: 'shop audit request' },
+  'shop-owner-demo': { subject: 'Walkthrough request', heading: 'walkthrough request (from /shop-owner-demo)' },
+};
+
 const ESCAPES: Record<string, string> = {
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 };
@@ -89,6 +97,14 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  // Honeypot. Forms that send `website` render it off-screen and hidden from
+  // assistive technology, so a person never fills it in and a form-filling bot
+  // usually does. Answer exactly as a success would, so the bot learns nothing
+  // — but store nothing and email nobody.
+  if (text(body.website, 200)) {
+    return NextResponse.json({ ok: true, id: null, notified: 'skipped' }, { status: 201 });
   }
 
   const fullName = text(body.fullName, 120);
@@ -141,6 +157,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Same table, different ask: say which one arrived, so the owner knows
+  // whether to plan an audit conversation or a product walkthrough.
+  const kind = REQUEST_KINDS[lead.source] ?? REQUEST_KINDS['shop-audit'];
+
   // Notification is best-effort from here. The lead is already safe.
   //
   // 'skipped' is the honest answer when there is nothing to send with or
@@ -161,9 +181,9 @@ export async function POST(req: NextRequest) {
         from: mailFrom('RedlineD1'),
         to,
         replyTo: email,
-        subject: `Shop audit request — ${fullName}${lead.shop_name ? ` (${lead.shop_name})` : ''}`,
+        subject: `${kind.subject} — ${fullName}${lead.shop_name ? ` (${lead.shop_name})` : ''}`,
         html: [
-          '<h2 style="font-family:system-ui">New shop audit request</h2>',
+          `<h2 style="font-family:system-ui">New ${kind.heading}</h2>`,
           '<table style="font-family:system-ui;font-size:14px;border-collapse:collapse">',
           row('Name', fullName),
           row('Email', email),

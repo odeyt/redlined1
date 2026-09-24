@@ -34,6 +34,7 @@ const PUBLIC_PATHS = [
   '/login', '/signup', '/help', '/forgot-password', '/reset-password',
   '/auth/callback', '/landing-preview', '/privacy', '/terms', '/refund-policy',
   '/billing/success', '/billing/canceled', '/contact-sales', '/shop-audit',
+  '/shop-owner-demo',
   '/api/billing/webhook', '/api/contact-sales', '/api/shop-audit', '/api/ping', '/api/push/send',
   '/api/v1',
 ];
