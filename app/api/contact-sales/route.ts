@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { mailFrom } from '@/lib/mail/sender';
+
+/**
+ * Contact-sales inquiry → one email to admin@redlined1.com.
+ *
+ * This route stores nothing: the email IS the inquiry. So it may only report
+ * success when Resend has accepted the message, and the page's "Message sent"
+ * depends on that.
+ *
+ * It used to fail silently in two ways, the same pair fixed in /api/shop-audit
+ * (PR #46) and /api/signup-notify (PR #47):
+ *   - it sent from Resend's sandbox sender (onboarding@resend.dev), which only
+ *     delivers to the Resend account owner; and
+ *   - it awaited the send without reading the result. The Resend SDK RETURNS
+ *     API refusals as `{ data: null, error }` rather than throwing, so a
+ *     refused inquiry answered `{ ok: true }` and the visitor was told it was
+ *     sent.
+ *
+ * The sender now comes from mailFrom() — MAIL_FROM_ADDRESS, the verified
+ * redlined1.com address production delivers from.
+ */
 
 const CONTEXT_LABELS: Record<string, string> = {
   enterprise: 'Enterprise Plan',
@@ -7,25 +28,62 @@ const CONTEXT_LABELS: Record<string, string> = {
   general: 'General',
 };
 
-export async function POST(req: NextRequest) {
+const ESCAPES: Record<string, string> = {
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+};
+
+/** Every visitor-supplied value is escaped before it reaches the HTML. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, c => ESCAPES[c] ?? c);
+}
+
+function text(value: unknown, max: number): string {
+  return String(value ?? '').trim().slice(0, max);
+}
+
+async function logFailure(reason: string, cause: unknown, context: string) {
   try {
-    const { name, email, shopName, context, message } = await req.json();
-    if (!name || !email) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
-    }
+    const { logger } = await import('@/lib/logger');
+    // Reason and inquiry type only — never the visitor's details.
+    logger.error('contactSales.send failed', cause, { reason, context });
+  } catch { /* logging must not change the response */ }
+}
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const contextLabel = CONTEXT_LABELS[context] ?? CONTEXT_LABELS.general;
-    const inquiryTime = new Date().toLocaleString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
-    });
+const FAILED = () =>
+  NextResponse.json({ error: 'Failed to send inquiry' }, { status: 502 });
 
-    await resend.emails.send({
-      from: 'Redlined1 <onboarding@resend.dev>',
+export async function POST(req: NextRequest) {
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+
+  const name = text(body.name, 120);
+  const email = text(body.email, 254);
+  const shopName = text(body.shopName, 160);
+  const message = text(body.message, 5000);
+  const context = text(body.context, 40);
+  if (!name || !email) {
+    return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+  }
+
+  const contextLabel = CONTEXT_LABELS[context] ?? CONTEXT_LABELS.general;
+  const inquiryTime = new Date().toLocaleString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  });
+  const n = escapeHtml(name);
+  const s = escapeHtml(shopName);
+  const e = escapeHtml(email);
+
+  try {
+    const { data, error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from: mailFrom('Redlined1'),
       to: 'admin@redlined1.com',
       replyTo: email,
-      subject: `📩 ${contextLabel} inquiry — ${shopName || name}`,
+      subject: `📩 ${contextLabel} inquiry — ${(shopName || name).replace(/[\r\n]+/g, ' ')}`,
       html: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d0d10;color:#eee;border-radius:12px;overflow:hidden">
           <div style="background:#cc0000;padding:20px 28px;display:flex;align-items:center;gap:14px">
@@ -38,17 +96,15 @@ export async function POST(req: NextRequest) {
               <table style="width:100%;border-collapse:collapse">
                 <tr>
                   <td style="padding:7px 0;font-size:13px;color:#888;width:120px">Name</td>
-                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#fff">${name}</td>
+                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#fff">${n}</td>
                 </tr>
                 <tr>
                   <td style="padding:7px 0;font-size:13px;color:#888">Shop Name</td>
-                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#fff">${shopName || '—'}</td>
+                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#fff">${s || '—'}</td>
                 </tr>
                 <tr>
                   <td style="padding:7px 0;font-size:13px;color:#888">Email</td>
-                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#cc6666">
-                    <a href="mailto:${email}" style="color:#cc6666">${email}</a>
-                  </td>
+                  <td style="padding:7px 0;font-size:14px;font-weight:700;color:#cc6666">${e}</td>
                 </tr>
                 <tr>
                   <td style="padding:7px 0;font-size:13px;color:#888">Interest</td>
@@ -59,10 +115,10 @@ export async function POST(req: NextRequest) {
                   <td style="padding:7px 0;font-size:13px;color:#aaa">${inquiryTime}</td>
                 </tr>
               </table>
-              ${message ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)"><div style="font-size:13px;color:#888;margin-bottom:6px">Message</div><div style="font-size:14px;color:#ddd;white-space:pre-wrap">${message}</div></div>` : ''}
+              ${message ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08)"><div style="font-size:13px;color:#888;margin-bottom:6px">Message</div><div style="font-size:14px;color:#ddd;white-space:pre-wrap">${escapeHtml(message)}</div></div>` : ''}
             </div>
             <p style="font-size:13px;color:#666;line-height:1.6;margin:0">
-              Reply to this email to reach them directly at <strong style="color:#aaa">${email}</strong>.
+              Reply to this email to reach them directly at <strong style="color:#aaa">${e}</strong>.
             </p>
           </div>
           <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
@@ -72,9 +128,18 @@ export async function POST(req: NextRequest) {
       `,
     });
 
-    return NextResponse.json({ ok: true });
+    if (error) {
+      const status = error.statusCode ? ` (${error.statusCode})` : '';
+      await logFailure(`${error.name}${status}: ${error.message}`, error, context);
+      return FAILED();
+    }
+    if (!data?.id) {
+      await logFailure('Resend returned no message id', null, context);
+      return FAILED();
+    }
+    return NextResponse.json({ ok: true, messageId: data.id });
   } catch (err) {
-    console.error('Contact sales error:', err);
-    return NextResponse.json({ error: 'Failed to send inquiry' }, { status: 500 });
+    await logFailure(err instanceof Error ? err.message : 'unknown error', err, context);
+    return FAILED();
   }
 }
