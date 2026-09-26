@@ -68,6 +68,25 @@ describe('FeatureFlagsPanel', () => {
     expect(headerOf(patch.init, 'Content-Type')).toBe('application/json');
   });
 
+  it('shows a failed toggle next to the switch, with the server\'s reason', async () => {
+    global.fetch = jest.fn(async (url: RequestInfo | URL, init: RequestInit = {}) => {
+      calls.push({ url: String(url), init });
+      if (init.method === 'PATCH') {
+        return { ok: false, json: async () => ({ error: 'database unavailable' }) } as Response;
+      }
+      return { ok: true, json: async () => ({ flags: {}, rows: [ROW] }) } as Response;
+    }) as typeof fetch;
+    render(<FeatureFlagsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Disable intent_intake' }));
+
+    // Beside the switch — the panel-level message is at the top of a long list.
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Not saved — try again')).toBeTruthy();
+    expect(screen.getByText(/Could not change intent_intake: database unavailable/)).toBeTruthy();
+    // Unchanged: still shown as enabled.
+    expect(screen.getByRole('button', { name: 'Disable intent_intake' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('still says so when the caller is not an owner of this shop', async () => {
     mockFetch(() => ({ flags: {} }));
     render(<FeatureFlagsPanel />);

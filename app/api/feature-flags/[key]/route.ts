@@ -3,6 +3,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { invalidateCache, getCurrentEnvironment } from '@/lib/featureFlags/featureFlagService';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { matchScope, normalizeScopeKey, saveFlagRow } from '@/lib/featureFlags/saveFlagRow';
+import { logger } from '@/lib/logger';
 
 async function getRole(req: NextRequest): Promise<{ userId: string; role: string; shopId: string } | null> {
   const cookieStore = await cookies();
@@ -50,25 +52,16 @@ export async function PATCH(
       environment?: string | null;
     };
 
-    const db = getAdminDb();
-    const scope = body.scope ?? 'global';
+    if (typeof body.enabled !== 'boolean') return NextResponse.json({ error: 'enabled must be true or false' }, { status: 400 });
 
-    // Build the match filter for upsert
-    const row = {
-      flag_key:    key,
-      enabled:     body.enabled,
-      scope,
-      shop_id:     body.shop_id     ?? null,
-      user_id:     body.user_id     ?? null,
-      role:        body.role        ?? null,
-      environment: body.environment ?? null,
-    };
+    // Not an upsert: uniqueness is an expression index the ON CONFLICT
+    // clause cannot target. See lib/featureFlags/saveFlagRow.ts.
+    const { error } = await saveFlagRow(getAdminDb(), normalizeScopeKey({ ...body, flag_key: key }), { enabled: body.enabled });
 
-    const { error } = await db
-      .from('feature_flags')
-      .upsert(row, { onConflict: 'flag_key,scope,shop_id,user_id,role,environment' });
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      logger.error('featureFlags.toggle failed', new Error(error), { flagKey: key });
+      return NextResponse.json({ error }, { status: 500 });
+    }
 
     // Every shop's cache, not just the caller's: a global flag applies to all
     // of them, and the other location would otherwise keep the old value.
@@ -94,14 +87,12 @@ export async function DELETE(
     const { key } = await params;
     const { scope, shop_id, user_id, role, environment } = await req.json() as Record<string, string | null>;
 
-    const db = getAdminDb();
-    let query = db.from('feature_flags').delete().eq('flag_key', key).eq('scope', scope ?? 'global');
-    if (shop_id)     query = query.eq('shop_id', shop_id);
-    if (user_id)     query = query.eq('user_id', user_id);
-    if (role)        query = query.eq('role', role);
-    if (environment) query = query.eq('environment', environment);
-
-    const { error } = await query;
+    // Exactly one scope combination: an empty target means IS NULL. Skipping
+    // the filter instead (as this did) matched every row of that scope.
+    const { error } = await matchScope(
+      getAdminDb().from('feature_flags').delete(),
+      normalizeScopeKey({ flag_key: key, scope, shop_id, user_id, role, environment }),
+    );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     // Every shop's cache, not just the caller's: a global flag applies to all

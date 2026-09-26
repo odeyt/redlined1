@@ -48,9 +48,22 @@ jest.mock('@/lib/featureFlags/featureFlagService', () => ({
   invalidateCache: (...a: unknown[]) => mockInvalidate(...a),
   getCurrentEnvironment: () => 'production',
 }));
-const mockUpsert = jest.fn(async () => ({ error: null }));
+// The real saveFlagRow runs against this: an update that finds the existing
+// row. `upsert` throws, because ON CONFLICT cannot target the expression index
+// that makes feature_flags unique — the bug that 500'd every toggle.
+const mockUpdate = jest.fn();
 jest.mock('@/lib/supabaseServer', () => ({
-  getAdminDb: () => ({ from: () => ({ upsert: mockUpsert }) }),
+  getAdminDb: () => ({
+    from: () => ({
+      update: (payload: unknown) => {
+        mockUpdate(payload);
+        const q = { eq: () => q, is: () => q, select: async () => ({ data: [{ id: 'f1' }], error: null }) };
+        return q;
+      },
+      insert: async () => ({ error: null }),
+      upsert: () => { throw new Error('upsert used'); },
+    }),
+  }),
 }));
 
 import { GET } from '../route';
@@ -73,7 +86,7 @@ const params = { params: Promise.resolve({ key: 'intent_intake' }) };
 beforeEach(() => {
   lookups.length = 0;
   mockInvalidate.mockClear();
-  mockUpsert.mockClear();
+  mockUpdate.mockClear();
 });
 
 describe('GET /api/feature-flags', () => {
@@ -106,7 +119,8 @@ describe('PATCH /api/feature-flags/[key]', () => {
   it('lets an owner of the named shop toggle, and clears every shop\'s cache', async () => {
     const res = await PATCH(patch('shop-1'), params);
     expect(res.status).toBe(200);
-    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
     // No argument = all shops: a global flag applies to both locations.
     expect(mockInvalidate).toHaveBeenCalledWith();
   });
@@ -114,12 +128,12 @@ describe('PATCH /api/feature-flags/[key]', () => {
   it('refuses a manager', async () => {
     const res = await PATCH(patch('shop-2'), params);
     expect(res.status).toBe(403);
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('refuses a request that names no shop', async () => {
     const res = await PATCH(patch(), params);
     expect(res.status).toBe(403);
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
