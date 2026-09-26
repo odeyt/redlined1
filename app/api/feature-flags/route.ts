@@ -98,7 +98,9 @@ export async function POST(req: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    invalidateCache(ctx.shopId);
+    // Every shop's cache, not just the caller's: a global flag applies to all
+    // of them, and the other location would otherwise keep the old value.
+    invalidateCache();
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { FlagMap, KnownFlagKey } from '@/lib/featureFlags/types';
+import { flagRequestHeaders, ACTIVE_SHOP_CHANGED_EVENT } from '@/lib/featureFlags/requestHeaders';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +26,8 @@ export function FeatureFlagProvider({ children }: { children: React.ReactNode })
 
   const fetchFlags = useCallback(async () => {
     try {
-      const res = await fetch('/api/feature-flags', { credentials: 'include' });
+      // The active shop, so shop- and role-scoped flags evaluate for it.
+      const res = await fetch('/api/feature-flags', { credentials: 'include', headers: flagRequestHeaders() });
       if (!res.ok) return;
       const data = await res.json() as { flags: FlagMap };
       setFlags(data.flags ?? {});
@@ -36,7 +38,13 @@ export function FeatureFlagProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  useEffect(() => { fetchFlags(); }, [fetchFlags]);
+  useEffect(() => {
+    fetchFlags();
+    // Re-evaluate when the active shop is set or changes (first login resolves it after load).
+    const onShopChange = () => { fetchFlags(); };
+    window.addEventListener(ACTIVE_SHOP_CHANGED_EVENT, onShopChange);
+    return () => window.removeEventListener(ACTIVE_SHOP_CHANGED_EVENT, onShopChange);
+  }, [fetchFlags]);
 
   return (
     <FeatureFlagContext.Provider value={{ flags, loading, refresh: fetchFlags }}>

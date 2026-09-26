@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import type { FeatureFlag } from '@/lib/featureFlags/types';
+import { flagRequestHeaders } from '@/lib/featureFlags/requestHeaders';
+import { getShopId } from '@/lib/shopStore';
 
 interface FlagRow extends FeatureFlag {
   _toggling?: boolean;
@@ -38,10 +40,13 @@ export function FeatureFlagsPanel() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/feature-flags', { credentials: 'include' });
+      // Without the active shop the server cannot find the caller's role, and
+      // every owner was told "Owner access required". See requestHeaders.ts.
+      if (!getShopId()) { setError('No active shop yet — reload the page and try again.'); return; }
+      const res = await fetch('/api/feature-flags', { credentials: 'include', headers: flagRequestHeaders() });
       if (!res.ok) { setError('Failed to load flags'); return; }
       const data = await res.json() as { rows?: FeatureFlag[] };
-      if (!data.rows) { setError('Owner access required'); return; }
+      if (!data.rows) { setError('Owner access required — only an owner of this shop can manage feature flags.'); return; }
       setRows(data.rows);
     } catch {
       setError('Failed to load feature flags');
@@ -60,7 +65,7 @@ export function FeatureFlagsPanel() {
     try {
       const res = await fetch(`/api/feature-flags/${encodeURIComponent(row.flag_key)}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: flagRequestHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           enabled:     !row.enabled,
@@ -201,6 +206,8 @@ export function FeatureFlagsPanel() {
                     onClick={() => toggle(row)}
                     disabled={row._toggling}
                     title={row.enabled ? 'Click to disable' : 'Click to enable'}
+                    aria-label={`${row.enabled ? 'Disable' : 'Enable'} ${row.flag_key}`}
+                    aria-pressed={row.enabled}
                     style={{
                       width: 44, height: 24, borderRadius: 12, border: 'none',
                       cursor: row._toggling ? 'not-allowed' : 'pointer',
