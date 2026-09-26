@@ -122,6 +122,12 @@ export async function createJobCard(fields: {
    * card. See services/inspectionCompletionService.ts.
    */
   id?: string;
+  /**
+   * When the vehicle actually arrived, as an ISO instant. Defaults to now.
+   * The intent intake lets staff record an arrival that happened earlier than
+   * the moment they got round to filing it.
+   */
+  checkInDate?: string;
 
 }): Promise<JobCardFull> {
   const id = fields.id ?? `JC-${Date.now()}`;
@@ -155,7 +161,7 @@ export async function createJobCard(fields: {
       parts_total: 0,
       workflow: approved ? ['Booked', 'Approved'] : ['Booked'],
       next_action: approved ? 'Convert to repair order' : 'Request approval',
-      check_in_date: new Date().toISOString(),
+      check_in_date: fields.checkInDate || new Date().toISOString(),
       notes: fields.notes ?? '',
     })
     .select()

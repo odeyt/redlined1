@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAppDispatch } from '@/lib/store';
+import { useAppDispatch, useAppState } from '@/lib/store';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { IntakePanel } from '@/features/intake/IntakePanel';
+import { matchCustomerByName } from '@/lib/intake/intentIntake';
 import { vehicleOptionValue, vehicleOptionLabel } from '@/lib/vehicleOption';
 import { Panel } from '@/components/Panel';
 import { TechPills } from '@/components/TechPill';
@@ -99,6 +102,10 @@ function formatDate(iso: string) {
 
 export function AppointmentsView() {
   const dispatch = useAppDispatch();
+  const { prefill } = useAppState();
+  const intentIntake = useFeatureFlag('intent_intake');
+  // The appointment just checked in, while staff decide whether to open its repair order.
+  const [checkInIntake, setCheckInIntake] = useState<AppointmentRecord | null>(null);
 
   const [appts, setAppts] = useState<AppointmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,6 +188,29 @@ export function AppointmentsView() {
     }
   }
 
+  // 'Book service for later' (and the customer drawer's Book Appointment) hand
+  // over the customer; open the booking form for them. Waits for the customer
+  // list, because the form resolves the customer by it. Behind intent_intake.
+  useEffect(() => {
+    if (!intentIntake || !prefill?.customerName || customers.length === 0) return;
+    const handed = prefill;
+    const cust = customers.find(c => c.id === handed.customerId) ?? customers.find(c => c.name === handed.customerName);
+    dispatch({ type: 'CLEAR_PREFILL' });
+    // The form opens once the customer's vehicles are known, so its vehicle
+    // list is filled from the start rather than flashing empty.
+    const vehiclesFor: Promise<(Vehicle & { id: string })[]> = cust
+      ? fetchVehicles()
+          .then(all => (all as (Vehicle & { id: string })[]).filter(v => v.customerId === cust.id))
+          .catch(() => [])
+      : Promise.resolve([]);
+    void vehiclesFor.then(vehs => {
+      setEditingId(null);
+      setForm({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10), customer: cust?.name ?? handed.customerName ?? '', vehicle: handed.vehicle ?? '' });
+      setCustomerVehicles(vehs);
+      setShowForm(true);
+    });
+  }, [intentIntake, prefill, customers, dispatch]);
+
   function openNew() {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10) });
@@ -236,6 +266,9 @@ export function AppointmentsView() {
       await updateAppointment(record.id, record.date, updated);
       setAppts(prev => prev.map(a => a.id === record.id ? { ...a, data: updated } : a));
       dispatch({ type: 'NOTIFY', message: `${record.data[1]} checked in for ${record.data[3]}.` });
+      // Offer to open the repair order from the booking. An offer, not an
+      // action: nothing is created until staff confirm in the panel.
+      if (intentIntake) setCheckInIntake({ ...record, data: updated });
     } catch {
       notify('Check-in failed. Please try again.');
     }
@@ -462,6 +495,17 @@ export function AppointmentsView() {
           deleteImage={deleteEntityImage}
           saveOrder={(ids) => saveEntityImageOrder('appointment', photoAppt.id, ids)}
           onClose={() => setPhotoAppt(null)}
+        />
+      )}
+      {checkInIntake && (
+        <IntakePanel
+          customer={matchCustomerByName(customers, checkInIntake.data[1])}
+          customerOptions={customers}
+          vehicleLabel={checkInIntake.data[2]}
+          appointment={checkInIntake}
+          initialIntent="service_now"
+          context="checkin"
+          onClose={() => setCheckInIntake(null)}
         />
       )}
     </>

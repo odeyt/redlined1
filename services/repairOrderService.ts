@@ -121,6 +121,25 @@ export async function findRepairOrderByJobCard(jobCardId: string): Promise<Repai
   return row ? mapRow(row) : null;
 }
 
+/**
+ * A customer's repair orders that are still in the shop's hands — not
+ * Complete, Closed or Void. Which of them belong to a particular vehicle is
+ * decided by the caller (lib/intake/intentIntake.ts): repair_orders carries
+ * the vehicle as a label, not an id.
+ */
+export async function fetchActiveRepairOrdersForCustomer(customerId: string): Promise<RepairOrder[]> {
+  if (!customerId) return [];
+  const { data, error } = await supabase
+    .from('repair_orders')
+    .select('*')
+    .eq('customer_id', customerId)
+    .not('status', 'in', '("Complete","Closed","Void")')
+    .in('shop_id', getShopIds())
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapRow);
+}
+
 export async function createRepairOrder(ro: Omit<RepairOrder, 'id' | 'createdAt'>): Promise<RepairOrder> {
   const { data, error } = await supabase
     .from('repair_orders')

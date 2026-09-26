@@ -226,10 +226,32 @@ export async function findPartsEstimateByJobCard(jobCardNumber: string): Promise
   return row ? mapEstimate(row) : null;
 }
 
-export async function createPartsEstimate(o: Omit<PartsEstimate, 'id' | 'createdAt'>): Promise<PartsEstimate> {
+/** One quotation by its id, within the shops this user can see. */
+export async function fetchPartsEstimateById(id: string): Promise<PartsEstimate | null> {
+  if (!id) return null;
   const { data, error } = await supabase
     .from('parts_estimates')
-    .insert({ shop_id: getShopId(), ...buildPayload(o) })
+    .select('*')
+    .eq('id', id)
+    .in('shop_id', getShopIds())
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapEstimate(data) : null;
+}
+
+/**
+ * `opts.id` settles the row's id before the insert, as createJobCard's `id`
+ * does: a retried or double-submitted request then collides on the primary
+ * key instead of opening a second quotation. Every existing caller omits it
+ * and gets a database-generated id, as before.
+ */
+export async function createPartsEstimate(
+  o: Omit<PartsEstimate, 'id' | 'createdAt'>,
+  opts: { id?: string } = {},
+): Promise<PartsEstimate> {
+  const { data, error } = await supabase
+    .from('parts_estimates')
+    .insert({ ...(opts.id ? { id: opts.id } : {}), shop_id: getShopId(), ...buildPayload(o) })
     .select().single();
   if (error) throw error;
 
