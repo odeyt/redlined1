@@ -37,6 +37,8 @@ import { fetchEstimates, type EstimateFull } from '@/services/estimateService';
 import { fetchInvoices, type InvoiceFull } from '@/services/invoiceService';
 import { fetchPartsEstimates, type PartsEstimate } from '@/services/partsEstimateService';
 import { FilterPills } from '@/components/FilterPills';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { IntakePanel } from '@/features/intake/IntakePanel';
 
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
 
@@ -1677,6 +1679,9 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
 // ── Main View ───────────────────────────────────────────────────
 export function VehiclesView() {
   const dispatch = useAppDispatch();
+  const intentIntake = useFeatureFlag('intent_intake');
+  // Set after a NEW vehicle is saved: offer what happens next (features/intake/IntakePanel.tsx).
+  const [intakeVehicle, setIntakeVehicle] = useState<VehicleRecord | null>(null);
   const { shops, currentShop, role } = useShop();
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -1912,6 +1917,9 @@ export function VehiclesView() {
         const newVehicle = await saveVehicle(form);
         setVehicles(prev => [{ ...newVehicle } as VehicleRecord, ...prev]);
         notify(`${newVehicle.label} saved.`);
+        // Offer the next step. Never automatic: nothing is created until
+        // staff choose, and an edit never triggers it.
+        if (intentIntake && newVehicle.customerId) setIntakeVehicle(newVehicle as VehicleRecord);
       }
       setForm(EMPTY_FORM);
       setShowForm(false);
@@ -2813,6 +2821,16 @@ export function VehiclesView() {
             ))}
           </div>
         </>
+      )}
+
+      {intakeVehicle && (
+        <IntakePanel
+          customer={customers.find(c => c.id === intakeVehicle.customerId) ?? null}
+          customerOptions={customers}
+          vehicle={intakeVehicle}
+          context="vehicle"
+          onClose={() => setIntakeVehicle(null)}
+        />
       )}
     </>
   );

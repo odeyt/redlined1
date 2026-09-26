@@ -72,6 +72,12 @@ export interface JobCardFollowOnInput {
    * they are pricing for. Never a price — only what was observed.
    */
   findings?: string;
+  /**
+   * The technician chosen at intake, when one was. Carried onto the repair
+   * order so it opens assigned; absent (the default for every existing
+   * caller) leaves it unassigned, exactly as before.
+   */
+  technician?: string;
 }
 
 export interface JobCardFollowOnResult {
@@ -115,7 +121,7 @@ export async function createJobCardFollowOns(
         concern:       input.serviceType || input.notes || '',
         cause:         '',
         correction:    '',
-        technician:    '',
+        technician:    input.technician?.trim() ?? '',
         laborHours:    0,
         partsTotal:    0,
         laborRate:     pricing.laborRate,

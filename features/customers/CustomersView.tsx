@@ -13,6 +13,8 @@ import { getShopId } from '@/lib/shopStore';
 import { useShop } from '@/lib/useShop';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { IntakePanel } from '@/features/intake/IntakePanel';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
@@ -22,6 +24,9 @@ interface RepairOrder { ro_number: string; status: string; opened_date: string; 
 
 export function CustomersView() {
   const dispatch = useAppDispatch();
+  const intentIntake = useFeatureFlag('intent_intake');
+  // The customer an intent intake is open for (see features/intake/IntakePanel.tsx).
+  const [intakeFor, setIntakeFor] = useState<{ customer: Customer; context: 'customer' | 'existing' } | null>(null);
   const { currentShop } = useShop();
   const [customers, setCustomers]         = useState<Customer[]>([]);
   const [showArchived, setShowArchived]   = useState(false);
@@ -141,6 +146,9 @@ export function CustomersView() {
         const newCustomer = await saveCustomer({ ...payload, portalToken: null });
         setCustomers(prev => [newCustomer, ...prev]);
         notify(`${newCustomer.name} saved.`);
+        // Ask what they need next. Only a NEW customer, never an edit — and
+        // nothing is created until staff choose.
+        if (intentIntake) setIntakeFor({ customer: newCustomer, context: 'customer' });
       }
       setForm(EMPTY_FORM); setShowForm(false); setEditingId(null); setDrawerEditing(false);
     } catch (err) {
@@ -629,6 +637,12 @@ export function CustomersView() {
                   dispatch({ type: 'OPEN_NEW_JOB_CARD', prefill: { customerName: selected.name, customerId: selected.id } });
                   setSelected(null);
                 }}>＋ New Job Card</button>
+                {intentIntake && (
+                  <button className="btn" style={{ flex: 1 }} onClick={() => {
+                    setIntakeFor({ customer: selected, context: 'existing' });
+                    setSelected(null);
+                  }}>Start intake…</button>
+                )}
                 <button className="btn" style={{ flex: 1 }} onClick={() => {
                   dispatch({ type: 'SET_PREFILL', prefill: { customerName: selected.name, customerId: selected.id } });
                   dispatch({ type: 'SET_MODULE', module: 'appointments' });
@@ -690,6 +704,14 @@ export function CustomersView() {
             </div>
           </div>
         </div>
+      )}
+
+      {intakeFor && (
+        <IntakePanel
+          customer={intakeFor.customer}
+          context={intakeFor.context}
+          onClose={() => setIntakeFor(null)}
+        />
       )}
     </>
   );

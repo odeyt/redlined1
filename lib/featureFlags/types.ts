@@ -80,4 +80,6 @@ export type KnownFlagKey =
   | 'personal_dashboard'
   | 'widget_system'
   | 'command_center_operational_metrics'
-  | 'dashboard_widget_placeholders';
+  | 'dashboard_widget_placeholders'
+  // Intent-based intake ("What does this customer need?") — default OFF
+  | 'intent_intake';

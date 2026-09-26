@@ -210,6 +210,31 @@ export async function updateVehicle(id: string, vehicle: Omit<Vehicle, 'customer
   return toVehicle(data);
 }
 
+/**
+ * Change a vehicle's status and nothing else.
+ *
+ * updateVehicle rewrites every column from the object it is given, so using
+ * it just to move a car to "In Progress" would overwrite anything another
+ * device saved in the meantime. This is the Kanban move without that risk.
+ */
+export async function setVehicleStatus(id: string, status: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .update({ status })
+    .eq('id', id)
+    .in('shop_id', getShopIds())
+    .select('id, label, status')
+    .single();
+  if (error) throw error;
+
+  await recordAudit({
+    action: AUDIT.vehicleUpdated,
+    entityType: 'vehicle',
+    entityId: id,
+    after: { label: data.label, status: data.status },
+  });
+}
+
 export async function updateVehicleServiceRecord(
   id: string,
   fields: Partial<{

@@ -28,6 +28,9 @@ import { useCapabilities } from '@/lib/auth/useCapabilities';
 import { OwnerInsights } from '@/components/OwnerInsights';
 import { seedLaborGuide } from '@/services/laborGuideService';
 import { confirmOnline } from '@/lib/useOnline';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { takePendingRepairOrder } from '@/lib/intake/openRecord';
+import { isActiveRepairOrderStatus } from '@/lib/intake/intentIntake';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 import { RepairCaseWizard } from '@/components/RepairCaseWizard';
@@ -352,6 +355,7 @@ export function RepairOrdersView() {
   const dispatch = useAppDispatch();
   const { role, currentShop, shopId } = useShop();
   const isTech = role === 'technician';
+  const intentIntake = useFeatureFlag('intent_intake');
 
   // Role alone is not the answer. A shop can withhold invoicing or estimates
   // from managers in Role Permissions, and D1 Imports does — so `!isTech` let
@@ -478,7 +482,12 @@ export function RepairOrdersView() {
     try {
       const data = await fetchRepairOrders();
       setOrders(data);
-      if (data.length > 0) setSelected(data[0]);
+      // An intake that just opened an RO asked for it by number; honour that
+      // over "most recent" so staff land on the order they created.
+      const wanted = takePendingRepairOrder();
+      const focus = wanted ? data.find(o => o.roNumber === wanted) : undefined;
+      if (focus) { setSelected(focus); setShowForm(false); }
+      else if (data.length > 0) setSelected(data[0]);
     } catch (e: unknown) {
       setError('Load error: ' + (e instanceof Error ? e.message : ''));
     } finally { setLoading(false); }
@@ -1268,6 +1277,12 @@ export function RepairOrdersView() {
                 <div style={{ background: 'var(--surface-soft)', borderRadius: 10, padding: '12px 16px' }}>
                   <div className="section-label" style={{ marginBottom: 6 }}>Technician</div>
                   <TechPills value={selected.technician} gap={4} />
+                  {intentIntake && !isTech && !selected.technician?.trim() && isActiveRepairOrderStatus(selected.status) && (
+                    <button type="button" className="btn btn-primary" onClick={() => openEdit(selected)}
+                      style={{ marginTop: 8, minHeight: 36, fontSize: 13 }}>
+                      Assign technician
+                    </button>
+                  )}
                   {selected.jobCardId && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>JC: {selected.jobCardId}</div>}
                 </div>
               </div>
