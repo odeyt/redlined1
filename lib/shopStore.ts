@@ -18,11 +18,22 @@ export function getShopId(): string {
 }
 
 export function setShopId(id: string, ownerUserId?: string): void {
+  const changed = _shopId !== id;
   _shopId = id;
   if (typeof window !== 'undefined') {
     localStorage.setItem('activeShopId', id);
     if (ownerUserId) localStorage.setItem(OWNER_KEY, ownerUserId);
     else if (!id) localStorage.removeItem(OWNER_KEY);
+    // Anything evaluated per shop (feature flags) re-reads on this. Matters
+    // on a first login, where the shop is resolved after the app has loaded.
+    // Same string as ACTIVE_SHOP_CHANGED_EVENT in lib/featureFlags/requestHeaders.ts.
+    // Guarded: setting the shop is on the login path and must never throw
+    // because a listener or an unusual window object misbehaves.
+    if (changed && typeof window.dispatchEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('active-shop-changed', { detail: { shopId: id } }));
+      } catch { /* notification only */ }
+    }
   }
 }
 
