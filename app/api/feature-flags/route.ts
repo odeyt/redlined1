@@ -8,6 +8,7 @@ import {
   getCurrentEnvironment,
 } from '@/lib/featureFlags/featureFlagService';
 import { getAdminDb } from '@/lib/supabaseServer';
+import { normalizeScopeKey, saveFlagRow } from '@/lib/featureFlags/saveFlagRow';
 
 async function getAuthContext(req: NextRequest) {
   const cookieStore = await cookies();
@@ -83,20 +84,14 @@ export async function POST(req: NextRequest) {
 
     if (!body.flag_key) return NextResponse.json({ error: 'flag_key required' }, { status: 400 });
 
-    const db = getAdminDb();
-    const { error } = await db.from('feature_flags').upsert({
-      flag_key:     body.flag_key,
+    // Not an upsert — see lib/featureFlags/saveFlagRow.ts.
+    const { error } = await saveFlagRow(getAdminDb(), normalizeScopeKey(body), {
+      enabled: body.enabled,
       display_name: body.display_name ?? body.flag_key,
-      description:  body.description ?? '',
-      enabled:      body.enabled,
-      scope:        body.scope ?? 'global',
-      shop_id:      body.shop_id ?? null,
-      user_id:      body.user_id ?? null,
-      role:         body.role ?? null,
-      environment:  body.environment ?? null,
-    }, { onConflict: 'flag_key,scope,shop_id,user_id,role,environment' });
+      description: body.description ?? '',
+    });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error }, { status: 500 });
 
     // Every shop's cache, not just the caller's: a global flag applies to all
     // of them, and the other location would otherwise keep the old value.

@@ -8,6 +8,9 @@ import { getShopId } from '@/lib/shopStore';
 
 interface FlagRow extends FeatureFlag {
   _toggling?: boolean;
+  /** Why the last toggle failed, shown beside the switch — the panel-level
+   *  error sits at the top of a long list, out of sight. */
+  _error?: string;
 }
 
 function scopeBadge(scope: string) {
@@ -59,7 +62,7 @@ export function FeatureFlagsPanel() {
 
   async function toggle(row: FlagRow) {
     setRows(prev => prev.map(r =>
-      r.id === row.id ? { ...r, _toggling: true } : r
+      r.id === row.id ? { ...r, _toggling: true, _error: undefined } : r
     ));
 
     try {
@@ -94,12 +97,14 @@ export function FeatureFlagsPanel() {
           }),
         }).catch(() => { /* never crash UI over observability */ });
       } else {
-        setRows(prev => prev.map(r => r.id === row.id ? { ...r, _toggling: false } : r));
-        setError('Toggle failed');
+        const detail = await res.json().then((j: { error?: string }) => j.error ?? '').catch(() => '');
+        const msg = `Could not change ${row.flag_key}${detail ? `: ${detail}` : ''}`;
+        setRows(prev => prev.map(r => r.id === row.id ? { ...r, _toggling: false, _error: 'Not saved — try again' } : r));
+        setError(msg);
       }
     } catch {
-      setRows(prev => prev.map(r => r.id === row.id ? { ...r, _toggling: false } : r));
-      setError('Toggle failed');
+      setRows(prev => prev.map(r => r.id === row.id ? { ...r, _toggling: false, _error: 'Not saved — check your connection' } : r));
+      setError(`Could not change ${row.flag_key}: no response from the server.`);
     }
   }
 
@@ -201,7 +206,10 @@ export function FeatureFlagsPanel() {
                 <div>{scopeBadge(row.scope)}</div>
 
                 {/* Toggle */}
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  {row._error && (
+                    <span role="alert" style={{ order: 2, fontSize: 11, color: '#dc2626', textAlign: 'center' }}>{row._error}</span>
+                  )}
                   <button
                     onClick={() => toggle(row)}
                     disabled={row._toggling}
