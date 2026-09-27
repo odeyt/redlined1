@@ -2,9 +2,9 @@
 -- Intake creates the two records together, but the RO editor later writes only
 -- repair_orders.technician. That leaves the Job Card queue showing Unassigned.
 --
--- The trigger runs in the same transaction as the RO write, so a failure to
--- update the linked Job Card also rejects the RO change. It never touches a
--- Job Card in another shop. Existing assignments are not bulk rewritten.
+-- A failed Job Card update (including its alert/push triggers) is contained
+-- so the primary RO save succeeds. It never touches a Job Card in another
+-- shop. Existing assignments are not bulk rewritten.
 
 BEGIN;
 
@@ -45,15 +45,22 @@ BEGIN
 
   -- jsonb_populate_record converts the JSON array to the column's actual
   -- type (text[] or jsonb). Both have been used in RedlineD1 schemas.
-  UPDATE public.job_cards AS jc
-  SET technicians = (
-    jsonb_populate_record(NULL::public.job_cards, jsonb_build_object('technicians', names))
-  ).technicians
-  WHERE jc.id = NEW.job_card_id
-    AND jc.shop_id = NEW.shop_id
-    AND jc.customer = NEW.customer_name
-    AND jc.vehicle = NEW.vehicle
-    AND COALESCE(to_jsonb(jc.technicians), '[]'::jsonb) IS DISTINCT FROM names;
+  BEGIN
+    UPDATE public.job_cards AS jc
+    SET technicians = (
+      jsonb_populate_record(NULL::public.job_cards, jsonb_build_object('technicians', names))
+    ).technicians
+    WHERE jc.id = NEW.job_card_id
+      AND jc.shop_id = NEW.shop_id
+      AND jc.customer = NEW.customer_name
+      AND jc.vehicle = NEW.vehicle
+      AND COALESCE(to_jsonb(jc.technicians), '[]'::jsonb) IS DISTINCT FROM names;
+  EXCEPTION WHEN OTHERS THEN
+    -- Roll back the Job Card update and any alerts it emitted, but keep the
+    -- Repair Order write. Operators can reconcile using this warning.
+    RAISE WARNING 'RO % technician not synced to job card % (SQLSTATE %): %',
+      NEW.ro_number, NEW.job_card_id, SQLSTATE, SQLERRM;
+  END;
 
   RETURN NEW;
 END;
