@@ -50,15 +50,18 @@ const RANK: Record<ReminderTier, number> = { free: 0, solo: 1, team: 2 };
 
 /**
  * The shop's tier from all of its owners: the most generous wins, so the
- * answer never depends on row order. A shop with no owner profile at all is
- * not limited — the same fail-open rule as free_tier_usage_limits.sql, so a
- * provisioning gap cannot look like a downgrade.
+ * answer never depends on row order.
+ *
+ * Each entry is one owner membership; `null` is an owner with no profile row.
+ * Entitlement that cannot be proven is not granted: no owners, owners without
+ * profiles, or NULL/unknown plans all read as 'free' — never team assignment,
+ * never unlimited. Same rule as reminder_plan_tier() in SQL.
  */
 export function reminderTierForOwners(
-  owners: readonly { plan: string | null; trialEndsAt: string | null }[],
+  owners: readonly ({ plan: string | null; trialEndsAt: string | null } | null)[],
 ): ReminderTier {
-  if (owners.length === 0) return 'team';
   return owners
+    .filter((o): o is { plan: string | null; trialEndsAt: string | null } => o !== null)
     .map(o => reminderTier(o.plan, o.trialEndsAt))
     .reduce((best, t) => (RANK[t] > RANK[best] ? t : best), 'free' as ReminderTier);
 }

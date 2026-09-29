@@ -62,16 +62,36 @@
 -- one feature_flags row seeded DISABLED. No existing table, column, policy or
 -- function is altered. Forward-only; see the rollback note at the end.
 --
--- ## RUN THIS IN SECTIONS
+-- ## ONE TRANSACTION
 --
--- Five sections, each ending in its own check. Paste one at a time and confirm
--- the result before moving on.
+-- Every object this file creates — tables, indexes, functions, triggers,
+-- policies, grants and the disabled flag row — is created inside a single
+-- BEGIN … COMMIT. If any statement fails, the whole migration rolls back and
+-- the database is left exactly as it was: there is no partially installed
+-- state to recover from. Run the file as one script, not section by section.
+-- The five SECTION banners are for reading only.
+--
+-- After COMMIT come read-only checks (SELECTs only). They change nothing, and
+-- if they are skipped nothing is lost.
+--
+-- ## Re-running
+--
+-- Re-running THIS EXACT FILE is harmless: every statement is guarded
+-- (IF NOT EXISTS, CREATE OR REPLACE, DROP … IF EXISTS before CREATE,
+-- ON CONFLICT DO NOTHING) and the result is the same. That is for a failed
+-- attempt that rolled back, or a double paste — nothing more.
+--
+-- It is NOT a way to change the schema later. CREATE TABLE IF NOT EXISTS skips
+-- a table that already exists, so a column added to this file would silently
+-- not appear; and CREATE OR REPLACE / DROP-then-CREATE would overwrite any
+-- hotfix made to these functions or policies since. Any later change is a new,
+-- separately dated migration file, as everywhere else in supabase/migrations.
+
+BEGIN;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SECTION 1 — tables and indexes
 -- ═══════════════════════════════════════════════════════════════════════════
-
-BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.shop_reminders (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -165,18 +185,9 @@ CREATE TABLE IF NOT EXISTS public.shop_reminder_events (
 CREATE INDEX IF NOT EXISTS shop_reminder_events_reminder_idx
   ON public.shop_reminder_events (reminder_id, created_at);
 
-COMMIT;
-
--- ── Check section 1 ─────────────────────────────────────────────────────────
-SELECT 'tables (expect 2)' AS check_name, count(*)::text AS result
-  FROM pg_tables WHERE schemaname = 'public'
-   AND tablename IN ('shop_reminders', 'shop_reminder_events');
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SECTION 2 — who counts as a manager, and what the plan allows
 -- ═══════════════════════════════════════════════════════════════════════════
-
-BEGIN;
 
 -- Owner or manager of this shop. Named for this feature so it cannot collide
 -- with, or be mistaken for, a general-purpose helper.
@@ -213,9 +224,13 @@ $fn$;
 -- exception either: an internal shop is entitled because its owner's plan
 -- says so, and must be verified that way before this is enabled for it.
 --
--- A shop with no owner profile at all is treated as 'team', the same fail-open
--- rule as free_tier_usage_limits.sql: a provisioning gap must not look like a
--- downgrade.
+-- Entitlement that cannot be proven is not granted. A shop with no owner, an
+-- owner with no profile row, or a NULL/unknown plan reads as 'free' — the
+-- same answer getPlanStatus() gives for missing plan data. That keeps
+-- personal reminders working (self-assigned, 3 open) and never unlocks team
+-- assignment or unlimited reminders on the strength of a missing row. This is
+-- deliberately stricter than free_tier_usage_limits.sql, which lets such a
+-- shop through unlimited.
 --
 -- Returns NULL to a signed-in caller who is not a member of the shop, so it
 -- cannot be used to learn another tenant's plan.
@@ -254,7 +269,8 @@ BEGIN
     END IF;
   END LOOP;
 
-  RETURN COALESCE(v_best, 'team');
+  -- No owner, or no owner with a profile: nothing proves an entitlement.
+  RETURN COALESCE(v_best, 'free');
 END $fn$;
 
 -- Whether internal_reminders is ON for the calling user in this shop.
@@ -349,17 +365,6 @@ GRANT EXECUTE ON FUNCTION public.reminders_can_manage_shop(UUID)  TO authenticat
 GRANT EXECUTE ON FUNCTION public.reminder_plan_tier(UUID)         TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.internal_reminders_enabled(UUID) TO authenticated, service_role;
 
-COMMIT;
-
--- ── Check section 2 ─────────────────────────────────────────────────────────
-SELECT 'functions (expect 3)' AS check_name, count(*)::text AS result
-  FROM pg_proc WHERE proname IN ('reminders_can_manage_shop', 'reminder_plan_tier', 'internal_reminders_enabled')
-UNION ALL
-SELECT 'anon can call none of them (expect false)',
-       (has_function_privilege('anon', 'public.reminders_can_manage_shop(uuid)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.reminder_plan_tier(uuid)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.internal_reminders_enabled(uuid)', 'EXECUTE'))::text;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SECTION 3 — the write guard
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -381,8 +386,6 @@ SELECT 'anon can call none of them (expect false)',
 -- The cap applies to anything that makes a reminder OPEN: creating one, and
 -- reopening a completed or cancelled one. Otherwise complete-then-reopen
 -- would walk straight round it.
-
-BEGIN;
 
 CREATE OR REPLACE FUNCTION public.shop_reminders_guard()
 RETURNS TRIGGER
@@ -529,17 +532,9 @@ CREATE TRIGGER shop_reminders_guard
   BEFORE INSERT OR UPDATE ON public.shop_reminders
   FOR EACH ROW EXECUTE FUNCTION public.shop_reminders_guard();
 
-COMMIT;
-
--- ── Check section 3 ─────────────────────────────────────────────────────────
-SELECT 'guard trigger (expect 1)' AS check_name, count(*)::text AS result
-  FROM pg_trigger WHERE tgname = 'shop_reminders_guard' AND NOT tgisinternal;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SECTION 4 — history
 -- ═══════════════════════════════════════════════════════════════════════════
-
-BEGIN;
 
 CREATE OR REPLACE FUNCTION public.shop_reminders_record_event()
 RETURNS TRIGGER
@@ -595,17 +590,9 @@ CREATE TRIGGER shop_reminders_record_event
   AFTER INSERT OR UPDATE ON public.shop_reminders
   FOR EACH ROW EXECUTE FUNCTION public.shop_reminders_record_event();
 
-COMMIT;
-
--- ── Check section 4 ─────────────────────────────────────────────────────────
-SELECT 'history trigger (expect 1)' AS check_name, count(*)::text AS result
-  FROM pg_trigger WHERE tgname = 'shop_reminders_record_event' AND NOT tgisinternal;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SECTION 5 — row level security, grants, feature flag
 -- ═══════════════════════════════════════════════════════════════════════════
-
-BEGIN;
 
 ALTER TABLE public.shop_reminders       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shop_reminder_events ENABLE ROW LEVEL SECURITY;
@@ -695,6 +682,32 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Checks — read-only, run after COMMIT
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── Check section 1 ─────────────────────────────────────────────────────────
+SELECT 'tables (expect 2)' AS check_name, count(*)::text AS result
+  FROM pg_tables WHERE schemaname = 'public'
+   AND tablename IN ('shop_reminders', 'shop_reminder_events');
+
+-- ── Check section 2 ─────────────────────────────────────────────────────────
+SELECT 'functions (expect 3)' AS check_name, count(*)::text AS result
+  FROM pg_proc WHERE proname IN ('reminders_can_manage_shop', 'reminder_plan_tier', 'internal_reminders_enabled')
+UNION ALL
+SELECT 'anon can call none of them (expect false)',
+       (has_function_privilege('anon', 'public.reminders_can_manage_shop(uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.reminder_plan_tier(uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.internal_reminders_enabled(uuid)', 'EXECUTE'))::text;
+
+-- ── Check section 3 ─────────────────────────────────────────────────────────
+SELECT 'guard trigger (expect 1)' AS check_name, count(*)::text AS result
+  FROM pg_trigger WHERE tgname = 'shop_reminders_guard' AND NOT tgisinternal;
+
+-- ── Check section 4 ─────────────────────────────────────────────────────────
+SELECT 'history trigger (expect 1)' AS check_name, count(*)::text AS result
+  FROM pg_trigger WHERE tgname = 'shop_reminders_record_event' AND NOT tgisinternal;
 
 -- ── Check section 5 ─────────────────────────────────────────────────────────
 SELECT 'policies (expect 4)' AS check_name, count(*)::text AS result

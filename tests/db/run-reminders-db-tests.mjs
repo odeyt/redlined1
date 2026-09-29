@@ -86,10 +86,20 @@ function session(shopId, ownerId, n) {
   });
 }
 
-async function race(label, shopSuffix) {
+/**
+ * N sessions each insert one reminder and hold the transaction open.
+ * mode 'free-owner': the shop's owner is on Free Forever.
+ * mode 'no-owner':   the shop has no owner at all — the caller is a manager —
+ *                    which must fail closed to the same cap.
+ */
+async function race(label, shopSuffix, mode = 'free-owner') {
   const shopId = `dddddddd-0000-0000-0000-0000000000${shopSuffix}`;
   const ownerId = `eeeeeeee-0000-0000-0000-0000000000${shopSuffix}`;
-  psql(`
+  psql(mode === 'no-owner' ? `
+    INSERT INTO auth.users (id, email) VALUES ('${ownerId}', 'race-${shopSuffix}@test.local');
+    INSERT INTO public.shops (id, name) VALUES ('${shopId}', 'Race ${shopSuffix}');
+    INSERT INTO public.shop_users (shop_id, user_id, role) VALUES ('${shopId}', '${ownerId}', 'manager');
+  ` : `
     INSERT INTO auth.users (id, email) VALUES ('${ownerId}', 'race-${shopSuffix}@test.local');
     INSERT INTO public.shops (id, name) VALUES ('${shopId}', 'Race ${shopSuffix}');
     INSERT INTO public.shop_users (shop_id, user_id, role) VALUES ('${shopId}', '${ownerId}', 'owner');
@@ -135,13 +145,52 @@ async function main() {
   psql(stub, 'stub schema');
   console.log('✓ stub schema');
 
+  // ── Atomicity ─────────────────────────────────────────────────────────────
+  // Make the migration's LAST write fail (the flag seed, after every table,
+  // function, trigger, policy and grant has been created) by hiding the table
+  // it inserts into. A single transaction must leave nothing behind.
+  const FUNCS = `('reminders_can_manage_shop','reminder_plan_tier','internal_reminders_enabled','shop_reminders_guard','shop_reminders_record_event')`;
+  psql('ALTER TABLE public.feature_flags RENAME TO feature_flags_hidden_for_atomicity_test;', 'hide feature_flags');
+  const failed = docker(['exec', '-i', NAME, 'psql', '-U', 'postgres', '-h', 'localhost', '-X',
+    '-v', 'ON_ERROR_STOP=1', '-q', '-f', '-'], migration);
+  if (failed.code === 0) throw new Error('atomicity test: the migration was expected to fail at the flag seed');
+  if (!/relation "public\.feature_flags" does not exist/.test(failed.out)) {
+    console.error(failed.out);
+    throw new Error('atomicity test: failed for an unexpected reason');
+  }
+  const leftovers = scalar(`SELECT
+      (to_regclass('public.shop_reminders') IS NOT NULL)::int
+    + (to_regclass('public.shop_reminder_events') IS NOT NULL)::int
+    + (SELECT count(*) FROM pg_proc WHERE proname IN ${FUNCS})
+    + (SELECT count(*) FROM pg_policies WHERE tablename IN ('shop_reminders','shop_reminder_events'))
+    + (SELECT count(*) FROM pg_indexes WHERE indexname LIKE 'shop_reminder%')`);
+  if (leftovers !== '0') throw new Error(`atomicity test: ${leftovers} objects left behind by a failed migration`);
+  psql('ALTER TABLE public.feature_flags_hidden_for_atomicity_test RENAME TO feature_flags;', 'restore feature_flags');
+  console.log('✓ a migration failing at its last write leaves nothing behind (single transaction)');
+
   const migrationOut = psql(migration, 'migration');
   console.log('✓ migration applied; its embedded checks:');
   console.log(migrationOut.split('\n').filter(l => l.includes('|') || /expect/i.test(l)).map(l => '    ' + l).join('\n'));
 
-  // Re-running must be harmless (IF NOT EXISTS / OR REPLACE / ON CONFLICT).
+  // ── Re-running the exact same file ────────────────────────────────────────
+  // Claimed only for this file, unchanged: every object it defines must be
+  // identical afterwards. (A CHANGED file is not supported this way — see the
+  // migration header.)
+  const fingerprint = () => scalar(`SELECT md5(concat_ws('|',
+      (SELECT string_agg(policyname || cmd || coalesce(qual,'') || coalesce(with_check,'') || roles::text, ',' ORDER BY policyname)
+         FROM pg_policies WHERE tablename IN ('shop_reminders','shop_reminder_events')),
+      (SELECT string_agg(proname || md5(prosrc) || coalesce(proconfig::text,'') || coalesce(proacl::text,'') || prosecdef::text, ',' ORDER BY proname)
+         FROM pg_proc WHERE proname IN ${FUNCS}),
+      (SELECT string_agg(pg_get_triggerdef(t.oid), ',' ORDER BY tgname)
+         FROM pg_trigger t WHERE tgrelid = 'public.shop_reminders'::regclass AND NOT tgisinternal),
+      (SELECT string_agg(indexdef, ',' ORDER BY indexname) FROM pg_indexes WHERE tablename IN ('shop_reminders','shop_reminder_events')),
+      (SELECT string_agg(relname || coalesce(relacl::text,'') || relrowsecurity::text, ',' ORDER BY relname)
+         FROM pg_class WHERE relname IN ('shop_reminders','shop_reminder_events')),
+      (SELECT string_agg(flag_key || enabled::text || scope, ',') FROM public.feature_flags WHERE flag_key = 'internal_reminders')))`);
+  const before = fingerprint();
   psql(migration, 'migration re-run');
-  console.log('✓ migration re-run is idempotent');
+  if (fingerprint() !== before) throw new Error('re-running the same migration changed the installed objects');
+  console.log('✓ re-running the identical file changes nothing it installed');
 
   const testOut = psql(tests, 'behavioural tests');
   const passes = testOut.split('\n').filter(l => l.includes('PASS:'));
@@ -182,10 +231,13 @@ async function main() {
       `INSERT INTO public.shops (id, name) VALUES ('${shop}', 'tier ${i}');`,
       ...sc.owners.map((o, j) => {
         const user = `ffffffff-0000-0000-${String(i).padStart(4, '0')}-${String(j).padStart(12, '0')}`;
-        const trial = o.trialDays === null ? 'NULL' : `now() + interval '${o.trialDays} days'`;
-        return `INSERT INTO auth.users (id, email) VALUES ('${user}', 'tier-${i}-${j}@test.local');
-INSERT INTO public.shop_users (shop_id, user_id, role) VALUES ('${shop}', '${user}', 'owner');
-INSERT INTO public.profiles (id, plan, trial_ends_at) VALUES ('${user}', ${lit(o.plan)}, ${trial});`;
+        const trial = o.trialDays === null || o.trialDays === undefined ? 'NULL' : `now() + interval '${o.trialDays} days'`;
+        const membership = `INSERT INTO auth.users (id, email) VALUES ('${user}', 'tier-${i}-${j}@test.local');
+INSERT INTO public.shop_users (shop_id, user_id, role) VALUES ('${shop}', '${user}', 'owner');`;
+        // "profile": false — an owner membership with no profiles row.
+        if (o.profile === false) return membership;
+        return `${membership}
+INSERT INTO public.profiles (id, plan, trial_ends_at) VALUES ('${user}', ${lit(o.plan ?? null)}, ${trial});`;
       }),
       `SELECT tests.ok(public.reminder_plan_tier('${shop}') = '${sc.tier}', ${lit('tier scenario: ' + sc.name)});`,
       'ROLLBACK;',
@@ -202,6 +254,13 @@ INSERT INTO public.profiles (id, plan, trial_ends_at) VALUES ('${user}', ${lit(o
     throw new Error('Free Forever cap is not race-safe: expected exactly 3');
   }
   console.log('✓ concurrent inserts into a Free Forever shop stop at exactly 3');
+
+  const ownerless = await race('concurrency (no owner)', '03', 'no-owner');
+  console.log(`  concurrency, shop with no owner: ${ownerless.succeeded}/${SESSIONS} committed, ${ownerless.open} open`);
+  if (ownerless.open !== 3 || ownerless.succeeded !== 3) {
+    throw new Error('a shop with no owner was not held to the Free Forever cap under concurrency');
+  }
+  console.log('✓ a shop with no owner fails closed to the same race-safe cap of 3');
 
   // Negative control: the same guard with the advisory lock removed.
   const guard = /CREATE OR REPLACE FUNCTION public\.shop_reminders_guard\(\)[\s\S]*?END \$fn\$;/.exec(migration)?.[0];

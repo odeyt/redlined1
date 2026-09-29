@@ -16,18 +16,30 @@ const MIGRATION = readFileSync(
 
 interface TierScenario {
   name: string;
-  owners: { plan: string | null; trialDays: number | null }[];
+  owners: { plan?: string | null; trialDays?: number | null; profile?: false }[];
   tier: string;
 }
 const TIER_SCENARIOS: TierScenario[] = JSON.parse(readFileSync(
   join(process.cwd(), 'tests/db/reminders/planTierScenarios.json'), 'utf8')).scenarios;
 
-const daysFromNow = (d: number | null) => (d === null ? null : new Date(Date.now() + d * 86_400_000).toISOString());
+const daysFromNow = (d: number | null | undefined) =>
+  (d === null || d === undefined ? null : new Date(Date.now() + d * 86_400_000).toISOString());
 
 describe('reminderTierForOwners — the shared scenario table (the SQL runs the same rows)', () => {
   it.each(TIER_SCENARIOS.map(s => [s.name, s] as const))('%s', (_name, s) => {
-    const owners = s.owners.map(o => ({ plan: o.plan, trialEndsAt: daysFromNow(o.trialDays) }));
+    const owners = s.owners.map(o => (o.profile === false
+      ? null
+      : { plan: o.plan ?? null, trialEndsAt: daysFromNow(o.trialDays) }));
     expect(reminderTierForOwners(owners)).toBe(s.tier);
+  });
+
+  it('nothing that cannot be proven unlocks team or unlimited', () => {
+    for (const s of TIER_SCENARIOS.filter(x => x.name.startsWith('FAIL CLOSED'))) {
+      expect({ name: s.name, tier: s.tier }).toEqual({ name: s.name, tier: 'free' });
+    }
+    expect(reminderTierForOwners([])).toBe('free');
+    expect(reminderTierForOwners([null])).toBe('free');
+    expect(reminderTierForOwners([{ plan: null, trialEndsAt: null }])).toBe('free');
   });
 
   it('covers every plan in the registry', () => {

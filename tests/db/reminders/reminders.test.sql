@@ -641,4 +641,77 @@ SELECT tests.ok(has_table_privilege('authenticated', 'public.shop_reminders', 'S
             AND NOT has_table_privilege('authenticated', 'public.shop_reminders', 'TRUNCATE'),
                 'authenticated has exactly select, insert and update');
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Unprovable entitlement fails closed. E1 has no owner at all (a manager and
+-- a technician only); E2's owner has no profiles row; E3's owner has a NULL
+-- plan. Each must read as Free Forever: no team assignment, 3 open.
+-- ═══════════════════════════════════════════════════════════════════════════
+INSERT INTO auth.users (id, email) VALUES
+  ('00000000-0000-0000-0000-000000000021', 'e1-manager@test.local'),
+  ('00000000-0000-0000-0000-000000000022', 'e1-tech@test.local'),
+  ('00000000-0000-0000-0000-000000000023', 'e2-owner-no-profile@test.local'),
+  ('00000000-0000-0000-0000-000000000024', 'e2-tech@test.local'),
+  ('00000000-0000-0000-0000-000000000025', 'e3-owner-null-plan@test.local'),
+  ('00000000-0000-0000-0000-000000000026', 'e3-tech@test.local');
+INSERT INTO public.shops (id, name) VALUES
+  ('aaaaaaaa-0000-0000-0000-0000000000e1', 'No owner'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e2', 'Owner without profile'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e3', 'Owner with NULL plan');
+INSERT INTO public.shop_users (shop_id, user_id, role) VALUES
+  ('aaaaaaaa-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000021', 'manager'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-000000000022', 'technician'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-000000000023', 'owner'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-000000000024', 'technician'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-000000000025', 'owner'),
+  ('aaaaaaaa-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-000000000026', 'technician');
+-- E2's owner deliberately gets no profiles row. E3's owner has one, plan NULL.
+INSERT INTO public.profiles (id, plan, trial_ends_at) VALUES
+  ('00000000-0000-0000-0000-000000000025', NULL, NULL),
+  -- The E1 manager has a PAID profile of their own: a non-owner's plan must
+  -- not count for the shop.
+  ('00000000-0000-0000-0000-000000000021', 'business', NULL);
+
+SELECT tests.ok(public.reminder_plan_tier('aaaaaaaa-0000-0000-0000-0000000000e1') = 'free', 'no owner: free, not team');
+SELECT tests.ok(public.reminder_plan_tier('aaaaaaaa-0000-0000-0000-0000000000e2') = 'free', 'owner without a profile: free, not team');
+SELECT tests.ok(public.reminder_plan_tier('aaaaaaaa-0000-0000-0000-0000000000e3') = 'free', 'owner with a NULL plan: free, not team');
+
+-- The same three checks for each shop, as the manager/owner who would be
+-- allowed to assign on a paid plan.
+BEGIN;
+SET LOCAL ROLE authenticated;
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000021', true);
+SELECT tests.throws($$INSERT INTO public.shop_reminders (shop_id, title, due_at, assigned_to)
+                    VALUES ('aaaaaaaa-0000-0000-0000-0000000000e1', 'x', now(), '00000000-0000-0000-0000-000000000022')$$,
+                    'REMINDER_TEAM_PLAN', 'no owner: a manager (even one with a paid profile) cannot assign a teammate');
+INSERT INTO public.shop_reminders (shop_id, title, due_at)
+SELECT 'aaaaaaaa-0000-0000-0000-0000000000e1', 'e1 ' || g, now() FROM generate_series(1, 3) g;
+SELECT tests.throws($$INSERT INTO public.shop_reminders (shop_id, title, due_at)
+                    VALUES ('aaaaaaaa-0000-0000-0000-0000000000e1', 'fourth', now())$$,
+                    'REMINDER_LIMIT:3', 'no owner: the 4th open reminder is refused');
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000023', true);
+SELECT tests.throws($$INSERT INTO public.shop_reminders (shop_id, title, due_at, assigned_to)
+                    VALUES ('aaaaaaaa-0000-0000-0000-0000000000e2', 'x', now(), '00000000-0000-0000-0000-000000000024')$$,
+                    'REMINDER_TEAM_PLAN', 'owner without a profile cannot assign a teammate');
+SELECT tests.throws($$INSERT INTO public.shop_reminders (shop_id, title, due_at)
+                    SELECT 'aaaaaaaa-0000-0000-0000-0000000000e2', 'e2 ' || g, now() FROM generate_series(1, 4) g$$,
+                    'REMINDER_LIMIT:3', 'owner without a profile: four in one statement are refused');
+SELECT tests.ok((SELECT count(*) FROM public.shop_reminders WHERE shop_id = 'aaaaaaaa-0000-0000-0000-0000000000e2') = 0,
+                'owner without a profile: the refused batch left nothing behind');
+
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000025', true);
+SELECT tests.throws($$INSERT INTO public.shop_reminders (shop_id, title, due_at, assigned_to)
+                    VALUES ('aaaaaaaa-0000-0000-0000-0000000000e3', 'x', now(), '00000000-0000-0000-0000-000000000026')$$,
+                    'REMINDER_TEAM_PLAN', 'owner with a NULL plan cannot assign a teammate');
+INSERT INTO public.shop_reminders (id, shop_id, title, due_at) VALUES
+  ('cccccccc-0000-0000-0000-0000000000e1', 'aaaaaaaa-0000-0000-0000-0000000000e3', 'e3 1', now()),
+  ('cccccccc-0000-0000-0000-0000000000e2', 'aaaaaaaa-0000-0000-0000-0000000000e3', 'e3 2', now()),
+  ('cccccccc-0000-0000-0000-0000000000e3', 'aaaaaaaa-0000-0000-0000-0000000000e3', 'e3 3', now());
+UPDATE public.shop_reminders SET status = 'completed' WHERE id = 'cccccccc-0000-0000-0000-0000000000e1';
+INSERT INTO public.shop_reminders (shop_id, title, due_at) VALUES ('aaaaaaaa-0000-0000-0000-0000000000e3', 'e3 4', now());
+SELECT tests.throws($$UPDATE public.shop_reminders SET status = 'open' WHERE id = 'cccccccc-0000-0000-0000-0000000000e1'$$,
+                    'REMINDER_LIMIT:3', 'owner with a NULL plan: reopening cannot bypass the cap');
+ROLLBACK;
+
 \echo ALL REMINDER DATABASE TESTS PASSED
