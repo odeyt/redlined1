@@ -58,7 +58,7 @@ const ALL_NON_DASHBOARD = [
   'customers','vehicles','appointments','scheduling','job-cards','inspections',
   'estimates','repair-orders','technicians','parts','invoices','payments',
   'communication','vin','dtc','diagnostics','ai','reports','labor-guide',
-  'access','subscriptions','settings','billing',
+  'access','subscriptions','settings','billing','reminders',
 ];
 
 export function getBlockedModules(role: string): string[] {

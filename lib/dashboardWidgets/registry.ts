@@ -19,6 +19,7 @@ import { MoneyOwedWidget } from '@/features/dashboard/widgets/catalog/MoneyOwedW
 import { SpendingWidget } from '@/features/dashboard/widgets/catalog/SpendingWidget';
 import { WhoIsInWidget } from '@/features/dashboard/widgets/catalog/WhoIsInWidget';
 import { TillWidget } from '@/features/dashboard/widgets/catalog/TillWidget';
+import { RemindersDueWidget } from '@/features/dashboard/widgets/catalog/RemindersDueWidget';
 
 const OWNER_MANAGER = ['owner', 'manager'];
 
@@ -197,6 +198,18 @@ export const WIDGET_REGISTRY: Record<string, WidgetDefinition> = {
     defaultSize: { w: 4, h: 3 },
     minSize: { w: 3, h: 3 },
     allowedRoles: OWNER_MANAGER,
+  },
+  // Every role: the counts come through the same RLS as the Reminders screen,
+  // so staff see their own and managers the shop's.
+  'reminders-due': {
+    id: 'reminders-due',
+    title: 'Reminders Due',
+    category: 'operational',
+    component: RemindersDueWidget,
+    defaultSize: { w: 4, h: 2 },
+    minSize: { w: 3, h: 2 },
+    allowedRoles: null,
+    requiredFlag: 'internal_reminders',
   },
   'clock': {
     id: 'clock',

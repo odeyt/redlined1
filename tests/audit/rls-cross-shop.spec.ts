@@ -27,6 +27,7 @@ const TENANT_TABLES = [
   'shop_settings', 'estimates', 'appointments', 'technicians', 'payments',
   'maintenance_schedules', 'profiles', 'inspections', 'parts_orders',
   'parts_estimates', 'conversations', 'triage_sessions', 'entity_images',
+  'shop_reminders', 'shop_reminder_events',
 ];
 
 test('audit user cannot read any D1 shop rows via the API', async () => {

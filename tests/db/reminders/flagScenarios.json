@@ -1,0 +1,24 @@
+{
+  "_comment": "internal_reminders flag rows -> expected decision. Evaluated for USER, a technician in SHOP, app environment 'production'. 'ts' is lib/featureFlags/featureFlagService.ts evaluateFlag(); 'sql' is public.internal_reminders_enabled(). Read by lib/reminders/__tests__/flagParity.test.ts and tests/db/run-reminders-db-tests.mjs. Invariant: sql may be false where ts is true (fail closed), never true where ts is false.",
+  "scenarios": [
+    { "name": "no rows at all", "rows": [], "ts": false, "sql": false },
+    { "name": "global on", "rows": [{ "scope": "global", "enabled": true }], "ts": true, "sql": true },
+    { "name": "global off", "rows": [{ "scope": "global", "enabled": false }], "ts": false, "sql": false },
+    { "name": "shop off beats global on", "rows": [{ "scope": "global", "enabled": true }, { "scope": "shop", "shop": "SHOP", "enabled": false }], "ts": false, "sql": false },
+    { "name": "shop on beats global off", "rows": [{ "scope": "global", "enabled": false }, { "scope": "shop", "shop": "SHOP", "enabled": true }], "ts": true, "sql": true },
+    { "name": "another shop on does not reach this one", "rows": [{ "scope": "shop", "shop": "OTHER_SHOP", "enabled": true }], "ts": false, "sql": false },
+    { "name": "role on beats global off", "rows": [{ "scope": "global", "enabled": false }, { "scope": "role", "role": "technician", "enabled": true }], "ts": true, "sql": true },
+    { "name": "another role on does not reach this one", "rows": [{ "scope": "role", "role": "manager", "enabled": true }], "ts": false, "sql": false },
+    { "name": "role off beats shop on", "rows": [{ "scope": "shop", "shop": "SHOP", "enabled": true }, { "scope": "role", "role": "technician", "enabled": false }], "ts": false, "sql": false },
+    { "name": "user on beats everything", "rows": [{ "scope": "global", "enabled": false }, { "scope": "role", "role": "technician", "enabled": false }, { "scope": "user", "user": "USER", "enabled": true }], "ts": true, "sql": true },
+    { "name": "user off beats role on", "rows": [{ "scope": "role", "role": "technician", "enabled": true }, { "scope": "user", "user": "USER", "enabled": false }], "ts": false, "sql": false },
+    { "name": "another user on does not reach this one", "rows": [{ "scope": "user", "user": "OTHER_USER", "enabled": true }], "ts": false, "sql": false },
+    { "name": "environment off beats global on", "rows": [{ "scope": "global", "enabled": true }, { "scope": "environment", "environment": "production", "enabled": false }], "ts": false, "sql": false },
+    { "name": "user off scoped to another shop still switches this user off", "rows": [{ "scope": "global", "enabled": true }, { "scope": "user", "user": "USER", "shop": "OTHER_SHOP", "enabled": false }], "ts": false, "sql": false },
+
+    { "name": "FAIL CLOSED: environment on alone cannot enable the database", "rows": [{ "scope": "environment", "environment": "production", "enabled": true }], "ts": true, "sql": false },
+    { "name": "FAIL CLOSED: an environment-off row for another environment still reads off", "rows": [{ "scope": "global", "enabled": true }, { "scope": "environment", "environment": "staging", "enabled": false }], "ts": true, "sql": false },
+    { "name": "FAIL CLOSED: a role row for another shop does not enable this shop", "rows": [{ "scope": "role", "role": "technician", "shop": "OTHER_SHOP", "enabled": true }], "ts": true, "sql": false },
+    { "name": "FAIL CLOSED: a user row for another shop does not enable this shop", "rows": [{ "scope": "global", "enabled": true }, { "scope": "user", "user": "USER", "shop": "OTHER_SHOP", "enabled": true }], "ts": true, "sql": false }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "_comment": "Shop owners' plans -> reminder tier. trialDays: null = no trial date, positive = ends that many days from now, negative = ended. Read by lib/reminders/__tests__/entitlements.test.ts (reminderTierForOwners) and tests/db/run-reminders-db-tests.mjs (public.reminder_plan_tier). Both must give 'tier' for every row.",
+  "scenarios": [
+    { "name": "starter", "owners": [{ "plan": "starter", "trialDays": null }], "tier": "team" },
+    { "name": "professional", "owners": [{ "plan": "professional", "trialDays": null }], "tier": "team" },
+    { "name": "business", "owners": [{ "plan": "business", "trialDays": null }], "tier": "team" },
+    { "name": "enterprise", "owners": [{ "plan": "enterprise", "trialDays": null }], "tier": "team" },
+    { "name": "legacy pro", "owners": [{ "plan": "pro", "trialDays": null }], "tier": "team" },
+    { "name": "solo", "owners": [{ "plan": "solo", "trialDays": null }], "tier": "solo" },
+    { "name": "solo is not promoted by a stale trial date", "owners": [{ "plan": "solo", "trialDays": 5 }], "tier": "solo" },
+    { "name": "free forever", "owners": [{ "plan": "free", "trialDays": null }], "tier": "free" },
+    { "name": "active trial written as free + future date", "owners": [{ "plan": "free", "trialDays": 5 }], "tier": "team" },
+    { "name": "active trial written as trial", "owners": [{ "plan": "trial", "trialDays": 5 }], "tier": "team" },
+    { "name": "lapsed trial", "owners": [{ "plan": "trial", "trialDays": -1 }], "tier": "free" },
+    { "name": "lapsed trial written as free", "owners": [{ "plan": "free", "trialDays": -1 }], "tier": "free" },
+    { "name": "unsettled NULL plan reads as free, as getPlanStatus does", "owners": [{ "plan": null, "trialDays": null }], "tier": "free" },
+    { "name": "unknown plan value reads as free", "owners": [{ "plan": "gold", "trialDays": null }], "tier": "free" },
+    { "name": "two owners: the most generous plan wins (solo over free)", "owners": [{ "plan": "free", "trialDays": null }, { "plan": "solo", "trialDays": null }], "tier": "solo" },
+    { "name": "two owners: the most generous plan wins (starter over solo)", "owners": [{ "plan": "solo", "trialDays": null }, { "plan": "starter", "trialDays": null }], "tier": "team" },
+    { "name": "no owner profile at all: not limited, as the existing free-tier trigger", "owners": [], "tier": "team" }
+  ]
+}
