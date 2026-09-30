@@ -1,4 +1,10 @@
 -- ============================================================
+-- SUPERSEDED by 2026-09-30_free_tier_caps_race_safe.sql — do not run this file.
+-- It was never applied to production or staging, and it counts then inserts
+-- with no lock (concurrent inserts overshoot the caps). Kept only as the
+-- history of the reviewed limits and as the control in
+-- tests/db/run-free-tier-db-tests.mjs.
+-- ============================================================
 -- Free Forever plan usage limits.
 --
 -- Marketing (pricing page) promises: up to 10 customers, up to 10
