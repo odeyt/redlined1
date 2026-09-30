@@ -15,6 +15,8 @@ import { canAccess, PLATFORM_MODULES } from '@/lib/planGate';
 import { isModuleAvailable } from '@/lib/moduleAvailability';
 import { useShop, getBlockedModules } from '@/lib/useShop';
 import { useNotifications } from '@/lib/useNotifications';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { flagBlockedModules } from '@/lib/featureFlags/flaggedModules';
 
 export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const { activeModule } = useAppState();
@@ -81,6 +83,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
+  const internalReminders = useFeatureFlag('internal_reminders');
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   // Start empty; settingsLoaded stays false until /api/role-permissions resolves.
@@ -300,6 +303,8 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   const featureHidden = [
     ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
     ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
+    // Same rule AppShell uses to close the route.
+    ...flagBlockedModules({ internalReminders }),
   ];
   // billing and subscriptions always visible for owners only
   const ALWAYS_SHOW = role === 'owner' ? new Set(['billing', 'subscriptions']) : new Set<string>();

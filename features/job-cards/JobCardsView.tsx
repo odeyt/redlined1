@@ -29,6 +29,7 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 import { SmartIntakePanel } from './SmartIntakePanel';
+import { AddReminderButton } from '@/features/reminders/AddReminderButton';
 import { urgencyToPriority, categoryToServiceHint, type SmartIntakeOutput } from '@/lib/triage/jobCardTriageAdapter';
 
 // OEM-based service intervals: [miles, days]
@@ -1207,7 +1208,10 @@ export function JobCardsView() {
                 <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{selectedJob.id}</h2>
                 <div className="meta" style={{ marginTop: 4 }}>{selectedJob.channel ?? 'Job Card'}</div>
               </div>
-              <button className="mini-btn" onClick={() => setSelectedJob(null)} style={{ fontSize: 18, lineHeight: 1, padding: '4px 10px' }}>✕</button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <AddReminderButton link={{ kind: 'job_card', id: selectedJob.id }} label={selectedJob.id} />
+                <button className="mini-btn" onClick={() => setSelectedJob(null)} style={{ fontSize: 18, lineHeight: 1, padding: '4px 10px' }}>✕</button>
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

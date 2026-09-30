@@ -15,6 +15,7 @@ import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type Maintena
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
 import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
 import { IntakePanel } from '@/features/intake/IntakePanel';
+import { AddReminderButton } from '@/features/reminders/AddReminderButton';
 
 const EMPTY_FORM = { name: '', type: 'Retail', phone: '', email: '', address: '', tags: '', followUp: '' };
 
@@ -651,6 +652,7 @@ export function CustomersView() {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} onClick={() => handleFollowUp(selected.id, selected.name)}>✉ Send Follow-up</button>
+                <AddReminderButton link={{ kind: 'customer', id: selected.id }} label={selected.name} />
                 {selected.portalToken && (
                   <button className="btn" onClick={() => { const url = `${window.location.origin}/portal/${selected.portalToken}`; navigator.clipboard.writeText(url).then(() => notify('Portal link copied!')); }}>
                     🔗 Portal Link

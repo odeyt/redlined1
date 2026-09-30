@@ -82,4 +82,6 @@ export type KnownFlagKey =
   | 'command_center_operational_metrics'
   | 'dashboard_widget_placeholders'
   // Intent-based intake ("What does this customer need?") — default OFF
-  | 'intent_intake';
+  | 'intent_intake'
+  // Internal shop reminders (no outbound messaging) — default OFF
+  | 'internal_reminders';
