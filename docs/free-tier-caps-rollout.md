@@ -25,6 +25,15 @@ supersedes the original file. Do not run the original afterwards.
 
 ### Things to know (found while reviewing; none silently changed)
 
+0. **The job cap counts OPEN jobs checked in this month, not jobs created this
+   month.** Closing a job copies it to `closed_jobs` and deletes it from
+   `job_cards` (`services/jobCardService.ts`), and the trigger counts only
+   `job_cards`. A free shop that closes jobs can keep creating more, so "5 jobs
+   per month" behaves as "5 open jobs at once". The original design had the same
+   gap. **Decision (owner, 2026-10-01): ship as reviewed (option A).** Customers
+   and vehicles are exact. Counting open plus closed jobs is a possible later
+   forward migration; it needs `closed_jobs` columns checked and staging
+   re-validation.
 1. **`job_cards.check_in_date` is caller-supplied.** `services/jobCardService.ts`
    inserts `fields.checkInDate || new Date()`, so a client can backdate a job
    out of the current month and escape the count, and a future-dated job counts
@@ -32,9 +41,14 @@ supersedes the original file. Do not run the original afterwards.
 2. **Month boundary uses the database time zone** (`date_trunc('month', now())`,
    UTC on Supabase), not Laos time (UTC+7): between 00:00 and 07:00 Laos time on
    the 1st, the previous month's jobs still count.
-3. **The column type of `check_in_date` on the real schema is unverified**
-   (the app reads it as a string). The staging check below confirms it is a
-   timestamp type before the migration is trusted for job cards.
+3. **Column types.** On staging, `job_cards.check_in_date` and
+   `job_cards.created_at` are both `timestamptz`, nullable, default `now()`
+   (verified). `created_at` exists (an earlier comment said it did not). It is no
+   safer than `check_in_date`: the app does not send it on job inserts, but it is
+   equally writable through the API and can be NULL (a NULL is never counted).
+   Tamper-resistance would need a `BEFORE INSERT` trigger forcing it to `now()`,
+   which changes behaviour for every shop. Not done. Production's types are
+   confirmed by the production preflight.
 4. **`plan = 'free'` with a still-running `trial_ends_at`** (the transient row
    the signup trigger writes; `lib/usePlan.ts` treats it as a trial) **is capped**,
    as the original design did. If a trialing new signup must not be capped, that
@@ -45,6 +59,19 @@ supersedes the original file. Do not run the original afterwards.
 6. The same `owner` lookup applies to the mirrored second location: the cap is
    evaluated per `shop_id`, so each of the two D1 shops is counted separately
    (their owners are not `free` anyway — see the preflight).
+
+### Staging results so far (`kfwxmfvlfdurvjruadtc`, 2026-10-01)
+
+Preflight clean (no cap function, no free-tier triggers, no free-owned shops).
+Existing triggers reviewed: `job_cards_alert_assigned` / `_work_added` are
+`AFTER UPDATE` only and write to `alert_events` (no outbound calls);
+`vehicles_stamp_completed_at` is a `BEFORE` row-mutating trigger with no side
+effects. Signup triggers on `auth.users` only insert a `trial` profile.
+Migration applied; acceptance checks passed; all 3 triggers enabled.
+Sequential tests as `postgres`, rolled back (leftovers 0): free shop stopped at
+10 customers / 10 vehicles / 5 job cards with `FREE_TIER_LIMIT:<table>:<limit>`;
+a professional shop took 12. **Still pending on the real schema:** true
+concurrency and the `authenticated`-role path (proven locally only).
 
 ## Preflight (read-only) — run on staging, then production
 

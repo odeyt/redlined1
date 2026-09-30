@@ -14,7 +14,8 @@
 -- ## Behaviour (unchanged from the reviewed original)
 --   customers  10 rows per shop
 --   vehicles   10 rows per shop
---   job_cards   5 rows per shop with check_in_date in the current calendar
+--   job_cards   5 OPEN rows per shop (closed jobs move to closed_jobs and do
+--               not count) with check_in_date in the current calendar
 --               month (date_trunc('month', now()), database timezone)
 --   Error on breach: 'FREE_TIER_LIMIT:<table>:<limit>' (P0001), which
 --   lib/freeTierLimit.ts turns into the upgrade prompt.
@@ -178,8 +179,12 @@ BEGIN
     SELECT count(*) INTO v_count FROM public.vehicles WHERE shop_id = NEW.shop_id;
   ELSIF TG_TABLE_NAME = 'job_cards' THEN
     v_limit := 5;
-    -- job_cards has no created_at column; check_in_date is the closest
-    -- equivalent (see the review notes in the PR: it is caller-supplied).
+    -- Counts OPEN job_cards checked in this month. check_in_date is
+    -- caller-supplied. job_cards.created_at also exists (timestamptz, nullable,
+    -- default now()) but is equally client-writable, so it is not safer. Closing
+    -- a job moves it to closed_jobs and deletes it from job_cards, so closed
+    -- jobs do not count. Both are known, accepted limits of this rule; see
+    -- docs/free-tier-caps-rollout.md.
     SELECT count(*) INTO v_count
     FROM public.job_cards
     WHERE shop_id = NEW.shop_id
