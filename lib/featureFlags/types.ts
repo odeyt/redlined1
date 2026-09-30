@@ -84,4 +84,6 @@ export type KnownFlagKey =
   // Intent-based intake ("What does this customer need?") — default OFF
   | 'intent_intake'
   // Internal shop reminders (no outbound messaging) — default OFF
-  | 'internal_reminders';
+  | 'internal_reminders'
+  // Trial-tips email preference in Settings — default OFF
+  | 'trial_tips';

@@ -6,15 +6,27 @@
  * Switching on here is a fresh, explicit consent (recorded server-side with
  * the current wording). Switching off takes effect before the next send.
  * Account and billing emails are not affected either way.
+ *
+ * Hidden unless the `trial_tips` feature flag is on. The panel needs the
+ * trial-tips tables (supabase/migrations/2026-09-30_trial_tips_email.sql);
+ * until they exist in a shop's database it could only show a load error. With
+ * the flag off it renders nothing and makes no request.
  */
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
 import { authedFetch } from '@/lib/apiClient';
 import { TRIAL_TIPS_CONSENT_TEXT } from '@/lib/trialTips/config';
 
 type Status = 'subscribed' | 'unsubscribed' | 'suppressed' | 'none';
 
 export function TrialTipsPanel() {
+  const enabled = useFeatureFlag('trial_tips');
+  if (!enabled) return null;
+  return <TrialTipsPreference />;
+}
+
+function TrialTipsPreference() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
