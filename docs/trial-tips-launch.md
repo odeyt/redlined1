@@ -65,9 +65,13 @@ node -e "const s=require('fs').readFileSync(0,'utf8').trim();console.log(require
 
 ## Pre-launch order
 
-1. Apply the migration to a **staging** copy of the database, never production
-   first. As of 2026-09-30 no separate staging database exists in this repo's
+1. Apply the migrations to a **staging** copy of the database, never production
+   first: `2026-09-30_trial_tips_email.sql`, then `2026-09-30_trial_tips_flag.sql`.
+   As of 2026-09-30 no separate staging database exists in this repo's
    records — create one (docs/second-supabase-project.md) before anything else.
+   The Settings → Email preferences panel is hidden until the `trial_tips`
+   feature flag is switched on (Settings → Feature Flags). Switch it on only
+   once the tables exist; it governs the panel, not sending.
    Confirm `auth.users.email_confirmed_at` exists there.
 2. Set the missing settings above. Leave `TRIAL_TIPS_SENDING_ENABLED` and
    `TRIAL_TIPS_SCHEDULE_ENABLED` unset.
