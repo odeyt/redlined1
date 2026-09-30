@@ -9,9 +9,10 @@ The Free Forever plan promises 10 customers, 10 vehicles and 5 jobs per calendar
 month. `supabase/migrations/free_tier_usage_limits.sql` was written to enforce
 that but was never applied: on both production (`ldjrlvjkmzrcdqhetqoh`) and
 staging (`kfwxmfvlfdurvjruadtc`) `public.enforce_free_tier_count_limit()` and its
-triggers were found missing. **Nothing enforces the caps today.** This migration
-installs the function and the three `BEFORE INSERT` triggers, race-safe, and
-supersedes the original file. Do not run the original afterwards.
+triggers were found missing before rollout. **Enforcement is now installed on
+production and staging (2026-10-01, Asia/Bangkok).** This migration installs the
+function and three `BEFORE INSERT` triggers with advisory locking and supersedes
+the original file. Do not run the original afterwards.
 
 ## Behaviour
 
@@ -60,18 +61,37 @@ supersedes the original file. Do not run the original afterwards.
    evaluated per `shop_id`, so each of the two D1 shops is counted separately
    (their owners are not `free` anyway — see the preflight).
 
-### Staging results so far (`kfwxmfvlfdurvjruadtc`, 2026-10-01)
+### Rollout record / project memory (2026-10-01, Asia/Bangkok)
 
-Preflight clean (no cap function, no free-tier triggers, no free-owned shops).
-Existing triggers reviewed: `job_cards_alert_assigned` / `_work_added` are
-`AFTER UPDATE` only and write to `alert_events` (no outbound calls);
-`vehicles_stamp_completed_at` is a `BEFORE` row-mutating trigger with no side
-effects. Signup triggers on `auth.users` only insert a `trial` profile.
-Migration applied; acceptance checks passed; all 3 triggers enabled.
-Sequential tests as `postgres`, rolled back (leftovers 0): free shop stopped at
-10 customers / 10 vehicles / 5 job cards with `FREE_TIER_LIMIT:<table>:<limit>`;
-a professional shop took 12. **Still pending on the real schema:** true
-concurrency and the `authenticated`-role path (proven locally only).
+These results were observed through the Supabase connector in the rollout
+session and reported to Claude Code; Claude did not independently observe them.
+The corresponding UTC date is 2026-09-30. Local Docker results below are reported
+by the development session, not re-run by the connector session.
+
+| Check | Evidence and result |
+|---|---|
+| Staging installation (`kfwxmfvlfdurvjruadtc`) | Migration succeeded with its acceptance checks; all three cap triggers enabled. |
+| Staging sequential checks as `postgres` | Free fixtures stopped at 10 customers, 10 vehicles and 5 job cards; professional fixtures accepted 12 of each. Temporary fixtures rolled back; leftovers 0. |
+| Staging application-role check | Role `authenticated` and owner `auth.uid()` verified. Free shop: 10 committed customer rows and 4 refusals with `FREE_TIER_LIMIT:customers:10`. Professional shop: 14 inserts succeeded. |
+| Staging cleanup | Only this run's exact fixture IDs were deleted; auth users, profiles, shops, membership, shop settings and customer leftovers verified as 0. The standalone script's `--cleanup` was not run. |
+| Production installation (`ldjrlvjkmzrcdqhetqoh`) | Owner authorized proceeding while skipping remaining staging checks. Migration succeeded and its acceptance checks passed. Advisory lock, empty search path and revoked anon/authenticated EXECUTE verified. |
+| Production trigger check | Six enabled triggers: three new `trg_free_tier_limit` triggers and three unchanged original triggers. |
+| D1 production database smoke | Shop 1 customer, vehicle and job-card inserts succeeded as `authenticated`, with owner JWT identity verified. Temporary records rolled back; leftovers 0. This was a database-write check, not a browser or full application workflow test. |
+| Real-schema concurrency | **INCONCLUSIVE / unvalidated.** Connector requests were submitted in parallel and used distinct backend IDs, but recorded SQL execution intervals did not overlap. The connector serialized execution, so the 10-and-4 outcome does not prove simultaneous-write safety. |
+| Local concurrency | Development-session report: the local Docker suite's 14 separate sessions stopped at 10 customers, 10 vehicles and 5 jobs, while the original unlocked control overshot to 14. This uses stub tables, not the real schema. |
+
+Production's six enabled triggers are:
+- `customers.trg_free_tier_limit`
+- `vehicles.trg_free_tier_limit`
+- `job_cards.trg_free_tier_limit`
+- `vehicles.vehicles_stamp_completed_at`
+- `job_cards.job_cards_alert_assigned`
+- `job_cards.job_cards_alert_work_added`
+
+**Carry-forward note:** production enforcement is live. Preserve the documented
+open-job/date-counting caveats and the effect on `plan='free'` with a live trial.
+Do not mark real-schema concurrency or browser smoke as passed. The staging
+application-role inserts above did pass; they must not remain labeled pending.
 
 ## Preflight (read-only) — run on staging, then production
 
@@ -129,30 +149,30 @@ the D1 shops resolve to `free` in query 5, or if `check_in_date` is not a
 `timestamp`/`timestamptz`. The migration itself also refuses to run on a
 conflicting trigger or a missing column, changing nothing.
 
-## Staging validation (real schema) — pending
+## Remaining staging validation: true concurrency
 
-Staging already exists: `kfwxmfvlfdurvjruadtc` (production is
-`ldjrlvjkmzrcdqhetqoh`). Real-schema validation is **pending**: it was not run
-from the machine that prepared this migration because database access is
-unavailable there. Whoever runs it supplies their own credentials (never pasted
-into chat or files). Only the local Docker results (`npm run test:db:free-tier`,
-stub tables) exist so far; they do not prove compatibility with the real schema.
+Installation, sequential real-schema behavior and authenticated-role inserts are
+validated as recorded above. **True simultaneous writes on the real schema
+remain unvalidated.** Database-connector parallel submission did not produce
+overlapping SQL execution.
 
-1. Run the preflight above; save the output.
-2. Save `pg_get_triggerdef` output for every existing trigger on the three
-   tables (query 1 and 6) for the before/after record.
-3. Apply the migration file as-is in the SQL editor. Expect the notice
-   `free-tier caps: acceptance checks passed`.
-4. Re-run query 1: expect one function and three `trg_free_tier_limit` triggers,
-   plus the unchanged unrelated triggers.
-5. Concurrency test with synthetic tenants only (disposable `auth.users`,
-   `shops`, `shop_users`, `profiles(plan='free')` rows, marked `zz-captest`),
-   using separate sessions (a single transaction is not a concurrency test):
-   open N sessions that each `BEGIN; INSERT …; SELECT pg_sleep(3); COMMIT;` for
-   one shop, then count committed rows: expect exactly 10 / 10 / 5. Confirm each
-   test owner resolves as intended. Do not touch the two pre-existing staging
-   accounts or any other data; delete only the `zz-captest` fixtures afterwards.
-6. Record the after-state definitions and the counts.
+The standalone script is `tests/db/staging/free-tier-concurrency-staging.mjs`
+(merged in PR #58). It has **not been run** by the connector session. It needs a
+direct or session-pooler staging connection on port 5432, supplied privately by
+the operator. Never put a connection string or password into chat or source.
+
+Before running the merged script, address the review findings: parse and verify
+the actual connection destination instead of accepting a ref substring anywhere
+in the URL; verify TLS certificates; assign unique run IDs and scope cleanup to
+exact fixture IDs; wait for all workers to finish before cleanup even when a
+connection fails; assert application role and owner JWT identity on every worker.
+No hardened follow-up run is claimed in this record.
+
+The customers concurrency check should use 14 separate connections with
+overlapping transactions: expect 10 commits, 4 exact cap refusals, 10 stored rows,
+and 14 commits for a professional shop. Confirm cleanup leaves zero fixtures.
+Vehicles and job-card true-concurrency checks on the real schema also remain
+pending; the shared function alone does not prove every table's behavior.
 
 ## Rollback (restores the observed state: no function, no triggers)
 
@@ -171,9 +191,11 @@ instead.
 
 ## Production
 
-Production is `ldjrlvjkmzrcdqhetqoh`. Awaiting explicit approval; requires:
-staging results above, the production preflight with no stop conditions, and a
-decision on the effect below.
+Production is `ldjrlvjkmzrcdqhetqoh`. **Applied on 2026-10-01 (Asia/Bangkok)**
+with owner authorization to proceed while skipping the remaining staging checks.
+Preflight found no existing cap function or conflicting triggers, and required
+column types matched. Acceptance and post-install checks passed. Do not reapply
+merely because an older handoff says production is pending.
 
 **Effect:** turning enforcement on for the first time. Free shops start being
 refused at 10 customers / 10 vehicles / 5 jobs this month. Shops already above a
