@@ -39,7 +39,8 @@
     "demo:seed": "cross-env TZ=UTC tsx scripts/demo/seed-summit-demo.ts",
     "test:db:reminders": "node tests/db/run-reminders-db-tests.mjs",
     "trial-tips:run": "tsx scripts/run-trial-tips.ts",
-    "test:db:trial-tips": "node tests/db/run-trial-tips-db-tests.mjs"
+    "test:db:trial-tips": "node tests/db/run-trial-tips-db-tests.mjs",
+    "test:db:free-tier": "node tests/db/run-free-tier-db-tests.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
