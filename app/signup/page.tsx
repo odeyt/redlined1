@@ -5,6 +5,7 @@ import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TRIAL_DAYS } from '@/lib/planGate';
+import { TRIAL_TIPS_CONSENT_TEXT, TRIAL_TIPS_CONSENT_VERSION } from '@/lib/trialTips/config';
 
 const VALID_PLANS = new Set(['free', 'solo', 'starter', 'professional', 'business']);
 const VALID_PERIODS = new Set(['monthly', 'annual']);
@@ -29,6 +30,8 @@ export default function SignupPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('free');
   const [period, setPeriod]       = useState<string>('monthly');
   const [consented, setConsented] = useState(false);
+  // Optional, and off until the person ticks it.
+  const [trialTips, setTrialTips] = useState(false);
 
   // Resend confirmation state
   const [resending, setResending]       = useState(false);
@@ -69,7 +72,15 @@ export default function SignupPage() {
         email,
         password,
         options: {
-          data: { full_name: name, shop_name: shopName },
+          data: {
+            full_name: name,
+            shop_name: shopName,
+            // A request, not consent: /auth/callback records it server-side
+            // only after the email address is verified.
+            ...(trialTips && selectedPlan === 'free'
+              ? { trial_tips_opt_in: true, trial_tips_consent_version: TRIAL_TIPS_CONSENT_VERSION }
+              : {}),
+          },
           emailRedirectTo: selectedPlan !== 'free'
           ? `${window.location.origin}/auth/callback?next=/?plan=${selectedPlan}&period=${period}`
           : `${window.location.origin}/auth/callback`,
@@ -364,6 +375,25 @@ export default function SignupPage() {
               <a href="/refund-policy" style={{ color: '#cc0000', textDecoration: 'underline' }} target="_blank" rel="noopener">Refund Policy</a>.
             </span>
           </label>
+
+          {/* Trial tips — optional marketing consent, separate from the
+              Terms above and unticked by default. Only offered on the trial
+              path; a paid signup never enters the trial the tips are about. */}
+          {!isPaidPlan && (
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
+              fontSize: 12, color: '#999', lineHeight: 1.5, marginBottom: 8,
+            }}>
+              <input
+                type="checkbox"
+                name="trial-tips"
+                checked={trialTips}
+                onChange={e => setTrialTips(e.target.checked)}
+                style={{ marginTop: 2, accentColor: '#cc0000', flexShrink: 0, width: 14, height: 14 }}
+              />
+              <span>{TRIAL_TIPS_CONSENT_TEXT} (Optional.)</span>
+            </label>
+          )}
 
           {error && <p className="login-error">{error}</p>}
 

@@ -1,0 +1,67 @@
+name: Trial Tips Emails
+
+# The ONE scheduler for trial-tips emails. Each run sends each eligible person
+# at most one email — the step they are due for — and never the same step
+# twice (see lib/trialTips/runner.ts). Hourly, so "First Job at verification"
+# arrives within the hour rather than the next day.
+#
+# OFF BY DEFAULT, three times over:
+#   1. The scheduled trigger does nothing unless the repository VARIABLE
+#      TRIAL_TIPS_SCHEDULE_ENABLED is exactly "true". It is not set.
+#   2. Even when the job runs, it is a dry run (reports who is due, sends
+#      nothing) unless TRIAL_TIPS_SENDING_ENABLED is "true" AND the sender,
+#      postal address, unsubscribe secret, site URL and Resend key are all set
+#      (lib/trialTips/config.ts).
+#   3. Even then, only canary addresses are emailed unless TRIAL_TIPS_AUDIENCE
+#      is exactly "everyone".
+#
+# Runbook: docs/trial-tips-launch.md
+#
+# A manual run (workflow_dispatch) always runs — useful for a dry run — but
+# still cannot send unless gate 2 passes.
+on:
+  schedule:
+    - cron: '23 * * * *' # hourly, off the busy :00 slot
+  workflow_dispatch:
+
+# Overlapping runs are already safe (claims are atomic); this just stops a slow
+# run from stacking up behind itself.
+concurrency:
+  group: trial-tips
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Trial tips
+    if: github.event_name == 'workflow_dispatch' || vars.TRIAL_TIPS_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: supabase-js needs native WebSocket (see domain-event-relay.yml).
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send due trial tips
+        run: npm run trial-tips:run
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          TRIAL_TIPS_SENDING_ENABLED: ${{ vars.TRIAL_TIPS_SENDING_ENABLED }}
+          TRIAL_TIPS_FROM_ADDRESS: ${{ vars.TRIAL_TIPS_FROM_ADDRESS }}
+          TRIAL_TIPS_POSTAL_ADDRESS: ${{ vars.TRIAL_TIPS_POSTAL_ADDRESS }}
+          TRIAL_TIPS_UNSUBSCRIBE_SECRET: ${{ secrets.TRIAL_TIPS_UNSUBSCRIBE_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # Who may be emailed. Anything but exactly "everyone" means canary:
+          # only the addresses in TRIAL_TIPS_CANARY_RECIPIENTS (a secret, so
+          # the addresses are masked in logs). Unset = canary with nobody.
+          TRIAL_TIPS_AUDIENCE: ${{ vars.TRIAL_TIPS_AUDIENCE }}
+          TRIAL_TIPS_CANARY_RECIPIENTS: ${{ secrets.TRIAL_TIPS_CANARY_RECIPIENTS }}

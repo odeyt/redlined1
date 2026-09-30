@@ -16,6 +16,7 @@ import { INSPECTION_TEMPLATE } from '@/services/inspectionService';
 import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
+import { TrialTipsPanel } from './TrialTipsPanel';
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 
 // Modules that can never be hidden
@@ -351,6 +352,9 @@ export function SettingsView() {
           {error} <button onClick={() => setError('')} style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>✕</button>
         </p>
       )}
+
+      {/* ── EMAIL PREFERENCES (trial tips) ── */}
+      <TrialTipsPanel />
 
       {/* ── CHANGE PASSWORD ── */}
       <Panel title="Change Password" hint="Update your login password — required after your first sign-in with a temporary password">

@@ -41,6 +41,11 @@ const PUBLIC_PATHS = [
   // account itself (fresh, email matches) and sends at most one alert.
   '/api/signup-notify',
   '/api/v1',
+  // Trial-tips unsubscribe: opened from an email, often signed out. The HMAC
+  // in the link authenticates it (lib/trialTips/unsubscribeToken.ts).
+  '/api/trial-tips/unsubscribe',
+  // Resend webhooks: verified by signature (lib/trialTips/webhook.ts).
+  '/api/webhooks/resend',
 ];
 
 export async function proxy(request: NextRequest) {

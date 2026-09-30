@@ -4,6 +4,8 @@ import { cookies } from 'next/headers';
 import { getOrCreatePrimaryShop, ensureInitialPlan } from '@/commercial/onboarding/ShopProvisioningService';
 import { alertException } from '@/lib/observability/alerts';
 import { VALID_PLAN_KEYS, type CommercialPlanKey } from '@/commercial/onboarding/types';
+import { createServerSupabase } from '@/lib/supabase-server';
+import { recordSignupConsent } from '@/lib/trialTips/consent';
 
 // Reviewed, scoped compatibility fix for the invite-link flow added in
 // app/api/invite/route.ts: `next` is redirected to unauthenticated (right
@@ -97,6 +99,16 @@ export async function GET(request: Request) {
             route: 'GET /auth/callback',
             note: 'login allowed to proceed; useShop will retry via /api/provision',
           });
+        }
+
+        // Trial tips: the signup checkbox becomes recorded consent only here,
+        // once the address is verified — independent of provisioning, so a
+        // provisioning hiccup does not lose it. Never blocks sign-in; a
+        // failure here means no emails, which is the safe direction.
+        try {
+          await recordSignupConsent(createServerSupabase(), user);
+        } catch (consentError) {
+          alertException('trial-tips-consent', consentError, { userId: user.id, route: 'GET /auth/callback' });
         }
       }
 
