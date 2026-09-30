@@ -39,6 +39,7 @@ import { fetchPartsEstimates, type PartsEstimate } from '@/services/partsEstimat
 import { FilterPills } from '@/components/FilterPills';
 import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
 import { IntakePanel } from '@/features/intake/IntakePanel';
+import { AddReminderButton } from '@/features/reminders/AddReminderButton';
 
 type ViewMode = 'grid' | 'list' | 'service' | 'kanban';
 
@@ -940,6 +941,8 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
           <button onClick={onReturnJob} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #f59e0b', background: 'rgba(245,158,11,0.08)', color: '#b45309', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>↩ Return Job</button>
           {canInvoice && <button onClick={onCreateInvoice} style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid #22c55e', background: 'rgba(34,197,94,0.08)', color: '#16a34a', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>🧾 Create Invoice</button>}
           <button onClick={onPhotos}  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📷 Photos</button>
+          <AddReminderButton link={{ kind: 'vehicle', id: vehicle.id }} label={vehicle.label || 'this vehicle'}
+            style={{ padding: '8px', borderRadius: 8, fontWeight: 600 }} />
           <button onClick={onDelete}  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff0f0', color: '#dc2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
         </div>
 

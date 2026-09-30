@@ -73,6 +73,9 @@ const FREE_MODULES = new Set([
   'invoices',
   'scheduling',
   'appointments',
+  // Internal reminders. Free Forever keeps 3 open at a time; that cap is
+  // enforced by the database, not by hiding the module.
+  'reminders',
   // Utilities (usage limits enforced server-side)
   'vin',
   'dtc',

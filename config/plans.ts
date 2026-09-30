@@ -19,6 +19,12 @@ export interface PlanFeatures {
   repairIntelligence: boolean;
   triage: boolean;
   prioritySupport: boolean;
+  /**
+   * May assign internal reminders to other shop members. Without it a plan
+   * still keeps unlimited reminders for yourself (Solo). Free Forever is not a
+   * PlanConfig; its reminder rules are FREE_FOREVER_REMINDERS below.
+   */
+  teamReminders: boolean;
 }
 
 export interface PlanConfig {
@@ -50,6 +56,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
       repairIntelligence: false,
       triage: false,
       prioritySupport: false,
+      teamReminders: false,
     },
   },
 
@@ -71,6 +78,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
       repairIntelligence: false,
       triage: false,
       prioritySupport: false,
+      teamReminders: true,
     },
   },
 
@@ -93,6 +101,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
       repairIntelligence: true,
       triage: true,
       prioritySupport: false,
+      teamReminders: true,
     },
   },
 
@@ -114,6 +123,7 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
       repairIntelligence: true,
       triage: true,
       prioritySupport: true,
+      teamReminders: true,
     },
   },
 
@@ -135,9 +145,20 @@ export const PLANS: Record<RedlinedPlanId, PlanConfig> = {
       repairIntelligence: true,
       triage: true,
       prioritySupport: true,
+      teamReminders: true,
     },
   },
 };
+
+/**
+ * Free Forever's internal reminders: kept for yourself only, at most this many
+ * open at once per shop. Completed and cancelled reminders do not count.
+ *
+ * Enforced by the shop_reminders_guard trigger in
+ * supabase/migrations/2026-09-29_internal_reminders.sql, which holds the same
+ * number; lib/reminders/__tests__/entitlements.test.ts fails if they drift.
+ */
+export const FREE_FOREVER_REMINDERS = { maxOpen: 3, teamReminders: false } as const;
 
 export const PLAN_ORDER: RedlinedPlanId[] = ['solo', 'starter', 'professional', 'business', 'enterprise'];
 

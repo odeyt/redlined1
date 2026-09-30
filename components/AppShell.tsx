@@ -58,6 +58,9 @@ import { EnvBanner } from '@/components/EnvBanner';
 import { SupportWidget } from '@/components/support/SupportWidget';
 import { BillingDashboard } from '@/features/billing/BillingDashboard';
 import { CommandCenterView } from '@/features/command-center/CommandCenterView';
+import { RemindersView } from '@/features/reminders/RemindersView';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { flagBlockedModules } from '@/lib/featureFlags/flaggedModules';
 import { useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
 import { usePlan } from '@/lib/usePlan';
@@ -111,6 +114,7 @@ const views: Record<string, React.ComponentType> = {
   'testing-dashboard': TestingDashboardView,
   'support-inbox':     SupportInboxView,
   billing: BillingDashboard,
+  reminders: RemindersView,
 };
 
 function Shell() {
@@ -140,6 +144,7 @@ function Shell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [rolePermissions, setRolePermissions] = useState<RolePermissions | null>(null);
   const [permLoaded, setPermLoaded] = useState(false);
+  const internalReminders = useFeatureFlag('internal_reminders');
 
   useEffect(() => {
     fetchShopSettings()
@@ -316,7 +321,9 @@ function Shell() {
   // — SET_MODULE can still be dispatched from a tile or a saved state.
   const unavailable = Object.keys(views).filter(m => !isModuleAvailable(m));
 
-  const allBlocked = [...new Set([...roleBlocked, ...planBlocked, ...unavailable])];
+  const flagBlocked = flagBlockedModules({ internalReminders });
+
+  const allBlocked = [...new Set([...roleBlocked, ...planBlocked, ...unavailable, ...flagBlocked])];
   const safeModule = allBlocked.includes(activeModule) ? 'dashboard' : activeModule;
   const ActiveView = views[safeModule] || DashboardView;
   // Watermark on invoices only for expired-trial/paid-lapsed, never for Free

@@ -152,6 +152,9 @@ export const navItems: [string, string, string, string][] = [
   // ── Overview
   ['dashboard',        'dashboard',  'Dashboard',        ''],
   ['command-center',   'activity',   'Command Center',   ''],
+  // Hidden unless the internal_reminders flag is on — see
+  // lib/featureFlags/flaggedModules.ts.
+  ['reminders',        'clock',      'Reminders',        ''],
 
   // ── Intake
   ['triage',        'clipboard',  'Vehicle Intake', ''],
