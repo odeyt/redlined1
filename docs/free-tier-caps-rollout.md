@@ -13,6 +13,29 @@ triggers were found missing. **Nothing enforces the caps today.** This migration
 installs the function and the three `BEFORE INSERT` triggers, race-safe, and
 supersedes the original file. Do not run the original afterwards.
 
+## Rollout status (as of 2026-10-01)
+
+Items marked *reported* were run by another operator through the Supabase
+connector and were not observed by the author of this document.
+
+| Environment | Status |
+|---|---|
+| Local (Docker, stub tables) | `npm run test:db:free-tier` passes, including 14-session concurrency at exactly 10 / 10 / 5 |
+| Staging `kfwxmfvlfdurvjruadtc` | Migration applied; acceptance checks passed; 3 cap triggers enabled. Sequential tests for customers, vehicles and job cards passed, rolled back, leftovers 0. *Reported:* free shop 10 committed / 4 refused with `FREE_TIER_LIMIT:customers:10`, professional shop 14/14, `authenticated` role and owner identity verified |
+| Production `ldjrlvjkmzrcdqhetqoh` | Preflight clean (no cap objects; 1 free-owned shop, none near a cap; both D1 shops owned by `pro`). *Reported:* migration applied, acceptance checks passed, all six triggers enabled (3 existing + 3 cap), D1 smoke test (customer, vehicle, job creation as `authenticated`) passed with temporary records rolled back |
+
+**Not validated on the real schema: true concurrency.** The connector checks ran
+over a single connection, so they cannot show that simultaneous sessions stop at
+the cap; that result was INCONCLUSIVE. Concurrency is evidenced only by the local
+Docker suite. `tests/db/staging/free-tier-concurrency-staging.mjs` (separate
+connections, `authenticated` role, synthetic tenants, self-cleaning) exists to
+settle it on staging and has not been run.
+
+Production enforcement is live. Free shops are refused at 10 customers, 10
+vehicles and 5 open jobs checked in this month. The job cap counts open jobs
+only (see below). Trial accounts (plan `trial`) are not capped, but become capped
+if their plan is later converted to `free`.
+
 ## Behaviour
 
 | | |
@@ -129,7 +152,7 @@ the D1 shops resolve to `free` in query 5, or if `check_in_date` is not a
 `timestamp`/`timestamptz`. The migration itself also refuses to run on a
 conflicting trigger or a missing column, changing nothing.
 
-## Staging validation (real schema) — pending
+## Staging validation (real schema) — applied; concurrency check not run
 
 Staging already exists: `kfwxmfvlfdurvjruadtc` (production is
 `ldjrlvjkmzrcdqhetqoh`). Real-schema validation is **pending**: it was not run
