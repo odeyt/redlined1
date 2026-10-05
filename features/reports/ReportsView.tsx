@@ -8,8 +8,8 @@ import { getShopId } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
 import { updateVehicleServiceRecord } from '@/services/vehicleService';
 import {
-  intakeRange, inIntakeRange, groupIntake, intakeCsvRows,
-  type IntakeVehicle,
+  intakeRange, inIntakeRange, carsTakenIn, summarizeIntake, groupIntake, intakeCsvRows, localDay,
+  type IntakeVisit, type IntakeCar,
 } from '@/lib/reports/vehicleIntake';
 
 // ── Customer detail row (searchable customer report) ──────────
@@ -501,23 +501,12 @@ export function ReportsView() {
   const [vehicleEditForm, setVehicleEditForm] = useState<VehicleEditForm | null>(null);
   const [vehicleEditSaving, setVehicleEditSaving] = useState(false);
   const [vehicleEditErr, setVehicleEditErr] = useState('');
-
-  // Vehicle intake tab: cars received in the selected month
-  const [intakeRows, setIntakeRows] = useState<IntakeVehicle[]>([]);
+  // Vehicle intake tab: cars taken in (job card check-ins) in the selected month
+  const [intakeRows, setIntakeRows] = useState<IntakeCar[]>([]);
   const [intakeLoading, setIntakeLoading] = useState(false);
   const [intakeError, setIntakeError] = useState('');
-  // Vehicles with no "Date received" cannot be placed in any month, so they are
-  // counted separately (all-time, this shop). null = not loaded / count failed.
-  const [intakeUndated, setIntakeUndated] = useState<number | null>(null);
   const intakeReq = useRef(0); // only the latest request may update the screen
 
-  // The vehicles behind the "No Date Recorded" card, opened by clicking it.
-  const UNDATED_LIST_LIMIT = 200;
-  const [showUndated, setShowUndated] = useState(false);
-  const [undatedRows, setUndatedRows] = useState<{ id: string; label: string; plate: string; status: string; customerName: string }[]>([]);
-  const [undatedLoading, setUndatedLoading] = useState(false);
-  const [undatedError, setUndatedError] = useState('');
-  const undatedReq = useRef(0);
 
   useEffect(() => {
     load(reportShopId);
@@ -536,61 +525,13 @@ export function ReportsView() {
     if (activeTab === 'intake') loadVehicleIntake(reportShopId, filterMonth, filterYear);
   }, [activeTab, reportShopId, filterMonth, filterYear]); // eslint-disable-line
 
-  useEffect(() => {
-    if (activeTab === 'intake' && showUndated) loadUndatedVehicles(reportShopId);
-  }, [activeTab, showUndated, reportShopId]); // eslint-disable-line
-
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
-
   /**
-   * The vehicles with no "Date received" for this shop, so staff can open each
-   * one and set the date. Read-only; capped, and the screen says when it is.
-   */
-  async function loadUndatedVehicles(sid: string) {
-    const req = ++undatedReq.current;
-    setUndatedLoading(true);
-    setUndatedError('');
-    try {
-      const { data: vehs, error } = await supabase
-        .from('vehicles')
-        .select('id, customer_id, label, plate, status')
-        .eq('shop_id', sid)
-        .is('date_received', null)
-        .order('label')
-        .limit(UNDATED_LIST_LIMIT);
-      if (error) throw error;
-
-      const customerIds = [...new Set((vehs ?? []).map(v => v.customer_id as string | null).filter(Boolean))] as string[];
-      const names = new Map<string, string>();
-      if (customerIds.length > 0) {
-        const { data: custs, error: custErr } = await supabase
-          .from('customers').select('id, name').in('id', customerIds);
-        if (custErr) throw custErr;
-        for (const c of custs ?? []) names.set(c.id as string, (c.name as string) || '');
-      }
-
-      if (req !== undatedReq.current) return;
-      setUndatedRows((vehs ?? []).map(v => ({
-        id: v.id as string,
-        label: ((v.label as string) || '').trim() || 'Unnamed vehicle',
-        plate: ((v.plate as string) || '').trim(),
-        status: (v.status as string) || '',
-        customerName: v.customer_id ? (names.get(v.customer_id as string) || 'Unknown customer') : 'No customer',
-      })));
-    } catch (e) {
-      if (req !== undatedReq.current) return;
-      setUndatedRows([]);
-      setUndatedError(e instanceof Error ? e.message : 'Could not load these vehicles.');
-    } finally {
-      if (req === undatedReq.current) setUndatedLoading(false);
-    }
-  }
-
-  /**
-   * Cars received in the chosen month (the whole year when "All months"), for
-   * the chosen shop. The date range is applied in the query so only that
-   * month's vehicles are fetched; customer names are looked up separately
-   * because vehicles only store the customer's id. Read-only.
+   * Cars taken in during the chosen month (the whole year when "All months"),
+   * for the chosen shop, counted from job-card check-ins: every visit counts,
+   * so a car that comes back appears again. Closing a job moves it from
+   * job_cards to closed_jobs, so both tables are read or a finished visit would
+   * drop out of its month. Read-only.
    */
   async function loadVehicleIntake(sid: string, month: number, year: number) {
     const req = ++intakeReq.current;
@@ -598,46 +539,32 @@ export function ReportsView() {
     setIntakeError('');
     try {
       const range = intakeRange(month, year);
-      const { data: vehs, error } = await supabase
-        .from('vehicles')
-        .select('id, customer_id, label, plate, status, date_received')
-        .eq('shop_id', sid)
-        .gte('date_received', range.start)
-        .lt('date_received', range.end);
-      if (error) throw error;
+      const cols = 'id, customer, vehicle, status, check_in_date';
+      const [open, closed] = await Promise.all([
+        supabase.from('job_cards').select(cols).eq('shop_id', sid)
+          .gte('check_in_date', range.startIso).lt('check_in_date', range.endIso),
+        supabase.from('closed_jobs').select(cols).eq('shop_id', sid)
+          .gte('check_in_date', range.startIso).lt('check_in_date', range.endIso),
+      ]);
+      if (open.error) throw open.error;
+      if (closed.error) throw closed.error;
 
-      const customerIds = [...new Set((vehs ?? []).map(v => v.customer_id as string | null).filter(Boolean))] as string[];
-      const names = new Map<string, string>();
-      if (customerIds.length > 0) {
-        const { data: custs, error: custErr } = await supabase
-          .from('customers').select('id, name').in('id', customerIds);
-        if (custErr) throw custErr;
-        for (const c of custs ?? []) names.set(c.id as string, (c.name as string) || '');
-      }
-
-      const rows = (vehs ?? []).map(v => ({
-        id: v.id as string,
-        label: ((v.label as string) || '').trim() || 'Unnamed vehicle',
-        plate: ((v.plate as string) || '').trim(),
-        status: (v.status as string) || '',
-        dateReceived: (v.date_received as string | null) ?? null,
-        customerName: v.customer_id ? (names.get(v.customer_id as string) || 'Unknown customer') : 'No customer',
-      }));
-      // How many of this shop's vehicles have no received date. Non-fatal: if
-      // this count fails the report still shows, with "—" for this card.
-      let undated: number | null = null;
-      try {
-        const { count, error: undatedErr } = await supabase
-          .from('vehicles')
-          .select('id', { count: 'exact', head: true })
-          .eq('shop_id', sid)
-          .is('date_received', null);
-        if (!undatedErr && typeof count === 'number') undated = count;
-      } catch { /* leave null */ }
+      const toVisit = (source: 'open' | 'closed') => (j: Record<string, unknown>): IntakeVisit => ({
+        id: String(j.id ?? ''),
+        label: String(j.vehicle ?? '').trim() || 'Unnamed vehicle',
+        customerName: String(j.customer ?? '').trim() || 'No customer',
+        status: String(j.status ?? ''),
+        checkIn: String(j.check_in_date ?? ''),
+        source,
+      });
+      // A job id is in one table; if a close was interrupted and it is in both,
+      // the closed copy wins so it is not counted twice.
+      const byId = new Map<string, IntakeVisit>();
+      for (const v of (open.data ?? []).map(toVisit('open'))) byId.set(v.id, v);
+      for (const v of (closed.data ?? []).map(toVisit('closed'))) byId.set(v.id, v);
 
       if (req !== intakeReq.current) return;
-      setIntakeUndated(undated);
-      setIntakeRows(inIntakeRange(rows, range) as IntakeVehicle[]);
+      setIntakeRows(carsTakenIn(inIntakeRange([...byId.values()], range)));
     } catch (e) {
       if (req !== intakeReq.current) return;
       setIntakeRows([]);
@@ -646,6 +573,7 @@ export function ReportsView() {
       if (req === intakeReq.current) setIntakeLoading(false);
     }
   }
+
 
   async function loadCustomerDetails(sid: string, month: number, year: number) {
     setCustDetailLoading(true);
@@ -1760,119 +1688,51 @@ export function ReportsView() {
       })()}
 
       {/* ── TECHNICIANS ── */}
-      {/* ── VEHICLE INTAKE ── cars received in the selected month ── */}
+      {/* ── VEHICLE INTAKE ── cars taken in (job card check-ins) in the selected month ── */}
       {activeTab === 'intake' && (() => {
         const periodLabel = filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `${filterYear}`;
         const groups = groupIntake(intakeRows, filterMonth);
         const maxGroup = Math.max(...groups.map(g => g.count), 1);
-        const customerCount = new Set(intakeRows.map(r => r.customerName)).size;
+        const summary = summarizeIntake(intakeRows);
+        const repeatVisits = summary.arrivals - summary.differentCars;
         const busiest = groups.reduce<{ label: string; count: number } | null>(
           (best, g) => (!best || g.count > best.count ? g : best), null);
+        const cards = [
+          { label: 'Cars Taken In', value: String(summary.arrivals), color: 'var(--text)', sub: 'A car counts once per day, however many job cards it has.' },
+          { label: 'Different Cars', value: String(summary.differentCars), color: '#2196f3', sub: repeatVisits > 0 ? `${repeatVisits} repeat ${repeatVisits === 1 ? 'visit' : 'visits'} in this period.` : '' },
+          { label: 'Customers', value: String(summary.customers), color: '#4caf50', sub: '' },
+          { label: filterMonth > 0 ? 'Busiest Day' : 'Busiest Month', value: busiest ? `${busiest.label} (${busiest.count})` : '—', color: '#ff9800', sub: '' },
+        ];
 
         return (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                Cars received in <strong style={{ color: 'var(--text)' }}>{periodLabel}</strong>
-                {filterMonth === 0 && ' (all months — pick a month above to narrow it down)'}
+                Cars taken in during <strong style={{ color: 'var(--text)' }}>{periodLabel}</strong>, counted from job card check-ins (open and closed jobs)
+                {filterMonth === 0 && ' — all months, pick a month above to narrow it down'}
               </div>
               <button className="btn btn-primary" onClick={exportIntakeReport} disabled={intakeRows.length === 0}>⬇ Export CSV</button>
             </div>
 
             <div className="grid cols-4" style={{ marginBottom: 16 }}>
-              {[
-                { label: 'Cars Received', value: String(intakeRows.length), color: 'var(--text)', sub: '' },
-                { label: 'Customers', value: String(customerCount), color: '#2196f3', sub: '' },
-                { label: filterMonth > 0 ? 'Busiest Day' : 'Busiest Month', value: busiest ? `${busiest.label} (${busiest.count})` : '—', color: '#ff9800', sub: '' },
-                {
-                  label: 'No Date Recorded',
-                  value: intakeUndated === null ? '—' : String(intakeUndated),
-                  color: intakeUndated ? '#cc0000' : 'var(--muted)',
-                  sub: 'Vehicles with no Date received, all time. Not counted above.',
-                },
-              ].map(c => {
-                // Only the "No Date Recorded" card opens anything, and only when there is something to list.
-                const opensList = c.label === 'No Date Recorded' && !!intakeUndated;
-                const toggle = () => setShowUndated(s => !s);
-                return (
-                  <div
-                    key={c.label}
-                    className="card card-hero"
-                    style={{ padding: 18, cursor: opensList ? 'pointer' : undefined, outline: opensList && showUndated ? '2px solid var(--accent)' : undefined }}
-                    {...(opensList ? {
-                      role: 'button', tabIndex: 0, 'aria-expanded': showUndated,
-                      onClick: toggle,
-                      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
-                    } : {})}
-                  >
-                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
-                    {c.sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>}
-                    {opensList && (
-                      <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, marginTop: 6 }}>
-                        {showUndated ? '▲ Hide the list' : '▼ Show these vehicles'}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {cards.map(c => (
+                <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
+                  {c.sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>}
+                </div>
+              ))}
             </div>
 
             {intakeError && (
               <div className="card" style={{ padding: 14, marginBottom: 16, color: '#cc0000' }}>⚠ {intakeError}</div>
             )}
 
-            {showUndated && !!intakeUndated && (
-              <>
-                <Panel title={`Vehicles With No Date Received (${intakeUndated})`}>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
-                    To fix one: open <strong>Vehicles</strong>, find the car, choose <strong>Edit</strong>, and set <strong>Date received</strong>. It then appears in that month&apos;s intake.
-                  </div>
-                  {undatedError ? (
-                    <div style={{ color: '#cc0000', fontSize: 13 }}>⚠ {undatedError}</div>
-                  ) : undatedLoading ? (
-                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                        <thead>
-                          <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            <th style={{ padding: '8px 10px' }}>Vehicle</th>
-                            <th style={{ padding: '8px 10px' }}>Customer</th>
-                            <th style={{ padding: '8px 10px' }}>Plate</th>
-                            <th style={{ padding: '8px 10px' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {undatedRows.map(r => (
-                            <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
-                              <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.label}</td>
-                              <td style={{ padding: '8px 10px' }}>{r.customerName}</td>
-                              <td style={{ padding: '8px 10px' }}>{r.plate || '—'}</td>
-                              <td style={{ padding: '8px 10px' }}>
-                                <span style={{ color: STATUS_COLOR(r.status), fontWeight: 600 }}>{r.status || '—'}</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {intakeUndated > UNDATED_LIST_LIMIT && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
-                          Showing the first {UNDATED_LIST_LIMIT} of {intakeUndated}, A to Z by vehicle.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Panel>
-                <div style={{ height: 16 }} />
-              </>
-            )}
-
             <Panel title={filterMonth > 0 ? 'Intake by Day' : 'Intake by Month'}>
               {intakeLoading ? (
                 <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
               ) : groups.length === 0 ? (
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>No cars were received in {periodLabel}.</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>No cars were taken in during {periodLabel}.</div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120, overflowX: 'auto' }}>
                   {groups.map(g => (
@@ -1888,7 +1748,7 @@ export function ReportsView() {
 
             <div style={{ height: 16 }} />
 
-            <Panel title={`Vehicles Received (${intakeRows.length})`}>
+            <Panel title={`Cars Taken In (${intakeRows.length})`}>
               {!intakeLoading && intakeRows.length === 0 ? (
                 <div style={{ color: 'var(--muted)', fontSize: 13 }}>Nothing to show for {periodLabel}.</div>
               ) : (
@@ -1896,20 +1756,22 @@ export function ReportsView() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        <th style={{ padding: '8px 10px' }}>Received</th>
+                        <th style={{ padding: '8px 10px' }}>Checked In</th>
                         <th style={{ padding: '8px 10px' }}>Vehicle</th>
                         <th style={{ padding: '8px 10px' }}>Customer</th>
-                        <th style={{ padding: '8px 10px' }}>Plate</th>
+                        <th style={{ padding: '8px 10px' }}>Job Card</th>
                         <th style={{ padding: '8px 10px' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {intakeRows.map(r => (
-                        <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
-                          <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{r.dateReceived}</td>
+                        <tr key={`${r.id}-${r.source}`} style={{ borderTop: '1px solid var(--line)' }}>
+                          <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{localDay(r.checkIn)}</td>
                           <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.label}</td>
                           <td style={{ padding: '8px 10px' }}>{r.customerName}</td>
-                          <td style={{ padding: '8px 10px' }}>{r.plate || '—'}</td>
+                          <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                            {r.id}{r.jobCount > 1 && <span style={{ color: 'var(--muted)' }}> +{r.jobCount - 1} more</span>}
+                          </td>
                           <td style={{ padding: '8px 10px' }}>
                             <span style={{ color: STATUS_COLOR(r.status), fontWeight: 600 }}>{r.status || '—'}</span>
                           </td>
