@@ -7,6 +7,10 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { getShopId } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
 import { updateVehicleServiceRecord } from '@/services/vehicleService';
+import {
+  intakeRange, inIntakeRange, groupIntake, intakeCsvRows,
+  type IntakeVehicle,
+} from '@/lib/reports/vehicleIntake';
 
 // ── Customer detail row (searchable customer report) ──────────
 interface CustVehicle { id: string; label: string; status: string; }
@@ -468,7 +472,7 @@ export function ReportsView() {
   const [jobFilter, setJobFilter] = useState<'all' | 'complete' | 'open' | 'invoiced'>('all');
   const [jobPeriod, setJobPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'technicians' | 'completion'>('completion');
+  const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'intake' | 'technicians' | 'completion'>('completion');
   const [shopName, setShopName] = useState('Redlined1');
   const [toast, setToast] = useState('');
   const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
@@ -498,6 +502,12 @@ export function ReportsView() {
   const [vehicleEditSaving, setVehicleEditSaving] = useState(false);
   const [vehicleEditErr, setVehicleEditErr] = useState('');
 
+  // Vehicle intake tab: cars received in the selected month
+  const [intakeRows, setIntakeRows] = useState<IntakeVehicle[]>([]);
+  const [intakeLoading, setIntakeLoading] = useState(false);
+  const [intakeError, setIntakeError] = useState('');
+  const intakeReq = useRef(0); // only the latest request may update the screen
+
   useEffect(() => {
     load(reportShopId);
     fetchShopSettings().then(s => {
@@ -511,7 +521,59 @@ export function ReportsView() {
     if (activeTab === 'customers') loadCustomerDetails(reportShopId, filterMonth, filterYear);
   }, [activeTab, reportShopId, filterMonth, filterYear]); // eslint-disable-line
 
+  useEffect(() => {
+    if (activeTab === 'intake') loadVehicleIntake(reportShopId, filterMonth, filterYear);
+  }, [activeTab, reportShopId, filterMonth, filterYear]); // eslint-disable-line
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  /**
+   * Cars received in the chosen month (the whole year when "All months"), for
+   * the chosen shop. The date range is applied in the query so only that
+   * month's vehicles are fetched; customer names are looked up separately
+   * because vehicles only store the customer's id. Read-only.
+   */
+  async function loadVehicleIntake(sid: string, month: number, year: number) {
+    const req = ++intakeReq.current;
+    setIntakeLoading(true);
+    setIntakeError('');
+    try {
+      const range = intakeRange(month, year);
+      const { data: vehs, error } = await supabase
+        .from('vehicles')
+        .select('id, customer_id, label, plate, status, date_received')
+        .eq('shop_id', sid)
+        .gte('date_received', range.start)
+        .lt('date_received', range.end);
+      if (error) throw error;
+
+      const customerIds = [...new Set((vehs ?? []).map(v => v.customer_id as string | null).filter(Boolean))] as string[];
+      const names = new Map<string, string>();
+      if (customerIds.length > 0) {
+        const { data: custs, error: custErr } = await supabase
+          .from('customers').select('id, name').in('id', customerIds);
+        if (custErr) throw custErr;
+        for (const c of custs ?? []) names.set(c.id as string, (c.name as string) || '');
+      }
+
+      const rows = (vehs ?? []).map(v => ({
+        id: v.id as string,
+        label: ((v.label as string) || '').trim() || 'Unnamed vehicle',
+        plate: ((v.plate as string) || '').trim(),
+        status: (v.status as string) || '',
+        dateReceived: (v.date_received as string | null) ?? null,
+        customerName: v.customer_id ? (names.get(v.customer_id as string) || 'Unknown customer') : 'No customer',
+      }));
+      if (req !== intakeReq.current) return;
+      setIntakeRows(inIntakeRange(rows, range) as IntakeVehicle[]);
+    } catch (e) {
+      if (req !== intakeReq.current) return;
+      setIntakeRows([]);
+      setIntakeError(e instanceof Error ? e.message : 'Could not load vehicle intake.');
+    } finally {
+      if (req === intakeReq.current) setIntakeLoading(false);
+    }
+  }
 
   async function loadCustomerDetails(sid: string, month: number, year: number) {
     setCustDetailLoading(true);
@@ -909,6 +971,11 @@ export function ReportsView() {
     notify(`${filename} downloaded.`);
   }
 
+  function exportIntakeReport() {
+    const period = filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]}-${filterYear}` : `${filterYear}`;
+    exportCSV(intakeCsvRows(intakeRows), `${shopName.replace(/\s+/g, '-')}-Vehicle-Intake-${period}.csv`);
+  }
+
   function exportRevenueSummary() {
     if (!data) return;
     exportCSV(
@@ -1041,6 +1108,7 @@ export function ReportsView() {
     { id: 'repairs', label: '🔧 Repair Orders' },
     { id: 'payments', label: '💳 Payments' },
     { id: 'customers', label: '👥 Customers' },
+    { id: 'intake', label: '🚗 Vehicle Intake' },
     ...(enableTechnicianReport ? [{ id: 'technicians' as const, label: '👨‍🔧 Technicians' }] : []),
     ...(enableJobCompletionReport ? [{ id: 'completion' as const, label: '✅ Job Completion' }] : []),
   ];
@@ -1620,6 +1688,98 @@ export function ReportsView() {
       })()}
 
       {/* ── TECHNICIANS ── */}
+      {/* ── VEHICLE INTAKE ── cars received in the selected month ── */}
+      {activeTab === 'intake' && (() => {
+        const periodLabel = filterMonth > 0 ? `${MONTH_NAMES_FULL[filterMonth - 1]} ${filterYear}` : `${filterYear}`;
+        const groups = groupIntake(intakeRows, filterMonth);
+        const maxGroup = Math.max(...groups.map(g => g.count), 1);
+        const customerCount = new Set(intakeRows.map(r => r.customerName)).size;
+        const busiest = groups.reduce<{ label: string; count: number } | null>(
+          (best, g) => (!best || g.count > best.count ? g : best), null);
+
+        return (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                Cars received in <strong style={{ color: 'var(--text)' }}>{periodLabel}</strong>
+                {filterMonth === 0 && ' (all months — pick a month above to narrow it down)'}
+              </div>
+              <button className="btn btn-primary" onClick={exportIntakeReport} disabled={intakeRows.length === 0}>⬇ Export CSV</button>
+            </div>
+
+            <div className="grid cols-3" style={{ marginBottom: 16 }}>
+              {[
+                { label: 'Cars Received', value: String(intakeRows.length), color: 'var(--text)' },
+                { label: 'Customers', value: String(customerCount), color: '#2196f3' },
+                { label: filterMonth > 0 ? 'Busiest Day' : 'Busiest Month', value: busiest ? `${busiest.label} (${busiest.count})` : '—', color: '#ff9800' },
+              ].map(c => (
+                <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {intakeError && (
+              <div className="card" style={{ padding: 14, marginBottom: 16, color: '#cc0000' }}>⚠ {intakeError}</div>
+            )}
+
+            <Panel title={filterMonth > 0 ? 'Intake by Day' : 'Intake by Month'}>
+              {intakeLoading ? (
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
+              ) : groups.length === 0 ? (
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>No cars were received in {periodLabel}.</div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120, overflowX: 'auto' }}>
+                  {groups.map(g => (
+                    <div key={g.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 28 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700 }}>{g.count}</div>
+                      <div title={`${g.label}: ${g.count}`} style={{ width: 22, height: Math.max(6, (g.count / maxGroup) * 80), background: 'var(--accent)', borderRadius: 4 }} />
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>{g.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <div style={{ height: 16 }} />
+
+            <Panel title={`Vehicles Received (${intakeRows.length})`}>
+              {!intakeLoading && intakeRows.length === 0 ? (
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>Nothing to show for {periodLabel}.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <th style={{ padding: '8px 10px' }}>Received</th>
+                        <th style={{ padding: '8px 10px' }}>Vehicle</th>
+                        <th style={{ padding: '8px 10px' }}>Customer</th>
+                        <th style={{ padding: '8px 10px' }}>Plate</th>
+                        <th style={{ padding: '8px 10px' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {intakeRows.map(r => (
+                        <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                          <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{r.dateReceived}</td>
+                          <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.label}</td>
+                          <td style={{ padding: '8px 10px' }}>{r.customerName}</td>
+                          <td style={{ padding: '8px 10px' }}>{r.plate || '—'}</td>
+                          <td style={{ padding: '8px 10px' }}>
+                            <span style={{ color: STATUS_COLOR(r.status), fontWeight: 600 }}>{r.status || '—'}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Panel>
+          </>
+        );
+      })()}
+
       {activeTab === 'technicians' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
