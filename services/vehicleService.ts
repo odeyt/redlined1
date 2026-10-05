@@ -294,6 +294,26 @@ export async function updateVehicleServiceRecord(
   }
 }
 
+/**
+ * Stamp a vehicle as received on the day it is taken in (default: today).
+ *
+ * A vehicle that comes in again is a new arrival, and the Vehicle Intake report
+ * places a car in a month by this date, so intake sets it every time. That
+ * replaces the previous received date: the column holds one date, the latest
+ * arrival. Scoped to the caller's shops like every other vehicle write.
+ *
+ * Callers on the intake path must treat a failure as non-fatal: recording the
+ * date must never stop a car being checked in.
+ */
+export async function markVehicleReceived(vehicleId: string, date?: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('vehicles')
+    .update({ date_received: receivedDateOrToday(date) })
+    .eq('id', vehicleId)
+    .in('shop_id', getShopIds());
+  if (error) throw error;
+}
+
 export async function transferVehicle(id: string, targetShopId: string): Promise<void> {
   // Read before the move: afterwards this row belongs to another shop, and the
   // audit row would be written against a shop the actor may not even be in.

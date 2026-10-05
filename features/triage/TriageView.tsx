@@ -25,7 +25,7 @@ import {
 import { QuestionEngine } from '@/lib/triage/QuestionEngine';
 import { saveTriageSession, listTriageSessions, deleteTriageSession } from '@/services/triageService';
 import { createInspection, createInspectionFromTriage, nextInspectionNumber } from '@/services/inspectionService';
-import { saveVehicle } from '@/services/vehicleService';
+import { saveVehicle, markVehicleReceived } from '@/services/vehicleService';
 import { saveCustomer } from '@/services/customerService';
 import { createJobCard } from '@/services/jobCardService';
 import { createJobCardFollowOns } from '@/services/jobCardFollowOnService';
@@ -76,6 +76,9 @@ async function ensureCustomerAndVehicle(vehicle: TriageVehicle): Promise<{
 
   // Already a real vehicle — reuse it rather than creating a duplicate.
   if (vehicle.vehicleId) {
+    // The car is being taken in again today: record it so the Vehicle Intake
+    // report counts it this month. Never allowed to stop the intake itself.
+    try { await markVehicleReceived(vehicle.vehicleId); } catch { /* non-blocking */ }
     return { customerId, vehicleId: vehicle.vehicleId, vin: vehicle.vin ?? '', plate: vehicle.plate ?? '' };
   }
 
