@@ -90,7 +90,11 @@ describe('completion month filters on when work finished', () => {
    * clearing it restores the live list.
    */
   it('shows only vehicles completed in the selected month', () => {
-    expect(view).toMatch(/if \(monthFilter && !\(isCompleted\(v\) && inSelectedMonth\(v\)\)\) return false;/);
+    // Completed in the month = a job for it was completed then (the real record,
+    // lib/vehicles/completedWork.ts), or, for older work with no job record, its
+    // own completed status and completion date. Behaviour is tested in
+    // lib/vehicles/__tests__/completedWork.test.ts.
+    expect(view).toMatch(/if \(monthFilter && !\(completedJobsByVehicle\.has\(v\.id\) \|\| \(isCompleted\(v\) && inSelectedMonth\(v\)\)\)\) return false;/);
   });
 
   it('does not let an open job through on its arrival date', () => {
@@ -116,8 +120,8 @@ describe('the counts agree with the rows', () => {
 });
 
 describe('it is honest about dates it does not have', () => {
-  it('counts completed vehicles with no completion date', () => {
-    expect(view).toMatch(/completedMissingDate = scoped\.filter\(v => isCompleted\(v\) && !v\.completedAt\)/);
+  it('counts completed vehicles with no completion date and no completed job found', () => {
+    expect(view).toMatch(/completedMissingDate = scoped\.filter\(v => isCompleted\(v\) && !v\.completedAt && !completedJobsByVehicle\.has\(v\.id\)\)/);
   });
 
   it('says so on screen when a month is selected', () => {
@@ -207,6 +211,6 @@ describe('the backfill fills from evidence, never from the arrival date', () => 
   it('leaves the vehicles with no evidence null and flagged', () => {
     // The UI already counts and labels these; silently filling them is what
     // would make the report look precise while being wrong.
-    expect(view).toMatch(/completedMissingDate = scoped\.filter\(v => isCompleted\(v\) && !v\.completedAt\)/);
+    expect(view).toMatch(/completedMissingDate = scoped\.filter\(v => isCompleted\(v\) && !v\.completedAt && !completedJobsByVehicle\.has\(v\.id\)\)/);
   });
 });

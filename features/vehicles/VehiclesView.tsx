@@ -26,6 +26,8 @@ import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
 import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
 import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMonth';
+import { jobsByVehicle, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
+import { fetchCompletedWork } from '@/services/completedWorkService';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -1754,12 +1756,36 @@ export function VehiclesView() {
   const [shopFilter, setShopFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState(0); // 0 = every month
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+  // Jobs actually completed in the selected month (signed-off repair orders and
+  // the closed-job archive). This, not the vehicle's own status flag, decides
+  // what "completed in <month>" means. null = not loaded / failed.
+  const [monthJobs, setMonthJobs] = useState<CompletedJob[] | null>(null);
+  const [monthJobsError, setMonthJobsError] = useState('');
+  const monthJobsReq = useRef(0);
   const [search, setSearch] = useState('');
   const [customerFilter, setCustomerFilter] = useState(''); // customer ID to filter by
   const [custFilterSearch, setCustFilterSearch] = useState('');
   const [showCustFilterDrop, setShowCustFilterDrop] = useState(false);
   const [kanbanDragId, setKanbanDragId] = useState<string | null>(null);
   const [kanbanDragOver, setKanbanDragOver] = useState<string | null>(null);
+
+  useEffect(() => {
+    // No month chosen: nothing to look up, and the live list is unaffected.
+    if (!monthFilter) { setMonthJobs(null); setMonthJobsError(''); return; }
+    if (!currentShop?.id) return;
+    const req = ++monthJobsReq.current;
+    setMonthJobs(null);
+    setMonthJobsError('');
+    const start = new Date(yearFilter, monthFilter - 1, 1).toISOString();
+    const end = new Date(yearFilter, monthFilter, 1).toISOString();
+    fetchCompletedWork(start, end, shopFilter ? [shopFilter] : undefined)
+      .then(jobs => { if (req === monthJobsReq.current) setMonthJobs(jobs); })
+      .catch(e => {
+        if (req !== monthJobsReq.current) return;
+        setMonthJobs([]);
+        setMonthJobsError(e instanceof Error ? e.message : 'Could not load completed jobs.');
+      });
+  }, [monthFilter, yearFilter, shopFilter, currentShop?.id]);
 
   useEffect(() => {
     fetchShopSettings().then(s => {
@@ -1959,6 +1985,17 @@ export function VehiclesView() {
   const inSelectedMonth = (v: VehicleRecord) =>
     matchesReportMonth(v, monthFilter, yearFilter);
 
+  /**
+   * Which vehicles had work COMPLETED in the selected month, from the jobs
+   * themselves (lib/vehicles/completedWork.ts). Signing off a repair order does
+   * not change a vehicle's own status, so relying on that flag alone returned
+   * one car for a month in which many jobs were finished.
+   */
+  const completedJobsByVehicle = jobsByVehicle(vehicles, monthJobs ?? []);
+  const unmatchedJobCount = monthJobs
+    ? monthJobs.length - [...completedJobsByVehicle.values()].reduce((n, js) => n + js.length, 0)
+    : 0;
+
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
     /**
@@ -1980,7 +2017,10 @@ export function VehiclesView() {
      * so it cannot match — the check is on the whole predicate, not just the
      * date.
      */
-    if (monthFilter && !(isCompleted(v) && inSelectedMonth(v))) return false;
+    // Completed in the month if a job for it was completed then (the real
+    // record), or, for older work that has no job record, its own status flag
+    // and completion date. A vehicle with neither was completed in no month.
+    if (monthFilter && !(completedJobsByVehicle.has(v.id) || (isCompleted(v) && inSelectedMonth(v)))) return false;
     return true;
   });
 
@@ -2000,7 +2040,17 @@ export function VehiclesView() {
   const counts: Record<string, number> = { All: scoped.filter(v => v.status !== 'Archived').length };
   scoped.forEach(v => { counts[v.status] = (counts[v.status] ?? 0) + 1; });
 
-  const completedMissingDate = scoped.filter(v => isCompleted(v) && !v.completedAt).length;
+  // Dated by arrival only when nothing better exists: no completion stamp AND no
+  // completed job found for it this month.
+  const completedMissingDate = scoped.filter(v => isCompleted(v) && !v.completedAt && !completedJobsByVehicle.has(v.id)).length;
+
+  /** The date shown in the Completed column: the job's sign-off, else the vehicle's own stamp. */
+  const completionDateFor = (v: VehicleRecord): { iso: string; viaJob: boolean } | null => {
+    const job = latestCompletion(completedJobsByVehicle.get(v.id));
+    if (job) return { iso: job.closedAt, viaJob: true };
+    if (v.completedAt) return { iso: v.completedAt, viaJob: false };
+    return null;
+  };
 
   return (
     <>
@@ -2310,6 +2360,31 @@ export function VehiclesView() {
               </span>
             )}
 
+            {monthFilter > 0 && monthJobs === null && !monthJobsError && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Checking completed jobs…</span>
+            )}
+
+            {monthFilter > 0 && monthJobs !== null && !monthJobsError && (
+              <span title="Counted from signed-off repair orders and the closed-job archive for this month, matched to vehicles by name, plate or VIN."
+                style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ✓ {monthJobs.length} {monthJobs.length === 1 ? 'job' : 'jobs'} completed this month
+              </span>
+            )}
+
+            {monthFilter > 0 && monthJobsError && (
+              <span title={monthJobsError}
+                style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ Could not load completed jobs — showing vehicle status only
+              </span>
+            )}
+
+            {monthFilter > 0 && unmatchedJobCount > 0 && (
+              <span title="These jobs were completed this month but name a vehicle that is not in Vehicle Management, or a name shared by more than one vehicle, so they cannot be shown here. They are still counted in Reports."
+                style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ {unmatchedJobCount} completed {unmatchedJobCount === 1 ? 'job' : 'jobs'} not linked to a vehicle
+              </span>
+            )}
+
             {monthFilter > 0 && completedMissingDate > 0 && (
               <span title="These were completed before a completion date was recorded, so they are dated by when the vehicle arrived — which may fall in a different month."
                 style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
@@ -2581,7 +2656,7 @@ export function VehiclesView() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--surface-soft)' }}>
-                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ''].map(h => (
+                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ...(monthFilter > 0 ? ['Completed'] : []), ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -2628,6 +2703,17 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </td>
+                  {monthFilter > 0 && (() => {
+                    const done = completionDateFor(v);
+                    return (
+                      <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap', fontWeight: 600 }}
+                        title={done ? (done.viaJob ? 'Date the job was signed off or closed' : "From the vehicle's own completion stamp") : 'No completion date recorded; this vehicle is placed by its arrival date'}>
+                        {done
+                          ? new Date(done.iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : <span style={{ color: '#b45309' }}>by arrival</span>}
+                      </td>
+                    );
+                  })()}
                   <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 5 }}>
                       {enableVehiclePhotos && <button className="mini-btn" onClick={() => setGalleryVehicle(v)}>📷</button>}

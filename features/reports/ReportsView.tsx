@@ -7,6 +7,8 @@ import { fetchShopSettings } from '@/services/shopSettingsService';
 import { getShopId } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
 import { updateVehicleServiceRecord } from '@/services/vehicleService';
+import { fetchCompletedWork } from '@/services/completedWorkService';
+import { vehicleKeys, normKey } from '@/lib/vehicles/completedWork';
 import {
   intakeRange, inIntakeRange, carsTakenIn, summarizeIntake, groupIntake, intakeCsvRows, localDay,
   type IntakeVisit, type IntakeCar,
@@ -146,57 +148,92 @@ function WorkshopPrintModal({
 
   useEffect(() => { fetchData(); }, [shopId, month, year]); // eslint-disable-line
 
+  /**
+   * The completion report lists JOBS completed in the period, taken from the
+   * repair orders signed off in it (they carry the concern, cause, correction,
+   * parts and labor) plus any archived job that has no repair order.
+   *
+   * It used to list vehicles whose status was Completed and filter on the date
+   * the vehicle ARRIVED, then print that arrival date as the closing date. A
+   * job finished in September but received in August fell in the wrong month
+   * and showed the wrong date, and any job whose vehicle was never flagged
+   * Completed was left out.
+   */
   async function fetchData() {
     setLoading(true);
     try {
-      const vSelect = 'id, customer_id, label, make, model, year, vin, plate, status, assigned_tech, date_received, issues, parts_exchanged, flat_rate_lak';
-      const baseQ = () => supabase.from('vehicles').select(vSelect).eq('shop_id', shopId).ilike('status', '%complet%');
+      const start = (month > 0 ? new Date(year, month - 1, 1) : new Date(year, 0, 1)).toISOString();
+      const end = (month > 0 ? new Date(year, month, 1) : new Date(year + 1, 0, 1)).toISOString();
 
-      // Filter by date_received within the selected month/year.
-      let q = baseQ();
-      if (month > 0) {
-        const from = new Date(year, month - 1, 1).toISOString();
-        const to   = new Date(year, month, 1).toISOString();
-        q = q.gte('date_received', from).lt('date_received', to);
-      } else {
-        const from = new Date(year, 0, 1).toISOString();
-        const to   = new Date(year + 1, 0, 1).toISOString();
-        q = q.gte('date_received', from).lt('date_received', to);
-      }
-      const [{ data: allCompleted }, { data: custData }] = await Promise.all([
-        q.order('date_received', { ascending: false }),
-        supabase.from('customers').select('id, name').eq('shop_id', shopId),
+      const [{ data: roData, error: roErr }, jobs, { data: vehData }] = await Promise.all([
+        supabase.from('repair_orders')
+          .select('id, ro_number, job_card_id, customer_name, vehicle, technician, status, concern, cause, correction, labor_hours, labor_rate, parts_total, parts, closed_date')
+          .eq('shop_id', shopId).in('status', ['Complete', 'Closed'])
+          .gte('closed_date', start).lt('closed_date', end)
+          .order('closed_date', { ascending: false }),
+        fetchCompletedWork(start, end, [shopId]),
+        supabase.from('vehicles').select('id, label, plate, vin').eq('shop_id', shopId),
       ]);
+      if (roErr) throw roErr;
 
-      const vehicles = (allCompleted ?? []) as Record<string, unknown>[];
-      const custMap: Record<string, string> = {};
-      for (const c of (custData ?? []) as { id: string; name: string }[]) custMap[c.id] = c.name;
+      // VIN by the vehicle text a job uses, only where that text names exactly one vehicle.
+      const owners = new Map<string, Set<string>>();
+      const vinById = new Map<string, string>();
+      for (const v of (vehData ?? []) as { id: string; label: string | null; plate: string | null; vin: string | null }[]) {
+        vinById.set(v.id, v.vin ?? '');
+        for (const k of vehicleKeys(v)) {
+          if (!owners.has(k)) owners.set(k, new Set());
+          owners.get(k)!.add(v.id);
+        }
+      }
+      const vinFor = (vehicleText: string) => {
+        const ids = owners.get(normKey(vehicleText));
+        return ids && ids.size === 1 ? vinById.get([...ids][0]) || undefined : undefined;
+      };
+      const names = (s: string) => s.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
 
-      const built: PrintRow[] = vehicles.map(v => {
-        const partsStr = (v.parts_exchanged as string) ?? '';
-        const parts: PrintPart[] = partsStr
-          ? partsStr.split(/[,\n]+/).map(p => ({ partName: p.trim() })).filter(p => p.partName)
+      const fromRos: PrintRow[] = ((roData ?? []) as Record<string, unknown>[]).map(r => {
+        const parts: PrintPart[] = Array.isArray(r.parts)
+          ? (r.parts as { description?: string; partNumber?: string; qty?: number; unitCost?: number }[])
+              .filter(p => p.description)
+              .map(p => ({ partName: p.description as string, partNumber: p.partNumber, qty: p.qty, cost: p.unitCost, total: (p.qty ?? 0) * (p.unitCost ?? 0) }))
           : [];
-        const correction = partsStr || '';
+        const vehicleText = (r.vehicle as string) || '—';
         return {
-          jobId: v.id as string,
-          customer: custMap[v.customer_id as string] ?? '—',
-          vehicle: `${v.year ?? ''} ${v.make ?? ''} ${v.model ?? ''}`.trim() || (v.label as string) || '—',
-          technicians: (v.assigned_tech as string) ? [(v.assigned_tech as string)] : [],
-          concern: (v.issues as string) ?? '',
-          cause: '',
-          correction,
+          jobId: r.id as string,
+          jobNumber: (r.ro_number as string) || undefined,
+          customer: (r.customer_name as string) || '—',
+          vehicle: vehicleText,
+          vin: vinFor(vehicleText),
+          technicians: names((r.technician as string) || ''),
+          concern: (r.concern as string) || '',
+          cause: (r.cause as string) || '',
+          correction: (r.correction as string) || '',
           parts,
-          laborHours: 0,
-          laborRate: 0,
-          partsTotal: 0,
-          closedDate: (v.date_received as string) ?? '',
-          status: (v.status as string) ?? '',
-          flatRateHours: v.flat_rate_lak ? Number(v.flat_rate_lak) / 1000 : undefined,
+          laborHours: Number(r.labor_hours ?? 0),
+          laborRate: Number(r.labor_rate ?? 0),
+          partsTotal: parts.length > 0 ? parts.reduce((s, p) => s + (p.total ?? 0), 0) : Number(r.parts_total ?? 0),
+          closedDate: r.closed_date as string,
+          status: (r.status as string) || 'Complete',
         };
       });
 
-      setRows(built);
+      // Archived or finished job cards that never had a repair order: less detail, but they happened.
+      const fromJobCards: PrintRow[] = jobs.filter(j => j.source !== 'repair_order').map(j => ({
+        jobId: j.key,
+        jobNumber: j.jobCardId || undefined,
+        customer: j.customerName || '—',
+        vehicle: j.vehicle || '—',
+        vin: vinFor(j.vehicle),
+        technicians: names(j.technician),
+        concern: '', cause: '', correction: '', parts: [],
+        laborHours: 0, laborRate: 0, partsTotal: 0,
+        closedDate: j.closedAt,
+        status: 'Closed',
+      }));
+
+      setRows([...fromRos, ...fromJobCards]
+        .sort((a, b) => Date.parse(b.closedDate) - Date.parse(a.closedDate)));
     } catch (e) {
       console.error('Print data fetch failed', e);
     } finally {
@@ -767,6 +804,7 @@ export function ReportsView() {
         { data: estData },
         { data: jcData },
         { data: teData },
+        { data: cjData },
       ] = await Promise.all([
         supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').eq('shop_id', sid),
         supabase.from('payments').select('amount, method, payment_date, currency, status').eq('shop_id', sid),
@@ -776,6 +814,10 @@ export function ReportsView() {
         supabase.from('estimates').select('status').eq('shop_id', sid),
         supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', sid),
         supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').eq('shop_id', sid),
+        // Closing a job card moves it out of job_cards into closed_jobs. Leaving this
+        // table out made every finished job vanish from the completion and technician
+        // reports ("Complete + Invoiced: 0").
+        supabase.from('closed_jobs').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', sid),
       ]);
 
       const invoices = invData ?? [];
@@ -885,7 +927,12 @@ export function ReportsView() {
       });
 
       // ── Technician assignment report ──────────────────────────
-      const jobCards = (jcData ?? []) as Record<string, unknown>[];
+      // Open job cards plus the closed-job archive. A job id is in one table; if a close
+      // was interrupted and it is in both, the archived (finished) copy wins.
+      const jobCardById = new Map<string, Record<string, unknown>>();
+      for (const jc of (jcData ?? []) as Record<string, unknown>[]) jobCardById.set(String(jc.id), jc);
+      for (const jc of (cjData ?? []) as Record<string, unknown>[]) jobCardById.set(String(jc.id), jc);
+      const jobCards = [...jobCardById.values()];
       const timeEntries = (teData ?? []) as Record<string, unknown>[];
 
       // Hours logged per technician from time_entries
