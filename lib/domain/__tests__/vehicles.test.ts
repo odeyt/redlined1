@@ -149,6 +149,16 @@ describe('creating a vehicle', () => {
     expect((insert!.payload as Record<string, unknown>).vin).toBe('1HGBH41JXMN109186');
   });
 
+  it('records the vehicle as received today so it appears in the intake report', async () => {
+    const db = fakeDb(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await createVehicleDomain({ db: db as any, context }).create({ label: 'Hilux' });
+
+    const insert = db.calls.find(c => c.table === 'vehicles' && c.op === 'insert');
+    const received = (insert!.payload as Record<string, unknown>).date_received;
+    expect(received).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it('allows a vehicle with no customer and no VIN', async () => {
     const db = fakeDb(true);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

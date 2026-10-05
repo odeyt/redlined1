@@ -6,6 +6,7 @@ import { decodeVinAPI, vinChecksum, type VinDecodeResult } from '@/services/vinD
 import { fetchCustomerNames } from '@/services/vehicleService';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
+import { todayIsoDate } from '@/lib/vehicles/receivedDate';
 
 type SaveTarget = 'none' | 'vehicle' | 'job-card';
 
@@ -109,6 +110,7 @@ export function VinView() {
           status: 'Active',
           recommendation: '',
           customer_id: customerId || null,
+          date_received: todayIsoDate(),
         });
         notify(`${result.label} saved as vehicle record.`);
       } else if (saveTarget === 'job-card') {
