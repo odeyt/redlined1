@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { resolveShopFlags } from '@/lib/featureFlags/shopFlags';
 
 export async function GET() {
   try {
@@ -22,24 +23,20 @@ export async function GET() {
     const { getAdminDb } = await import('@/lib/supabaseServer');
     const db = getAdminDb();
 
-    // Check both flags
-    const { data: flagRows } = await db
-      .from('feature_flags')
-      .select('flag_key, enabled')
-      .in('flag_key', ['vehicle_intelligence_engine', 'vehicle_intelligence_command_center']);
+    const { data: shopRow } = await authClient
+      .from('shop_users').select('shop_id').eq('user_id', user.id).limit(1).maybeSingle();
+    const shopId = (shopRow as { shop_id: string } | null)?.shop_id;
+    if (!shopId) return NextResponse.json({ error: 'No shop' }, { status: 403 });
 
-    const flags = Object.fromEntries(
-      ((flagRows ?? []) as Array<{ flag_key: string; enabled: boolean }>).map(r => [r.flag_key, r.enabled]),
+    // Check both flags, resolved for this shop
+    const flags = await resolveShopFlags(
+      ['vehicle_intelligence_engine', 'vehicle_intelligence_command_center'],
+      { shopId, userId: user.id },
     );
 
     if (!flags.vehicle_intelligence_engine || !flags.vehicle_intelligence_command_center) {
       return NextResponse.json({ disabled: true });
     }
-
-    const { data: shopRow } = await authClient
-      .from('shop_users').select('shop_id').eq('user_id', user.id).limit(1).maybeSingle();
-    const shopId = (shopRow as { shop_id: string } | null)?.shop_id;
-    if (!shopId) return NextResponse.json({ error: 'No shop' }, { status: 403 });
 
     const { data: profiles } = await db
       .from('vehicle_intelligence_profiles')

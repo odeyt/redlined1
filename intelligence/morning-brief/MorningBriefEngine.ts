@@ -224,14 +224,10 @@ export async function generateMorningBrief(
  */
 async function trySapeleeEnhancement(briefId: string, brief: MorningBrief): Promise<void> {
   try {
-    // Check feature flag
+    // Check feature flag, resolved for this brief's shop (off on any error)
+    const { isShopFlagEnabled } = await import('@/lib/featureFlags/shopFlags');
+    if (!(await isShopFlagEnabled('sapelee_morning_brief_enhancement', { shopId: brief.shopId }))) return;
     const db = await getDb();
-    const { data: flagRow } = await db
-      .from('feature_flags')
-      .select('enabled')
-      .eq('flag_key', 'sapelee_morning_brief_enhancement')
-      .maybeSingle();
-    if (!(flagRow as Record<string, unknown> | null)?.enabled) return;
 
     // Build PII-safe payload
     const { buildMorningBriefPayload } = await import(
