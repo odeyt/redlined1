@@ -4,6 +4,7 @@ import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
 import type { Vehicle } from '@/lib/types';
 import { normalizeVin, vinProblem, DEFAULT_VEHICLE_STATUS } from '@/lib/domain/vehicles';
+import { receivedDateOrToday } from '@/lib/vehicles/receivedDate';
 
 type VehicleRow = {
   id: string;
@@ -117,6 +118,8 @@ export async function saveVehicle(
   vehicle: Omit<Vehicle, 'customerId'> & {
     customerId: string;
     make?: string; model?: string; year?: string; fuelType?: string;
+    /** YYYY-MM-DD. Defaults to today so the car appears in the Vehicle Intake report. */
+    dateReceived?: string | null;
   }
 ): Promise<VehicleRecord> {
   // One VIN rule for both paths. lib/domain/vehicles.ts owns it; this used to
@@ -144,6 +147,7 @@ export async function saveVehicle(
       model:        vehicle.model ?? null,
       year:         vehicle.year ?? null,
       fuel_type:    vehicle.fuelType ?? null,
+      date_received: receivedDateOrToday(vehicle.dateReceived),
     })
     .select()
     .single();

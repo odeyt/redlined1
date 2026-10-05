@@ -31,6 +31,7 @@
 import type { DomainDeps } from './db';
 import { writeAuditEvent, AUDIT } from './audit';
 import { requireCapability } from './context';
+import { receivedDateOrToday } from '@/lib/vehicles/receivedDate';
 
 export interface DomainVehicle {
   id: string;
@@ -218,6 +219,9 @@ export function createVehicleDomain({ db, context }: DomainDeps) {
         model: input.model ?? null,
         year: input.year ?? null,
         fuel_type: input.fuelType ?? null,
+        // Defaults to today (server date) so the car lands in the Vehicle
+        // Intake report; a vehicle with no date appears in no month.
+        date_received: receivedDateOrToday(null),
       })
       .select()
       .single();

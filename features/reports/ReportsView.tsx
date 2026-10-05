@@ -511,6 +511,14 @@ export function ReportsView() {
   const [intakeUndated, setIntakeUndated] = useState<number | null>(null);
   const intakeReq = useRef(0); // only the latest request may update the screen
 
+  // The vehicles behind the "No Date Recorded" card, opened by clicking it.
+  const UNDATED_LIST_LIMIT = 200;
+  const [showUndated, setShowUndated] = useState(false);
+  const [undatedRows, setUndatedRows] = useState<{ id: string; label: string; plate: string; status: string; customerName: string }[]>([]);
+  const [undatedLoading, setUndatedLoading] = useState(false);
+  const [undatedError, setUndatedError] = useState('');
+  const undatedReq = useRef(0);
+
   useEffect(() => {
     load(reportShopId);
     fetchShopSettings().then(s => {
@@ -528,7 +536,55 @@ export function ReportsView() {
     if (activeTab === 'intake') loadVehicleIntake(reportShopId, filterMonth, filterYear);
   }, [activeTab, reportShopId, filterMonth, filterYear]); // eslint-disable-line
 
+  useEffect(() => {
+    if (activeTab === 'intake' && showUndated) loadUndatedVehicles(reportShopId);
+  }, [activeTab, showUndated, reportShopId]); // eslint-disable-line
+
   function notify(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  /**
+   * The vehicles with no "Date received" for this shop, so staff can open each
+   * one and set the date. Read-only; capped, and the screen says when it is.
+   */
+  async function loadUndatedVehicles(sid: string) {
+    const req = ++undatedReq.current;
+    setUndatedLoading(true);
+    setUndatedError('');
+    try {
+      const { data: vehs, error } = await supabase
+        .from('vehicles')
+        .select('id, customer_id, label, plate, status')
+        .eq('shop_id', sid)
+        .is('date_received', null)
+        .order('label')
+        .limit(UNDATED_LIST_LIMIT);
+      if (error) throw error;
+
+      const customerIds = [...new Set((vehs ?? []).map(v => v.customer_id as string | null).filter(Boolean))] as string[];
+      const names = new Map<string, string>();
+      if (customerIds.length > 0) {
+        const { data: custs, error: custErr } = await supabase
+          .from('customers').select('id, name').in('id', customerIds);
+        if (custErr) throw custErr;
+        for (const c of custs ?? []) names.set(c.id as string, (c.name as string) || '');
+      }
+
+      if (req !== undatedReq.current) return;
+      setUndatedRows((vehs ?? []).map(v => ({
+        id: v.id as string,
+        label: ((v.label as string) || '').trim() || 'Unnamed vehicle',
+        plate: ((v.plate as string) || '').trim(),
+        status: (v.status as string) || '',
+        customerName: v.customer_id ? (names.get(v.customer_id as string) || 'Unknown customer') : 'No customer',
+      })));
+    } catch (e) {
+      if (req !== undatedReq.current) return;
+      setUndatedRows([]);
+      setUndatedError(e instanceof Error ? e.message : 'Could not load these vehicles.');
+    } finally {
+      if (req === undatedReq.current) setUndatedLoading(false);
+    }
+  }
 
   /**
    * Cars received in the chosen month (the whole year when "All months"), for
@@ -1734,17 +1790,82 @@ export function ReportsView() {
                   color: intakeUndated ? '#cc0000' : 'var(--muted)',
                   sub: 'Vehicles with no Date received, all time. Not counted above.',
                 },
-              ].map(c => (
-                <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
-                  {c.sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>}
-                </div>
-              ))}
+              ].map(c => {
+                // Only the "No Date Recorded" card opens anything, and only when there is something to list.
+                const opensList = c.label === 'No Date Recorded' && !!intakeUndated;
+                const toggle = () => setShowUndated(s => !s);
+                return (
+                  <div
+                    key={c.label}
+                    className="card card-hero"
+                    style={{ padding: 18, cursor: opensList ? 'pointer' : undefined, outline: opensList && showUndated ? '2px solid var(--accent)' : undefined }}
+                    {...(opensList ? {
+                      role: 'button', tabIndex: 0, 'aria-expanded': showUndated,
+                      onClick: toggle,
+                      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } },
+                    } : {})}
+                  >
+                    <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
+                    {c.sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>}
+                    {opensList && (
+                      <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 700, marginTop: 6 }}>
+                        {showUndated ? '▲ Hide the list' : '▼ Show these vehicles'}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {intakeError && (
               <div className="card" style={{ padding: 14, marginBottom: 16, color: '#cc0000' }}>⚠ {intakeError}</div>
+            )}
+
+            {showUndated && !!intakeUndated && (
+              <>
+                <Panel title={`Vehicles With No Date Received (${intakeUndated})`}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+                    To fix one: open <strong>Vehicles</strong>, find the car, choose <strong>Edit</strong>, and set <strong>Date received</strong>. It then appears in that month&apos;s intake.
+                  </div>
+                  {undatedError ? (
+                    <div style={{ color: '#cc0000', fontSize: 13 }}>⚠ {undatedError}</div>
+                  ) : undatedLoading ? (
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '8px 10px' }}>Vehicle</th>
+                            <th style={{ padding: '8px 10px' }}>Customer</th>
+                            <th style={{ padding: '8px 10px' }}>Plate</th>
+                            <th style={{ padding: '8px 10px' }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {undatedRows.map(r => (
+                            <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                              <td style={{ padding: '8px 10px', fontWeight: 600 }}>{r.label}</td>
+                              <td style={{ padding: '8px 10px' }}>{r.customerName}</td>
+                              <td style={{ padding: '8px 10px' }}>{r.plate || '—'}</td>
+                              <td style={{ padding: '8px 10px' }}>
+                                <span style={{ color: STATUS_COLOR(r.status), fontWeight: 600 }}>{r.status || '—'}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {intakeUndated > UNDATED_LIST_LIMIT && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>
+                          Showing the first {UNDATED_LIST_LIMIT} of {intakeUndated}, A to Z by vehicle.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Panel>
+                <div style={{ height: 16 }} />
+              </>
             )}
 
             <Panel title={filterMonth > 0 ? 'Intake by Day' : 'Intake by Month'}>
