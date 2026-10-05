@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
 import { useShop } from '@/lib/useShop';
 import type { Customer } from '@/lib/types';
-import { fetchVehicles, saveVehicle, type VehicleRecord } from '@/services/vehicleService';
+import { fetchVehicles, saveVehicle, markVehicleReceived, type VehicleRecord } from '@/services/vehicleService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
 import { fetchShopSettings, SHOP_PRICING_DEFAULTS } from '@/services/shopSettingsService';
 import type { AppointmentRecord } from '@/services/appointmentService';
@@ -251,6 +251,10 @@ export function IntakePanel(props: IntakePanelProps) {
         setStep('active');
         return;
       }
+      // The car is here: record the arrival date on the vehicle so the Vehicle
+      // Intake report counts it in the right month. Non-blocking by design.
+      try { await markVehicleReceived(vehicle!.id, arrivedAt.slice(0, 10)); } catch { /* non-blocking */ }
+
       setCreated({ jobCardId: result.jobCardId, roNumber: result.roNumber, needsTechnician: result.needsTechnician });
       setWarnings(result.warnings);
       setStep('created');
