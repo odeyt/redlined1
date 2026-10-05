@@ -506,6 +506,9 @@ export function ReportsView() {
   const [intakeRows, setIntakeRows] = useState<IntakeVehicle[]>([]);
   const [intakeLoading, setIntakeLoading] = useState(false);
   const [intakeError, setIntakeError] = useState('');
+  // Vehicles with no "Date received" cannot be placed in any month, so they are
+  // counted separately (all-time, this shop). null = not loaded / count failed.
+  const [intakeUndated, setIntakeUndated] = useState<number | null>(null);
   const intakeReq = useRef(0); // only the latest request may update the screen
 
   useEffect(() => {
@@ -564,7 +567,20 @@ export function ReportsView() {
         dateReceived: (v.date_received as string | null) ?? null,
         customerName: v.customer_id ? (names.get(v.customer_id as string) || 'Unknown customer') : 'No customer',
       }));
+      // How many of this shop's vehicles have no received date. Non-fatal: if
+      // this count fails the report still shows, with "—" for this card.
+      let undated: number | null = null;
+      try {
+        const { count, error: undatedErr } = await supabase
+          .from('vehicles')
+          .select('id', { count: 'exact', head: true })
+          .eq('shop_id', sid)
+          .is('date_received', null);
+        if (!undatedErr && typeof count === 'number') undated = count;
+      } catch { /* leave null */ }
+
       if (req !== intakeReq.current) return;
+      setIntakeUndated(undated);
       setIntakeRows(inIntakeRange(rows, range) as IntakeVehicle[]);
     } catch (e) {
       if (req !== intakeReq.current) return;
@@ -1707,15 +1723,22 @@ export function ReportsView() {
               <button className="btn btn-primary" onClick={exportIntakeReport} disabled={intakeRows.length === 0}>⬇ Export CSV</button>
             </div>
 
-            <div className="grid cols-3" style={{ marginBottom: 16 }}>
+            <div className="grid cols-4" style={{ marginBottom: 16 }}>
               {[
-                { label: 'Cars Received', value: String(intakeRows.length), color: 'var(--text)' },
-                { label: 'Customers', value: String(customerCount), color: '#2196f3' },
-                { label: filterMonth > 0 ? 'Busiest Day' : 'Busiest Month', value: busiest ? `${busiest.label} (${busiest.count})` : '—', color: '#ff9800' },
+                { label: 'Cars Received', value: String(intakeRows.length), color: 'var(--text)', sub: '' },
+                { label: 'Customers', value: String(customerCount), color: '#2196f3', sub: '' },
+                { label: filterMonth > 0 ? 'Busiest Day' : 'Busiest Month', value: busiest ? `${busiest.label} (${busiest.count})` : '—', color: '#ff9800', sub: '' },
+                {
+                  label: 'No Date Recorded',
+                  value: intakeUndated === null ? '—' : String(intakeUndated),
+                  color: intakeUndated ? '#cc0000' : 'var(--muted)',
+                  sub: 'Vehicles with no Date received, all time. Not counted above.',
+                },
               ].map(c => (
                 <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                   <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: c.color, marginTop: 6 }}>{intakeLoading ? '…' : c.value}</div>
+                  {c.sub && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{c.sub}</div>}
                 </div>
               ))}
             </div>
