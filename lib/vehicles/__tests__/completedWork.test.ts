@@ -1,5 +1,5 @@
 import {
-  mergeCompletedJobs, completedBetween, jobsByVehicle, vehicleKeys, latestCompletion, normKey,
+  mergeCompletedJobs, completedBetween, jobsByVehicle, vehicleKeys, latestCompletion, normKey, unlinkedJobs, describeUnlinked, effectiveStatus,
   isFinishedRoStatus, isFinishedJobStatus, type RoRow, type JobRow,
 } from '../completedWork';
 
@@ -154,5 +154,78 @@ describe('latestCompletion and normKey', () => {
   it('normalises text', () => {
     expect(normKey('Honda Accord #8979')).toBe('hondaaccord8979');
     expect(normKey(null)).toBe('');
+  });
+});
+
+describe('year make model matching', () => {
+  const vehicles = [{ id: 'v1', label: 'BMW X6 #8989', plate: '#8989', year: '2012', make: 'BMW', model: 'X6' }];
+  const jobsFor = (vehicle: string) =>
+    mergeCompletedJobs([ro({ id: vehicle, job_card_id: `JC-${vehicle}`, vehicle })], [], []);
+
+  it('links a job that names the car as year make model', () => {
+    expect(jobsByVehicle(vehicles, jobsFor('2012 BMW X6')).get('v1')).toHaveLength(1);
+  });
+
+  it('links year make model plus plate', () => {
+    expect(jobsByVehicle(vehicles, jobsFor('2012 BMW X6 #8989')).get('v1')).toHaveLength(1);
+  });
+});
+
+describe('unlinkedJobs', () => {
+  const vehicles = [
+    { id: 'a', label: 'Ford Ranger', plate: '1111' },
+    { id: 'b', label: 'Ford Ranger', plate: '2222' },
+    { id: 'c', label: 'Toyota Lexus', plate: '#4151' },
+  ];
+  const jobsFor = (...vs: string[]) =>
+    mergeCompletedJobs(vs.map((vehicle, i) => ro({ id: `r${i}`, job_card_id: `JC-${i}`, vehicle })), [], []);
+
+  it('is empty when every job links to one vehicle', () => {
+    expect(unlinkedJobs(vehicles, jobsFor('Toyota Lexus', '1111'))).toEqual([]);
+  });
+
+  it('reports a job that names no known vehicle', () => {
+    const out = unlinkedJobs(vehicles, jobsFor('Mystery Car'));
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ reason: 'no_vehicle', matches: 0 });
+    expect(describeUnlinked(out[0])).toMatch(/No vehicle record/);
+  });
+
+  it('reports a job whose name two vehicles share', () => {
+    const out = unlinkedJobs(vehicles, jobsFor('Ford Ranger'));
+    expect(out[0]).toMatchObject({ reason: 'ambiguous', matches: 2 });
+    expect(describeUnlinked(out[0])).toMatch(/2 vehicles share/);
+  });
+
+  it('reports a job with no vehicle text at all', () => {
+    const out = unlinkedJobs(vehicles, jobsFor(''));
+    expect(out[0]).toMatchObject({ reason: 'no_vehicle_text' });
+  });
+
+  it('is exactly the jobs that jobsByVehicle did not attach', () => {
+    const jobs = jobsFor('Toyota Lexus', 'Ford Ranger', 'Mystery Car', '2222');
+    const linked = [...jobsByVehicle(vehicles, jobs).values()].reduce((n, js) => n + js.length, 0);
+    expect(unlinkedJobs(vehicles, jobs)).toHaveLength(jobs.length - linked);
+  });
+});
+
+describe('effectiveStatus', () => {
+  it('shows a vehicle with a job completed in the month as Completed, whatever its own flag says', () => {
+    expect(effectiveStatus('In Progress', true, true)).toBe('Completed');
+    expect(effectiveStatus('Active', true, true)).toBe('Completed');
+    expect(effectiveStatus('No open jobs', true, true)).toBe('Completed');
+  });
+
+  it('leaves Archived archived', () => {
+    expect(effectiveStatus('Archived', true, true)).toBe('Archived');
+  });
+
+  it('changes nothing when no month is chosen', () => {
+    expect(effectiveStatus('In Progress', false, true)).toBe('In Progress');
+  });
+
+  it('changes nothing for a vehicle with no completed job that month', () => {
+    expect(effectiveStatus('Completed', true, false)).toBe('Completed');
+    expect(effectiveStatus('Pending Parts', true, false)).toBe('Pending Parts');
   });
 });

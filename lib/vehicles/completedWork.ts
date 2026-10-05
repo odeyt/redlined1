@@ -140,25 +140,30 @@ export interface VehicleIdentity {
   label?: string | null;
   plate?: string | null;
   vin?: string | null;
+  year?: string | null;
+  make?: string | null;
+  model?: string | null;
 }
 
 /**
- * Every text a job might use for this vehicle: its label, plate or VIN, and the
- * "label #plate" shape the intake screens produce.
+ * Every text a job might use for this vehicle: its label, plate or VIN, the
+ * "year make model" shown in Vehicle Management, and the "label #plate" shapes
+ * the intake screens produce.
  */
 export function vehicleKeys(v: VehicleIdentity): string[] {
   const label = normKey(v.label);
   const plate = normKey(v.plate);
   const vin = normKey(v.vin);
-  return [...new Set([label, plate, vin, label && plate ? label + plate : '', label && plate ? plate + label : ''])]
-    .filter(k => k.length >= 3);
+  const ymm = normKey([v.year, v.make, v.model].filter(Boolean).join(' '));
+  return [...new Set([
+    label, plate, vin, ymm,
+    label && plate ? label + plate : '', label && plate ? plate + label : '',
+    ymm && plate ? ymm + plate : '', ymm && plate ? plate + ymm : '',
+  ])].filter(k => k.length >= 3);
 }
 
-/**
- * Completed jobs per vehicle id. A job attaches to a vehicle only when its
- * vehicle text equals a key that belongs to exactly ONE vehicle.
- */
-export function jobsByVehicle(vehicles: VehicleIdentity[], jobs: CompletedJob[]): Map<string, CompletedJob[]> {
+/** Which vehicle ids each key identifies. A key held by more than one vehicle is ambiguous. */
+function ownersByKey(vehicles: VehicleIdentity[]): Map<string, Set<string>> {
   const owners = new Map<string, Set<string>>();
   for (const v of vehicles) {
     for (const k of vehicleKeys(v)) {
@@ -166,11 +171,18 @@ export function jobsByVehicle(vehicles: VehicleIdentity[], jobs: CompletedJob[])
       owners.get(k)!.add(v.id);
     }
   }
+  return owners;
+}
 
+/**
+ * Completed jobs per vehicle id. A job attaches to a vehicle only when its
+ * vehicle text equals a key that belongs to exactly ONE vehicle.
+ */
+export function jobsByVehicle(vehicles: VehicleIdentity[], jobs: CompletedJob[]): Map<string, CompletedJob[]> {
+  const owners = ownersByKey(vehicles);
   const out = new Map<string, CompletedJob[]>();
   for (const job of jobs) {
-    const k = normKey(job.vehicle);
-    const ids = owners.get(k);
+    const ids = owners.get(normKey(job.vehicle));
     if (!ids || ids.size !== 1) continue; // unknown or ambiguous: skip, never guess
     const id = [...ids][0];
     if (!out.has(id)) out.set(id, []);
@@ -179,8 +191,52 @@ export function jobsByVehicle(vehicles: VehicleIdentity[], jobs: CompletedJob[])
   return out;
 }
 
+export type UnlinkedReason = 'no_vehicle_text' | 'no_vehicle' | 'ambiguous';
+
+export interface UnlinkedJob {
+  job: CompletedJob;
+  reason: UnlinkedReason;
+  /** How many vehicles share the job's vehicle text (ambiguous only). */
+  matches: number;
+}
+
+/**
+ * The completed jobs that could not be attached to one vehicle, and why. They
+ * still happened and still count; the screen lists them instead of hiding them.
+ */
+export function unlinkedJobs(vehicles: VehicleIdentity[], jobs: CompletedJob[]): UnlinkedJob[] {
+  const owners = ownersByKey(vehicles);
+  const out: UnlinkedJob[] = [];
+  for (const job of jobs) {
+    const key = normKey(job.vehicle);
+    if (!key) { out.push({ job, reason: 'no_vehicle_text', matches: 0 }); continue; }
+    const ids = owners.get(key);
+    if (ids && ids.size === 1) continue; // linked
+    out.push({ job, reason: ids && ids.size > 1 ? 'ambiguous' : 'no_vehicle', matches: ids?.size ?? 0 });
+  }
+  return out;
+}
+
+/** One line a person can act on. */
+export function describeUnlinked(u: UnlinkedJob): string {
+  if (u.reason === 'no_vehicle_text') return 'The job names no vehicle.';
+  if (u.reason === 'ambiguous') return `${u.matches} vehicles share this name, so it cannot be told which one.`;
+  return 'No vehicle record has this name, plate or VIN.';
+}
+
 /** The most recent completion in a list, or null. */
 export function latestCompletion(jobs: CompletedJob[] | undefined): CompletedJob | null {
   if (!jobs || jobs.length === 0) return null;
   return jobs.reduce((best, j) => (Date.parse(j.closedAt) > Date.parse(best.closedAt) ? j : best));
+}
+
+/**
+ * The status a vehicle is shown and counted under in a "completed in <month>"
+ * search. A vehicle with a job completed that month is Completed for that search
+ * even if its own flag has since moved on (a car back in the shop reads In
+ * Progress); otherwise the chips contradict the results. Archived stays
+ * Archived, and with no month chosen nothing changes.
+ */
+export function effectiveStatus(status: string, monthSelected: boolean, hasCompletedJobInMonth: boolean): string {
+  return monthSelected && status !== 'Archived' && hasCompletedJobInMonth ? 'Completed' : status;
 }

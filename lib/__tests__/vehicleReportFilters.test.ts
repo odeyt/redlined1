@@ -114,7 +114,10 @@ describe('completion month filters on when work finished', () => {
 describe('the counts agree with the rows', () => {
   it('chips count the same scoped set the list draws from', () => {
     expect(view).toMatch(/counts: Record<string, number> = \{ All: scoped\.filter/);
-    expect(view).toMatch(/scoped\.forEach\(v => \{ counts\[v\.status\]/);
+    // Counted under the status shown in the list (statusOf -> effectiveStatus,
+    // tested in lib/vehicles/__tests__/completedWork.test.ts), so a chip never
+    // disagrees with the rows it filters.
+    expect(view).toMatch(/scoped\.forEach\(v => \{ const s = statusOf\(v\); counts\[s\]/);
     expect(view).not.toMatch(/vehicles\.forEach\(v => \{ counts\[v\.status\]/);
   });
 });

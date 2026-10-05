@@ -26,7 +26,7 @@ import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
 import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
 import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMonth';
-import { jobsByVehicle, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
+import { jobsByVehicle, unlinkedJobs, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -1991,10 +1991,25 @@ export function VehiclesView() {
    * not change a vehicle's own status, so relying on that flag alone returned
    * one car for a month in which many jobs were finished.
    */
-  const completedJobsByVehicle = jobsByVehicle(vehicles, monthJobs ?? []);
-  const unmatchedJobCount = monthJobs
-    ? monthJobs.length - [...completedJobsByVehicle.values()].reduce((n, js) => n + js.length, 0)
-    : 0;
+  // Match against the vehicles in the chosen location only, so a name used in the
+  // other location does not make a job look ambiguous here.
+  const jobVehicles = shopFilter ? vehicles.filter(v => v.shopId === shopFilter) : vehicles;
+  const completedJobsByVehicle = jobsByVehicle(jobVehicles, monthJobs ?? []);
+  // The month's completed jobs no single vehicle could be attached to. They are
+  // listed under the table rather than hidden, and still count in Reports.
+  const unlinked = monthJobs ? unlinkedJobs(jobVehicles, monthJobs) : [];
+  const unmatchedJobCount = unlinked.length;
+
+  /**
+   * The status a vehicle is shown and counted under. In a "completed in <month>"
+   * search, a vehicle with a job completed that month is Completed for the
+   * purposes of that search, even if its own flag has since moved on (a car back
+   * in the shop shows In Progress). Without this the chips contradicted the
+   * search: "Completed in September" showed In Progress 1 and Active 1.
+   * Archived stays Archived. Its own current status is still shown beside it.
+   */
+  const statusOf = (v: VehicleRecord): string =>
+    effectiveStatus(v.status, monthFilter > 0, completedJobsByVehicle.has(v.id));
 
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
@@ -2027,7 +2042,7 @@ export function VehiclesView() {
   const filtered = scoped.filter(v => {
     // Archived vehicles hidden from "All" — must use Archived filter to see them
     if (statusFilter === 'All' && v.status === 'Archived') return false;
-    const matchStatus = statusFilter === 'All' || v.status === statusFilter;
+    const matchStatus = statusFilter === 'All' || statusOf(v) === statusFilter;
     if (customerFilter && v.customerId !== customerFilter) return false;
     const q = search.toLowerCase();
     const custName = custNameMap[v.customerId] ?? '';
@@ -2038,7 +2053,7 @@ export function VehiclesView() {
   // Counts follow the same scope as the list. Chips that disagreed with the
   // rows beneath them are what made the numbers untrustworthy in the first place.
   const counts: Record<string, number> = { All: scoped.filter(v => v.status !== 'Archived').length };
-  scoped.forEach(v => { counts[v.status] = (counts[v.status] ?? 0) + 1; });
+  scoped.forEach(v => { const s = statusOf(v); counts[s] = (counts[s] ?? 0) + 1; });
 
   // Dated by arrival only when nothing better exists: no completion stamp AND no
   // completed job found for it this month.
@@ -2684,7 +2699,12 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px', fontWeight: 600 }}>{v.plate || '—'}</td>
                   <td style={{ padding: '10px 12px', color: 'var(--muted)', fontSize: 12 }}>{v.fuelType || '—'}</td>
                   <td style={{ padding: '10px 12px' }}>
-                    <StatusPill status={v.status} />
+                    <StatusPill status={statusOf(v)} />
+                    {statusOf(v) !== v.status && (
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }} title="Its own status in Vehicle Management right now; the job was completed in the selected month">
+                        now: {v.status || 'No open jobs'}
+                      </div>
+                    )}
                     {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={v.recommendation}>
                         📝 {v.recommendation}
@@ -2731,6 +2751,46 @@ export function VehiclesView() {
       )}
       {viewMode === 'list' && filtered.length === 0 && !loading && (
         <p style={{ color: 'var(--muted)', padding: 20, textAlign: 'center' }}>No vehicles match your filters.</p>
+      )}
+
+      {/* Jobs completed in the selected month that no single vehicle record could be
+          attached to. Listed, not hidden: they happened and they are in Reports. */}
+      {(viewMode === 'list' || viewMode === 'service') && monthFilter > 0 && unlinked.length > 0 && (
+        <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', background: 'rgba(245,158,11,0.08)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
+              ⚠ {unlinked.length} completed {unlinked.length === 1 ? 'job' : 'jobs'} not linked to a vehicle
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              Completed in {['January','February','March','April','May','June','July','August','September','October','November','December'][monthFilter - 1]} {yearFilter}, but the vehicle name on the job matches no single vehicle record. To link one, make the vehicle&apos;s name or plate in Vehicle Management match what the job says.
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {['Completed', 'Job', 'Customer', 'Vehicle on the job', 'Technician', 'Why not linked'].map(h => (
+                    <th key={h} style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {unlinked.map(u => (
+                  <tr key={u.job.key} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      {new Date(u.job.closedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{u.job.roNumber || u.job.jobCardId || '—'}</td>
+                    <td style={{ padding: '9px 12px' }}>{u.job.customerName || '—'}</td>
+                    <td style={{ padding: '9px 12px', fontWeight: 600 }}>{u.job.vehicle || '—'}</td>
+                    <td style={{ padding: '9px 12px' }}>{u.job.technician || '—'}</td>
+                    <td style={{ padding: '9px 12px', color: 'var(--muted)', fontSize: 12 }}>{describeUnlinked(u)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* ══════════════════════════════════════════════════ */}
