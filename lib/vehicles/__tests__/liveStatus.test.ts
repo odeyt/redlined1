@@ -1,5 +1,5 @@
 import {
-  toOpenJobs, liveStatus, chipForOpenRo, isOpenRoStatus, openJobsByVehicle,
+  toOpenJobs, liveStatus, chipForOpenRo, isOpenRoStatus, openJobsByVehicle, kanbanMoveCheck,
   type OpenJob, type OpenRoRow,
 } from '../liveStatus';
 import { unlinkedByVehicle } from '../completedWork';
@@ -108,5 +108,42 @@ describe('openJobsByVehicle', () => {
   it('reports the open jobs it could not link, with the reason', () => {
     const un = unlinkedByVehicle(vehicles, jobs);
     expect(un.map(u => [u.item.key, u.reason])).toEqual([['JC-B', 'ambiguous'], ['JC-C', 'no_vehicle']]);
+  });
+});
+
+describe('kanbanMoveCheck', () => {
+  it('lets a car with an open repair order be archived or marked returned, nothing else', () => {
+    expect(kanbanMoveCheck('Archived', true).allowed).toBe(true);
+    expect(kanbanMoveCheck('Returned Job', true).allowed).toBe(true);
+  });
+
+  it('refuses to move a car with an open repair order between the in-shop columns', () => {
+    for (const t of ['In Progress', 'Pending Approval', 'Pending Parts']) {
+      const r = kanbanMoveCheck(t, true);
+      expect(r.allowed).toBe(false);
+      expect(r.reason).toMatch(/follows its open repair order/);
+    }
+  });
+
+  it('refuses to complete or deactivate a car that still has an open repair order', () => {
+    for (const t of ['Completed', 'Active']) {
+      const r = kanbanMoveCheck(t, true);
+      expect(r.allowed).toBe(false);
+      expect(r.reason).toMatch(/open repair order/);
+    }
+  });
+
+  it('refuses to put a car with no open repair order into an in-shop column', () => {
+    for (const t of ['In Progress', 'Pending Approval', 'Pending Parts']) {
+      const r = kanbanMoveCheck(t, false);
+      expect(r.allowed).toBe(false);
+      expect(r.reason).toMatch(/no open repair order/);
+    }
+  });
+
+  it('lets a car with no open repair order be moved to the hand-set columns', () => {
+    for (const t of ['Completed', 'Active', 'Returned Job', 'Archived', 'No open jobs']) {
+      expect(kanbanMoveCheck(t, false).allowed).toBe(true);
+    }
   });
 });

@@ -29,7 +29,7 @@ import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMont
 import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { fetchOpenWork } from '@/services/openWorkService';
-import { liveStatus, openJobsByVehicle, type OpenJob } from '@/lib/vehicles/liveStatus';
+import { liveStatus, openJobsByVehicle, kanbanMoveCheck, type OpenJob } from '@/lib/vehicles/liveStatus';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -1863,7 +1863,14 @@ export function VehiclesView() {
 
   async function handleKanbanMove(vehicleId: string, newStatus: string) {
     const v = vehicles.find(x => x.id === vehicleId);
-    if (!v || v.status === newStatus) return;
+    if (!v || liveStatusOf(v) === newStatus) return;
+    // The in-shop columns follow the open repair orders, and a move only writes the
+    // vehicle's own flag. Refuse a move that would not stick, saying why, rather
+    // than letting the card jump back (lib/vehicles/liveStatus.ts).
+    if (openJobs !== null) {
+      const check = kanbanMoveCheck(newStatus, (openJobsOfVehicle.get(v.id)?.length ?? 0) > 0);
+      if (!check.allowed) { notify(check.reason ?? 'That move is not allowed.'); return; }
+    }
     try {
       await updateVehicle(v.id, {
         customerId: v.customerId, vin: v.vin, label: v.label, trim: v.trim,
@@ -2032,11 +2039,10 @@ export function VehiclesView() {
    * While open repair orders are still loading, or if they failed to load, the
    * flag is used so the board never blanks or wrongly demotes cars.
    */
-  const statusOf = (v: VehicleRecord): string => {
-    if (monthFilter > 0) return effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id));
-    if (openJobs === null) return v.status;
-    return liveStatus(v.status, openJobsOfVehicle.get(v.id));
-  };
+  const liveStatusOf = (v: VehicleRecord): string =>
+    openJobs === null ? v.status : liveStatus(v.status, openJobsOfVehicle.get(v.id));
+  const statusOf = (v: VehicleRecord): string =>
+    monthFilter > 0 ? effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id)) : liveStatusOf(v);
 
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
@@ -2890,7 +2896,8 @@ export function VehiclesView() {
         <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
           <div style={{ display: 'flex', gap: 14, minWidth: 'max-content', alignItems: 'flex-start' }}>
             {KANBAN_COLUMNS.map(col => {
-              const colVehicles = vehicles.filter(v => v.status === col.status || col.extraStatuses.includes(v.status));
+              // Columns follow the live status (open repair orders), the same as the chips.
+              const colVehicles = vehicles.filter(v => { const s = liveStatusOf(v); return s === col.status || col.extraStatuses.includes(s); });
               const isDropTarget = kanbanDragOver === col.status;
               return (
                 <div
@@ -3019,7 +3026,11 @@ export function VehiclesView() {
               );
             })}
           </div>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>Drag cards between columns to change status · or use the "Move to…" dropdown on each card</p>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
+            {openJobs !== null
+              ? "Work In Progress, Pending Customer Approval and Pending Parts follow each car's open repair order, so change the repair order's status to move a car between them. Cars with no open repair order can be dragged to Completed, Active, Returned Job or Archived."
+              : 'Drag cards between columns to change status · or use the "Move to…" dropdown on each card'}
+          </p>
         </div>
       )}
 
