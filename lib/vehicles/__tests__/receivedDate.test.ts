@@ -32,3 +32,34 @@ describe('receivedDateOrToday', () => {
     expect(receivedDateOrToday(value as string | null | undefined, now)).toBe('2026-10-05');
   });
 });
+
+import { receivedInMonth } from '../receivedDate';
+
+describe('receivedInMonth', () => {
+  it('matches the month and year of a plain date', () => {
+    expect(receivedInMonth('2026-09-18', 9, 2026)).toBe(true);
+    expect(receivedInMonth('2026-09-01', 9, 2026)).toBe(true);
+    expect(receivedInMonth('2026-09-30', 9, 2026)).toBe(true);
+  });
+
+  it('does not match the neighbouring months or another year', () => {
+    expect(receivedInMonth('2026-08-31', 9, 2026)).toBe(false);
+    expect(receivedInMonth('2026-10-01', 9, 2026)).toBe(false);
+    expect(receivedInMonth('2025-09-18', 9, 2026)).toBe(false);
+  });
+
+  it('reads a full timestamp by its date part', () => {
+    expect(receivedInMonth('2026-09-18T08:30:00Z', 9, 2026)).toBe(true);
+  });
+
+  it('matches everything when no month is chosen', () => {
+    expect(receivedInMonth('2026-09-18', 0, 2026)).toBe(true);
+    expect(receivedInMonth(null, 0, 2026)).toBe(true);
+  });
+
+  it('matches no month for a missing or malformed date', () => {
+    expect(receivedInMonth(null, 9, 2026)).toBe(false);
+    expect(receivedInMonth('', 9, 2026)).toBe(false);
+    expect(receivedInMonth('garbage', 9, 2026)).toBe(false);
+  });
+});
