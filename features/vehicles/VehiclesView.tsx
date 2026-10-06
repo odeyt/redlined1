@@ -26,8 +26,10 @@ import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
 import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
 import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMonth';
-import { jobsByVehicle, unlinkedJobs, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
+import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
 import { fetchCompletedWork } from '@/services/completedWorkService';
+import { fetchOpenWork } from '@/services/openWorkService';
+import { liveStatus, openJobsByVehicle, type OpenJob } from '@/lib/vehicles/liveStatus';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -1762,6 +1764,11 @@ export function VehiclesView() {
   const [monthJobs, setMonthJobs] = useState<CompletedJob[] | null>(null);
   const [monthJobsError, setMonthJobsError] = useState('');
   const monthJobsReq = useRef(0);
+  // Repair orders that are open right now. In the live view (no month chosen) the
+  // In Progress / Pending Approval / Pending Parts chips follow these, not the
+  // vehicle's hand-set status. null = not loaded or failed (flags are used then).
+  const [openJobs, setOpenJobs] = useState<OpenJob[] | null>(null);
+  const [openJobsError, setOpenJobsError] = useState('');
   const [search, setSearch] = useState('');
   const [customerFilter, setCustomerFilter] = useState(''); // customer ID to filter by
   const [custFilterSearch, setCustFilterSearch] = useState('');
@@ -1801,6 +1808,11 @@ export function VehiclesView() {
     setLoading(true);
     // Fetch technicians independently so a failure there never blocks vehicles/customers
     fetchTechnicians(true).then(setTechnicians).catch(() => {});
+
+    // Independent of vehicles/customers: a failure here must never block them.
+    fetchOpenWork()
+      .then(jobs => { setOpenJobs(jobs); setOpenJobsError(''); })
+      .catch(e => { setOpenJobs(null); setOpenJobsError(e instanceof Error ? e.message : 'Could not load open repair orders.'); });
 
     Promise.all([fetchVehicles(), fetchCustomers()])
       .then(([v, c]) => {
@@ -2008,8 +2020,23 @@ export function VehiclesView() {
    * search: "Completed in September" showed In Progress 1 and Active 1.
    * Archived stays Archived. Its own current status is still shown beside it.
    */
-  const statusOf = (v: VehicleRecord): string =>
-    effectiveStatus(v.status, monthFilter > 0, completedJobsByVehicle.has(v.id));
+  // Open repair orders per vehicle, for the live view.
+  const openJobsOfVehicle = openJobsByVehicle(jobVehicles, openJobs ?? []);
+  // Open repair orders no single vehicle could be attached to: listed, not hidden.
+  const unlinkedOpen = openJobs ? unlinkedByVehicle(jobVehicles, openJobs) : [];
+
+  /**
+   * LIVE view (no month): the in-shop chips follow the open repair orders, since
+   * the vehicle's flag is set by hand and drifts (see lib/vehicles/liveStatus.ts).
+   * MONTH view: a vehicle with a job completed that month is Completed.
+   * While open repair orders are still loading, or if they failed to load, the
+   * flag is used so the board never blanks or wrongly demotes cars.
+   */
+  const statusOf = (v: VehicleRecord): string => {
+    if (monthFilter > 0) return effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id));
+    if (openJobs === null) return v.status;
+    return liveStatus(v.status, openJobsOfVehicle.get(v.id));
+  };
 
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
@@ -2406,6 +2433,28 @@ export function VehiclesView() {
                 ⚠ {completedMissingDate} dated by arrival, not completion
               </span>
             )}
+
+            {/* LIVE view: say what the in-shop chips are based on, so they are trusted. */}
+            {monthFilter === 0 && openJobs !== null && (
+              <span title="In Progress, Pending Approval and Pending Parts follow the repair orders that are open right now, not the status set by hand on each vehicle."
+                style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ✓ Live status from {openJobs.length} open repair {openJobs.length === 1 ? 'order' : 'orders'}
+              </span>
+            )}
+
+            {monthFilter === 0 && openJobsError && (
+              <span title={openJobsError}
+                style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ Could not load open repair orders — chips show each vehicle&apos;s own status
+              </span>
+            )}
+
+            {monthFilter === 0 && unlinkedOpen.length > 0 && (
+              <span title="These repair orders are open but name a vehicle that is not in Vehicle Management, or a name shared by more than one vehicle, so they cannot move a chip. They are listed below the table."
+                style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ {unlinkedOpen.length} open repair {unlinkedOpen.length === 1 ? 'order' : 'orders'} not linked to a vehicle
+              </span>
+            )}
           </div>
 
           <FilterPills statuses={STATUS_FILTERS} active={statusFilter} counts={counts} onChange={v => setStatusFilter(v as typeof statusFilter)} />
@@ -2595,7 +2644,7 @@ export function VehiclesView() {
                 <div style={{ padding: 14 }}>
                   <div className="vehicle-title">
                     <div><strong>{v.label}</strong><span className="meta">{v.trim}</span></div>
-                    <Badge text={v.status || 'No open jobs'} />
+                    <Badge text={statusOf(v) || 'No open jobs'} />
                   </div>
                   <div className="kv" style={{ marginTop: 10 }}>
                     <div><span>VIN</span><strong style={{ fontSize: 11 }}>{v.vin || '—'}</strong></div>
@@ -2641,7 +2690,7 @@ export function VehiclesView() {
                       </div>
                     </td>
                     <td>{v.transmission}</td>
-                    <td><Badge text={v.status || 'No open jobs'} /></td>
+                    <td><Badge text={statusOf(v) || 'No open jobs'} /></td>
                     <td>{v.recommendation}</td>
                     <td>
                       <div className="row-actions">
@@ -2701,8 +2750,11 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px' }}>
                     <StatusPill status={statusOf(v)} />
                     {statusOf(v) !== v.status && (
-                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }} title="Its own status in Vehicle Management right now; the job was completed in the selected month">
-                        now: {v.status || 'No open jobs'}
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}
+                        title={monthFilter > 0
+                          ? 'Its own status in Vehicle Management right now; the job was completed in the selected month'
+                          : 'The status set on the vehicle by hand. The chip above follows its open repair orders instead.'}>
+                        {monthFilter > 0 ? 'now' : 'flag'}: {v.status || 'No open jobs'}
                       </div>
                     )}
                     {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
@@ -2784,6 +2836,44 @@ export function VehiclesView() {
                     <td style={{ padding: '9px 12px' }}>{u.job.customerName || '—'}</td>
                     <td style={{ padding: '9px 12px', fontWeight: 600 }}>{u.job.vehicle || '—'}</td>
                     <td style={{ padding: '9px 12px' }}>{u.job.technician || '—'}</td>
+                    <td style={{ padding: '9px 12px', color: 'var(--muted)', fontSize: 12 }}>{describeUnlinked(u)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Open repair orders no single vehicle record could be attached to (live view).
+          Listed, not hidden: the work is open even though no chip can reflect it. */}
+      {(viewMode === 'list' || viewMode === 'service') && monthFilter === 0 && unlinkedOpen.length > 0 && (
+        <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', background: 'rgba(245,158,11,0.08)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
+              ⚠ {unlinkedOpen.length} open repair {unlinkedOpen.length === 1 ? 'order' : 'orders'} not linked to a vehicle
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              These are open, but the vehicle name on the repair order matches no single vehicle record, so no chip above counts them. To link one, make the vehicle&apos;s name or plate in Vehicle Management match what the repair order says.
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {['Repair order', 'Status', 'Customer', 'Vehicle on the repair order', 'Technician', 'Why not linked'].map(h => (
+                    <th key={h} style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {unlinkedOpen.map(u => (
+                  <tr key={u.item.key} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{u.item.roNumber || u.item.jobCardId || '—'}</td>
+                    <td style={{ padding: '9px 12px' }}><StatusPill status={u.item.status === 'Open' ? 'In Progress' : u.item.status} /></td>
+                    <td style={{ padding: '9px 12px' }}>{u.item.customerName || '—'}</td>
+                    <td style={{ padding: '9px 12px', fontWeight: 600 }}>{u.item.vehicle || '—'}</td>
+                    <td style={{ padding: '9px 12px' }}>{u.item.technician || '—'}</td>
                     <td style={{ padding: '9px 12px', color: 'var(--muted)', fontSize: 12 }}>{describeUnlinked(u)}</td>
                   </tr>
                 ))}
