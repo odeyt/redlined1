@@ -30,7 +30,9 @@ import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effec
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { fetchOpenWork } from '@/services/openWorkService';
 import { liveStatus, openJobsByVehicle, kanbanMoveCheck, type OpenJob } from '@/lib/vehicles/liveStatus';
-import { receivedInMonth, todayIsoDate } from '@/lib/vehicles/receivedDate';
+import {
+  buildReceivedFilter, matchesReceived, isBackwardsRange, describeReceived, RECEIVED_CUSTOM_RANGE, todayIsoDate,
+} from '@/lib/vehicles/receivedDate';
 import { vehicleListCsv } from '@/lib/vehicles/vehicleListCsv';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
@@ -1765,6 +1767,10 @@ export function VehiclesView() {
   // received in one month and completed in another.
   const [receivedMonth, setReceivedMonth] = useState(0);
   const [receivedYear, setReceivedYear] = useState(new Date().getFullYear());
+  // receivedMonth === -1 means "Custom date range": these two days (inclusive,
+  // YYYY-MM-DD). One may be left empty for "from X onwards" / "up to X".
+  const [receivedFrom, setReceivedFrom] = useState('');
+  const [receivedTo, setReceivedTo] = useState('');
   // Jobs actually completed in the selected month (signed-off repair orders and
   // the closed-job archive). This, not the vehicle's own status flag, decides
   // what "completed in <month>" means. null = not loaded / failed.
@@ -2051,6 +2057,11 @@ export function VehiclesView() {
   const statusOf = (v: VehicleRecord): string =>
     monthFilter > 0 ? effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id)) : liveStatusOf(v);
 
+  // RECEIVED IN: a month, or a custom date range, applied to each vehicle's Date received.
+  const receivedFilter = buildReceivedFilter(receivedMonth, receivedYear, receivedFrom, receivedTo);
+  const receivedActive = receivedFilter.kind !== 'any';
+  const receivedBackwards = isBackwardsRange(receivedFilter);
+
   const scoped = vehicles.filter(v => {
     if (shopFilter && v.shopId !== shopFilter) return false;
     /**
@@ -2078,7 +2089,7 @@ export function VehiclesView() {
     if (monthFilter && !(completedJobsByVehicle.has(v.id) || (isCompleted(v) && inSelectedMonth(v)))) return false;
     // Received in the chosen month (the intake date). A vehicle with no received
     // date is in no month; the screen says how many there are.
-    if (receivedMonth && !receivedInMonth(v.dateReceived, receivedMonth, receivedYear)) return false;
+    if (receivedActive && !matchesReceived(v.dateReceived, receivedFilter)) return false;
     return true;
   });
 
@@ -2134,7 +2145,7 @@ export function VehiclesView() {
     );
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const parts = [
-      receivedMonth > 0 ? `Received-${months[receivedMonth - 1]}-${receivedYear}` : '',
+      receivedActive ? `Received-${describeReceived(receivedFilter).replace(/\s+/g, '-')}` : '',
       monthFilter > 0 ? `Completed-${months[monthFilter - 1]}-${yearFilter}` : '',
     ].filter(Boolean).join('_') || 'All';
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -2428,15 +2439,30 @@ export function VehiclesView() {
               RECEIVED IN
               <select value={receivedMonth} onChange={e => setReceivedMonth(Number(e.target.value))}
                 style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
-                <option value={0}>Any month</option>
+                <option value={0}>Any date</option>
                 {['January','February','March','April','May','June','July','August','September','October','November','December']
                   .map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                <option value={RECEIVED_CUSTOM_RANGE}>Custom date range…</option>
               </select>
-              <select value={receivedYear} onChange={e => setReceivedYear(Number(e.target.value))} disabled={!receivedMonth}
-                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: receivedMonth ? 1 : 0.5 }}>
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-                  .map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              {receivedMonth !== RECEIVED_CUSTOM_RANGE && (
+                <select value={receivedYear} onChange={e => setReceivedYear(Number(e.target.value))} disabled={!receivedMonth}
+                  style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: receivedMonth ? 1 : 0.5 }}>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+                    .map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              )}
+              {receivedMonth === RECEIVED_CUSTOM_RANGE && (
+                <>
+                  <span style={{ fontWeight: 600 }}>from</span>
+                  <input type="date" value={receivedFrom} max={receivedTo || undefined} onChange={e => setReceivedFrom(e.target.value)}
+                    aria-label="Received from"
+                    style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }} />
+                  <span style={{ fontWeight: 600 }}>to</span>
+                  <input type="date" value={receivedTo} min={receivedFrom || undefined} onChange={e => setReceivedTo(e.target.value)}
+                    aria-label="Received to"
+                    style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }} />
+                </>
+              )}
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
@@ -2454,15 +2480,15 @@ export function VehiclesView() {
               </select>
             </label>
 
-            {(shopFilter || monthFilter || receivedMonth) && (
-              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); setReceivedMonth(0); }}
+            {(shopFilter || monthFilter || receivedMonth !== 0) && (
+              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); setReceivedMonth(0); setReceivedFrom(''); setReceivedTo(''); }}
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
                 ✕ Clear filters
               </button>
             )}
 
             {/* The intake search, as a report. Exports exactly the rows on screen. */}
-            {(receivedMonth > 0 || monthFilter > 0) && (
+            {(receivedActive || monthFilter > 0) && (
               <button className="btn" onClick={exportVehiclesCsv} disabled={filtered.length === 0}
                 title="Download the vehicles shown below as a CSV (no VINs)"
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
@@ -2470,14 +2496,24 @@ export function VehiclesView() {
               </button>
             )}
 
-            {receivedMonth > 0 && (
-              <span title="Vehicles whose Date received is in this month. A car that comes in again takes the new arrival date. For every visit, use Reports → Vehicle Intake."
+            {receivedActive && !receivedBackwards && (
+              <span title="Vehicles whose Date received falls in this period (both end days included). A car that comes in again takes the new arrival date. For every visit, use Reports → Vehicle Intake."
                 style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.35)', borderRadius: 6, padding: '5px 9px' }}>
-                📥 {scoped.length} {scoped.length === 1 ? 'vehicle' : 'vehicles'} received in {['January','February','March','April','May','June','July','August','September','October','November','December'][receivedMonth - 1]} {receivedYear}
+                📥 {scoped.length} {scoped.length === 1 ? 'vehicle' : 'vehicles'} received {receivedFilter.kind === 'range' ? '' : 'in '}{describeReceived(receivedFilter)}
               </span>
             )}
 
-            {receivedMonth > 0 && noReceivedDateCount > 0 && (
+            {receivedBackwards && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ The &quot;from&quot; date is after the &quot;to&quot; date, so nothing can match. Swap them.
+              </span>
+            )}
+
+            {receivedMonth === RECEIVED_CUSTOM_RANGE && !receivedActive && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Pick a from date, a to date, or both.</span>
+            )}
+
+            {receivedActive && noReceivedDateCount > 0 && (
               <span title="These vehicles have no Date received, so no month can include them. Open one and set Date received."
                 style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ {noReceivedDateCount} {noReceivedDateCount === 1 ? 'vehicle has' : 'vehicles have'} no received date
