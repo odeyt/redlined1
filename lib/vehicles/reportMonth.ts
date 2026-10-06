@@ -56,3 +56,21 @@ export function matchesReportMonth(
   if (Number.isNaN(d.getTime())) return false;
   return d.getFullYear() === year && d.getMonth() + 1 === month;
 }
+
+/**
+ * Whether this vehicle belongs in the report for a period (a month or a custom
+ * date range, see completedPeriod.ts). Same rule as matchesReportMonth: only a
+ * completed vehicle has a report date, and an unparseable date drops out.
+ * No period (null) means no restriction.
+ */
+export function matchesReportPeriod(
+  v: ReportableVehicle,
+  period: { startIso: string; endIso: string } | null,
+): boolean {
+  if (!period) return true;
+  const raw = reportDate(v);
+  if (!raw) return false;
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) return false;
+  return t >= Date.parse(period.startIso) && t < Date.parse(period.endIso);
+}

@@ -25,7 +25,10 @@ import { CameraCapture } from '@/components/camera/CameraCapture';
 import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { VehicleQualityPanel } from '@/features/vehicles/VehicleQualityPanel';
 import { applyEnrichedFieldsToForm, type AppliedField } from '@/lib/vehicles/enrichmentSync';
-import { isCompletedStatus, matchesReportMonth } from '@/lib/vehicles/reportMonth';
+import { isCompletedStatus, matchesReportPeriod } from '@/lib/vehicles/reportMonth';
+import {
+  buildCompletedFilter, completedPeriod, describeCompleted, isBackwardsCompletedRange, COMPLETED_CUSTOM_RANGE,
+} from '@/lib/vehicles/completedPeriod';
 import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { fetchOpenWork } from '@/services/openWorkService';
@@ -1760,8 +1763,17 @@ export function VehiclesView() {
   // Both locations are mirrored into one list, so a report over "the shop"
   // silently meant "both shops". '' = all locations, preserving the old default.
   const [shopFilter, setShopFilter] = useState('');
-  const [monthFilter, setMonthFilter] = useState(0); // 0 = every month
+  const [monthFilter, setMonthFilter] = useState(0); // 0 = every month, 1-12 = that month, -1 = custom date range
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+  // monthFilter === -1: these two days, both included in full (YYYY-MM-DD). Either
+  // may be left empty for "from X onwards" / "up to X".
+  const [completedFrom, setCompletedFrom] = useState('');
+  const [completedTo, setCompletedTo] = useState('');
+  // COMPLETED IN, as a filter: a month, a custom range, or none. `completedActive`
+  // is what the rest of the screen asks ("is a completed-in search on?").
+  const completedFilter = buildCompletedFilter(monthFilter, yearFilter, completedFrom, completedTo);
+  const completedActive = completedFilter.kind !== 'any';
+  const completedBackwards = isBackwardsCompletedRange(completedFilter);
   // RECEIVED IN: vehicles by the date they were taken in (their Date received).
   // 0 = any month. Independent of COMPLETED IN; set both to narrow to cars
   // received in one month and completed in another.
@@ -1790,22 +1802,21 @@ export function VehiclesView() {
   const [kanbanDragOver, setKanbanDragOver] = useState<string | null>(null);
 
   useEffect(() => {
-    // No month chosen: nothing to look up, and the live list is unaffected.
-    if (!monthFilter) { setMonthJobs(null); setMonthJobsError(''); return; }
+    // No month or range chosen: nothing to look up, and the live list is unaffected.
+    const period = completedPeriod(buildCompletedFilter(monthFilter, yearFilter, completedFrom, completedTo));
+    if (!period) { setMonthJobs(null); setMonthJobsError(''); return; }
     if (!currentShop?.id) return;
     const req = ++monthJobsReq.current;
     setMonthJobs(null);
     setMonthJobsError('');
-    const start = new Date(yearFilter, monthFilter - 1, 1).toISOString();
-    const end = new Date(yearFilter, monthFilter, 1).toISOString();
-    fetchCompletedWork(start, end, shopFilter ? [shopFilter] : undefined)
+    fetchCompletedWork(period.startIso, period.endIso, shopFilter ? [shopFilter] : undefined)
       .then(jobs => { if (req === monthJobsReq.current) setMonthJobs(jobs); })
       .catch(e => {
         if (req !== monthJobsReq.current) return;
         setMonthJobs([]);
         setMonthJobsError(e instanceof Error ? e.message : 'Could not load completed jobs.');
       });
-  }, [monthFilter, yearFilter, shopFilter, currentShop?.id]);
+  }, [monthFilter, yearFilter, completedFrom, completedTo, shopFilter, currentShop?.id]);
 
   useEffect(() => {
     fetchShopSettings().then(s => {
@@ -2015,7 +2026,7 @@ export function VehiclesView() {
    */
   const isCompleted = (v: VehicleRecord) => isCompletedStatus(v.status);
   const inSelectedMonth = (v: VehicleRecord) =>
-    matchesReportMonth(v, monthFilter, yearFilter);
+    matchesReportPeriod(v, completedPeriod(completedFilter));
 
   /**
    * Which vehicles had work COMPLETED in the selected month, from the jobs
@@ -2055,7 +2066,7 @@ export function VehiclesView() {
   const liveStatusOf = (v: VehicleRecord): string =>
     openJobs === null ? v.status : liveStatus(v.status, openJobsOfVehicle.get(v.id));
   const statusOf = (v: VehicleRecord): string =>
-    monthFilter > 0 ? effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id)) : liveStatusOf(v);
+    completedActive ? effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id)) : liveStatusOf(v);
 
   // RECEIVED IN: a month, or a custom date range, applied to each vehicle's Date received.
   const receivedFilter = buildReceivedFilter(receivedMonth, receivedYear, receivedFrom, receivedTo);
@@ -2086,7 +2097,7 @@ export function VehiclesView() {
     // Completed in the month if a job for it was completed then (the real
     // record), or, for older work that has no job record, its own status flag
     // and completion date. A vehicle with neither was completed in no month.
-    if (monthFilter && !(completedJobsByVehicle.has(v.id) || (isCompleted(v) && inSelectedMonth(v)))) return false;
+    if (completedActive && !(completedJobsByVehicle.has(v.id) || (isCompleted(v) && inSelectedMonth(v)))) return false;
     // Received in the chosen month (the intake date). A vehicle with no received
     // date is in no month; the screen says how many there are.
     if (receivedActive && !matchesReceived(v.dateReceived, receivedFilter)) return false;
@@ -2141,12 +2152,12 @@ export function VehiclesView() {
           completed: done ? todayIsoDate(new Date(done.iso)) : '',
         };
       }),
-      monthFilter > 0,
+      completedActive,
     );
     const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const parts = [
       receivedActive ? `Received-${describeReceived(receivedFilter).replace(/\s+/g, '-')}` : '',
-      monthFilter > 0 ? `Completed-${months[monthFilter - 1]}-${yearFilter}` : '',
+      completedActive ? `Completed-${describeCompleted(completedFilter).replace(/\s+/g, '-')}` : '',
     ].filter(Boolean).join('_') || 'All';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -2469,26 +2480,41 @@ export function VehiclesView() {
               COMPLETED IN
               <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
                 style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
-                <option value={0}>Any month</option>
+                <option value={0}>Any date</option>
                 {['January','February','March','April','May','June','July','August','September','October','November','December']
                   .map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                <option value={COMPLETED_CUSTOM_RANGE}>Custom date range…</option>
               </select>
-              <select value={yearFilter} onChange={e => setYearFilter(Number(e.target.value))} disabled={!monthFilter}
-                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: monthFilter ? 1 : 0.5 }}>
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
-                  .map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              {monthFilter !== COMPLETED_CUSTOM_RANGE && (
+                <select value={yearFilter} onChange={e => setYearFilter(Number(e.target.value))} disabled={!monthFilter}
+                  style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: monthFilter ? 1 : 0.5 }}>
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+                    .map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              )}
+              {monthFilter === COMPLETED_CUSTOM_RANGE && (
+                <>
+                  <span style={{ fontWeight: 600 }}>from</span>
+                  <input type="date" value={completedFrom} max={completedTo || undefined} onChange={e => setCompletedFrom(e.target.value)}
+                    aria-label="Completed from"
+                    style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }} />
+                  <span style={{ fontWeight: 600 }}>to</span>
+                  <input type="date" value={completedTo} min={completedFrom || undefined} onChange={e => setCompletedTo(e.target.value)}
+                    aria-label="Completed to"
+                    style={{ padding: '6px 8px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }} />
+                </>
+              )}
             </label>
 
-            {(shopFilter || monthFilter || receivedMonth !== 0) && (
-              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); setReceivedMonth(0); setReceivedFrom(''); setReceivedTo(''); }}
+            {(shopFilter || monthFilter !== 0 || receivedMonth !== 0) && (
+              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); setCompletedFrom(''); setCompletedTo(''); setReceivedMonth(0); setReceivedFrom(''); setReceivedTo(''); }}
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
                 ✕ Clear filters
               </button>
             )}
 
             {/* The intake search, as a report. Exports exactly the rows on screen. */}
-            {(receivedActive || monthFilter > 0) && (
+            {(receivedActive || completedActive) && (
               <button className="btn" onClick={exportVehiclesCsv} disabled={filtered.length === 0}
                 title="Download the vehicles shown below as a CSV (no VINs)"
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
@@ -2523,38 +2549,48 @@ export function VehiclesView() {
             {/* Says what the month selection did, so the open-status chips
                 reading zero is understood rather than reported as the next
                 bug. Names the way back in the same breath. */}
-            {monthFilter > 0 && (
+            {completedActive && (
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 6, padding: '5px 9px' }}>
                 Completed work only — clear the month to see live jobs
               </span>
             )}
 
-            {monthFilter > 0 && monthJobs === null && !monthJobsError && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Checking completed jobs…</span>
-            )}
-
-            {monthFilter > 0 && monthJobs !== null && !monthJobsError && (
-              <span title="Counted from signed-off repair orders and the closed-job archive for this month, matched to vehicles by name, plate or VIN."
-                style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 6, padding: '5px 9px' }}>
-                ✓ {monthJobs.length} {monthJobs.length === 1 ? 'job' : 'jobs'} completed this month
+            {completedBackwards && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ The &quot;from&quot; date is after the &quot;to&quot; date, so nothing can match. Swap them.
               </span>
             )}
 
-            {monthFilter > 0 && monthJobsError && (
+            {monthFilter === COMPLETED_CUSTOM_RANGE && !completedActive && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Pick a from date, a to date, or both.</span>
+            )}
+
+            {completedActive && monthJobs === null && !monthJobsError && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Checking completed jobs…</span>
+            )}
+
+            {completedActive && monthJobs !== null && !monthJobsError && (
+              <span title="Counted from signed-off repair orders and the closed-job archive for this month, matched to vehicles by name, plate or VIN."
+                style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                ✓ {monthJobs.length} {monthJobs.length === 1 ? 'job' : 'jobs'} completed in {describeCompleted(completedFilter)}
+              </span>
+            )}
+
+            {completedActive && monthJobsError && (
               <span title={monthJobsError}
                 style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ Could not load completed jobs — showing vehicle status only
               </span>
             )}
 
-            {monthFilter > 0 && unmatchedJobCount > 0 && (
-              <span title="These jobs were completed this month but name a vehicle that is not in Vehicle Management, or a name shared by more than one vehicle, so they cannot be shown here. They are still counted in Reports."
+            {completedActive && unmatchedJobCount > 0 && (
+              <span title="These jobs were completed in this period but name a vehicle that is not in Vehicle Management, or a name shared by more than one vehicle, so they cannot be shown here. They are still counted in Reports."
                 style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ {unmatchedJobCount} completed {unmatchedJobCount === 1 ? 'job' : 'jobs'} not linked to a vehicle
               </span>
             )}
 
-            {monthFilter > 0 && completedMissingDate > 0 && (
+            {completedActive && completedMissingDate > 0 && (
               <span title="These were completed before a completion date was recorded, so they are dated by when the vehicle arrived — which may fall in a different month."
                 style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ {completedMissingDate} dated by arrival, not completion
@@ -2562,21 +2598,21 @@ export function VehiclesView() {
             )}
 
             {/* LIVE view: say what the in-shop chips are based on, so they are trusted. */}
-            {monthFilter === 0 && openJobs !== null && (
+            {!completedActive && openJobs !== null && (
               <span title="In Progress, Pending Approval and Pending Parts follow the repair orders that are open right now, not the status set by hand on each vehicle."
                 style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 6, padding: '5px 9px' }}>
                 ✓ Live status from {openJobs.length} open repair {openJobs.length === 1 ? 'order' : 'orders'}
               </span>
             )}
 
-            {monthFilter === 0 && openJobsError && (
+            {!completedActive && openJobsError && (
               <span title={openJobsError}
                 style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ Could not load open repair orders — chips show each vehicle&apos;s own status
               </span>
             )}
 
-            {monthFilter === 0 && unlinkedOpen.length > 0 && (
+            {!completedActive && unlinkedOpen.length > 0 && (
               <span title="These repair orders are open but name a vehicle that is not in Vehicle Management, or a name shared by more than one vehicle, so they cannot move a chip. They are listed below the table."
                 style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
                 ⚠ {unlinkedOpen.length} open repair {unlinkedOpen.length === 1 ? 'order' : 'orders'} not linked to a vehicle
@@ -2847,7 +2883,7 @@ export function VehiclesView() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--surface-soft)' }}>
-                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ...(monthFilter > 0 ? ['Completed'] : []), ''].map(h => (
+                {['Vehicle', 'Customer', 'Year · Make · Model', 'VIN', 'Plate', 'Fuel', 'Status', 'Assigned Tech', 'Received', ...(completedActive ? ['Completed'] : []), ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '9px 12px', fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -2878,10 +2914,10 @@ export function VehiclesView() {
                     <StatusPill status={statusOf(v)} />
                     {statusOf(v) !== v.status && (
                       <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}
-                        title={monthFilter > 0
+                        title={completedActive
                           ? 'Its own status in Vehicle Management right now; the job was completed in the selected month'
                           : 'The status set on the vehicle by hand. The chip above follows its open repair orders instead.'}>
-                        {monthFilter > 0 ? 'now' : 'flag'}: {v.status || 'No open jobs'}
+                        {completedActive ? 'now' : 'flag'}: {v.status || 'No open jobs'}
                       </div>
                     )}
                     {['Pending', 'Pending Approval', 'Pending Parts', 'Returned Job'].includes(v.status) && v.recommendation && (
@@ -2902,7 +2938,7 @@ export function VehiclesView() {
                   <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
                     {v.dateReceived ? new Date(v.dateReceived).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                   </td>
-                  {monthFilter > 0 && (() => {
+                  {completedActive && (() => {
                     const done = completionDateFor(v);
                     return (
                       <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap', fontWeight: 600 }}
@@ -2934,14 +2970,14 @@ export function VehiclesView() {
 
       {/* Jobs completed in the selected month that no single vehicle record could be
           attached to. Listed, not hidden: they happened and they are in Reports. */}
-      {(viewMode === 'list' || viewMode === 'service') && monthFilter > 0 && unlinked.length > 0 && (
+      {(viewMode === 'list' || viewMode === 'service') && completedActive && unlinked.length > 0 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', background: 'rgba(245,158,11,0.08)' }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
               ⚠ {unlinked.length} completed {unlinked.length === 1 ? 'job' : 'jobs'} not linked to a vehicle
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              Completed in {['January','February','March','April','May','June','July','August','September','October','November','December'][monthFilter - 1]} {yearFilter}, but the vehicle name on the job matches no single vehicle record. To link one, make the vehicle&apos;s name or plate in Vehicle Management match what the job says.
+              Completed in {describeCompleted(completedFilter)}, but the vehicle name on the job matches no single vehicle record. To link one, make the vehicle&apos;s name or plate in Vehicle Management match what the job says.
             </div>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -2974,7 +3010,7 @@ export function VehiclesView() {
 
       {/* Open repair orders no single vehicle record could be attached to (live view).
           Listed, not hidden: the work is open even though no chip can reflect it. */}
-      {(viewMode === 'list' || viewMode === 'service') && monthFilter === 0 && unlinkedOpen.length > 0 && (
+      {(viewMode === 'list' || viewMode === 'service') && !completedActive && unlinkedOpen.length > 0 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid rgba(245,158,11,0.45)', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', background: 'rgba(245,158,11,0.08)' }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>

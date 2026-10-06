@@ -61,7 +61,10 @@ describe('completion month filters on when work finished', () => {
    */
   it('uses the shared month rule rather than its own copy', () => {
     expect(view).toContain("from '@/lib/vehicles/reportMonth'");
-    expect(view).toMatch(/matchesReportMonth\(v, monthFilter, yearFilter\)/);
+    // The period (a month or a custom date range) comes from completedPeriod.ts and
+    // is applied by the shared matchesReportPeriod, tested in
+    // lib/vehicles/__tests__/completedPeriod.test.ts.
+    expect(view).toMatch(/matchesReportPeriod\(v, completedPeriod\(completedFilter\)\)/);
     expect(view).toMatch(/isCompletedStatus\(v\.status\)/);
   });
 
@@ -94,14 +97,14 @@ describe('completion month filters on when work finished', () => {
     // lib/vehicles/completedWork.ts), or, for older work with no job record, its
     // own completed status and completion date. Behaviour is tested in
     // lib/vehicles/__tests__/completedWork.test.ts.
-    expect(view).toMatch(/if \(monthFilter && !\(completedJobsByVehicle\.has\(v\.id\) \|\| \(isCompleted\(v\) && inSelectedMonth\(v\)\)\)\) return false;/);
+    expect(view).toMatch(/if \(completedActive && !\(completedJobsByVehicle\.has\(v\.id\) \|\| \(isCompleted\(v\) && inSelectedMonth\(v\)\)\)\) return false;/);
   });
 
   it('does not let an open job through on its arrival date', () => {
     // The precise regression: the old predicate tested `isCompleted(v) &&
     // !inSelectedMonth(v)`, which is false for every open job, so every open
     // job passed. Banned by shape, not by comment.
-    expect(view).not.toMatch(/monthFilter && isCompleted\(v\) && !inSelectedMonth\(v\)/);
+    expect(view).not.toMatch(/(monthFilter|completedActive) && isCompleted\(v\) && !inSelectedMonth\(v\)/);
   });
 
   it('tells the operator that a month means completed work only', () => {
