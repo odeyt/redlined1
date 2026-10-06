@@ -30,6 +30,8 @@ import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effec
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { fetchOpenWork } from '@/services/openWorkService';
 import { liveStatus, openJobsByVehicle, kanbanMoveCheck, type OpenJob } from '@/lib/vehicles/liveStatus';
+import { receivedInMonth, todayIsoDate } from '@/lib/vehicles/receivedDate';
+import { vehicleListCsv } from '@/lib/vehicles/vehicleListCsv';
 import { useAppDispatch } from '@/lib/store';
 import { fetchShopSettings } from '@/services/shopSettingsService';
 import { fetchTechnicians, uniqueTechsByPerson, type Technician } from '@/services/technicianService';
@@ -1758,6 +1760,11 @@ export function VehiclesView() {
   const [shopFilter, setShopFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState(0); // 0 = every month
   const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+  // RECEIVED IN: vehicles by the date they were taken in (their Date received).
+  // 0 = any month. Independent of COMPLETED IN; set both to narrow to cars
+  // received in one month and completed in another.
+  const [receivedMonth, setReceivedMonth] = useState(0);
+  const [receivedYear, setReceivedYear] = useState(new Date().getFullYear());
   // Jobs actually completed in the selected month (signed-off repair orders and
   // the closed-job archive). This, not the vehicle's own status flag, decides
   // what "completed in <month>" means. null = not loaded / failed.
@@ -2069,6 +2076,9 @@ export function VehiclesView() {
     // record), or, for older work that has no job record, its own status flag
     // and completion date. A vehicle with neither was completed in no month.
     if (monthFilter && !(completedJobsByVehicle.has(v.id) || (isCompleted(v) && inSelectedMonth(v)))) return false;
+    // Received in the chosen month (the intake date). A vehicle with no received
+    // date is in no month; the screen says how many there are.
+    if (receivedMonth && !receivedInMonth(v.dateReceived, receivedMonth, receivedYear)) return false;
     return true;
   });
 
@@ -2099,6 +2109,43 @@ export function VehiclesView() {
     if (v.completedAt) return { iso: v.completedAt, viaJob: false };
     return null;
   };
+
+  // Vehicles in the chosen location with no Date received: no month can include them.
+  const noReceivedDateCount = vehicles.filter(v => (!shopFilter || v.shopId === shopFilter) && !v.dateReceived).length;
+
+  /** Download the vehicles on screen (after every filter) as a CSV. VIN is not included. */
+  function exportVehiclesCsv() {
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const rows = vehicleListCsv(
+      filtered.map(v => {
+        const done = completionDateFor(v);
+        return {
+          label: v.label,
+          customer: custNameMap[v.customerId] ?? '',
+          yearMakeModel: [v.year, v.make, v.model].filter(Boolean).join(' '),
+          plate: v.plate,
+          status: statusOf(v),
+          assignedTech: v.assignedTech ?? '',
+          received: v.dateReceived ? v.dateReceived.slice(0, 10) : '',
+          completed: done ? todayIsoDate(new Date(done.iso)) : '',
+        };
+      }),
+      monthFilter > 0,
+    );
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const parts = [
+      receivedMonth > 0 ? `Received-${months[receivedMonth - 1]}-${receivedYear}` : '',
+      monthFilter > 0 ? `Completed-${months[monthFilter - 1]}-${yearFilter}` : '',
+    ].filter(Boolean).join('_') || 'All';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Vehicles_${parts}_${todayIsoDate()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify(`${a.download} downloaded.`);
+  }
 
   return (
     <>
@@ -2378,6 +2425,21 @@ export function VehiclesView() {
             )}
 
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+              RECEIVED IN
+              <select value={receivedMonth} onChange={e => setReceivedMonth(Number(e.target.value))}
+                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
+                <option value={0}>Any month</option>
+                {['January','February','March','April','May','June','July','August','September','October','November','December']
+                  .map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+              <select value={receivedYear} onChange={e => setReceivedYear(Number(e.target.value))} disabled={!receivedMonth}
+                style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600, opacity: receivedMonth ? 1 : 0.5 }}>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+                  .map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
               COMPLETED IN
               <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
                 style={{ padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', background: 'var(--surface-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
@@ -2392,11 +2454,34 @@ export function VehiclesView() {
               </select>
             </label>
 
-            {(shopFilter || monthFilter) && (
-              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); }}
+            {(shopFilter || monthFilter || receivedMonth) && (
+              <button className="btn" onClick={() => { setShopFilter(''); setMonthFilter(0); setReceivedMonth(0); }}
                 style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
                 ✕ Clear filters
               </button>
+            )}
+
+            {/* The intake search, as a report. Exports exactly the rows on screen. */}
+            {(receivedMonth > 0 || monthFilter > 0) && (
+              <button className="btn" onClick={exportVehiclesCsv} disabled={filtered.length === 0}
+                title="Download the vehicles shown below as a CSV (no VINs)"
+                style={{ fontSize: 12, fontWeight: 700, padding: '6px 12px' }}>
+                ⬇ Export CSV
+              </button>
+            )}
+
+            {receivedMonth > 0 && (
+              <span title="Vehicles whose Date received is in this month. A car that comes in again takes the new arrival date. For every visit, use Reports → Vehicle Intake."
+                style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.35)', borderRadius: 6, padding: '5px 9px' }}>
+                📥 {scoped.length} {scoped.length === 1 ? 'vehicle' : 'vehicles'} received in {['January','February','March','April','May','June','July','August','September','October','November','December'][receivedMonth - 1]} {receivedYear}
+              </span>
+            )}
+
+            {receivedMonth > 0 && noReceivedDateCount > 0 && (
+              <span title="These vehicles have no Date received, so no month can include them. Open one and set Date received."
+                style={{ fontSize: 11, fontWeight: 700, color: '#b45309', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '5px 9px' }}>
+                ⚠ {noReceivedDateCount} {noReceivedDateCount === 1 ? 'vehicle has' : 'vehicles have'} no received date
+              </span>
             )}
 
             {/* Says what the month selection did, so the open-status chips
