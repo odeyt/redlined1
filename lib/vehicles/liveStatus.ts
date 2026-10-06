@@ -116,3 +116,39 @@ export function liveStatus(flag: string | null | undefined, openJobs: OpenJob[] 
 export function openJobsByVehicle(vehicles: VehicleIdentity[], jobs: OpenJob[]): Map<string, OpenJob[]> {
   return groupByVehicle(vehicles, jobs);
 }
+
+export interface KanbanMoveCheck {
+  allowed: boolean;
+  /** Why a move was refused, in words a person can act on. */
+  reason?: string;
+}
+
+/**
+ * Whether a card may be moved to a column on the board, now that the in-shop
+ * columns follow the open repair orders.
+ *
+ * A move only writes the vehicle's own flag. In the live view that flag decides
+ * the column ONLY for vehicles with no open repair order; for the rest the repair
+ * order decides. So a move that would not stick is refused with the reason,
+ * instead of the card jumping back:
+ *   - With an open repair order: the in-shop columns, Completed and Active follow
+ *     that repair order. Only Archived and Returned Job can be set by hand.
+ *   - With none: the in-shop columns have nothing behind them, so they cannot be
+ *     set by hand. Everything else can.
+ */
+export function kanbanMoveCheck(target: string, hasOpenJob: boolean): KanbanMoveCheck {
+  const inShopTarget = IN_SHOP_FLAGS.has(target);
+  if (hasOpenJob) {
+    if (target === 'Archived' || target === 'Returned Job') return { allowed: true };
+    return {
+      allowed: false,
+      reason: inShopTarget
+        ? "This car's column follows its open repair order. Change the repair order's status to move it."
+        : 'This car has an open repair order. Complete or close it first.',
+    };
+  }
+  if (inShopTarget) {
+    return { allowed: false, reason: 'This car has no open repair order. Open one to put it in the shop.' };
+  }
+  return { allowed: true };
+}
