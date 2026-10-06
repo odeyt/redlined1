@@ -179,14 +179,40 @@ function ownersByKey(vehicles: VehicleIdentity[]): Map<string, Set<string>> {
  * vehicle text equals a key that belongs to exactly ONE vehicle.
  */
 export function jobsByVehicle(vehicles: VehicleIdentity[], jobs: CompletedJob[]): Map<string, CompletedJob[]> {
+  return groupByVehicle(vehicles, jobs);
+}
+
+/**
+ * Anything that names a vehicle by text (a repair order, a job card), grouped by
+ * the one vehicle it identifies. Unknown or ambiguous names are left out, never
+ * guessed. This is the single matching rule behind completed work and open work.
+ */
+export function groupByVehicle<T extends { vehicle: string }>(vehicles: VehicleIdentity[], items: T[]): Map<string, T[]> {
   const owners = ownersByKey(vehicles);
-  const out = new Map<string, CompletedJob[]>();
-  for (const job of jobs) {
-    const ids = owners.get(normKey(job.vehicle));
-    if (!ids || ids.size !== 1) continue; // unknown or ambiguous: skip, never guess
+  const out = new Map<string, T[]>();
+  for (const item of items) {
+    const ids = owners.get(normKey(item.vehicle));
+    if (!ids || ids.size !== 1) continue;
     const id = [...ids][0];
     if (!out.has(id)) out.set(id, []);
-    out.get(id)!.push(job);
+    out.get(id)!.push(item);
+  }
+  return out;
+}
+
+/** The items {@link groupByVehicle} could not attach, with the reason. */
+export function unlinkedByVehicle<T extends { vehicle: string }>(
+  vehicles: VehicleIdentity[],
+  items: T[],
+): { item: T; reason: UnlinkedReason; matches: number }[] {
+  const owners = ownersByKey(vehicles);
+  const out: { item: T; reason: UnlinkedReason; matches: number }[] = [];
+  for (const item of items) {
+    const key = normKey(item.vehicle);
+    if (!key) { out.push({ item, reason: 'no_vehicle_text', matches: 0 }); continue; }
+    const ids = owners.get(key);
+    if (ids && ids.size === 1) continue; // linked
+    out.push({ item, reason: ids && ids.size > 1 ? 'ambiguous' : 'no_vehicle', matches: ids?.size ?? 0 });
   }
   return out;
 }
@@ -205,20 +231,11 @@ export interface UnlinkedJob {
  * still happened and still count; the screen lists them instead of hiding them.
  */
 export function unlinkedJobs(vehicles: VehicleIdentity[], jobs: CompletedJob[]): UnlinkedJob[] {
-  const owners = ownersByKey(vehicles);
-  const out: UnlinkedJob[] = [];
-  for (const job of jobs) {
-    const key = normKey(job.vehicle);
-    if (!key) { out.push({ job, reason: 'no_vehicle_text', matches: 0 }); continue; }
-    const ids = owners.get(key);
-    if (ids && ids.size === 1) continue; // linked
-    out.push({ job, reason: ids && ids.size > 1 ? 'ambiguous' : 'no_vehicle', matches: ids?.size ?? 0 });
-  }
-  return out;
+  return unlinkedByVehicle(vehicles, jobs).map(u => ({ job: u.item, reason: u.reason, matches: u.matches }));
 }
 
 /** One line a person can act on. */
-export function describeUnlinked(u: UnlinkedJob): string {
+export function describeUnlinked(u: { reason: UnlinkedReason; matches: number }): string {
   if (u.reason === 'no_vehicle_text') return 'The job names no vehicle.';
   if (u.reason === 'ambiguous') return `${u.matches} vehicles share this name, so it cannot be told which one.`;
   return 'No vehicle record has this name, plate or VIN.';
