@@ -35,6 +35,7 @@ import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 import { RepairCaseWizard } from '@/components/RepairCaseWizard';
 import type { RepairCase } from '@/services/repairCaseService';
+import { completionDate, closedDateForStatusChange } from '@/lib/repairOrders/completionStamp';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
 
@@ -611,8 +612,11 @@ export function RepairOrdersView() {
     // Complete and Closed only reachable through QA modal
     if (status === 'Closed' || status === 'Complete') return;
     try {
-      await updateRepairOrder(ro.id, { status });
-      const updated = { ...ro, status };
+      // Reopening a completed order clears its completion date, so it is not
+      // reported as finished, and cannot reuse the old date when completed again.
+      const clear = closedDateForStatusChange(status, ro.closedDate);
+      await updateRepairOrder(ro.id, { status, ...(clear !== undefined ? { closedDate: clear } : {}) });
+      const updated = { ...ro, status, ...(clear !== undefined ? { closedDate: null } : {}) };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`Status updated to ${status}.`);
@@ -634,7 +638,10 @@ export function RepairOrdersView() {
     const miscText   = miscItems.map(i => `  [${i.passed ? '✓' : '✗'}] ${i.label}`).join('\n');
     const signOff = `\n\n--- QA SIGN-OFF ---\nApproved by: ${advisorName}\nDate: ${now}\nResult: ${passed} passed / ${failed} failed\nRepair Verification:\n${repairText}\nVehicle Walk-Around:\n${miscText}${qaNotes ? `\nNotes: ${qaNotes}` : ''}`;
     try {
-      const closedDate = ro.closedDate || new Date().toISOString();
+      // Completed now, so stamped now. A stale date from an earlier completion
+      // (reopened since) must not be reused: it would report this work in the
+      // wrong month. See lib/repairOrders/completionStamp.ts.
+      const closedDate = completionDate(ro.status, ro.closedDate);
       const notes = (ro.notes || '') + signOff;
       await updateRepairOrder(ro.id, { status: 'Complete', notes, closedDate });
       if (ro.correction || ro.concern) {
@@ -707,8 +714,9 @@ export function RepairOrdersView() {
     const now = new Date().toLocaleString();
     const signOff = `\n\n--- QA RETURNED TO TECH ---\nReviewed by: ${advisorName}\nDate: ${now}${qaNotes ? `\nReason: ${qaNotes}` : ''}`;
     try {
-      await updateRepairOrder(ro.id, { status: 'In Progress', notes: (ro.notes || '') + signOff });
-      const updated = { ...ro, status: 'In Progress', notes: (ro.notes || '') + signOff };
+      const clear = closedDateForStatusChange('In Progress', ro.closedDate);
+      await updateRepairOrder(ro.id, { status: 'In Progress', notes: (ro.notes || '') + signOff, ...(clear !== undefined ? { closedDate: clear } : {}) });
+      const updated = { ...ro, status: 'In Progress', notes: (ro.notes || '') + signOff, ...(clear !== undefined ? { closedDate: null } : {}) };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
       setSelected(updated);
       notify(`↩ ${ro.roNumber} returned to technician.`);
@@ -910,7 +918,9 @@ export function RepairOrdersView() {
 
     try {
       const invNumber = await draftInvoiceFor(ro);
-      const closedDate = ro.closedDate || new Date().toISOString();
+      // An order already completed keeps the date it was completed; one being
+      // completed by this action is stamped now.
+      const closedDate = completionDate(ro.status, ro.closedDate);
       await updateRepairOrder(ro.id, { status: 'Complete', invoiceNumber: invNumber, closedDate });
       const updated = { ...ro, status: 'Complete', invoiceNumber: invNumber, closedDate };
       setOrders(prev => prev.map(r => r.id === ro.id ? updated : r));
