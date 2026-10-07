@@ -37,7 +37,8 @@ from PUBLIC. Applying the migration changes no existing rows.
 | Open repair orders with a stale date | 0 | 0 |
 | Finished job cards without a date | 0 | 0 |
 | Rolled-back behaviour test | Passed | Passed |
-| Source of the evidence | Supabase connector session | Supabase connector session |
+| Migration history row (owner-read, see [Migration history](#migration-history)) | `2026100707095…`, SQL identical to the repo file | `2026100712435…`, SQL identical to the repo file |
+| Source of the evidence | Supabase connector session (history row: owner) | Supabase connector session (history row: owner) |
 | Independently reverified in the closeout | **No** | **No** |
 
 **Not independently reverified here.** All database evidence in this record was
@@ -111,20 +112,32 @@ That records a row whose `version` is a timestamp chosen at apply time, and whos
   expected for this repository, not drift. The `name` matches the filename's suffix.
 - **The two projects' versions differ from each other**, being applied at
   different times.
-- **The recorded versions were not read in the closeout** (no access). Fill them
-  in from the query below.
+The owner read the history on both projects on 2026-10-07 with query 4 below
+(read-only, SQL editor):
 
-| | Repository file | Recorded version | Recorded name |
-|---|---|---|---|
-| Staging | `2026-10-07_stamp_completion_dates.sql` | _not yet read_ | `stamp_completion_dates` (per connector) |
-| Production | `2026-10-07_stamp_completion_dates.sql` | _not yet read_ | `stamp_completion_dates` (per connector) |
+| | Repository file | Recorded version | Recorded name | Statements | `statements_md5` |
+|---|---|---|---|---|---|
+| Staging | `2026-10-07_stamp_completion_dates.sql` | `2026100707095…` | `stamp_completion_dates` | 1 | `ed13eb1ad0dd3280fab5140bfa38f79e` |
+| Production | `2026-10-07_stamp_completion_dates.sql` | `2026100712435…` | `stamp_completion_dates` | 1 | `ed13eb1ad0dd3280fab5140bfa38f79e` |
 
-**Reconciliation proposal (nothing done automatically):** keep the repository
-file as the source of truth and do not rename it. Record each project's recorded
-`version` in the table above. If the statements stored in history differ in
-substance from the file, stop and review before doing anything else. Do not edit
-`schema_migrations`, mark history repaired, or reapply the DDL. If the repository
-later adopts the Supabase CLI, map this file to its recorded version at that point.
+The last digit of each version was cut off by the column width in the
+screenshot, so only the prefix is recorded. Read as `YYYYMMDDHHMMSS` (UTC, as
+Supabase records it), staging was applied at about 07:09:5x UTC and production
+at about 12:43:5x UTC on 2026-10-07. Production's time falls just before its
+behaviour test (12:45:20Z), as expected.
+
+**The applied SQL matches the repository exactly.** Each project stored the
+migration as one statement, and its md5 equals the md5 of the file on `main`
+(`git show origin/main:supabase/migrations/2026-10-07_stamp_completion_dates.sql | md5sum`
+gives `ed13eb1ad0dd3280fab5140bfa38f79e`; the file has LF line endings). So both
+projects received byte-for-byte the same DDL, which is the file in the
+repository. There is no drift to reconcile.
+
+**Reconciliation (nothing done to the database):** the repository file stays
+the source of truth and is not renamed. The mapping is the table above. Do not
+edit `schema_migrations`, mark history repaired, or reapply the DDL. If the
+repository later adopts the Supabase CLI, map this file to these recorded
+versions at that point.
 
 ## Re-verification (read-only)
 
