@@ -134,7 +134,9 @@ export function JobArchiveView() {
       // Update job card status back to In Progress
       await supabase
         .from('job_cards')
-        .update({ status: 'In Progress', notes: returnNote })
+        // Back in progress, so no longer completed: drop the completion date, or
+        // it would still be reported as finished on that day.
+        .update({ status: 'In Progress', notes: returnNote, closed_date: null })
         .eq('id', returnModalJob.id)
         .eq('shop_id', getShopId());
 
