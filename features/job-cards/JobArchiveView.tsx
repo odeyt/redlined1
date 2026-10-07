@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopIds } from '@/lib/shopStore';
+import { mergeArchive, FINISHED_JOB_STATUSES, type ArchiveSource } from '@/lib/jobCards/archive';
 import { TechPill } from '@/components/TechPill';
 import { Panel } from '@/components/Panel';
 import { useAppDispatch } from '@/lib/store';
@@ -26,6 +27,8 @@ interface ArchivedJob {
   invoice: string | null;
   repairStage: string;
   notes: string;
+  /** 'closed' = in the closed-job archive (closed with "Close"); 'open' = a finished card still in job_cards. */
+  source: ArchiveSource;
 }
 
 type Period = 'month' | 'quarter' | 'year' | 'all';
@@ -67,13 +70,22 @@ export function JobArchiveView() {
     setLoading(true);
     setError('');
     try {
-      const { data, error: err } = await supabase
-        .from('job_cards')
-        .select('id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice, notes')
-        .eq('shop_id', getShopId())
-        .in('status', ['Complete', 'Closed', 'Invoiced'])
-        .order('closed_date', { ascending: false, nullsFirst: false });
-      if (err) throw err;
+      // Closing a job moves it from job_cards into closed_jobs, so the archive
+      // reads both (lib/jobCards/archive.ts). Both locations, like every list.
+      const cols = 'id, customer, vehicle, technicians, status, service_type, check_in_date, closed_date, labor_hours, parts_total, ro, invoice, notes';
+      const [openRes, closedRes] = await Promise.all([
+        supabase.from('job_cards').select(cols)
+          .in('shop_id', getShopIds())
+          .in('status', [...FINISHED_JOB_STATUSES]),
+        supabase.from('closed_jobs').select(cols)
+          .in('shop_id', getShopIds()),
+      ]);
+      if (openRes.error) throw openRes.error;
+      if (closedRes.error) throw closedRes.error;
+      const data = mergeArchive(
+        (openRes.data ?? []) as unknown as { id: string; closed_date: string | null }[],
+        (closedRes.data ?? []) as unknown as { id: string; closed_date: string | null }[],
+      );
 
       const now = Date.now();
       const rows: ArchivedJob[] = (data ?? []).map((r: Record<string, unknown>) => {
@@ -97,6 +109,7 @@ export function JobArchiveView() {
           invoice: (r.invoice as string) || null,
           repairStage: '',
           notes: (r.notes as string) || '',
+          source: r.source as ArchiveSource,
         };
       });
       setJobs(rows);
@@ -131,14 +144,26 @@ export function JobArchiveView() {
         returnSymptoms.trim() ? `New symptoms: ${returnSymptoms.trim()}` : '',
       ].filter(Boolean).join('\n');
 
-      // Update job card status back to In Progress
-      await supabase
-        .from('job_cards')
-        // Back in progress, so no longer completed: drop the completion date, or
-        // it would still be reported as finished on that day.
-        .update({ status: 'In Progress', notes: returnNote, closed_date: null })
-        .eq('id', returnModalJob.id)
-        .eq('shop_id', getShopId());
+      if (returnModalJob.source === 'closed') {
+        // Closed with "Close": the job card no longer exists, and that visit WAS
+        // completed, so its record and completion date stay as they are. The
+        // return is noted on the archived job and the new visit gets its own card.
+        const { error: noteErr } = await supabase
+          .from('closed_jobs')
+          .update({ notes: [returnModalJob.notes, returnNote].filter(Boolean).join('\n\n') })
+          .eq('id', returnModalJob.id)
+          .in('shop_id', getShopIds());
+        if (noteErr) throw noteErr;
+      } else {
+        // Update job card status back to In Progress. Back in progress means no
+        // longer completed: drop the completion date, or it would still be
+        // reported as finished on that day.
+        await supabase
+          .from('job_cards')
+          .update({ status: 'In Progress', notes: returnNote, closed_date: null })
+          .eq('id', returnModalJob.id)
+          .in('shop_id', getShopIds());
+      }
 
       dispatch({
         type: 'OPEN_NEW_JOB_CARD',
@@ -150,7 +175,9 @@ export function JobArchiveView() {
       });
 
       setReturnModalJob(null);
-      notify('Job returned to In Progress. New job card opened.');
+      notify(returnModalJob.source === 'closed'
+        ? `Return noted on ${returnModalJob.id}. New job card opened for this visit.`
+        : 'Job returned to In Progress. New job card opened.');
       load();
     } catch {
       notify('Failed to return job. Please try again.');
