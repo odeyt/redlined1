@@ -9,26 +9,55 @@ Production: `redlined1` (`ldjrlvjkmzrcdqhetqoh`).
 
 ## What is known, and how well
 
-**Owner-verified on 2026-09-24 (production SQL editor), not re-checked since.**
-The closeout session that wrote this plan (Claude Code, 2026-10-07) had no
-database access, so none of this was re-verified, and **no current security audit
-has been completed.**
+First found 2026-09-16 and owner-verified on 2026-09-24. **Baseline re-read by
+the owner on 2026-10-08** (production SQL editor, read-only; queries in step 1).
+This is a read of the current state, **not a complete security audit**.
 
-- PUBLIC holds grants on 19 `net` tables and EXECUTE on 12 `net` functions. Both
-  should be 0. A `REVOKE` run as `postgres` is a silent no-op, because those
-  objects belong to the extension's owner. Supabase support ticket **SU-476058**
-  was opened for it.
-- The live `public.notify_push_on_alert()` reads its secret from the Vault entry
-  `push_webhook_secret`. The repository migration has a placeholder inline
-  instead, so the live function differs from the repository.
-- That Vault entry was last updated 2026-09-14, so it was **not rotated** after
-  the 2026-09-16 finding. Its pre-rotation md5 begins `c924c0d1` (a prefix of a
-  hash, not the secret).
+**Baseline, 2026-10-08:**
 
-**Why it matters:** each push is queued by pg_net with the secret in the
-`x-push-secret` request header. With PUBLIC able to read pg_net's tables, anyone
-holding the public anon key may be able to read that header and send arbitrary
-notifications to the shop's phones through `/api/push/send`.
+| Check | Value |
+|---|---|
+| `net` tables with any PUBLIC privilege | **3**, holding **19** privileges in total |
+| `net` functions PUBLIC can EXECUTE | **12** |
+| Same counts via `information_schema.role_*_grants` | 0 / 0 (these views do not list PUBLIC grants; see step 1) |
+| Vault `push_webhook_secret` last updated | 2026-09-14 12:05:45 UTC (**not rotated**) |
+| Its md5 prefix | `c924c0d1` (a prefix of a hash, not the secret) |
+| `notify_push_on_alert()` reads the secret from Vault | true |
+| Trigger `alert_events_push` | enabled (`O`) |
+| pg_net version | 0.20.3 |
+| `net` schema USAGE | PUBLIC, `anon` and `authenticated` all have it |
+| `net` in the API's exposed schemas | **not yet read** (cut off in the screenshot) |
+
+| `net` table | PUBLIC privileges | `anon` can SELECT |
+|---|---|---|
+| `http_request_queue` | all: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN | yes |
+| `_http_response` | all, as above | yes |
+| `http_request_queue_id_seq` | SELECT, UPDATE, USAGE | yes |
+
+The 2026-09-24 note's "19 tables" was 19 privileges on these 3 tables; the
+exposure is the same. A `REVOKE` run as `postgres` is a silent no-op, because
+these objects belong to the extension's owner. Supabase support ticket
+**SU-476058** was opened for it.
+
+The live `public.notify_push_on_alert()` reads its secret from Vault. The
+repository migration has a placeholder inline instead, so the live function
+differs from the repository.
+
+**Why it matters:**
+
+- **Read.** Each push is queued in `net.http_request_queue` with the secret in
+  the `x-push-secret` request header. pg_net normally deletes a queue row once
+  the request is sent, so each push exposes the secret only briefly, but one
+  successful read leaks it for good. With it, anyone can send notifications to
+  the shop's phones through `/api/push/send`.
+- **Write.** PUBLIC can also INSERT, UPDATE and DELETE in the queue. A queued
+  row is an HTTP request that Supabase's server sends, so this would let a caller
+  make the server send arbitrary requests, or drop and alter pushes.
+- **Reachability.** The public anon key reaches these tables through the REST
+  API only if `net` is one of the API's exposed schemas (Project Settings → Data
+  API → Exposed schemas, or `pgrst.db_schemas` on the `authenticator` role). That
+  has not been read yet. If `net` is not exposed, there is no browser path today,
+  but the grants still need closing: any role that can run SQL keeps them.
 
 **From the repository (read in the closeout, current as of `main` 3b6b69b):**
 
@@ -47,21 +76,48 @@ read the pg_net queue would leak the new secret the same way.
 
 ### 1. Confirm the current state (read-only, owner runs)
 
-```sql
--- Expect both 0 after remediation; record today's values first.
-SELECT
-  (SELECT count(*) FROM information_schema.role_table_grants
-     WHERE table_schema = 'net' AND grantee = 'PUBLIC') AS public_table_grants,
-  (SELECT count(*) FROM information_schema.role_routine_grants
-     WHERE routine_schema = 'net' AND grantee = 'PUBLIC') AS public_function_grants;
+**Do not use `information_schema.role_table_grants` or `role_routine_grants`
+for this.** They returned 0 / 0 on 2026-10-08 while the grants above were in
+place, so they would report the problem fixed when it is not. Read the catalogs
+instead. Baseline values are in the tables above; after step 2 the first three
+columns must all be 0.
 
--- Vault entry: when it was last changed (no secret value is shown).
-SELECT name, updated_at FROM vault.secrets WHERE name = 'push_webhook_secret';
+```sql
+SELECT
+  (SELECT count(DISTINCT c.oid)
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+    WHERE n.nspname = 'net' AND a.grantee = 0)                          AS public_net_tables,
+  (SELECT count(*)
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+    WHERE n.nspname = 'net' AND a.grantee = 0)                          AS public_net_table_privileges,
+  (SELECT count(DISTINCT p.oid)
+     FROM pg_proc p
+     JOIN pg_namespace n ON n.oid = p.pronamespace
+     CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    WHERE n.nspname = 'net' AND a.grantee = 0 AND a.privilege_type = 'EXECUTE') AS public_net_functions,
+  has_schema_privilege('anon', 'net', 'USAGE')                          AS anon_schema_usage,
+  has_table_privilege('anon', 'net.http_request_queue', 'SELECT')       AS anon_queue_select,
+  has_table_privilege('anon', 'net.http_request_queue', 'INSERT')       AS anon_queue_insert,
+  -- Vault entry: when it last changed, and an 8-character md5 prefix (no value shown).
+  (SELECT updated_at FROM vault.secrets WHERE name = 'push_webhook_secret') AS vault_secret_updated_at,
+  (SELECT left(md5(decrypted_secret), 8) FROM vault.decrypted_secrets
+    WHERE name = 'push_webhook_secret')                                 AS vault_secret_md5_prefix,
+  (SELECT pg_get_functiondef(to_regproc('public.notify_push_on_alert')::oid)
+          ILIKE '%push_webhook_secret%')                                AS function_reads_vault,
+  (SELECT string_agg(t.tgname::text || '=' || t.tgenabled::text, ', ')
+     FROM pg_trigger t WHERE t.tgname = 'alert_events_push')            AS push_trigger_state;
 ```
 
-Also confirm on 2026-10-07 or later that the live function still reads Vault and
-has no inline secret, using `pg_get_functiondef('public.notify_push_on_alert'::regproc)`.
-Check it on screen only; do not paste its output anywhere if it contains a value.
+`tgenabled` is the `"char"` type, so it needs the `::text` cast to concatenate.
+
+Also read whether `net` is exposed by the API: Project Settings → Data API →
+Exposed schemas, or
+`SELECT array_to_string(rolconfig, '; ') FROM pg_roles WHERE rolname = 'authenticator';`
+(look for `pgrst.db_schemas`).
 
 ### 2. Least-privilege pg_net (with Supabase)
 
@@ -69,8 +125,16 @@ Check it on screen only; do not paste its output anywhere if it contains a value
   schema's tables and functions, keeping only what the extension and the
   `postgres`/`service_role` roles need. The app never calls pg_net from the
   browser, so `anon` and `authenticated` need nothing in `net`.
-- **Validate:** the step 1 grant counts are 0. An anon-key REST read of the `net`
-  schema is refused. A new alert still produces a push (see step 4).
+- Ask for the queue's write privileges (INSERT, UPDATE, DELETE, TRUNCATE) to be
+  closed as well as SELECT; they let a caller make Supabase's server send
+  arbitrary HTTP requests.
+- **Interim, in the owner's control:** make sure `net` is not in the API's
+  exposed schemas. That removes the anon-key REST path while the ticket is open.
+  It does not close the grants.
+- **Validate:** the step 1 catalog query shows `public_net_tables`,
+  `public_net_table_privileges` and `public_net_functions` all 0, and
+  `anon_queue_select` / `anon_queue_insert` false. An anon-key REST read of the
+  `net` schema is refused. A new alert still produces a push (see step 4).
 - **Rollback:** Supabase restores the previous grants. Record the before-state
   from step 1 so it can be stated exactly.
 
@@ -110,7 +174,8 @@ Done as one coordinated change, so pushes are never rejected for long:
   shows **200**. A 401 means Vault and Vercel disagree; a 503 means the push keys
   are missing from the deployment.
 - A request carrying the old secret is rejected with 401.
-- Rerun the step 1 grant query: both counts are 0.
+- Rerun the step 1 catalog query: the three PUBLIC counts are 0, and the `anon`
+  checks are false.
 
 ### 5. Rollback
 
