@@ -41,7 +41,8 @@
     "trial-tips:run": "tsx scripts/run-trial-tips.ts",
     "test:db:trial-tips": "node tests/db/run-trial-tips-db-tests.mjs",
     "test:db:free-tier": "node tests/db/run-free-tier-db-tests.mjs",
-    "test:db:completion-stamp": "node tests/db/run-completion-stamp-tests.mjs"
+    "test:db:completion-stamp": "node tests/db/run-completion-stamp-tests.mjs",
+    "test:db:technician-sync": "node tests/db/run-technician-sync-tests.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
