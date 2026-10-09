@@ -32,7 +32,7 @@ import {
 import { jobsByVehicle, unlinkedJobs, unlinkedByVehicle, describeUnlinked, effectiveStatus, latestCompletion, type CompletedJob } from '@/lib/vehicles/completedWork';
 import { fetchCompletedWork } from '@/services/completedWorkService';
 import { fetchOpenWork } from '@/services/openWorkService';
-import { liveStatus, openJobsByVehicle, kanbanMoveCheck, type OpenJob } from '@/lib/vehicles/liveStatus';
+import { liveStatus, liveTechnicians, openJobsByVehicle, kanbanMoveCheck, type OpenJob } from '@/lib/vehicles/liveStatus';
 import {
   buildReceivedFilter, matchesReceived, isBackwardsRange, describeReceived, RECEIVED_CUSTOM_RANGE, todayIsoDate,
 } from '@/lib/vehicles/receivedDate';
@@ -140,11 +140,10 @@ function ViewBtn({ mode, current, icon, label, onClick }: { mode: ViewMode; curr
 
 
 // ── Service Record Card ──────────────────────────────────────────
-function ServiceRecordCard({ v, thumbUrl, onPhotos, enablePhotos }: {
-  v: VehicleRecord; thumbUrl?: string; onPhotos: () => void; enablePhotos: boolean;
+function ServiceRecordCard({ v, techList, thumbUrl, onPhotos, enablePhotos }: {
+  v: VehicleRecord; techList: string[]; thumbUrl?: string; onPhotos: () => void; enablePhotos: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const techList = v.assignedTech ? v.assignedTech.split(';').map(t => t.trim()).filter(Boolean) : [];
 
   return (
     <article style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -2067,6 +2066,10 @@ export function VehiclesView() {
     openJobs === null ? v.status : liveStatus(v.status, openJobsOfVehicle.get(v.id));
   const statusOf = (v: VehicleRecord): string =>
     completedActive ? effectiveStatus(v.status, true, completedJobsByVehicle.has(v.id)) : liveStatusOf(v);
+  // Who is on the car: its open work's technicians (repair order + job card),
+  // else its own Assigned Tech(s). Staff assign on the repair order or job card,
+  // which never updates the vehicle's own field (lib/vehicles/liveStatus.ts).
+  const techsOf = (v: VehicleRecord): string[] => liveTechnicians(v.assignedTech, openJobsOfVehicle.get(v.id));
 
   // RECEIVED IN: a month, or a custom date range, applied to each vehicle's Date received.
   const receivedFilter = buildReceivedFilter(receivedMonth, receivedYear, receivedFrom, receivedTo);
@@ -2111,7 +2114,7 @@ export function VehiclesView() {
     if (customerFilter && v.customerId !== customerFilter) return false;
     const q = search.toLowerCase();
     const custName = custNameMap[v.customerId] ?? '';
-    const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, v.assignedTech, v.issues, custName].some(f => f?.toLowerCase().includes(q));
+    const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, techsOf(v).join('; '), v.issues, custName].some(f => f?.toLowerCase().includes(q));
     return matchStatus && matchSearch;
   });
 
@@ -2147,7 +2150,7 @@ export function VehiclesView() {
           yearMakeModel: [v.year, v.make, v.model].filter(Boolean).join(' '),
           plate: v.plate,
           status: statusOf(v),
-          assignedTech: v.assignedTech ?? '',
+          assignedTech: techsOf(v).join('; '),
           received: v.dateReceived ? v.dateReceived.slice(0, 10) : '',
           completed: done ? todayIsoDate(new Date(done.iso)) : '',
         };
@@ -2927,8 +2930,8 @@ export function VehiclesView() {
                     )}
                   </td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>
-                    {v.assignedTech
-                      ? v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
+                    {techsOf(v).length > 0
+                      ? techsOf(v).map(t => {
                           const c = techColor(t);
                           return <span key={t} style={{ display: 'inline-block', background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 7px', fontSize: 11, fontWeight: 600, marginRight: 3, marginBottom: 2 }}>{t}</span>;
                         })
@@ -3128,9 +3131,9 @@ export function VehiclesView() {
                             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 2, lineHeight: 1.3 }}>{v.label}</div>
                             {owner && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>👤 {owner.name}</div>}
                             {v.plate && <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>🔢 {v.plate}</div>}
-                            {v.assignedTech && (
+                            {techsOf(v).length > 0 && (
                               <div style={{ marginTop: 5, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                                {v.assignedTech.split(';').map(t => t.trim()).filter(Boolean).map(t => {
+                                {techsOf(v).map(t => {
                                   const c = techColor(t);
                                   return <span key={t} style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 20, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>{t}</span>;
                                 })}
@@ -3221,6 +3224,7 @@ export function VehiclesView() {
               <ServiceRecordCard
                 key={v.id}
                 v={v}
+                techList={techsOf(v)}
                 thumbUrl={thumbs[v.id]?.[0]}
                 onPhotos={() => setGalleryVehicle(v)}
                 enablePhotos={enableVehiclePhotos}
