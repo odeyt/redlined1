@@ -38,6 +38,12 @@ export interface OpenJob {
   /** The vehicle as the repair order names it (free text). */
   vehicle: string;
   technician: string;
+  /**
+   * Everyone assigned to the job: the repair order's technician plus its job
+   * card's technicians (see withJobCardTechnicians). Starts as the repair
+   * order's own.
+   */
+  technicians: string[];
   /** The repair order's own status: Open, In Progress, Pending Parts or Pending Approval. */
   status: string;
   openedAt: string | null;
@@ -77,6 +83,7 @@ export function toOpenJobs(rows: OpenRoRow[]): OpenJob[] {
       customerName: (r.customer_name ?? '').trim(),
       vehicle: (r.vehicle ?? '').trim(),
       technician: (r.technician ?? '').trim(),
+      technicians: splitTechnicians(r.technician),
       status: r.status as string,
       openedAt: r.opened_date ?? null,
     });
@@ -110,6 +117,76 @@ export function liveStatus(flag: string | null | undefined, openJobs: OpenJob[] 
 
   if (IN_SHOP_FLAGS.has(own)) return 'No open jobs'; // the flag claims work that is not open
   return own || 'No open jobs';
+}
+
+/**
+ * Names from a technician field: "A; B" or "A, B", trimmed, blanks and
+ * "Unassigned" dropped.
+ */
+export function splitTechnicians(value: string | null | undefined): string[] {
+  return (value ?? '')
+    .split(/[;,]/)
+    .map(t => t.trim())
+    .filter(t => t && t.toLowerCase() !== 'unassigned');
+}
+
+/** Names in first-seen order, without repeats (case-insensitive). */
+function uniqueNames(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of names) {
+    const k = n.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(n);
+  }
+  return out;
+}
+
+/** A job card's technicians, as read for linking to its repair order. */
+export interface JobCardTechRow {
+  id?: string | null;
+  /** The repair order number the job card records, when it has one. */
+  ro?: string | null;
+  technicians?: string[] | null;
+}
+
+/**
+ * Adds each open job's job card technicians to its own.
+ *
+ * Technicians are assigned on the repair order OR on its job card, and the two
+ * are not kept in step: assigning on one leaves the other Unassigned. So a job's
+ * technicians are both. A job card is matched by the repair order's job card id,
+ * else by the repair order number the job card records.
+ */
+export function withJobCardTechnicians(jobs: OpenJob[], jobCards: JobCardTechRow[]): OpenJob[] {
+  const byId = new Map<string, string[]>();
+  const byRo = new Map<string, string[]>();
+  for (const jc of jobCards) {
+    const names = (jc.technicians ?? []).flatMap(t => splitTechnicians(t));
+    if (names.length === 0) continue;
+    const id = (jc.id ?? '').trim();
+    const ro = (jc.ro ?? '').trim();
+    if (id) byId.set(id, [...(byId.get(id) ?? []), ...names]);
+    if (ro) byRo.set(ro, [...(byRo.get(ro) ?? []), ...names]);
+  }
+  return jobs.map(j => {
+    const fromCard = (j.jobCardId && byId.get(j.jobCardId)) || (j.roNumber && byRo.get(j.roNumber)) || [];
+    return fromCard.length === 0 ? j : { ...j, technicians: uniqueNames([...j.technicians, ...fromCard]) };
+  });
+}
+
+/**
+ * Who is working on a vehicle, for the list, cards, board, search and export.
+ *
+ * With open work that names technicians, it is them: that is who is on the car
+ * now, and it is where staff assign technicians (the repair order or job card),
+ * which never updates the vehicle's own field. Otherwise it is the vehicle's own
+ * Assigned Tech(s), as set in its drawer.
+ */
+export function liveTechnicians(ownAssigned: string | null | undefined, openJobs: OpenJob[] | undefined): string[] {
+  const fromJobs = uniqueNames((openJobs ?? []).flatMap(j => j.technicians));
+  return fromJobs.length > 0 ? fromJobs : uniqueNames(splitTechnicians(ownAssigned));
 }
 
 /** Open repair orders per vehicle id, using the unique-match rule. */

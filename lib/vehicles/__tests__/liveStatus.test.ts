@@ -1,5 +1,6 @@
 import {
   toOpenJobs, liveStatus, chipForOpenRo, isOpenRoStatus, openJobsByVehicle, kanbanMoveCheck,
+  splitTechnicians, withJobCardTechnicians, liveTechnicians,
   type OpenJob, type OpenRoRow,
 } from '../liveStatus';
 import { unlinkedByVehicle } from '../completedWork';
@@ -145,5 +146,58 @@ describe('kanbanMoveCheck', () => {
     for (const t of ['Completed', 'Active', 'Returned Job', 'Archived', 'No open jobs']) {
       expect(kanbanMoveCheck(t, false).allowed).toBe(true);
     }
+  });
+});
+
+describe('splitTechnicians', () => {
+  it('splits on semicolons and commas, trims, and drops blanks and Unassigned', () => {
+    expect(splitTechnicians(' KAT ; BEE,  ; Unassigned')).toEqual(['KAT', 'BEE']);
+    expect(splitTechnicians(null)).toEqual([]);
+  });
+});
+
+describe('withJobCardTechnicians', () => {
+  // The reported case: the repair order has no technician, the job card has one.
+  const unassignedRo = toOpenJobs([row({ job_card_id: 'JC-2222', ro_number: 'RO-00020', technician: '' })]);
+
+  it('adds the job card technicians found by job card id', () => {
+    const [j] = withJobCardTechnicians(unassignedRo, [{ id: 'JC-2222', ro: null, technicians: ['WALLY'] }]);
+    expect(j.technicians).toEqual(['WALLY']);
+  });
+
+  it('falls back to the RO number the job card records', () => {
+    const noCardId = toOpenJobs([row({ job_card_id: '', ro_number: 'RO-00020', technician: '' })]);
+    const [j] = withJobCardTechnicians(noCardId, [{ id: 'JC-X', ro: 'RO-00020', technicians: ['POPEYE'] }]);
+    expect(j.technicians).toEqual(['POPEYE']);
+  });
+
+  it('keeps the repair order technician first and does not repeat a name', () => {
+    const jobs = toOpenJobs([row({ job_card_id: 'JC-1', technician: 'KAT' })]);
+    const [j] = withJobCardTechnicians(jobs, [{ id: 'JC-1', technicians: ['kat', 'BEE'] }]);
+    expect(j.technicians).toEqual(['KAT', 'BEE']);
+  });
+
+  it('leaves a job alone when its job card has no technicians or is not found', () => {
+    const jobs = toOpenJobs([row({ job_card_id: 'JC-1', technician: 'KAT' })]);
+    expect(withJobCardTechnicians(jobs, [{ id: 'JC-1', technicians: [] }])[0]).toBe(jobs[0]);
+    expect(withJobCardTechnicians(jobs, [{ id: 'JC-OTHER', technicians: ['BEE'] }])[0]).toBe(jobs[0]);
+  });
+});
+
+describe('liveTechnicians', () => {
+  const job = (technicians: string[]): OpenJob => ({ ...open('In Progress'), technicians });
+
+  it('shows the open work technicians, not the vehicle field, when the work names any', () => {
+    expect(liveTechnicians('OLD TECH', [job(['WALLY'])])).toEqual(['WALLY']);
+  });
+
+  it('combines technicians across open jobs without repeats', () => {
+    expect(liveTechnicians('', [job(['WALLY']), job(['wally', 'KAT'])])).toEqual(['WALLY', 'KAT']);
+  });
+
+  it('uses the vehicle own Assigned Tech(s) when there is no open work or it names nobody', () => {
+    expect(liveTechnicians('KAT; BEE', undefined)).toEqual(['KAT', 'BEE']);
+    expect(liveTechnicians('KAT', [job([])])).toEqual(['KAT']);
+    expect(liveTechnicians('', undefined)).toEqual([]);
   });
 });
