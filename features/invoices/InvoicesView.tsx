@@ -11,6 +11,8 @@ import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { Panel } from '@/components/Panel';
+import { DecimalInput } from '@/components/DecimalInput';
+import { taxRateToPercent, percentToTaxRate, formatTaxPercent, taxAmount } from '@/lib/taxRate';
 import {
   fetchInvoices, createInvoice, updateInvoice, markInvoicePaid,
   deleteInvoice, nextInvoiceNumber, calculateTotals, getEffectiveTotal, formatMoney, CURRENCIES, cloneInvoice,
@@ -414,7 +416,7 @@ export function InvoicesView() {
             const taxable = allForeign ? afterDisc + t.shopSupplies : 0;
             const printTax = allForeign ? Math.round(taxable * inv.taxRate) : t.tax;
             const displayAmt = allForeign ? taxable + printTax : t.total;
-            const taxPct = Math.round(inv.taxRate * 100);
+            const taxPct = formatTaxPercent(inv.taxRate);
             return `
               ${printTax > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eee;font-size:13px;color:#444"><span>Tax / VAT (${taxPct}%)</span><span>+${formatMoney(printTax, displayCur)}</span></div>` : ''}
               <div style="display:flex;justify-content:space-between;padding:10px 0 4px;font-weight:800;font-size:18px;border-top:2px solid #cc0000;margin-top:4px"><span>Total (${displayCur})</span><span style="color:#cc0000">${formatMoney(displayAmt, displayCur)}</span></div>
@@ -464,7 +466,10 @@ export function InvoicesView() {
   async function openNewForm() {
     const num = await nextInvoiceNumber();
     const defaultCurrency = isD1Shop ? 'THB' : 'USD';
-    setForm({ ...EMPTY_FORM, invoiceNumber: num, lines: [{ ...EMPTY_LINE }], currency: defaultCurrency });
+    // The shop's default tax rate from Settings, as every other path that
+    // raises an invoice already does (repair orders, job cards).
+    const taxRate = shopSettings?.defaultTaxRate ?? 0;
+    setForm({ ...EMPTY_FORM, invoiceNumber: num, lines: [{ ...EMPTY_LINE }], currency: defaultCurrency, taxRate, taxPct: taxRateToPercent(taxRate) });
     setCustVehicles([]);
     setCustQuery(''); setVehQuery(''); setJcQuery('');
     setEditingId(null);
@@ -500,7 +505,7 @@ export function InvoicesView() {
       discount: inv.discount,
       shopSupplies: inv.shopSupplies,
       taxRate: inv.taxRate,
-      taxPct: Math.round((inv.taxRate ?? 0) * 100),
+      taxPct: taxRateToPercent(inv.taxRate),
       notes: inv.notes,
       dueDate: inv.dueDate || '',
       paidDate: inv.paidDate,
@@ -601,7 +606,7 @@ export function InvoicesView() {
       // Discount is entered directly as a currency amount now; tax stays percentage-based.
       const { amount: effLineTotal } = calcFormEffectiveTotal(form.lines, form.currency);
       const computedDiscount = Math.min(Number(form.discount) || 0, effLineTotal);
-      const computedTaxRate = (form.taxPct ?? 0) / 100;
+      const computedTaxRate = percentToTaxRate(form.taxPct);
       if (editingId) {
         // Update existing invoice
         await updateInvoice(editingId, {
@@ -1341,35 +1346,26 @@ export function InvoicesView() {
                 const taxPct  = Number(form.taxPct) || 0;
                 const shopSup = Number(form.shopSupplies) || 0;
                 const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
-                const taxAmt  = Math.round(taxable * (taxPct / 100));
+                const taxAmt  = taxAmount(taxable, percentToTaxRate(taxPct));
                 const liveTotal = taxable + taxAmt;
                 return (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                       <div className="login-field">
                         <label>Discount ({adjCur})</label>
-                        <input
-                          type="text" inputMode="decimal"
-                          value={form.discount === 0 || form.discount === undefined ? '' : String(form.discount)}
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.max(0, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, discount: raw === '' ? 0 : n }));
-                          }}
+                        <DecimalInput
+                          value={Number(form.discount) || 0}
+                          onValueChange={n => setForm(f => ({ ...f, discount: n }))}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
                       </div>
                       <div className="login-field">
                         <label>Tax / VAT (%)</label>
-                        <input
-                          type="text" inputMode="decimal"
-                          value={form.taxPct === 0 || form.taxPct === undefined ? '' : String(form.taxPct)}
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.min(100, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, taxPct: raw === '' ? 0 : n }));
-                          }}
+                        <DecimalInput
+                          value={Number(form.taxPct) || 0}
+                          max={100}
+                          onValueChange={n => setForm(f => ({ ...f, taxPct: n }))}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
@@ -1730,35 +1726,26 @@ export function InvoicesView() {
                 const taxPct  = Number(form.taxPct) || 0;
                 const shopSup = Number(form.shopSupplies) || 0;
                 const taxable = Math.max(adjEff - discAmt, 0) + shopSup;
-                const taxAmt  = Math.round(taxable * (taxPct / 100));
+                const taxAmt  = taxAmount(taxable, percentToTaxRate(taxPct));
                 const liveTotal = taxable + taxAmt;
                 return (
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                       <div className="login-field">
                         <label>Discount ({adjCur})</label>
-                        <input
-                          type="text" inputMode="decimal"
-                          value={form.discount === 0 || form.discount === undefined ? '' : String(form.discount)}
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.max(0, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, discount: raw === '' ? 0 : n }));
-                          }}
+                        <DecimalInput
+                          value={Number(form.discount) || 0}
+                          onValueChange={n => setForm(f => ({ ...f, discount: n }))}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
                       </div>
                       <div className="login-field">
                         <label>Tax / VAT (%)</label>
-                        <input
-                          type="text" inputMode="decimal"
-                          value={form.taxPct === 0 || form.taxPct === undefined ? '' : String(form.taxPct)}
-                          onChange={e => {
-                            const raw = e.target.value.replace(/[^0-9.]/g, '');
-                            const n = Math.min(100, parseFloat(raw) || 0);
-                            setForm(f => ({ ...f, taxPct: raw === '' ? 0 : n }));
-                          }}
+                        <DecimalInput
+                          value={Number(form.taxPct) || 0}
+                          max={100}
+                          onValueChange={n => setForm(f => ({ ...f, taxPct: n }))}
                           placeholder="0"
                           onFocus={e => e.target.select()}
                         />
@@ -1973,7 +1960,7 @@ export function InvoicesView() {
                   )}
                   {totals.tax > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
-                      <span style={{ color: 'var(--muted)' }}>Tax / VAT ({Math.round(selected.taxRate * 100)}%)</span>
+                      <span style={{ color: 'var(--muted)' }}>Tax / VAT ({formatTaxPercent(selected.taxRate)}%)</span>
                       <span>+{formatMoney(totals.tax, selected.currency)}</span>
                     </div>
                   )}
@@ -1987,7 +1974,7 @@ export function InvoicesView() {
                     const taxable = allForeign ? afterDisc + totals.shopSupplies : 0;
                     const displayTax = allForeign ? Math.round(taxable * selected.taxRate) : totals.tax;
                     const displayAmt = allForeign ? taxable + displayTax : totals.total;
-                    const taxPct = Math.round(selected.taxRate * 100);
+                    const taxPct = formatTaxPercent(selected.taxRate);
                     return (
                       <>
                         {(allForeign ? displayTax : totals.tax) > 0 && (
