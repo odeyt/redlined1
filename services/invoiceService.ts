@@ -10,6 +10,7 @@
  * customer owes.
  */
 import { getShopId } from '@/lib/shopStore';
+import { formatMoney as formatExactMoney } from '@/lib/currencies';
 import { nextDocumentNumber } from './documentNumberService';
 import { browserDeps } from '@/lib/domain/browserAdapter';
 import { createInvoiceDomain } from '@/lib/domain/invoices';
@@ -134,7 +135,23 @@ export const CURRENCIES = [
 ];
 
 
+/**
+ * Shops whose staff screens show amounts rounded UP to the nearest 10.
+ *
+ * This is D1 Imports' own house rule (added 2026-07-02), not a product
+ * default. It used to apply to every shop, so a customer shop's estimate and
+ * invoice screens showed $123.45 as $130 while the customer portal, which
+ * formats exactly, showed $123.45. Every other shop gets exact amounts.
+ *
+ * Display only: stored line items, totals and payments are never rounded.
+ */
+const ROUND_UP_TO_TEN_SHOP_IDS = new Set([
+  '38d55fae-741b-4bac-b520-f96eed65bf38',
+  '90b72748-bf01-4456-999f-f4ba48091606',
+]);
+
 export function formatMoney(amount: number, currencyCode: string): string {
+  if (!ROUND_UP_TO_TEN_SHOP_IDS.has(getShopId())) return formatExactMoney(amount, currencyCode);
   // Round UP to nearest 10
   const rounded = Math.ceil(amount / 10) * 10;
   try {

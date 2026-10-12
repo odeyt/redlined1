@@ -189,8 +189,8 @@ describe('volumes requested for the demo', () => {
   });
 
   it('prices every document in USD, with totals that are whole multiples of $10', () => {
-    // services/invoiceService formatMoney rounds UP to the nearest 10 on the
-    // invoice and payment screens; round totals read identically everywhere.
+    // services/invoiceService formatMoney rounds UP to the nearest 10 for D1
+    // Imports' own shops only; round totals read identically in either mode.
     for (const doc of [...d.invoices, ...d.estimates]) {
       expect(doc.currency).toBe('USD');
       expect(lineTotal(doc.lines) % 10).toBe(0);
