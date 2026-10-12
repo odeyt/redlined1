@@ -27,9 +27,9 @@
  * ## Money
  *
  * USD, no tax, labour at $165/h. Every document total is a whole multiple of
- * $10: the invoice and payment screens format through services/invoiceService
- * formatMoney, which rounds UP to the nearest 10 for display. Round totals
- * read identically there and on the Command Center.
+ * $10: services/invoiceService formatMoney rounds UP to the nearest 10 for
+ * D1 Imports' own shops (exact everywhere else). Round totals read
+ * identically either way, and on the Command Center.
  */
 import {
   DEMO_TIME_ZONE, daysIntoMonth, generationKey, localDateString, localTime, todaySlot, todayWindow,
