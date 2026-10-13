@@ -1,10 +1,18 @@
 /**
- * Customer Portal — Server Component
- * Data is fetched server-side using the service_role key (bypasses RLS).
- * The token is never exposed to the browser beyond what the user already knows.
+ * Customer Portal — Server Component, reached signed out by the customer.
+ *
+ * Data is fetched server-side with the service role (bypasses RLS), so the
+ * scoping below IS the access control: the token resolves to exactly one
+ * customer and that customer's shop, and every query is filtered by both.
+ * A record carrying this customer's id under another shop is not shown.
+ *
+ * The token itself is not sent back to the browser in the page data; the
+ * client reads it from its own URL when it needs it.
  */
+import type { Metadata } from 'next';
 import { createServerSupabase } from '@/lib/supabase-server';
 import { signStoredUrls } from '@/lib/storage/signServer';
+import { resolvePortalCustomer, logPortalLookupError } from '@/lib/portal/portalToken';
 import { PortalClient } from './PortalClient';
 import { portalInvoicesFrom, portalEstimatesFrom, portalRepairOrdersFrom } from '@/lib/portal/portalMoney';
 import type {
@@ -13,61 +21,72 @@ import type {
   PortalInspectionItem,
 } from '@/services/portalService';
 
+// Per-customer and token-bearing: never cached, never indexed.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 interface Props {
   params: Promise<{ token: string }>;
 }
 
+/** Any query error is an outage, not "no data": fail to the not-found page. */
+function must<T>(res: { data: T | null; error: { code?: string; message: string } | null }, what: string): T {
+  if (res.error) throw Object.assign(new Error(`${what}: ${res.error.message}`), { code: res.error.code });
+  return (res.data ?? ([] as unknown as T));
+}
+
 export default async function CustomerPortalPage({ params }: Props) {
   const { token } = await params;
+  const data = await loadPortal(token);
+  return data ? <PortalClient data={data} /> : <NotFound />;
+}
 
-  if (!token) {
-    return <NotFound />;
-  }
-
+/**
+ * Everything the page shows, or null. Null for a bad link and for any failure
+ * alike — the customer sees the same page; the server log gets the reason
+ * (never the token).
+ */
+async function loadPortal(token: string): Promise<PortalData | null> {
   try {
     const sb = createServerSupabase();
 
-    // 1. Resolve customer by portal_token
-    const { data: custData } = await sb
-      .from('customers')
-      .select('*')
-      .eq('portal_token', token)
-      .maybeSingle();
+    // 1. Token → one customer and their shop. Malformed and unknown tokens
+    //    are indistinguishable from here on.
+    let ref;
+    try {
+      ref = await resolvePortalCustomer(sb, token);
+    } catch (e) {
+      logPortalLookupError('portal page', e);
+      return null;
+    }
+    if (!ref) return null;
+    const { id: customerId, shopId } = ref;
 
-    if (!custData) return <NotFound />;
-
-    const customer: PortalCustomer = {
-      id:          custData.id,
-      name:        custData.name        ?? '',
-      phone:       custData.phone       ?? '',
-      email:       custData.email       ?? '',
-      address:     custData.address     ?? '',
-      portalToken: custData.portal_token,
-    };
-
-    // 2. Fetch everything in parallel.
-    //
-    // Settings are per shop, keyed by shop_id — the customer's own shop. The
-    // old lookup by a fixed row id was from when there was one shop, and gave
-    // every portal the generic "Auto Shop" header. Invoices and estimates have no
-    // `date` column; ordering by one made the query fail and the lists empty.
-    const [shopRes, settingsRes, vehiclesRes, invoicesRes, estimatesRes, inspectionsRes, roRes] =
+    // 2. Everything else, scoped to this customer AND this shop.
+    const [custRes, shopRes, settingsRes, vehiclesRes, invoicesRes, estimatesRes, inspectionsRes, roRes] =
       await Promise.all([
-        sb.from('shops').select('name').eq('id', custData.shop_id).maybeSingle(),
-        sb.from('shop_settings').select('company_name, tagline, phone, email, address, logo_url').eq('shop_id', custData.shop_id).maybeSingle(),
-        sb.from('vehicles').select('*').eq('customer_id', customer.id).order('year', { ascending: false }),
-        sb.from('invoices').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
-        sb.from('estimates').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
-        sb.from('inspections').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
-        sb.from('repair_orders').select('*').eq('customer_id', customer.id).order('opened_date', { ascending: false }),
+        sb.from('customers').select('name').eq('id', customerId).eq('shop_id', shopId).maybeSingle(),
+        sb.from('shops').select('name').eq('id', shopId).maybeSingle(),
+        sb.from('shop_settings').select('company_name, tagline, phone, email, address, logo_url').eq('shop_id', shopId).maybeSingle(),
+        sb.from('vehicles').select('id, year, make, model, license_plate, color, mileage, status').eq('customer_id', customerId).eq('shop_id', shopId).order('year', { ascending: false }),
+        sb.from('invoices').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
+        sb.from('estimates').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
+        sb.from('inspections').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
+        sb.from('repair_orders').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('opened_date', { ascending: false }),
       ]);
 
-    // Payments against this customer's invoices. Invoice numbers are the
-    // invoices primary key, so they identify one invoice across all shops.
-    const invoiceNumbers = (invoicesRes.data ?? []).map(r => r.number as string).filter(Boolean);
+    const custData = must(custRes, 'customer') as { name?: string } | null;
+    const customer: PortalCustomer = { name: custData?.name ?? '' };
+    const invoiceRows = must(invoicesRes, 'invoices') as Record<string, unknown>[];
+
+    // Payments against this customer's invoices, in this shop. invoices.number
+    // is the primary key, but the filter does not rely on that.
+    const invoiceNumbers = invoiceRows.map(r => r.number as string).filter(Boolean);
     const paymentsRes = invoiceNumbers.length > 0
-      ? await sb.from('payments').select('*').in('invoice_number', invoiceNumbers)
-      : { data: [] };
+      ? await sb.from('payments').select('*').in('invoice_number', invoiceNumbers).eq('shop_id', shopId)
+      : { data: [], error: null };
+    const paymentRows = must(paymentsRes, 'payments') as Record<string, unknown>[];
 
     const sd = settingsRes.data;
     const shop: PortalShop = {
@@ -79,7 +98,8 @@ export default async function CustomerPortalPage({ params }: Props) {
       logoUrl: sd?.logo_url     ?? null,
     };
 
-    const vehicles: PortalVehicle[] = (vehiclesRes.data ?? []).map(r => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows, as before
+    const vehicles: PortalVehicle[] = (must(vehiclesRes, 'vehicles') as Record<string, any>[]).map(r => ({
       id:           r.id,
       year:         r.year          ?? '',
       make:         r.make          ?? '',
@@ -90,10 +110,11 @@ export default async function CustomerPortalPage({ params }: Props) {
       status:       r.status        ?? 'Active',
     }));
 
-    const invoices: PortalInvoice[] = portalInvoicesFrom(invoicesRes.data ?? [], paymentsRes.data ?? []);
-    const estimates: PortalEstimate[] = portalEstimatesFrom(estimatesRes.data ?? []);
+    const invoices: PortalInvoice[] = portalInvoicesFrom(invoiceRows, paymentRows);
+    const estimates: PortalEstimate[] = portalEstimatesFrom(must(estimatesRes, 'estimates') as Record<string, unknown>[]);
 
-    const inspections: PortalInspection[] = (inspectionsRes.data ?? []).map(r => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows, as before
+    const inspections: PortalInspection[] = (must(inspectionsRes, 'inspections') as Record<string, any>[]).map(r => {
       const items: PortalInspectionItem[] = (Array.isArray(r.items) ? r.items : []).map(
         (it: Record<string, unknown>) => ({
           category: String(it.category ?? ''),
@@ -113,7 +134,7 @@ export default async function CustomerPortalPage({ params }: Props) {
       };
     });
 
-    const repairOrders: PortalRO[] = portalRepairOrdersFrom(roRes.data ?? []);
+    const repairOrders: PortalRO[] = portalRepairOrdersFrom(must(roRes, 'repair_orders') as Record<string, unknown>[]);
 
     // The customer viewing this portal has no session, so the server signs
     // every storage URL on their behalf — the logo plus any inspection photo.
@@ -134,15 +155,14 @@ export default async function CustomerPortalPage({ params }: Props) {
       ),
     }));
 
-    const data: PortalData = {
+    return {
       customer, shop: signedShop, vehicles, invoices, estimates,
       inspections: signedInspections, repairOrders,
     };
-
-    return <PortalClient data={data} />;
-
-  } catch {
-    return <NotFound />;
+  } catch (e) {
+    const err = e as { message?: string; code?: string };
+    console.error('[portal page] load failed', { code: err.code, message: err.message });
+    return null;
   }
 }
 

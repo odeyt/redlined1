@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import type { PortalData, PortalEstimate, PortalInspection } from '@/services/portalService';
 import { formatMoney } from '@/lib/currencies';
 
@@ -37,6 +38,8 @@ type Tab = 'overview' | 'vehicles' | 'invoices' | 'estimates' | 'inspections' | 
 
 export function PortalClient({ data }: { data: PortalData }) {
   const { customer, shop, vehicles, invoices, estimates, inspections, repairOrders } = data;
+  // The token is already in the address bar; it is not repeated in the page data.
+  const params = useParams<{ token: string }>();
 
   const [tab, setTab]                   = useState<Tab>('overview');
   const [actioning, setActioning]       = useState<string | null>(null);
@@ -63,7 +66,7 @@ export function PortalClient({ data }: { data: PortalData }) {
       const res = await fetch('/api/portal/estimate-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: customer.portalToken, estimateId: est.id, action }),
+        body: JSON.stringify({ token: params.token, estimateId: est.id, action }),
       });
       const body = await res.json().catch(() => ({})) as { status?: string; error?: string };
       if (res.ok && body.status) {

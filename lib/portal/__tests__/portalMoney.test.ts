@@ -99,7 +99,7 @@ describe('portal page', () => {
   it('loads the customer shop settings, not a single-tenant row', () => {
     const src = read('app/portal/[token]/page.tsx');
     expect(src).not.toMatch(/\.eq\('id', 1\)/);
-    expect(src).toMatch(/\.eq\('shop_id', custData\.shop_id\)/);
+    expect(src).toMatch(/from\('shop_settings'\)[^\n]*\.eq\('shop_id', shopId\)/);
     expect(src).not.toMatch(/order\('date'/);
   });
 
