@@ -1,12 +1,13 @@
 /**
  * portalService.ts
- * Types for the public customer portal, and the customer's estimate actions.
+ * Types for the public customer portal.
  *
  * The portal's data is loaded server-side in app/portal/[token]/page.tsx and
- * mapped by lib/portal/portalMoney.ts. A second, browser-side copy of that
- * loader used to live here; nothing called it and it had drifted.
+ * mapped by lib/portal/portalMoney.ts. A customer approving or declining an
+ * estimate goes through POST /api/portal/estimate-action, which checks the
+ * portal token (lib/portal/estimateAction.ts). Both used to be browser-side
+ * calls through the anon client here, with no token check.
  */
-import { supabase } from '@/lib/supabase';
 
 export interface PortalCustomer {
   id: string;
@@ -122,21 +123,4 @@ export interface PortalData {
   estimates: PortalEstimate[];
   inspections: PortalInspection[];
   repairOrders: PortalRO[];
-}
-
-/* ─── Estimate approval / decline (customer action) ─── */
-export async function customerApproveEstimate(estimateId: string): Promise<void> {
-  const { error } = await supabase
-    .from('estimates')
-    .update({ status: 'Approved' })
-    .eq('id', estimateId);
-  if (error) throw error;
-}
-
-export async function customerDeclineEstimate(estimateId: string): Promise<void> {
-  const { error } = await supabase
-    .from('estimates')
-    .update({ status: 'Declined' })
-    .eq('id', estimateId);
-  if (error) throw error;
 }

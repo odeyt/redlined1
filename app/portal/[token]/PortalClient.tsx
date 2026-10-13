@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { customerApproveEstimate, customerDeclineEstimate } from '@/services/portalService';
 import type { PortalData, PortalEstimate, PortalInspection } from '@/services/portalService';
 import { formatMoney } from '@/lib/currencies';
 
@@ -55,25 +54,38 @@ export function PortalClient({ data }: { data: PortalData }) {
   const openROs            = repairOrders.filter(r => r.status !== 'Closed' && r.status !== 'Complete');
   const ACCENT             = '#cc0000';
 
-  async function handleApprove(est: PortalEstimate) {
+  // The server checks the portal token, that the estimate is this customer's,
+  // and that it is still awaiting an answer. It used to be a direct anon
+  // write from this browser with neither check.
+  async function answerEstimate(est: PortalEstimate, action: 'approve' | 'decline') {
     setActioning(est.id);
     try {
-      await customerApproveEstimate(est.id);
-      setLocalEstimates(prev => prev.map(e => e.id === est.id ? { ...e, status: 'Approved' } : e));
-      setActionMsg(`✅ Estimate ${est.estimateNumber} approved! The shop has been notified.`);
+      const res = await fetch('/api/portal/estimate-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: customer.portalToken, estimateId: est.id, action }),
+      });
+      const body = await res.json().catch(() => ({})) as { status?: string; error?: string };
+      if (res.ok && body.status) {
+        setLocalEstimates(prev => prev.map(e => e.id === est.id ? { ...e, status: body.status! } : e));
+        // The shop sees the new status on its Estimates screen; nothing is
+        // sent to them, so the message does not claim they were notified.
+        setActionMsg(action === 'approve'
+          ? `✅ Estimate ${est.estimateNumber} approved. The shop will see your approval.`
+          : `Estimate ${est.estimateNumber} declined. The shop will see your answer.`);
+      } else if (res.status === 409 && body.status) {
+        // Already answered — from another tab, or by the shop. Show what it is now.
+        setLocalEstimates(prev => prev.map(e => e.id === est.id ? { ...e, status: body.status! } : e));
+        setActionMsg(`Estimate ${est.estimateNumber} has already been answered (${body.status}).`);
+      } else {
+        setActionMsg('Something went wrong. Please contact the shop.');
+      }
     } catch { setActionMsg('Something went wrong. Please contact the shop.'); }
     finally { setActioning(null); }
   }
 
-  async function handleDecline(est: PortalEstimate) {
-    setActioning(est.id);
-    try {
-      await customerDeclineEstimate(est.id);
-      setLocalEstimates(prev => prev.map(e => e.id === est.id ? { ...e, status: 'Declined' } : e));
-      setActionMsg(`Estimate ${est.estimateNumber} declined. The shop has been notified.`);
-    } catch { setActionMsg('Something went wrong. Please contact the shop.'); }
-    finally { setActioning(null); }
-  }
+  const handleApprove = (est: PortalEstimate) => answerEstimate(est, 'approve');
+  const handleDecline = (est: PortalEstimate) => answerEstimate(est, 'decline');
 
   const TABS: { id: Tab; label: string; badge?: number }[] = [
     { id: 'overview',    label: '🏠 Overview' },
