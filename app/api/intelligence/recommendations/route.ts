@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { isShopFlagEnabled } from '@/lib/featureFlags/shopFlags';
 import {
   generateRecommendations,
   getOpenRecommendations,
@@ -28,22 +29,6 @@ async function getAuthCtx(req: NextRequest) {
   return { userId: user.id, shopId, role };
 }
 
-async function isFlagEnabled(flagKey: string): Promise<boolean> {
-  try {
-    const { getAdminDb } = await import('@/lib/supabaseServer');
-    const db = getAdminDb();
-    const { data, error } = await db.from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
-    if (error) {
-      console.error('[isFlagEnabled] DB error for', flagKey, error.message);
-      return true; // fail-open: DB confirmed flags exist, don't block UI on query error
-    }
-    return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch (e) {
-    console.error('[isFlagEnabled] exception for', flagKey, e);
-    return true; // fail-open
-  }
-}
-
 // GET — open recommendations for the shop (owner/manager only)
 export async function GET(req: NextRequest) {
   try {
@@ -52,7 +37,7 @@ export async function GET(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
-    const enabled = await isFlagEnabled('recommendation_engine');
+    const enabled = await isShopFlagEnabled('recommendation_engine', ctx);
     if (!enabled) return disabledResponse();
 
     const recommendations = await getOpenRecommendations(ctx.shopId);
@@ -70,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (!['owner', 'manager'].includes(ctx.role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     if (!ctx.shopId) return NextResponse.json({ error: 'Shop required' }, { status: 400 });
 
-    const enabled = await isFlagEnabled('recommendation_engine');
+    const enabled = await isShopFlagEnabled('recommendation_engine', ctx);
     if (!enabled) return disabledResponse();
 
     const recommendations = await generateRecommendations(ctx.shopId);
