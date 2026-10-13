@@ -10,6 +10,7 @@ import { fetchCustomers, saveCustomer, updateCustomer, updateFollowUp, deleteCus
 import { supabase } from '@/lib/supabase';
 import { useAppDispatch } from '@/lib/store';
 import { getShopId } from '@/lib/shopStore';
+import { authedFetch } from '@/lib/apiClient';
 import { useShop } from '@/lib/useShop';
 import { fetchMaintenanceSchedules, getDaysUntilDue, getDueStatus, type MaintenanceSchedule } from '@/services/maintenanceService';
 import { parseFreeTierLimitError, freeTierLimitMessage } from '@/lib/freeTierLimit';
@@ -653,11 +654,24 @@ export function CustomersView() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" style={{ flex: 1 }} onClick={() => handleFollowUp(selected.id, selected.name)}>✉ Send Follow-up</button>
                 <AddReminderButton link={{ kind: 'customer', id: selected.id }} label={selected.name} />
-                {selected.portalToken && (
-                  <button className="btn" onClick={() => { const url = `${window.location.origin}/portal/${selected.portalToken}`; navigator.clipboard.writeText(url).then(() => notify('Portal link copied!')); }}>
-                    🔗 Portal Link
-                  </button>
-                )}
+                {/* Fetched on demand: portal tokens are never in customer list data. */}
+                <button className="btn" onClick={async () => {
+                  try {
+                    const res = await authedFetch('/api/customers/portal-link', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ shopId: getShopId(), customerId: selected.id }),
+                    });
+                    const out = await res.json().catch(() => ({})) as { url?: string; error?: string };
+                    if (!res.ok || !out.url) { notify(out.error || 'Could not get the portal link.'); return; }
+                    await navigator.clipboard.writeText(out.url);
+                    notify('Portal link copied!');
+                  } catch (e) {
+                    notify(e instanceof Error ? e.message : 'Could not get the portal link.');
+                  }
+                }}>
+                  🔗 Portal Link
+                </button>
                 <button className="btn" onClick={() => setSelected(null)}>Close</button>
               </div>
               {selected.archivedAt ? (

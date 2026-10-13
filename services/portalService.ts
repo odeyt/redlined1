@@ -9,13 +9,12 @@
  * calls through the anon client here, with no token check.
  */
 
+/**
+ * Only what the page shows. The customer's id, contact details and portal
+ * token are not sent to the browser; the client reads the token from its URL.
+ */
 export interface PortalCustomer {
-  id: string;
   name: string;
-  phone: string;
-  email: string;
-  address: string;
-  portalToken: string;
 }
 
 /** No VIN: the portal is reached by a shareable link, and VIN is shop-private. */

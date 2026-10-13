@@ -7,17 +7,20 @@
  * anyone holding an estimate id could approve or decline it.
  *
  * Now the server decides, and it checks, in order:
- *   1. the portal token belongs to a customer
- *   2. the estimate exists AND belongs to that customer (else the same 404,
- *      so a guessed id reveals nothing)
+ *   1. the token is well formed and belongs to a customer, with their shop
+ *   2. the estimate exists AND belongs to that customer AND that shop
  *   3. the estimate is still awaiting a decision — the update itself is
- *      conditional on that, so two clicks or two tabs cannot both win
+ *      conditional on that (and on customer and shop), so two clicks or two
+ *      tabs cannot both win
+ * A malformed token or id, an unknown token, and a missing or someone
+ * else's estimate all get the same 404, so a guess reveals nothing.
  *
  * Pure apart from the store it is handed, so the rules are tested without a
  * database.
  */
 
 import { AUDIT } from '@/lib/domain/audit';
+import { isWellFormedPortalToken } from './portalToken';
 
 export type EstimateAction = 'approve' | 'decline';
 
@@ -37,10 +40,18 @@ export interface PortalEstimateRecord {
 }
 
 export interface EstimateActionStore {
-  findCustomerIdByToken(token: string): Promise<string | null>;
+  /** The customer and shop a well-formed token belongs to, or null. */
+  findCustomerByToken(token: string): Promise<{ id: string; shopId: string } | null>;
   findEstimate(id: string): Promise<PortalEstimateRecord | null>;
-  /** Applies `patch` only while the status is one of `fromStatuses`. Returns rows changed. */
-  updateIfStatus(id: string, fromStatuses: readonly string[], patch: Record<string, unknown>): Promise<number>;
+  /**
+   * Applies `patch` to the estimate with this id, customer and shop, only
+   * while its status is one of `fromStatuses`. Returns rows changed.
+   */
+  updateIfStatus(
+    scope: { id: string; customerId: string; shopId: string },
+    fromStatuses: readonly string[],
+    patch: Record<string, unknown>,
+  ): Promise<number>;
   audit(entry: {
     shopId: string;
     action: string;
@@ -55,20 +66,26 @@ export type EstimateActionResult =
   | { status: 400 | 404 | 500; body: { error: string } }
   | { status: 409; body: { error: string; status: string } };
 
+/**
+ * Only the action is a 400. A malformed token or estimate id is answered
+ * exactly like an unknown one (404), so the shape of a guess reveals nothing.
+ */
 export function parseEstimateActionRequest(body: unknown):
   | { ok: true; token: string; estimateId: string; action: EstimateAction }
-  | { ok: false; error: string } {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const token = typeof b.token === 'string' ? b.token.trim() : '';
-  const estimateId = typeof b.estimateId === 'string' ? b.estimateId.trim() : '';
+  | { ok: false; status: 400 | 404; error: string } {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
   const action = b.action;
-  if (!token || token.length > 200) return { ok: false, error: 'A valid portal link is required.' };
-  if (!UUID.test(estimateId)) return { ok: false, error: 'A valid estimate is required.' };
-  if (action !== 'approve' && action !== 'decline') return { ok: false, error: 'Action must be approve or decline.' };
+  if (action !== 'approve' && action !== 'decline') return { ok: false, status: 400, error: 'Action must be approve or decline.' };
+  const token = b.token;
+  const estimateId = b.estimateId;
+  if (!isWellFormedPortalToken(token) || typeof estimateId !== 'string' || !UUID.test(estimateId)) {
+    return { ok: false, status: 404, error: NOT_FOUND_MESSAGE };
+  }
   return { ok: true, token, estimateId, action };
 }
 
-const NOT_FOUND: EstimateActionResult = { status: 404, body: { error: 'Estimate not found.' } };
+const NOT_FOUND_MESSAGE = 'Estimate not found.';
+const NOT_FOUND: EstimateActionResult = { status: 404, body: { error: NOT_FOUND_MESSAGE } };
 
 export async function applyEstimateAction(
   store: EstimateActionStore,
@@ -76,13 +93,15 @@ export async function applyEstimateAction(
   now: Date = new Date(),
 ): Promise<EstimateActionResult> {
   const req = parseEstimateActionRequest(body);
-  if (!req.ok) return { status: 400, body: { error: req.error } };
+  if (!req.ok) return req.status === 400 ? { status: 400, body: { error: req.error } } : NOT_FOUND;
 
-  const customerId = await store.findCustomerIdByToken(req.token);
-  if (!customerId) return NOT_FOUND;
+  const customer = await store.findCustomerByToken(req.token);
+  if (!customer) return NOT_FOUND;
 
+  // Same customer AND same shop: a record carrying this customer's id under
+  // another shop is not theirs to answer.
   const estimate = await store.findEstimate(req.estimateId);
-  if (!estimate || estimate.customerId !== customerId) return NOT_FOUND;
+  if (!estimate || estimate.customerId !== customer.id || estimate.shopId !== customer.shopId) return NOT_FOUND;
 
   if (!ACTIONABLE_ESTIMATE_STATUSES.includes(estimate.status)) {
     return { status: 409, body: { error: 'This estimate has already been answered.', status: estimate.status } };
@@ -94,7 +113,11 @@ export async function applyEstimateAction(
     ? { status: next, approved_date: now.toISOString() }
     : { status: next };
 
-  const changed = await store.updateIfStatus(estimate.id, ACTIONABLE_ESTIMATE_STATUSES, patch);
+  const changed = await store.updateIfStatus(
+    { id: estimate.id, customerId: customer.id, shopId: customer.shopId },
+    ACTIONABLE_ESTIMATE_STATUSES,
+    patch,
+  );
   if (changed === 0) {
     // Lost a race: someone answered between the read and the write.
     const current = await store.findEstimate(estimate.id);

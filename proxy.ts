@@ -48,7 +48,40 @@ const PUBLIC_PATHS = [
   '/api/webhooks/resend',
 ];
 
+/**
+ * The customer portal: reached signed out by a shop's customer, authenticated
+ * by the bearer token in the link (lib/portal/portalToken.ts). Matched
+ * exactly rather than by prefix, so nothing else under /portal or /api/portal
+ * — and none of /status or /inspection, whose handlers have not been reviewed
+ * for public access — becomes public by accident.
+ *
+ *   /portal/<one segment>          the page (any segment, so a bad link shows
+ *                                  the portal's own "not found", not /login)
+ *   /api/portal/estimate-action    approve / decline
+ */
+const PORTAL_PAGE = /^\/portal\/[^/]+\/?$/;
+const PORTAL_API = '/api/portal/estimate-action';
+
+export function isCustomerPortalPath(pathname: string): boolean {
+  return PORTAL_PAGE.test(pathname) || pathname === PORTAL_API;
+}
+
+/** Token-bearing, per-customer responses: never cached, never leaked onward. */
+function withPortalHeaders(res: NextResponse): NextResponse {
+  res.headers.set('Cache-Control', 'private, no-store');
+  res.headers.set('Referrer-Policy', 'no-referrer');
+  res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return res;
+}
+
 export async function proxy(request: NextRequest) {
+  // Customer portal: no staff session involved, in either direction. Answered
+  // before any session handling so a staff cookie is neither required nor
+  // refreshed here.
+  if (isCustomerPortalPath(request.nextUrl.pathname)) {
+    return withPortalHeaders(NextResponse.next());
+  }
+
   const response = NextResponse.next();
 
   // Route handlers only. Pages still redirect, which is right for a browser.
