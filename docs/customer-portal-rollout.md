@@ -1,8 +1,8 @@
 # Customer portal — rollout runbook
 
-Status at time of writing (2026-10-13): **not live.** The code, migrations and
-tests are in the PR that adds this file. Nothing below has been run against
-production or staging. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
+Status (2026-10-13, after rollout): **deployed; signed-out checks verified;
+authenticated test-customer walkthrough pending.** See the rollout record at
+the end of this file. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
 production Vercel project: `redlined1` under `redlined1-s-projects` (the
 `d1-imports` project is a duplicate — do not deploy there).
 
@@ -146,3 +146,46 @@ Do not rotate all customer tokens as a rollback.
 - `/status/[token]` and `/inspection/[token]` share links have the same
   login-redirect problem and stay gated: their handlers need review first
   (e.g. `inspection-share` returns `select('*')`, which may include VIN).
+
+## Rollout record (2026-10-13)
+
+Observed evidence only. Staging was skipped on the owner's instruction. This
+was a scoped exception for #85; it does **not** clear the wider production
+security hold (pg_net / push secret), which is unchanged.
+
+**Database** — applied by the owner in the Supabase SQL editor (Claude Code
+was not permitted production database access). Owner-reported: backup
+confirmed; pre-check, Verify 1 and Verify 2 passed. The verification SQL used
+was tested first against the exact migration files in a throwaway local
+container, including a negative control (a deliberate PUBLIC grant) that both
+queries caught. Independently re-checked afterwards from the API, read-only:
+
+| Check | Result |
+|-------|--------|
+| `customers` / `customer_portal_tokens` row counts (HEAD count only) | 185 / 185 |
+| Token table and generator visible in the **anon** API schema | no / no |
+| anon `GET /rest/v1/customer_portal_tokens` | 401, Postgres 42501 (permission denied) |
+| anon `POST /rest/v1/rpc/new_customer_portal_token` | 401 |
+
+**Code** — PR #85 merged by the owner 2026-10-13T06:51:00Z, merge
+`68a1209b0d3b5cab66ebede494307f3c8129ea14`. `main`'s tree is identical to the
+reviewed head `529ee55b7f6a156f312042f6df4f7582c6f06f85`.
+
+**Deploy** — `redlined1-s-projects/redlined1` production deployment
+`redlined1-i9g6hny5i`, built from `githubCommitSha=68a1209…`, Ready, aliased to
+`www.redlined1.com` and `redlined1.com`. `d1-imports` not touched.
+
+**Signed-out checks on www.redlined1.com** (synthetic tokens only):
+
+| Request | Result |
+|---------|--------|
+| `GET /portal/<64 zeroes>`, `GET /portal/not-a-token` | 200 "Portal Not Found"; `private, no-store`; `no-referrer`; `noindex, nofollow` |
+| `POST /api/portal/estimate-action` — unknown token; malformed token/id | 404 `Estimate not found.` (identical) |
+| same — bad action; non-JSON body | 400 |
+| `/portal`, `/portal/a/b`, `/portals/x`, `/status/x`, `/inspection/x`, `/customers`, `/settings`, `/dashboard` | 307 → /login |
+| `/api/portal`, `/api/portal/other`, `/api/portal/estimate-action/x`, `POST /api/customers/portal-link`, `POST /api/inspection-approve` | 401 |
+
+**Pending** — authenticated walkthrough with a clearly labeled synthetic test
+customer (staff Portal Link → open signed out → own documents and totals →
+approve one synthetic estimate → replay refused). Not run: needs a staff
+session and writes to production.
