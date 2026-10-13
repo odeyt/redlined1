@@ -168,11 +168,12 @@ describe('the snapshot is metadata, never arithmetic', () => {
   it('the canonical total function does not reference partsSource', () => {
     const fs = jest.requireActual('fs') as typeof import('fs');
     const path = jest.requireActual('path') as typeof import('path');
+    // Lives in lib/domain/estimateMath.ts (re-exported by estimateService) so
+    // the customer portal totals estimates with the same function.
     const src = fs.readFileSync(
-      path.join(process.cwd(), 'services', 'estimateService.ts'), 'utf8');
-    const fn = src.slice(
-      src.indexOf('export function calculateEstimateTotals'),
-      src.indexOf('export async function fetchEstimates'));
+      path.join(process.cwd(), 'lib', 'domain', 'estimateMath.ts'), 'utf8');
+    const fn = src.slice(src.indexOf('export function calculateEstimateTotals'));
+    expect(fn.length).toBeGreaterThan(0);
     expect(fn).not.toContain('partsSource');
     expect(fn).not.toContain('landedCost');
     // Still qty × rate, unchanged.

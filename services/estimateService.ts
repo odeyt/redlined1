@@ -47,13 +47,9 @@ export interface EstimateFull {
   createdAt: string;
 }
 
-export interface EstimateTotals {
-  subtotal: number;
-  discount: number;
-  shopSupplies: number;
-  tax: number;
-  total: number;
-}
+// The arithmetic lives in lib/domain/estimateMath.ts so the customer portal
+// totals an estimate exactly as this screen does.
+export { calculateEstimateTotals, type EstimateTotals } from '@/lib/domain/estimateMath';
 
 function mapRow(r: Record<string, unknown>): EstimateFull {
   return {
@@ -74,18 +70,6 @@ function mapRow(r: Record<string, unknown>): EstimateFull {
     currency: (r.currency as string) || 'USD',
     createdAt: (r.created_at as string) || '',
   };
-}
-
-export function calculateEstimateTotals(est: EstimateFull): EstimateTotals {
-  const mainCur = est.currency || 'USD';
-  const subtotal = est.lines
-    .filter(l => !l.currency || l.currency === mainCur)
-    .reduce((s, l) => s + l.qty * l.rate, 0);
-  const afterDiscount = Math.max(subtotal - est.discount, 0);
-  // shopSupplies removed from UI — exclude from calculation regardless of DB value
-  const tax = afterDiscount * est.taxRate;
-  const total = afterDiscount + tax;
-  return { subtotal, discount: est.discount, shopSupplies: 0, tax, total };
 }
 
 export async function fetchEstimates(): Promise<EstimateFull[]> {

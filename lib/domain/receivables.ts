@@ -67,7 +67,7 @@ export type AgingBucket = 'Not due' | '1–30' | '31–60' | '61–90' | '90+';
 export const AGING_BUCKETS: readonly AgingBucket[] = ['Not due', '1–30', '31–60', '61–90', '90+'];
 
 /** Invoice statuses that are not owed: nothing to chase. */
-const SETTLED_STATUSES = new Set(['Paid', 'Cancelled', 'Void', 'Draft']);
+export const SETTLED_STATUSES: ReadonlySet<string> = new Set(['Paid', 'Cancelled', 'Void', 'Draft']);
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
