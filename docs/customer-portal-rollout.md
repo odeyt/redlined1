@@ -1,8 +1,8 @@
 # Customer portal — rollout runbook
 
-Status (2026-10-13, after rollout): **deployed; signed-out checks verified;
-authenticated test-customer walkthrough pending.** See the rollout record at
-the end of this file. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
+Status (2026-10-13, after rollout): **Deployed; signed-out checks verified;
+test-customer walkthrough pending.** The portal is not marked complete. See the
+rollout record at the end of this file. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
 production Vercel project: `redlined1` under `redlined1-s-projects` (the
 `d1-imports` project is a duplicate — do not deploy there).
 
@@ -153,12 +153,20 @@ Observed evidence only. Staging was skipped on the owner's instruction. This
 was a scoped exception for #85; it does **not** clear the wider production
 security hold (pg_net / push secret), which is unchanged.
 
-**Database** — applied by the owner in the Supabase SQL editor (Claude Code
-was not permitted production database access). Owner-reported: backup
-confirmed; pre-check, Verify 1 and Verify 2 passed. The verification SQL used
-was tested first against the exact migration files in a throwaway local
-container, including a negative control (a deliberate PUBLIC grant) that both
-queries caught. Independently re-checked afterwards from the API, read-only:
+**Database** — both migrations were applied in production by the owner
+(Claude Code was not permitted production database access).
+
+- *Direct production verification (ChatGPT, as reported by the owner):* both
+  migrations were verified directly against production — backup confirmed,
+  pre-check, Verify 1 (token migration) and Verify 2 (TRUNCATE revoke) passed.
+  The raw query output was not provided to Claude Code and is not reproduced
+  here.
+- *Verification SQL:* the pre-check / Verify 1 / Verify 2 queries handed over
+  for this rollout were first run against the exact migration files from
+  `529ee55` in a throwaway local container. Both verifications passed there,
+  and a negative control (a deliberate PUBLIC grant on the token table,
+  generator and `customers` TRUNCATE) was caught by both.
+- *Independent read-only re-check by Claude Code, from the API, after rollout:*
 
 | Check | Result |
 |-------|--------|
