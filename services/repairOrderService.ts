@@ -80,14 +80,9 @@ function mapRow(r: Record<string, unknown>): RepairOrder {
   };
 }
 
-export function calcPartsTotal(parts: RoPart[]): number {
-  return parts.reduce((s, p) => s + p.qty * p.unitCost, 0);
-}
-
-export function calcROTotal(ro: RepairOrder): number {
-  const live = ro.parts && ro.parts.length > 0 ? calcPartsTotal(ro.parts) : ro.partsTotal;
-  return ro.laborHours * ro.laborRate + live;
-}
+// The arithmetic lives in lib/domain/repairOrderMath.ts so the customer
+// portal totals a repair order exactly as this screen does.
+export { calcPartsTotal, calcROTotal } from '@/lib/domain/repairOrderMath';
 
 export async function fetchRepairOrders(): Promise<RepairOrder[]> {
   const { data, error } = await supabase

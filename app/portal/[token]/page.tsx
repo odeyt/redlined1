@@ -6,10 +6,11 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { signStoredUrls } from '@/lib/storage/signServer';
 import { PortalClient } from './PortalClient';
+import { portalInvoicesFrom, portalEstimatesFrom, portalRepairOrdersFrom } from '@/lib/portal/portalMoney';
 import type {
   PortalData, PortalCustomer, PortalShop, PortalVehicle,
   PortalInvoice, PortalEstimate, PortalInspection, PortalRO,
-  PortalLineItem, PortalInspectionItem,
+  PortalInspectionItem,
 } from '@/services/portalService';
 
 interface Props {
@@ -44,20 +45,33 @@ export default async function CustomerPortalPage({ params }: Props) {
       portalToken: custData.portal_token,
     };
 
-    // 2. Fetch everything in parallel
-    const [shopRes, vehiclesRes, invoicesRes, estimatesRes, inspectionsRes, roRes] =
+    // 2. Fetch everything in parallel.
+    //
+    // Settings are per shop, keyed by shop_id — the customer's own shop. The
+    // old lookup by a fixed row id was from when there was one shop, and gave
+    // every portal the generic "Auto Shop" header. Invoices and estimates have no
+    // `date` column; ordering by one made the query fail and the lists empty.
+    const [shopRes, settingsRes, vehiclesRes, invoicesRes, estimatesRes, inspectionsRes, roRes] =
       await Promise.all([
-        sb.from('shop_settings').select('*').eq('id', 1).single(),
+        sb.from('shops').select('name').eq('id', custData.shop_id).maybeSingle(),
+        sb.from('shop_settings').select('company_name, tagline, phone, email, address, logo_url').eq('shop_id', custData.shop_id).maybeSingle(),
         sb.from('vehicles').select('*').eq('customer_id', customer.id).order('year', { ascending: false }),
-        sb.from('invoices').select('*').eq('customer_id', customer.id).order('date', { ascending: false }),
-        sb.from('estimates').select('*').eq('customer_id', customer.id).order('date', { ascending: false }),
+        sb.from('invoices').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
+        sb.from('estimates').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
         sb.from('inspections').select('*').eq('customer_id', customer.id).order('created_at', { ascending: false }),
         sb.from('repair_orders').select('*').eq('customer_id', customer.id).order('opened_date', { ascending: false }),
       ]);
 
-    const sd = shopRes.data;
+    // Payments against this customer's invoices. Invoice numbers are the
+    // invoices primary key, so they identify one invoice across all shops.
+    const invoiceNumbers = (invoicesRes.data ?? []).map(r => r.number as string).filter(Boolean);
+    const paymentsRes = invoiceNumbers.length > 0
+      ? await sb.from('payments').select('*').in('invoice_number', invoiceNumbers)
+      : { data: [] };
+
+    const sd = settingsRes.data;
     const shop: PortalShop = {
-      name:    sd?.company_name ?? 'Auto Shop',
+      name:    sd?.company_name || shopRes.data?.name || 'Auto Shop',
       tagline: sd?.tagline      ?? '',
       phone:   sd?.phone        ?? '',
       email:   sd?.email        ?? '',
@@ -70,44 +84,14 @@ export default async function CustomerPortalPage({ params }: Props) {
       year:         r.year          ?? '',
       make:         r.make          ?? '',
       model:        r.model         ?? '',
-      vin:          r.vin           ?? '',
       licensePlate: r.license_plate ?? '',
       color:        r.color         ?? '',
       mileage:      Number(r.mileage ?? 0),
       status:       r.status        ?? 'Active',
     }));
 
-    const invoices: PortalInvoice[] = (invoicesRes.data ?? []).map(r => {
-      const subtotal     = Number(r.subtotal      ?? 0);
-      const tax          = Number(r.tax           ?? 0);
-      const discount     = Number(r.discount      ?? 0);
-      const shopSupplies = Number(r.shop_supplies ?? 0);
-      const total        = subtotal + tax - discount + shopSupplies;
-      const amountPaid   = Number(r.amount_paid   ?? 0);
-      return {
-        id: r.id, invoiceNumber: r.invoice_number ?? '', date: r.date ?? '',
-        dueDate: r.due_date ?? '', status: r.status ?? '', vehicle: r.vehicle ?? '',
-        subtotal, tax, discount, shopSupplies, total, amountPaid,
-        balance: Math.max(0, total - amountPaid), notes: r.notes ?? '',
-      };
-    });
-
-    const estimates: PortalEstimate[] = (estimatesRes.data ?? []).map(r => {
-      const lines: PortalLineItem[] = (Array.isArray(r.line_items) ? r.line_items : []).map(
-        (li: Record<string, unknown>) => ({
-          description: String(li.description ?? li.name ?? ''),
-          qty:         Number(li.qty ?? li.quantity ?? 1),
-          unitPrice:   Number(li.unit_price ?? li.unitPrice ?? 0),
-          total:       Number(li.total ?? 0),
-        })
-      );
-      return {
-        id: r.id, estimateNumber: r.estimate_number ?? '', date: r.date ?? '',
-        status: r.status ?? '', vehicle: r.vehicle ?? '',
-        subtotal: Number(r.subtotal ?? 0), tax: Number(r.tax ?? 0),
-        total: Number(r.total ?? 0), notes: r.notes ?? '', lineItems: lines,
-      };
-    });
+    const invoices: PortalInvoice[] = portalInvoicesFrom(invoicesRes.data ?? [], paymentsRes.data ?? []);
+    const estimates: PortalEstimate[] = portalEstimatesFrom(estimatesRes.data ?? []);
 
     const inspections: PortalInspection[] = (inspectionsRes.data ?? []).map(r => {
       const items: PortalInspectionItem[] = (Array.isArray(r.items) ? r.items : []).map(
@@ -129,14 +113,7 @@ export default async function CustomerPortalPage({ params }: Props) {
       };
     });
 
-    const repairOrders: PortalRO[] = (roRes.data ?? []).map(r => ({
-      roNumber: r.ro_number ?? '', date: r.opened_date ?? '', status: r.status ?? '',
-      vehicle: r.vehicle ?? '', concern: r.concern ?? '', cause: r.cause ?? '',
-      correction: r.correction ?? '',
-      laborTotal: Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0),
-      partsTotal: Number(r.parts_total ?? 0),
-      total: Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0) + Number(r.parts_total ?? 0),
-    }));
+    const repairOrders: PortalRO[] = portalRepairOrdersFrom(roRes.data ?? []);
 
     // The customer viewing this portal has no session, so the server signs
     // every storage URL on their behalf — the logo plus any inspection photo.

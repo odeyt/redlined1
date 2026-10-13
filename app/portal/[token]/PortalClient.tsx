@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { customerApproveEstimate, customerDeclineEstimate } from '@/services/portalService';
 import type { PortalData, PortalEstimate, PortalInspection } from '@/services/portalService';
+import { formatMoney } from '@/lib/currencies';
 
 /* ── helpers ── */
-const money   = (n: number) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// In the document's own currency. This was a hardcoded "$", which showed a
+// baht or kip invoice as dollars.
+const money   = (n: number, currency: string) => formatMoney(n, currency);
 const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
 function StatusPill({ status }: { status: string }) {
@@ -44,7 +47,11 @@ export function PortalClient({ data }: { data: PortalData }) {
   const [localEstimates, setLocalEstimates] = useState(estimates);
 
   const pendingEstimates   = localEstimates.filter(e => e.status === 'Sent' || e.status === 'Pending');
-  const outstandingBalance = invoices.reduce((s, i) => s + i.balance, 0);
+  // Per currency, never summed across them: $100 and ฿100 are not 200 of anything.
+  const balances: Record<string, number> = {};
+  for (const i of invoices) if (i.balance > 0) balances[i.currency] = (balances[i.currency] ?? 0) + i.balance;
+  const hasBalance = Object.keys(balances).length > 0;
+  const balanceText = Object.entries(balances).map(([cur, amt]) => money(amt, cur)).join(' + ');
   const openROs            = repairOrders.filter(r => r.status !== 'Closed' && r.status !== 'Complete');
   const ACCENT             = '#cc0000';
 
@@ -117,9 +124,9 @@ export function PortalClient({ data }: { data: PortalData }) {
             <span style={{ fontSize: 13, marginLeft: 12, opacity: 0.85 }}>Your personal service portal</span>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {outstandingBalance > 0 && (
+            {hasBalance && (
               <div style={{ background: 'rgba(255,255,255,.15)', padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700 }}>
-                💳 Balance: {money(outstandingBalance)}
+                💳 Balance: {balanceText}
               </div>
             )}
             {pendingEstimates.length > 0 && (
@@ -178,7 +185,7 @@ export function PortalClient({ data }: { data: PortalData }) {
               ))}
             </div>
 
-            {outstandingBalance > 0 && (
+            {hasBalance && (
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 20px' }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>💳 Outstanding Balance</div>
                 {invoices.filter(i => i.balance > 0).map(inv => (
@@ -188,7 +195,7 @@ export function PortalClient({ data }: { data: PortalData }) {
                       <div style={{ fontSize: 12, color: '#666' }}>{fmtDate(inv.date)}{inv.vehicle ? ` · ${inv.vehicle}` : ''}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: ACCENT }}>{money(inv.balance)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: ACCENT }}>{money(inv.balance, inv.currency)}</div>
                       <StatusPill status={inv.status} />
                     </div>
                   </div>
@@ -239,7 +246,6 @@ export function PortalClient({ data }: { data: PortalData }) {
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{v.year} {v.make} {v.model}</div>
                 {v.color && <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{v.color}</div>}
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12, color: '#888' }}>
-                  {v.vin          && <div>VIN: <code style={{ fontSize: 11 }}>{v.vin}</code></div>}
                   {v.licensePlate && <div>Plate: <strong>{v.licensePlate}</strong></div>}
                   {v.mileage > 0  && <div>Mileage: <strong>{v.mileage.toLocaleString()} mi</strong></div>}
                 </div>
@@ -261,13 +267,13 @@ export function PortalClient({ data }: { data: PortalData }) {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <StatusPill status={inv.status} />
-                    <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{money(inv.total)}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{money(inv.total, inv.currency)}</div>
                   </div>
                 </div>
                 {inv.balance > 0 && (
                   <div style={{ marginTop: 10, padding: '8px 14px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                     <span style={{ color: '#991b1b' }}>Balance:</span>
-                    <strong style={{ color: '#991b1b' }}>{money(inv.balance)}</strong>
+                    <strong style={{ color: '#991b1b' }}>{money(inv.balance, inv.currency)}</strong>
                   </div>
                 )}
                 {inv.balance === 0 && inv.amountPaid > 0 && (
@@ -298,7 +304,7 @@ export function PortalClient({ data }: { data: PortalData }) {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <StatusPill status={est.status} />
-                        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{money(est.total)}</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, marginTop: 4 }}>{money(est.total, est.currency)}</div>
                       </div>
                     </div>
 
@@ -323,8 +329,8 @@ export function PortalClient({ data }: { data: PortalData }) {
                               <tr key={i} style={{ borderTop: '1px solid #f3f4f6' }}>
                                 <td style={{ padding: '8px 12px' }}>{li.description}</td>
                                 <td style={{ padding: '8px 12px' }}>{li.qty}</td>
-                                <td style={{ padding: '8px 12px' }}>{money(li.unitPrice)}</td>
-                                <td style={{ padding: '8px 12px', fontWeight: 700 }}>{money(li.total)}</td>
+                                <td style={{ padding: '8px 12px' }}>{money(li.unitPrice, li.currency)}</td>
+                                <td style={{ padding: '8px 12px', fontWeight: 700 }}>{money(li.total, li.currency)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -457,7 +463,7 @@ export function PortalClient({ data }: { data: PortalData }) {
                             {ro.correction && <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>✔ {ro.correction}</div>}
                             <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
                               <StatusPill status={ro.status} />
-                              <span style={{ fontSize: 13, color: '#888' }}>Total: <strong>{money(ro.total)}</strong></span>
+                              <span style={{ fontSize: 13, color: '#888' }}>Total: <strong>{money(ro.total, ro.currency)}</strong></span>
                             </div>
                           </>
                         );
@@ -473,7 +479,7 @@ export function PortalClient({ data }: { data: PortalData }) {
                             {inv.vehicle && <div style={{ fontSize: 13, color: '#555', marginTop: 4 }}>{inv.vehicle}</div>}
                             <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
                               <StatusPill status={inv.status} />
-                              <span style={{ fontSize: 13, color: '#888' }}>Total: <strong>{money(inv.total)}</strong></span>
+                              <span style={{ fontSize: 13, color: '#888' }}>Total: <strong>{money(inv.total, inv.currency)}</strong></span>
                             </div>
                           </>
                         );
