@@ -18,6 +18,7 @@ import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
 import { TrialTipsPanel } from './TrialTipsPanel';
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
+import { taxRateToPercent, percentToTaxRate } from '@/lib/taxRate';
 
 // Modules that can never be hidden
 const LOCKED_MODULES = ['dashboard', 'settings'];
@@ -141,7 +142,7 @@ export function SettingsView() {
       setAddress(s.address); setPhone(s.phone); setEmail(s.email); setWebsite(s.website);
       setHiddenModules(s.hiddenModules ?? []);
       setLaborRate(s.laborRate ?? SHOP_PRICING_DEFAULTS.laborRate);
-      setDefaultTaxRate((s.defaultTaxRate ?? SHOP_PRICING_DEFAULTS.taxRate) * 100);
+      setDefaultTaxRate(taxRateToPercent(s.defaultTaxRate ?? SHOP_PRICING_DEFAULTS.taxRate));
       setDefaultCurrency(s.defaultCurrency || 'USD');
       setInvoicePrefix(s.invoicePrefix ?? 'INV-');
       setEstimatePrefix(s.estimatePrefix ?? 'EST-');
@@ -269,7 +270,7 @@ export function SettingsView() {
       await saveShopSettings({
         hiddenModules,
         laborRate,
-        defaultTaxRate: defaultTaxRate / 100,
+        defaultTaxRate: percentToTaxRate(defaultTaxRate),
         defaultCurrency,
         invoicePrefix,
         estimatePrefix,
@@ -547,7 +548,7 @@ export function SettingsView() {
             </div>
             <div className="login-field">
               <label>Default Tax Rate (%)</label>
-              <input type="number" value={defaultTaxRate} onChange={e => setDefaultTaxRate(Number(e.target.value))} min="0" max="30" step="0.25" />
+              <input type="number" value={defaultTaxRate} onChange={e => setDefaultTaxRate(Number(e.target.value))} min="0" max="30" step="0.01" />
             </div>
             <div className="login-field">
               <label>Default Currency</label>

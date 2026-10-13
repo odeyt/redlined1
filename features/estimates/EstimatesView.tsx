@@ -9,6 +9,8 @@ import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/s
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { FilterPills } from '@/components/FilterPills';
 import { Panel } from '@/components/Panel';
+import { DecimalInput } from '@/components/DecimalInput';
+import { taxRateToPercent, percentToTaxRate, formatTaxPercent, taxAmount } from '@/lib/taxRate';
 import {
   fetchEstimates, createEstimate, updateEstimate, approveEstimate,
   deleteEstimate, nextEstimateNumber, calculateEstimateTotals, cloneEstimate,
@@ -266,7 +268,8 @@ export function EstimatesView() {
   async function openNewForm() {
     const num = await nextEstimateNumber();
     const defaultCurrency = isD1Shop ? 'THB' : 'USD';
-    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }, { ...LABOR_LINE }], currency: defaultCurrency });
+    // The shop's default tax rate from Settings; it was never applied here.
+    setForm({ ...EMPTY_FORM, estimateNumber: num, lines: [{ ...EMPTY_LINE }, { ...LABOR_LINE }], currency: defaultCurrency, taxRate: shopSettings?.defaultTaxRate ?? 0 });
     setEditingId(null);
     setCustQuery('');
     setVehQuery('');
@@ -1024,11 +1027,11 @@ export function EstimatesView() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div className="login-field">
                   <label>Discount ($)</label>
-                  <input type="text" inputMode="decimal" value={form.discount} onChange={e => setForm(f => ({ ...f, discount: parseFloat(e.target.value) || 0 }))} placeholder="0.00" />
+                  <DecimalInput value={form.discount || 0} onValueChange={n => setForm(f => ({ ...f, discount: n }))} placeholder="0.00" />
                 </div>
                 <div className="login-field">
                   <label>Tax Rate (%)</label>
-                  <input type="text" inputMode="decimal" value={(form.taxRate * 100).toFixed(1)} onChange={e => setForm(f => ({ ...f, taxRate: (parseFloat(e.target.value) || 0) / 100 }))} placeholder="8.0" />
+                  <DecimalInput value={taxRateToPercent(form.taxRate)} max={100} onValueChange={n => setForm(f => ({ ...f, taxRate: percentToTaxRate(n) }))} placeholder="0" />
                 </div>
               </div>
 
@@ -1040,7 +1043,7 @@ export function EstimatesView() {
                 if (lineSubtotal === 0) return null;
                 const disc = form.discount || 0;
                 const afterDisc = Math.max(lineSubtotal - disc, 0);
-                const taxAmt = afterDisc * (form.taxRate || 0);
+                const taxAmt = taxAmount(afterDisc, form.taxRate);
                 const total = afterDisc + taxAmt;
                 return (
                   <div style={{ background: 'var(--surface-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', marginBottom: 12, fontSize: 13 }}>
@@ -1054,7 +1057,7 @@ export function EstimatesView() {
                     )}
                     {taxAmt > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b', marginBottom: 4 }}>
-                        <span>Tax ({(form.taxRate * 100).toFixed(1)}%)</span><span>+{formatMoney(taxAmt, form.currency)}</span>
+                        <span>Tax ({formatTaxPercent(form.taxRate)}%)</span><span>+{formatMoney(taxAmt, form.currency)}</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 15, borderTop: '2px solid var(--line)', paddingTop: 8, marginTop: 4, color: 'var(--accent)' }}>
@@ -1250,7 +1253,7 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(sub, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {isMain && selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            {isMain && selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({formatTaxPercent(selected.taxRate)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grandTotal, cur)}</span>
@@ -1273,7 +1276,7 @@ export function EstimatesView() {
                               <span style={{ color: 'var(--muted)' }}>Subtotal</span><span>{formatMoney(0, cur)}</span>
                             </div>
                             {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Discount</span><span>-{formatMoney(disc, cur)}</span></div>}
-                            {selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
+                            {selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span style={{ color: 'var(--muted)' }}>Tax ({formatTaxPercent(selected.taxRate)}%)</span><span>{formatMoney(tax, cur)}</span></div>}
                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 4px', fontWeight: 800, fontSize: 17 }}>
                               <span>Total ({cur})</span>
                               <span style={{ color: 'var(--accent)' }}>{formatMoney(grand, cur)}</span>
@@ -1450,7 +1453,7 @@ export function EstimatesView() {
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
                           {isMain && selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                            <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
+                            <span>{t('Tax', 'ພາສີ')} ({formatTaxPercent(selected.taxRate)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
                             <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>
@@ -1477,7 +1480,7 @@ export function EstimatesView() {
                           </div>
                           {disc > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}><span>{t('Discount', 'ສ່ວນຫຼຸດ')}</span><span>-{formatMoney(disc, cur)}</span></div>}
                           {selected.taxRate > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #eee', fontSize: 13, color: '#444' }}>
-                            <span>{t('Tax', 'ພາສີ')} ({(selected.taxRate * 100).toFixed(1)}%)</span><span>{formatMoney(tax, cur)}</span>
+                            <span>{t('Tax', 'ພາສີ')} ({formatTaxPercent(selected.taxRate)}%)</span><span>{formatMoney(tax, cur)}</span>
                           </div>}
                           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 4px', fontWeight: 800, fontSize: 20, borderTop: '2px solid #cc0000', marginTop: 4 }}>
                             <span>{t('Total', 'ລວມທັງໝົດ')} ({cur})</span>

@@ -175,7 +175,7 @@ describe('tax is never invented', () => {
     // saved is indistinguishable afterwards from a rate somebody chose.
     const src = read('features/settings/SettingsView.tsx');
     expect(src).toMatch(/useState\(SHOP_PRICING_DEFAULTS\.taxRate \* 100\)/);
-    expect(src).toMatch(/setDefaultTaxRate\(\(s\.defaultTaxRate \?\? SHOP_PRICING_DEFAULTS\.taxRate\) \* 100\)/);
+    expect(src).toMatch(/setDefaultTaxRate\(taxRateToPercent\(s\.defaultTaxRate \?\? SHOP_PRICING_DEFAULTS\.taxRate\)\)/);
   });
 
   it('still lets a shop that has set a rate keep it', () => {
