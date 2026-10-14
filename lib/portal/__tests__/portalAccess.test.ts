@@ -53,25 +53,28 @@ describe('portal token shape', () => {
 });
 
 describe('portal page scoping', () => {
+  // The queries live in the loader (run for real in loadPortal.test.ts);
+  // the page owns caching and indexing.
   const page = read('app/portal/[token]/page.tsx');
+  const loader = read('lib/portal/loadPortal.ts');
 
   it('resolves the token through the token table, not a customers column', () => {
-    expect(page).toMatch(/resolvePortalCustomer\(sb, token\)/);
-    expect(page).not.toMatch(/portal_token/);
+    expect(loader).toMatch(/resolvePortalCustomer\(sb, token\)/);
+    expect(loader + page).not.toMatch(/portal_token/);
   });
 
   it('filters every customer document by customer AND shop', () => {
     for (const table of ['vehicles', 'invoices', 'estimates', 'inspections', 'repair_orders']) {
       const re = new RegExp(`from\\('${table}'\\)[^\\n]*\\.eq\\('customer_id', customerId\\)\\.eq\\('shop_id', shopId\\)`);
-      expect([table, re.test(page)]).toEqual([table, true]);
+      expect([table, re.test(loader)]).toEqual([table, true]);
     }
-    expect(page).toMatch(/from\('payments'\)[^\n]*\.in\('invoice_number', invoiceNumbers\)\.eq\('shop_id', shopId\)/);
+    expect(loader).toMatch(/from\('payments'\)[^\n]*\.in\('invoice_number', invoiceNumbers\)\.eq\('shop_id', shopId\)/);
   });
 
-  it('is never cached or indexed, and never sends a VIN', () => {
+  it('is never cached or indexed, and never selects a VIN', () => {
     expect(page).toMatch(/export const dynamic = 'force-dynamic'/);
     expect(page).toMatch(/robots: \{ index: false/);
-    expect(page).not.toMatch(/\bvin\b/);
+    expect(loader + page).not.toMatch(/\bvin\b/);
   });
 });
 

@@ -97,14 +97,14 @@ describe('portal repair orders', () => {
 
 describe('portal page', () => {
   it('loads the customer shop settings, not a single-tenant row', () => {
-    const src = read('app/portal/[token]/page.tsx');
+    const src = read('lib/portal/loadPortal.ts');
     expect(src).not.toMatch(/\.eq\('id', 1\)/);
     expect(src).toMatch(/from\('shop_settings'\)[^\n]*\.eq\('shop_id', shopId\)/);
     expect(src).not.toMatch(/order\('date'/);
   });
 
   it('never shows a VIN', () => {
-    expect(read('app/portal/[token]/page.tsx')).not.toMatch(/\bvin\b/);
+    expect(read('app/portal/[token]/page.tsx') + read('lib/portal/loadPortal.ts')).not.toMatch(/\bvin\b/);
     expect(read('app/portal/[token]/PortalClient.tsx')).not.toMatch(/\bvin\b|VIN:/);
   });
 });
