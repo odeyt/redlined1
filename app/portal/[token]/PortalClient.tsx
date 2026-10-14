@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { PortalData, PortalEstimate, PortalInspection } from '@/services/portalService';
+import { vehicleName } from '@/lib/portal/vehicleName';
 import { formatMoney } from '@/lib/currencies';
 
 /* ── helpers ── */
@@ -258,7 +259,7 @@ export function PortalClient({ data }: { data: PortalData }) {
                   <span style={{ fontSize: 28 }}>🚗</span>
                   <StatusPill status={v.status} />
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{v.year} {v.make} {v.model}</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{vehicleName(v)}</div>
                 {v.color && <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{v.color}</div>}
                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12, color: '#888' }}>
                   {v.licensePlate && <div>Plate: <strong>{v.licensePlate}</strong></div>}

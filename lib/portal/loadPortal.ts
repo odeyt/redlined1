@@ -28,7 +28,7 @@ export type UrlSigner = (values: Array<string | null | undefined>) => Promise<Ma
  * Vehicle columns the portal reads, by their production names. Kept explicit
  * (not '*') so a vehicle's VIN is never fetched for a shareable page.
  */
-export const PORTAL_VEHICLE_COLUMNS = 'id, year, make, model, plate, mileage, status';
+export const PORTAL_VEHICLE_COLUMNS = 'id, label, year, make, model, plate, mileage, status';
 
 /** Any query error is an outage, not "no data": fail to the not-found page. */
 function must<T>(res: { data: T | null; error: { code?: string; message: string } | null }, what: string): T {
@@ -92,6 +92,9 @@ export async function loadPortal(sb: SupabaseClient, token: string, sign: UrlSig
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped Supabase rows, as before
     const vehicles: PortalVehicle[] = (must(vehiclesRes, 'vehicles') as Record<string, any>[]).map(r => ({
       id:           r.id,
+      // Staff name vehicles in `label`; year/make/model are optional and
+      // often blank (2026-10-14: a vehicle showed only its plate).
+      label:        r.label  ?? '',
       year:         r.year   ?? '',
       make:         r.make   ?? '',
       model:        r.model  ?? '',
