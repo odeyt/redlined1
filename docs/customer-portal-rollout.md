@@ -4,9 +4,11 @@ Status (2026-10-13, after rollout): **Deployed; signed-out checks verified;
 test-customer walkthrough pending.** The portal is not marked complete. See the
 rollout record at the end of this file.
 
-**Known defect (2026-10-14):** valid portal links show "Portal Not Found" on the
-#85 deployment (vehicles query names columns production does not have). Fix:
-PR #87, not yet merged or deployed. See the 2026-10-14 entry below. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
+**Update (2026-10-14):** the valid-link failure is fixed in production by #87
+(`b6fba37`), and the test-customer walkthrough passed its functional checks —
+see the 2026-10-14 entries below. **Not yet complete:** the vehicle heading is
+blank for vehicles named only in `label`; fix PR #88, not yet merged or
+deployed. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
 production Vercel project: `redlined1` under `redlined1-s-projects` (the
 `d1-imports` project is a duplicate — do not deploy there).
 
@@ -230,3 +232,40 @@ from Claude Code's session (permission guard), and the test-customer
 walkthrough still needs a signed-in staff session.
 
 Status unchanged otherwise: not complete; the pg_net security hold remains open.
+
+## 2026-10-14 — #87 deployed; test-customer walkthrough
+
+**Deploy (observed by Claude Code):** PR #87 merged 2026-10-14T02:04:51Z as
+`b6fba37` (tree identical to reviewed `f77eb74`).
+`redlined1-s-projects/redlined1` production deployment `redlined1-auxgirx3f`,
+built from `b6fba37`, Ready, aliased to `www.redlined1.com` and
+`redlined1.com`. Signed-out checks re-run on it: synthetic token → 200 "Portal
+Not Found" with `private, no-store` / `no-referrer` / `noindex, nofollow`;
+estimate-action 404 for unknown/malformed token, 400 for a bad action;
+`/portal`, nested paths, `/status`, `/inspection`, staff pages and the staff
+link route still gated. `redlined1.com/portal/…` 308-redirects to `www`.
+
+**Walkthrough** — synthetic fixtures only, shop `38d55fae…` (Location 1):
+customer A `C-1791936075575` (vehicle plate QA-A-1014, INV-0201, EST-0041),
+customer B `C-1791936259074` (EST-0042).
+
+| Check | Result | Source |
+|-------|--------|--------|
+| Real link (copied via staff Portal Link) loads signed out | passed — portal GET with a real 64-hex token answered 200 at 03:20:19Z and 03:21:30Z, after the #87 deploy | owner; request log (token masked) |
+| INV-0201 total $106.35 | passed | owner (screenshot) |
+| B's EST-0042 absent from A's portal | passed; EST-0042 still `Sent` | owner; database |
+| EST-0041 approved from the portal | passed — `status = Approved`, `approved_date = 2026-10-14T03:20:54Z`; exactly one `POST /api/portal/estimate-action` → 200 at 03:20:54Z | owner; database; request log |
+| Approval audited | `estimate.approved`, actor `system`, role `customer`, metadata `{"source":"customer_portal"}`, 03:20:57Z | audit_events |
+| Refresh keeps Approved, no buttons | passed | owner |
+| Vehicle heading | **failed (display only)** — plate shows, heading blank; the vehicle's name is in `label`, the portal used empty year/make/model | owner; fix PR #88 |
+
+A repeat approve was not attempted live (no button after refresh); the
+server-side repeat/concurrency protection is covered by unit tests and the
+local Postgres race test.
+
+An earlier real-token portal request at 01:21:58Z predates the #87 deploy
+(02:04:54Z) and does not count toward this walkthrough.
+
+**Status:** not complete until #88 is deployed and the vehicle heading is
+confirmed. Fixture cleanup (customers A/B, INV-0201, EST-0041, EST-0042) is
+outstanding. The pg_net security hold remains open.
