@@ -20,6 +20,8 @@ export interface PortalCustomer {
 /** No VIN: the portal is reached by a shareable link, and VIN is shop-private. */
 export interface PortalVehicle {
   id: string;
+  /** The vehicle's name as staff entered it (vehicles.label) — what the shop calls it. */
+  label: string;
   year: string;
   make: string;
   model: string;

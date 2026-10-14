@@ -8,6 +8,7 @@
  */
 import { loadPortal, PORTAL_VEHICLE_COLUMNS } from '../loadPortal';
 import { schemaFaithfulClient } from './fixtures/schemaFaithfulClient';
+import { vehicleName } from '../vehicleName';
 import { PRODUCTION_COLUMNS } from './fixtures/productionSchema';
 
 const SHOP = '38d55fae-0000-4000-8000-00000000000a';
@@ -30,7 +31,8 @@ function fixtures() {
     shop_settings: [{ shop_id: SHOP, company_name: 'Synthetic Motors', tagline: '', phone: '', email: '', address: '', logo_url: null }],
     // Shaped like production: `plate`, no colour column, and a VIN that must never be fetched.
     vehicles: [
-      { id: 'V-A', customer_id: 'C-A', shop_id: SHOP, year: '2020', make: 'Toyota', model: 'Corolla', plate: 'QA-A-1014', mileage: 12000, status: 'Active', vin: 'SYNTHETICVIN00001' },
+      // As production stores the walkthrough vehicle: name in label, year/make/model empty.
+      { id: 'V-A', customer_id: 'C-A', shop_id: SHOP, label: '2020 Toyota Corolla PORTAL QA', year: null, make: null, model: null, plate: 'QA-A-1014', mileage: 12000, status: 'Active', vin: 'SYNTHETICVIN00001' },
       { id: 'V-B', customer_id: 'C-B', shop_id: SHOP, year: '2019', make: 'Honda', model: 'Civic', plate: 'QA-B-1014', mileage: 5000, status: 'Active', vin: 'SYNTHETICVIN00002' },
       { id: 'V-X', customer_id: 'C-A', shop_id: OTHER_SHOP, year: '2018', make: 'Ford', model: 'Ranger', plate: 'QA-X', mileage: 1, status: 'Active', vin: 'SYNTHETICVIN00003' },
     ],
@@ -56,9 +58,11 @@ describe('loadPortal against production columns', () => {
     expect(data!.customer).toEqual({ name: 'ZZ TEST Portal A' });
     expect(data!.shop.name).toBe('Synthetic Motors');
     expect(data!.vehicles).toEqual([
-      { id: 'V-A', year: '2020', make: 'Toyota', model: 'Corolla', licensePlate: 'QA-A-1014', color: '', mileage: 12000, status: 'Active' },
+      { id: 'V-A', label: '2020 Toyota Corolla PORTAL QA', year: '', make: '', model: '', licensePlate: 'QA-A-1014', color: '', mileage: 12000, status: 'Active' },
     ]);
     expect(data!.invoices).toHaveLength(1);
+    // The heading the portal shows is the staff name, not a blank line.
+    expect(vehicleName(data!.vehicles[0])).toBe('2020 Toyota Corolla PORTAL QA');
     expect(data!.invoices[0]).toMatchObject({ invoiceNumber: 'INV-A', currency: 'USD', total: 106.35, tax: 6.35, balance: 106.35 });
     expect(data!.estimates.map(e => e.estimateNumber)).toEqual(['EST-A']);
   });
