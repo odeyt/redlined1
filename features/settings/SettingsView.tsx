@@ -8,7 +8,7 @@ import { BuildMarker } from '@/components/BuildMarker';
 import { ALERT_ROLES, eventsForRole, isAlertEnabled, setAlertEnabled, type AlertPreferences, type AlertRole } from '@/lib/alerts/catalogue';
 import { navItems } from '@/lib/mock-data';
 import { StorageImage } from '@/components/StorageImage';
-import { fetchShopSettings, saveShopSettings, uploadLogo, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
+import { fetchShopSettings, saveShopSettings, uploadLogo, fetchInvoiceTerms, saveInvoiceTerms, DEFAULT_PAYMENT_METHODS, DEFAULT_ROLE_PERMISSIONS, RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { fetchMessagingStatus, updateMessagingSecrets, AuthSessionError, type MessagingStatus } from '@/services/messagingSecretsService';
 import { PAYMENT_METHODS } from '@/services/paymentService';
 import { ALL_CURRENCIES } from '@/lib/currencies';
@@ -52,6 +52,9 @@ export function SettingsView() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [website, setWebsite] = useState('');
+  const [invoiceTerms, setInvoiceTerms] = useState('');
+  const [savingTerms, setSavingTerms] = useState(false);
+  const [savedTerms, setSavedTerms] = useState(false);
 
   // Portal / Business config
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
@@ -169,6 +172,7 @@ export function SettingsView() {
         setInspTemplate(s.inspectionTemplate);
       }
     }).catch(err => setError('Could not load settings: ' + err.message));
+    fetchInvoiceTerms().then(setInvoiceTerms);
   }, []);
 
   useEffect(() => {
@@ -262,6 +266,16 @@ export function SettingsView() {
     } catch (err: unknown) {
       setError('Save failed: ' + (err instanceof Error ? err.message : ''));
     } finally { setSaving(false); }
+  }
+
+  async function handleSaveTerms() {
+    setSavingTerms(true);
+    try {
+      await saveInvoiceTerms(invoiceTerms);
+      flashSaved(setSavedTerms);
+    } catch (err: unknown) {
+      setError('Save failed: ' + (err instanceof Error ? err.message : ''));
+    } finally { setSavingTerms(false); }
   }
 
   async function handleSavePortal() {
@@ -472,6 +486,21 @@ export function SettingsView() {
         <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-primary" onClick={handleSaveBranding} disabled={saving || uploading}>{saving ? 'Saving…' : 'Save Branding'}</button>
           {savedBranding && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Branding saved</span>}
+        </div>
+      </Panel>
+
+      {/* ── INVOICE TERMS ── */}
+      <Panel title="Invoice Terms" hint="Printed in its own box at the bottom of every invoice — e.g. your vehicle pickup policy">
+        <textarea
+          value={invoiceTerms}
+          onChange={e => setInvoiceTerms(e.target.value)}
+          rows={3}
+          placeholder="e.g. Vehicles must be collected within 7 days of repair completion."
+          style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '10px 12px', background: 'var(--surface)', color: 'var(--text)', fontSize: 13, width: '100%', resize: 'vertical' }}
+        />
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="btn btn-primary" onClick={handleSaveTerms} disabled={savingTerms}>{savingTerms ? 'Saving…' : 'Save Invoice Terms'}</button>
+          {savedTerms && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Invoice terms saved</span>}
         </div>
       </Panel>
 

@@ -27,7 +27,7 @@ import { getShopId } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
 import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
 import { fetchRepairOrders, deleteRepairOrder } from '@/services/repairOrderService';
-import { fetchShopSettings, type ShopSettings } from '@/services/shopSettingsService';
+import { fetchShopSettings, fetchInvoiceTerms, type ShopSettings } from '@/services/shopSettingsService';
 import { useShopIdentity } from '@/lib/shops/useShopIdentity';
 import { ShopIdentityCard } from '@/features/shops/ShopIdentityCard';
 import { ShopIdentityBlockedDialog } from '@/features/shops/ShopIdentityBlockedDialog';
@@ -36,6 +36,10 @@ import { usePlan, } from '@/lib/usePlan';
 import { needsWatermark } from '@/lib/planGate';
 import { FilterPills } from '@/components/FilterPills';
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
+
+// For free text written into the raw-HTML print window.
+const escapePrintHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // This portal only uses these 3 currencies
 const PORTAL_CURRENCIES = ['USD', 'THB', 'LAK'];
@@ -113,6 +117,8 @@ export function InvoicesView() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null);
+  // Standing terms (e.g. a pickup deadline) — loaded on its own; see fetchInvoiceTerms.
+  const [invoiceTerms, setInvoiceTerms] = useState('');
   /**
    * Whether this shop may put its name on a customer document.
    *
@@ -169,6 +175,7 @@ export function InvoicesView() {
     load();
     fetchCustomerNames().then(setCustomers).catch(() => {});
     fetchShopSettings().then(setShopSettings).catch(() => {});
+    fetchInvoiceTerms().then(setInvoiceTerms);
     fetchCustomers().then(list => setFullCustomers(list.map(c => ({ id: c.id, name: c.name, email: c.email })))).catch(() => {});
     fetchPayments().then(setAllPayments).catch(() => {});
     fetchVehicles().then(v => setAllVehicles(v.map(x => ({ id: x.id, label: x.label, customerId: x.customerId, vin: x.vin, plate: x.plate })))).catch(() => {});
@@ -358,7 +365,7 @@ export function InvoicesView() {
     </head><body>
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:3px solid #cc0000">
         <div style="display:flex;gap:12px;align-items:flex-start">
-          ${printLogoUrl ? `<img src="${printLogoUrl}" style="height:48px;max-width:110px;object-fit:contain;border-radius:4px">` : ''}
+          ${printLogoUrl ? `<img src="${printLogoUrl}" style="height:64px;max-width:180px;object-fit:contain;border-radius:4px">` : ''}
           <div>
             <div style="font-size:22px;font-weight:900;color:#cc0000">${shopSettings?.companyName || 'Redlined1'}</div>
             ${shopSettings?.tagline ? `<div style="font-size:11px;color:#666;margin-top:2px">${shopSettings.tagline}</div>` : ''}
@@ -432,6 +439,7 @@ export function InvoicesView() {
         </div>
       </div>
       ${inv.notes ? `<div style="margin-top:18px;padding-top:14px;border-top:1px solid #eee"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Notes</div><p style="font-size:13px;color:#555;line-height:1.6">${inv.notes}</p></div>` : ''}
+      ${invoiceTerms.trim() ? `<div style="margin-top:14px;padding:10px 14px;border:1px solid #cc000055;border-left:4px solid #cc0000;border-radius:6px;background:#fff8f8"><div style="font-size:10px;font-weight:700;color:#cc0000;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Terms</div><p style="font-size:13px;color:#333;line-height:1.6;white-space:pre-line">${escapePrintHtml(invoiceTerms.trim())}</p></div>` : ''}
       <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#aaa">
         Thank you for your business — ${shopSettings?.companyName || 'Redlined1'}<br>
         ${[shopSettings?.phone, shopSettings?.email].filter(Boolean).join(' · ')}
@@ -1847,7 +1855,7 @@ export function InvoicesView() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '2px solid var(--accent)' }}>
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   {shopSettings?.logoUrl && (
-                    <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 52, maxWidth: 120, objectFit: 'contain', borderRadius: 6 }} />
+                    <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 64, maxWidth: 180, objectFit: 'contain', borderRadius: 6 }} />
                   )}
                   <div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{shopSettings?.companyName || 'Redlined1'}</div>
@@ -2059,6 +2067,16 @@ export function InvoicesView() {
                     Notes
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>{selected.notes}</p>
+                </div>
+              )}
+
+              {/* Standing shop terms (Settings → Invoice Terms) */}
+              {invoiceTerms.trim() && (
+                <div style={{ marginTop: 16, padding: '10px 14px', border: '1px solid var(--line)', borderLeft: '4px solid var(--accent)', borderRadius: 8 }}>
+                  <div className="section-label" style={{ marginBottom: 6, color: 'var(--accent)' }}>
+                    Terms
+                  </div>
+                  <p style={{ fontSize: 13, margin: 0, whiteSpace: 'pre-line' }}>{invoiceTerms.trim()}</p>
                 </div>
               )}
             </div>

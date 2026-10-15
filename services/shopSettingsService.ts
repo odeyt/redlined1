@@ -315,6 +315,50 @@ async function recordSettingsChange(shopId: string, update: Record<string, unkno
   });
 }
 
+/**
+ * The shop's standing invoice terms — e.g. "Vehicles must be collected within
+ * 7 days of repair completion." Printed in its own box under the invoice notes.
+ *
+ * Read and written on its own, never through fetchShopSettings/saveShopSettings.
+ * The column arrives by migration (2026-10-16_shop_settings_invoice_terms.sql),
+ * and naming a column PostgREST has not seen fails the whole request — folding
+ * it into the main settings select would take down every page that loads
+ * settings if this code shipped before the migration ran. Here a missing
+ * column only means no terms are printed.
+ */
+export async function fetchInvoiceTerms(): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('shop_settings')
+      .select('invoice_terms')
+      .eq('shop_id', getShopId())
+      .maybeSingle();
+    if (error) return '';
+    return (data?.invoice_terms as string | null) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export async function saveInvoiceTerms(terms: string): Promise<void> {
+  // A shop with no settings row yet has nothing to attach terms to; the
+  // branding save creates one, so point there rather than inserting a bare row.
+  const { error, count } = await supabase
+    .from('shop_settings')
+    .update({ invoice_terms: terms.trim() || null }, { count: 'exact' })
+    .in('shop_id', getShopIds());
+  if (error) {
+    if (error.code === 'PGRST204' || error.code === '42703') {
+      throw new Error('Invoice terms are not available yet — the database update for this feature has not been applied.');
+    }
+    throw error;
+  }
+  if (count === 0) {
+    throw new Error('Invoice terms were not saved — save Shop Branding first, then try again.');
+  }
+  await recordSettingsChange(getShopId(), { invoice_terms: terms.trim() || null });
+}
+
 export async function uploadLogo(file: File): Promise<string> {
   const shopId = getShopId();
   // The fifth and last upload path to go through the gate. A logo is an image
