@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopIds } from '@/lib/shopStore';
 import type { WidgetProps } from '@/lib/dashboardWidgets/types';
 
 interface RecentCustomer { id: string; name: string; phone: string }
@@ -18,7 +18,7 @@ export function RecentCustomersWidget({ onNav: nav }: WidgetProps) {
         const { data } = await supabase
           .from('customers')
           .select('id, name, phone')
-          .eq('shop_id', getShopId())
+          .in('shop_id', getShopIds())
           .order('created_at', { ascending: false })
           .limit(5);
         setCustomers(data ?? []);

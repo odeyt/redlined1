@@ -5,7 +5,7 @@
  * hiding them would lock somebody out of the application entirely, on a
  * reload loop, with nothing on screen explaining it.
  */
-import { visibleShops, activeShopWasArchived } from '../visibleShops';
+import { visibleShops, activeShopWasArchived, mergedShopIds } from '../visibleShops';
 
 const active = (id: string, name = id) => ({ id, name, archived_at: null });
 const archived = (id: string, name = id) => ({ id, name, archived_at: '2026-09-01T00:00:00Z' });
@@ -90,5 +90,41 @@ describe('moving a user off a shop archived under them', () => {
     expect(activeShopWasArchived('', [active('a')])).toBe(false);
     expect(activeShopWasArchived('missing', [active('a')])).toBe(false);
     expect(activeShopWasArchived('a', null)).toBe(false);
+  });
+});
+
+describe('a closed location merged into the one that stays open', () => {
+  // D1 Imports closed and was folded into Location 2: archived, still mirrored.
+  const D1 = '38d55fae-741b-4bac-b520-f96eed65bf38';
+  const LOC2 = '90b72748-bf01-4456-999f-f4ba48091606';
+  const memberships = [archived(D1, 'D1 Imports'), active(LOC2, 'D1 Imports - Location 2')];
+
+  it('leaves only the open location in the picker, so the switcher disappears', () => {
+    expect(visibleShops(memberships).map(s => s.id)).toEqual([LOC2]);
+  });
+
+  it('moves anyone still working in the closed location', () => {
+    expect(activeShopWasArchived(D1, memberships)).toBe(true);
+  });
+
+  it('counts the archived mirror as merged into the active shop', () => {
+    expect(mergedShopIds([D1], memberships)).toEqual([D1]);
+  });
+
+  it('does not count a live mirror as merged — a second open location keeps its own reports', () => {
+    expect(mergedShopIds(['b'], [active('a'), active('b')])).toEqual([]);
+  });
+
+  it('ignores an archived shop the active shop does not mirror', () => {
+    expect(mergedShopIds([], memberships)).toEqual([]);
+  });
+
+  it('ignores a mirror pointing at a shop the user is not a member of', () => {
+    expect(mergedShopIds(['stranger'], memberships)).toEqual([]);
+  });
+
+  it('survives missing inputs', () => {
+    expect(mergedShopIds(null, memberships)).toEqual([]);
+    expect(mergedShopIds([D1], null)).toEqual([]);
   });
 });

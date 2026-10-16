@@ -108,3 +108,42 @@ describe('getShopIds', () => {
     expect(store.getShopIds()).toEqual(['']);
   });
 });
+
+describe('getReportShopIds', () => {
+  const SHOP_D1 = '38d55fae-741b-4bac-b520-f96eed65bf38';
+
+  it('folds a merged (archived, mirrored) shop into the active shop\'s report', () => {
+    const store = freshStore();
+    store.setShopId(SHOP_LOCATION_2, USER_A);
+    store.setMirrorShopIds([SHOP_D1]);
+    store.setMergedShopIds([SHOP_D1]);
+    expect(store.getReportShopIds(SHOP_LOCATION_2)).toEqual([SHOP_LOCATION_2, SHOP_D1]);
+  });
+
+  it('keeps a live mirrored location out of the report — it has its own', () => {
+    const store = freshStore();
+    store.setShopId(SHOP_LOCATION_2, USER_A);
+    store.setMirrorShopIds([SHOP_D1]);
+    expect(store.getReportShopIds(SHOP_LOCATION_2)).toEqual([SHOP_LOCATION_2]);
+  });
+
+  it('reports on another picked shop alone', () => {
+    const store = freshStore();
+    store.setShopId(SHOP_LOCATION_2, USER_A);
+    store.setMergedShopIds([SHOP_D1]);
+    expect(store.getReportShopIds('other-shop')).toEqual(['other-shop']);
+  });
+
+  it('returns nothing for no shop rather than an unscoped query', () => {
+    const store = freshStore();
+    expect(store.getReportShopIds('')).toEqual([]);
+  });
+
+  it('forgets merged shops when a different user takes over the browser', () => {
+    const store = freshStore();
+    store.setShopId(SHOP_LOCATION_2, USER_A);
+    store.setMergedShopIds([SHOP_D1]);
+    store.assertShopOwner(USER_B);
+    expect(store.getMergedShopIds()).toEqual([]);
+  });
+});
