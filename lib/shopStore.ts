@@ -67,6 +67,7 @@ export function assertShopOwner(userId: string): boolean {
   if (cachedOwner !== userId) {
     _shopId = '';
     _mirrorShopIds = [];
+    _mergedShopIds = [];
     localStorage.removeItem('activeShopId');
     localStorage.removeItem(OWNER_KEY);
     return true;
@@ -87,4 +88,32 @@ export function setMirrorShopIds(ids: string[]): void {
 
 export function getMirrorShopIds(): string[] {
   return _mirrorShopIds;
+}
+
+// Merged shop IDs — mirrored shops that have been ARCHIVED. A closed location
+// whose history lives on inside the active shop (D1 Imports was folded into
+// Location 2 this way). Always a subset of the mirror ids. Populated by useShop.
+let _mergedShopIds: string[] = [];
+
+export function setMergedShopIds(ids: string[]): void {
+  _mergedShopIds = ids;
+}
+
+export function getMergedShopIds(): string[] {
+  return _mergedShopIds;
+}
+
+/**
+ * The shops a per-location report reads for `shopId`.
+ *
+ * Reports keep a location picker, so they deliberately do NOT read through
+ * every mirror — a live second location keeps its own report. But a location
+ * that was closed and merged into the active shop has no picker entry any
+ * more, and its history belongs in the active shop's report. Any other shop
+ * reports on itself alone.
+ */
+export function getReportShopIds(shopId: string): string[] {
+  if (!shopId) return [];
+  if (shopId !== _shopId) return [shopId];
+  return [shopId, ..._mergedShopIds.filter(id => id && id !== shopId)];
 }

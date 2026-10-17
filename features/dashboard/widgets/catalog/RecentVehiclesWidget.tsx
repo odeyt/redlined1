@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopIds } from '@/lib/shopStore';
 import type { WidgetProps } from '@/lib/dashboardWidgets/types';
 
 interface RecentVehicle { id: string; label: string; plate: string }
@@ -18,7 +18,7 @@ export function RecentVehiclesWidget({ onNav: nav }: WidgetProps) {
         const { data } = await supabase
           .from('vehicles')
           .select('id, label, plate')
-          .eq('shop_id', getShopId())
+          .in('shop_id', getShopIds())
           .order('created_at', { ascending: false })
           .limit(5);
         setVehicles(data ?? []);

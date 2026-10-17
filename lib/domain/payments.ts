@@ -137,7 +137,7 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     return (data ?? []).map(mapPaymentRow);
   }
 
-  async function get(id: string): Promise<DomainPayment | null> {
+  async function getRow(id: string): Promise<Record<string, unknown> | null> {
     const { data, error } = await db
       .from('payments')
       .select('*')
@@ -145,7 +145,12 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
       .in('shop_id', context.shopIds)
       .maybeSingle();
     if (error) throw error;
-    return data ? mapPaymentRow(data) : null;
+    return (data as Record<string, unknown> | null) ?? null;
+  }
+
+  async function get(id: string): Promise<DomainPayment | null> {
+    const row = await getRow(id);
+    return row ? mapPaymentRow(row) : null;
   }
 
   async function create(input: PaymentInput): Promise<DomainPayment> {
@@ -211,8 +216,9 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     const trimmed = (reason ?? '').trim();
     if (!trimmed) throw new LedgerError('A reversal needs a reason.');
 
-    const original = await get(paymentId);
-    if (!original) throw new LedgerError('That payment is not in this location.');
+    const originalRow = await getRow(paymentId);
+    if (!originalRow) throw new LedgerError('That payment is not in this location.');
+    const original = mapPaymentRow(originalRow);
     if (original.entryType === 'reversal') {
       throw new LedgerError('That entry is already a reversal. Record a new payment instead.');
     }
@@ -220,7 +226,12 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     const { data, error } = await db
       .from('payments')
       .insert({
-        shop_id: context.shopId,
+        // The reversal lives in the ORIGINAL payment's shop — the database
+        // refuses any other (payments_reversal_valid). That can differ from the
+        // active shop: a payment taken at D1 Imports, reversed from Location 2
+        // after the two were merged. It is always within the read scope, since
+        // getRow only finds payments in context.shopIds.
+        shop_id: (originalRow.shop_id as string) || context.shopId,
         invoice_number: original.invoiceNumber || null,
         customer_name: original.customerName,
         customer_id: original.customerId || null,

@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds, assertShopOwner } from './shopStore';
-import { visibleShops, type ArchivableShop } from './shops/visibleShops';
+import { getShopId, setShopId, setMirrorShopIds, getMirrorShopIds, setMergedShopIds, assertShopOwner } from './shopStore';
+import { visibleShops, mergedShopIds, type ArchivableShop } from './shops/visibleShops';
 
 export interface Shop {
   id: string;
@@ -218,6 +218,9 @@ export function useShop() {
         }
         const mirrors = (mirrorRows ?? []).map((r: Record<string, unknown>) => r.mirror_shop_id as string).filter(Boolean);
         setMirrorShopIds(mirrors);
+        // A mirrored shop that is archived has been merged into this one; its
+        // history belongs in this shop's reports (see getReportShopIds).
+        setMergedShopIds(mergedShopIds(mirrors, (shopRows ?? []) as ArchivableShop[]));
         setLocalMirrorIds(mirrors);
 
         const activeRow = (suRows ?? []).find(
@@ -232,6 +235,7 @@ export function useShop() {
         setShopId('');
         setLocalShopId('');
         setMirrorShopIds([]);
+        setMergedShopIds([]);
         setLocalMirrorIds([]);
         // Treat as owner so plan-gating (not role-blocking) controls module visibility.
         setRole('owner');

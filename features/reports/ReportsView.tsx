@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Panel } from '@/components/Panel';
 import { fetchShopSettings } from '@/services/shopSettingsService';
-import { getShopId } from '@/lib/shopStore';
+import { getShopId, getReportShopIds } from '@/lib/shopStore';
 import { useShop, type Shop } from '@/lib/useShop';
 import { updateVehicleServiceRecord } from '@/services/vehicleService';
 import { fetchCompletedWork } from '@/services/completedWorkService';
@@ -168,11 +168,11 @@ function WorkshopPrintModal({
       const [{ data: roData, error: roErr }, jobs, { data: vehData }] = await Promise.all([
         supabase.from('repair_orders')
           .select('id, ro_number, job_card_id, customer_name, vehicle, technician, status, concern, cause, correction, labor_hours, labor_rate, parts_total, parts, closed_date')
-          .eq('shop_id', shopId).in('status', ['Complete', 'Closed'])
+          .in('shop_id', getReportShopIds(shopId)).in('status', ['Complete', 'Closed'])
           .gte('closed_date', start).lt('closed_date', end)
           .order('closed_date', { ascending: false }),
-        fetchCompletedWork(start, end, [shopId]),
-        supabase.from('vehicles').select('id, label, plate, vin').eq('shop_id', shopId),
+        fetchCompletedWork(start, end, getReportShopIds(shopId)),
+        supabase.from('vehicles').select('id, label, plate, vin').in('shop_id', getReportShopIds(shopId)),
       ]);
       if (roErr) throw roErr;
 
@@ -578,9 +578,9 @@ export function ReportsView() {
       const range = intakeRange(month, year);
       const cols = 'id, customer, vehicle, status, check_in_date';
       const [open, closed] = await Promise.all([
-        supabase.from('job_cards').select(cols).eq('shop_id', sid)
+        supabase.from('job_cards').select(cols).in('shop_id', getReportShopIds(sid))
           .gte('check_in_date', range.startIso).lt('check_in_date', range.endIso),
-        supabase.from('closed_jobs').select(cols).eq('shop_id', sid)
+        supabase.from('closed_jobs').select(cols).in('shop_id', getReportShopIds(sid))
           .gte('check_in_date', range.startIso).lt('check_in_date', range.endIso),
       ]);
       if (open.error) throw open.error;
@@ -621,11 +621,11 @@ export function ReportsView() {
         { data: jobs },
         { data: invs },
       ] = await Promise.all([
-        supabase.from('customers').select('id, name').eq('shop_id', sid).order('name'),
-        supabase.from('vehicles').select('id, customer_id, label, status, date_received').eq('shop_id', sid),
+        supabase.from('customers').select('id, name').in('shop_id', getReportShopIds(sid)).order('name'),
+        supabase.from('vehicles').select('id, customer_id, label, status, date_received').in('shop_id', getReportShopIds(sid)),
         // fetch vehicle field so we can surface job-card vehicles not in vehicles table
-        supabase.from('job_cards').select('id, customer, vehicle, status, check_in_date, closed_date').eq('shop_id', sid),
-        supabase.from('invoices').select('customer, status, subtotal, tax, discount, shop_supplies').eq('shop_id', sid).eq('status', 'Paid'),
+        supabase.from('job_cards').select('id, customer, vehicle, status, check_in_date, closed_date').in('shop_id', getReportShopIds(sid)),
+        supabase.from('invoices').select('customer, status, subtotal, tax, discount, shop_supplies').in('shop_id', getReportShopIds(sid)).eq('status', 'Paid'),
       ]);
 
       const custList = custs ?? [];
@@ -723,7 +723,7 @@ export function ReportsView() {
       const { data } = await supabase
         .from('job_cards')
         .select('id, customer, vehicle, status, check_in_date, closed_date, technicians')
-        .eq('shop_id', reportShopId)
+        .in('shop_id', getReportShopIds(reportShopId))
         .ilike('customer', `%${c.name.replace(/%/g, '')}%`)
         .order('check_in_date', { ascending: false });
       setSelectedCustJobs(data ?? []);
@@ -806,18 +806,18 @@ export function ReportsView() {
         { data: teData },
         { data: cjData },
       ] = await Promise.all([
-        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').eq('shop_id', sid),
-        supabase.from('payments').select('amount, method, payment_date, currency, status').eq('shop_id', sid),
-        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at').eq('shop_id', sid),
-        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', sid),
-        supabase.from('estimates').select('status').eq('shop_id', sid),
-        supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', sid),
-        supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').eq('shop_id', sid),
+        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').in('shop_id', getReportShopIds(sid)),
+        supabase.from('payments').select('amount, method, payment_date, currency, status').in('shop_id', getReportShopIds(sid)),
+        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at').in('shop_id', getReportShopIds(sid)),
+        supabase.from('customers').select('*', { count: 'exact', head: true }).in('shop_id', getReportShopIds(sid)),
+        supabase.from('vehicles').select('*', { count: 'exact', head: true }).in('shop_id', getReportShopIds(sid)),
+        supabase.from('estimates').select('status').in('shop_id', getReportShopIds(sid)),
+        supabase.from('job_cards').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').in('shop_id', getReportShopIds(sid)),
+        supabase.from('time_entries').select('technician_name, job_card_number, clock_in, clock_out').in('shop_id', getReportShopIds(sid)),
         // Closing a job card moves it out of job_cards into closed_jobs. Leaving this
         // table out made every finished job vanish from the completion and technician
         // reports ("Complete + Invoiced: 0").
-        supabase.from('closed_jobs').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').eq('shop_id', sid),
+        supabase.from('closed_jobs').select('id, customer, vehicle, technicians, status, check_in_date, closed_date, labor_hours').in('shop_id', getReportShopIds(sid)),
       ]);
 
       const invoices = invData ?? [];

@@ -23,7 +23,7 @@ import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { fetchCustomers } from '@/services/customerService';
 import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopId, getShopIds } from '@/lib/shopStore';
 import { fetchPartsEstimates, deletePartsEstimate } from '@/services/partsEstimateService';
 import { fetchPartsOrders, deletePartsOrder } from '@/services/partsOrderService';
 import { fetchRepairOrders, deleteRepairOrder } from '@/services/repairOrderService';
@@ -525,7 +525,7 @@ export function InvoicesView() {
     // Load vehicles for the existing customer
     setCustVehicles([]);
     if (inv.customerId) {
-      supabase.from('vehicles').select('id, label').eq('shop_id', getShopId()).eq('customer_id', inv.customerId).order('label').limit(500)
+      supabase.from('vehicles').select('id, label').in('shop_id', getShopIds()).eq('customer_id', inv.customerId).order('label').limit(500)
         .then(({ data }) => setCustVehicles(data ?? []));
     }
   }
@@ -1091,7 +1091,7 @@ export function InvoicesView() {
                               setCustOpen(false);
                               setVehQuery('');
                               setCustVehicles([]);
-                              const { data } = await supabase.from('vehicles').select('id, label').eq('shop_id', getShopId()).eq('customer_id', c.id).order('label').limit(500);
+                              const { data } = await supabase.from('vehicles').select('id, label').in('shop_id', getShopIds()).eq('customer_id', c.id).order('label').limit(500);
                               setCustVehicles(data ?? []);
                             }}
                             style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--line)' }}

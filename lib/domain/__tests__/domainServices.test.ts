@@ -228,6 +228,26 @@ describe('mutations are audited', () => {
     expect(insert.reason).toBe('entered twice');
   });
 
+  it('books a reversal in the original payment\'s shop, even from a mirrored location', async () => {
+    // A D1 Imports payment reversed from Location 2 after the merge. The
+    // database trigger refuses a reversal in any other shop than the original.
+    const { db, calls } = fakeDb([{ id: 'P-1', amount: 500, currency: 'THB', shop_id: 'shop-B' }]);
+    await createPaymentDomain({ db, context: ctx }).reverse('P-1', 'entered twice');
+    const insert = calls.find(c => c.op === 'insert')!.payload as Record<string, unknown>;
+    expect(insert.shop_id).toBe('shop-B');
+    expect(calls.find(c => c.op === 'select')!.filters.shop_id).toEqual(['shop-A', 'shop-B']);
+  });
+
+  it('a new payment is always booked in the active shop', async () => {
+    const { db, calls } = fakeDb([{ id: 'P-2', amount: 100, shop_id: 'shop-A' }]);
+    await createPaymentDomain({ db, context: ctx }).create({
+      invoiceNumber: 'INV-0001', customerName: 'Ai Peng', customerId: '', amount: 100, method: 'Cash',
+      methodDetail: '', status: 'Recorded', notes: '', currency: 'THB', referenceNumber: '', paymentDate: '',
+    });
+    const insert = calls.find(c => c.op === 'insert')!.payload as Record<string, unknown>;
+    expect(insert.shop_id).toBe('shop-A');
+  });
+
   it('refuses a reversal with no reason', async () => {
     // A reversal nobody explained is the thing an auditor asks about months
     // later and no one can answer.

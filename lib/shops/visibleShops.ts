@@ -58,3 +58,21 @@ export function activeShopWasArchived(
   // would be the lockout this module exists to prevent.
   return (all ?? []).some(s => s?.id !== currentShopId && !s?.archived_at);
 }
+
+/**
+ * Mirrored shops that are archived: closed locations whose records are now
+ * read as part of the active shop.
+ *
+ * Archiving hides a shop from the picker; the mirror keeps its rows readable.
+ * Together they are how a closed location is merged into the one that stays
+ * open without moving a single row. Only shops present in `all` (the user's own
+ * memberships) can qualify, so a mirror pointing at a shop the user does not
+ * belong to never widens anything.
+ */
+export function mergedShopIds(
+  mirrorIds: readonly string[] | null | undefined,
+  all: readonly ArchivableShop[] | null | undefined,
+): string[] {
+  const archived = new Set((all ?? []).filter(s => s?.archived_at).map(s => s.id));
+  return (mirrorIds ?? []).filter(id => archived.has(id));
+}

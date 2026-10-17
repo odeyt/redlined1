@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getShopId } from '@/lib/shopStore';
+import { getShopIds } from '@/lib/shopStore';
 import type { DashStats, RecentInvoice, RecentRO, RevenueDay, MonthRevenue } from './types';
 
 /**
@@ -38,14 +38,17 @@ export function useOperationalStats() {
         { data: payData },
         { data: partsData },
       ] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
-        supabase.from('vehicles').select('*', { count: 'exact', head: true }).eq('shop_id', getShopId()),
-        supabase.from('job_cards').select('status').eq('shop_id', getShopId()),
-        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date, currency').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
-        supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency, paid_date').eq('shop_id', getShopId()).order('created_at', { ascending: false }),
-        supabase.from('estimates').select('status').eq('shop_id', getShopId()),
-        supabase.from('payments').select('amount, payment_date, currency').eq('shop_id', getShopId()).order('payment_date', { ascending: false }),
-        supabase.from('parts').select('id, quantity, reorder_point').eq('shop_id', getShopId()),
+        // Active shop plus its mirrors, like every list screen and the sidebar
+        // badges. Active-shop-only left a merged location's history (D1 Imports,
+        // folded into Location 2) out of the dashboard and Command Center.
+        supabase.from('customers').select('*', { count: 'exact', head: true }).in('shop_id', getShopIds()),
+        supabase.from('vehicles').select('*', { count: 'exact', head: true }).in('shop_id', getShopIds()),
+        supabase.from('job_cards').select('status').in('shop_id', getShopIds()),
+        supabase.from('repair_orders').select('status, ro_number, customer_name, vehicle, labor_hours, parts_total, labor_rate, technician, opened_date, currency').in('shop_id', getShopIds()).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('number, customer, status, lines, discount, shop_supplies, tax_rate, currency, paid_date').in('shop_id', getShopIds()).order('created_at', { ascending: false }),
+        supabase.from('estimates').select('status').in('shop_id', getShopIds()),
+        supabase.from('payments').select('amount, payment_date, currency').in('shop_id', getShopIds()).order('payment_date', { ascending: false }),
+        supabase.from('parts').select('id, quantity, reorder_point').in('shop_id', getShopIds()),
       ]);
 
       // Invoice stats — compute effective total from lines (same logic as getEffectiveTotal)
