@@ -1,8 +1,9 @@
 /**
- * The D1 location merge SQL, read as text. The owner runs these files by hand
- * in the production SQL editor, so the guarantees they make in their comments
- * are pinned here: the apply moves no business rows and deletes nothing, and
- * the rollback deletes only what the apply recorded.
+ * Shape guards for the D1 location merge SQL. The behaviour — memberships,
+ * archive, RLS visibility, conflict-safe rollback — is proven against a real
+ * Postgres by tests/db/run-shop-merge-db-tests.mjs (npm run test:db:shop-merge).
+ * These cheap checks keep the guarantees that matter most from regressing in
+ * an edit that nobody re-runs the database suite for.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -13,13 +14,14 @@ const read = (f: string) => readFileSync(join(dir, f), 'utf8');
 // them so only executable SQL is checked.
 const code = (sql: string) => sql.replace(/--.*$/gm, '');
 
-const INVENTORY = code(read('2026-10-16_shop_merge_0_inventory.sql'));
-const APPLY = code(read('2026-10-16_shop_merge_1_apply.sql'));
-const ROLLBACK = code(read('2026-10-16_shop_merge_9_rollback.sql'));
+const PREFLIGHT = code(read('2026-10-16_shop_merge_preflight.sql'));
+const APPLY = code(read('2026-10-16_shop_merge.sql'));
+const ROLLBACK_RAW = read('2026-10-16_shop_merge_rollback.sql');
+const ROLLBACK = code(ROLLBACK_RAW);
 
-describe('shop merge — inventory', () => {
+describe('shop merge — preflight', () => {
   it('only reads', () => {
-    expect(INVENTORY).not.toMatch(/\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE)\b/i);
+    expect(PREFLIGHT).not.toMatch(/\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|GRANT|REVOKE)\b/i);
   });
 });
 
@@ -29,45 +31,44 @@ describe('shop merge — apply', () => {
   });
 
   it('updates only the shops row — no business table changes shop_id', () => {
-    // "ON CONFLICT ... DO UPDATE" refreshes the ledger row; it is not a table.
-    const updated = [...APPLY.matchAll(/(?<!DO\s)\bUPDATE\s+([\w.]+)/gi)].map(m => m[1].toLowerCase());
+    const updated = [...APPLY.matchAll(/\bUPDATE\s+([\w.]+)/gi)].map(m => m[1].toLowerCase());
     expect(updated).toEqual(['public.shops']);
     expect(APPLY).not.toMatch(/SET\s+shop_id/i);
   });
 
   it('inserts only memberships and their ledger', () => {
     const inserted = [...APPLY.matchAll(/\bINSERT\s+INTO\s+([\w.]+)/gi)].map(m => m[1].toLowerCase()).sort();
-    expect(inserted).toEqual(['public.shop_merge_ledger', 'public.shop_users']);
+    expect(inserted).toEqual(['public.shop_merge_ledger', 'public.shop_merge_ledger', 'public.shop_users']);
+  });
+
+  it('records row-version evidence for every row it writes', () => {
+    expect(APPLY.match(/xmin::text AS row_xmin/g)).toHaveLength(2);
   });
 
   it('keeps the ledger out of the API', () => {
     expect(APPLY).toMatch(/ALTER TABLE public\.shop_merge_ledger ENABLE ROW LEVEL SECURITY/);
     expect(APPLY).not.toMatch(/CREATE POLICY/i);
   });
-
-  it('refuses to archive unless Location 2 mirrors D1 Imports', () => {
-    expect(APPLY).toMatch(/shop_id\s*=\s*'90b72748-bf01-4456-999f-f4ba48091606'\s*AND mirror_shop_id = '38d55fae-741b-4bac-b520-f96eed65bf38'/);
-  });
-
-  it('archives D1 Imports and never Location 2', () => {
-    expect(APPLY).toMatch(/UPDATE public\.shops[\s\S]*WHERE id = '38d55fae-741b-4bac-b520-f96eed65bf38'/);
-    expect(APPLY).not.toMatch(/WHERE id = '90b72748-bf01-4456-999f-f4ba48091606'\s+AND archived_at IS NULL/);
-  });
 });
 
-describe('shop merge — rollback', () => {
-  it('deletes only memberships recorded in the merge ledger', () => {
-    const deletes = [...ROLLBACK.matchAll(/\bDELETE\s+FROM\s+([\w.]+)[\s\S]*?USING\s+([\w.]+)/gi)];
-    expect(deletes).toHaveLength(1);
-    expect(deletes[0][1]).toBe('public.shop_users');
-    expect(deletes[0][2]).toBe('public.shop_merge_ledger');
+describe('shop merge — emergency rollback', () => {
+  it('is locked as shipped, so a bulk migration run can never execute it', () => {
+    expect(ROLLBACK_RAW).toMatch(/^-- SELECT set_config\('shop_merge\.rollback', 'd1-location-merge-2026-10', true\);$/m);
+    expect(ROLLBACK).not.toMatch(/set_config\('shop_merge\.rollback'/);
+    expect(ROLLBACK).toMatch(/rollback is locked/);
   });
 
-  it('drops and truncates nothing', () => {
-    expect(ROLLBACK).not.toMatch(/\b(DROP|TRUNCATE)\b/i);
+  it('deletes only from shop_users, and only rows whose xmin still matches the ledger', () => {
+    const deletes = [...ROLLBACK.matchAll(/\bDELETE\s+FROM\s+([\w.]+)/gi)].map(m => m[1]);
+    expect(deletes).toEqual(['public.shop_users']);
+    expect(ROLLBACK).toMatch(/su\.xmin::text = l\.row_xmin;/);
   });
 
-  it('un-archives only a shop this merge archived', () => {
-    expect(ROLLBACK).toMatch(/archived_reason LIKE 'Location closed 2026-10; merged into D1 Imports/);
+  it('aborts on any changed row instead of deleting it', () => {
+    expect(ROLLBACK).toMatch(/WHERE p\.state = 'changed'[\s\S]*RAISE EXCEPTION/);
+  });
+
+  it('drops and truncates nothing (its own temp plan table drops itself at commit)', () => {
+    expect(ROLLBACK.replace(/ON COMMIT DROP/g, '')).not.toMatch(/\b(DROP|TRUNCATE)\b/i);
   });
 });

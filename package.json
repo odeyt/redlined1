@@ -43,7 +43,8 @@
     "test:db:free-tier": "node tests/db/run-free-tier-db-tests.mjs",
     "test:db:completion-stamp": "node tests/db/run-completion-stamp-tests.mjs",
     "test:db:technician-sync": "node tests/db/run-technician-sync-tests.mjs",
-    "test:db:portal-tokens": "node tests/db/run-portal-tokens-db-tests.mjs"
+    "test:db:portal-tokens": "node tests/db/run-portal-tokens-db-tests.mjs",
+    "test:db:shop-merge": "node tests/db/run-shop-merge-db-tests.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.63.0",
