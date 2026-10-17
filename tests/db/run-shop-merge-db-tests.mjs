@@ -119,6 +119,34 @@ function reset({ mirror = true, d1Archived = null, l2Archived = false } = {}) {
   `, 'base schema');
   psql(ARCHIVE_COLUMNS, 'shops archive migration');
 
+  // The BEFORE UPDATE trigger production has on public.shops (preflight Q5/Q6,
+  // 2026-10-17), copied verbatim from 2026-09-15_shops_is_synthetic.sql. The
+  // merge's archive UPDATE fires it; it must let that through untouched.
+  psql(`
+    ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS is_synthetic boolean NOT NULL DEFAULT false;
+    CREATE OR REPLACE FUNCTION public.shops_guard_is_synthetic()
+    RETURNS trigger
+    LANGUAGE plpgsql
+    AS $fn$
+    BEGIN
+      IF current_user IN ('postgres', 'service_role', 'supabase_admin') THEN
+        RETURN NEW;
+      END IF;
+      IF TG_OP = 'INSERT' AND NEW.is_synthetic THEN
+        RAISE EXCEPTION 'shops.is_synthetic is platform-managed' USING ERRCODE = '42501';
+      END IF;
+      IF TG_OP = 'UPDATE' AND NEW.is_synthetic IS DISTINCT FROM OLD.is_synthetic THEN
+        RAISE EXCEPTION 'shops.is_synthetic is platform-managed' USING ERRCODE = '42501';
+      END IF;
+      RETURN NEW;
+    END
+    $fn$;
+    DROP TRIGGER IF EXISTS shops_guard_is_synthetic ON public.shops;
+    CREATE TRIGGER shops_guard_is_synthetic
+      BEFORE INSERT OR UPDATE ON public.shops
+      FOR EACH ROW EXECUTE FUNCTION public.shops_guard_is_synthetic();
+  `, 'production shops trigger');
+
   // Business tables, membership-scoped the way production's *_shop_scoped policies are.
   for (const t of ['customers', 'vehicles', 'job_cards', 'repair_orders', 'estimates', 'invoices', 'payments']) {
     psql(`

@@ -108,7 +108,13 @@ Each row the merge writes is recorded in `public.shop_merge_ledger` with its row
 - **Q7:** columns `shop_id`, `user_id`, `role` (NOT NULL, default `'owner'`) and `created_at` (default `now()`). The primary key is `(shop_id, user_id)`, plus the two foreign keys. No other unique index. This matches the tested stub.
 - **Q8:** `shop_users_own` (own rows), `shops_member_view` (`my_shop_ids()`), and the `shop_mirrors` select/insert/delete policies, which check membership of both shops.
 - **Q9:** `NULL`. No merge has been applied yet.
-- **Q5/Q6 (triggers on `shop_users`/`shops`): not yet received.** Do not run the merge until they are reviewed.
+- **Q5/Q6:** `shop_users` has no triggers. `shops` has two:
+  - `shops_create_settings` (AFTER INSERT): never fires, because the merge only updates.
+  - `shops_guard_is_synthetic` (BEFORE INSERT OR UPDATE): fires on the archive update. The repo body (`2026-09-15_shops_is_synthetic.sql`) returns NEW unchanged for `postgres`, `service_role` and `supabase_admin`, and otherwise blocks only changes to `is_synthetic`.
+
+  The merge runs as `postgres` and never touches `is_synthetic`. The DB test now installs this exact trigger, and all 54 checks still pass.
+
+  Normalised md5 of the repo body: `499dbfa7d4470b7f5ef9cb5a2f882702`. Production must match before the merge runs.
 - Seen in Q1, not blocking:
   - `shop_messaging_secrets` 1 / 0: messaging channels are configured only on D1 Imports.
   - `push_subscriptions` 2 / 0: those devices must re-enable push while working in Location 2.
