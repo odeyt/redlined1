@@ -1,6 +1,6 @@
 # D1 Imports → Location 2 shop merge: rollout runbook and status
 
-**Status (2026-10-17): code is in PR #90 and not merged. No SQL has been run against production.**
+**Status (2026-10-17): done.** PR #90 was merged (main `5ac40a9`) and deployed to production. The merge SQL was applied at 04:21:39 UTC and verified in the database and the browser (see the closeout log). The emergency rollback has not been used.
 
 - Production Supabase project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`.
 - Production Vercel project: `redlined1` under `redlined1-s-projects`. The `d1-imports/redlined1` project that reports a "Vercel – redlined1" check on PRs is a duplicate. Its preview passing does not prove that production deployed.
@@ -121,12 +121,22 @@ Each row the merge writes is recorded in `public.shop_merge_ledger` with its row
 
 ## Closeout log
 
-Fill in as each step happens.
+| Step | Date (UTC) | By | Result |
+|------|------------|----|--------|
+| Preflight Q0–Q9 and trigger md5 | 2026-10-17 | owner (SQL editor) | Passed. Nothing blocked the merge; results above. |
+| PR #90 merged | 2026-10-17 03:51:18 | owner | main `5ac40a9` |
+| Production deploy | 2026-10-17 03:51:21 | Vercel (`redlined1-s-projects/redlined1`) | Ready. Build log: `Branch: main, Commit: 5ac40a9`. Aliased to www.redlined1.com and redlined1.com. /login returned 200; the app footer shows BUILD 5AC40A9. |
+| Merge SQL applied | 2026-10-17 04:21:39 | owner (SQL editor) | "Success. No rows returned" |
+| V1 | | owner | D1 Imports archived with the merge reason; Location 2 active. |
+| V2 | | owner | Both mirror links present. |
+| V3 | | owner | Zero rows: nobody belongs to only one shop. |
+| V4 | | owner | All 7 users hold the same role in both shops. The 3 technicians are now Location 2 technicians. |
+| V5 | | owner | 4 ledger rows (1 archive, 3 memberships), all `applied`, recorded at 04:21:39. |
+| V6 | | owner | Counts in both shops unchanged, except: `shop_users` Location 2 4→7 (the merge), and D1 `customers` 54→55 and `vehicles` 81→82. Audit events show that customer and vehicle were created by sales@d1autozone.com at 02:28–02:41 UTC, before the merge. Location 2 `customers` 89→90 from normal use. |
+| Browser (owner session, read-only) | 2026-10-17 | Claude | Lands in Location 2 with no location switcher. Sidebar counts are combined: Customers 145 = 55 + 90, Inspections 58, Parts 180. Global search finds the D1 customer SAISAVANH MOTOR and their job cards and ROs. The invoice vehicle picker lists that customer's cars; the form was cancelled, nothing saved. Reports: the shop picker shows only Location 2, and Job Completion, All Time = 110 (92 open + 18 closed = both shops, no duplicates). |
 
-| Step | Date | By | Result |
-|------|------|----|--------|
-| Preflight run, baseline saved | | | |
-| PR #90 merged, production deploy confirmed | | | |
-| Merge SQL applied | | | |
-| V1–V6 checked against the baseline | | | |
-| Browser checks (owner, staff) | | | |
+Not checked in the browser:
+- a representative staff (technician) session;
+- reloading from a page that still had D1 Imports active.
+
+Opening the new-invoice form showed INV-0209, which may have reserved that number; it was not saved, so expect a gap in invoice numbering.
