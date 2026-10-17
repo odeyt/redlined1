@@ -297,9 +297,19 @@ async function draftInvoiceForJob(job: JobCardFull): Promise<string> {
 
 export async function closeJob(job: JobCardFull): Promise<{ invoiceNumber: string | null; invoiceError: string | null }> {
   const closedDate = new Date().toISOString();
+
+  // The archive row belongs to the job's own shop, not whichever location the
+  // user is working in. A D1 Imports job closed from Location 2 after the two
+  // were merged stays a D1 Imports record. Falls back to the active shop when
+  // the row cannot be found (an interrupted earlier close), as before.
+  const { data: source, error: sourceError } = await supabase
+    .from('job_cards').select('shop_id').eq('id', job.id).in('shop_id', getShopIds()).maybeSingle();
+  if (sourceError) throw sourceError;
+  const jobShopId = ((source as { shop_id?: string } | null)?.shop_id) || getShopId();
+
   const { error: insertError } = await supabase.from('closed_jobs').insert({
     id: job.id,
-    shop_id: getShopId(),
+    shop_id: jobShopId,
     ro: job.ro,
     invoice: job.invoice,
     customer: job.customer,

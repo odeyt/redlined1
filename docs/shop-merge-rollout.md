@@ -75,8 +75,43 @@ Each row the merge writes is recorded in `public.shop_merge_ledger` with its row
 
 - Command Center recommendations and customer lifetime intelligence still compute for the active shop only.
 - `/api/billing/status` and `/api/billing/usage` return 403 for a user with two owner or manager memberships. This is already true for the owner, and billing is off.
-- Closing a D1 Imports job card that is still open writes its `closed_jobs` row under Location 2. This is existing mirror behaviour. The preflight's Q4 shows whether any D1 work is still open.
 - An RO created at Location 2 from a D1 Imports job card does not sync technicians, because the sync triggers require the same shop. They skip the sync rather than fail.
+
+## Preflight results (production, run by the owner, 2026-10-17)
+
+- **Q0:** the editor showed `d1group / redlined1 / main PRODUCTION`. Both shop ids resolve to "D1 Imports" and "D1 Imports - Location 2".
+- **Q1 baseline:** `shop_users` 7 / 4 and `shop_mirrors` 1 / 1. Business rows (D1 Imports / Location 2):
+
+  | Table | D1 Imports | Location 2 |
+  |-------|-----------:|-----------:|
+  | customers | 54 | 89 |
+  | vehicles | 81 | 90 |
+  | job_cards | 44 | 47 |
+  | closed_jobs | 9 | 9 |
+  | repair_orders | 34 | 54 |
+  | estimates | 27 | 21 |
+  | invoices | 52 | 41 |
+  | payments | 14 | 12 |
+  | parts | 10 | 170 |
+  | audit_events | 560 | 619 |
+
+- **Q2:** owner ×2, manager and advisor belong to both shops with the same role. Three technicians belong to D1 Imports only (aenoysabo@…, bonmiswswang72@…, sabouathonehatsady9@…). The merge adds exactly 3 rows, all to Location 2, all `technician`.
+- **Q3:** both mirror directions are present, and both shops are active.
+- **Q4:** D1 Imports still holds open work, which staff will finish from Location 2:
+  - 44 job cards (40 Booked, 4 Approved);
+  - 26 open ROs;
+  - 17 open estimates;
+  - 41 draft and 1 sent invoices;
+  - 1 draft intake.
+
+  Closing one of those job cards now keeps its archive row under D1 Imports. The draft intake will not be listed at Location 2 (intake reads the active shop only). Finish or discard it before the merge.
+- **Q7:** columns `shop_id`, `user_id`, `role` (NOT NULL, default `'owner'`) and `created_at` (default `now()`). The primary key is `(shop_id, user_id)`, plus the two foreign keys. No other unique index. This matches the tested stub.
+- **Q8:** `shop_users_own` (own rows), `shops_member_view` (`my_shop_ids()`), and the `shop_mirrors` select/insert/delete policies, which check membership of both shops.
+- **Q9:** `NULL`. No merge has been applied yet.
+- **Q5/Q6 (triggers on `shop_users`/`shops`): not yet received.** Do not run the merge until they are reviewed.
+- Seen in Q1, not blocking:
+  - `shop_messaging_secrets` 1 / 0: messaging channels are configured only on D1 Imports.
+  - `push_subscriptions` 2 / 0: those devices must re-enable push while working in Location 2.
 
 ## Closeout log
 
