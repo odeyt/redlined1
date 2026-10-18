@@ -12,6 +12,7 @@ import type {
   AppointmentRow,
   ServiceAdvisorSessionRow,
 } from './types';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 export async function buildCustomerContext(shopId: string, customerId: string): Promise<CustomerLifetimeContext> {
   const warnings: string[] = [];
@@ -29,13 +30,13 @@ export async function buildCustomerContext(shopId: string, customerId: string): 
     memoryResult,
     vehicleIntelResult,
   ] = await Promise.allSettled([
-    supabase.from('customers').select('id, shop_id, created_at, visit_count, last_visit_date, is_fleet, is_commercial, notes').eq('id', customerId).eq('shop_id', shopId).maybeSingle(),
-    supabase.from('vehicles').select('id, make, model, year, is_active').eq('customer_id', customerId).eq('shop_id', shopId),
-    supabase.from('job_cards').select('id, created_at, status, completed_at').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }).limit(100),
-    supabase.from('estimates').select('id, total_amount, currency, status, approved_at, declined_at, created_at').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }).limit(100),
-    supabase.from('invoices').select('id, total_amount, status, paid_at, created_at').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }).limit(100),
-    supabase.from('estimate_declined_items').select('id, description, estimated_value, created_at, reason').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }).limit(50),
-    supabase.from('appointments').select('id, scheduled_at, status, created_at').eq('customer_id', customerId).eq('shop_id', shopId).order('scheduled_at', { ascending: false }).limit(30),
+    supabase.from('customers').select('id, shop_id, created_at, visit_count, last_visit_date, is_fleet, is_commercial, notes').eq('id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).maybeSingle(),
+    supabase.from('vehicles').select('id, make, model, year, is_active').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)),
+    supabase.from('job_cards').select('id, created_at, status, completed_at').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).order('created_at', { ascending: false }).limit(100),
+    supabase.from('estimates').select('id, total_amount, currency, status, approved_at, declined_at, created_at').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).order('created_at', { ascending: false }).limit(100),
+    supabase.from('invoices').select('id, total_amount, status, paid_at, created_at').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).order('created_at', { ascending: false }).limit(100),
+    supabase.from('estimate_declined_items').select('id, description, estimated_value, created_at, reason').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).order('created_at', { ascending: false }).limit(50),
+    supabase.from('appointments').select('id, scheduled_at, status, created_at').eq('customer_id', customerId).in('shop_id', await mergedShopScope(supabase, shopId)).order('scheduled_at', { ascending: false }).limit(30),
     supabase.from('service_advisor_sessions').select('id, session_status, created_at, estimate_quality_score').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }).limit(20),
     supabase.from('business_memory').select('memory_text').eq('shop_id', shopId).eq('entity_type', 'customer').eq('entity_id', customerId).eq('is_active', true).order('created_at', { ascending: false }).limit(10),
     supabase.from('vehicle_intelligence_signals').select('signal_key, title').eq('shop_id', shopId).in('vehicle_id', [customerId]).eq('is_active', true).limit(20),

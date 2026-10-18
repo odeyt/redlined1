@@ -9,6 +9,7 @@ import { CustomerOpportunitiesCard } from './CustomerOpportunitiesCard';
 import { CustomerFinancialSummary } from './CustomerFinancialSummary';
 import { CustomerTimeline } from './CustomerTimeline';
 import type { CustomerBuildResult } from '@/intelligence/customer/types';
+import { flagRequestHeaders } from '@/lib/featureFlags/requestHeaders';
 
 interface Props {
   customerId: string;
@@ -26,7 +27,7 @@ export function CustomerLifetimePanel({ customerId, disabled }: Props) {
     if (disabled) { setState('disabled'); return; }
     setState('loading');
 
-    fetch(`/api/intelligence/customer/${customerId}`)
+    fetch(`/api/intelligence/customer/${customerId}`, { headers: flagRequestHeaders() })
       .then(async res => {
         if (res.status === 403) {
           const body = await res.json().catch(() => ({}));
@@ -47,7 +48,7 @@ export function CustomerLifetimePanel({ customerId, disabled }: Props) {
 
   function rebuildFromProfile(profile: CustomerBuildResult['profile']) {
     // Trigger full build to get all sub-results
-    fetch(`/api/intelligence/customer/${customerId}`, { method: 'POST' })
+    fetch(`/api/intelligence/customer/${customerId}`, { method: 'POST', headers: flagRequestHeaders() })
       .then(async res => {
         if (!res.ok) { setState('error'); setErrorMsg(`Build error ${res.status}`); return; }
         const body = await res.json();

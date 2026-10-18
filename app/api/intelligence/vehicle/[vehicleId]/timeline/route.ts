@@ -5,6 +5,9 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { resolveRequestShop } from '@/lib/shops/requestShop';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
+import { onePerKey } from '@/lib/shops/onePerKey';
 
 type RouteContext = { params: Promise<{ vehicleId: string }> };
 
@@ -34,20 +37,27 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       return NextResponse.json({ disabled: true, events: [] });
     }
 
-    const { data: shopRow } = await authClient
-      .from('shop_users').select('shop_id').eq('user_id', user.id).limit(1).maybeSingle();
-    const shopId = (shopRow as { shop_id: string } | null)?.shop_id;
+    const shopId = (await resolveRequestShop(authClient, user.id, _req.headers.get('x-shop-id')))?.shop_id;
     if (!shopId) return NextResponse.json({ error: 'No shop' }, { status: 403 });
 
     const { data } = await db
       .from('vehicle_intelligence_events')
-      .select('id, event_type, summary, event_date, source_type, source_id, metadata')
-      .eq('shop_id', shopId)
+      .select('id, shop_id, event_type, summary, event_date, source_type, source_id, metadata')
+      // A merged (closed) location's events stay under its id; read both.
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .order('event_date', { ascending: false })
       .limit(50);
 
-    return NextResponse.json({ events: data ?? [] });
+    // The same source record can have an event under each shop once the
+    // vehicle is recomputed here; keep one, this shop's first.
+    const events = onePerKey(
+      (data ?? []) as Array<{ shop_id?: string; event_type?: string; source_type?: string; source_id?: string; id?: string }>,
+      e => e.source_id ? `${e.event_type}|${e.source_type}|${e.source_id}` : `id|${e.id}`,
+      shopId,
+    ).map(({ shop_id: _s, ...e }) => e);
+
+    return NextResponse.json({ events });
   } catch (e) {
     console.error('[vehicle-intelligence-timeline GET]', e);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

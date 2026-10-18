@@ -2,6 +2,7 @@
 // No AI. All values are deterministic DB queries. Fails silently.
 import type { SignalMap } from './types';
 import type { ShopIntelligenceMetrics } from '../metrics/types';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 /**
  * Build a SignalMap directly from pre-computed ShopIntelligenceMetrics.
@@ -66,53 +67,53 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   // ── Invoices ─────────────────────────────────────────────────
   try {
     const { count } = await db.from('invoices').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).in('status', ['Draft', 'Sent']);
+      .in('shop_id', await mergedShopScope(db, shopId)).in('status', ['Draft', 'Sent']);
     signals.unpaid_invoice_count = count ?? 0;
   } catch { signals.unpaid_invoice_count = null; }
 
   try {
     const { count } = await db.from('invoices').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).in('status', ['Draft', 'Sent']).lt('due_date', new Date().toISOString());
+      .in('shop_id', await mergedShopScope(db, shopId)).in('status', ['Draft', 'Sent']).lt('due_date', new Date().toISOString());
     signals.overdue_invoice_count = count ?? 0;
   } catch { signals.overdue_invoice_count = null; }
 
   // ── Estimates ────────────────────────────────────────────────
   try {
     const { count } = await db.from('estimates').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).in('status', ['Draft', 'Sent', 'Pending']);
+      .in('shop_id', await mergedShopScope(db, shopId)).in('status', ['Draft', 'Sent', 'Pending']);
     signals.open_estimate_count = count ?? 0;
   } catch { signals.open_estimate_count = null; }
 
   try {
     const { count } = await db.from('estimates').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).in('status', ['Draft', 'Sent', 'Pending']).lt('created_at', daysAgo(3));
+      .in('shop_id', await mergedShopScope(db, shopId)).in('status', ['Draft', 'Sent', 'Pending']).lt('created_at', daysAgo(3));
     signals.stale_estimate_count = count ?? 0;
   } catch { signals.stale_estimate_count = null; }
 
   try {
     const { count } = await db.from('estimates').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).eq('status', 'Declined');
+      .in('shop_id', await mergedShopScope(db, shopId)).eq('status', 'Declined');
     signals.declined_estimate_count = count ?? 0;
   } catch { signals.declined_estimate_count = null; }
 
   // ── Job Cards ─────────────────────────────────────────────────
   try {
     const { count } = await db.from('job_cards').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId);
+      .in('shop_id', await mergedShopScope(db, shopId));
     signals.open_job_count = count ?? 0;
   } catch { signals.open_job_count = null; }
 
   try {
     // Stuck = in same stage for > 2 days
     const { count } = await db.from('job_cards').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).lt('check_in_date', daysAgo(2)).not('status', 'in', '("Closed","Invoiced")');
+      .in('shop_id', await mergedShopScope(db, shopId)).lt('check_in_date', daysAgo(2)).not('status', 'in', '("Closed","Invoiced")');
     signals.stuck_job_count = count ?? 0;
   } catch { signals.stuck_job_count = null; }
 
   // ── Completed jobs without invoice ──────────────────────────
   try {
     const { count } = await db.from('closed_jobs').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).is('invoice', null);
+      .in('shop_id', await mergedShopScope(db, shopId)).is('invoice', null);
     signals.completed_not_invoiced_count = count ?? 0;
   } catch { signals.completed_not_invoiced_count = null; }
 
@@ -120,7 +121,7 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   // Table is 'parts', threshold column is 'low_stock_threshold'
   try {
     const { data } = await db.from('parts').select('quantity, low_stock_threshold')
-      .eq('shop_id', shopId);
+      .in('shop_id', await mergedShopScope(db, shopId));
     const rows = (data ?? []) as { quantity?: number; low_stock_threshold?: number }[];
     signals.low_inventory_count = rows.filter(r =>
       (Number(r.quantity) || 0) <= (Number(r.low_stock_threshold) || 5),
@@ -130,7 +131,7 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   // ── Repair cases ─────────────────────────────────────────────
   try {
     const { count } = await db.from('repair_cases').select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId).gte('created_at', todayStart());
+      .in('shop_id', await mergedShopScope(db, shopId)).gte('created_at', todayStart());
     signals.repair_cases_created_today = count ?? 0;
   } catch { signals.repair_cases_created_today = null; }
 
@@ -139,7 +140,7 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
   try {
     const todayDateStr = new Date().toISOString().split('T')[0];
     const { data } = await db.from('payments').select('amount')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .gte('payment_date', todayDateStr)
       .in('status', ['Recorded', 'Verified']);
     const total = (data ?? []).reduce((s, r) => s + (Number((r as { amount?: number }).amount) || 0), 0);
@@ -152,7 +153,7 @@ export async function extractSignals(shopId: string): Promise<SignalMap> {
     const yStartDate = yStart.split('T')[0];
     const yEndDate   = yEnd.split('T')[0];
     const { data } = await db.from('payments').select('amount')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .gte('payment_date', yStartDate)
       .lte('payment_date', yEndDate)
       .in('status', ['Recorded', 'Verified']);

@@ -30,6 +30,7 @@ import {
   ruleTechnicianFamiliarity,
   ruleUnresolvedDeclinedWork,
 } from './VehicleIntelligenceRules';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 // ── DB helper ─────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ export async function extractVisitHistory(
     const { data } = await db
       .from('job_cards')
       .select('created_at, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .order('created_at', { ascending: false });
     const rows = (data ?? []) as Array<{ created_at: string; status: string }>;
@@ -106,7 +107,7 @@ export async function extractRepairHistory(
     const { data } = await db
       .from('job_cards')
       .select('completed_at, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .eq('status', 'complete')
       .order('completed_at', { ascending: false });
@@ -124,7 +125,7 @@ export async function extractRepairCaseHistory(
     const { data } = await db
       .from('repair_cases')
       .select('id, concern_category, created_at, status, assigned_technician_id, resolution, is_warranty')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .order('created_at', { ascending: false });
 
@@ -175,7 +176,7 @@ export async function extractEstimateHistory(
     const { data } = await db
       .from('estimates')
       .select('id, title, total, status, updated_at, category')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
 
     if (!data) return { openCount: 0, declinedWork: [] };
@@ -206,7 +207,7 @@ export async function extractInvoiceHistory(
     const { data } = await db
       .from('invoices')
       .select('total, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
 
     if (!data) return { unpaidCount: 0, totalRevenue: 0, avgInvoice: 0 };
@@ -229,7 +230,7 @@ export async function extractComebackHistory(
     const { data } = await db
       .from('repair_orders')
       .select('id, is_warranty')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
     const rows = (data ?? []) as Array<{ is_warranty?: boolean }>;
     const warrantyCount  = rows.filter(r => r.is_warranty).length;
@@ -246,7 +247,7 @@ export async function extractDtcPatterns(
     const { data } = await db
       .from('repair_cases')
       .select('dtc_codes, created_at, status')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .not('dtc_codes', 'is', null);
 
@@ -288,7 +289,7 @@ export async function extractPartPatterns(
     const { data } = await db
       .from('parts_order_items')
       .select('part_name, created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
 
     if (!data) return [];

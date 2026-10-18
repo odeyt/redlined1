@@ -10,6 +10,7 @@ import { mapInvoiceRow } from '@/lib/domain/invoiceMath';
 import { mapPaymentRow } from '@/lib/domain/payments';
 import { receivablesFrom } from '@/lib/domain/receivables';
 import { DEFAULT_CURRENCY, resolveShopCurrency } from '@/lib/currencies';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 // Use getAdminDb (service role key) — bypasses RLS so shop_id filter is the only guard.
 // If SUPABASE_SERVICE_ROLE_KEY is missing, falls back to anon (logged as error).
@@ -140,7 +141,7 @@ export async function calculateRevenueMetrics(
     const { data, error } = await db
       .from('payments')
       .select('amount, status, currency')
-      .eq('shop_id', ctx.shopId)
+      .in('shop_id', await mergedShopScope(db, ctx.shopId))
       .gte('payment_date', todayDateStr)
       .in('status', ['Recorded', 'Verified']);
     if (error) throw error;
@@ -156,7 +157,7 @@ export async function calculateRevenueMetrics(
     const { data, error } = await db
       .from('payments')
       .select('amount, currency')
-      .eq('shop_id', ctx.shopId)
+      .in('shop_id', await mergedShopScope(db, ctx.shopId))
       .gte('payment_date', yStart)
       .lte('payment_date', yEnd)
       .in('status', ['Recorded', 'Verified']);
@@ -203,7 +204,7 @@ export async function calculateInvoiceMetrics(
     const { data, error } = await db
       .from('invoices')
       .select('*')
-      .eq('shop_id', ctx.shopId)
+      .in('shop_id', await mergedShopScope(db, ctx.shopId))
       .not('status', 'in', `(${NOT_OWED_INVOICE_STATUSES.map(s => `"${s}"`).join(',')})`);
     if (error) throw error;
     const invoices = ((data ?? []) as Record<string, unknown>[]).map(mapInvoiceRow);
@@ -216,7 +217,7 @@ export async function calculateInvoiceMetrics(
       const { data: pays, error: payError } = await db
         .from('payments')
         .select('*')
-        .eq('shop_id', ctx.shopId)
+        .in('shop_id', await mergedShopScope(db, ctx.shopId))
         .in('invoice_number', numbers.slice(i, i + INVOICE_NUMBER_CHUNK));
       if (payError) throw payError;
       paymentRows.push(...((pays ?? []) as Record<string, unknown>[]));
@@ -259,7 +260,7 @@ export async function calculateEstimateMetrics(
     const { data, error } = await db
       .from('estimates')
       .select('id, status, created_at, lines, discount, shop_supplies, tax_rate, currency')
-      .eq('shop_id', ctx.shopId);
+      .in('shop_id', await mergedShopScope(db, ctx.shopId));
     if (error) throw error;
     const rows = (data ?? []) as {
       status: string; created_at: string;
@@ -303,7 +304,7 @@ export async function calculateJobMetrics(
     const { data, error } = await db
       .from('job_cards')
       .select('id, status, check_in_date, invoice')
-      .eq('shop_id', ctx.shopId);
+      .in('shop_id', await mergedShopScope(db, ctx.shopId));
     if (error) throw error;
     const rows = (data ?? []) as { status?: string; check_in_date?: string; invoice?: string | null }[];
 
@@ -337,7 +338,7 @@ export async function calculateRepairOrderMetrics(
     const { count, error } = await db
       .from('repair_orders')
       .select('id', { count: 'exact', head: true })
-      .eq('shop_id', ctx.shopId)
+      .in('shop_id', await mergedShopScope(db, ctx.shopId))
       .in('status', ['In Progress', 'Open', 'Pending', 'Active']);
     if (error) throw error;
     result.repairOrdersInProgress = count ?? 0;
@@ -357,7 +358,7 @@ export async function calculateRepairIntelligenceMetrics(
     const { count, error } = await db
       .from('repair_cases')
       .select('id', { count: 'exact', head: true })
-      .eq('shop_id', ctx.shopId)
+      .in('shop_id', await mergedShopScope(db, ctx.shopId))
       .gte('created_at', ctx.todayStart);
     if (error) throw error;
     result.repairCasesToday = count ?? 0;
@@ -378,7 +379,7 @@ export async function calculateInventoryMetrics(
     const { data, error } = await db
       .from('parts')
       .select('quantity, low_stock_threshold')
-      .eq('shop_id', ctx.shopId);
+      .in('shop_id', await mergedShopScope(db, ctx.shopId));
     if (error) throw error;
     const rows = (data ?? []) as { quantity?: number; low_stock_threshold?: number }[];
     result.lowInventoryCount = rows.filter(r =>

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { buildCustomerProfile, getCustomerProfile } from '@/intelligence/customer/CustomerLifetimeEngine';
+import { resolveRequestShop } from '@/lib/shops/requestShop';
 
 const ALLOWED_ROLES = ['owner', 'manager', 'advisor'];
 
@@ -16,9 +17,8 @@ async function makeClient() {
   );
 }
 
-async function resolveShopId(supabase: Awaited<ReturnType<typeof makeClient>>, userId: string): Promise<string | null> {
-  const { data } = await supabase.from('shop_users').select('shop_id, role').eq('user_id', userId).in('role', ALLOWED_ROLES).limit(1).maybeSingle();
-  return data?.shop_id ?? null;
+async function resolveShopId(supabase: Awaited<ReturnType<typeof makeClient>>, userId: string, requested: string | null): Promise<string | null> {
+  return (await resolveRequestShop(supabase, userId, requested, ALLOWED_ROLES))?.shop_id ?? null;
 }
 
 async function checkAccess(supabase: Awaited<ReturnType<typeof makeClient>>, userId: string, shopId: string): Promise<boolean> {
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cust
       return NextResponse.json({ error: 'Invalid customerId' }, { status: 400 });
     }
 
-    const shopId = await resolveShopId(supabase, user.id);
+    const shopId = await resolveShopId(supabase, user.id, req.headers.get('x-shop-id'));
     if (!shopId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { data: flag } = await supabase.from('feature_flags').select('enabled').eq('flag_key', 'customer_lifetime_intelligence').maybeSingle();
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cus
       return NextResponse.json({ error: 'Invalid customerId' }, { status: 400 });
     }
 
-    const shopId = await resolveShopId(supabase, user.id);
+    const shopId = await resolveShopId(supabase, user.id, req.headers.get('x-shop-id'));
     if (!shopId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { data: flag } = await supabase.from('feature_flags').select('enabled').eq('flag_key', 'customer_lifetime_intelligence').maybeSingle();

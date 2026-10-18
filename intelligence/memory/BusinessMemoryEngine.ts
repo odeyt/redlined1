@@ -24,6 +24,7 @@ import {
   ruleRevenueOpportunity,
   ruleShopPattern,
 } from './MemoryRules';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 async function getDb() {
   const { getAdminDb } = await import('@/lib/supabaseServer');
@@ -250,7 +251,7 @@ export async function extractCustomerMemory(
     const { data: lastJob } = await db
       .from('job_cards')
       .select('completed_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('customer_id', customerId)
       .eq('status', 'complete')
       .order('completed_at', { ascending: false })
@@ -264,7 +265,7 @@ export async function extractCustomerMemory(
     const { data: invoices } = await db
       .from('invoices')
       .select('total, status, created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('customer_id', customerId);
     if (invoices) {
       const rows = invoices as Array<{ total?: number; status?: string }>;
@@ -283,7 +284,7 @@ export async function extractCustomerMemory(
     const { data: declinedEst } = await db
       .from('estimates')
       .select('id, title, total, updated_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('customer_id', customerId)
       .eq('status', 'declined');
     if (declinedEst && (declinedEst as unknown[]).length > 0) {
@@ -323,18 +324,18 @@ export async function extractVehicleMemory(
     const { count: jobCount } = await db
       .from('job_cards')
       .select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .eq('status', 'complete');
     const { count: caseCount } = await db
       .from('repair_cases')
       .select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
     const { data: firstJob } = await db
       .from('job_cards')
       .select('created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .order('created_at', { ascending: true })
       .limit(1)
@@ -352,7 +353,7 @@ export async function extractVehicleMemory(
     const { data: cases } = await db
       .from('repair_cases')
       .select('concern_category, created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId);
     if (cases && (cases as unknown[]).length > 0) {
       const catMap: Record<string, { count: number; lastSeen: string }> = {};
@@ -371,7 +372,7 @@ export async function extractVehicleMemory(
     const { data: comebacks } = await db
       .from('repair_orders')
       .select('id, created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('vehicle_id', vehicleId)
       .eq('is_warranty', true);
     if (comebacks) {
@@ -425,7 +426,7 @@ export async function extractRevenueMemory(
     const { data: stale } = await db
       .from('estimates')
       .select('total')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('status', 'pending')
       .lt('updated_at', staleDate.toISOString());
     const staleEstimates = (stale ?? []) as Array<{ total?: number }>;
@@ -434,14 +435,14 @@ export async function extractRevenueMemory(
     const { data: notInvoiced } = await db
       .from('job_cards')
       .select('id', { count: 'exact', head: true })
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('status', 'complete')
       .is('invoice_id', null);
 
     const { data: overdueInv } = await db
       .from('invoices')
       .select('total')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .neq('status', 'paid')
       .lt('due_date', new Date().toISOString());
     const overdueRows = (overdueInv ?? []) as Array<{ total?: number }>;
@@ -485,7 +486,7 @@ export async function extractTechnicianMemory(
       const { data: cases } = await db
         .from('repair_cases')
         .select('concern_category')
-        .eq('shop_id', shopId)
+        .in('shop_id', await mergedShopScope(db, shopId))
         .eq('assigned_technician_id', t.user_id)
         .eq('status', 'resolved');
 
@@ -523,7 +524,7 @@ export async function extractPartsMemory(
     const { data: usage } = await db
       .from('parts_order_items')
       .select('part_id, part_name, created_at')
-      .eq('shop_id', shopId);
+      .in('shop_id', await mergedShopScope(db, shopId));
 
     if (usage) {
       const partMap: Record<string, { partName: string; count: number; lastUsed: string }> = {};
@@ -557,7 +558,7 @@ async function extractShopPatterns(
     const { data: cases } = await db
       .from('repair_cases')
       .select('concern_category, vehicle_id, created_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .gte('created_at', new Date(Date.now() - 90 * 86_400_000).toISOString());
 
     if (!cases) return;
@@ -591,7 +592,7 @@ async function extractMissingRepairCases(
     const { data: jobs } = await db
       .from('job_cards')
       .select('id, completed_at')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .eq('status', 'complete')
       .is('repair_case_id', null)
       .gte('completed_at', cutoff)
@@ -646,7 +647,7 @@ export async function extractMemoryForShop(
     const { data: customers } = await db
       .from('customers')
       .select('id')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .limit(50);
     for (const c of (customers ?? []) as Array<{ id: string }>) {
       const cr = await extractCustomerMemory(shopId, c.id, dryRun);
@@ -659,7 +660,7 @@ export async function extractMemoryForShop(
     const { data: vehicles } = await db
       .from('vehicles')
       .select('id')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(db, shopId))
       .limit(50);
     for (const v of (vehicles ?? []) as Array<{ id: string }>) {
       const vr = await extractVehicleMemory(shopId, v.id, dryRun);

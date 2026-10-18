@@ -7,6 +7,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { submitFeedback } from '@/intelligence/learning/IntelligenceLearningEngine';
 import type { RecommendationFeedbackType } from '@/intelligence/learning/types';
+import { resolveRequestShop } from '@/lib/shops/requestShop';
 
 const ALLOWED_FEEDBACK_TYPES: RecommendationFeedbackType[] = [
   'correct',
@@ -33,9 +34,8 @@ async function checkFlag(key: string): Promise<boolean> {
   return !!(data as { enabled?: boolean } | null)?.enabled;
 }
 
-async function getShopId(authClient: ReturnType<typeof createServerClient>, userId: string): Promise<string | null> {
-  const { data } = await authClient.from('shop_users').select('shop_id').eq('user_id', userId).limit(1).maybeSingle();
-  return (data as { shop_id: string } | null)?.shop_id ?? null;
+async function getShopId(authClient: ReturnType<typeof createServerClient>, userId: string, requested: string | null): Promise<string | null> {
+  return (await resolveRequestShop(authClient, userId, requested))?.shop_id ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const flagOn = await checkFlag('recommendation_feedback');
     if (!flagOn) return NextResponse.json({ disabled: true, ok: false }, { status: 200 });
 
-    const shopId = await getShopId(authClient, user.id);
+    const shopId = await getShopId(authClient, user.id, req.headers.get('x-shop-id'));
     if (!shopId) return NextResponse.json({ error: 'No shop' }, { status: 403 });
 
     const body = await req.json() as {
