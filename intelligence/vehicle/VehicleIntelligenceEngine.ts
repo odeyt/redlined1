@@ -67,12 +67,18 @@ export function calculateVehicleHealth(
 
   score = Math.max(0, Math.min(100, Math.round(score)));
 
-  const status: VehicleHealthStatus =
-    score >= 80 ? 'healthy' :
+  return { score, status: healthStatusFromScore(score) };
+}
+
+/**
+ * The health band for a score. Profiles store only `health_score` — there is
+ * no health_status column — so anything that reads profiles derives the band
+ * here rather than selecting a column that does not exist.
+ */
+export function healthStatusFromScore(score: number): VehicleHealthStatus {
+  return score >= 80 ? 'healthy' :
     score >= 60 ? 'monitor' :
     score >= 40 ? 'attention' : 'high_risk';
-
-  return { score, status };
 }
 
 // ── Data extractors ───────────────────────────────────────────
@@ -419,13 +425,12 @@ export async function getVehicleIntelligence(
 }
 
 function mapProfileRow(r: Record<string, unknown>): VehicleIntelligenceProfile {
-  const { score, status: healthStatus } = { score: Number(r.health_score ?? 0), status: 'unknown' as const };
   return {
     id:                     r.id as string,
     shopId:                 r.shop_id as string,
     vehicleId:              r.vehicle_id as string,
     healthScore:            r.health_score != null ? Number(r.health_score) : null,
-    healthStatus:           (r.health_status as typeof healthStatus) ?? 'unknown',
+    healthStatus:           r.health_score != null ? healthStatusFromScore(Number(r.health_score)) : 'unknown',
     intelligenceStatus:     (r.intelligence_status as VehicleIntelligenceStatus) ?? 'limited',
     visitCount:             Number(r.visit_count ?? 0),
     completedRepairCount:   Number(r.completed_repair_count ?? 0),
@@ -453,7 +458,6 @@ function mapProfileRow(r: Record<string, unknown>): VehicleIntelligenceProfile {
     createdAt:              r.created_at as string,
     updatedAt:              r.updated_at as string,
   };
-  void score; // suppress unused warning — health recalculated live
 }
 
 // ── Core build ────────────────────────────────────────────────
