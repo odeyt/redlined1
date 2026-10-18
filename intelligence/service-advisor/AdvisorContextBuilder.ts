@@ -12,6 +12,7 @@ import type {
   EstimateLine,
   VehicleIntelligenceSignal,
 } from './types';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 export interface AdvisorContextInput {
   shopId: string;
@@ -42,7 +43,7 @@ export async function buildAdvisorContext(
         .from('job_cards')
         .select('customer_concern')
         .eq('id', input.jobCardId)
-        .eq('shop_id', shopId)
+        .in('shop_id', await mergedShopScope(supabase, shopId))
         .maybeSingle();
       jobCardConcern = data?.customer_concern ?? null;
     } catch {
@@ -91,14 +92,14 @@ export async function getCustomerContext(
     .from('customers')
     .select('id, visit_count, last_visit_date')
     .eq('id', customerId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .maybeSingle();
 
   const { data: invoices } = await supabase
     .from('invoices')
     .select('total_amount, status')
     .eq('customer_id', customerId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -113,7 +114,7 @@ export async function getCustomerContext(
     .from('estimate_declined_items')
     .select('id, description, estimated_value, declined_at, reason')
     .eq('customer_id', customerId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .order('declined_at', { ascending: false })
     .limit(10);
 
@@ -146,14 +147,14 @@ export async function getVehicleContext(
     .from('vehicles')
     .select('id, year, make, model, mileage')
     .eq('id', vehicleId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .maybeSingle();
 
   const { data: jobCards } = await supabase
     .from('job_cards')
     .select('customer_concern, created_at')
     .eq('vehicle_id', vehicleId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .order('created_at', { ascending: false })
     .limit(5);
 
@@ -165,7 +166,7 @@ export async function getVehicleContext(
     .from('dtc_records')
     .select('code')
     .eq('vehicle_id', vehicleId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .eq('is_active', true)
     .limit(10);
 
@@ -200,7 +201,7 @@ export async function getInspectionContext(
     .from('inspections')
     .select('id, completed_at, technician_notes')
     .eq('job_card_id', jobCardId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -213,7 +214,7 @@ export async function getInspectionContext(
     .from('inspection_findings')
     .select('id, category, name, condition, notes, is_safety, estimate_line_id')
     .eq('inspection_id', inspection.id)
-    .eq('shop_id', shopId);
+    .in('shop_id', await mergedShopScope(supabase, shopId));
 
   const findings: InspectionFinding[] = (findingRows ?? []).map((f: Record<string, unknown>) => ({
     id: String(f.id),
@@ -241,7 +242,7 @@ export async function getEstimateContext(
     .from('estimates')
     .select('id, status, total_amount, currency, customer_explanation, sent_at, viewed_at, approved_at, declined_at, created_at, inspection_id')
     .eq('id', estimateId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .maybeSingle();
 
   if (!estimate) throw new Error('estimate_not_found');
@@ -250,7 +251,7 @@ export async function getEstimateContext(
     .from('estimate_lines')
     .select('id, description, quantity, unit_price, total, currency, line_type, inspection_finding_id')
     .eq('estimate_id', estimateId)
-    .eq('shop_id', shopId);
+    .in('shop_id', await mergedShopScope(supabase, shopId));
 
   const estimateLines: EstimateLine[] = (lines ?? []).map((l: Record<string, unknown>) => ({
     id: String(l.id),
@@ -290,7 +291,7 @@ export async function getDeclinedWorkContext(
   let query = supabase
     .from('estimate_declined_items')
     .select('id, description, estimated_value, declined_at, reason')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .order('declined_at', { ascending: false })
     .limit(20);
 
@@ -315,7 +316,7 @@ export async function getInvoiceContext(
     .from('invoices')
     .select('total_amount, status')
     .eq('customer_id', customerId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .limit(50);
 
   const rows = data ?? [];
@@ -381,7 +382,7 @@ export async function getRepairIntelligenceContext(
     .from('vehicles')
     .select('make, model, year')
     .eq('id', vehicleId)
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .maybeSingle();
 
   if (!vehicle) return null;
@@ -389,7 +390,7 @@ export async function getRepairIntelligenceContext(
   const { data: cases } = await supabase
     .from('repair_cases')
     .select('title, verified_fix, confidence')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .eq('make', vehicle.make)
     .eq('model', vehicle.model)
     .order('confidence', { ascending: false })

@@ -6,6 +6,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { buildCustomerContext } from '@/intelligence/customer/CustomerContextBuilder';
 import { buildCustomerTimeline } from '@/intelligence/customer/CustomerTimelineEngine';
+import { resolveRequestShop } from '@/lib/shops/requestShop';
 
 const ALLOWED_ROLES = ['owner', 'manager', 'advisor'];
 
@@ -29,7 +30,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ cus
       return NextResponse.json({ error: 'Invalid customerId' }, { status: 400 });
     }
 
-    const { data: shopUser } = await supabase.from('shop_users').select('shop_id, role').eq('user_id', user.id).in('role', ALLOWED_ROLES).limit(1).maybeSingle();
+    const shopUser = await resolveRequestShop(supabase, user.id, _req.headers.get('x-shop-id'), ALLOWED_ROLES);
     if (!shopUser) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     const { data: flag } = await supabase.from('feature_flags').select('enabled').eq('flag_key', 'customer_lifetime_intelligence').maybeSingle();

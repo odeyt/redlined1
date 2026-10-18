@@ -9,6 +9,7 @@ import type {
   ServiceAdvisorSuggestion,
   ServiceAdvisorContext,
 } from './types';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 const STALE_DAYS = 14;
 const LONG_STALE_DAYS = 60;
@@ -32,7 +33,7 @@ export async function findStaleEstimates(shopId: string): Promise<StaleEstimateR
   const { data } = await supabase
     .from('estimates')
     .select('id, status, total_amount, created_at, sent_at, viewed_at, approved_at, declined_at, customer_id, vehicle_id')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .in('status', ['draft', 'sent', 'viewed'])
     .lt('created_at', threshold)
     .is('approved_at', null)
@@ -45,7 +46,7 @@ export async function findApprovedNotScheduled(shopId: string): Promise<StaleEst
   const { data } = await supabase
     .from('estimates')
     .select('id, status, total_amount, created_at, sent_at, viewed_at, approved_at, declined_at, customer_id, vehicle_id')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .eq('status', 'approved')
     .is('approved_at', 'not.null')
     .order('approved_at', { ascending: true })
@@ -60,7 +61,7 @@ export async function findViewedNotApproved(shopId: string): Promise<StaleEstima
   const { data } = await supabase
     .from('estimates')
     .select('id, status, total_amount, created_at, sent_at, viewed_at, approved_at, declined_at, customer_id, vehicle_id')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .eq('status', 'viewed')
     .lt('viewed_at', threshold)
     .is('approved_at', null)
@@ -73,7 +74,7 @@ export async function findDeclinedHighValueEstimates(shopId: string): Promise<St
   const { data } = await supabase
     .from('estimates')
     .select('id, status, total_amount, created_at, sent_at, viewed_at, approved_at, declined_at, customer_id, vehicle_id')
-    .eq('shop_id', shopId)
+    .in('shop_id', await mergedShopScope(supabase, shopId))
     .eq('status', 'declined')
     .gte('total_amount', HIGH_VALUE_THRESHOLD)
     .order('declined_at', { ascending: false })
@@ -87,7 +88,7 @@ export async function findUnresolvedSafetyFindings(shopId: string): Promise<{ es
     const { data } = await supabase
       .from('inspection_findings')
       .select('inspection_id, estimate_id:inspection_id')
-      .eq('shop_id', shopId)
+      .in('shop_id', await mergedShopScope(supabase, shopId))
       .eq('is_safety', true)
       .is('estimate_line_id', null)
       .limit(20);

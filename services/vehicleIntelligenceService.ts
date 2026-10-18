@@ -6,6 +6,7 @@ import type {
   VehicleIntelligenceProfile,
   VehicleIntelligenceSignal,
 } from '@/intelligence/vehicle/types';
+import { flagRequestHeaders } from '@/lib/featureFlags/requestHeaders';
 
 const BASE = '/api/intelligence/vehicle';
 const TIMEOUT_MS = 8000;
@@ -14,7 +15,8 @@ async function fetchWithTimeout(url: string, options?: RequestInit): Promise<Res
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    // The active shop, so the server reads this location (and any merged into it).
+    return await fetch(url, { ...options, headers: flagRequestHeaders(options?.headers as Record<string, string> | undefined), signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }

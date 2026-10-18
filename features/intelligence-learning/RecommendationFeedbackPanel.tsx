@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { IntelligenceLearningErrorBoundary } from './IntelligenceLearningErrorBoundary';
 import type { RecommendationFeedbackType, RecommendationResultStatus } from '@/intelligence/learning/types';
+import { flagRequestHeaders } from '@/lib/featureFlags/requestHeaders';
 
 interface Props {
   recommendationId: string;
@@ -73,7 +74,7 @@ function FeedbackPanelInner({ recommendationId, onClose }: Props) {
     try {
       const res = await fetch('/api/intelligence/learning/feedback', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: flagRequestHeaders({ 'Content-Type': 'application/json' }),
         body:    JSON.stringify({
           recommendationId,
           feedbackType,
