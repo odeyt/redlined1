@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { resolveRequestShop } from '@/lib/shops/requestShop';
 import { mergedShopScope } from '@/lib/shops/mergedScope';
 import { onePerKey } from '@/lib/shops/onePerKey';
+import { healthStatusFromScore } from '@/intelligence/vehicle/VehicleIntelligenceEngine';
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,20 +43,30 @@ export async function GET(req: NextRequest) {
     const shopId = (await resolveRequestShop(authClient, user.id, req.headers.get('x-shop-id')))?.shop_id;
     if (!shopId) return NextResponse.json({ error: 'No shop' }, { status: 403 });
 
-    const { data: profiles } = await db
+    // Profiles store health_score only; there is no health_status column, and
+    // selecting it made this query fail, which the route used to swallow and
+    // report as zero profiled vehicles.
+    const { data: profiles, error: profilesError } = await db
       .from('vehicle_intelligence_profiles')
-      .select('shop_id, vehicle_id, health_status, intelligence_status')
+      .select('shop_id, vehicle_id, health_score, intelligence_status')
       // A merged (closed) location's vehicles keep their profiles under its id
       // until recomputed here; read both, one profile per vehicle, this shop's first.
       .in('shop_id', await mergedShopScope(db, shopId));
+    if (profilesError) {
+      // An error, not a count of zero: the Command Center hides the tile on a
+      // failed request rather than claiming no vehicle needs attention.
+      console.error('[vehicle-health-summary GET] profiles', profilesError.message);
+      return NextResponse.json({ error: 'Could not read vehicle profiles' }, { status: 500 });
+    }
 
     const rows = onePerKey(
-      (profiles ?? []) as Array<{ shop_id?: string; vehicle_id?: string; health_status?: string; intelligence_status?: string }>,
+      (profiles ?? []) as Array<{ shop_id?: string; vehicle_id?: string; health_score?: number | null; intelligence_status?: string }>,
       r => String(r.vehicle_id ?? ''),
       shopId,
     );
-    const highRiskCount = rows.filter(r => r.health_status === 'high_risk').length;
-    const attentionCount = rows.filter(r => r.health_status === 'attention').length;
+    const statuses = rows.map(r => (r.health_score == null ? 'unknown' : healthStatusFromScore(Number(r.health_score))));
+    const highRiskCount = statuses.filter(s => s === 'high_risk').length;
+    const attentionCount = statuses.filter(s => s === 'attention').length;
     const totalProfiled = rows.length;
 
     return NextResponse.json({ highRiskCount, attentionCount, totalProfiled });
