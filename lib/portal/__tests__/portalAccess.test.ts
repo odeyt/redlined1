@@ -63,12 +63,17 @@ describe('portal page scoping', () => {
     expect(loader + page).not.toMatch(/portal_token/);
   });
 
-  it('filters every customer document by customer AND shop', () => {
+  it('filters every customer document by customer AND the portal shop scope', () => {
+    // The scope is the customer's shop plus its merge partner only
+    // (lib/portal/portalScope.ts), computed from the token's own shop.
+    expect(loader).toMatch(/const scope = await portalShopScope\(sb, shopId\);/);
     for (const table of ['vehicles', 'invoices', 'estimates', 'inspections', 'repair_orders']) {
-      const re = new RegExp(`from\\('${table}'\\)[^\\n]*\\.eq\\('customer_id', customerId\\)\\.eq\\('shop_id', shopId\\)`);
+      const re = new RegExp(`from\\('${table}'\\)[^\\n]*\\.eq\\('customer_id', customerId\\)\\.in\\('shop_id', scope\\)`);
       expect([table, re.test(loader)]).toEqual([table, true]);
     }
-    expect(loader).toMatch(/from\('payments'\)[^\n]*\.in\('invoice_number', invoiceNumbers\)\.eq\('shop_id', shopId\)/);
+    expect(loader).toMatch(/from\('payments'\)[^\n]*\.in\('invoice_number', invoiceNumbers\)\.in\('shop_id', scope\)/);
+    // The customer row and branding stay on the customer's own shop.
+    expect(loader).toMatch(/from\('customers'\)[^\n]*\.eq\('id', customerId\)\.eq\('shop_id', shopId\)/);
   });
 
   it('is never cached or indexed, and never selects a VIN', () => {

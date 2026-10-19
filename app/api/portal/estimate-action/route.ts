@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/supabaseServer';
 import { applyEstimateAction, type EstimateActionStore } from '@/lib/portal/estimateAction';
 import { resolvePortalCustomer, logPortalLookupError, PortalLookupError } from '@/lib/portal/portalToken';
+import { portalShopScope } from '@/lib/portal/portalScope';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,7 @@ function storeFor(): EstimateActionStore {
   const db = () => (client ??= getAdminDb());
   return {
     findCustomerByToken: token => resolvePortalCustomer(db(), token),
+    findScope: customer => portalShopScope(db(), customer.shopId),
     async findEstimate(id) {
       const { data, error } = await db()
         .from('estimates')
