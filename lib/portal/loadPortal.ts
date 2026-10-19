@@ -10,10 +10,17 @@
  *
  * The scoping here IS the access control (the client is the service role):
  * the token resolves to exactly one customer and their shop, and every query
- * is filtered by both. Any query error fails closed to null.
+ * is filtered by the customer's id AND a shop in their portal scope. Any query
+ * error fails closed to null.
+ *
+ * The portal scope is the customer's own shop plus, across the D1 merge, the
+ * shop it was merged into or from (lib/portal/portalScope.ts). Documents,
+ * vehicles and payments are read across that scope; the customer row, shop
+ * name and branding stay the customer's own shop, as before.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolvePortalCustomer, logPortalLookupError } from './portalToken';
+import { portalShopScope } from './portalScope';
 import { portalInvoicesFrom, portalEstimatesFrom, portalRepairOrdersFrom } from './portalMoney';
 import type {
   PortalData, PortalCustomer, PortalShop, PortalVehicle,
@@ -54,28 +61,32 @@ export async function loadPortal(sb: SupabaseClient, token: string, sign: UrlSig
     if (!ref) return null;
     const { id: customerId, shopId } = ref;
 
-    // 2. Everything else, scoped to this customer AND this shop.
+    // 2. The shops this customer's records may live in since the merge.
+    //    Fails closed to [shopId] on any error.
+    const scope = await portalShopScope(sb, shopId);
+
+    // 3. Everything else, scoped to this customer AND that scope.
     const [custRes, shopRes, settingsRes, vehiclesRes, invoicesRes, estimatesRes, inspectionsRes, roRes] =
       await Promise.all([
         sb.from('customers').select('name').eq('id', customerId).eq('shop_id', shopId).maybeSingle(),
         sb.from('shops').select('name').eq('id', shopId).maybeSingle(),
         sb.from('shop_settings').select('company_name, tagline, phone, email, address, logo_url').eq('shop_id', shopId).maybeSingle(),
-        sb.from('vehicles').select(PORTAL_VEHICLE_COLUMNS).eq('customer_id', customerId).eq('shop_id', shopId).order('year', { ascending: false }),
-        sb.from('invoices').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
-        sb.from('estimates').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
-        sb.from('inspections').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('created_at', { ascending: false }),
-        sb.from('repair_orders').select('*').eq('customer_id', customerId).eq('shop_id', shopId).order('opened_date', { ascending: false }),
+        sb.from('vehicles').select(PORTAL_VEHICLE_COLUMNS).eq('customer_id', customerId).in('shop_id', scope).order('year', { ascending: false }),
+        sb.from('invoices').select('*').eq('customer_id', customerId).in('shop_id', scope).order('created_at', { ascending: false }),
+        sb.from('estimates').select('*').eq('customer_id', customerId).in('shop_id', scope).order('created_at', { ascending: false }),
+        sb.from('inspections').select('*').eq('customer_id', customerId).in('shop_id', scope).order('created_at', { ascending: false }),
+        sb.from('repair_orders').select('*').eq('customer_id', customerId).in('shop_id', scope).order('opened_date', { ascending: false }),
       ]);
 
     const custData = must(custRes, 'customer') as { name?: string } | null;
     const customer: PortalCustomer = { name: custData?.name ?? '' };
     const invoiceRows = must(invoicesRes, 'invoices') as Record<string, unknown>[];
 
-    // Payments against this customer's invoices, in this shop. invoices.number
-    // is the primary key, but the filter does not rely on that.
+    // Payments against this customer's invoices, in the same scope.
+    // invoices.number is the primary key, but the filter does not rely on that.
     const invoiceNumbers = invoiceRows.map(r => r.number as string).filter(Boolean);
     const paymentsRes = invoiceNumbers.length > 0
-      ? await sb.from('payments').select('*').in('invoice_number', invoiceNumbers).eq('shop_id', shopId)
+      ? await sb.from('payments').select('*').in('invoice_number', invoiceNumbers).in('shop_id', scope)
       : { data: [], error: null };
     const paymentRows = must(paymentsRes, 'payments') as Record<string, unknown>[];
 

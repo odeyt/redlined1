@@ -8,7 +8,9 @@
  *
  * Now the server decides, and it checks, in order:
  *   1. the token is well formed and belongs to a customer, with their shop
- *   2. the estimate exists AND belongs to that customer AND that shop
+ *   2. the estimate exists AND belongs to that customer AND a shop in their
+ *      portal scope (their own shop, or the shop it was merged into/from —
+ *      lib/portal/portalScope.ts)
  *   3. the estimate is still awaiting a decision — the update itself is
  *      conditional on that (and on customer and shop), so two clicks or two
  *      tabs cannot both win
@@ -42,6 +44,11 @@ export interface PortalEstimateRecord {
 export interface EstimateActionStore {
   /** The customer and shop a well-formed token belongs to, or null. */
   findCustomerByToken(token: string): Promise<{ id: string; shopId: string } | null>;
+  /**
+   * The shops this customer's documents may live in (portalShopScope). When
+   * absent, only the customer's own shop — the behaviour before the merge.
+   */
+  findScope?(customer: { id: string; shopId: string }): Promise<string[]>;
   findEstimate(id: string): Promise<PortalEstimateRecord | null>;
   /**
    * Applies `patch` to the estimate with this id, customer and shop, only
@@ -98,10 +105,11 @@ export async function applyEstimateAction(
   const customer = await store.findCustomerByToken(req.token);
   if (!customer) return NOT_FOUND;
 
-  // Same customer AND same shop: a record carrying this customer's id under
-  // another shop is not theirs to answer.
+  // Same customer AND a shop in their portal scope: a record carrying this
+  // customer's id under any other shop is not theirs to answer.
+  const scope = store.findScope ? await store.findScope(customer) : [customer.shopId];
   const estimate = await store.findEstimate(req.estimateId);
-  if (!estimate || estimate.customerId !== customer.id || estimate.shopId !== customer.shopId) return NOT_FOUND;
+  if (!estimate || estimate.customerId !== customer.id || !scope.includes(estimate.shopId)) return NOT_FOUND;
 
   if (!ACTIONABLE_ESTIMATE_STATUSES.includes(estimate.status)) {
     return { status: 409, body: { error: 'This estimate has already been answered.', status: estimate.status } };
@@ -114,7 +122,8 @@ export async function applyEstimateAction(
     : { status: next };
 
   const changed = await store.updateIfStatus(
-    { id: estimate.id, customerId: customer.id, shopId: customer.shopId },
+    // The estimate's own shop, already checked to be in scope.
+    { id: estimate.id, customerId: customer.id, shopId: estimate.shopId },
     ACTIONABLE_ESTIMATE_STATUSES,
     patch,
   );
