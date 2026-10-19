@@ -86,4 +86,6 @@ export type KnownFlagKey =
   // Internal shop reminders (no outbound messaging) — default OFF
   | 'internal_reminders'
   // Trial-tips email preference in Settings — default OFF
-  | 'trial_tips';
+  | 'trial_tips'
+  // WhatsApp Business (Meta Cloud API, coexistence) — default OFF; pilot D1 Imports only
+  | 'whatsapp_business';

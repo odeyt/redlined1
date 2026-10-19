@@ -46,6 +46,9 @@ const PUBLIC_PATHS = [
   '/api/trial-tips/unsubscribe',
   // Resend webhooks: verified by signature (lib/trialTips/webhook.ts).
   '/api/webhooks/resend',
+  // Meta WhatsApp Cloud API webhook: GET is the verify-token handshake, POST
+  // is verified by X-Hub-Signature-256 (lib/whatsapp/webhook.ts).
+  '/api/webhooks/whatsapp',
 ];
 
 /**
