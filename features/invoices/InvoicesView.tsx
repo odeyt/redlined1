@@ -7,6 +7,7 @@ import { StorageImage } from '@/components/StorageImage';
 import { signStoredUrlClient } from '@/lib/storage/signClient';
 import { errorMessage } from '@/lib/errorMessage';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
+import { SendWhatsAppButton } from '@/components/whatsapp/SendWhatsAppButton';
 import { usePagination } from '@/lib/usePagination';
 import { Pagination } from '@/components/Pagination';
 import { useAppDispatch, useAppState } from '@/lib/store';
@@ -1843,6 +1844,7 @@ export function InvoicesView() {
               )}
               <button className="btn" onClick={() => printInvoice(selected, totals, invoicePayments)}>🖨 Print / PDF</button>
               <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }} onClick={() => openEmailModal(selected)}>✉️ Email Customer</button>
+              <SendWhatsAppButton resourceType="invoice" resourceId={selected.id} title={`${selected.invoiceNumber} · ${selected.customerName}`} />
               {selected.status !== 'Void' && (
                 <button className="btn" style={{ background: 'rgba(97,97,97,0.1)', color: '#616161', border: '1px solid #61616144' }} onClick={() => handleVoid(selected)}>🚫 Void</button>
               )}

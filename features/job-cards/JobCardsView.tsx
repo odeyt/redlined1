@@ -30,6 +30,8 @@ import { PhotoGalleryModal } from '@/components/PhotoGalleryModal';
 import { fetchEntityImages, uploadEntityImage, deleteEntityImage, saveEntityImageOrder } from '@/services/entityImageService';
 import { SmartIntakePanel } from './SmartIntakePanel';
 import { AddReminderButton } from '@/features/reminders/AddReminderButton';
+import { SendWhatsAppButton } from '@/components/whatsapp/SendWhatsAppButton';
+import { notifyJobStageForWhatsApp } from '@/services/whatsappService';
 import { urgencyToPriority, categoryToServiceHint, type SmartIntakeOutput } from '@/lib/triage/jobCardTriageAdapter';
 
 // OEM-based service intervals: [miles, days]
@@ -278,6 +280,10 @@ export function JobCardsView() {
       setRepairStage(json.stage);
       setStageHistory(json.history);
       setJobs(prev => prev.map(j => j.id === trackerJob!.id ? { ...j, repairStage: json.stage, stageHistory: json.history } : j));
+
+      // Optional WhatsApp automation (off unless the owner activated it).
+      // Fire-and-forget: the stage is already saved; this can never undo it.
+      if (shopId) notifyJobStageForWhatsApp(shopId, trackerJob.id);
 
       // notifySms/notifyEmail are channel toggles only — the actual
       // recipient (phone/email) and tracking URL are always resolved
@@ -1323,6 +1329,11 @@ export function JobCardsView() {
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{trackerJob.customer} · {trackerJob.vehicle}</div>
               </div>
               <button className="mini-btn" onClick={() => setTrackerJob(null)} style={{ fontSize: 18, padding: '4px 10px' }}>✕</button>
+            </div>
+
+            {/* WhatsApp repair update — renders nothing unless WhatsApp Business is connected */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <SendWhatsAppButton resourceType="job" resourceId={trackerJob.id} title={`${trackerJob.id} · ${trackerJob.customer}`} variant="pill" />
             </div>
 
             {/* Share URL */}

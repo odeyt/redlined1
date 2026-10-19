@@ -6,6 +6,7 @@ import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
 import { fetchMessagingChannelsStatus, type MessagingChannelsEnabled } from '@/services/messagingSecretsService';
+import { SendWhatsAppButton } from '@/components/whatsapp/SendWhatsAppButton';
 import { useAppDispatch, useAppState } from '@/lib/store';
 import { FilterPills } from '@/components/FilterPills';
 import { Panel } from '@/components/Panel';
@@ -1156,6 +1157,7 @@ export function EstimatesView() {
                 );
               })()}
               <button className="btn" style={{ background: 'rgba(33,150,243,0.1)', color: '#2196f3', border: '1px solid #2196f344' }} onClick={() => openEmailModal(selected)}>✉️ Email Customer</button>
+              <SendWhatsAppButton resourceType="estimate" resourceId={selected.id} title={`${selected.estimateNumber} · ${selected.customerName}`} />
               <button className="btn" style={{ color: 'var(--danger)', marginLeft: 'auto' }} onClick={() => handleDelete(selected)}>Delete</button>
             </div>
 

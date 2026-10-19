@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
 import { TrialTipsPanel } from './TrialTipsPanel';
+import { WhatsAppBusinessPanel } from './WhatsAppBusinessPanel';
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 import { taxRateToPercent, percentToTaxRate } from '@/lib/taxRate';
 
@@ -1066,6 +1067,9 @@ export function SettingsView() {
           {savedTemplate && <span style={{ color: '#4caf50', fontWeight: 700, fontSize: 13 }}>✓ Template saved</span>}
         </div>
       </Panel>
+
+      {/* ── Integrations → WhatsApp Business (pilot; renders nothing unless flagged on for this shop) ── */}
+      {shopId && <WhatsAppBusinessPanel shopId={shopId} role={role ?? ''} />}
 
       {/* ── Messaging Channels ── */}
       <Panel title="Messaging Channels" hint="Send estimates and invoices via SMS, WhatsApp, LINE, or Telegram — configure credentials and enable channels below">
