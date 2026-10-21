@@ -13,55 +13,12 @@ import { Header } from './Header';
 import { Toast } from './Toast';
 import { ErrorBoundary } from './ErrorBoundary';
 import { useShop, getBlockedModules } from '@/lib/useShop';
-import { DashboardView } from '@/features/dashboard/DashboardView';
-import { AccessView } from '@/features/access/AccessView';
-import { SubscriptionsView } from '@/features/subscriptions/SubscriptionsView';
-import { AiView } from '@/features/ai/AiView';
-import { CustomersView } from '@/features/customers/CustomersView';
-import { VehiclesView } from '@/features/vehicles/VehiclesView';
-import { JobCardsView } from '@/features/job-cards/JobCardsView';
-import { JobArchiveView } from '@/features/job-cards/JobArchiveView';
-import { SchedulingView } from '@/features/scheduling/SchedulingView';
-import { InspectionsView } from '@/features/inspections/InspectionsView';
-import { CommunicationView } from '@/features/communication/CommunicationView';
-import { EstimatesView } from '@/features/estimates/EstimatesView';
-import { RepairOrdersView } from '@/features/repair-orders/RepairOrdersView';
-import { InvoicesView } from '@/features/invoices/InvoicesView';
-import { PaymentsView } from '@/features/payments/PaymentsView';
-import { PartsView } from '@/features/parts/PartsView';
-import { PartsOrdersView } from '@/features/parts/PartsOrdersView';
-import { PartsReceivedView } from '@/features/parts/PartsReceivedView';
-import { PartsEstimatesView } from '@/features/parts/PartsEstimatesView';
-import { TechniciansView } from '@/features/technicians/TechniciansView';
-import { AttendanceView } from '@/features/people/AttendanceView';
-import { PayView } from '@/features/people/PayView';
-import { PayrollView } from '@/features/people/PayrollView';
-import { ExpensesView } from '@/features/money/ExpensesView';
-import { ReceivablesView } from '@/features/money/ReceivablesView';
-import { CashDayView } from '@/features/money/CashDayView';
-import { VinView } from '@/features/vin/VinView';
-import { DtcView } from '@/features/dtc/DtcView';
-import { DiagnosticsView } from '@/features/diagnostics/DiagnosticsView';
-import { AppointmentsView } from '@/features/scheduling/AppointmentsView';
-import { ReportsView } from '@/features/reports/ReportsView';
-import { SettingsView } from '@/features/settings/SettingsView';
-import { LaborGuideView } from '@/features/labor-guide/LaborGuideView';
-import { TimeTrackingView } from '@/features/time-tracking/TimeTrackingView';
-import { RepairIntelligenceView } from '@/features/repair-intelligence/RepairIntelligenceView';
-import { TriageView } from '@/features/triage/TriageView';
-import { SystemHealthView } from '@/features/system-health/SystemHealthView';
-import { DisasterRecoveryView } from '@/features/disaster-recovery/DisasterRecoveryView';
-import { TestingDashboardView } from '@/features/testing-dashboard/TestingDashboardView';
-import { SupportInboxView } from '@/features/support-inbox/SupportInboxView';
 import { FeatureFlagProvider } from '@/components/featureFlags/FeatureFlagProvider';
 import { EnvBanner } from '@/components/EnvBanner';
 import { SupportWidget } from '@/components/support/SupportWidget';
-import { BillingDashboard } from '@/features/billing/BillingDashboard';
-import { CommandCenterView } from '@/features/command-center/CommandCenterView';
-import { RemindersView } from '@/features/reminders/RemindersView';
 import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
 import { flagBlockedModules } from '@/lib/featureFlags/flaggedModules';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useAppDispatch } from '@/lib/store';
 import { usePlan } from '@/lib/usePlan';
 import { canAccess, needsWatermark } from '@/lib/planGate';
@@ -71,51 +28,102 @@ import type { RolePermissions, RoleKey } from '@/services/shopSettingsService';
 import { parseAlertParam } from '@/lib/alerts/alertLink';
 import { setAlertFocus } from '@/lib/alerts/alertFocus';
 
-const views: Record<string, React.ComponentType> = {
-  dashboard: DashboardView,
-  'command-center': CommandCenterView,
-  access: AccessView,
-  subscriptions: SubscriptionsView,
-  ai: AiView,
-  customers: CustomersView,
-  vehicles: VehiclesView,
-  'job-cards': JobCardsView,
-  'job-archive': JobArchiveView,
-  scheduling: SchedulingView,
-  inspections: InspectionsView,
-  communication: CommunicationView,
-  estimates: EstimatesView,
-  'repair-orders': RepairOrdersView,
-  invoices: InvoicesView,
-  payments: PaymentsView,
-  parts: PartsView,
-  'parts-orders':    PartsOrdersView,
-  'parts-received':  PartsReceivedView,
-  'parts-estimates': PartsEstimatesView,
-  technicians: TechniciansView,
-  attendance: AttendanceView,
-  pay: PayView,
-  payroll: PayrollView,
-  expenses: ExpensesView,
-  receivables: ReceivablesView,
-  'cash-day': CashDayView,
-  vin: VinView,
-  dtc: DtcView,
-  diagnostics: DiagnosticsView,
-  appointments: AppointmentsView,
-  reports: ReportsView,
-  'labor-guide': LaborGuideView,
-  'time-tracking': TimeTrackingView,
-  'repair-intelligence': RepairIntelligenceView,
-  triage: TriageView,
-  settings: SettingsView,
-  'system-health':     SystemHealthView,
-  'disaster-recovery': DisasterRecoveryView,
-  'testing-dashboard': TestingDashboardView,
-  'support-inbox':     SupportInboxView,
-  billing: BillingDashboard,
-  reminders: RemindersView,
+/**
+ * Every screen is loaded on demand.
+ *
+ * These were static imports, so signing in downloaded and parsed the code for
+ * all ~45 screens — about 2MB of JavaScript — before showing the one the user
+ * landed on. Each new screen made first load slower for everyone. Now only
+ * the shell and the active screen load up front; the rest follow when opened,
+ * and the everyday ones are prefetched once the first screen is up.
+ */
+const STALE_CHUNK_RELOAD_KEY = 'rd1_stale_chunk_reload';
+
+function lazyView(load: () => Promise<React.ComponentType>): React.ComponentType {
+  return lazy(() => load().then(
+    View => {
+      try { sessionStorage.removeItem(STALE_CHUNK_RELOAD_KEY); } catch { /* storage blocked */ }
+      return { default: View };
+    },
+    err => {
+      // A tab left open across a deploy asks for chunk names the new
+      // deployment does not have. One reload fetches the current build; the
+      // session flag stops a genuinely broken chunk from reloading forever —
+      // the second failure reaches the ErrorBoundary instead.
+      try {
+        if (!sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY)) {
+          sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, '1');
+          window.location.reload();
+        }
+      } catch { /* storage blocked — fall through to the ErrorBoundary */ }
+      throw err;
+    },
+  ));
+}
+
+const loaders: Record<string, () => Promise<React.ComponentType>> = {
+  dashboard: () => import('@/features/dashboard/DashboardView').then(m => m.DashboardView),
+  'command-center': () => import('@/features/command-center/CommandCenterView').then(m => m.CommandCenterView),
+  access: () => import('@/features/access/AccessView').then(m => m.AccessView),
+  subscriptions: () => import('@/features/subscriptions/SubscriptionsView').then(m => m.SubscriptionsView),
+  ai: () => import('@/features/ai/AiView').then(m => m.AiView),
+  customers: () => import('@/features/customers/CustomersView').then(m => m.CustomersView),
+  vehicles: () => import('@/features/vehicles/VehiclesView').then(m => m.VehiclesView),
+  'job-cards': () => import('@/features/job-cards/JobCardsView').then(m => m.JobCardsView),
+  'job-archive': () => import('@/features/job-cards/JobArchiveView').then(m => m.JobArchiveView),
+  scheduling: () => import('@/features/scheduling/SchedulingView').then(m => m.SchedulingView),
+  inspections: () => import('@/features/inspections/InspectionsView').then(m => m.InspectionsView),
+  communication: () => import('@/features/communication/CommunicationView').then(m => m.CommunicationView),
+  estimates: () => import('@/features/estimates/EstimatesView').then(m => m.EstimatesView),
+  'repair-orders': () => import('@/features/repair-orders/RepairOrdersView').then(m => m.RepairOrdersView),
+  invoices: () => import('@/features/invoices/InvoicesView').then(m => m.InvoicesView),
+  payments: () => import('@/features/payments/PaymentsView').then(m => m.PaymentsView),
+  parts: () => import('@/features/parts/PartsView').then(m => m.PartsView),
+  'parts-orders':    () => import('@/features/parts/PartsOrdersView').then(m => m.PartsOrdersView),
+  'parts-received':  () => import('@/features/parts/PartsReceivedView').then(m => m.PartsReceivedView),
+  'parts-estimates': () => import('@/features/parts/PartsEstimatesView').then(m => m.PartsEstimatesView),
+  technicians: () => import('@/features/technicians/TechniciansView').then(m => m.TechniciansView),
+  attendance: () => import('@/features/people/AttendanceView').then(m => m.AttendanceView),
+  pay: () => import('@/features/people/PayView').then(m => m.PayView),
+  payroll: () => import('@/features/people/PayrollView').then(m => m.PayrollView),
+  expenses: () => import('@/features/money/ExpensesView').then(m => m.ExpensesView),
+  receivables: () => import('@/features/money/ReceivablesView').then(m => m.ReceivablesView),
+  'cash-day': () => import('@/features/money/CashDayView').then(m => m.CashDayView),
+  vin: () => import('@/features/vin/VinView').then(m => m.VinView),
+  dtc: () => import('@/features/dtc/DtcView').then(m => m.DtcView),
+  diagnostics: () => import('@/features/diagnostics/DiagnosticsView').then(m => m.DiagnosticsView),
+  appointments: () => import('@/features/scheduling/AppointmentsView').then(m => m.AppointmentsView),
+  reports: () => import('@/features/reports/ReportsView').then(m => m.ReportsView),
+  'labor-guide': () => import('@/features/labor-guide/LaborGuideView').then(m => m.LaborGuideView),
+  'time-tracking': () => import('@/features/time-tracking/TimeTrackingView').then(m => m.TimeTrackingView),
+  'repair-intelligence': () => import('@/features/repair-intelligence/RepairIntelligenceView').then(m => m.RepairIntelligenceView),
+  triage: () => import('@/features/triage/TriageView').then(m => m.TriageView),
+  settings: () => import('@/features/settings/SettingsView').then(m => m.SettingsView),
+  'system-health':     () => import('@/features/system-health/SystemHealthView').then(m => m.SystemHealthView),
+  'disaster-recovery': () => import('@/features/disaster-recovery/DisasterRecoveryView').then(m => m.DisasterRecoveryView),
+  'testing-dashboard': () => import('@/features/testing-dashboard/TestingDashboardView').then(m => m.TestingDashboardView),
+  'support-inbox':     () => import('@/features/support-inbox/SupportInboxView').then(m => m.SupportInboxView),
+  billing: () => import('@/features/billing/BillingDashboard').then(m => m.BillingDashboard),
+  reminders: () => import('@/features/reminders/RemindersView').then(m => m.RemindersView),
 };
+
+const views: Record<string, React.ComponentType> = Object.fromEntries(
+  Object.entries(loaders).map(([id, load]) => [id, lazyView(load)]),
+);
+const DashboardView = views.dashboard;
+
+/**
+ * The screens staff move between all day. Fetched in the background once the
+ * first screen has rendered, so opening one is not a wait on the network.
+ * Only fetches the code — nothing mounts and no data loads.
+ */
+const PREFETCH_MODULES = ['job-cards', 'vehicles', 'customers', 'repair-orders', 'estimates', 'invoices', 'dashboard', 'command-center'];
+
+function prefetchEverydayViews() {
+  for (const id of PREFETCH_MODULES) {
+    loaders[id]?.().catch(() => { /* prefetch only — the real load reports its own failure */ });
+  }
+}
 
 function Shell() {
   const { activeModule, toast } = useAppState();
@@ -192,6 +200,13 @@ function Shell() {
       }
     }
   }, [roleLoading, role, activeModule, dispatch]);
+
+  // Prefetch the everyday screens once the first one has had the network to itself.
+  useEffect(() => {
+    if (roleLoading) return;
+    const t = window.setTimeout(prefetchEverydayViews, 4000);
+    return () => window.clearTimeout(t);
+  }, [roleLoading]);
 
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
@@ -440,7 +455,11 @@ function Shell() {
                   for every view at once rather than per-view. */}
               {roleLoading
                 ? <div style={{ padding: '40px 24px', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
-                : <ActiveView />}
+                : (
+                  <Suspense fallback={<div style={{ padding: '40px 24px', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>}>
+                    <ActiveView />
+                  </Suspense>
+                )}
             </ErrorBoundary>
             {/* Invoice watermark when trial expired and user managed to reach invoices */}
             {showWatermark && (

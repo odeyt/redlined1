@@ -42,7 +42,7 @@ describe('only the platform owner can reach it', () => {
 
   it('is a real module, reachable once visible', () => {
     expect(navItems.some(([id]) => id === 'support-inbox')).toBe(true);
-    expect(shell).toMatch(/'support-inbox':\s+SupportInboxView/);
+    expect(shell).toMatch(/'support-inbox':\s+\(\) => import\('@\/features\/support-inbox\/SupportInboxView'\)\.then\(m => m\.SupportInboxView\)/);
   });
 
   it('being platform-only did not exempt it from plan gating', () => {
