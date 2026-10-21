@@ -2116,7 +2116,13 @@ export function VehiclesView() {
     const custName = custNameMap[v.customerId] ?? '';
     const matchSearch = !q || [v.label, v.make, v.model, v.vin, v.plate, techsOf(v).join('; '), v.issues, custName].some(f => f?.toLowerCase().includes(q));
     return matchStatus && matchSearch;
-  });
+  })
+    // Newest arrival first — the car that just came in is the one staff are
+    // looking for. Vehicles with no Date received go last; ties keep name order.
+    .sort((a, b) => {
+      if (!a.dateReceived || !b.dateReceived) return a.dateReceived ? -1 : b.dateReceived ? 1 : 0;
+      return b.dateReceived.slice(0, 10).localeCompare(a.dateReceived.slice(0, 10));
+    });
 
   // Counts follow the same scope as the list. Chips that disagreed with the
   // rows beneath them are what made the numbers untrustworthy in the first place.
