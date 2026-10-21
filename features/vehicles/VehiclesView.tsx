@@ -1494,7 +1494,7 @@ function VehicleDrawer({ vehicle, customers, allVehicles, technicians, thumbUrls
               <span style={label}>Make</span>
               <input list="vd-makes" style={inp} value={f.make ?? ''} onChange={e => set('make', e.target.value)} placeholder="e.g. Toyota" />
               <datalist id="vd-makes">
-                {['Acura','Alfa Romeo','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','Cadillac','Chevrolet','Chrysler','CitroÃ«n','Dacia','Dodge','Ferrari','Fiat','Ford','Genesis','GMC','Honda','Hyundai','Infiniti','Jaguar','Jeep','Kia','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Maserati','Mazda','McLaren','Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche','RAM','Renault','Rolls-Royce','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo'].map(m => <option key={m} value={m} />)}
+                {['Acura','Alfa Romeo','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','Cadillac','Chevrolet','Chrysler','Citroën','Dacia','Dodge','Ferrari','Fiat','Ford','Genesis','GMC','Honda','Hyundai','Infiniti','Jaguar','Jeep','Kia','Lamborghini','Land Rover','Lexus','Lincoln','Lotus','Maserati','Mazda','McLaren','Mercedes-Benz','Mini','Mitsubishi','Nissan','Peugeot','Porsche','RAM','Renault','Rolls-Royce','Subaru','Suzuki','Tesla','Toyota','Volkswagen','Volvo'].map(m => <option key={m} value={m} />)}
               </datalist>
             </div>
             <div>
