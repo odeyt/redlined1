@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { colors, container } from './theme';
 
@@ -24,6 +24,9 @@ export function MarketingFooter() {
           <nav aria-label="Footer">
             <div style={{ fontSize: '12px', fontWeight: 600, color: colors.textMuted, marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product</div>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li><Link href="/mobile-mechanic-software" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Mobile mechanic software</Link></li>
+              <li><Link href="/digital-vehicle-inspection-software" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Digital vehicle inspections</Link></li>
+              <li><Link href="/shop-owner-demo" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Shop workflow demo</Link></li>
               <li><a href="#workflow" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>How it works</a></li>
               <li><a href="#pricing" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>Pricing</a></li>
               <li><a href="#faq" style={{ color: colors.textMain, fontSize: '14px', textDecoration: 'none' }}>FAQ</a></li>

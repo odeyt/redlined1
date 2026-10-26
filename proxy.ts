@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { isSeoPagePath } from '@/lib/marketing/publicPaths';
 
 /**
  * An API route must answer with JSON, never a redirect.
@@ -78,6 +79,10 @@ function withPortalHeaders(res: NextResponse): NextResponse {
 }
 
 export async function proxy(request: NextRequest) {
+  // Static marketing content has no shop data and needs no session lookup.
+  if (isSeoPagePath(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
   // Customer portal: no staff session involved, in either direction. Answered
   // before any session handling so a staff cookie is neither required nor
   // refreshed here.
