@@ -24,6 +24,7 @@ import { FAQSection } from '@/components/marketing/FAQSection';
 import { FinalCTA } from '@/components/marketing/FinalCTA';
 import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 import { colors } from '@/components/marketing/theme';
+import { MarketingStructuredData } from '@/components/marketing/MarketingStructuredData';
 
 /**
  * /landing-preview - isolated preview route built from
@@ -40,6 +41,7 @@ export default function LandingPreviewPage() {
           the Site URL. Forward it to /auth/callback rather than showing a
           marketing page to someone trying to set their password. */}
       <AuthHashRedirect />
+      <MarketingStructuredData />
       <a href="#main-content" className="rd1-skip-link">
         Skip to main content
       </a>

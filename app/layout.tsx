@@ -17,6 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.redlined1.com'),
   title: 'Redlined1',
   description: 'Automotive CRM and shop operations',
   manifest: '/manifest.json',
@@ -25,9 +26,9 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Redlined1',
   },
-  verification: {
-    google: 'XXXXXXXXX',
-  },
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',

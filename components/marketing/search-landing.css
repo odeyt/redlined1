@@ -1,0 +1,29 @@
+.rd1-search { color-scheme: light; background: #fff; color: #171717; font-family: Inter, system-ui, sans-serif; line-height: 1.65; }
+.rd1-search * { box-sizing: border-box; }
+.rd1-search h1, .rd1-search h2, .rd1-search h3 { color: inherit; line-height: 1.15; letter-spacing: -.025em; }
+.rd1-search a { color: #ae1010; text-underline-offset: 4px; }
+.rd1-search a:focus-visible { outline: 3px solid #2563eb; outline-offset: 5px; }
+.rd1-search-wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
+.rd1-search-nav { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; padding-block: 24px; }
+.rd1-search-nav nav { display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; }
+.rd1-search-hero { background: #101015; color: #fff; padding-block: clamp(56px, 8vw, 100px); }
+.rd1-search-hero h1 { max-width: 900px; font-size: clamp(36px, 6vw, 68px); margin: 18px 0; }
+.rd1-search-intro { max-width: 780px; font-size: 20px; color: #dedee2; }
+.rd1-search-eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .13em; font-weight: 750; }
+.rd1-search-actions { display: flex; flex-wrap: wrap; gap: 16px; margin: 30px 0 20px; }
+.rd1-search .rd1-search-primary, .rd1-search .rd1-search-secondary { display: inline-flex; align-items: center; min-height: 48px; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; color: #fff; }
+.rd1-search .rd1-search-primary { background: #c00; }
+.rd1-search .rd1-search-secondary { border: 1px solid #82828c; }
+.rd1-search-section { padding-block: 64px; }
+.rd1-search h2 { font-size: clamp(28px, 4vw, 40px); margin: 0 0 24px; }
+.rd1-search h3 { font-size: 22px; margin: 18px 0 12px; }
+.rd1-search-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.rd1-search-grid article { border: 1px solid #ddd; border-radius: 12px; padding: 28px; }
+.rd1-search-number { color: #a00; font-weight: 800; }
+.rd1-search-checklist { background: #f4f4f5; }
+.rd1-search-checklist li { margin-block: 12px; }
+.rd1-search-question { border-top: 1px solid #ddd; padding: 16px 0; max-width: 850px; }
+.rd1-search-close { background: #18181d; color: #fff; padding-block: 56px; }
+.rd1-search-skip { position: absolute; left: -10000px; }
+.rd1-search-skip:focus { left: 20px; top: 12px; background: white; z-index: 100; padding: 12px; }
+@media (max-width: 640px) { .rd1-search-grid { grid-template-columns: 1fr; } .rd1-search-section { padding-block: 44px; } .rd1-search-nav { gap: 16px; } }

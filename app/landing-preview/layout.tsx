@@ -2,17 +2,13 @@ import type { Metadata } from 'next';
 import './landing.css';
 
 /**
- * Route-scoped metadata for /landing-preview. This route must never be
- * indexed - it is an internal preview build, not a replacement for the live
- * homepage (app/portal/page.tsx) or the app root (app/page.tsx), neither of
- * which this epic touches. See docs/design/aura/LANDING_PAGE_MASTER_SPEC.md
- * Section 14 for the full SEO metadata prepared for a future production
- * page (not activated here).
+ * The proxy serves this marketing route at / for signed-out visitors.
+ * Its canonical points at the public homepage.
  */
 export const metadata: Metadata = {
   title: 'RedlineD1 | Automotive Shop Management Software',
   description:
-    'Manage customers, vehicles, digital inspections, estimates, repair orders, invoices, payments, and repair intelligence from one connected automotive business platform. Built for independent shops and mobile mechanics.',
+    'Auto repair shop software for inspections, estimates, invoices and vehicle history. Built for independent shops and mobile mechanics. Start free, no card needed.',
   keywords: [
     'automotive shop management software',
     'auto repair shop software',
