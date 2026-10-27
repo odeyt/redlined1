@@ -9,12 +9,21 @@ import {
 } from '@/services/technicianService';
 import { useShop } from '@/lib/useShop';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
+import { addMoney, formatMoney, formatMoneyTotals, sumMoney, type MoneyTotals } from '@/lib/currencies';
 
 interface ShopMember { userId: string; email: string; name: string; role: string; }
 
 /* ─────────────────── helpers ─────────────────── */
-function fmt(n: number) {
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Money is shown per currency ("฿48,000.00 + $1,250.00"): repair orders are
+// priced in THB or USD and there are no exchange rates to add them together.
+const fmt = formatMoneyTotals;
+function roValue(r: TechRO): MoneyTotals {
+  return addMoney({}, r.currency, r.laborHours * r.laborRate + r.partsTotal);
+}
+// Ranked by work done, not revenue: revenue in different currencies cannot be
+// compared without exchange rates.
+function byWorkDone(a: TechPerformance, b: TechPerformance) {
+  return b.completedROCount - a.completedROCount || b.roCount - a.roCount;
 }
 function fmtH(n: number) { return n.toFixed(1) + ' h'; }
 function statusColor(s: string) {
@@ -43,7 +52,7 @@ type ActiveTab = 'roster' | 'workboard' | 'performance';
 interface TechRO {
   roNumber: string; customerName: string; vehicle: string;
   status: string; laborHours: number; laborRate: number;
-  partsTotal: number; openedDate: string;
+  partsTotal: number; currency: string; openedDate: string;
 }
 
 /* ─────────────────── ROCard ─────────────────── */
@@ -58,7 +67,7 @@ function ROCard({ r }: { r: TechRO }) {
       <div style={{ fontSize: 11, color: 'var(--muted)' }}>{r.vehicle}</div>
       <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 11, color: 'var(--muted)' }}>
         <span>{r.laborHours.toFixed(1)} hrs</span>
-        <span>{fmt(r.laborHours * r.laborRate + r.partsTotal)}</span>
+        <span>{fmt(roValue(r))}</span>
       </div>
     </div>
   );
@@ -107,7 +116,7 @@ export function TechniciansView() {
   const activeTechs  = techs.filter(t => t.status === 'Active').length;
   const totalROs     = perf.reduce((s, p) => s + p.roCount, 0);
   const totalHours   = perf.reduce((s, p) => s + p.totalLaborHours, 0);
-  const totalRevenue = perf.reduce((s, p) => s + p.totalValue, 0);
+  const totalRevenue = sumMoney(perf.map(p => p.totalValue));
   const perfMap      = Object.fromEntries(perf.map(p => [p.techName, p]));
 
   const load = useCallback(async () => {
@@ -607,8 +616,8 @@ export function TechniciansView() {
                               <span style={{ fontSize: 11, fontWeight: 700, color: roStatusColor(r.status) }}>{r.status}</span>
                             </td>
                             <td style={{ padding: '8px 12px' }}>{fmtH(r.laborHours)}</td>
-                            <td style={{ padding: '8px 12px' }}>{fmt(r.laborHours * r.laborRate)}</td>
-                            <td style={{ padding: '8px 12px' }}>{fmt(r.partsTotal)}</td>
+                            <td style={{ padding: '8px 12px' }}>{formatMoney(r.laborHours * r.laborRate, r.currency)}</td>
+                            <td style={{ padding: '8px 12px' }}>{formatMoney(r.partsTotal, r.currency)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -686,7 +695,7 @@ export function TechniciansView() {
                         {pending.map(r => <ROCard key={r.roNumber} r={r} />)}
                         <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)' }}>
                           <span>Total: <strong>{fmtH(ros.reduce((s, r) => s + r.laborHours, 0))}</strong></span>
-                          <span>Value: <strong>{fmt(ros.reduce((s, r) => s + r.laborHours * r.laborRate + r.partsTotal, 0))}</strong></span>
+                          <span>Value: <strong>{fmt(sumMoney(ros.map(roValue)))}</strong></span>
                         </div>
                       </>
                     )}
@@ -721,7 +730,7 @@ export function TechniciansView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...perf].sort((a, b) => b.totalValue - a.totalValue).map((p, i) => (
+                      {[...perf].sort(byWorkDone).map((p, i) => (
                         <tr key={p.techName} style={{ borderBottom: '1px solid var(--border)', background: i % 2 !== 0 ? 'rgba(0,0,0,.02)' : 'transparent' }}>
                           <td style={{ padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -753,9 +762,9 @@ export function TechniciansView() {
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>{perf.reduce((s, p) => s + p.completedROCount, 0)}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>{perf.reduce((s, p) => s + p.openROCount, 0)}</td>
                         <td style={{ padding: '10px 14px' }}>{fmtH(perf.reduce((s, p) => s + p.totalLaborHours, 0))}</td>
-                        <td style={{ padding: '10px 14px' }}>{fmt(perf.reduce((s, p) => s + p.totalLaborValue, 0))}</td>
-                        <td style={{ padding: '10px 14px' }}>{fmt(perf.reduce((s, p) => s + p.totalPartsValue, 0))}</td>
-                        <td style={{ padding: '10px 14px' }}>{fmt(perf.reduce((s, p) => s + p.totalValue, 0))}</td>
+                        <td style={{ padding: '10px 14px' }}>{fmt(sumMoney(perf.map(p => p.totalLaborValue)))}</td>
+                        <td style={{ padding: '10px 14px' }}>{fmt(sumMoney(perf.map(p => p.totalPartsValue)))}</td>
+                        <td style={{ padding: '10px 14px' }}>{fmt(totalRevenue)}</td>
                         <td style={{ padding: '10px 14px' }}>—</td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>{perf.reduce((s, p) => s + p.jobCardCount, 0)}</td>
                       </tr>
@@ -765,25 +774,28 @@ export function TechniciansView() {
               </div>
 
               {/* Revenue bar chart */}
-              {(() => {
-                const maxVal = Math.max(...perf.map(p => p.totalValue), 1);
+              {/* One chart per currency: bars are only comparable within a currency. */}
+              {Object.keys(totalRevenue).filter(c => totalRevenue[c] !== 0).sort().map(cur => {
+                const value = (p: TechPerformance) => p.totalValue[cur] ?? 0;
+                const rows = perf.filter(p => value(p) !== 0).sort((a, b) => value(b) - value(a));
+                const maxVal = Math.max(...rows.map(value), 1);
                 return (
-                  <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 20px' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Revenue by Technician</div>
+                  <div key={cur} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 20px', marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Revenue by Technician ({cur})</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {[...perf].sort((a, b) => b.totalValue - a.totalValue).map(p => (
+                      {rows.map(p => (
                         <div key={p.techName} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <div style={{ width: 140, fontSize: 12, fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.techName}</div>
                           <div style={{ flex: 1, height: 22, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-                            <div style={{ width: `${(p.totalValue / maxVal) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width .4s ease', minWidth: p.totalValue > 0 ? 4 : 0 }} />
+                            <div style={{ width: `${(value(p) / maxVal) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: 4, transition: 'width .4s ease', minWidth: value(p) > 0 ? 4 : 0 }} />
                           </div>
-                          <div style={{ width: 80, fontSize: 12, fontWeight: 700, textAlign: 'right', flexShrink: 0 }}>{fmt(p.totalValue)}</div>
+                          <div style={{ width: 120, fontSize: 12, fontWeight: 700, textAlign: 'right', flexShrink: 0 }}>{formatMoney(value(p), cur)}</div>
                         </div>
                       ))}
                     </div>
                   </div>
                 );
-              })()}
+              })}
             </>
           )}
         </div>
