@@ -13,8 +13,11 @@ import {
   intakeRange, inIntakeRange, carsTakenIn, summarizeIntake, groupIntake, intakeCsvRows, localDay,
   type IntakeVisit, type IntakeCar,
 } from '@/lib/reports/vehicleIntake';
-import { formatMoney, formatMoneyTotals, type MoneyTotals } from '@/lib/currencies';
+import { formatMoney, formatMoneyTotals, sumMoney, type MoneyTotals } from '@/lib/currencies';
 import { repairOrderValue, sumRoValues } from '@/lib/reports/roValue';
+import {
+  INVOICE_REPORT_COLUMNS, averagePaymentByCurrency, currenciesIn, hasMoney, sumInvoices, sumPayments,
+} from '@/lib/reports/invoiceMoney';
 
 // ── Customer detail row (searchable customer report) ──────────
 interface CustVehicle { id: string; label: string; status: string; }
@@ -28,7 +31,7 @@ interface CustomerDetailRow {
   completedJobs: number;
   allStatuses: string[];
   lastActivity: string | null;
-  totalSpend: number;
+  totalSpend: MoneyTotals;
   invoiceCount: number;
 }
 
@@ -71,18 +74,18 @@ interface JobCompletionRow {
 }
 
 interface ReportData {
-  // Revenue
-  totalRevenuePaid: number;
-  totalOutstanding: number;
-  totalVoid: number;
-  avgInvoiceValue: number;
+  // Revenue — invoice and payment money is per currency too (lib/reports/invoiceMoney).
+  totalRevenuePaid: MoneyTotals;
+  totalOutstanding: MoneyTotals;
+  totalVoid: MoneyTotals;
+  avgInvoiceValue: MoneyTotals;
   invoiceCount: number;
   paidCount: number;
   sentCount: number;
   // Payments
-  totalPayments: number;
+  totalPayments: MoneyTotals;
   paymentCount: number;
-  methodBreakdown: { method: string; total: number; count: number }[];
+  methodBreakdown: { method: string; total: MoneyTotals; count: number }[];
   // Repair Orders — per currency: ROs are priced in THB or USD and there are
   // no exchange rates to add them together.
   totalROValue: MoneyTotals;
@@ -101,14 +104,13 @@ interface ReportData {
   convertedEstimates: number;
   estimateConvertRate: number;
   // Monthly revenue (last 6 months)
-  monthlyRevenue: { month: string; revenue: number; payments: number }[];
-  // Top customers
-  topCustomers: { name: string; invoiceCount: number; totalSpend: number }[];
+  monthlyRevenue: { month: string; revenue: MoneyTotals; payments: MoneyTotals }[];
+  // Top customers — ranked by paid invoices, since spend in different
+  // currencies cannot be compared without exchange rates.
+  topCustomers: { name: string; invoiceCount: number; totalSpend: MoneyTotals }[];
 }
 
-function fmtMoney(n: number) {
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+const fmtMoney = formatMoneyTotals;
 
 function fmtPct(n: number) {
   return n.toFixed(1) + '%';
@@ -630,7 +632,7 @@ export function ReportsView() {
         supabase.from('vehicles').select('id, customer_id, label, status, date_received').in('shop_id', getReportShopIds(sid)),
         // fetch vehicle field so we can surface job-card vehicles not in vehicles table
         supabase.from('job_cards').select('id, customer, vehicle, status, check_in_date, closed_date').in('shop_id', getReportShopIds(sid)),
-        supabase.from('invoices').select('customer, status, subtotal, tax, discount, shop_supplies').in('shop_id', getReportShopIds(sid)).eq('status', 'Paid'),
+        supabase.from('invoices').select(INVOICE_REPORT_COLUMNS).in('shop_id', getReportShopIds(sid)).eq('status', 'Paid'),
       ]);
 
       const custList = custs ?? [];
@@ -696,10 +698,7 @@ export function ReportsView() {
         const dates = allMyJobs.map(j => j.closed_date || j.check_in_date).filter(Boolean) as string[];
         const lastActivity = dates.length > 0 ? [...dates].sort().reverse()[0] : null;
 
-        const totalSpend = myInvs.reduce(
-          (s, i) => s + (Number(i.subtotal ?? 0) - Number(i.discount ?? 0) + Number(i.tax ?? 0) + Number(i.shop_supplies ?? 0)),
-          0,
-        );
+        const totalSpend = sumInvoices(myInvs);
 
         return {
           id:           c.id,
@@ -811,7 +810,7 @@ export function ReportsView() {
         { data: teData },
         { data: cjData },
       ] = await Promise.all([
-        supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').in('shop_id', getReportShopIds(sid)),
+        supabase.from('invoices').select(INVOICE_REPORT_COLUMNS).in('shop_id', getReportShopIds(sid)),
         supabase.from('payments').select('amount, method, payment_date, currency, status').in('shop_id', getReportShopIds(sid)),
         supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, currency, customer_name, created_at').in('shop_id', getReportShopIds(sid)),
         supabase.from('customers').select('*', { count: 'exact', head: true }).in('shop_id', getReportShopIds(sid)),
@@ -830,34 +829,28 @@ export function ReportsView() {
       const ros = roData ?? [];
       const ests = estData ?? [];
 
-      const calcInvTotal = (i: Record<string, number>) =>
-        (i.subtotal || 0) - (i.discount || 0) + (i.tax || 0) + (i.shop_supplies || 0);
-
       const paidInvs = invoices.filter(i => i.status === 'Paid');
       const sentInvs = invoices.filter(i => i.status === 'Sent');
 
       // Revenue = actual cash collected — exclude Void and Refunded to match Payments module
       const collectedPays = pays.filter((p: Record<string, unknown>) => p.status !== 'Void' && p.status !== 'Refunded');
-      const totalPaymentsCollected = collectedPays.reduce((s: number, p: Record<string, unknown>) => s + Number(p.amount ?? 0), 0);
+      const totalPaymentsCollected = sumPayments(collectedPays);
       // Invoice-based totals (for Revenue tab breakdown)
-      const totalInvoicedPaid = paidInvs.reduce((s, i) => s + calcInvTotal(i), 0);
-      const totalOutstanding = sentInvs.reduce((s, i) => s + calcInvTotal(i), 0);
-      const totalVoid = invoices.filter(i => i.status === 'Void').reduce((s, i) => s + calcInvTotal(i), 0);
-      // Avg: use payment average (actual collected transactions)
-      const avgInvoiceValue = collectedPays.length > 0 ? totalPaymentsCollected / collectedPays.length
-        : paidInvs.length > 0 ? totalInvoicedPaid / paidInvs.length : 0;
+      const totalOutstanding = sumInvoices(sentInvs);
+      const totalVoid = sumInvoices(invoices.filter(i => i.status === 'Void'));
+      // Avg: use payment average (actual collected transactions), within each currency
+      const avgInvoiceValue = collectedPays.length > 0 ? averagePaymentByCurrency(collectedPays) : {};
 
-      // Payments by method — only collected (exclude Void/Refunded)
-      const methodMap: Record<string, { total: number; count: number }> = {};
+      // Payments by method — only collected (exclude Void/Refunded). Ordered by
+      // transaction count: totals in different currencies cannot be ranked.
+      const methodMap: Record<string, Record<string, unknown>[]> = {};
       for (const p of collectedPays) {
         const m = (p.method as string) || 'Unknown';
-        if (!methodMap[m]) methodMap[m] = { total: 0, count: 0 };
-        methodMap[m].total += Number(p.amount ?? 0);
-        methodMap[m].count += 1;
+        (methodMap[m] ??= []).push(p);
       }
       const methodBreakdown = Object.entries(methodMap)
-        .map(([method, v]) => ({ method, ...v }))
-        .sort((a, b) => b.total - a.total);
+        .map(([method, list]) => ({ method, total: sumPayments(list), count: list.length }))
+        .sort((a, b) => b.count - a.count);
 
       // RO stats
       const nonVoidROs = ros.filter(r => r.status !== 'Void');
@@ -868,33 +861,29 @@ export function ReportsView() {
 
       // Monthly revenue — last 6 months
       const now = new Date();
-      const monthlyRevenue: { month: string; revenue: number; payments: number }[] = [];
+      const monthlyRevenue: { month: string; revenue: MoneyTotals; payments: MoneyTotals }[] = [];
       for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
         const label = MONTH_NAMES[d.getMonth()] + ' ' + d.getFullYear().toString().slice(2);
         // Revenue = payments collected in this month (exclude Void/Refunded)
-        const rev = collectedPays
-          .filter((p: Record<string, unknown>) => p.payment_date && (p.payment_date as string) >= d.toISOString() && (p.payment_date as string) < next.toISOString())
-          .reduce((s: number, p: Record<string, unknown>) => s + Number(p.amount ?? 0), 0);
+        const rev = sumPayments(collectedPays
+          .filter((p: Record<string, unknown>) => p.payment_date && (p.payment_date as string) >= d.toISOString() && (p.payment_date as string) < next.toISOString()));
         // Invoiced = paid invoices created this month (secondary view)
-        const pymt = paidInvs
-          .filter(inv => inv.created_at && inv.created_at >= d.toISOString() && inv.created_at < next.toISOString())
-          .reduce((s, inv) => s + calcInvTotal(inv), 0);
+        const pymt = sumInvoices(paidInvs
+          .filter(inv => inv.created_at && inv.created_at >= d.toISOString() && inv.created_at < next.toISOString()));
         monthlyRevenue.push({ month: label, revenue: rev, payments: pymt });
       }
 
-      // Top customers by total spend
-      const custMap: Record<string, { invoiceCount: number; totalSpend: number }> = {};
-      for (const inv of invoices.filter(i => i.status === 'Paid')) {
+      // Top customers by paid invoices (spend is shown per currency)
+      const custMap: Record<string, Record<string, unknown>[]> = {};
+      for (const inv of paidInvs) {
         const name = inv.customer || 'Unknown';
-        if (!custMap[name]) custMap[name] = { invoiceCount: 0, totalSpend: 0 };
-        custMap[name].invoiceCount += 1;
-        custMap[name].totalSpend += calcInvTotal(inv);
+        (custMap[name] ??= []).push(inv);
       }
       const topCustomers = Object.entries(custMap)
-        .map(([name, v]) => ({ name, ...v }))
-        .sort((a, b) => b.totalSpend - a.totalSpend)
+        .map(([name, list]) => ({ name, invoiceCount: list.length, totalSpend: sumInvoices(list) }))
+        .sort((a, b) => b.invoiceCount - a.invoiceCount)
         .slice(0, 8);
 
       const convertedEsts = ests.filter(e => e.status === 'Converted').length;
@@ -1171,9 +1160,11 @@ export function ReportsView() {
   );
 
   const d = data!;
-  const maxMonth = Math.max(...d.monthlyRevenue.map(m => Math.max(m.revenue, m.payments)), 1);
-  const maxMethod = Math.max(...d.methodBreakdown.map(m => m.total), 1);
-  const maxCust = Math.max(...d.topCustomers.map(c => c.totalSpend), 1);
+  // Bars compare amounts only within one currency, so the monthly chart is
+  // drawn once per currency and the method and customer bars show counts.
+  const monthCurrencies = currenciesIn(d.monthlyRevenue.flatMap(m => [m.revenue, m.payments]));
+  const maxMethod = Math.max(...d.methodBreakdown.map(m => m.count), 1);
+  const maxCust = Math.max(...d.topCustomers.map(c => c.invoiceCount), 1);
 
   function STATUS_COLOR(s: string): string {
     if (['Complete', 'Completed'].includes(s))               return '#4caf50';
@@ -1253,8 +1244,8 @@ export function ReportsView() {
           <div className="grid cols-4" style={{ marginBottom: 16 }}>
             {[
               { label: 'Total Revenue', value: fmtMoney(d.totalRevenuePaid), sub: `${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''} collected`, color: '#4caf50' },
-              { label: 'Outstanding', value: fmtMoney(d.totalOutstanding), sub: `${d.sentCount} unpaid invoice${d.sentCount !== 1 ? 's' : ''}`, color: d.totalOutstanding > 0 ? '#f59e0b' : 'var(--text)' },
-              { label: 'Total Invoiced', value: fmtMoney(d.totalOutstanding + d.totalRevenuePaid), sub: `${d.invoiceCount} invoice${d.invoiceCount !== 1 ? 's' : ''} (excl. void)`, color: 'var(--text)' },
+              { label: 'Outstanding', value: fmtMoney(d.totalOutstanding), sub: `${d.sentCount} unpaid invoice${d.sentCount !== 1 ? 's' : ''}`, color: hasMoney(d.totalOutstanding) ? '#f59e0b' : 'var(--text)' },
+              { label: 'Total Invoiced', value: fmtMoney(sumMoney([d.totalOutstanding, d.totalRevenuePaid])), sub: `${d.invoiceCount} invoice${d.invoiceCount !== 1 ? 's' : ''} (excl. void)`, color: 'var(--text)' },
               { label: 'Avg per Transaction', value: fmtMoney(d.avgInvoiceValue), sub: d.paymentCount > 0 ? `across ${d.paymentCount} payment${d.paymentCount !== 1 ? 's' : ''}` : 'No payments yet', color: 'var(--text)' },
             ].map(card => (
               <div key={card.label} className="card card-hero" style={{ padding: 18 }}>
@@ -1282,21 +1273,33 @@ export function ReportsView() {
 
           {/* 6-Month Revenue Chart */}
           <Panel title="Monthly Revenue — Last 6 Months" hint="Paid invoices vs payments recorded per month">
-            <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 140, padding: '8px 4px 0', marginBottom: 8 }}>
-              {d.monthlyRevenue.map((m, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', height: 110 }}>
-                    {/* Revenue bar */}
-                    <div title={`Revenue: ${fmtMoney(m.revenue)}`}
-                      style={{ flex: 1, height: Math.max(3, Math.round((m.revenue / maxMonth) * 100)) + 'px', background: 'var(--accent)', borderRadius: '3px 3px 0 0' }} />
-                    {/* Payments bar */}
-                    <div title={`Payments: ${fmtMoney(m.payments)}`}
-                      style={{ flex: 1, height: Math.max(3, Math.round((m.payments / maxMonth) * 100)) + 'px', background: '#2196f3', borderRadius: '3px 3px 0 0', opacity: 0.7 }} />
+            {(monthCurrencies.length > 0 ? monthCurrencies : [null]).map(cur => {
+              const rev = (m: ReportData['monthlyRevenue'][number]) => (cur ? m.revenue[cur] ?? 0 : 0);
+              const inv = (m: ReportData['monthlyRevenue'][number]) => (cur ? m.payments[cur] ?? 0 : 0);
+              const maxMonth = Math.max(...d.monthlyRevenue.map(m => Math.max(rev(m), inv(m))), 1);
+              return (
+                <div key={cur ?? 'none'} style={{ marginBottom: 8 }}>
+                  {monthCurrencies.length > 1 && cur && (
+                    <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700 }}>{cur}</div>
+                  )}
+                  <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 140, padding: '8px 4px 0' }}>
+                    {d.monthlyRevenue.map((m, i) => (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: '100%', display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'center', height: 110 }}>
+                          {/* Revenue bar */}
+                          <div title={`Revenue: ${cur ? formatMoney(rev(m), cur) : fmtMoney({})}`}
+                            style={{ flex: 1, height: Math.max(3, Math.round((rev(m) / maxMonth) * 100)) + 'px', background: 'var(--accent)', borderRadius: '3px 3px 0 0' }} />
+                          {/* Payments bar */}
+                          <div title={`Paid invoices: ${cur ? formatMoney(inv(m), cur) : fmtMoney({})}`}
+                            style={{ flex: 1, height: Math.max(3, Math.round((inv(m) / maxMonth) * 100)) + 'px', background: '#2196f3', borderRadius: '3px 3px 0 0', opacity: 0.7 }} />
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>{m.month}</div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>{m.month}</div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
             <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--muted)' }}>
               <span><span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--accent)', borderRadius: 2, marginRight: 4 }} />Revenue Collected (Payments)</span>
               <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2196f3', borderRadius: 2, marginRight: 4, opacity: 0.7 }} />Paid Invoices (Invoice Date)</span>
@@ -1333,20 +1336,14 @@ export function ReportsView() {
                   <th style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Month</th>
                   <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Revenue Collected</th>
                   <th style={{ textAlign: 'right', padding: '8px 10px', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>Paid Invoices</th>
-                  <th style={{ padding: '8px 10px' }} />
                 </tr>
               </thead>
               <tbody>
                 {d.monthlyRevenue.map((m, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--line)' }}>
                     <td style={{ padding: '10px' }}>{m.month}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: m.revenue > 0 ? '#4caf50' : 'var(--muted)' }}>{fmtMoney(m.revenue)}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: m.payments > 0 ? '#2196f3' : 'var(--muted)' }}>{fmtMoney(m.payments)}</td>
-                    <td style={{ padding: '10px', width: 160 }}>
-                      <div style={{ height: 8, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${(m.revenue / maxMonth) * 100}%`, background: 'var(--accent)', borderRadius: 4 }} />
-                      </div>
-                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: hasMoney(m.revenue) ? '#4caf50' : 'var(--muted)' }}>{fmtMoney(m.revenue)}</td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: hasMoney(m.payments) ? '#2196f3' : 'var(--muted)' }}>{fmtMoney(m.payments)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1449,7 +1446,7 @@ export function ReportsView() {
                       </div>
                     </div>
                     <div style={{ height: 10, background: 'var(--line)', borderRadius: 5, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${(m.total / maxMethod) * 100}%`, background: 'var(--accent)', borderRadius: 5, transition: 'width 0.4s' }} />
+                      <div style={{ height: '100%', width: `${(m.count / maxMethod) * 100}%`, background: 'var(--accent)', borderRadius: 5, transition: 'width 0.4s' }} />
                     </div>
                   </div>
                 ))}
@@ -1606,8 +1603,8 @@ export function ReportsView() {
                             <td style={{ padding: '11px 10px', color: 'var(--muted)', fontSize: 12 }}>
                               {c.lastActivity ? new Date(c.lastActivity).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
                             </td>
-                            <td style={{ padding: '11px 10px', fontWeight: 700, color: c.totalSpend > 0 ? '#4caf50' : 'var(--muted)' }}>
-                              {c.totalSpend > 0 ? fmtMoney(c.totalSpend) : '—'}
+                            <td style={{ padding: '11px 10px', fontWeight: 700, color: hasMoney(c.totalSpend) ? '#4caf50' : 'var(--muted)' }}>
+                              {hasMoney(c.totalSpend) ? fmtMoney(c.totalSpend) : '—'}
                             </td>
                           </tr>
                         );
@@ -1722,7 +1719,7 @@ export function ReportsView() {
 
             {/* Top by revenue panel */}
             {d.topCustomers.length > 0 && (
-              <Panel title="Top Customers by Revenue" hint="Based on paid invoices only">
+              <Panel title="Top Customers" hint="Ranked by paid invoices; spend shown per currency">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {d.topCustomers.map((c, i) => (
                     <div key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1736,7 +1733,7 @@ export function ReportsView() {
                           </div>
                         </div>
                         <div style={{ height: 8, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${(c.totalSpend / maxCust) * 100}%`, background: i === 0 ? 'var(--accent)' : '#4caf50', borderRadius: 4, opacity: Math.max(0.4, 1 - i * 0.1) }} />
+                          <div style={{ height: '100%', width: `${(c.invoiceCount / maxCust) * 100}%`, background: i === 0 ? 'var(--accent)' : '#4caf50', borderRadius: 4, opacity: Math.max(0.4, 1 - i * 0.1) }} />
                         </div>
                       </div>
                     </div>
