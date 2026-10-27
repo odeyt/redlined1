@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { trackEvent } from '@/lib/analytics/track';
 
 /**
  * The Book a Shop Audit request form.
@@ -98,6 +99,7 @@ export function ShopAuditForm() {
         setStatus('idle');
         return;
       }
+      trackEvent('generate_lead', { page: 'shop_audit', lead_type: 'workflow_audit' });
       setStatus('sent');
     } catch {
       setError('We could not reach the server. Check your connection and try again.');

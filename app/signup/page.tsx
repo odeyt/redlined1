@@ -5,6 +5,7 @@ import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TRIAL_DAYS } from '@/lib/planGate';
+import { trackEvent } from '@/lib/analytics/track';
 import { TRIAL_TIPS_CONSENT_TEXT, TRIAL_TIPS_CONSENT_VERSION } from '@/lib/trialTips/config';
 
 const VALID_PLANS = new Set(['free', 'solo', 'starter', 'professional', 'business']);
@@ -38,6 +39,7 @@ export default function SignupPage() {
   const [resendMsg, setResendMsg]       = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const signupTracked = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -88,6 +90,13 @@ export default function SignupPage() {
       });
       if (signUpError) throw signUpError;
       if (data.user) {
+        // Supabase can return an obfuscated user with no identities for an
+        // existing account. Count only a new email identity, once per page.
+        // This is account creation, not email confirmation or paid activation.
+        if (data.user.identities?.length && !signupTracked.current) {
+          signupTracked.current = true;
+          trackEvent('sign_up', { method: 'email', signup_stage: 'account_created' });
+        }
         // Store commercial signup intent in localStorage for recovery after email verification
         const intent: Record<string, string> = {
           intent:    selectedPlan === 'free' ? 'free' : 'paid',
