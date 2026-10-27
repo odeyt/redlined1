@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { RedlineD1Logo } from '@/components/brand/RedlineD1Logo';
+import { trackEvent } from '@/lib/analytics/track';
 
 const CONTEXT_COPY: Record<string, { heading: string; sub: string }> = {
   enterprise: {
@@ -47,6 +48,7 @@ export default function ContactSalesPage() {
         body: JSON.stringify({ name, email, shopName, context, message }),
       });
       if (!res.ok) throw new Error('Failed to send. Please try again.');
+      trackEvent('generate_lead', { page: 'contact_sales', lead_type: 'sales_inquiry' });
       setSent(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send. Please try again.');
