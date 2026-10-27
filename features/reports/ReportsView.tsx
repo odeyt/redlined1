@@ -13,6 +13,8 @@ import {
   intakeRange, inIntakeRange, carsTakenIn, summarizeIntake, groupIntake, intakeCsvRows, localDay,
   type IntakeVisit, type IntakeCar,
 } from '@/lib/reports/vehicleIntake';
+import { formatMoney, formatMoneyTotals, type MoneyTotals } from '@/lib/currencies';
+import { repairOrderValue, sumRoValues } from '@/lib/reports/roValue';
 
 // ── Customer detail row (searchable customer report) ──────────
 interface CustVehicle { id: string; label: string; status: string; }
@@ -81,10 +83,11 @@ interface ReportData {
   totalPayments: number;
   paymentCount: number;
   methodBreakdown: { method: string; total: number; count: number }[];
-  // Repair Orders
-  totalROValue: number;
-  totalLaborValue: number;
-  totalPartsValue: number;
+  // Repair Orders — per currency: ROs are priced in THB or USD and there are
+  // no exchange rates to add them together.
+  totalROValue: MoneyTotals;
+  totalLaborValue: MoneyTotals;
+  totalPartsValue: MoneyTotals;
   roCount: number;
   completedROCount: number;
   avgLaborHours: number;
@@ -130,6 +133,7 @@ interface PrintRow {
   laborHours: number;
   laborRate: number;
   partsTotal: number;
+  currency: string; // the repair order's; labor and parts are in it
   closedDate: string;
   status: string;
   flatRateHours?: number; // from labor_guide if available
@@ -167,7 +171,7 @@ function WorkshopPrintModal({
 
       const [{ data: roData, error: roErr }, jobs, { data: vehData }] = await Promise.all([
         supabase.from('repair_orders')
-          .select('id, ro_number, job_card_id, customer_name, vehicle, technician, status, concern, cause, correction, labor_hours, labor_rate, parts_total, parts, closed_date')
+          .select('id, ro_number, job_card_id, customer_name, vehicle, technician, status, concern, cause, correction, labor_hours, labor_rate, parts_total, parts, currency, closed_date')
           .in('shop_id', getReportShopIds(shopId)).in('status', ['Complete', 'Closed'])
           .gte('closed_date', start).lt('closed_date', end)
           .order('closed_date', { ascending: false }),
@@ -213,6 +217,7 @@ function WorkshopPrintModal({
           laborHours: Number(r.labor_hours ?? 0),
           laborRate: Number(r.labor_rate ?? 0),
           partsTotal: parts.length > 0 ? parts.reduce((s, p) => s + (p.total ?? 0), 0) : Number(r.parts_total ?? 0),
+          currency: (r.currency as string) || 'USD',
           closedDate: r.closed_date as string,
           status: (r.status as string) || 'Complete',
         };
@@ -227,7 +232,7 @@ function WorkshopPrintModal({
         vin: vinFor(j.vehicle),
         technicians: names(j.technician),
         concern: '', cause: '', correction: '', parts: [],
-        laborHours: 0, laborRate: 0, partsTotal: 0,
+        laborHours: 0, laborRate: 0, partsTotal: 0, currency: 'USD',
         closedDate: j.closedAt,
         status: 'Closed',
       }));
@@ -263,10 +268,10 @@ function WorkshopPrintModal({
     setTimeout(() => { win.print(); win.close(); }, 400);
   }
 
-  const totalLaborValue = rows.reduce((s, r) => s + r.laborHours * r.laborRate, 0);
-  const totalPartsValue = rows.reduce((s, r) => s + r.partsTotal, 0);
+  // Per currency: jobs are priced in THB or USD, and never added together.
+  const { labor: totalLaborValue, parts: totalPartsValue, total: grandTotal } = sumRoValues(
+    rows.map(r => ({ currency: r.currency, labor: r.laborHours * r.laborRate, parts: r.partsTotal })));
   const totalHours = rows.reduce((s, r) => s + r.laborHours, 0);
-  const grandTotal = totalLaborValue + totalPartsValue;
 
   return (
     <>
@@ -324,9 +329,9 @@ function WorkshopPrintModal({
                     <div style={{ fontWeight: 700 }}>SUMMARY</div>
                     <div>Total Jobs: <strong>{rows.length}</strong></div>
                     <div>Total Hours: <strong>{totalHours.toFixed(1)} h</strong></div>
-                    <div>Labor Value: <strong>{fmtMoney(totalLaborValue)}</strong></div>
-                    <div>Parts Value: <strong>{fmtMoney(totalPartsValue)}</strong></div>
-                    <div style={{ color: '#cc0000', fontWeight: 800 }}>Grand Total: {fmtMoney(grandTotal)}</div>
+                    <div>Labor Value: <strong>{formatMoneyTotals(totalLaborValue)}</strong></div>
+                    <div>Parts Value: <strong>{formatMoneyTotals(totalPartsValue)}</strong></div>
+                    <div style={{ color: '#cc0000', fontWeight: 800 }}>Grand Total: {formatMoneyTotals(grandTotal)}</div>
                   </div>
                 </div>
                 {/* Editable report notes */}
@@ -412,8 +417,8 @@ function WorkshopPrintModal({
                                   <td style={{ padding: '3px 4px', fontWeight: 600 }}>{p.partName || '—'}</td>
                                   <td style={{ padding: '3px 4px', color: '#666' }}>{p.partNumber || '—'}</td>
                                   <td style={{ padding: '3px 4px' }}>{p.qty ?? 1}</td>
-                                  <td style={{ padding: '3px 4px' }}>{p.cost != null ? fmtMoney(p.cost) : '—'}</td>
-                                  <td style={{ padding: '3px 4px', fontWeight: 600 }}>{p.total != null ? fmtMoney(p.total) : '—'}</td>
+                                  <td style={{ padding: '3px 4px' }}>{p.cost != null ? formatMoney(p.cost, row.currency) : '—'}</td>
+                                  <td style={{ padding: '3px 4px', fontWeight: 600 }}>{p.total != null ? formatMoney(p.total, row.currency) : '—'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -440,7 +445,7 @@ function WorkshopPrintModal({
                         />
                         <ValueBox
                           label="Parts Total"
-                          value={row.partsTotal > 0 ? fmtMoney(row.partsTotal) : '—'}
+                          value={row.partsTotal > 0 ? formatMoney(row.partsTotal, row.currency) : '—'}
                           color="#4caf50"
                         />
                       </div>
@@ -448,7 +453,7 @@ function WorkshopPrintModal({
                       <div style={{ marginTop: 8, padding: '8px 10px', background: '#f9f9f9', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: 11, color: '#666', fontWeight: 700 }}>JOB TOTAL (Labor + Parts)</span>
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#cc0000' }}>
-                          {fmtMoney(row.laborHours * row.laborRate + row.partsTotal)}
+                          {formatMoney(row.laborHours * row.laborRate + row.partsTotal, row.currency)}
                         </span>
                       </div>
 
@@ -808,7 +813,7 @@ export function ReportsView() {
       ] = await Promise.all([
         supabase.from('invoices').select('number, customer, status, subtotal, tax, discount, shop_supplies, currency, created_at').in('shop_id', getReportShopIds(sid)),
         supabase.from('payments').select('amount, method, payment_date, currency, status').in('shop_id', getReportShopIds(sid)),
-        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, customer_name, created_at').in('shop_id', getReportShopIds(sid)),
+        supabase.from('repair_orders').select('status, labor_hours, parts_total, labor_rate, currency, customer_name, created_at').in('shop_id', getReportShopIds(sid)),
         supabase.from('customers').select('*', { count: 'exact', head: true }).in('shop_id', getReportShopIds(sid)),
         supabase.from('vehicles').select('*', { count: 'exact', head: true }).in('shop_id', getReportShopIds(sid)),
         supabase.from('estimates').select('status').in('shop_id', getReportShopIds(sid)),
@@ -856,8 +861,7 @@ export function ReportsView() {
 
       // RO stats
       const nonVoidROs = ros.filter(r => r.status !== 'Void');
-      const totalLaborValue = nonVoidROs.reduce((s, r) => s + (Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0)), 0);
-      const totalPartsValue = nonVoidROs.reduce((s, r) => s + Number(r.parts_total ?? 0), 0);
+      const roValue = sumRoValues(nonVoidROs.map(repairOrderValue));
       const avgLaborHours = nonVoidROs.length > 0
         ? nonVoidROs.reduce((s, r) => s + Number(r.labor_hours ?? 0), 0) / nonVoidROs.length
         : 0;
@@ -909,9 +913,9 @@ export function ReportsView() {
         totalPayments: totalPaymentsCollected,
         paymentCount: collectedPays.length,
         methodBreakdown,
-        totalROValue: totalLaborValue + totalPartsValue,
-        totalLaborValue,
-        totalPartsValue,
+        totalROValue: roValue.total,
+        totalLaborValue: roValue.labor,
+        totalPartsValue: roValue.parts,
         roCount: ros.length,
         completedROCount: ros.filter(r => r.status === 'Complete' || r.status === 'Closed').length,
         avgLaborHours,
@@ -1050,9 +1054,9 @@ export function ReportsView() {
         ['Metric', 'Value'],
         ['Total ROs', String(data.roCount)],
         ['Completed / Closed', String(data.completedROCount)],
-        ['Total Labor Value', fmtMoney(data.totalLaborValue)],
-        ['Total Parts Value', fmtMoney(data.totalPartsValue)],
-        ['Total RO Value', fmtMoney(data.totalROValue)],
+        ['Total Labor Value', formatMoneyTotals(data.totalLaborValue)],
+        ['Total Parts Value', formatMoneyTotals(data.totalPartsValue)],
+        ['Total RO Value', formatMoneyTotals(data.totalROValue)],
         ['Avg Labor Hours / RO', data.avgLaborHours.toFixed(2)],
       ],
       `${shopName.replace(/\s+/g, '-')}-RepairOrders-Report-${new Date().toISOString().slice(0, 10)}.csv`
@@ -1264,7 +1268,7 @@ export function ReportsView() {
           <div className="grid cols-4" style={{ marginBottom: 16 }}>
             {[
               { label: 'Repair Orders', value: String(d.roCount), sub: `${d.completedROCount} completed`, color: 'var(--text)' },
-              { label: 'Total RO Value', value: fmtMoney(d.totalROValue), sub: 'Labor + Parts', color: 'var(--text)' },
+              { label: 'Total RO Value', value: formatMoneyTotals(d.totalROValue), sub: 'Labor + Parts', color: 'var(--text)' },
               { label: 'Customers', value: String(d.totalCustomers), sub: `${d.totalVehicles} vehicles`, color: 'var(--text)' },
               { label: 'Estimate Conversion', value: fmtPct(d.estimateConvertRate), sub: `${d.convertedEstimates} of ${d.totalEstimates}`, color: d.estimateConvertRate > 50 ? '#4caf50' : 'var(--text)' },
             ].map(card => (
@@ -1360,9 +1364,9 @@ export function ReportsView() {
 
           <div className="grid cols-3" style={{ marginBottom: 16 }}>
             {[
-              { label: 'Total RO Value', value: fmtMoney(d.totalROValue), sub: 'Labor + Parts', color: 'var(--text)' },
-              { label: 'Total Labor Value', value: fmtMoney(d.totalLaborValue), sub: 'All non-void ROs', color: '#2196f3' },
-              { label: 'Total Parts Value', value: fmtMoney(d.totalPartsValue), sub: 'All non-void ROs', color: '#ff9800' },
+              { label: 'Total RO Value', value: formatMoneyTotals(d.totalROValue), sub: 'Labor + Parts', color: 'var(--text)' },
+              { label: 'Total Labor Value', value: formatMoneyTotals(d.totalLaborValue), sub: 'All non-void ROs', color: '#2196f3' },
+              { label: 'Total Parts Value', value: formatMoneyTotals(d.totalPartsValue), sub: 'All non-void ROs', color: '#ff9800' },
             ].map(c => (
               <div key={c.label} className="card card-hero" style={{ padding: 18 }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>{c.label}</div>
@@ -1385,15 +1389,25 @@ export function ReportsView() {
             ))}
           </div>
 
+          {/* One split per currency: labor and parts are only comparable within a currency. */}
           <Panel title="Labor vs Parts Split">
-            <div style={{ display: 'flex', height: 24, borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}>
-              <div style={{ flex: d.totalLaborValue, background: '#2196f3' }} title={`Labor: ${fmtMoney(d.totalLaborValue)}`} />
-              <div style={{ flex: d.totalPartsValue, background: '#ff9800' }} title={`Parts: ${fmtMoney(d.totalPartsValue)}`} />
-            </div>
-            <div style={{ display: 'flex', gap: 20, fontSize: 12 }}>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2196f3', borderRadius: 2, marginRight: 4 }} />Labor {fmtMoney(d.totalLaborValue)}</span>
-              <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ff9800', borderRadius: 2, marginRight: 4 }} />Parts {fmtMoney(d.totalPartsValue)}</span>
-            </div>
+            {Object.keys(d.totalROValue).filter(c => d.totalROValue[c] !== 0).sort().map((cur, i) => {
+              const labor = d.totalLaborValue[cur] ?? 0;
+              const parts = d.totalPartsValue[cur] ?? 0;
+              return (
+                <div key={cur} style={{ marginTop: i > 0 ? 16 : 0 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 6 }}>{cur}</div>
+                  <div style={{ display: 'flex', height: 24, borderRadius: 8, overflow: 'hidden', marginBottom: 10 }}>
+                    <div style={{ flex: labor, background: '#2196f3' }} title={`Labor: ${formatMoney(labor, cur)}`} />
+                    <div style={{ flex: parts, background: '#ff9800' }} title={`Parts: ${formatMoney(parts, cur)}`} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 12 }}>
+                    <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2196f3', borderRadius: 2, marginRight: 4 }} />Labor {formatMoney(labor, cur)}</span>
+                    <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ff9800', borderRadius: 2, marginRight: 4 }} />Parts {formatMoney(parts, cur)}</span>
+                  </div>
+                </div>
+              );
+            })}
           </Panel>
         </>
       )}
