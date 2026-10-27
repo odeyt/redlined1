@@ -235,3 +235,35 @@ export function currencySymbol(code: string = DEFAULT_CURRENCY): string {
     return code;
   }
 }
+
+/**
+ * Amounts kept apart by currency, e.g. { THB: 48000, USD: 1250 }. There are no
+ * exchange rates, so amounts in different currencies are never added together.
+ */
+export type MoneyTotals = Record<string, number>;
+
+/** Adds an amount to its own currency's total. A missing code counts as USD, as records default to. */
+export function addMoney(totals: MoneyTotals, code: string | null | undefined, amount: number): MoneyTotals {
+  const c = (typeof code === 'string' ? code.trim().toUpperCase() : '') || DEFAULT_CURRENCY;
+  totals[c] = (totals[c] ?? 0) + (Number.isFinite(amount) ? amount : 0);
+  return totals;
+}
+
+/** Totals per currency across several sets of totals. */
+export function sumMoney(list: readonly MoneyTotals[]): MoneyTotals {
+  const out: MoneyTotals = {};
+  for (const t of list) for (const [c, v] of Object.entries(t)) addMoney(out, c, v);
+  return out;
+}
+
+/**
+ * "฿48,000.00 + $1,250.00": each currency in its own format, in code order so
+ * the same totals always read the same. Nothing non-zero shows as zero in `fallback`.
+ */
+export function formatMoneyTotals(totals: MoneyTotals, fallback: string = DEFAULT_CURRENCY): string {
+  const entries = Object.entries(totals)
+    .filter(([, v]) => v !== 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return formatMoney(0, fallback);
+  return entries.map(([c, v]) => formatMoney(v, c)).join(' + ');
+}

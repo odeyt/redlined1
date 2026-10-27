@@ -2,6 +2,7 @@
 import { recordAudit } from '@/lib/domain/auditFromBrowser';
 import { AUDIT } from '@/lib/domain/audit';
 import { getShopId, getShopIds } from '@/lib/shopStore';
+import { addMoney, type MoneyTotals } from '@/lib/currencies';
 
 export interface Technician {
   id: string;
@@ -35,9 +36,15 @@ export interface TechPerformance {
   roCount: number;
   completedROCount: number;
   totalLaborHours: number;
-  totalLaborValue: number;
-  totalPartsValue: number;
-  totalValue: number;
+  /**
+   * Money is kept per currency: each repair order is priced in its own
+   * currency (D1 works in THB and USD), and there are no exchange rates to add
+   * them together. Summing them as one number reported baht as dollars.
+   * Void repair orders are left out, as in Reports.
+   */
+  totalLaborValue: MoneyTotals;
+  totalPartsValue: MoneyTotals;
+  totalValue: MoneyTotals;
   avgHoursPerRO: number;
   openROCount: number;
   jobCardCount: number;
@@ -210,7 +217,7 @@ export async function deleteTechnician(id: string): Promise<void> {
 export async function fetchTechPerformance(): Promise<TechPerformance[]> {
   const shopId = getShopId();
   const [{ data: roData }, { data: jcData }] = await Promise.all([
-    supabase.from('repair_orders').select('technician, status, labor_hours, labor_rate, parts_total').eq('shop_id', shopId),
+    supabase.from('repair_orders').select('technician, status, labor_hours, labor_rate, parts_total, currency').eq('shop_id', shopId),
     supabase.from('job_cards').select('technicians, status').eq('shop_id', shopId),
   ]);
 
@@ -233,8 +240,16 @@ export async function fetchTechPerformance(): Promise<TechPerformance[]> {
     const completedROs = techROs.filter(r => r.status === 'Complete' || r.status === 'Closed');
     const openROs      = techROs.filter(r => r.status !== 'Complete' && r.status !== 'Closed' && r.status !== 'Void');
     const totalHours   = techROs.reduce((s, r) => s + Number(r.labor_hours ?? 0), 0);
-    const totalLabor   = techROs.reduce((s, r) => s + Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0), 0);
-    const totalParts   = techROs.reduce((s, r) => s + Number(r.parts_total ?? 0), 0);
+    const totalLabor: MoneyTotals = {};
+    const totalParts: MoneyTotals = {};
+    const totalValue: MoneyTotals = {};
+    techROs.filter(r => r.status !== 'Void').forEach(r => {
+      const labor = Number(r.labor_hours ?? 0) * Number(r.labor_rate ?? 0);
+      const parts = Number(r.parts_total ?? 0);
+      addMoney(totalLabor, r.currency, labor);
+      addMoney(totalParts, r.currency, parts);
+      addMoney(totalValue, r.currency, labor + parts);
+    });
 
     return {
       techName:         name,
@@ -243,7 +258,7 @@ export async function fetchTechPerformance(): Promise<TechPerformance[]> {
       totalLaborHours:  totalHours,
       totalLaborValue:  totalLabor,
       totalPartsValue:  totalParts,
-      totalValue:       totalLabor + totalParts,
+      totalValue,
       avgHoursPerRO:    techROs.length > 0 ? totalHours / techROs.length : 0,
       openROCount:      openROs.length,
       jobCardCount:     techJCs.length,
@@ -254,7 +269,7 @@ export async function fetchTechPerformance(): Promise<TechPerformance[]> {
 export async function fetchTechOpenROs(techName: string) {
   const { data, error } = await supabase
     .from('repair_orders')
-    .select('ro_number, customer_name, vehicle, status, labor_hours, labor_rate, parts_total, opened_date')
+    .select('ro_number, customer_name, vehicle, status, labor_hours, labor_rate, parts_total, currency, opened_date')
     .in('shop_id', getShopIds())
     .eq('technician', techName)
     .not('status', 'in', '("Closed","Void")')
@@ -268,6 +283,7 @@ export async function fetchTechOpenROs(techName: string) {
     laborHours:   Number(r.labor_hours ?? 0),
     laborRate:    Number(r.labor_rate ?? 0),
     partsTotal:   Number(r.parts_total ?? 0),
+    currency:     (r.currency as string) || 'USD',
     openedDate:   (r.opened_date as string) || '',
   }));
 }
