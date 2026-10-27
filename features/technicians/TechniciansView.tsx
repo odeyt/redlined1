@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   fetchTechnicians, createTechnician, updateTechnician, deleteTechnician,
   fetchTechPerformance, fetchTechOpenROs,
@@ -94,7 +94,13 @@ export function TechniciansView() {
   // Scope the roster to the location being managed. Rows saved before shop_id
   // existed have a blank value — keep those visible so they remain editable
   // rather than disappearing from every location at once.
-  const techs = allTechs.filter(t => !t.shopId || !shopId || t.shopId === shopId);
+  // Memoized: a fresh array on every render made the Work Board effect below
+  // re-run on every render, which reloaded the board forever (it flashed on
+  // "Loading work board…" and never showed).
+  const techs = useMemo(
+    () => allTechs.filter(t => !t.shopId || !shopId || t.shopId === shopId),
+    [allTechs, shopId],
+  );
   const hiddenFromOtherShops = allTechs.length - techs.length;
 
   /* derived totals */
@@ -144,24 +150,36 @@ export function TechniciansView() {
     return () => { cancelled = true; };
   }, [shopId]);
 
-  /* Load work board when tab switches */
-  const loadBoard = useCallback(async (techList: Technician[]) => {
-    if (techList.length === 0) return;
+  /*
+   * Load the work board when its tab is opened, or when the active technicians
+   * change. Keyed on their names, not on the techs array, so a re-render never
+   * starts another load. A response overtaken by a newer load is dropped.
+   */
+  const activeTechKey = useMemo(
+    () => techs.filter(t => t.status === 'Active').map(t => t.name).join('\n'),
+    [techs],
+  );
+  const boardRequest = useRef(0);
+
+  const loadBoard = useCallback(async (names: string[]) => {
+    const req = ++boardRequest.current;
+    if (names.length === 0) { setBoardPerf({}); setBoardLoading(false); return; }
     setBoardLoading(true);
     const out: Record<string, TechRO[]> = {};
     await Promise.all(
-      techList.filter(t => t.status === 'Active').map(async t => {
-        try { out[t.name] = await fetchTechOpenROs(t.name); }
-        catch { out[t.name] = []; }
+      names.map(async name => {
+        try { out[name] = await fetchTechOpenROs(name); }
+        catch { out[name] = []; }
       })
     );
+    if (req !== boardRequest.current) return;
     setBoardPerf(out);
     setBoardLoading(false);
   }, []);
 
   useEffect(() => {
-    if (tab === 'workboard') loadBoard(techs);
-  }, [tab, techs, loadBoard]);
+    if (tab === 'workboard') loadBoard(activeTechKey ? activeTechKey.split('\n') : []);
+  }, [tab, activeTechKey, loadBoard]);
 
   /* Select a tech and load their open ROs */
   async function selectTech(t: Technician) {
