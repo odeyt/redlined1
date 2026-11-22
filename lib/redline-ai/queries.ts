@@ -66,6 +66,10 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : v == null ? '' : String(v);
 }
 
+function normalizeVehicleText(v: string): string {
+  return v.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 function vehicleLabelOf(r: Record<string, unknown>): string {
   const label = str(r.label);
   if (label) return label;
@@ -265,21 +269,40 @@ export async function fetchVehicleHistory(
   const names = await customerNamesFor(db, scope, [str(vehicleRows[0].customer_id)]);
   const vehicle = mapVehicleRow(vehicleRows[0], names);
 
+  // Job cards, estimates, invoices and repair orders do NOT carry a
+  // vehicle_id foreign key in this schema — each record stores the vehicle
+  // as TEXT in its `vehicle` column (see mapJobRow / mapEstimateRow /
+  // invoiceMath). History is therefore matched on that text: exact label
+  // match first, plate containment as the fallback for label variants.
+  const labelNorm = normalizeVehicleText(vehicleLabelOf(vehicleRows[0]));
+  const plateNorm = normalizeVehicleText(str(vehicleRows[0].plate));
+  const matchesVehicle = (r: Record<string, unknown>): boolean => {
+    const v = normalizeVehicleText(str(r.vehicle));
+    if (!v) return false;
+    if (labelNorm && v === labelNorm) return true;
+    if (plateNorm && v.includes(plateNorm)) return true;
+    return false;
+  };
+
   const [jobRows, estimateRows, invoiceRows, roRows] = await Promise.all([
-    rows(t(db, 'job_cards').select('*').in('shop_id', scope).eq('vehicle_id', vehicleId)
-      .order('created_at', { ascending: false }).limit(100)),
-    rows(t(db, 'estimates').select('*').in('shop_id', scope).eq('vehicle_id', vehicleId)
-      .order('created_at', { ascending: false }).limit(100)),
-    rows(t(db, 'invoices').select('*').in('shop_id', scope).eq('vehicle_id', vehicleId)
-      .order('created_at', { ascending: false }).limit(100)),
-    rows(t(db, 'repair_orders').select('*').in('shop_id', scope).eq('vehicle_id', vehicleId)
-      .order('created_at', { ascending: false }).limit(100))
+    rows(t(db, 'job_cards').select('*').in('shop_id', scope)
+      .order('created_at', { ascending: false }).limit(500)),
+    rows(t(db, 'estimates').select('*').in('shop_id', scope)
+      .order('created_at', { ascending: false }).limit(500)),
+    rows(t(db, 'invoices').select('*').in('shop_id', scope)
+      .order('created_at', { ascending: false }).limit(500)),
+    rows(t(db, 'repair_orders').select('*').in('shop_id', scope)
+      .order('created_at', { ascending: false }).limit(500))
       .catch(() => [] as Record<string, unknown>[]),
   ]);
+  const jobRowsForVehicle = jobRows.filter(matchesVehicle);
+  const estimateRowsForVehicle = estimateRows.filter(matchesVehicle);
+  const invoiceRowsForVehicle = invoiceRows.filter(matchesVehicle);
+  const roRowsForVehicle = roRows.filter(matchesVehicle);
 
   const events: HistoryEvent[] = [];
   const jobIds: string[] = [];
-  for (const r of jobRows) {
+  for (const r of jobRowsForVehicle) {
     const job = mapJobRow(r, today);
     jobIds.push(job.id);
     events.push({
@@ -290,7 +313,7 @@ export async function fetchVehicleHistory(
       status: job.status,
     });
   }
-  for (const r of roRows) {
+  for (const r of roRowsForVehicle) {
     events.push({
       date: str(r.created_at) || str(r.opened_date),
       kind: 'repair_order',
@@ -317,8 +340,8 @@ export async function fetchVehicleHistory(
     }
   }
 
-  const estimateNames = await customerNamesFor(db, scope, estimateRows.map(r => str(r.customer_id)));
-  const estimates = estimateRows.map(r => mapEstimateRow(r, today, estimateNames));
+  const estimateNames = await customerNamesFor(db, scope, estimateRowsForVehicle.map(r => str(r.customer_id)));
+  const estimates = estimateRowsForVehicle.map(r => mapEstimateRow(r, today, estimateNames));
   for (const e of estimates) {
     events.push({
       date: e.createdAt,
@@ -328,7 +351,7 @@ export async function fetchVehicleHistory(
       status: e.status,
     });
   }
-  for (const r of invoiceRows) {
+  for (const r of invoiceRowsForVehicle) {
     const inv = mapInvoiceRow(r);
     events.push({
       date: inv.createdAt,
