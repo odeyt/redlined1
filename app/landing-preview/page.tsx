@@ -19,6 +19,7 @@ import { DVISection } from '@/components/marketing/DVISection';
 import { MultiLocationSection } from '@/components/marketing/MultiLocationSection';
 import { IntelligencePhilosophySection } from '@/components/marketing/IntelligencePhilosophySection';
 import { ProductEvolutionSection } from '@/components/marketing/ProductEvolutionSection';
+import { DemoVideoSection } from '@/components/marketing/DemoVideoSection';
 import { PricingSection } from '@/components/marketing/PricingSection';
 import { ReliabilitySection } from '@/components/marketing/ReliabilitySection';
 import { FAQSection } from '@/components/marketing/FAQSection';
@@ -69,6 +70,7 @@ export default function LandingPreviewPage() {
         <MultiLocationSection />
         <IntelligencePhilosophySection />
         <ProductEvolutionSection />
+        <DemoVideoSection />
         <PricingSection />
         <ReliabilitySection />
         <FAQSection />
