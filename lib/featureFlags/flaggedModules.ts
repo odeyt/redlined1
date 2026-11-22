@@ -9,8 +9,12 @@
  */
 export interface ModuleFlags {
   internalReminders: boolean;
+  redlineAi: boolean;
 }
 
 export function flagBlockedModules(flags: ModuleFlags): string[] {
-  return flags.internalReminders ? [] : ['reminders'];
+  const blocked: string[] = [];
+  if (!flags.internalReminders) blocked.push('reminders');
+  if (!flags.redlineAi) blocked.push('redline-ai');
+  return blocked;
 }

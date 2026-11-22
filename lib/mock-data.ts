@@ -198,6 +198,9 @@ export const navItems: [string, string, string, string][] = [
   ['dtc',           'warning',    'DTC Lookup',    ''],
   ['diagnostics',   'scan',       'Diagnostics',   ''],
   ['ai',            'ai',         'AI Copilot',    ''],
+  // Hidden unless the redline_ai flag is on — see
+  // lib/featureFlags/flaggedModules.ts.
+  ['redline-ai',    'ai',         'Redline AI',    ''],
   ['repair-intelligence', 'wrench', 'Repair Intelligence', ''],
 
   // ── Reports & Admin
