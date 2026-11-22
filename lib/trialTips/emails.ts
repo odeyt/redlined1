@@ -42,6 +42,7 @@ const COPY: Record<TrialTipStep, StepCopy> = {
       `Welcome to RedlineD1${shop ? `, ${shop}` : ''}. The quickest way to see whether it fits your shop is to run one real job through it.`,
       'Open Job Cards, choose + New Job Card, and add the customer, the vehicle and what they came in for. Everything else — the inspection, estimate, repair order and invoice — links back to that one card.',
       'It takes about two minutes, and it is the job you would have written down anyway.',
+      'Prefer to watch first? See a demo of RedlineD1 here: https://www.youtube.com/@RedlineD1ShopOS',
     ],
     cta: 'Create a job card',
   },
