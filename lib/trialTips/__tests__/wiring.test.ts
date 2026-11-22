@@ -96,9 +96,11 @@ describe('secrets stay server-side', () => {
     }
   });
 
-  it('the only importer of the transport is the scheduled script', () => {
+  it('the only importers of the transport are the scheduled scripts', () => {
     const importers = [...files('app'), ...files('lib'), ...files('features'), ...files('scripts'), ...files('services')]
       .filter(f => /trialTips\/resendTransport/.test(read(f)));
-    expect(importers).toEqual(['scripts/run-trial-tips.ts']);
+    // Both scheduled jobs share the one transport; nothing in the web app
+    // (app/lib/features) may import it — the Resend key stays in scripts.
+    expect(importers).toEqual(['scripts/run-morning-brief.ts', 'scripts/run-trial-tips.ts']);
   });
 });

@@ -8,9 +8,10 @@
  * follow-up drafts. Drafts are shown with a copy button — this view has no
  * way to send anything, and the API behind it is read-only.
  *
- * The module only appears when the `redline_ai` feature flag is on for the
- * shop (see lib/featureFlags/flaggedModules.ts); the API enforces the same
- * gate server-side.
+ * The module only appears when the shop has Redline AI access — the
+ * `redline_ai` feature flag or a Professional/Business/Enterprise plan
+ * (lib/redline-ai/access, surfaced through lib/featureFlags/flaggedModules.ts);
+ * the API enforces the same decision server-side.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Panel } from '@/components/Panel';
