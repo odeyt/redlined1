@@ -247,7 +247,7 @@ export async function searchVehicles(
   const q = query.replace(/[%_]/g, '').trim();
   let chain = t(db, 'vehicles').select('*').in('shop_id', scope);
   if (q) chain = chain.or(`label.ilike.%${q}%,plate.ilike.%${q}%`);
-  const found = await rows(chain.order('created_at', { ascending: false }).limit(20));
+  const found = await rows(chain.order('date_received', { ascending: false }).limit(20));
   const names = await customerNamesFor(db, scope, found.map(r => str(r.customer_id)));
   return found.map(r => mapVehicleRow(r, names));
 }
