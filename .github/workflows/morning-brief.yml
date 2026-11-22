@@ -1,0 +1,71 @@
+name: Morning Brief Emails
+
+# The ONE scheduler for the Redline AI morning brief. Hourly, because
+# "05:00" is a different UTC hour for every shop timezone: each run emails
+# only the shops whose local time is inside their 05:00 hour and whose
+# brief for that local date has not been sent (see
+# lib/morningBrief/runner.ts). A shop is never emailed late — a brief that
+# misses its hour waits for tomorrow.
+#
+# OFF BY DEFAULT, three times over:
+#   1. The scheduled trigger does nothing unless the repository VARIABLE
+#      MORNING_BRIEF_SCHEDULE_ENABLED is exactly "true". It is not set.
+#   2. Even when the job runs, it is a dry run (reports who would be
+#      emailed, sends nothing) unless MORNING_BRIEF_SENDING_ENABLED is
+#      "true" AND the sender, site URL and Resend key are all set
+#      (lib/morningBrief/config.ts).
+#   3. Even then, only canary addresses are emailed unless
+#      MORNING_BRIEF_AUDIENCE is exactly "everyone".
+#
+# Prerequisite: supabase/migrations/2026-11-23_morning_brief_email.sql must
+# be applied before the first live run (the job reads and writes
+# morning_brief_sends).
+#
+# Runbook: docs/morning-brief-launch.md
+#
+# A manual run (workflow_dispatch) always runs — useful for a dry run —
+# but still cannot send unless gate 2 passes.
+on:
+  schedule:
+    - cron: '37 * * * *' # hourly, off the busy :00 slot
+  workflow_dispatch:
+
+# Overlapping runs are already safe (claims are a unique-key insert); this
+# just stops a slow run from stacking up behind itself.
+concurrency:
+  group: morning-brief
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Morning brief
+    if: github.event_name == 'workflow_dispatch' || vars.MORNING_BRIEF_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22+: supabase-js needs native WebSocket (see domain-event-relay.yml).
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send due morning briefs
+        run: npm run morning-brief:run
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+          MORNING_BRIEF_SENDING_ENABLED: ${{ vars.MORNING_BRIEF_SENDING_ENABLED }}
+          MORNING_BRIEF_FROM_ADDRESS: ${{ vars.MORNING_BRIEF_FROM_ADDRESS }}
+          # Who may be emailed. Anything but exactly "everyone" means canary:
+          # only the addresses in MORNING_BRIEF_CANARY_RECIPIENTS (a secret,
+          # so the addresses are masked in logs). Unset = canary with nobody.
+          MORNING_BRIEF_AUDIENCE: ${{ vars.MORNING_BRIEF_AUDIENCE }}
+          MORNING_BRIEF_CANARY_RECIPIENTS: ${{ secrets.MORNING_BRIEF_CANARY_RECIPIENTS }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

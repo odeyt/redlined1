@@ -181,3 +181,27 @@ export function seatLimitFor(plan: string | null, trialEndsAt: string | null): n
   if (trialEndsAt && new Date(trialEndsAt) > new Date()) return null;
   return SEAT_LIMITS.free;
 }
+
+/**
+ * Paid tiers that include Redline AI (the read-only panel + the morning
+ * brief email) without a per-shop feature-flag row.
+ *
+ * Reads the raw `plan` column for the same reason seatLimitFor does:
+ * getPlanStatus() collapses every paid tier to 'pro', which would hand
+ * Redline AI to Solo and Starter shops that have not paid for it.
+ *
+ * Enterprise is included deliberately: it is the custom tier above Business,
+ * sold as "everything in Business, plus" — a plan gate that stopped at
+ * Business would take the feature away from the largest customers.
+ *
+ * A trial does NOT qualify through here. Trials read through the plan column
+ * a trialing profile actually carries ('free'/null until they pay), and the
+ * 7-day trial's full access comes from canAccess(), a different axis. Redline
+ * AI reaches a trial shop only through the redline_ai flag (pilot shops) —
+ * see lib/redline-ai/access.ts.
+ */
+const REDLINE_AI_PLANS = new Set(['professional', 'business', 'enterprise']);
+
+export function planIncludesRedlineAi(plan: string | null): boolean {
+  return !!plan && REDLINE_AI_PLANS.has(plan);
+}

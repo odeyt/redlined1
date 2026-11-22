@@ -52,6 +52,17 @@ export async function GET(req: NextRequest) {
       ctx.role === 'owner' ? getAllFlagRows(ctx.shopId) : Promise.resolve(undefined),
     ]);
 
+    // Redline AI is the one flag whose evaluated value is not the whole
+    // story: a Professional/Business/Enterprise plan also grants it
+    // (lib/redline-ai/access). Report the access decision under the flag
+    // key so the sidebar module and AppShell route behave exactly as the
+    // /api/redline-ai gate does. The flag ROWS above are untouched — this
+    // changes only the evaluated value this response carries.
+    if (ctx.shopId) {
+      const { isRedlineAiEnabled } = await import('@/lib/redline-ai/access');
+      flagMap.redline_ai = await isRedlineAiEnabled(ctx);
+    }
+
     return NextResponse.json({
       flags: flagMap,
       ...(allRows !== undefined ? { rows: allRows } : {}),

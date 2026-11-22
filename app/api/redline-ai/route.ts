@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic';
 //  - Shop: resolved server-side by lib/shops/requestShop from the caller's
 //    own memberships (owner/manager only). The x-shop-id header can only
 //    choose among those memberships — it can never grant one.
-//  - Gate: feature flag `redline_ai` (lib/featureFlags), fail-closed —
-//    no flag row, no access. Disabled by default; see
-//    supabase/migrations/2026-11-22_redline_ai_flag.sql.
+//  - Gate: Redline AI access (lib/redline-ai/access), fail-closed — the
+//    `redline_ai` feature flag OR a Professional/Business/Enterprise plan
+//    on the shop owner's profile. No flag row and no qualifying plan, no
+//    access. See supabase/migrations/2026-11-22_redline_ai_flag.sql.
 //  - Read-only: this route never writes business data and never sends
 //    anything. Follow-ups come back as draft text for staff to copy.
 
@@ -21,7 +22,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { resolveRequestShop } from '@/lib/shops/requestShop';
-import { isEnabled } from '@/lib/featureFlags/featureFlagService';
+import { isRedlineAiEnabled } from '@/lib/redline-ai/access';
 import { logger } from '@/lib/logger';
 import {
   RedlineAiError,
@@ -30,7 +31,6 @@ import {
 } from '@/lib/redline-ai/service';
 import type { RedlineAiJob } from '@/lib/redline-ai/types';
 
-const FLAG_KEY = 'redline_ai';
 const ALLOWED_ROLES = ['owner', 'manager'] as const;
 const JOBS: readonly RedlineAiJob[] = [
   'morning_brief',
@@ -66,7 +66,9 @@ async function flagOn(ctx: { userId: string; shopId: string; role: string }): Pr
     ? 'production'
     : process.env.NODE_ENV === 'development' ? 'development' : 'staging') as
     'production' | 'staging' | 'development';
-  return isEnabled(FLAG_KEY, {
+  // Flag OR qualifying plan — one decision, shared with the sidebar's flag
+  // feed and the morning-brief job (lib/redline-ai/access).
+  return isRedlineAiEnabled({
     userId: ctx.userId,
     shopId: ctx.shopId,
     role: ctx.role,

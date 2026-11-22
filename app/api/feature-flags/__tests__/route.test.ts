@@ -48,6 +48,14 @@ jest.mock('@/lib/featureFlags/featureFlagService', () => ({
   invalidateCache: (...a: unknown[]) => mockInvalidate(...a),
   getCurrentEnvironment: () => 'production',
 }));
+// Redline AI's evaluated value in this feed is the access decision (flag OR
+// qualifying plan — lib/redline-ai/access), not the raw flag evaluation.
+// Mocked so these tests stay about roles and rows; the decision itself is
+// covered in lib/redline-ai/__tests__/access.test.ts.
+const mockRedlineAiEnabled = jest.fn(async () => false);
+jest.mock('@/lib/redline-ai/access', () => ({
+  isRedlineAiEnabled: (...a: unknown[]) => mockRedlineAiEnabled(...a),
+}));
 // The real saveFlagRow runs against this: an update that finds the existing
 // row. `upsert` throws, because ON CONFLICT cannot target the expression index
 // that makes feature_flags unique — the bug that 500'd every toggle.
@@ -87,20 +95,33 @@ beforeEach(() => {
   lookups.length = 0;
   mockInvalidate.mockClear();
   mockUpdate.mockClear();
+  mockRedlineAiEnabled.mockClear();
+  mockRedlineAiEnabled.mockResolvedValue(false);
 });
 
 describe('GET /api/feature-flags', () => {
   it('gives an owner of the named shop the rows the Settings screen lists', async () => {
     const json = await (await GET(get('shop-1'))).json();
     expect(json.rows).toHaveLength(1);
-    expect(json.flags).toEqual({ intent_intake: true });
+    // redline_ai is always present in the evaluated map: it carries the
+    // access decision (here: no access), not just the raw flag rows.
+    expect(json.flags).toEqual({ intent_intake: true, redline_ai: false });
     expect(lookups).toEqual([{ userId: 'user-owner', shopId: 'shop-1' }]);
   });
 
   it('gives a manager the evaluated flags but no rows', async () => {
     const json = await (await GET(get('shop-2'))).json();
     expect(json.rows).toBeUndefined();
-    expect(json.flags).toEqual({ intent_intake: true });
+    expect(json.flags).toEqual({ intent_intake: true, redline_ai: false });
+  });
+
+  it('reports redline_ai access from the access decision, not the flag rows', async () => {
+    mockRedlineAiEnabled.mockResolvedValue(true);
+    const json = await (await GET(get('shop-1'))).json();
+    expect(json.flags.redline_ai).toBe(true);
+    expect(mockRedlineAiEnabled).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-owner', shopId: 'shop-1', role: 'owner' }),
+    );
   });
 
   it('without a shop, finds no role — the old behaviour, and why the header is required', async () => {
