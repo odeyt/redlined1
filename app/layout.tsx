@@ -18,13 +18,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.redlined1.com'),
-  title: 'Redlined1',
-  description: 'Automotive CRM and shop operations',
+  title: 'RedlineD1 — Auto Repair Shop Software',
+  description: 'RedlineD1 is the shop management software built for auto repair shops: job cards, digital vehicle inspections, estimates, invoicing and payments in one platform. Free plan available — start a 7-day full trial, no card required.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Redlined1',
+    title: 'RedlineD1',
   },
   verification: process.env.GOOGLE_SITE_VERIFICATION
     ? { google: process.env.GOOGLE_SITE_VERIFICATION }

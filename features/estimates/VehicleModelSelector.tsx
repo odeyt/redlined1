@@ -9,7 +9,7 @@
  * Ambiguity at the model step produces no MODIFICATION candidates, so the
  * variant chooser has nothing to offer and cannot render — and before this,
  * the technician was left reading "No matching parts found", which blames the
- * catalogue for a question Redlined1 could not answer.
+ * catalogue for a question RedlineD1 could not answer.
  *
  * ## What it will not do
  *
@@ -54,7 +54,7 @@ export function VehicleModelSelector({
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-        Redlined1 knows: <strong style={{ color: 'var(--text)' }}>{vehicleLabel}</strong>
+        RedlineD1 knows: <strong style={{ color: 'var(--text)' }}>{vehicleLabel}</strong>
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>

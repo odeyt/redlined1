@@ -4,7 +4,7 @@
  * The model is unusual and these tests exist mostly to stop someone
  * "improving" it: there is no timestamp, no duration, no end time, no shop
  * timezone, no foreign keys and no status machine. Each of those is a
- * deliberate reflection of what Redlined1 actually stores.
+ * deliberate reflection of what RedlineD1 actually stores.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';

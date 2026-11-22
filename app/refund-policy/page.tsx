@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund Policy — Redlined1',
-  description: 'Redlined1 subscription refund and cancellation policy.',
+  title: 'Refund Policy — RedlineD1',
+  description: 'RedlineD1 subscription refund and cancellation policy.',
 };
 
 export default function RefundPolicyPage() {
@@ -11,14 +11,14 @@ export default function RefundPolicyPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.back}>
-          <Link href="/" style={styles.backLink}>← Redlined1</Link>
+          <Link href="/" style={styles.backLink}>← RedlineD1</Link>
         </div>
 
         <h1 style={styles.h1}>Refund Policy</h1>
         <p style={styles.meta}>Effective date: 1 July 2025 · Last updated: 14 July 2025</p>
 
         <p style={styles.lead}>
-          We want you to be confident trying Redlined1. This policy explains exactly when you can
+          We want you to be confident trying RedlineD1. This policy explains exactly when you can
           get your money back — no ambiguity.
         </p>
 
@@ -64,7 +64,7 @@ export default function RefundPolicyPage() {
               cancellation, we will correct it immediately.
             </li>
             <li>
-              <strong>Extended outage</strong> — if Redlined1 experienced an outage exceeding 72
+              <strong>Extended outage</strong> — if RedlineD1 experienced an outage exceeding 72
               consecutive hours that was our fault, we will credit or refund a pro-rated amount for
               the affected period.
             </li>
@@ -108,7 +108,7 @@ export default function RefundPolicyPage() {
             Refund questions? We are here to help.
           </p>
           <p style={styles.p}>
-            <strong>Redlined1</strong><br />
+            <strong>RedlineD1</strong><br />
             Email: <a href="mailto:admin@redlined1.com" style={styles.link}>admin@redlined1.com</a><br />
             Response time: within 2 business days
           </p>

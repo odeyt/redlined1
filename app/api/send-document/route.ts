@@ -143,7 +143,7 @@ async function buildPdf(doc: {
 
   // ── Footer ──
   page.drawLine({ start: { x: 40, y: 36 }, end: { x: pageWidth - 40, y: 36 }, thickness: 0.5, color: LINE });
-  const footer = `${doc.shopName} · ${doc.number} · Powered by Redlined1`;
+  const footer = `${doc.shopName} · ${doc.number} · Powered by RedlineD1`;
   const ftW = fontReg.widthOfTextAtSize(footer, 7.5);
   page.drawText(footer, { x: (pageWidth - ftW) / 2, y: 22, font: fontReg, size: 7.5, color: GRAY });
 
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
      *
      * Enforced HERE, not only in the browser, so a direct POST is refused the
      * same way a click is. Reproduced before this was written: a shop with no
-     * settings row sent an invoice headed "Redlined1" — our product name on
+     * settings row sent an invoice headed "RedlineD1" — our product name on
      * their customer's document — and this very route answered PGRST116 from
      * the `.single()` below, which told nobody anything.
      *
@@ -357,11 +357,11 @@ export async function POST(req: NextRequest) {
       <div style="font-size:18px;font-weight:900;color:#111">Total: ${money(docData.total, docData.currency)}</div>
     </div>
     ${docData.notes ? `<div style="margin-top:20px;padding:14px 18px;background:#f8f8f8;border-radius:8px"><div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Notes</div><div style="font-size:13px;color:#444">${docData.notes}</div></div>` : ''}
-    ${isWatermarked ? `<div style="margin-top:20px;padding:10px 16px;background:#fff8f8;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:center">Trial version — Powered by Redlined1</div>` : ''}
+    ${isWatermarked ? `<div style="margin-top:20px;padding:10px 16px;background:#fff8f8;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#991b1b;text-align:center">Trial version — Powered by RedlineD1</div>` : ''}
   </div>
   <div style="background:#f8f8f8;border-top:1px solid #eee;padding:16px 32px;text-align:center">
     <div style="font-size:12px;color:#888">${shopName}${shopPhone ? ` · ${shopPhone}` : ''}${shopAddress ? ` · ${shopAddress}` : ''}</div>
-    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by Redlined1</div>
+    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by RedlineD1</div>
   </div>
 </div>
 </body></html>`;

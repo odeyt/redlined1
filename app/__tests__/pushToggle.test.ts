@@ -44,7 +44,7 @@ describe('permission is never requested unprompted', () => {
   });
 
   it('explains the iOS case rather than showing a dead button', () => {
-    expect(subscribe).toMatch(/add Redlined1 to your Home Screen first/);
+    expect(subscribe).toMatch(/add RedlineD1 to your Home Screen first/);
   });
 
   it('explains a blocked permission rather than retrying it', () => {
@@ -69,7 +69,7 @@ describe('the service worker survives a bad push', () => {
     // A throw here shows the browser's own generic "site updated in the
     // background" notice, which tells the user nothing.
     expect(sw).toMatch(/event\.data \? event\.data\.json\(\) : \{\}/);
-    expect(sw).toMatch(/title = payload\.title \|\| 'Redlined1'/);
+    expect(sw).toMatch(/title = payload\.title \|\| 'RedlineD1'/);
   });
 
   it('always shows a notification once a push arrives', () => {

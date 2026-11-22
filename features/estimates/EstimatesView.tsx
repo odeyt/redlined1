@@ -359,7 +359,7 @@ export function EstimatesView() {
    * The vehicle this estimate is already about.
    *
    * Resolved from the estimate's own linked vehicle so the technician is never
-   * asked to retype what Redlined1 already holds. `form.vehicle` is the label
+   * asked to retype what RedlineD1 already holds. `form.vehicle` is the label
    * the picker stores, which is how the rest of this screen identifies it.
    */
   const searchVehicle = (() => {
@@ -1168,7 +1168,7 @@ export function EstimatesView() {
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
                   <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                     {shopSettings?.tagline && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{shopSettings.tagline}</div>}
                     {shopSettings?.address && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
                     {shopSettings?.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {shopSettings.phone}</div>}
@@ -1345,7 +1345,7 @@ export function EstimatesView() {
               <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                 {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain', borderRadius: 6 }} />}
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                   {shopSettings?.tagline && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{shopSettings.tagline}</div>}
                   {shopSettings?.address && <div style={{ fontSize: 12, color: '#555', marginTop: 6, whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
                   <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>
@@ -1505,7 +1505,7 @@ export function EstimatesView() {
             {/* Notes are internal only — not shown to customers on the estimate print */}
 
             <div style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #eee', textAlign: 'center', fontSize: 11, color: '#aaa' }}>
-              {makeLabelFn(printLang)('This estimate is valid until', 'ໃບປະເມີນນີ້ໃຊ້ໄດ້ຮອດ')} {selected.validUntil ? fmt(selected.validUntil) : makeLabelFn(printLang)('further notice', 'ແຈ້ງເຕືອນຕໍ່ໄປ')} — {shopSettings?.companyName || 'Redlined1'}
+              {makeLabelFn(printLang)('This estimate is valid until', 'ໃບປະເມີນນີ້ໃຊ້ໄດ້ຮອດ')} {selected.validUntil ? fmt(selected.validUntil) : makeLabelFn(printLang)('further notice', 'ແຈ້ງເຕືອນຕໍ່ໄປ')} — {shopSettings?.companyName || 'RedlineD1'}
               {shopSettings?.phone && ` · ${shopSettings.phone}`}
             </div>
 

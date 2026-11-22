@@ -99,7 +99,7 @@ export function PwaUpdater() {
         color: 'var(--text, #e8eaf0)', fontSize: 14,
       }}
     >
-      <span style={{ flex: 1, minWidth: 160 }}>A new version of Redlined1 is ready.</span>
+      <span style={{ flex: 1, minWidth: 160 }}>A new version of RedlineD1 is ready.</span>
       <button
         onClick={reload}
         style={{

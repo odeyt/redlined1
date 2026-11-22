@@ -43,7 +43,7 @@ describe('an accepted inquiry', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, messageId: 'msg-1' });
     const [payload] = mockSend.mock.calls[0];
-    expect(payload.from).toBe('Redlined1 <notifications@redlined1.com>');
+    expect(payload.from).toBe('RedlineD1 <notifications@redlined1.com>');
     expect(payload.from).not.toMatch(/resend\.dev/);
     expect(payload.to).toBe('admin@redlined1.com');
     expect(payload.replyTo).toBe('jane@example.com');

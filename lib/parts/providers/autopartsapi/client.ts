@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * The one place Redlined1 talks to AutoPartsAPI.
+ * The one place RedlineD1 talks to AutoPartsAPI.
  *
  * Every request in the codebase goes through `autoPartsApiRequest`. Header
  * construction, the base URL, the timeout, error classification and quota
@@ -353,7 +353,7 @@ function rowIso(row: AutoPartsLanguageRow): string {
  * ENGLISH, resolved by name from the provider's own list rather than by
  * assuming the `lang-id/4` seen in a dashboard example. The shop is in Laos
  * and bilingual, but the catalogue is a source of part numbers and brand
- * names — English is the language those are published in, and Redlined1
+ * names — English is the language those are published in, and RedlineD1
  * already translates customer-facing description text separately.
  *
  * `countryFilterId` is left UNSET in Phase 1. The example showed

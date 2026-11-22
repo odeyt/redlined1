@@ -69,7 +69,7 @@ describe('a new trial signup', () => {
 
     const [payload, options] = mockSend.mock.calls[0];
     expect(payload.to).toBe('admin@redlined1.com');
-    expect(payload.from).toBe('Redlined1 <noreply@redlined1.com>');
+    expect(payload.from).toBe('RedlineD1 <noreply@redlined1.com>');
     expect(payload.from).not.toMatch(/resend\.dev/);
     expect(payload.replyTo).toBe('new.owner@example.com');
     expect(options).toEqual({ idempotencyKey: `signup-alert/${USER_ID}` });
@@ -88,7 +88,7 @@ describe('a new trial signup', () => {
   it('uses MAIL_FROM_ADDRESS when production sets one', async () => {
     process.env.MAIL_FROM_ADDRESS = 'alerts@redlined1.com';
     await POST(request(VALID));
-    expect(mockSend.mock.calls[0][0].from).toBe('Redlined1 <alerts@redlined1.com>');
+    expect(mockSend.mock.calls[0][0].from).toBe('RedlineD1 <alerts@redlined1.com>');
   });
 });
 

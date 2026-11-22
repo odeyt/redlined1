@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * The one path from a Redlined1 vehicle to a provider vehicle id.
+ * The one path from a RedlineD1 vehicle to a provider vehicle id.
  *
  * Nothing else may call the manufacturer, model or variant endpoints. Not
  * because layering is tidy, but because those calls are the budget: a UI

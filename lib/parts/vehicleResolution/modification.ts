@@ -3,7 +3,7 @@
  *
  * ## Why this usually cannot be automatic, and why that is the right answer
  *
- * Redlined1 records engine on 6 of 114 vehicles and trim on none. So for
+ * RedlineD1 records engine on 6 of 114 vehicles and trim on none. So for
  * almost every real vehicle, the only inputs are make, model and year — and a
  * model year routinely covers several modifications with different brakes,
  * different hubs and different calipers.
@@ -85,7 +85,7 @@ export interface ModificationEvidence {
 }
 
 /**
- * Narrow provider variants using whatever Redlined1 holds.
+ * Narrow provider variants using whatever RedlineD1 holds.
  *
  * Returns `matched` only when exactly one candidate survives AND at least one
  * piece of engine-level evidence did the narrowing. One survivor reached by

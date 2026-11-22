@@ -1,5 +1,5 @@
 /**
- * Public API for the Redlined1 payment layer.
+ * Public API for the RedlineD1 payment layer.
  * Import everything from here — do not import from sub-files directly.
  */
 

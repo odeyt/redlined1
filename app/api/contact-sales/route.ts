@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const { data, error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-      from: mailFrom('Redlined1'),
+      from: mailFrom('RedlineD1'),
       to: 'admin@redlined1.com',
       replyTo: email,
       subject: `📩 ${contextLabel} inquiry — ${(shopName || name).replace(/[\r\n]+/g, ' ')}`,
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
             </p>
           </div>
           <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-            Redlined1 · Auto Shop Management Platform · www.redlined1.com
+            RedlineD1 · Auto Shop Management Platform · www.redlined1.com
           </div>
         </div>
       `,

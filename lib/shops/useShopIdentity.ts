@@ -5,7 +5,7 @@
  *
  * Asks the server rather than deriving it from a settings object the client
  * already holds. That is the whole point: `fetchShopSettings` substitutes
- * "My Shop" for a missing name and the invoice header substitutes "Redlined1",
+ * "My Shop" for a missing name and the invoice header substitutes "RedlineD1",
  * so any client-side derivation would be reading a value that had already been
  * invented somewhere.
  *

@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Redlined1',
-  description: 'Terms and conditions for using the Redlined1 platform.',
+  title: 'Terms of Service — RedlineD1',
+  description: 'Terms and conditions for using the RedlineD1 platform.',
 };
 
 export default function TermsPage() {
@@ -11,21 +11,21 @@ export default function TermsPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.back}>
-          <Link href="/" style={styles.backLink}>← Redlined1</Link>
+          <Link href="/" style={styles.backLink}>← RedlineD1</Link>
         </div>
 
         <h1 style={styles.h1}>Terms of Service</h1>
         <p style={styles.meta}>Effective date: 1 July 2025 · Last updated: 14 July 2025</p>
 
         <p style={styles.lead}>
-          These Terms of Service ("Terms") govern your access to and use of Redlined1 ("the
-          Service") provided by Redlined1 ("we", "us"). By creating an account or using the Service,
+          These Terms of Service ("Terms") govern your access to and use of RedlineD1 ("the
+          Service") provided by RedlineD1 ("we", "us"). By creating an account or using the Service,
           you agree to these Terms. If you do not agree, do not use the Service.
         </p>
 
         <Section title="1. The Service">
           <p style={styles.p}>
-            Redlined1 is a cloud-based shop-management platform for automotive repair businesses. It
+            RedlineD1 is a cloud-based shop-management platform for automotive repair businesses. It
             includes job cards, invoicing, digital vehicle inspections, parts management,
             appointments, customer records, and optional AI-powered intelligence features.
           </p>
@@ -51,7 +51,7 @@ export default function TermsPage() {
 
         <Section title="3. Plans and Billing">
           <p style={styles.p}>
-            Redlined1 offers a free plan and paid plans billed monthly or annually. Billing is
+            RedlineD1 offers a free plan and paid plans billed monthly or annually. Billing is
             processed by <strong>Creem</strong>. Your subscription renews automatically unless you
             cancel before the renewal date.
           </p>
@@ -82,7 +82,7 @@ export default function TermsPage() {
 
         <Section title="5. Your Data">
           <p style={styles.p}>
-            You own all data you enter into Redlined1 — customer records, vehicles, jobs,
+            You own all data you enter into RedlineD1 — customer records, vehicles, jobs,
             invoices, and everything else. We do not claim any rights to it.
           </p>
           <p style={styles.p}>
@@ -110,7 +110,7 @@ export default function TermsPage() {
 
         <Section title="7. Intellectual Property">
           <p style={styles.p}>
-            The Redlined1 name, logo, software, and documentation are our intellectual property.
+            The RedlineD1 name, logo, software, and documentation are our intellectual property.
             Nothing in these Terms transfers ownership to you.
           </p>
           <p style={styles.p}>
@@ -169,7 +169,7 @@ export default function TermsPage() {
 
         <Section title="13. Contact">
           <p style={styles.p}>
-            <strong>Redlined1</strong><br />
+            <strong>RedlineD1</strong><br />
             Email: <a href="mailto:admin@redlined1.com" style={styles.link}>admin@redlined1.com</a><br />
             Website: <a href="https://redlined1.com" style={styles.link}>redlined1.com</a>
           </p>

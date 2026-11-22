@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   </div>
   <div style="background:#f8f8f8;border-top:1px solid #eee;padding:16px 32px;text-align:center">
     <div style="font-size:12px;color:#888">${shopName}${shopPhone ? ` · ${shopPhone}` : ''}${shopAddress ? ` · ${shopAddress}` : ''}${shopEmail ? ` · ${shopEmail}` : ''}</div>
-    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by Redlined1</div>
+    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by RedlineD1</div>
   </div>
 </div>
 </body></html>`;
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   </div>
   <div style="background:#f8f8f8;border-top:1px solid #eee;padding:16px 32px;text-align:center">
     <div style="font-size:12px;color:#888">${shopName}${shopPhone ? ` · ${shopPhone}` : ''}${shopAddress ? ` · ${shopAddress}` : ''}${shopEmail ? ` · ${shopEmail}` : ''}</div>
-    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by Redlined1</div>
+    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by RedlineD1</div>
   </div>
 </div>
 </body></html>`;

@@ -231,7 +231,7 @@ export function VinView() {
               </div>
 
               {/* Save panel */}
-              <Panel title="💾 Save to Redlined1 CRM" hint="Add decoded vehicle to your records">
+              <Panel title="💾 Save to RedlineD1 CRM" hint="Add decoded vehicle to your records">
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   {([['vehicle', '🚗 Save as Vehicle Record'], ['job-card', '📋 Create Job Card'], ['none', 'Skip']] as [SaveTarget, string][]).map(([val, lbl]) => (
                     <button key={val} onClick={() => setSaveTarget(val)}

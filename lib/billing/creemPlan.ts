@@ -1,6 +1,6 @@
 /**
  * lib/billing/creemPlan.ts
- * Which plan did this event buy? Answered from what the event says, checked against the plans Redlined1 actually
+ * Which plan did this event buy? Answered from what the event says, checked against the plans RedlineD1 actually
  * sells, and NEVER defaulted. A missing, unknown or contradictory answer is an unresolved event for the owner; it
  * is not "Professional", and it is not any other paid plan.
  *

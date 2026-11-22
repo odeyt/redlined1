@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * Comparing a Redlined1 vehicle with the catalogue variant it is mapped to.
+ * Comparing a RedlineD1 vehicle with the catalogue variant it is mapped to.
  *
  * ## It never calls the provider
  *

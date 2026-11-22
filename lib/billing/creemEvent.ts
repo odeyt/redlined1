@@ -9,7 +9,7 @@
  *
  *   apply        a subscription lifecycle event (activation, cancellation, past due). The route then proves who
  *                bought it and for which shop before it changes anything.
- *   acknowledge  ONLY a positively identified external one-time order (billing type "onetime", no Redlined1
+ *   acknowledge  ONLY a positively identified external one-time order (billing type "onetime", no RedlineD1
  *                metadata, nothing subscription-shaped). It has no shop to find and is recorded as processed.
  *   hold         everything else: missing type or id, a malformed checkout, refunds and disputes, subscription
  *                events this code does not handle, unknown event types. Recorded as processed = false with a
@@ -60,7 +60,7 @@ export function metadataOf(data: Record<string, unknown>): Record<string, string
   return out;
 }
 
-/** The keys Redlined1's checkout sets. Any one of them means the event came from our checkout. */
+/** The keys RedlineD1's checkout sets. Any one of them means the event came from our checkout. */
 const REDLINED_METADATA_KEYS = ['shop_id', 'user_id', 'plan_key', 'plan_id'] as const;
 
 function redlinedKeysOf(meta: Record<string, string>): Record<string, string> {
@@ -70,9 +70,9 @@ function redlinedKeysOf(meta: Record<string, string>): Record<string, string> {
 }
 
 export type MetadataResolution =
-  /** No Redlined1 checkout metadata anywhere on the event. */
+  /** No RedlineD1 checkout metadata anywhere on the event. */
   | { kind: 'none' }
-  /** The event object and its nested subscription both carry Redlined1 metadata, and they DISAGREE. */
+  /** The event object and its nested subscription both carry RedlineD1 metadata, and they DISAGREE. */
   | { kind: 'conflict' }
   /** One coherent source. Every identifier is read from this single object, never mixed from two. */
   | { kind: 'ok'; meta: Record<string, string>; source: 'object' | 'subscription' };
@@ -82,7 +82,7 @@ export type MetadataResolution =
  *
  * A checkout.completed carries the same metadata twice: on the event object and on its nested subscription.
  * Merging them key by key would let a user_id from one and a shop_id from the other combine into a pair that no
- * checkout ever created. So: if only one place carries Redlined1 keys, that place is the source, whole. If both
+ * checkout ever created. So: if only one place carries RedlineD1 keys, that place is the source, whole. If both
  * do, they must agree exactly (same keys, same values), otherwise the event is a conflict and nothing is acted on.
  */
 export function resolveEventMetadata(data: Record<string, unknown>): MetadataResolution {
@@ -120,11 +120,11 @@ const isApplyType = (t: string) => ACTIVATION_EVENT_TYPES.has(t) || CANCELLATION
   || PAST_DUE_EVENT_TYPES.has(t) || SUSPENSION_EVENT_TYPES.has(t);
 
 export type CreemEventClass =
-  /** Carries Redlined1 checkout metadata: it is ours and must be proven to belong to a shop. */
+  /** Carries RedlineD1 checkout metadata: it is ours and must be proven to belong to a shop. */
   | 'redlined_subscription'
-  /** A subscription (or subscription lifecycle) event with no Redlined1 metadata: possibly a real customer, never dropped silently. */
+  /** A subscription (or subscription lifecycle) event with no RedlineD1 metadata: possibly a real customer, never dropped silently. */
   | 'unattributed_subscription'
-  /** A positively identified one-time order made outside Redlined1 (payment link, dashboard). Nothing to link. */
+  /** A positively identified one-time order made outside RedlineD1 (payment link, dashboard). Nothing to link. */
   | 'external_order'
   /** A refund, dispute or chargeback. Money moved back: an owner decides, nothing is applied automatically. */
   | 'refund_or_dispute'
@@ -155,28 +155,28 @@ export type UnresolvedReason =
   | 'refund_or_dispute' | 'unhandled_subscription_event' | 'unknown_event_type';
 
 export const UNRESOLVED_REASON_TEXT: Record<UnresolvedReason, string> = {
-  no_shop_metadata:     'The event carries no shop or user to link it to (not created by Redlined1 checkout).',
+  no_shop_metadata:     'The event carries no shop or user to link it to (not created by RedlineD1 checkout).',
   shop_not_found:       'The event names a shop that does not exist.',
   no_membership:        'The event names a user who belongs to no shop.',
   ambiguous_membership: 'The event names a user who belongs to more than one shop, so no shop was chosen.',
   buyer_unverified:     'The event does not identify the buyer safely (a shop without a valid checkout user, or an invalid user).',
   buyer_not_member:     'The buyer named by the event is not a member of the shop it names.',
   buyer_not_eligible:   'The buyer is a member of the shop but not in a role that manages billing (owner or manager).',
-  conflicting_metadata: 'The event carries two different sets of Redlined1 metadata (on the event and on its subscription).',
+  conflicting_metadata: 'The event carries two different sets of RedlineD1 metadata (on the event and on its subscription).',
   no_buyer_profile:     'The buyer has no profile row to grant the plan to.',
   provider_state_unusable:   'The provider was reached but its subscription state could not be applied safely.',
   subscription_unidentified: 'Neither the event nor the shop names a subscription to reconcile this against.',
   subscription_mismatch:     'The event names a different subscription than the one stored for this shop, so it was not applied.',
   plan_missing:         'The event does not say which plan was bought.',
-  plan_unknown:         'The event names a plan or product that is not a plan sold through Redlined1 checkout.',
+  plan_unknown:         'The event names a plan or product that is not a plan sold through RedlineD1 checkout.',
   plan_conflict:        'The plan named in the metadata disagrees with itself or with the product actually purchased.',
   missing_event_type:   'The event has no type, so it cannot be classified.',
   missing_event_id:     'The event has no id, so it cannot be told apart from a duplicate and was not applied.',
   malformed_object:     'The event body is present but is not a readable object.',
-  malformed_checkout:   'A completed checkout that is neither a Redlined1 checkout nor a recognisable order.',
+  malformed_checkout:   'A completed checkout that is neither a RedlineD1 checkout nor a recognisable order.',
   refund_or_dispute:    'A refund, dispute or chargeback. An owner must decide what it means for access.',
   unhandled_subscription_event: 'A subscription event this version does not act on (for example an update or upgrade). The stored plan is unchanged.',
-  unknown_event_type:   'An event type Redlined1 has no rule for.',
+  unknown_event_type:   'An event type RedlineD1 has no rule for.',
 };
 
 export const unresolvedError = (reason: UnresolvedReason): string => `${UNRESOLVED_PREFIX}${reason}`;

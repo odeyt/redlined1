@@ -1,5 +1,5 @@
 /**
- * Resolving a Redlined1 vehicle to a provider's idea of the same vehicle.
+ * Resolving a RedlineD1 vehicle to a provider's idea of the same vehicle.
  *
  * ## The distinction this whole module exists to protect
  *
@@ -16,16 +16,16 @@
  * ## Provider ids stay here
  *
  * `manufacturerId`, `modelId`, `vehicleId` and `typeId` are AutoPartsAPI's
- * words for things Redlined1 already has its own words for. They live in this
+ * words for things RedlineD1 already has its own words for. They live in this
  * module and in the mapping table; nothing in the estimate, the invoice or
- * the vehicle record learns them. Redlined1's canonical vehicle id remains
+ * the vehicle record learns them. RedlineD1's canonical vehicle id remains
  * the only identity the rest of the app knows.
  */
 
 export type VehicleResolutionStatus =
   | 'resolved'           // one provider modification, unambiguously
   | 'ambiguous'          // several legitimate candidates survived
-  | 'insufficient_data'  // Redlined1 does not hold enough to ask
+  | 'insufficient_data'  // RedlineD1 does not hold enough to ask
   | 'not_found';         // the provider does not list this vehicle
 
 /**
@@ -124,7 +124,7 @@ export interface ModificationCandidate {
 }
 
 /**
- * The Redlined1 side of the question — only fields the vehicles table has.
+ * The RedlineD1 side of the question — only fields the vehicles table has.
  *
  * `trim` is present in the schema and empty in all 114 production rows, and
  * `engine` is filled in 6. The resolver is built for that reality: it must

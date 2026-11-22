@@ -83,7 +83,7 @@ async function handleEvent(event: PaymentWebhookEvent): Promise<EventOutcome> {
 
   if (event.type === 'checkout.completed') {
     const sub = extractSubscriptionFromCheckout(event);   // throws BillingFactsError for "ours, unreadable"
-    if (!sub) return { kind: 'ignored', reason: 'not a Redlined1 checkout' };
+    if (!sub) return { kind: 'ignored', reason: 'not a RedlineD1 checkout' };
     return syncSubscriptionFromProvider(sub);
   }
 

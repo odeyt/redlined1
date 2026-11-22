@@ -2,7 +2,7 @@
  * The gate on vehicle-scoped search.
  *
  * Two ways to get this wrong, and both cost something real: run it when the
- * vehicle is not actually pinned, and Redlined1 presents a guess as a
+ * vehicle is not actually pinned, and RedlineD1 presents a guess as a
  * vehicle-specific answer; run it alongside an OEM lookup, and every search
  * spends two provider calls to answer one question.
  */

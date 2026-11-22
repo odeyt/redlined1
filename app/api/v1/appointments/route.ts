@@ -6,7 +6,7 @@
  *
  * `date` and `time` are two text columns holding a shop-local date and a
  * 24-hour time. There is no timestamp anywhere in the model and `shops` has no
- * timezone column, so nothing in Redlined1 knows what zone "10:10" refers to.
+ * timezone column, so nothing in RedlineD1 knows what zone "10:10" refers to.
  *
  * This API says that plainly rather than dressing it up. Returning
  * "2026-08-21T10:10:00Z" would assert an instant the database does not hold,

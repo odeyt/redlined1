@@ -363,7 +363,7 @@ export function RepairOrdersView() {
   // a manager press buttons the domain layer then refused, and made a
   // successful sign-off look like a failure. Same resolution the write path
   // uses, so the button and the refusal cannot disagree.
-  // Both questions, because Redlined1 answers them separately: capabilities
+  // Both questions, because RedlineD1 answers them separately: capabilities
   // say what a role may DO, role_permissions says what it may SEE. The owner
   // here removed the Invoices and Estimates MODULES from managers, which the
   // capability defaults never heard about — so an in-context button has to
@@ -1258,7 +1258,7 @@ export function RepairOrdersView() {
                 <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                   {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 48, maxWidth: 110, objectFit: 'contain', borderRadius: 6 }} />}
                   <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                     {shopSettings?.address && <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
                     {shopSettings?.phone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {shopSettings.phone}</div>}
                   </div>
@@ -1410,7 +1410,7 @@ export function RepairOrdersView() {
               <div style={{ display: 'flex', gap: 16 }}>
                 {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 56, maxWidth: 130, objectFit: 'contain' }} />}
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                  <div style={{ fontSize: 24, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                   {shopSettings?.address && <div style={{ fontSize: 12, color: '#555', whiteSpace: 'pre-line', marginTop: 4 }}>{shopSettings.address}</div>}
                   {shopSettings?.phone && <div style={{ fontSize: 12, color: '#555' }}>📞 {shopSettings.phone}</div>}
                   {shopSettings?.email && <div style={{ fontSize: 12, color: '#555' }}>✉️ {shopSettings.email}</div>}
@@ -1478,7 +1478,7 @@ export function RepairOrdersView() {
             )}
 
             <div style={{ marginTop: 32, textAlign: 'center', fontSize: 11, color: '#aaa', borderTop: '1px solid #eee', paddingTop: 14 }}>
-              {shopSettings?.companyName || 'Redlined1'}{shopSettings?.phone ? ` · ${shopSettings.phone}` : ''}{shopSettings?.email ? ` · ${shopSettings.email}` : ''}
+              {shopSettings?.companyName || 'RedlineD1'}{shopSettings?.phone ? ` · ${shopSettings.phone}` : ''}{shopSettings?.email ? ` · ${shopSettings.email}` : ''}
             </div>
           </div>
         </div>

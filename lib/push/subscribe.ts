@@ -31,7 +31,7 @@ export function pushSupport(): PushSupport {
     return {
       supported: false,
       reason: isIos
-        ? 'On iPhone, add Redlined1 to your Home Screen first — notifications only work from the installed app.'
+        ? 'On iPhone, add RedlineD1 to your Home Screen first — notifications only work from the installed app.'
         : 'This browser does not support background notifications.',
     };
   }

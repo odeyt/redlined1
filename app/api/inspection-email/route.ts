@@ -169,7 +169,7 @@ export async function POST(req: NextRequest) {
     <div style="font-size:12px;color:#888">
       ${shopName}${phone ? ` &middot; ${phone}` : ''}${address ? ` &middot; ${address}` : ''}
     </div>
-    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by Redlined1</div>
+    <div style="font-size:11px;color:#bbb;margin-top:4px">Powered by RedlineD1</div>
   </div>
 </div>
 </body>

@@ -5,7 +5,7 @@
  *
  * ## Why this is a primary workflow, not an error path
  *
- * Redlined1 records engine on 6 of 114 vehicles and trim on none. For almost
+ * RedlineD1 records engine on 6 of 114 vehicles and trim on none. For almost
  * every real car the catalogue offers several variants and nothing in our data
  * separates them — so this panel is the ordinary road to verified fitment, not
  * a fallback from a failure.
@@ -26,7 +26,7 @@ import type { ModificationCandidate } from '@/lib/parts/vehicleResolution/types'
 
 export interface VariantSelectorProps {
   vehicleLabel: string;
-  /** What Redlined1 itself holds, shown so the choice is informed. */
+  /** What RedlineD1 itself holds, shown so the choice is informed. */
   knownEngine?: string;
   candidates: ModificationCandidate[];
   reason: string;
@@ -104,7 +104,7 @@ export function VehicleVariantSelector({
       </div>
 
       <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4 }}>
-        Redlined1 knows: <strong style={{ color: 'var(--text)' }}>{vehicleLabel}</strong>
+        RedlineD1 knows: <strong style={{ color: 'var(--text)' }}>{vehicleLabel}</strong>
         {knownEngine ? <> · engine <strong style={{ color: 'var(--text)' }}>{knownEngine}</strong></> : null}
       </div>
 

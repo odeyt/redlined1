@@ -389,7 +389,7 @@ function Shell() {
               Your subscription has ended
             </h2>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, margin: '0 0 28px' }}>
-              Subscribe to restore full access to job cards, estimates, invoices, inspections, and everything else in Redlined1.
+              Subscribe to restore full access to job cards, estimates, invoices, inspections, and everything else in RedlineD1.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <a

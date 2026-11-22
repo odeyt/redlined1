@@ -104,7 +104,7 @@ export function PushPrompt() {
             </>
           ) : (
             <>
-              <strong>Add Redlined1 to your Home Screen.</strong>
+              <strong>Add RedlineD1 to your Home Screen.</strong>
               <div style={{ color: 'var(--muted)', marginTop: 2 }}>
                 Tap Share, then “Add to Home Screen”, and open it from there.
                 iPhone only sends notifications to the installed app.

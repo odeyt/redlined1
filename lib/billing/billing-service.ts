@@ -19,7 +19,7 @@ import { readSubscriptionPeriod } from '@/lib/billing/creemPeriod';
 
 /**
  * A billing event that names a buyer, but not the facts needed to grant anything safely. Thrown rather than
- * returned as null: null from extractSubscriptionFromCheckout means "not a Redlined1 checkout", which the route
+ * returned as null: null from extractSubscriptionFromCheckout means "not a RedlineD1 checkout", which the route
  * acknowledges. This means "ours, and unreadable", which must stay unprocessed so it can be retried.
  * The reason is our own vocabulary and carries no customer data.
  */
@@ -117,7 +117,7 @@ export async function canAccessFeature(
  * mark the event processed:
  *
  *   applied    the subscription and the entitlement were written
- *   ignored    nothing to do — not a Redlined1 checkout, an event type this route does not act on, or a
+ *   ignored    nothing to do — not a RedlineD1 checkout, an event type this route does not act on, or a
  *              subscription the provider does not know. Processed, so a redelivery is a harmless duplicate.
  *   retryable  a write, or the provider, failed. The same bytes may succeed later: left UNPROCESSED, answered 5xx.
  *   invalid    the event itself cannot be applied; the same bytes never will. Left UNPROCESSED, so a manual resend
@@ -308,7 +308,7 @@ export async function syncSubscriptionFromProvider(
 /**
  * Extracts a RedlinedSubscription from a checkout.completed event payload.
  *
- *   null               NOT a Redlined1 checkout — no buyer and no plan named. Nothing is granted; the route
+ *   null               NOT a RedlineD1 checkout — no buyer and no plan named. Nothing is granted; the route
  *                      acknowledges it.
  *   BillingFactsError  ours, but a required fact is missing, unknown or contradictory. Thrown, so the route
  *                      skips markEventProcessed and the event stays unprocessed and retryable.

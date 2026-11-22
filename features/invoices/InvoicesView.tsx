@@ -368,7 +368,7 @@ export function InvoicesView() {
         <div style="display:flex;gap:12px;align-items:flex-start">
           ${printLogoUrl ? `<img src="${printLogoUrl}" style="height:64px;max-width:180px;object-fit:contain;border-radius:4px">` : ''}
           <div>
-            <div style="font-size:22px;font-weight:900;color:#cc0000">${shopSettings?.companyName || 'Redlined1'}</div>
+            <div style="font-size:22px;font-weight:900;color:#cc0000">${shopSettings?.companyName || 'RedlineD1'}</div>
             ${shopSettings?.tagline ? `<div style="font-size:11px;color:#666;margin-top:2px">${shopSettings.tagline}</div>` : ''}
             ${shopSettings?.address ? `<div style="font-size:11px;color:#555;margin-top:4px;white-space:pre-line">${shopSettings.address}</div>` : ''}
             ${shopSettings?.phone ? `<div style="font-size:11px;color:#555">📞 ${shopSettings.phone}</div>` : ''}
@@ -442,7 +442,7 @@ export function InvoicesView() {
       ${inv.notes ? `<div style="margin-top:18px;padding-top:14px;border-top:1px solid #eee"><div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Notes</div><p style="font-size:13px;color:#555;line-height:1.6">${inv.notes}</p></div>` : ''}
       ${invoiceTerms.trim() ? `<div style="margin-top:14px;padding:10px 14px;border:1px solid #cc000055;border-left:4px solid #cc0000;border-radius:6px;background:#fff8f8"><div style="font-size:10px;font-weight:700;color:#cc0000;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Terms</div><p style="font-size:13px;color:#333;line-height:1.6;white-space:pre-line">${escapePrintHtml(invoiceTerms.trim())}</p></div>` : ''}
       <div style="margin-top:32px;padding-top:14px;border-top:1px solid #eee;text-align:center;font-size:11px;color:#aaa">
-        Thank you for your business — ${shopSettings?.companyName || 'Redlined1'}<br>
+        Thank you for your business — ${shopSettings?.companyName || 'RedlineD1'}<br>
         ${[shopSettings?.phone, shopSettings?.email].filter(Boolean).join(' · ')}
       </div>
       ${needsWatermark(planStatus) ? `<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:9999"><div style="transform:rotate(-45deg);font-size:72px;font-weight:900;color:rgba(204,0,0,0.07);font-family:system-ui,sans-serif;white-space:nowrap;letter-spacing:-2px">REDLINED1</div></div>` : ''}
@@ -1860,7 +1860,7 @@ export function InvoicesView() {
                     <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 64, maxWidth: 180, objectFit: 'contain', borderRadius: 6 }} />
                   )}
                   <div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent)', letterSpacing: '-0.5px' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                     {shopSettings?.tagline && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{shopSettings.tagline}</div>}
                     {shopSettings?.address && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
                     {shopSettings?.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>📞 {shopSettings.phone}</div>}

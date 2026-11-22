@@ -6,7 +6,7 @@ import 'server-only';
  * ## Why local, and what that means
  *
  * AutoPartsAPI does not report remaining quota, so nothing here can be
- * presented as authoritative. What Redlined1 knows is what Redlined1 asked
+ * presented as authoritative. What RedlineD1 knows is what RedlineD1 asked
  * for — a floor, not a balance. The wording in the diagnostic follows from
  * that: "local calls recorded", never "calls remaining".
  *

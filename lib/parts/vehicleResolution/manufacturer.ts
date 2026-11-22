@@ -1,5 +1,5 @@
 /**
- * Matching Redlined1's `make` to a provider manufacturer.
+ * Matching RedlineD1's `make` to a provider manufacturer.
  *
  * ## Why this is not fuzzy matching
  *
@@ -95,7 +95,7 @@ export interface ManufacturerMatch {
 }
 
 /**
- * Pick the provider manufacturer for a Redlined1 make.
+ * Pick the provider manufacturer for a RedlineD1 make.
  *
  * Ambiguity is reported rather than resolved. If a catalogue genuinely lists
  * two manufacturers whose names both canonicalise to the estimate's make,

@@ -73,7 +73,7 @@ export async function notifyOperatorOfSupportMessage(ticketId: string): Promise<
     : `💬 New support message from ${shopName}`;
 
   const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-    from: 'Redlined1 Support <onboarding@resend.dev>',
+    from: 'RedlineD1 Support <onboarding@resend.dev>',
     to: operatorRecipients(),
     subject,
     html: `

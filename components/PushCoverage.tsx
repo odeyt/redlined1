@@ -55,7 +55,7 @@ export function PushCoverage() {
         <strong>{covered} of {members.length}</strong> can be reached when the app is closed.
         {covered < members.length && (
           <span style={{ color: 'var(--muted)' }}>
-            {' '}Everyone else gets alerts only while they have Redlined1 open.
+            {' '}Everyone else gets alerts only while they have RedlineD1 open.
           </span>
         )}
       </div>
@@ -82,7 +82,7 @@ export function PushCoverage() {
 
       <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
         Each person turns this on themselves, on each phone they want alerts on:
-        open Redlined1, and tap <strong>Turn on notifications</strong> when it asks.
+        open RedlineD1, and tap <strong>Turn on notifications</strong> when it asks.
         On iPhone it has to be added to the Home Screen first — notifications do
         not work from Safari.
       </div>

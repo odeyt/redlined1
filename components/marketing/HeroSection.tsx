@@ -8,7 +8,7 @@ const ROTATING_WORDS = ['Repair Shops', 'Mobile Mechanics', 'Fleet Managers', 'S
 const STATS = [
   { label: 'Open Jobs',       value: '12',  color: '#818cf8', sub: 'active' },
   { label: 'Stale Estimates', value: '3',   color: '#f59e0b', sub: 'need follow-up' },
-  { label: 'Unpaid Invoices', value: '5',   color: '#ef4444', sub: '฿48,200 gap' },
+  { label: 'Unpaid Invoices', value: '5',   color: '#ef4444', sub: '$3,240 gap' },
   { label: 'DVIs This Week',  value: '28',  color: '#22d3a0', sub: 'completed' },
 ];
 
@@ -20,10 +20,10 @@ const QUICK_PLANS = [
 ];
 
 const JOBS = [
-  { job: 'JOB-0091', vehicle: '2021 Toyota HiLux',       status: 'In Progress',    tech: 'J. Santos', color: '#818cf8', revenue: '฿4,800' },
-  { job: 'JOB-0090', vehicle: '2019 Ford Ranger',        status: 'Estimate Sent',  tech: 'M. Lee',    color: '#f59e0b', revenue: '฿2,100' },
-  { job: 'JOB-0089', vehicle: '2018 Mitsubishi Triton',  status: 'Awaiting Parts', tech: 'J. Santos', color: '#38bdf8', revenue: '฿6,400' },
-  { job: 'JOB-0088', vehicle: '2020 Isuzu D-Max',        status: 'Ready',          tech: 'K. Wiroj',  color: '#22d3a0', revenue: '฿3,250' },
+  { job: 'JOB-0091', vehicle: '2021 Toyota HiLux',       status: 'In Progress',    tech: 'J. Santos', color: '#818cf8', revenue: '$850' },
+  { job: 'JOB-0090', vehicle: '2019 Ford Ranger',        status: 'Estimate Sent',  tech: 'M. Lee',    color: '#f59e0b', revenue: '$420' },
+  { job: 'JOB-0089', vehicle: '2018 Mitsubishi Triton',  status: 'Awaiting Parts', tech: 'J. Santos', color: '#38bdf8', revenue: '$1,150' },
+  { job: 'JOB-0088', vehicle: '2020 Isuzu D-Max',        status: 'Ready',          tech: 'K. Wiroj',  color: '#22d3a0', revenue: '$680' },
 ];
 
 export function HeroSection() {
@@ -309,7 +309,7 @@ export function HeroSection() {
           <div style={{ padding: '10px 20px 14px', borderTop: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.18)', fontStyle: 'italic' }}>Sample data shown for illustration only</span>
             <div style={{ display: 'flex', gap: 12 }}>
-              {['฿16,550 Today', '฿98,400 MTD'].map(v => (
+              {['$1,650 Today', '$48,200 MTD'].map(v => (
                 <span key={v} style={{ fontSize: 11, fontWeight: 700, color: 'rgba(34,211,160,0.55)' }}>{v}</span>
               ))}
             </div>

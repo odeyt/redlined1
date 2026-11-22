@@ -1,7 +1,7 @@
 /**
  * What makes a cached provider vehicle id still valid.
  *
- * A mapping is not "this Redlined1 row → that provider id". It is "this
+ * A mapping is not "this RedlineD1 row → that provider id". It is "this
  * DESCRIPTION of a vehicle → that provider id". Change the engine and it is a
  * different vehicle to a parts catalogue, however unchanged the row id is —
  * so the fingerprint covers the attributes that actually steer resolution and
@@ -62,7 +62,7 @@ export function isStale(cachedFingerprint: string, vehicle: CanonicalVehicle): b
 }
 
 /**
- * Whether Redlined1 holds enough to attempt resolution at all.
+ * Whether RedlineD1 holds enough to attempt resolution at all.
  *
  * Make and model are the floor: without both there is nothing to look up, and
  * asking the provider anyway would spend a call to be told so. Year is not
