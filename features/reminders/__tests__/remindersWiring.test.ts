@@ -30,14 +30,14 @@ const FEATURE_FILES = [
 
 describe('feature flag: off means absent', () => {
   it('the route is blocked while the flag is off, and open when it is on', () => {
-    expect(flagBlockedModules({ internalReminders: false })).toEqual(['reminders']);
-    expect(flagBlockedModules({ internalReminders: true })).toEqual([]);
+    expect(flagBlockedModules({ internalReminders: false, redlineAi: true })).toEqual(['reminders']);
+    expect(flagBlockedModules({ internalReminders: true, redlineAi: true })).toEqual([]);
   });
 
   it('AppShell and Sidebar both apply the same rule', () => {
-    expect(read('components/AppShell.tsx')).toMatch(/flagBlockedModules\(\{ internalReminders \}\)/);
+    expect(read('components/AppShell.tsx')).toMatch(/flagBlockedModules\(\{ internalReminders, redlineAi \}\)/);
     expect(read('components/AppShell.tsx')).toMatch(/\.\.\.flagBlocked\]/);
-    expect(read('components/Sidebar.tsx')).toMatch(/flagBlockedModules\(\{ internalReminders \}\)/);
+    expect(read('components/Sidebar.tsx')).toMatch(/flagBlockedModules\(\{ internalReminders, redlineAi \}\)/);
   });
 
   it('the widget is gated in the catalogue and in its own render', () => {

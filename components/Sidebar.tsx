@@ -84,6 +84,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
   const [hiddenModules, setHiddenModules] = useState<string[]>([]);
   const [featureFlags, setFeatureFlags] = useState({ enableJobArchive: true, enableTimeTracking: true });
   const internalReminders = useFeatureFlag('internal_reminders');
+  const redlineAi = useFeatureFlag('redline_ai');
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   // Start empty; settingsLoaded stays false until /api/role-permissions resolves.
@@ -304,7 +305,7 @@ export function Sidebar({ mobileOpen = false, onClose }: { mobileOpen?: boolean;
     ...(featureFlags.enableJobArchive ? [] : ['job-archive']),
     ...(featureFlags.enableTimeTracking ? [] : ['time-tracking']),
     // Same rule AppShell uses to close the route.
-    ...flagBlockedModules({ internalReminders }),
+    ...flagBlockedModules({ internalReminders, redlineAi }),
   ];
   // billing and subscriptions always visible for owners only
   const ALWAYS_SHOW = role === 'owner' ? new Set(['billing', 'subscriptions']) : new Set<string>();

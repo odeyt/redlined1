@@ -67,6 +67,7 @@ const loaders: Record<string, () => Promise<React.ComponentType>> = {
   access: () => import('@/features/access/AccessView').then(m => m.AccessView),
   subscriptions: () => import('@/features/subscriptions/SubscriptionsView').then(m => m.SubscriptionsView),
   ai: () => import('@/features/ai/AiView').then(m => m.AiView),
+  'redline-ai': () => import('@/features/redline-ai/RedlineAiView').then(m => m.RedlineAiView),
   customers: () => import('@/features/customers/CustomersView').then(m => m.CustomersView),
   vehicles: () => import('@/features/vehicles/VehiclesView').then(m => m.VehiclesView),
   'job-cards': () => import('@/features/job-cards/JobCardsView').then(m => m.JobCardsView),
@@ -153,6 +154,7 @@ function Shell() {
   const [rolePermissions, setRolePermissions] = useState<RolePermissions | null>(null);
   const [permLoaded, setPermLoaded] = useState(false);
   const internalReminders = useFeatureFlag('internal_reminders');
+  const redlineAi = useFeatureFlag('redline_ai');
 
   useEffect(() => {
     fetchShopSettings()
@@ -336,7 +338,7 @@ function Shell() {
   // — SET_MODULE can still be dispatched from a tile or a saved state.
   const unavailable = Object.keys(views).filter(m => !isModuleAvailable(m));
 
-  const flagBlocked = flagBlockedModules({ internalReminders });
+  const flagBlocked = flagBlockedModules({ internalReminders, redlineAi });
 
   const allBlocked = [...new Set([...roleBlocked, ...planBlocked, ...unavailable, ...flagBlocked])];
   const safeModule = allBlocked.includes(activeModule) ? 'dashboard' : activeModule;

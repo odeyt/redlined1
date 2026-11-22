@@ -87,5 +87,7 @@ export type KnownFlagKey =
   | 'internal_reminders'
   // Trial-tips email preference in Settings — default OFF
   | 'trial_tips'
+  // Redline AI prototype (read-only chat panel) — default OFF
+  | 'redline_ai'
   // WhatsApp Business (Meta Cloud API, coexistence) — default OFF; pilot D1 Imports only
   | 'whatsapp_business';
