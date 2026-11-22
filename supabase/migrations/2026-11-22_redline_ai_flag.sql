@@ -14,4 +14,4 @@
 INSERT INTO feature_flags (flag_key, display_name, description, enabled, scope)
 VALUES
   ('redline_ai', 'Redline AI', 'Read-only AI chat panel: morning brief, stale estimates, money owed, vehicle history, follow-up drafts (prototype)', false, 'global')
-ON CONFLICT (flag_key) DO NOTHING;
+ON CONFLICT DO NOTHING;
