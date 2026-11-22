@@ -98,6 +98,7 @@ function recordingTransport() {
 const LIVE: MorningBriefConfig = {
   live: true, audience: 'everyone', canaryRecipients: new Set(), blockers: [],
   fromAddress: 'brief@redlined1.com', appUrl: 'https://www.redlined1.com', resendApiKey: 're_test',
+  copyTo: null, copyOwnerEmails: new Set(),
 };
 const DRY: MorningBriefConfig = { ...LIVE, live: false, blockers: ['MORNING_BRIEF_SENDING_ENABLED is not "true"'] };
 
@@ -196,6 +197,115 @@ describe('runMorningBrief — live', () => {
     const { transport, sent } = recordingTransport();
     const second = await runMorningBrief({ db, transport, config: LIVE, now: FIVE_AM, buildBrief: briefText });
     expect(second.outcomes.already_sent).toBe(1);
+    expect(sent).toHaveLength(0);
+  });
+});
+
+describe('runMorningBrief — operator copies', () => {
+  const COPYING: MorningBriefConfig = {
+    ...LIVE,
+    copyTo: 'ops@example.com',
+    copyOwnerEmails: new Set(['owner@example.com']),
+  };
+
+  it('an internal shop\'s brief is also sent to the copy address — one ledger row only', async () => {
+    const tables = baseTables();
+    const { transport, sent } = recordingTransport();
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport, config: COPYING, now: FIVE_AM, buildBrief: briefText,
+    });
+
+    expect(report.outcomes.sent).toBe(1);
+    expect(report.copies).toEqual({ sent: 1, failed: 0 });
+    expect(sent).toHaveLength(2);
+    expect(sent[0].message.to).toBe('owner@example.com');
+    expect(sent[1].message.to).toBe('ops@example.com');
+    expect(sent[1].message.subject).toBe(sent[0].message.subject);
+    expect(sent[1].key).toBe(`morning-brief/${SHOP}/2026-11-23/copy`);
+    // The copy never touches the once-per-day ledger.
+    expect(tables.morning_brief_sends).toHaveLength(1);
+    expect(tables.morning_brief_sends[0]).toEqual(
+      expect.objectContaining({ shop_id: SHOP, local_date: '2026-11-23', status: 'sent' }),
+    );
+    // Neither address appears in the report.
+    expect(JSON.stringify(report)).not.toContain('ops@example.com');
+    expect(JSON.stringify(report)).not.toContain('owner@example.com');
+  });
+
+  it('a shop whose owner is not on the internal list is never copied', async () => {
+    const tables = baseTables();
+    const { transport, sent } = recordingTransport();
+    const config: MorningBriefConfig = { ...COPYING, copyOwnerEmails: new Set(['someone-else@example.com']) };
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport, config, now: FIVE_AM, buildBrief: briefText,
+    });
+    expect(report.outcomes.sent).toBe(1);
+    expect(report.copies).toEqual({ sent: 0, failed: 0 });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].message.to).toBe('owner@example.com');
+  });
+
+  it('no copy when the copy address is the owner themselves', async () => {
+    const tables = baseTables();
+    const { transport, sent } = recordingTransport();
+    const config: MorningBriefConfig = { ...COPYING, copyTo: 'owner@example.com' };
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport, config, now: FIVE_AM, buildBrief: briefText,
+    });
+    expect(report.outcomes.sent).toBe(1);
+    expect(report.copies).toEqual({ sent: 0, failed: 0 });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('a failed copy is counted but the owner send still succeeds and is recorded once', async () => {
+    const tables = baseTables();
+    let calls = 0;
+    const copyFails: MailTransport = {
+      async send() {
+        calls += 1;
+        return calls === 1
+          ? { ok: true, id: 'email-1' }
+          : { ok: false, certainty: 'rejected', message: '400: copy address rejected' };
+      },
+    };
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport: copyFails, config: COPYING, now: FIVE_AM, buildBrief: briefText,
+    });
+    expect(calls).toBe(2);
+    expect(report.outcomes.sent).toBe(1);
+    expect(report.outcomes.failed).toBe(0);
+    expect(report.copies).toEqual({ sent: 0, failed: 1 });
+    expect(tables.morning_brief_sends).toHaveLength(1);
+    expect(tables.morning_brief_sends[0].status).toBe('sent');
+  });
+
+  it('a copy transport that throws is counted as failed, never fatal', async () => {
+    const tables = baseTables();
+    let calls = 0;
+    const copyThrows: MailTransport = {
+      async send() {
+        calls += 1;
+        if (calls === 1) return { ok: true, id: 'email-1' };
+        throw new Error('network timeout');
+      },
+    };
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport: copyThrows, config: COPYING, now: FIVE_AM, buildBrief: briefText,
+    });
+    expect(report.outcomes.sent).toBe(1);
+    expect(report.copies).toEqual({ sent: 0, failed: 1 });
+    expect(tables.morning_brief_sends[0].status).toBe('sent');
+  });
+
+  it('dry runs never copy', async () => {
+    const tables = baseTables();
+    const { transport, sent } = recordingTransport();
+    const config: MorningBriefConfig = { ...COPYING, live: false, blockers: ['off'] };
+    const report = await runMorningBrief({
+      db: stubDb(tables), transport, config, now: FIVE_AM, buildBrief: briefText,
+    });
+    expect(report.mode).toBe('dry-run');
+    expect(report.copies).toEqual({ sent: 0, failed: 0 });
     expect(sent).toHaveLength(0);
   });
 });

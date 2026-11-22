@@ -37,6 +37,18 @@ export interface MorningBriefConfig {
   fromAddress: string | null;
   appUrl: string | null;
   resendApiKey: string | null;
+  /**
+   * Optional operator copy: the single address in MORNING_BRIEF_COPY_TO,
+   * or null when unset/invalid. Copies are best-effort extras — they are
+   * never a launch gate and never block or fail an owner's own brief.
+   */
+  copyTo: string | null;
+  /**
+   * Lower-cased owner addresses in MORNING_BRIEF_COPY_OWNER_EMAILS — the
+   * operator's OWN shops. Only briefs for shops whose owner is on this
+   * list are ever copied; a customer shop's brief is never copied.
+   */
+  copyOwnerEmails: ReadonlySet<string>;
 }
 
 type Env = Record<string, string | undefined>;
@@ -68,6 +80,38 @@ export function recipientAllowed(
   return config.canaryRecipients.has(email.trim().toLowerCase());
 }
 
+const EMAIL_RE = /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/;
+
+function parseEmailList(raw: string | undefined): Set<string> {
+  return new Set(
+    (raw ?? '')
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(s => EMAIL_RE.test(s)),
+  );
+}
+
+/**
+ * The operator-copy decision for one brief: returns the address a copy
+ * should go to, or null for no copy. A copy is due only when ALL of:
+ *
+ *   - MORNING_BRIEF_COPY_TO is set (a valid bare address), and
+ *   - the shop's owner (the resolved recipient) is listed in
+ *     MORNING_BRIEF_COPY_OWNER_EMAILS — i.e. it is one of the operator's
+ *     own internal shops, never a customer's, and
+ *   - the copy address is not the recipient themselves.
+ */
+export function copyRecipientFor(
+  config: Pick<MorningBriefConfig, 'copyTo' | 'copyOwnerEmails'>,
+  recipientEmail: string | null,
+): string | null {
+  if (!config.copyTo || !recipientEmail) return null;
+  const recipient = recipientEmail.trim().toLowerCase();
+  if (!config.copyOwnerEmails.has(recipient)) return null;
+  if (config.copyTo.trim().toLowerCase() === recipient) return null;
+  return config.copyTo;
+}
+
 /**
  * Reads the configuration and decides whether sending is allowed.
  *
@@ -80,6 +124,12 @@ export function recipientAllowed(
  * and, separately, who may receive it:
  *   MORNING_BRIEF_AUDIENCE            "everyone", or anything else = canary only
  *   MORNING_BRIEF_CANARY_RECIPIENTS   comma-separated owner addresses
+ *
+ * Optional, never a gate (copies are off unless BOTH are set):
+ *   MORNING_BRIEF_COPY_TO             one address to receive copies of
+ *                                     internal-shop briefs
+ *   MORNING_BRIEF_COPY_OWNER_EMAILS   comma-separated owner addresses
+ *                                     identifying the operator's own shops
  */
 export function readMorningBriefConfig(env: Env = process.env): MorningBriefConfig {
   const blockers: string[] = [];
@@ -103,12 +153,13 @@ export function readMorningBriefConfig(env: Env = process.env): MorningBriefConf
   // Anything other than the exact word "everyone" is canary. A typo narrows
   // the audience; it can never widen it.
   const audience: MorningBriefAudience = env.MORNING_BRIEF_AUDIENCE === 'everyone' ? 'everyone' : 'canary';
-  const canaryRecipients = new Set(
-    (env.MORNING_BRIEF_CANARY_RECIPIENTS ?? '')
-      .split(',')
-      .map(s => s.trim().toLowerCase())
-      .filter(s => /^[^\s@<>,]+@[^\s@<>,]+\.[^\s@<>,]+$/.test(s)),
-  );
+  const canaryRecipients = parseEmailList(env.MORNING_BRIEF_CANARY_RECIPIENTS);
+
+  // Operator copies: optional extras, never blockers. An invalid
+  // MORNING_BRIEF_COPY_TO simply means no copies, exactly like unset.
+  const copyToRaw = trimmed(env.MORNING_BRIEF_COPY_TO);
+  const copyTo = copyToRaw && EMAIL_RE.test(copyToRaw) ? copyToRaw : null;
+  const copyOwnerEmails = parseEmailList(env.MORNING_BRIEF_COPY_OWNER_EMAILS);
 
   return {
     live: blockers.length === 0,
@@ -118,5 +169,7 @@ export function readMorningBriefConfig(env: Env = process.env): MorningBriefConf
     fromAddress: fromOk ? from : null,
     appUrl,
     resendApiKey: key,
+    copyTo,
+    copyOwnerEmails,
   };
 }

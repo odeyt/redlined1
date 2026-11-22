@@ -44,6 +44,7 @@ async function main() {
     blockers: report.blockers,
     shopsConsidered: report.shopsConsidered,
     outcomes: report.outcomes,
+    copies: report.copies,
     items: report.items,
   }, null, 2));
 

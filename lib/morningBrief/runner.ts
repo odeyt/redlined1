@@ -36,6 +36,13 @@
  *                 morning-brief/<shop>/<local date>.
  *   9. record     sent | failed (definitely not sent) | uncertain (may
  *                 have been sent — never retried; see the migration).
+ *  10. copy       INTERNAL shops only: when MORNING_BRIEF_COPY_TO and
+ *                 MORNING_BRIEF_COPY_OWNER_EMAILS are set and the shop's
+ *                 owner is on that list, the same email is additionally
+ *                 sent to the operator address (config.copyRecipientFor).
+ *                 Best-effort: no ledger row, no effect on the owner's
+ *                 outcome; the result lands only in the report's copy
+ *                 counters. A customer shop's brief is never copied.
  *
  * Unless every launch gate passes (readMorningBriefConfig) this is a DRY
  * RUN: it claims, sends and records nothing, and reports every eligible
@@ -59,7 +66,7 @@ import {
 import { evaluateRedlineAiForShop } from '@/lib/redline-ai/access';
 import type { FeatureFlag } from '@/lib/featureFlags/types';
 import type { MailTransport, OutboundEmail, SendResult } from '@/lib/trialTips/runner';
-import { MORNING_BRIEF_REPLY_TO, recipientAllowed, type MorningBriefConfig } from './config';
+import { MORNING_BRIEF_REPLY_TO, copyRecipientFor, recipientAllowed, type MorningBriefConfig } from './config';
 import { renderMorningBriefEmail } from './email';
 import {
   localParts,
@@ -118,6 +125,12 @@ export interface MorningBriefReport {
   blockers: string[];
   shopsConsidered: number;
   outcomes: Record<MorningBriefOutcome, number>;
+  /**
+   * Operator copies of internal-shop briefs (step 10). Counts only —
+   * the copy address never appears in the report. `failed` copies do
+   * not fail the run or the owner's send.
+   */
+  copies: { sent: number; failed: number };
   items: MorningBriefItem[];
 }
 
@@ -175,6 +188,7 @@ export async function runMorningBrief(opts: {
       sent: 0, failed: 0, uncertain: 0, record_failed: 0, would_send: 0,
       already_sent: 0, not_due: 0, not_enabled: 0, no_email: 0, not_canary: 0,
     },
+    copies: { sent: 0, failed: 0 },
     items: [],
   };
   const record = (item: MorningBriefItem | null, outcome: MorningBriefOutcome) => {
@@ -363,6 +377,24 @@ export async function runMorningBrief(opts: {
       { ...baseItem, localDate: decision.localDate, outcome: marked ? 'sent' : 'record_failed' },
       marked ? 'sent' : 'record_failed',
     );
+
+    // 10. Operator copy — internal shops only (see header). Attempted
+    // only after the owner's own send succeeded; deliberately AFTER the
+    // ledger is settled and fully detached from it: no claim, no mark,
+    // and a failed copy changes nothing but its own counter.
+    const copyTo = copyRecipientFor(config, email);
+    if (copyTo) {
+      try {
+        const copyResult = await opts.transport!.send(
+          { ...message, to: copyTo },
+          `${idempotencyKey(shopId, decision.localDate)}/copy`,
+        );
+        if (copyResult.ok) report.copies.sent += 1;
+        else report.copies.failed += 1;
+      } catch {
+        report.copies.failed += 1;
+      }
+    }
   }
 
   return report;

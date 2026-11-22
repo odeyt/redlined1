@@ -2,7 +2,7 @@
  * Morning-brief launch gates: nothing sends unless everything is
  * configured, mirroring the trial-tips discipline.
  */
-import { readMorningBriefConfig, recipientAllowed } from '../config';
+import { copyRecipientFor, readMorningBriefConfig, recipientAllowed } from '../config';
 
 const FULL = {
   MORNING_BRIEF_SENDING_ENABLED: 'true',
@@ -50,6 +50,73 @@ describe('readMorningBriefConfig', () => {
   it('canary recipients are parsed and lower-cased', () => {
     const c = readMorningBriefConfig({ ...FULL, MORNING_BRIEF_CANARY_RECIPIENTS: ' Owner@Example.com , two@example.com, junk' });
     expect([...c.canaryRecipients].sort()).toEqual(['owner@example.com', 'two@example.com']);
+  });
+});
+
+describe('operator copy configuration', () => {
+  it('copies are off when the vars are unset — and never block live sending', () => {
+    const c = readMorningBriefConfig(FULL);
+    expect(c.live).toBe(true);
+    expect(c.copyTo).toBeNull();
+    expect(c.copyOwnerEmails.size).toBe(0);
+  });
+
+  it('parses the copy address and lower-cases the internal owner list', () => {
+    const c = readMorningBriefConfig({
+      ...FULL,
+      MORNING_BRIEF_COPY_TO: ' Ops@Example.com ',
+      MORNING_BRIEF_COPY_OWNER_EMAILS: ' Owner@Example.com , two@example.com, junk',
+    });
+    expect(c.live).toBe(true);
+    expect(c.copyTo).toBe('Ops@Example.com');
+    expect([...c.copyOwnerEmails].sort()).toEqual(['owner@example.com', 'two@example.com']);
+  });
+
+  it('an invalid copy address means no copies, not a blocker', () => {
+    const c = readMorningBriefConfig({
+      ...FULL,
+      MORNING_BRIEF_COPY_TO: 'not an address',
+      MORNING_BRIEF_COPY_OWNER_EMAILS: 'owner@example.com',
+    });
+    expect(c.live).toBe(true);
+    expect(c.copyTo).toBeNull();
+  });
+});
+
+describe('copyRecipientFor', () => {
+  const configured = readMorningBriefConfig({
+    ...FULL,
+    MORNING_BRIEF_COPY_TO: 'ops@example.com',
+    MORNING_BRIEF_COPY_OWNER_EMAILS: 'owner@example.com,two@example.com',
+  });
+
+  it('an internal owner gets a copy at the copy address', () => {
+    expect(copyRecipientFor(configured, 'owner@example.com')).toBe('ops@example.com');
+    expect(copyRecipientFor(configured, 'Owner@Example.com')).toBe('ops@example.com');
+  });
+
+  it('a customer owner is never copied', () => {
+    expect(copyRecipientFor(configured, 'customer@example.com')).toBeNull();
+    expect(copyRecipientFor(configured, null)).toBeNull();
+    expect(copyRecipientFor(configured, '')).toBeNull();
+  });
+
+  it('no copy when the copy address is the recipient themselves', () => {
+    const selfCopy = readMorningBriefConfig({
+      ...FULL,
+      MORNING_BRIEF_COPY_TO: 'owner@example.com',
+      MORNING_BRIEF_COPY_OWNER_EMAILS: 'owner@example.com',
+    });
+    expect(copyRecipientFor(selfCopy, 'owner@example.com')).toBeNull();
+    expect(copyRecipientFor(selfCopy, 'OWNER@example.com')).toBeNull();
+  });
+
+  it('no copy when either var is unset', () => {
+    const noTarget = readMorningBriefConfig({ ...FULL, MORNING_BRIEF_COPY_OWNER_EMAILS: 'owner@example.com' });
+    expect(copyRecipientFor(noTarget, 'owner@example.com')).toBeNull();
+    const noOwners = readMorningBriefConfig({ ...FULL, MORNING_BRIEF_COPY_TO: 'ops@example.com' });
+    expect(copyRecipientFor(noOwners, 'owner@example.com')).toBeNull();
+    expect(copyRecipientFor(readMorningBriefConfig(FULL), 'owner@example.com')).toBeNull();
   });
 });
 
