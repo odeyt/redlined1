@@ -511,7 +511,7 @@ export function PortalClient({ data }: { data: PortalData }) {
       <footer style={{ textAlign: 'center', padding: '24px 20px', color: '#999', fontSize: 12, borderTop: '1px solid #e5e7eb', background: '#fff', marginTop: 40 }}>
         <div style={{ marginBottom: 4, fontWeight: 600, color: '#555' }}>{shop.name}</div>
         {shop.address && <div>{shop.address}</div>}
-        <div style={{ marginTop: 8, color: '#ccc' }}>Powered by Redlined1 CRM · Your information is private and secure.</div>
+        <div style={{ marginTop: 8, color: '#ccc' }}>Powered by RedlineD1 CRM · Your information is private and secure.</div>
       </footer>
     </div>
   );

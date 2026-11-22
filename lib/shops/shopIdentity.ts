@@ -8,7 +8,7 @@
  * each invented a different answer for the missing name:
  *
  *     fetchShopSettings()        -> "My Shop"     (services/shopSettingsService)
- *     invoice print / preview    -> "Redlined1"   (features/invoices/InvoicesView)
+ *     invoice print / preview    -> "RedlineD1"   (features/invoices/InvoicesView)
  *     send-document email        -> PGRST116, the request simply fails
  *
  * So the invoice did not come out blank. It came out carrying OUR product name

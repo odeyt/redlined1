@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
-      from: 'Redlined1 Chat <chat@redlined1.com>',
+      from: 'RedlineD1 Chat <chat@redlined1.com>',
       to: 'admin@redlined1.com',
       replyTo: email || undefined,
       subject: `💬 New Chat Message from ${name}`,
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
             <div style="background:rgba(255,255,255,0.06);border-left:3px solid #cc0000;padding:14px 16px;border-radius:6px;line-height:1.6">
               ${message.replace(/\n/g, '<br/>')}
             </div>
-            <p style="margin-top:24px;font-size:12px;color:#666">Sent from Redlined1 live chat widget</p>
+            <p style="margin-top:24px;font-size:12px;color:#666">Sent from RedlineD1 live chat widget</p>
           </div>
         </div>
       `,

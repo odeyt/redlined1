@@ -132,7 +132,7 @@ describe('THE STARTER DEFAULT: an unreadable plan throws, it does not guess', ()
     expect(sub?.planId).toBe('starter');   // named explicitly — legitimate
   });
 
-  it('refuses a product that is not a plan Redlined1 sells, when products are configured', async () => {
+  it('refuses a product that is not a plan RedlineD1 sells, when products are configured', async () => {
     process.env.CREEM_SOLO_MONTHLY_PRODUCT_ID = 'prod_test_solo';
     answer = async () => ok(subscription({ product: 'prod_someone_elses', metadata: { plan_key: 'solo' } }));
     await expect(provider().getSubscription(SUB)).rejects.toBeInstanceOf(CreemSubscriptionUnusableError);

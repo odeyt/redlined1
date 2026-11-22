@@ -1349,7 +1349,7 @@ export function InspectionsView() {
               <div style={{ display: 'flex', gap: 14 }}>
                 {shopSettings?.logoUrl && <StorageImage url={shopSettings.logoUrl} alt="Logo" style={{ height: 50, objectFit: 'contain' }} />}
                 <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'Redlined1'}</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#cc0000' }}>{shopSettings?.companyName || 'RedlineD1'}</div>
                   {shopSettings?.address && <div style={{ fontSize: 11, color: '#555', whiteSpace: 'pre-line' }}>{shopSettings.address}</div>}
                   {shopSettings?.phone && <div style={{ fontSize: 11, color: '#555' }}>📞 {shopSettings.phone}</div>}
                 </div>

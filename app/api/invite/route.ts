@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
               <p style="font-size:12px;color:#666;margin-top:20px">This link is one-time use and expires soon. If you didn't expect this invitation, you can ignore this email.</p>
             </div>
             <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-              ${shopName} · Powered by Redlined1
+              ${shopName} · Powered by RedlineD1
             </div>
           </div>
         `,
@@ -277,13 +277,13 @@ export async function POST(req: NextRequest) {
             </div>
             <div style="padding:28px">
               <h2 style="font-size:18px;font-weight:700;margin:0 0 8px">You've been added to ${shopName}</h2>
-              <p style="font-size:14px;color:#aaa;margin:0 0 24px">You've been added as <strong style="color:#fff">${escapeHtml(roleLabel)}</strong>. Sign in with your existing Redlined1 account to get started.</p>
+              <p style="font-size:14px;color:#aaa;margin:0 0 24px">You've been added as <strong style="color:#fff">${escapeHtml(roleLabel)}</strong>. Sign in with your existing RedlineD1 account to get started.</p>
               <a href="${loginUrl}" style="display:inline-block;background:#cc0000;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none">
                 Sign In →
               </a>
             </div>
             <div style="padding:14px 28px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;text-align:center">
-              ${shopName} · Powered by Redlined1
+              ${shopName} · Powered by RedlineD1
             </div>
           </div>
         `,

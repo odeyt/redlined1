@@ -228,7 +228,7 @@ describe('the other gates that a multi-shop buyer used to slip past', () => {
 
   it('an exempt email is still refused before checkout', async () => {
     process.env.PLATFORM_OWNER_EMAIL = 'owner@redlined1.test';
-    mockUser = { id: USER, email: 'Owner@Redlined1.test' };
+    mockUser = { id: USER, email: 'Owner@RedlineD1.test' };
     mockRows = [{ shop_id: SHOP_A, role: 'owner' }];
     const { status, body } = await checkout();
     expect(status).toBe(403);

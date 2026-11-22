@@ -14,7 +14,7 @@ const WORKFLOW_SECTION = {
   subsections: [
     {
       title: 'Download the Full Workflow PDF',
-      content: `Print-ready 8-page visual guide with all 12 steps, phase colour coding, module references, and a staff cheat sheet. Download: redlined1.com/Redlined1-Shop-Workflow.pdf`,
+      content: `Print-ready 8-page visual guide with all 12 steps, phase colour coding, module references, and a staff cheat sheet. Download: redlined1.com/RedlineD1-Shop-Workflow.pdf`,
     },
     {
       title: 'Step 1 — Customer Arrives / Appointment Check-In',
@@ -125,7 +125,7 @@ const FREE_SECTIONS = [
     subsections: [
       {
         title: 'Creating Your First Invoice',
-        content: `Go to Invoices → New Invoice. Select the customer from the dropdown (or create one inline). Add line items: labour, parts, and fees. Each line has a description, quantity, and rate. Redlined1 auto-calculates the subtotal, tax, and total. When ready, click Send — the customer gets a professional PDF via email with a Pay Now button.`,
+        content: `Go to Invoices → New Invoice. Select the customer from the dropdown (or create one inline). Add line items: labour, parts, and fees. Each line has a description, quantity, and rate. RedlineD1 auto-calculates the subtotal, tax, and total. When ready, click Send — the customer gets a professional PDF via email with a Pay Now button.`,
       },
       {
         title: 'Invoice Statuses',
@@ -248,7 +248,7 @@ const PAID_SECTIONS = [
       },
       {
         title: 'Estimate Expiry & Follow-Up',
-        content: `Set an expiry date on estimates to create urgency. Redlined1 can send automatic reminder emails to customers who haven't responded. When an estimate expires, it's flagged in your dashboard so you can follow up manually. Tracking estimate conversion rates helps you identify pricing and communication improvements.`,
+        content: `Set an expiry date on estimates to create urgency. RedlineD1 can send automatic reminder emails to customers who haven't responded. When an estimate expires, it's flagged in your dashboard so you can follow up manually. Tracking estimate conversion rates helps you identify pricing and communication improvements.`,
       },
     ],
   },
@@ -348,7 +348,7 @@ const PAID_SECTIONS = [
       },
       {
         title: 'Automated Reminders',
-        content: `Redlined1 can send automatic SMS or email appointment reminders to customers 24 hours and 2 hours before their scheduled time. Enable this in Settings → Notifications. Reminders dramatically reduce no-shows and save your service desk from manual reminder calls.`,
+        content: `RedlineD1 can send automatic SMS or email appointment reminders to customers 24 hours and 2 hours before their scheduled time. Enable this in Settings → Notifications. Reminders dramatically reduce no-shows and save your service desk from manual reminder calls.`,
       },
     ],
   },
@@ -367,7 +367,7 @@ const PAID_SECTIONS = [
       },
       {
         title: 'Accepted Payment Methods',
-        content: `Redlined1 supports a full range of payment methods so you can record exactly how each customer paid. In Person: Cash, Check. Cards: Credit Card, Debit Card, Visa, Mastercard, American Express, Discover. Digital Wallets: PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, Wise. Bank: Bank Transfer / ACH, Wire Transfer. Account: Fleet Account / Net 30. Crypto: Bitcoin, Ethereum, USDC. The method you choose is stored with the payment record and included in your method-breakdown report. If your shop doesn't use certain methods, they can be disabled in Settings → Payment Methods.`,
+        content: `RedlineD1 supports a full range of payment methods so you can record exactly how each customer paid. In Person: Cash, Check. Cards: Credit Card, Debit Card, Visa, Mastercard, American Express, Discover. Digital Wallets: PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, Wise. Bank: Bank Transfer / ACH, Wire Transfer. Account: Fleet Account / Net 30. Crypto: Bitcoin, Ethereum, USDC. The method you choose is stored with the payment record and included in your method-breakdown report. If your shop doesn't use certain methods, they can be disabled in Settings → Payment Methods.`,
       },
       {
         title: 'Payment Reports & Method Breakdown',
@@ -382,7 +382,7 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'Working Entirely From Your Phone',
-        content: `Redlined1 is fully responsive — every feature works on your phone's browser. Save redlined1.com to your home screen for a near-app experience. When you arrive at a job, open a new job card, attach the customer and vehicle, start an inspection, capture photos, and send the report — all before you pick up a single tool.`,
+        content: `RedlineD1 is fully responsive — every feature works on your phone's browser. Save redlined1.com to your home screen for a near-app experience. When you arrive at a job, open a new job card, attach the customer and vehicle, start an inspection, capture photos, and send the report — all before you pick up a single tool.`,
       },
       {
         title: 'On-Site Invoicing',
@@ -401,7 +401,7 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'What Is Per-Item Digital Approval?',
-        content: `Most shop management software asks customers to approve or decline all recommended repairs in one go. Redlined1 works differently — every Fail and Attention item on the inspection gets its own individual Approve / Decline button. The customer can approve the urgent brake job, decline the cabin filter, and approve the tyre rotation — all in one submission. This level of transparency builds trust, reduces disputes, and typically increases the total value of work authorised because customers feel in control rather than pressured.`,
+        content: `Most shop management software asks customers to approve or decline all recommended repairs in one go. RedlineD1 works differently — every Fail and Attention item on the inspection gets its own individual Approve / Decline button. The customer can approve the urgent brake job, decline the cabin filter, and approve the tyre rotation — all in one submission. This level of transparency builds trust, reduces disputes, and typically increases the total value of work authorised because customers feel in control rather than pressured.`,
       },
       {
         title: 'Generating the Customer Approval Link',
@@ -544,7 +544,7 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'What Are DTC Codes?',
-        content: `DTC (Diagnostic Trouble Codes) are standardised codes stored in a vehicle\'s onboard computer (ECU) when a fault is detected. They appear as a letter followed by 4 digits — for example P0300 (Random Misfire) or P0420 (Catalyst Below Threshold). Reading and understanding these codes is the first step in diagnosing almost any modern vehicle issue. You need a scan tool (OBD-II reader) plugged into the vehicle to retrieve the codes, then Redlined1 tells you what they mean.`,
+        content: `DTC (Diagnostic Trouble Codes) are standardised codes stored in a vehicle\'s onboard computer (ECU) when a fault is detected. They appear as a letter followed by 4 digits — for example P0300 (Random Misfire) or P0420 (Catalyst Below Threshold). Reading and understanding these codes is the first step in diagnosing almost any modern vehicle issue. You need a scan tool (OBD-II reader) plugged into the vehicle to retrieve the codes, then RedlineD1 tells you what they mean.`,
       },
       {
         title: 'Looking Up a Code',
@@ -586,7 +586,7 @@ const PAID_SECTIONS = [
     subsections: [
       {
         title: 'Sending Messages to Customers',
-        content: `Go to Communication in the sidebar to send emails or SMS messages directly to any customer. Select a customer from the dropdown, compose your message, and choose Email or SMS. Emails are sent branded with your shop logo and name. SMS messages are sent from your Redlined1 number. All sent messages are logged with a timestamp so you have a full record of every customer interaction.`,
+        content: `Go to Communication in the sidebar to send emails or SMS messages directly to any customer. Select a customer from the dropdown, compose your message, and choose Email or SMS. Emails are sent branded with your shop logo and name. SMS messages are sent from your RedlineD1 number. All sent messages are logged with a timestamp so you have a full record of every customer interaction.`,
       },
       {
         title: 'Message Templates',
@@ -840,12 +840,12 @@ const PAID_SECTIONS = [
 ];
 
 const FAQS = [
-  { q: 'Is there a free plan?', a: 'Yes. Redlined1\'s free plan gives you access to core tools with up to 10 customers. You also get a full 7-day trial of Pro features when you first sign up — no credit card required.' },
-  { q: 'Can I use Redlined1 on my phone?', a: 'Absolutely. Redlined1 is fully mobile-responsive. Every feature — job cards, invoices, inspections, payments — works on any smartphone browser. Mobile mechanics use it entirely from the road.' },
+  { q: 'Is there a free plan?', a: 'Yes. RedlineD1\'s free plan gives you access to core tools with up to 10 customers. You also get a full 7-day trial of Pro features when you first sign up — no credit card required.' },
+  { q: 'Can I use RedlineD1 on my phone?', a: 'Absolutely. RedlineD1 is fully mobile-responsive. Every feature — job cards, invoices, inspections, payments — works on any smartphone browser. Mobile mechanics use it entirely from the road.' },
   { q: 'How do I cancel my subscription?', a: 'Go to Settings → Subscription and click Cancel Plan. Your account stays active until the end of your current billing period. No cancellation fees, no hoops to jump through.' },
   { q: 'Can my technicians have their own logins?', a: 'Yes, on the Pro Plus plan. You can invite team members and assign each one a role with the appropriate level of access. Technicians only see jobs assigned to them.' },
-  { q: 'Does Redlined1 process credit card payments?', a: 'Yes. When you send an invoice, customers receive a secure Pay Now link. Payments are processed via Stripe. Funds settle to your connected bank account within 2 business days.' },
-  { q: 'Can I import my existing parts list?', a: 'Yes. Go to Parts → Bulk Import and upload a CSV or Excel (.xlsx) file. The importer maps your columns to Redlined1 fields automatically. You can also drag and drop the file directly onto the upload area.' },
+  { q: 'Does RedlineD1 process credit card payments?', a: 'Yes. When you send an invoice, customers receive a secure Pay Now link. Payments are processed via Stripe. Funds settle to your connected bank account within 2 business days.' },
+  { q: 'Can I import my existing parts list?', a: 'Yes. Go to Parts → Bulk Import and upload a CSV or Excel (.xlsx) file. The importer maps your columns to RedlineD1 fields automatically. You can also drag and drop the file directly onto the upload area.' },
   { q: 'How do I track parts I order from suppliers?', a: 'Use the Parts Orders module (sidebar under "Parts Orders"). Create an order for each part, link it to a customer, vehicle, and job card, set the ETR date, and track the deposit and balance. The module shows live stats for orders on order, received, balance due, and deposits paid.' },
   { q: 'Can I edit a customer after saving them?', a: 'Yes. Click any customer in the Customers list to open their detail drawer, then click "✏ Edit" to update their details inline without leaving the screen.' },
   { q: 'Can I edit an existing vehicle?', a: 'Yes. In Vehicle Management List view (the default), click anywhere on a vehicle row to open the edit drawer on the right. Update any field — VIN, mileage, engine, plate, status, assigned techs, service notes, parts, and more — then click "✓ Save Changes". The row updates instantly without a page reload.' },
@@ -854,15 +854,15 @@ const FAQS = [
   { q: 'Where do completed jobs go after they are closed?', a: 'Completed, Closed, and Invoiced jobs are automatically available in the Job Archive (sidebar). The archive is permanent — every finished job is stored indefinitely for reference, warranty lookups, and maintenance history. Search by customer, vehicle, technician, RO number, or invoice number. Filter by Month, Quarter, Year, or All Time. Export to CSV at any time.' },
   { q: 'Can I see which technician is assigned to which cars?', a: 'Yes. Go to Reports → Technicians tab. Each technician row shows their active jobs, completed jobs, total hours, and a completion rate bar. Click any row to expand a sub-table of every job card assigned to them with customer, vehicle, status, and check-in date.' },
   { q: 'Can I run a job completion report for a specific time period?', a: 'Yes. Go to Reports → Job Completion tab. Use the period filter pills — Week, Month, Quarter, Year, All Time — to filter completed jobs by close date. The report shows every finished job with turnaround time, labour hours, assigned technicians, and a status distribution bar.' },
-  { q: 'Can I import my existing customer data?', a: 'Yes. Go to Settings → Import and upload a CSV file with your customer list. The import wizard maps your columns to Redlined1 fields. Vehicles and service history can also be imported from CSV.' },
+  { q: 'Can I import my existing customer data?', a: 'Yes. Go to Settings → Import and upload a CSV file with your customer list. The import wizard maps your columns to RedlineD1 fields. Vehicles and service history can also be imported from CSV.' },
   { q: 'What happens after my 7-day trial ends?', a: 'Your account automatically moves to the free plan. You keep all your data. Features beyond the free plan limits become locked until you upgrade. Nothing is deleted.' },
   { q: 'Is my data secure?', a: 'Yes. All data is stored in Supabase (PostgreSQL) with row-level security — each shop only ever sees its own data. All connections use HTTPS/TLS encryption. Your data is never shared with other users or third parties.' },
   { q: 'Can I customise invoices with my logo?', a: 'Yes. Upload your logo and set your shop colours in Settings → Shop Settings. Your branding appears on all invoices, estimates, and inspection reports sent to customers.' },
-  { q: 'Is there a contract or lock-in period?', a: 'No contracts. Redlined1 is month-to-month (or yearly if you prefer the discount). Cancel any time from your account settings.' },
+  { q: 'Is there a contract or lock-in period?', a: 'No contracts. RedlineD1 is month-to-month (or yearly if you prefer the discount). Cancel any time from your account settings.' },
   { q: 'How do digital inspection reports work?', a: 'You go through a system checklist on your phone, mark each item green/yellow/red, and attach photos. Copy the share link and send it to the customer — they open a branded page and can approve or decline each repair item individually with their digital signature.' },
-  { q: 'Can customers approve repairs individually instead of all at once?', a: 'Yes — this is a core Redlined1 differentiator. Every Fail or Attention item on the inspection gets its own Approve / Decline button. Customers decide each repair separately, type their name as a digital signature, and submit. Their exact decisions are recorded permanently in your admin panel.' },
+  { q: 'Can customers approve repairs individually instead of all at once?', a: 'Yes — this is a core RedlineD1 differentiator. Every Fail or Attention item on the inspection gets its own Approve / Decline button. Customers decide each repair separately, type their name as a digital signature, and submit. Their exact decisions are recorded permanently in your admin panel.' },
   { q: 'Can customers track their repair in real time?', a: 'Yes. Every job card has a "Status Tracker" button that generates a unique customer link. The page shows the current repair stage (out of 6) and auto-refreshes every 30 seconds. You advance stages in your admin panel and can trigger SMS or email notifications to the customer at each step.' },
-  { q: 'What digital payment methods does Redlined1 support?', a: 'Redlined1 supports Cash, Check, Credit/Debit Card (Visa, Mastercard, Amex, Discover), and digital wallets including PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, and Wise. Bank Transfer / ACH, Wire Transfer, Fleet Account, and cryptocurrency are also supported.' },
+  { q: 'What digital payment methods does RedlineD1 support?', a: 'RedlineD1 supports Cash, Check, Credit/Debit Card (Visa, Mastercard, Amex, Discover), and digital wallets including PayPal, Apple Pay, Google Pay, Venmo, Zelle, Cash App, and Wise. Bank Transfer / ACH, Wire Transfer, Fleet Account, and cryptocurrency are also supported.' },
   { q: 'Can I switch from monthly to yearly billing?', a: 'Yes. Go to Settings → Subscription and click Switch to Yearly. The change takes effect at your next billing date and saves you up to $119 per year.' },
 ];
 
@@ -883,7 +883,7 @@ export default function HelpPage() {
       <nav style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(7,7,10,0.95)', backdropFilter: 'blur(14px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 5%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 62 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Link href="/portal" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <img src={LOGO_SRC} alt="Redlined1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
+            <img src={LOGO_SRC} alt="RedlineD1" style={{ height: 38, width: 'auto', objectFit: 'contain', mixBlendMode: 'normal' }} />
           </Link>
           <span style={{ color: '#444', fontSize: 14 }}>/</span>
           <span style={{ color: '#888', fontSize: 14 }}>Help & Manual</span>
@@ -899,7 +899,7 @@ export default function HelpPage() {
       {/* HERO */}
       <div style={{ background: 'linear-gradient(135deg,#0a0000 0%,#1a0000 60%,#0a0000 100%)', padding: '60px 5% 50px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>📖</div>
-        <h1 style={{ fontSize: 'clamp(28px,3vw,44px)', fontWeight: 900, marginBottom: 14 }}>Redlined1 Help & Manual</h1>
+        <h1 style={{ fontSize: 'clamp(28px,3vw,44px)', fontWeight: 900, marginBottom: 14 }}>RedlineD1 Help & Manual</h1>
         <p style={{ color: '#888', fontSize: 16, maxWidth: 560, margin: '0 auto 24px', lineHeight: 1.6 }}>
           Everything you need to run your shop like a pro. Step-by-step guides for every feature.
         </p>
@@ -960,7 +960,7 @@ export default function HelpPage() {
                   </div>
                   {section.id === 'workflow' && (
                     <a
-                      href="/Redlined1-Shop-Workflow.pdf"
+                      href="/RedlineD1-Shop-Workflow.pdf"
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#cc0000', color: '#fff', padding: '10px 18px', borderRadius: 10, textDecoration: 'none', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
@@ -978,7 +978,7 @@ export default function HelpPage() {
                       <div style={{ color: '#888', fontSize: 13 }}>8-page visual guide — all 12 steps, role assignments, module references, pro tips, and a laminate-ready staff cheat sheet.</div>
                     </div>
                     <a
-                      href="/Redlined1-Shop-Workflow.pdf"
+                      href="/RedlineD1-Shop-Workflow.pdf"
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#cc0000', color: '#fff', padding: '12px 22px', borderRadius: 10, textDecoration: 'none', fontSize: 14, fontWeight: 700, flexShrink: 0 }}

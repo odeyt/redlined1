@@ -7,7 +7,7 @@
  * no password.
  *
  * The next invitation then found a profile, took the "existing account"
- * branch, and emailed "Sign in with your existing Redlined1 account". The
+ * branch, and emailed "Sign in with your existing RedlineD1 account". The
  * invitee cannot: there is nothing to sign in with. Two technicians sat in
  * that state, unconfirmed and never signed in, while their invitations kept
  * arriving as sign-in prompts.
@@ -54,10 +54,10 @@ describe('which email is sent', () => {
   });
 
   it('still has a plain "you were added" email for someone who can sign in', () => {
-    // Somebody who already uses Redlined1 should not be sent a password
+    // Somebody who already uses RedlineD1 should not be sent a password
     // reset they did not ask for.
     expect(src).toMatch(/You've been added to \$\{shopName\}/);
-    expect(src).toMatch(/Sign in with your existing Redlined1 account/);
+    expect(src).toMatch(/Sign in with your existing RedlineD1 account/);
   });
 });
 

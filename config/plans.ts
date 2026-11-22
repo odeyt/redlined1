@@ -1,5 +1,5 @@
 /**
- * Redlined1 plan configuration.
+ * RedlineD1 plan configuration.
  * This is the single source of truth for plan definitions and feature limits.
  * Provider-specific product/price IDs come from environment variables only —
  * never hardcoded here.

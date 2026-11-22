@@ -1,6 +1,7 @@
 import { AuthHashRedirect } from '@/components/AuthHashRedirect';
 import { MarketingHeader } from '@/components/marketing/MarketingHeader';
 import { HeroSection } from '@/components/marketing/HeroSection';
+import { ProofStrip } from '@/components/marketing/ProofStrip';
 import { FounderOriginSection } from '@/components/marketing/FounderOriginSection';
 import { PainPointsSection } from '@/components/marketing/PainPointsSection';
 import { ComparisonSection } from '@/components/marketing/ComparisonSection';
@@ -50,6 +51,7 @@ export default function LandingPreviewPage() {
 
       <div id="main-content">
         <HeroSection />
+        <ProofStrip />
         <MobileMechanicSection />
         <DVISection />
         <FounderOriginSection />

@@ -1,7 +1,7 @@
 /**
  * Creem webhook event normalizer.
  *
- * Translates Creem-specific webhook payloads into Redlined1's
+ * Translates Creem-specific webhook payloads into RedlineD1's
  * provider-agnostic PaymentWebhookEvent shape.
  *
  * This file is the only place Creem event types should be referenced.
@@ -9,7 +9,7 @@
 
 import type { PaymentWebhookEvent } from '../types';
 
-/** Maps Creem event type strings to normalized Redlined1 event types. */
+/** Maps Creem event type strings to normalized RedlineD1 event types. */
 export function normalizeCreemEventType(creemType: string): string {
   const map: Record<string, string> = {
     'checkout.completed':          'checkout.completed',

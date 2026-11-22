@@ -44,7 +44,7 @@ export async function loadShopIdentity(shopId: string): Promise<ShopIdentityRead
    * check that fails open would do nothing on exactly the day the database is
    * unhappy. It reports as though the row were missing, which is the safe
    * direction: the operator is asked to complete a profile they may have
-   * already completed, rather than sending an invoice headed "Redlined1".
+   * already completed, rather than sending an invoice headed "RedlineD1".
    */
   if (error) {
     return evaluateShopIdentity(shopId, null);

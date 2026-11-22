@@ -1,11 +1,11 @@
 /**
  * The eight scenarios that define M-PARTS2B, end to end and offline.
  *
- * Every one runs from a Redlined1 vehicle through the resolver to a fitment
+ * Every one runs from a RedlineD1 vehicle through the resolver to a fitment
  * verdict, against fixtures. Nothing here contacts AutoPartsAPI — a CI suite
  * that spent provider quota would be a suite nobody could run.
  *
- * The through-line: Redlined1 must tell the truth about what it knows.
+ * The through-line: RedlineD1 must tell the truth about what it knows.
  * Scenario B and E are the common real outcomes, and they are UNVERIFIED and
  * AMBIGUOUS. That is success, not shortfall.
  */

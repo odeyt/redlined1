@@ -4,7 +4,7 @@
  *
  * A foreign appointment returns 404, matching customers and vehicles.
  *
- * PATCH carries no status-transition rules because Redlined1 has none. The
+ * PATCH carries no status-transition rules because RedlineD1 has none. The
  * `reminder` column holds "Checked in" and "None" in the data and defaults to
  * "Confirmed" in the old service — three values from two sources, with no
  * transitions defined in any code path. It is a marker a human sets, not a

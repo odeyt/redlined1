@@ -80,7 +80,7 @@ describe('decideCreemEvent: apply, acknowledge quietly, or hold', () => {
 describe('resolveEventMetadata: ONE coherent source, and a conflict is never merged', () => {
   const A = { shop_id: 'shop-a', user_id: 'user-a', plan_key: 'solo', plan_id: 'solo' };
 
-  it('finds no Redlined1 metadata, and ignores keys that are not ours', () => {
+  it('finds no RedlineD1 metadata, and ignores keys that are not ours', () => {
     expect(resolveEventMetadata({})).toEqual({ kind: 'none' });
     expect(resolveEventMetadata({ metadata: { note: 'x' }, subscription: { metadata: { other: 'y' } } })).toEqual({ kind: 'none' });
     expect(resolveEventMetadata({ subscription: 'sub_1' })).toEqual({ kind: 'none' });
@@ -156,7 +156,7 @@ describe('resolvePlan: never a default', () => {
       expect(resolvePlan({ plan_key: 'solo' }, { product: { id: 'prod_biz_m' } })).toEqual({ kind: 'unresolved', reason: 'plan_conflict' });
     });
 
-    it('a product Redlined1 does not sell is unknown', () => {
+    it('a product RedlineD1 does not sell is unknown', () => {
       expect(resolvePlan({ plan_key: 'solo' }, { product: { id: 'prod_from_somewhere_else' } })).toEqual({ kind: 'unresolved', reason: 'plan_unknown' });
     });
 

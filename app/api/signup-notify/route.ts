@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
   // Deterministic: from the account, not the clock, so a retry sends an
   // identical payload and Resend's idempotency key matches it.
   const signedUp = createdAt.toUTCString();
-  const from = `Redlined1 <${process.env.MAIL_FROM_ADDRESS?.trim() || DEFAULT_SENDER}>`;
+  const from = `RedlineD1 <${process.env.MAIL_FROM_ADDRESS?.trim() || DEFAULT_SENDER}>`;
 
   let state: SignupAlertState;
   let messageId: string | null = null;

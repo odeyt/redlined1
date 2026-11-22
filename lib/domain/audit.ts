@@ -1,7 +1,7 @@
 /**
  * The one way a domain write records what it did.
  *
- * Redlined1 has had an `audit_logs` table since the beginning:
+ * RedlineD1 has had an `audit_logs` table since the beginning:
  * `action, "user" text, entity, time text`. No shop, no actor id, no
  * before/after, no protection against being rewritten — and zero rows, because
  * nothing ever wrote to it. Payroll, receivables and AI-initiated writes all

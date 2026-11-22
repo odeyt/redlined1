@@ -1,5 +1,5 @@
 /**
- * Environment helpers for Redlined1.
+ * Environment helpers for RedlineD1.
  *
  * - NEXT_PUBLIC_* variables are safe for both client and server
  * - Server-only variables (no NEXT_PUBLIC_ prefix) must only be read server-side
@@ -93,7 +93,7 @@ export function assertRequiredEnvVars(): void {
 
   if (missing.length === 0) return;
 
-  const message = `[Redlined1] Missing required environment variables: ${missing.join(', ')}`;
+  const message = `[RedlineD1] Missing required environment variables: ${missing.join(', ')}`;
 
   if (env === 'production') {
     throw new Error(message);

@@ -71,7 +71,7 @@ async function creemFetch(path: string, options: RequestInit = {}): Promise<Resp
   });
 }
 
-/** Maps Creem subscription status strings to normalized Redlined1 statuses. */
+/** Maps Creem subscription status strings to normalized RedlineD1 statuses. */
 function normalizeStatus(raw: string | undefined | null): SubscriptionStatus {
   switch ((raw ?? '').toLowerCase()) {
     case 'trialing':              return 'trialing';

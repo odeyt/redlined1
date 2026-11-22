@@ -6,7 +6,7 @@
  * answer for the missing name:
  *
  *     fetchShopSettings()       -> "My Shop"
- *     invoice print / preview   -> "Redlined1"      (our own product name)
+ *     invoice print / preview   -> "RedlineD1"      (our own product name)
  *     send-document email       -> PGRST116, the send fails
  *
  * So the invoice was never blank. It carried our name onto their customer's

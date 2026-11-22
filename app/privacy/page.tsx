@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — Redlined1',
-  description: 'How Redlined1 collects, uses, and protects your data.',
+  title: 'Privacy Policy — RedlineD1',
+  description: 'How RedlineD1 collects, uses, and protects your data.',
 };
 
 export default function PrivacyPage() {
@@ -11,21 +11,21 @@ export default function PrivacyPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.back}>
-          <Link href="/" style={styles.backLink}>← Redlined1</Link>
+          <Link href="/" style={styles.backLink}>← RedlineD1</Link>
         </div>
 
         <h1 style={styles.h1}>Privacy Policy</h1>
         <p style={styles.meta}>Effective date: 1 July 2025 · Last updated: 14 July 2025</p>
 
         <p style={styles.lead}>
-          Redlined1 ("we", "us", or "our") operates the Redlined1 shop-management platform at{' '}
+          RedlineD1 ("we", "us", or "our") operates the RedlineD1 shop-management platform at{' '}
           <strong>redlined1.com</strong>. This policy explains what data we collect, why we collect it,
           how we use it, and your rights. We keep it plain English — no legalese traps.
         </p>
 
         <Section title="1. Who We Are">
           <p>
-            Redlined1 is a software-as-a-service (SaaS) product built for automotive repair shops. We are
+            RedlineD1 is a software-as-a-service (SaaS) product built for automotive repair shops. We are
             registered in Laos. Questions? Email us at{' '}
             <a href="mailto:admin@redlined1.com" style={styles.link}>admin@redlined1.com</a>.
           </p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
 
         <Section title="3. How We Use Your Data">
           <ul style={styles.list}>
-            <li>Provide, maintain, and improve the Redlined1 platform</li>
+            <li>Provide, maintain, and improve the RedlineD1 platform</li>
             <li>Authenticate your account and keep it secure</li>
             <li>Process subscription payments via Creem</li>
             <li>Send essential service emails (password reset, billing receipts, downtime notices)</li>
@@ -134,7 +134,7 @@ export default function PrivacyPage() {
 
         <Section title="9. Children">
           <p>
-            Redlined1 is not directed at anyone under 18. We do not knowingly collect data from
+            RedlineD1 is not directed at anyone under 18. We do not knowingly collect data from
             minors. If you believe a minor has created an account, contact us and we will delete it.
           </p>
         </Section>
@@ -149,7 +149,7 @@ export default function PrivacyPage() {
 
         <Section title="11. Contact">
           <p>
-            <strong>Redlined1</strong><br />
+            <strong>RedlineD1</strong><br />
             Email: <a href="mailto:admin@redlined1.com" style={styles.link}>admin@redlined1.com</a><br />
             Website: <a href="https://redlined1.com" style={styles.link}>redlined1.com</a>
           </p>

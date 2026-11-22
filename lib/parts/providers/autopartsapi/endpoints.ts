@@ -1,5 +1,5 @@
 /**
- * Every AutoPartsAPI path Redlined1 knows, in one place.
+ * Every AutoPartsAPI path RedlineD1 knows, in one place.
  *
  * Transcribed from the provider's current official documentation. Nothing here
  * is inferred: a path that is not in the docs is not in this file, and the
@@ -39,7 +39,7 @@ export const AUTOPARTS_DEFAULT_COUNTRY_FILTER_ID = 63;
 /**
  * The provider's vehicle-type ids.
  *
- * Confined to this adapter on purpose. Redlined1 has its own idea of a
+ * Confined to this adapter on purpose. RedlineD1 has its own idea of a
  * vehicle and must not learn that a Tacoma is "type 1" to a third party —
  * that is exactly the coupling the provider abstraction exists to prevent.
  */
@@ -51,7 +51,7 @@ export const AUTOPARTS_TYPE_ID = {
 
 export type RedlineVehicleType = 'car' | 'truck' | 'motorbike';
 
-/** Redlined1's vehicle notion → the provider's. The only place they meet. */
+/** RedlineD1's vehicle notion → the provider's. The only place they meet. */
 export function toAutoPartsTypeId(type: RedlineVehicleType): number {
   switch (type) {
     case 'truck': return AUTOPARTS_TYPE_ID.commercialVehicle;
@@ -124,7 +124,7 @@ export function modelsPath(args: {
  *
  * The ENGINE-SPEC variant, deliberately. The provider also offers
  * `list-vehicles-id`, which returns variants without engine data — and with
- * engine recorded on 6 of 114 Redlined1 vehicles, the provider's own
+ * engine recorded on 6 of 114 RedlineD1 vehicles, the provider's own
  * displacement, cylinders, kW and engine codes are the only way a technician
  * can tell two variants apart. The cheaper endpoint would make the variant
  * selector a list of identical-looking rows.
@@ -206,7 +206,7 @@ export function vehicleApplicabilityPath(args: {
 
 /**
  * OEM parts for a KNOWN vehicle by search term. Requires resolved vehicle ids,
- * which Redlined1 does not hold yet — see the note in provider.ts.
+ * which RedlineD1 does not hold yet — see the note in provider.ts.
  *
  * GET /articles-oem/selecting-oem-parts-vehicle-modification-description-product-group
  *     /type-id/{typeId}/vehicle-id/{vehicleId}/lang-id/{langId}/search-param/{term}

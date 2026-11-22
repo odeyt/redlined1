@@ -38,7 +38,7 @@ export interface ScoredResult extends NormalizedPartResult {
 
 export interface PartsSearchVehicle {
   /**
-   * Redlined1's own vehicle id.
+   * RedlineD1's own vehicle id.
    *
    * Needed so the server can look up and store the catalogue mapping. Absent
    * when the estimate names a vehicle that is not a record — resolution is
@@ -607,7 +607,7 @@ export function PartsSearchModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 16 }}>Search Parts</div>
-              {/* The vehicle is SHOWN, never re-entered — Redlined1 already
+              {/* The vehicle is SHOWN, never re-entered — RedlineD1 already
                   knows it from the estimate. */}
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
                 {vehicleLabel || 'No vehicle linked to this estimate'}
@@ -736,7 +736,7 @@ export function PartsSearchModal({
             * produces no modification candidates, so the chooser above cannot
             * render — and the technician was left with "No matching parts
             * found", which says the catalogue holds nothing for their car.
-            * It does not. Redlined1 could not decide WHICH car, so the
+            * It does not. RedlineD1 could not decide WHICH car, so the
             * vehicle-scoped search never ran.
             *
             * Saying that plainly matters more than hiding it: the difference

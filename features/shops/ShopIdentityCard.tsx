@@ -5,7 +5,7 @@
  *
  * Six of eight active tenants are in this state. Four have no settings row at
  * all; two have a name but a blank address and telephone. Until now nothing
- * said so: the first sign was an invoice headed "Redlined1" going to their
+ * said so: the first sign was an invoice headed "RedlineD1" going to their
  * customer, or an email that failed with a database error code.
  *
  * ## Who sees it

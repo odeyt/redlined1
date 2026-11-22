@@ -41,7 +41,7 @@ import { readableShopIds } from '@/lib/shops/mirrorScope';
 const SearchSchema = z.object({
   query: z.string().trim().min(2).max(120),
   shopId: z.string().uuid(),
-  /** Redlined1's vehicle id, when the estimate names a real vehicle record. */
+  /** RedlineD1's vehicle id, when the estimate names a real vehicle record. */
   vehicleId: z.string().uuid().optional(),
   vin: z.string().trim().max(32).optional(),
   year: z.number().int().min(1900).max(2100).optional(),

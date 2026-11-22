@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * AutoPartsAPI as a Redlined1 parts provider.
+ * AutoPartsAPI as a RedlineD1 parts provider.
  *
  * It occupies the existing `catalog` slot rather than adding a registry entry:
  * the OEM cross-reference abstraction already exists and this is an
@@ -15,7 +15,7 @@ import 'server-only';
  *
  * Free-text search for a KNOWN vehicle exists in the API
  * (`selecting-oem-parts-vehicle-modification-description-product-group`) and
- * is NOT wired, because it needs a provider `vehicle-id` and Redlined1 holds
+ * is NOT wired, because it needs a provider `vehicle-id` and RedlineD1 holds
  * VINs and labels, not this provider's vehicle ids. Resolving one is its own
  * piece of work with its own quota cost. So a search with no OEM number
  * returns nothing here rather than guessing an id — eBay already covers

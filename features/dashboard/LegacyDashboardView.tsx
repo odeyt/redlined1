@@ -205,7 +205,7 @@ export function LegacyDashboardView() {
   }
 
   const { stats, recentInvoices, recentROs, revenue7, monthlyRevenue, loading } = useOperationalStats();
-  const [companyName, setCompanyName] = useState('Redlined1');
+  const [companyName, setCompanyName] = useState('RedlineD1');
   const [userEmail, setUserEmail] = useState<string>('');
   const [allowedModules, setAllowedModules] = useState<string[]>(() =>
     // Owners and managers see all tiles immediately — no async wait needed.

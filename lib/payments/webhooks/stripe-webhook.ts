@@ -2,7 +2,7 @@
  * Stripe webhook event normalizer — PLACEHOLDER.
  *
  * Implement this when activating the Stripe provider.
- * Maps Stripe event types and payloads into Redlined1's PaymentWebhookEvent.
+ * Maps Stripe event types and payloads into RedlineD1's PaymentWebhookEvent.
  */
 
 import type { PaymentWebhookEvent } from '../types';

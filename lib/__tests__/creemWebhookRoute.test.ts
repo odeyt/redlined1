@@ -54,7 +54,7 @@ function freshDb(unique?: Record<string, string[]>) {
 const meta = (o: Record<string, string> = {}) => ({ shop_id: SHOP_A, user_id: USER_A, plan_id: 'solo', plan_key: 'solo', billing_interval: 'monthly', ...o });
 const dates = (start: string, end: string) => ({ current_period_start_date: start, current_period_end_date: end });
 
-/** checkout.completed for a Redlined1 checkout. `metadata: null` means the event carries none. */
+/** checkout.completed for a RedlineD1 checkout. `metadata: null` means the event carries none. */
 function initial(o: { id?: string; metadata?: Record<string, string> | null; period?: Record<string, unknown> | null } = {}) {
   const metadata = o.metadata === undefined ? meta() : o.metadata;
   const period = o.period === undefined ? dates('2026-09-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z') : o.period;
@@ -82,7 +82,7 @@ function renewal(o: { id?: string; type?: string; metadata?: Record<string, stri
   };
 }
 
-/** A one-time order made outside Redlined1 (payment link / dashboard): request_id, no metadata. */
+/** A one-time order made outside RedlineD1 (payment link / dashboard): request_id, no metadata. */
 const externalOrder = (id = 'evt_test_external') => ({
   id, eventType: 'checkout.completed', created_at: 1788000000000,
   object: {
@@ -174,7 +174,7 @@ describe('subscription period: initial payment and renewal', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
 describe('classification comes before the shop link', () => {
-  it('an external one-time order is recorded and acknowledged, not reported as a failed Redlined1 subscription', async () => {
+  it('an external one-time order is recorded and acknowledged, not reported as a failed RedlineD1 subscription', async () => {
     const r = await deliver(externalOrder());
     expect(r).toEqual({ status: 200, body: { received: true, classified: 'external_order' } });
     expect(events()).toHaveLength(1);
@@ -194,7 +194,7 @@ describe('classification comes before the shop link', () => {
     expect(events()[0]).toMatchObject({ processed: false, error: 'UNRESOLVED:malformed_checkout' });
   });
 
-  it('a subscription event with Redlined1 metadata is classified as ours and processed normally', async () => {
+  it('a subscription event with RedlineD1 metadata is classified as ours and processed normally', async () => {
     const r = await deliver(initial());
     expect(r.body).toEqual({ received: true });
     expect(mockAlerts.failures).toHaveLength(0);
@@ -756,7 +756,7 @@ describe('plan mapping: a missing, unknown or conflicting plan is never defaulte
       expect(subs()[0].plan_key).toBe('solo');
     });
 
-    it('a product Redlined1 does not sell is held as unknown', async () => {
+    it('a product RedlineD1 does not sell is held as unknown', async () => {
       const p = renewal() as { object: Record<string, unknown> };
       p.object.product = { id: 'prod_from_a_payment_link', billing_type: 'recurring' };
       expectHeld(await deliver(p), 'plan_unknown', [USER_A]);
@@ -862,7 +862,7 @@ describe('event classification: only a positively identified external order is q
     expect(mockAlerts.failures).toHaveLength(0);
   });
 
-  it('a one-time order that carries Redlined1 metadata is NOT external: it is proven like any other event', async () => {
+  it('a one-time order that carries RedlineD1 metadata is NOT external: it is proven like any other event', async () => {
     const p = externalOrder('evt_test_ours_onetime') as { object: Record<string, unknown> };
     p.object.metadata = meta();
     const r = await deliver(p);

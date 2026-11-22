@@ -1,6 +1,6 @@
 {
-  "name": "Redlined1 — Shop Operations",
-  "short_name": "Redlined1",
+  "name": "RedlineD1 — Shop Operations",
+  "short_name": "RedlineD1",
   "description": "Vehicle intake, inspections, repair orders and invoicing for automotive shops.",
   "id": "/",
   "start_url": "/login",

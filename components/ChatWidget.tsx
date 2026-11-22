@@ -19,7 +19,7 @@ export function ChatWidget() {
   const [_message, setMessage] = useState('');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
-    { from: 'bot', text: 'Hi there! 👋 Welcome to Redlined1. I\'m here to help. What\'s your name?', time: now() },
+    { from: 'bot', text: 'Hi there! 👋 Welcome to RedlineD1. I\'m here to help. What\'s your name?', time: now() },
   ]);
   const [sending, setSending] = useState(false);
   const [unread, setUnread] = useState(1);
@@ -89,11 +89,11 @@ export function ChatWidget() {
           {/* Header */}
           <div style={{ background: '#cc0000', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
-              <img src={LOGO_SRC} alt="Redlined1" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
+              <img src={LOGO_SRC} alt="RedlineD1" style={{ height: 34, width: 'auto', objectFit: 'contain' }} />
               <div style={{ position: 'absolute', bottom: 0, right: -2, width: 10, height: 10, borderRadius: '50%', background: '#22c55e', border: '2px solid #cc0000' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>Redlined1 Support</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: '#fff' }}>RedlineD1 Support</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#86efac', display: 'inline-block' }} />
                 Online · Typically replies in minutes

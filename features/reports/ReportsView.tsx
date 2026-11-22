@@ -517,7 +517,7 @@ export function ReportsView() {
   const [jobPeriod, setJobPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'revenue' | 'repairs' | 'payments' | 'customers' | 'intake' | 'technicians' | 'completion'>('completion');
-  const [shopName, setShopName] = useState('Redlined1');
+  const [shopName, setShopName] = useState('RedlineD1');
   const [toast, setToast] = useState('');
   const [enableTechnicianReport, setEnableTechnicianReport] = useState(true);
   const [enableJobCompletionReport, setEnableJobCompletionReport] = useState(true);

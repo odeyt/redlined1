@@ -1,5 +1,5 @@
 /**
- * Redlined1 normalized payment types.
+ * RedlineD1 normalized payment types.
  * These types are provider-agnostic — no Creem or Stripe terminology leaks here.
  * All provider-specific shapes are mapped to these types inside their provider file.
  */

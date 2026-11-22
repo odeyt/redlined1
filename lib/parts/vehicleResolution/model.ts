@@ -1,5 +1,5 @@
 /**
- * Matching Redlined1's `model` to a provider model series.
+ * Matching RedlineD1's `model` to a provider model series.
  *
  * Harder than the manufacturer, because model names are not a controlled
  * vocabulary. A catalogue writes "C-CLASS (W205)" and a service advisor typed
@@ -105,7 +105,7 @@ export function matchModel(
 
   // ── Designations ─────────────────────────────────────────────────────────
   //
-  // Redlined1 stores what is written on the car. For a Mercedes that is
+  // RedlineD1 stores what is written on the car. For a Mercedes that is
   // usually a DESIGNATION — "C260", "S350" — while the catalogue names the
   // SERIES: "C-CLASS (W206)". They share no token, so a live 2023 C260
   // matched nothing at all against 255 real Mercedes series.

@@ -43,7 +43,7 @@ export interface Capabilities {
   /**
    * Whether this role may reach a module at this shop.
    *
-   * A SECOND question from `can()`, deliberately. Redlined1 has two permission
+   * A SECOND question from `can()`, deliberately. RedlineD1 has two permission
    * systems and they are separate on purpose:
    *
    *   role_permissions      what a role may SEE   (module allowlist, per shop)
