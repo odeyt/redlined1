@@ -36,6 +36,8 @@ Repository **variables**:
 | `MORNING_BRIEF_SENDING_ENABLED` | `true` when ready |
 | `MORNING_BRIEF_AUDIENCE` | `everyone` only after the canary is verified |
 | `MORNING_BRIEF_SCHEDULE_ENABLED` | `true` to start the hourly schedule |
+| `MORNING_BRIEF_COPY_TO` | *(optional)* one address to receive copies of internal-shop briefs, e.g. `admin@redlined1.com` — see "Operator copies" below |
+| `MORNING_BRIEF_COPY_OWNER_EMAILS` | *(optional)* comma-separated owner addresses identifying the operator's OWN shops — only those shops' briefs are copied |
 
 Repository **secrets**: `NEXT_PUBLIC_SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` (all already set for
@@ -70,6 +72,26 @@ email addresses for canary mode).
    no second email.
 5. Only then set `MORNING_BRIEF_AUDIENCE` = `everyone`, and finally
    `MORNING_BRIEF_SCHEDULE_ENABLED` = `true`.
+
+## Operator copies (internal shops only)
+
+The operator runs their own shop on RedlineD1 and wants its brief in the
+operator inbox as well as the owner inbox. Two optional variables do
+that — copies are **off unless both are set**, and they are never a
+launch gate:
+
+- `MORNING_BRIEF_COPY_TO` — the single address that receives copies
+  (e.g. `admin@redlined1.com`).
+- `MORNING_BRIEF_COPY_OWNER_EMAILS` — comma-separated owner addresses
+  identifying the operator's own shops.
+
+After a brief is successfully sent to its owner, if the owner's address
+is on the copy-owner list (and is not the copy address itself), the same
+email is sent once more to `MORNING_BRIEF_COPY_TO`. **Customer shops are
+never copied** — only shops whose owner is listed. The copy is
+best-effort: it creates no `morning_brief_sends` row, cannot block or
+duplicate the owner's once-per-day brief, and a failed copy shows up
+only in the run output's `copies: { sent, failed }` counters.
 
 ## Timezones
 
