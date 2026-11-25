@@ -271,6 +271,28 @@ COMMIT;
 --   ALTER TABLE public.api_keys  DROP COLUMN IF EXISTS created_by_user_id;
 ```
 
+### Found in Phase 1: the API cannot allocate document numbers yet
+
+`next_document_number` (latest version in
+`2026-08-11_invoice_number_global_sequence.sql`) is SECURITY DEFINER and
+refuses any caller that isn't a `shop_users` member via `auth.uid()`. It is
+executable by `authenticated` only. An API request runs as `service_role` with
+no user, so it would get `not a member of shop` (or no EXECUTE at all).
+
+Proposed for the Phase 2 migration, to decide when we get there:
+
+- **Option A (recommended):** a new function `api_next_document_number(p_shop_id,
+  p_doc_type)`, executable by `service_role` only, that runs the same counter
+  logic. The existing function stays byte-for-byte unchanged, so staff saves
+  carry no risk. The cost is that the counter body exists twice; a test pins
+  the two bodies to be identical below the membership check.
+- **Option B:** `CREATE OR REPLACE` the existing function to skip the membership
+  check when `auth.uid()` is NULL, and grant it to `service_role`. That's one
+  body, but it edits the function every staff save depends on.
+
+Either way, invoice numbers stay on the global `invoice_number_seq`, because
+`invoices.number` is the table's primary key.
+
 **New environment variables: none.** The brief's `API_KEY_PEPPER`,
 `UPSTASH_*` and `CRON_SECRET` aren't needed with the existing design.
 `WEBHOOK_SIGNING_SECRET_ENCRYPTION_KEY` comes only with webhooks, which are
