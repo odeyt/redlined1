@@ -8,9 +8,13 @@ built behind the flag. Phases 4–7 wait for the owner's go-ahead on each.
 **Deviation found in phase 3:** `updated_since` (agreed in Q3) cannot be
 built yet. Neither `estimates` nor `invoices` has an `updated_at` column in
 any schema file in the repo. Keeping one current would need a trigger or
-edits to every write path, staff screens included. Until the owner decides,
-the API offers `created_since` and refuses `updated_since` with a 422 that
-says so.
+edits to every write path, staff screens included.
+
+**Decided 2026-11-25: keep `created_since`.** No `updated_at` column, no
+trigger, no change to staff save paths. Bots find new documents with
+`created_since` and check a known document for changes by reading it by id.
+`updated_since` stays refused with a 422. Revisit only if a bot actually needs
+change polling.
 
 ## Owner decisions (2026-11-24)
 
