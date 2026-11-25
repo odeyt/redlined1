@@ -16,11 +16,11 @@ import { join } from 'path';
 const SERVICES = join(process.cwd(), 'services');
 
 /** Fully ported: the write and the audit live together in lib/domain. */
-const PORTED = ['customerService', 'invoiceService', 'paymentService', 'employeeService'];
+const PORTED = ['customerService', 'invoiceService', 'paymentService', 'employeeService', 'estimateService'];
 
 /** Wired with recordAudit at their existing write sites. */
 const AUDITED = [
-  'jobCardService', 'vehicleService', 'estimateService',
+  'jobCardService', 'vehicleService',
   'repairOrderService', 'inspectionService',
   // Partial: deleteAppointment records, create and update do not. Both have
   // three return paths apiece — retry branches for missing columns — and

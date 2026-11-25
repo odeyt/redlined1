@@ -190,13 +190,14 @@ export const DOMAIN_EVENTS = {
   cashDayClosed: 'cash_day.closed',
   expenseApproved: 'expense.approved',
   leaveApproved: 'leave.approved',
+  estimateApproved: 'estimate.approved',
 } as const;
 
 /**
  * Named, but NOT emitted yet — and deliberately kept out of DOMAIN_EVENTS.
  *
- * Repair orders and estimates still live in services/, with no lib/domain
- * module to emit from. Listing them above would have made the promise this
+ * Repair orders still live in services/, with no lib/domain module to emit
+ * from. (Estimates moved up when lib/domain/estimates.ts arrived.) Listing them above would have made the promise this
  * file opens with — "a subscriber can be written against something knowable" —
  * false: five of the nine types listed here originally never fired, so anything
  * subscribing to them waited forever with no way to tell.
@@ -206,7 +207,6 @@ export const DOMAIN_EVENTS = {
  */
 export const PLANNED_DOMAIN_EVENTS = {
   repairOrderClosed: 'repair_order.closed',
-  estimateApproved: 'estimate.approved',
 } as const;
 
 export type DomainEventType = typeof DOMAIN_EVENTS[keyof typeof DOMAIN_EVENTS];

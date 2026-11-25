@@ -21,7 +21,10 @@ const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 const migration = read('supabase/migrations/2026-08-04_document_counters.sql');
 const selfSeed  = read('supabase/migrations/2026-08-04_document_counters_self_seed.sql');
-const helper    = read('services/documentNumberService.ts');
+// The allocator moved to lib/domain so server code (API v1) numbers documents
+// identically; the browser service is now a thin wrapper around it.
+const helper    = read('lib/domain/documentNumbers.ts');
+const wrapper   = read('services/documentNumberService.ts');
 const services  = {
   repairOrder: read('services/repairOrderService.ts'),
   estimate:    read('services/estimateService.ts'),
@@ -53,7 +56,8 @@ describe('nobody counts rows any more', () => {
 
 describe('the database allocates, atomically', () => {
   it('the helper calls the function rather than querying the table', () => {
-    expect(helper).toMatch(/supabase\.rpc\('next_document_number'/);
+    expect(helper).toMatch(/db\.rpc\('next_document_number'/);
+    expect(wrapper).toMatch(/return allocateDocumentNumber\(supabase, getShopId\(\), docType\)/);
     expect(helper).not.toMatch(/\.from\('document_counters'\)/);
   });
 

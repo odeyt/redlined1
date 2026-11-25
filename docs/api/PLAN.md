@@ -1,7 +1,31 @@
 # Machine API for bots: Phase 0 plan
 
-Status: **PLAN ONLY, awaiting owner approval.** Nothing below is built. No
-file other than this one was changed.
+Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built;
+phases 2–7 wait for the owner's go-ahead on each.
+
+## Owner decisions (2026-11-24)
+
+- **Q1, AI agents:** "I approve external Grok Bot agents creating and editing
+  draft estimates and invoices through API v1. They're not approved to send,
+  approve, finalize, record payments, void or delete."
+- **Q2:** extend the existing API v1. No second key or auth system.
+- **Q3:** core first. Finalize, webhooks and the MCP connector are deferred.
+  Bots poll with the `updated_since` filter.
+- **Q4–Q7:** go with the plan's recommendations unless one changes how money
+  or customer data works:
+  - Q4: `discount` and `tax_rate` are not settable by a bot (shop defaults).
+    Document and line `currency` are limited to what the staff screens already
+    allow (LAK, THB, USD), defaulting to the shop's currency. This matches the UI.
+  - Q5: API conversion requires an Approved estimate.
+  - Q6: no staging database. The migration goes to production with the flag off.
+  - Q7: the owner checks for existing keys (`npx tsx scripts/api-key.ts list`)
+    before rollout. This doesn't block the build.
+- **Rollout:**
+  1. Keep `api_v1_documents` off in production until a **read-only** key has
+     been tested on a preview deploy.
+  2. Then turn on write access for the **RedlineD1 CRM** key only.
+  3. **Wally Bot stays read-only** (`customers:read`, `vehicles:read`,
+     `estimates:read`, `invoices:read`).
 Branch: `feature/machine-api-v1` (from `main` at `dc1f628`).
 Brief: `CLAUDE_CODE_PROMPT.md` (Grok Bot agents drafting estimates and invoices).
 
