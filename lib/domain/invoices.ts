@@ -294,6 +294,8 @@ export type InvoiceRecord = InvoiceFull & {
   provenance: DocumentProvenance;
   /** Set only by conversions recorded after the API v1 migration. */
   sourceEstimateId: string | null;
+  /** The invoice's shop, when read from the table. Internal: never in API output. */
+  shopId?: string;
 };
 
 export function toInvoiceRecord(row: Record<string, unknown>): InvoiceRecord {
@@ -301,6 +303,7 @@ export function toInvoiceRecord(row: Record<string, unknown>): InvoiceRecord {
     ...mapInvoiceRow(row),
     provenance: provenanceOf(row),
     sourceEstimateId: typeof row.source_estimate_id === 'string' ? row.source_estimate_id : null,
+    ...(typeof row.shop_id === 'string' ? { shopId: row.shop_id } : {}),
   };
 }
 

@@ -47,6 +47,7 @@ npx tsx scripts/api-key.ts revoke --id <uuid>
 | `estimates:write` | create and edit **draft** estimates (behind `api_v1_documents`) |
 | `invoices:read` | list and read invoices, with amount paid and balance (behind `api_v1_documents`) |
 | `invoices:write` | create and edit **draft** invoices (behind `api_v1_documents`) |
+| `pdf:read` | download estimates and invoices as PDF, together with the matching read scope (behind `api_v1_documents`) |
 
 Converting an approved estimate needs both `estimates:write` and
 `invoices:write`.
@@ -172,6 +173,23 @@ at once.
 | `POST /api/v1/estimates/{id}/convert-to-invoice` (approved only) | `estimates:write` + `invoices:write` |
 | `POST /api/v1/invoices` (draft) | `invoices:write` |
 | `PATCH /api/v1/invoices/{number}` (draft only) | `invoices:write` |
+| `GET /api/v1/estimates/{id}/pdf` | `estimates:read` + `pdf:read` |
+| `GET /api/v1/invoices/{number}/pdf` | `invoices:read` + `pdf:read` |
+
+### PDFs
+
+- They use the same layout as the PDF the shop emails, rendered by the same
+  code (`lib/documents/pdf.ts`).
+- A **Draft** is stamped DRAFT across the page with "not issued, not valid for
+  payment" under the header. Its filename ends in `-DRAFT.pdf`.
+- Totals are the ones the screens show, and they match the JSON. A line in
+  another currency is printed in its own currency and left out of the
+  subtotal. Line cost and markup are never printed.
+- The trial "REDLINED1" watermark appears on the same shops the app puts it
+  on: never on the D1 shops, and otherwise when the owner's plan is free.
+- If the shop profile has no name, address or phone, the request is refused
+  with 409 `SHOP_IDENTITY_INCOMPLETE`, the same as emailing a document.
+- Nothing is sent to anyone. The PDF is returned to the caller only.
 
 ### Writing drafts
 
@@ -221,7 +239,6 @@ at once.
 
 ## What is not here yet
 
-Repair orders, payments, inspections, inventory and reporting are not exposed.
-Estimate and invoice PDFs come in a later phase. See
+Repair orders, payments, inspections, inventory and reporting are not exposed. See
 [`../m13-api-readiness.md`](../m13-api-readiness.md) for the state of each and
 why.

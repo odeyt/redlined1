@@ -299,10 +299,15 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
 }
 
 /** An estimate with who created it. */
-export type EstimateRecord = EstimateFull & { provenance: DocumentProvenance };
+/** An estimate with who created it, and (when read from the table) its shop. Internal: never in API output. */
+export type EstimateRecord = EstimateFull & { provenance: DocumentProvenance; shopId?: string };
 
 export function toEstimateRecord(row: Record<string, unknown>): EstimateRecord {
-  return { ...mapEstimateRow(row), provenance: provenanceOf(row) };
+  return {
+    ...mapEstimateRow(row),
+    provenance: provenanceOf(row),
+    ...(typeof row.shop_id === 'string' ? { shopId: row.shop_id } : {}),
+  };
 }
 
 export type EstimateDomain = ReturnType<typeof createEstimateDomain>;

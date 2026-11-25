@@ -25,6 +25,10 @@ export const API_SCOPES = [
   'estimates:write',
   'invoices:read',
   'invoices:write',
+  // Download a document as PDF. Needed IN ADDITION to estimates:read or
+  // invoices:read, so a key can be allowed the data but not the printable
+  // document a customer could be handed.
+  'pdf:read',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -68,6 +72,10 @@ const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   // (never manage) on each, as vehicles:write does for customers.
   'estimates:write': ['estimates.read', 'estimates.manage', 'customers.read', 'vehicles.read'],
   'invoices:write':  ['invoices.read', 'invoices.manage', 'payments.read', 'customers.read', 'vehicles.read'],
+
+  // No capability of its own: the document read is granted by estimates:read
+  // or invoices:read, which the PDF routes also require.
+  'pdf:read': [],
 };
 
 export function isApiScope(value: string): value is ApiScope {

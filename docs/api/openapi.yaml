@@ -844,6 +844,66 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/estimates/{id}/pdf:
+    get:
+      tags: [Estimates]
+      summary: Download an estimate as PDF
+      description: |
+        The same layout the shop emails. A **Draft** is stamped DRAFT with a
+        "not issued, not valid for payment" line. Totals are the screens'
+        totals. Line cost and markup are never printed. Nothing is sent: the
+        bytes come back to the caller only.
+        Needs `estimates:read` **and** `pdf:read`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: getEstimatePdf
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The PDF. `Content-Disposition` names it, with `-DRAFT` for a draft.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: SHOP_IDENTITY_INCOMPLETE in `details.code`. The shop profile lacks a name, address or phone, so no document is produced.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/invoices/{number}/pdf:
+    get:
+      tags: [Invoices]
+      summary: Download an invoice as PDF
+      description: |
+        The same layout the shop emails. A **Draft** is stamped DRAFT with a
+        "not issued, not valid for payment" line. Totals are the screens'
+        totals. Line cost and markup are never printed. Nothing is sent: the
+        bytes come back to the caller only.
+        Needs `invoices:read` **and** `pdf:read`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: getInvoicePdf
+      parameters:
+        - { name: number, in: path, required: true, schema: { type: string, example: INV-0042 } }
+      responses:
+        '200':
+          description: The PDF. `Content-Disposition` names it, with `-DRAFT` for a draft.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: SHOP_IDENTITY_INCOMPLETE in `details.code`. The shop profile lacks a name, address or phone, so no document is produced.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -858,7 +918,8 @@ components:
 
         Scopes: `customers:read`, `customers:write`, `vehicles:read`,
         `vehicles:write`, `appointments:read`, `appointments:write`,
-        `estimates:read`, `estimates:write`, `invoices:read`, `invoices:write`.
+        `estimates:read`, `estimates:write`, `invoices:read`, `invoices:write`,
+        `pdf:read`.
 
   schemas:
     Customer:

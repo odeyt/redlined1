@@ -257,6 +257,8 @@ describe('the document routes cannot send, approve, delete or take money', () =>
     'estimates/[id]/convert-to-invoice/route.ts': ['POST'],
     'invoices/route.ts': ['GET', 'POST'],
     'invoices/[number]/route.ts': ['GET', 'PATCH'],
+    'estimates/[id]/pdf/route.ts': ['GET'],
+    'invoices/[number]/pdf/route.ts': ['GET'],
   };
   const FILES = Object.keys(METHODS).map(f => [f, readFileSync(join(__dirname, '..', f), 'utf8')] as const);
 

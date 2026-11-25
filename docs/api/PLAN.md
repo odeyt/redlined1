@@ -4,7 +4,21 @@ Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
 Phase 2 (migration + flag) is written, with numbering option A chosen on
 2026-11-25; the owner has not applied it yet. Phase 3 (read endpoints) is
 built behind the flag. Phase 4 (draft writes and convert) is built behind the
-flag. Phases 5–7 wait for the owner's go-ahead on each.
+flag. Phase 5 (PDFs) is built behind the flag. Phases 6–7 wait for the
+owner's go-ahead on each.
+
+**Phase 5 notes:**
+- `buildPdf` was moved verbatim to `lib/documents/pdf.ts`, and the email
+  route imports it. On 2026-11-25 its output was checked byte for byte against
+  the previous route's code on 4 documents: identical apart from pdf-lib's
+  creation timestamps.
+- **Pre-existing issue in the email PDF, not changed:** `send-document` adds
+  every line into one subtotal whatever its currency, so an estimate with THB
+  and USD lines gets one mixed figure. The staff screens and the API leave the
+  other-currency lines out. The API PDF uses the screens' totals. Fixing the
+  emailed PDF is a separate change to a customer-facing path.
+- `pdf:read` is required in addition to the read scope, so a key can be given
+  the data without the printable document.
 
 **Phase 4 decisions made while building (owner may revisit):**
 - **No invoice plan cap.** §8 said `requireCapacity('invoices')`, but

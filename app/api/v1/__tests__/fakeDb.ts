@@ -139,6 +139,7 @@ export function createFakeDb(): FakeDb {
       gte: (c: string, v: string) => { filters.push(r => String(r[c] ?? '') >= v); return b; },
       order: (c: string, o?: { ascending?: boolean }) => { orders.push([c, o?.ascending !== false]); return b; },
       range: (from: number, to: number) => { range = [from, to]; return b; },
+      limit: (n: number) => { range = [0, n - 1]; return b; },
       maybeSingle: () => { single = 'maybe'; return b; },
       single: () => { single = 'one'; return b; },
       then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
