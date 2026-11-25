@@ -216,15 +216,28 @@ describe('line totals', () => {
 });
 
 describe('document scopes', () => {
-  it('are read-only for now', () => {
-    expect(API_SCOPES).toContain('estimates:read');
-    expect(API_SCOPES).toContain('invoices:read');
-    expect(API_SCOPES).not.toContain('estimates:write' as never);
-    expect(API_SCOPES).not.toContain('invoices:write' as never);
+  it('exist for read and draft write, and nothing else', () => {
+    const doc = API_SCOPES.filter(s => s.startsWith('estimates:') || s.startsWith('invoices:'));
+    expect([...doc].sort()).toEqual(['estimates:read', 'estimates:write', 'invoices:read', 'invoices:write']);
   });
 
-  it('never unlock a write, a payment or an approval', () => {
+  it('read scopes never unlock a write', () => {
     const caps = capabilitiesForScopes(['estimates:read', 'invoices:read']);
     expect(caps.sort()).toEqual(['estimates.read', 'invoices.read', 'payments.read']);
+  });
+
+  it('no scope unlocks recording or reversing a payment', () => {
+    const caps = capabilitiesForScopes([...API_SCOPES]);
+    expect(caps).not.toContain('payments.record');
+    expect(caps).not.toContain('payments.reverse');
+  });
+
+  it('write scopes can check a customer and vehicle but never change them', () => {
+    for (const s of ['estimates:write', 'invoices:write']) {
+      const caps = capabilitiesForScopes([s]);
+      expect(caps).toEqual(expect.arrayContaining(['customers.read', 'vehicles.read']));
+      expect(caps).not.toContain('customers.manage');
+      expect(caps).not.toContain('vehicles.manage');
+    }
   });
 });

@@ -44,7 +44,12 @@ npx tsx scripts/api-key.ts revoke --id <uuid>
 | `customers:read` | list and read customers |
 | `customers:write` | create customers (includes read) |
 | `estimates:read` | list and read estimates (behind `api_v1_documents`) |
+| `estimates:write` | create and edit **draft** estimates (behind `api_v1_documents`) |
 | `invoices:read` | list and read invoices, with amount paid and balance (behind `api_v1_documents`) |
+| `invoices:write` | create and edit **draft** invoices (behind `api_v1_documents`) |
+
+Converting an approved estimate needs both `estimates:write` and
+`invoices:write`.
 
 Deny by default. A scope not listed on the key is refused, and scopes do not
 imply one another beyond the table above. `customers:write` deliberately does
@@ -150,7 +155,7 @@ curl -X POST https://www.redlined1.com/api/v1/customers \
   -d '{"name":"Somchai Vong","phone":"+856 20 5555 1234"}'
 ```
 
-## Estimates and invoices (bot access, read only)
+## Estimates and invoices (bot access)
 
 Plan: [`PLAN.md`](PLAN.md). Every endpoint below answers **404** unless the
 `api_v1_documents` feature flag is on for every shop the key covers. The flag
@@ -162,6 +167,39 @@ at once.
 | `GET /api/v1/me` | any one scope |
 | `GET /api/v1/estimates`, `GET /api/v1/estimates/{id}` | `estimates:read` |
 | `GET /api/v1/invoices`, `GET /api/v1/invoices/{number}` | `invoices:read` |
+| `POST /api/v1/estimates` (draft) | `estimates:write` |
+| `PATCH /api/v1/estimates/{id}` (draft only) | `estimates:write` |
+| `POST /api/v1/estimates/{id}/convert-to-invoice` (approved only) | `estimates:write` + `invoices:write` |
+| `POST /api/v1/invoices` (draft) | `invoices:write` |
+| `PATCH /api/v1/invoices/{number}` (draft only) | `invoices:write` |
+
+### Writing drafts
+
+- **Always Draft.** A key cannot set a status, totals, discount or tax rate.
+  Discount is 0 and tax is the shop's default from Settings. A body that sets
+  any field not in the contract is refused with 422.
+- **Drafts only.** Editing anything that is not a Draft returns 409
+  `CONFLICT` with `details.code` `NOT_DRAFT`. The edit only applies while the
+  document is still a Draft, so if a person sends it during a bot's edit,
+  nothing is overwritten.
+- **The shop's margins are safe.** A key never sees line cost or markup. It
+  cannot replace the lines of a draft that carries them (409
+  `LINES_HAVE_COST_DATA`). Its other fields can still be edited.
+- **Convert** works only on an Approved estimate (409 `NOT_APPROVED`
+  otherwise), and only once. A second attempt returns 409
+  `ALREADY_CONVERTED` with the first invoice's number. A unique index in the
+  database settles a race.
+- **`Idempotency-Key` is required** on every POST here. A retry with the same
+  key and body replays the first response. The same key with a different
+  body returns `IDEMPOTENCY_CONFLICT`.
+- `customer_id` and `vehicle_id` must belong to the key's shop, otherwise 404.
+  A vehicle registered to another customer is refused with 422.
+- The key needs a single shop. A multi-shop key cannot write.
+- Every write is audited with `api_client_id` and `api_client_name` (the key's
+  id and label, never the secret).
+- **The database migration must be applied before the flag is turned on.**
+  `supabase/migrations/2026-11-25_api_v1_documents.sql` adds the numbering
+  function and the provenance columns. Without it, every write fails.
 
 - **Lists** are newest first. Filters: `status`, `customer_id`,
   `created_since`. Paging: `page`, `page_size` (max 100). An unknown status
@@ -179,11 +217,11 @@ at once.
   payments ledger. A payment in a different currency is listed in
   `currency_mismatches`. It is never converted.
 - There is no endpoint that sends, emails, approves, records a payment, voids
-  or deletes. Draft writes come in a later phase.
+  or deletes.
 
 ## What is not here yet
 
 Repair orders, payments, inspections, inventory and reporting are not exposed.
-Estimate and invoice writes are not exposed yet. See
+Estimate and invoice PDFs come in a later phase. See
 [`../m13-api-readiness.md`](../m13-api-readiness.md) for the state of each and
 why.

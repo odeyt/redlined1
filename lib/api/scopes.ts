@@ -18,10 +18,13 @@ export const API_SCOPES = [
   'vehicles:write',
   'appointments:read',
   'appointments:write',
-  // Bot document access (docs/api/PLAN.md). Read only for now; the write
-  // scopes arrive with the draft endpoints, and only behind api_v1_documents.
+  // Bot document access (docs/api/PLAN.md), only behind api_v1_documents.
+  // Write means DRAFTS: create, edit a draft, convert an Approved estimate.
+  // No scope here sends, approves, records a payment, voids or deletes.
   'estimates:read',
+  'estimates:write',
   'invoices:read',
+  'invoices:write',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -59,6 +62,12 @@ const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   // endpoint (none exists) and never payments.record or payments.reverse:
   // the API cannot move money.
   'invoices:read':  ['invoices.read', 'payments.read'],
+
+  // A draft names a customer and optionally a vehicle by id; both are checked
+  // to belong to this tenant before anything is written, which needs read
+  // (never manage) on each, as vehicles:write does for customers.
+  'estimates:write': ['estimates.read', 'estimates.manage', 'customers.read', 'vehicles.read'],
+  'invoices:write':  ['invoices.read', 'invoices.manage', 'payments.read', 'customers.read', 'vehicles.read'],
 };
 
 export function isApiScope(value: string): value is ApiScope {

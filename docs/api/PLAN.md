@@ -3,7 +3,24 @@
 Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
 Phase 2 (migration + flag) is written, with numbering option A chosen on
 2026-11-25; the owner has not applied it yet. Phase 3 (read endpoints) is
-built behind the flag. Phases 4–7 wait for the owner's go-ahead on each.
+built behind the flag. Phase 4 (draft writes and convert) is built behind the
+flag. Phases 5–7 wait for the owner's go-ahead on each.
+
+**Phase 4 decisions made while building (owner may revisit):**
+- **No invoice plan cap.** §8 said `requireCapacity('invoices')`, but
+  `unlimitedInvoices` is a yes/no flag with no number, and nothing in the app
+  limits invoices on any plan. The API matches the staff screens.
+- **Default currency** follows the staff forms: THB for the two D1 shops, USD
+  otherwise. A test pins the D1 list to the one in the forms. A key may send
+  LAK, THB or USD.
+- **Margin guard:** a key may not replace the lines of a draft whose lines
+  carry cost, markup or parts-source data, because it cannot see them. Its
+  other fields stay editable.
+- **Audit field names** are `api_client_id` and `api_client_name`. The audit
+  redactor blanks anything named `api_key*` as a secret.
+- Converting copies the estimate's lines, discount and tax rate as stored, as
+  the staff screen does. Cost and markup stay on the invoice for the shop and
+  are never returned.
 
 **Deviation found in phase 3:** `updated_since` (agreed in Q3) cannot be
 built yet. Neither `estimates` nor `invoices` has an `updated_at` column in

@@ -48,6 +48,28 @@ export function pageRange(page: number, pageSize: number): [number, number] {
   return [from, from + pageSize - 1];
 }
 
+/**
+ * A draft rule refused the operation. The API maps every reason to 409
+ * CONFLICT except NOT_FOUND (404). Thrown only by API-path operations.
+ */
+export type DocumentStateReason =
+  | 'NOT_FOUND'
+  | 'NOT_DRAFT'
+  | 'NOT_APPROVED'
+  | 'ALREADY_CONVERTED'
+  | 'LINES_HAVE_COST_DATA';
+
+export class DocumentStateError extends Error {
+  readonly reason: DocumentStateReason;
+  readonly details?: Record<string, unknown>;
+  constructor(reason: DocumentStateReason, message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = 'DocumentStateError';
+    this.reason = reason;
+    this.details = details;
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Query = any;
 

@@ -31,7 +31,7 @@ import {
  * reported to the advisor as a failure because the audit insert hiccuped.
  * Money domains (invoices, payments) keep the stricter rule.
  */
-async function auditEstimate(db: DomainDb, context: DomainContext, entry: AuditEntry): Promise<void> {
+export async function auditEstimate(db: DomainDb, context: DomainContext, entry: AuditEntry): Promise<void> {
   try {
     await writeAuditEvent(db, context, entry);
   } catch (error) {
@@ -150,11 +150,16 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
     return data ? mapEstimateRow(data) : null;
   }
 
-  async function create(est: EstimateInput): Promise<EstimateFull> {
+  /**
+   * `opts.apiKeyId` marks the estimate as made by that API key (API v1 only;
+   * the staff screens never pass it, so their insert is unchanged).
+   */
+  async function create(est: EstimateInput, opts: { apiKeyId?: string } = {}): Promise<EstimateFull> {
     requireCapability(context, 'estimates.manage', 'create estimates');
     const { data, error } = await db
       .from('estimates')
       .insert({
+        ...(opts.apiKeyId ? { created_via: 'api', created_by_api_key_id: opts.apiKeyId } : {}),
         shop_id: context.shopId,
         estimate_number: est.estimateNumber,
         customer_name: est.customerName,
@@ -273,7 +278,7 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
       .order('id', { ascending: false })
       .range(from, to);
     if (error) throw error;
-    const rows = ((data ?? []) as Record<string, unknown>[]).map(toRecord);
+    const rows = ((data ?? []) as Record<string, unknown>[]).map(toEstimateRecord);
     return { rows, total: typeof count === 'number' ? count : rows.length };
   }
 
@@ -287,7 +292,7 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
       .in('shop_id', context.shopIds)
       .maybeSingle();
     if (error) throw error;
-    return data ? toRecord(data as Record<string, unknown>) : null;
+    return data ? toEstimateRecord(data as Record<string, unknown>) : null;
   }
 
   return { list, get, create, update, approve, remove, listPage, getRecord };
@@ -296,7 +301,7 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
 /** An estimate with who created it. */
 export type EstimateRecord = EstimateFull & { provenance: DocumentProvenance };
 
-function toRecord(row: Record<string, unknown>): EstimateRecord {
+export function toEstimateRecord(row: Record<string, unknown>): EstimateRecord {
   return { ...mapEstimateRow(row), provenance: provenanceOf(row) };
 }
 

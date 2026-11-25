@@ -39,6 +39,11 @@ export interface DomainActor {
   userId: string | null;
   /** shop_users.role at the time of the call, for audit rather than for access. */
   role: string | null;
+  /**
+   * The API key behind an 'api' actor. Recorded in every audit row's metadata
+   * so "which bot did this" has an answer. Never the secret.
+   */
+  apiKey?: { id: string; name: string };
 }
 
 export interface DomainContext {

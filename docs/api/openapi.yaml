@@ -561,6 +561,47 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+    post:
+      tags: [Estimates]
+      summary: Create a draft estimate
+      description: |
+        Always a **Draft**. Scope `estimates:write` and a shop-scoped key.
+        Discount is 0 and the tax rate is the shop's default; neither can be
+        sent. `customer_id` (and `vehicle_id`, if sent) must belong to this
+        shop (404 otherwise); a vehicle registered to another customer is 422.
+        Sending status, totals, discount, tax_rate, cost, markup or any other
+        field not listed is **422**.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: createEstimate
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Required. A retry with the same key and body replays the first response; the same key with a different body is IDEMPOTENCY_CONFLICT.
+          schema: { type: string, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EstimateCreate' }
+      responses:
+        '201':
+          description: The new draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Estimate' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/estimates/{id}:
     get:
       tags: [Estimates]
@@ -589,6 +630,79 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+    patch:
+      tags: [Estimates]
+      summary: Edit a draft estimate
+      description: |
+        **Draft only**: anything else is 409 CONFLICT (`details.code`
+        NOT_DRAFT). Replacing `lines` on a draft whose lines carry the shop's
+        cost or markup is 409 LINES_HAVE_COST_DATA; edit those in Redlined1.
+        Scope `estimates:write`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: updateEstimate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EstimatePatch' }
+      responses:
+        '200':
+          description: The updated draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Estimate' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/estimates/{id}/convert-to-invoice:
+    post:
+      tags: [Estimates]
+      summary: Convert an approved estimate to a draft invoice
+      description: |
+        **Approved estimates only** (409 NOT_APPROVED otherwise). Creates a
+        Draft invoice linked by `estimate_id` and marks the estimate
+        converted. A second conversion is 409 ALREADY_CONVERTED with
+        `details.invoice_number`. Needs `estimates:write` and
+        `invoices:write`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: convertEstimate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Required. A retry with the same key and body replays the first response; the same key with a different body is IDEMPOTENCY_CONFLICT.
+          schema: { type: string, maxLength: 255 }
+      responses:
+        '201':
+          description: The converted estimate and its new draft invoice.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { estimate: { $ref: '#/components/schemas/Estimate' }, invoice: { $ref: '#/components/schemas/Invoice' } } }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/invoices:
     get:
       tags: [Invoices]
@@ -632,6 +746,43 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '422': { $ref: '#/components/responses/ValidationFailed' }
 
+    post:
+      tags: [Invoices]
+      summary: Create a draft invoice
+      description: |
+        Always a **Draft**, which is not issued to anyone. Scope
+        `invoices:write` and a shop-scoped key. Same body rules as estimates.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: createInvoice
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Required. A retry with the same key and body replays the first response; the same key with a different body is IDEMPOTENCY_CONFLICT.
+          schema: { type: string, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvoiceCreate' }
+      responses:
+        '201':
+          description: The new draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Invoice' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/invoices/{number}:
     get:
       tags: [Invoices]
@@ -660,6 +811,39 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+    patch:
+      tags: [Invoices]
+      summary: Edit a draft invoice
+      description: |
+        **Draft only** (409 otherwise). There is no way to set paid_date or a
+        status. Scope `invoices:write`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: updateInvoice
+      parameters:
+        - { name: number, in: path, required: true, schema: { type: string, example: INV-0042 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvoicePatch' }
+      responses:
+        '200':
+          description: The updated draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Invoice' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -674,7 +858,7 @@ components:
 
         Scopes: `customers:read`, `customers:write`, `vehicles:read`,
         `vehicles:write`, `appointments:read`, `appointments:write`,
-        `estimates:read`, `invoices:read`.
+        `estimates:read`, `estimates:write`, `invoices:read`, `invoices:write`.
 
   schemas:
     Customer:
@@ -948,6 +1132,66 @@ components:
           description: The estimate this was converted from, when recorded.
         created_at: { type: string, format: date-time, nullable: true }
         created_via: { type: string, enum: [app, api] }
+
+    DraftLineInput:
+      type: object
+      additionalProperties: false
+      required: [description, qty, rate]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 500 }
+        lao_description: { type: string, maxLength: 500 }
+        note: { type: string, maxLength: 500 }
+        qty: { type: number, exclusiveMinimum: true, minimum: 0, maximum: 100000 }
+        rate: { type: number, minimum: 0 }
+        currency: { type: string, enum: [LAK, THB, USD] }
+
+    EstimateCreate:
+      type: object
+      additionalProperties: false
+      required: [customer_id, lines]
+      properties:
+        customer_id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        currency: { type: string, enum: [LAK, THB, USD], description: "Default: THB for D1 shops, USD otherwise, as the staff forms." }
+        lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
+        notes: { type: string, maxLength: 2000 }
+        valid_until: { type: string, format: date }
+
+    EstimatePatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        customer_id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid, nullable: true, description: null clears the vehicle. }
+        currency: { type: string, enum: [LAK, THB, USD] }
+        lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
+        notes: { type: string, maxLength: 2000 }
+        valid_until: { type: string, format: date, nullable: true }
+
+    InvoiceCreate:
+      type: object
+      additionalProperties: false
+      required: [customer_id, lines]
+      properties:
+        customer_id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        currency: { type: string, enum: [LAK, THB, USD] }
+        lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
+        notes: { type: string, maxLength: 2000 }
+        due_date: { type: string, format: date }
+
+    InvoicePatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        customer_id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid, nullable: true }
+        currency: { type: string, enum: [LAK, THB, USD] }
+        lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
+        notes: { type: string, maxLength: 2000 }
+        due_date: { type: string, format: date, nullable: true }
 
     Meta:
       type: object

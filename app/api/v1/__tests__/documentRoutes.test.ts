@@ -248,23 +248,41 @@ describe('with api_v1_documents on', () => {
 
 // ── Read only, by construction ───────────────────────────────────────────────
 
-describe('the document routes cannot write, send or take money', () => {
-  const FILES = [
-    'me/route.ts', 'estimates/route.ts', 'estimates/[id]/route.ts',
-    'invoices/route.ts', 'invoices/[number]/route.ts',
-  ].map(f => [f, readFileSync(join(__dirname, '..', f), 'utf8')] as const);
+describe('the document routes cannot send, approve, delete or take money', () => {
+  // Exactly these methods, and no others. Phase 4 added the draft writes.
+  const METHODS: Record<string, string[]> = {
+    'me/route.ts': ['GET'],
+    'estimates/route.ts': ['GET', 'POST'],
+    'estimates/[id]/route.ts': ['GET', 'PATCH'],
+    'estimates/[id]/convert-to-invoice/route.ts': ['POST'],
+    'invoices/route.ts': ['GET', 'POST'],
+    'invoices/[number]/route.ts': ['GET', 'PATCH'],
+  };
+  const FILES = Object.keys(METHODS).map(f => [f, readFileSync(join(__dirname, '..', f), 'utf8')] as const);
 
-  it.each(FILES)('%s exports GET only', (_f, src) => {
-    expect(src).toMatch(/export const GET = withApi\(/);
-    expect(src).not.toMatch(/export const (POST|PUT|PATCH|DELETE)\b/);
+  it.each(FILES)('%s exports only its agreed methods', (f, src) => {
+    const exported = [...src.matchAll(/export const (GET|POST|PUT|PATCH|DELETE)\b/g)].map(m => m[1]).sort();
+    expect(exported).toEqual([...METHODS[f]].sort());
   });
 
-  it.each(FILES)('%s sits behind the flag', (_f, src) => {
-    expect(src).toMatch(/flag: 'api_v1_documents'/);
+  it.each(FILES)('%s sits behind the flag on every method', (_f, src) => {
+    const handlers = (src.match(/withApi\(/g) ?? []).length;
+    expect((src.match(/flag: 'api_v1_documents'/g) ?? []).length).toBe(handlers);
   });
 
   it.each(FILES)('%s imports nothing that sends or moves money', (_f, src) => {
     expect(src).not.toMatch(/send-document|send-followup|send-message|whatsapp|resend|stripe|creem|portal/i);
-    expect(src).not.toMatch(/\.(create|update|remove|approve|markPaid|reverse|correct)\(/);
+    expect(src).not.toMatch(/\.(remove|approve|markPaid|reverse|correct)\(/);
+    // Writes go through the draft domain only, never the general create/update.
+    expect(src).not.toMatch(/(createEstimateDomain|createInvoiceDomain)\([^)]*\)\.(create|update)\(/);
+  });
+
+  it('every write needs a write shop and a write scope', () => {
+    for (const [f, src] of FILES) {
+      for (const m of src.matchAll(/export const (POST|PATCH) = withApi\(\s*\{([^}]*)\}/g)) {
+        expect(`${f} ${m[1]}: ${/requiresWriteShop: true/.test(m[2])}`).toBe(`${f} ${m[1]}: true`);
+        expect(m[2]).toMatch(/:write'/);
+      }
+    }
   });
 });

@@ -92,6 +92,25 @@ export class AuditWriteError extends Error {
  * leave the table looking healthy while recording nothing. Callers that
  * genuinely can survive without the record must say so explicitly.
  */
+/**
+ * An API caller's key id and name, added to the metadata. The database
+ * stamps the actor type ('api') but has no user to name, so without this an
+ * audit row cannot say which key made the change. Unchanged for every other
+ * actor.
+ *
+ * Named `api_client_*`, not `api_key_*`: REDACTED_KEY blanks any field named
+ * like an API key, which is right for secrets and would blank this too. The
+ * id is the key's row id and the name its label; neither is the secret.
+ */
+export function withApiKey(
+  context: DomainContext,
+  metadata: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null | undefined {
+  const key = context.actor.apiKey;
+  if (!key) return metadata;
+  return { ...(metadata ?? {}), api_client_id: key.id, api_client_name: key.name };
+}
+
 export async function writeAuditEvent(
   db: DomainDb,
   context: DomainContext,
@@ -106,7 +125,7 @@ export async function writeAuditEvent(
     p_entity_id: entry.entityId,
     p_before: redactSnapshot(entry.before),
     p_after: redactSnapshot(entry.after),
-    p_metadata: redactSnapshot(entry.metadata),
+    p_metadata: redactSnapshot(withApiKey(context, entry.metadata)),
     p_request_id: context.requestId ?? null,
   });
 

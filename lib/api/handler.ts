@@ -124,7 +124,7 @@ export function withApi(
         // is only a default — every read is scoped by shopIds, not by this.
         shopId: principal.writeShopId ?? principal.shopIds[0],
         shopIds: principal.shopIds,
-        actor: { userId: null, type: 'api', role: 'api_key' },
+        actor: { userId: null, type: 'api', role: 'api_key', apiKey: { id: principal.keyId, name: principal.name } },
         capabilities: principal.capabilities,
         requestId,
       });

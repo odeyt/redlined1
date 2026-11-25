@@ -25,7 +25,7 @@ import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 import { mapInvoiceRow, getEffectiveTotal } from './invoiceMath';
 import type { InvoiceFull } from './invoiceMath';
 import {
-  applyDocumentFilters, pageRange, provenanceOf,
+  DocumentStateError, applyDocumentFilters, pageRange, provenanceOf,
   type DocumentPage, type DocumentPageQuery, type DocumentProvenance,
 } from './documentQuery';
 
@@ -77,11 +77,23 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
     return data ? mapInvoiceRow(data) : null;
   }
 
-  async function create(inv: InvoiceInput): Promise<InvoiceFull> {
+  /**
+   * `opts` is for API v1 only; the staff screens never pass it, so their
+   * insert is unchanged.
+   *   apiKeyId          marks the invoice as made by that key
+   *   sourceEstimateId  the estimate it was converted from; a unique index
+   *                     makes a second invoice for the same estimate fail
+   */
+  async function create(
+    inv: InvoiceInput,
+    opts: { apiKeyId?: string; sourceEstimateId?: string } = {},
+  ): Promise<InvoiceFull> {
     requireCapability(context, 'invoices.manage', 'raise invoices');
     const { data, error } = await db
       .from('invoices')
       .insert({
+        ...(opts.apiKeyId ? { created_via: 'api', created_by_api_key_id: opts.apiKeyId } : {}),
+        ...(opts.sourceEstimateId ? { source_estimate_id: opts.sourceEstimateId } : {}),
         shop_id: context.shopId,
         number: inv.invoiceNumber,
         customer: inv.customerName,
@@ -102,6 +114,9 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
       .single();
 
     if (error) {
+      if (error.code === '23505' && String(error.message).includes('invoices_one_per_source_estimate')) {
+        throw new DocumentStateError('ALREADY_CONVERTED', 'That estimate has already been converted to an invoice.');
+      }
       if (error.code === '23505' && String(error.message).includes('invoices_one_per_repair_order')) {
         throw new Error('This repair order has already been invoiced — someone else may have just billed it. Reload to see the invoice.');
       }
@@ -281,7 +296,7 @@ export type InvoiceRecord = InvoiceFull & {
   sourceEstimateId: string | null;
 };
 
-function toInvoiceRecord(row: Record<string, unknown>): InvoiceRecord {
+export function toInvoiceRecord(row: Record<string, unknown>): InvoiceRecord {
   return {
     ...mapInvoiceRow(row),
     provenance: provenanceOf(row),
