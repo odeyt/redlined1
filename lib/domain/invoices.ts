@@ -24,6 +24,10 @@ import { changedFields } from './changes';
 import { emitDomainEvent, DOMAIN_EVENTS } from './events';
 import { mapInvoiceRow, getEffectiveTotal } from './invoiceMath';
 import type { InvoiceFull } from './invoiceMath';
+import {
+  applyDocumentFilters, pageRange, provenanceOf,
+  type DocumentPage, type DocumentPageQuery, type DocumentProvenance,
+} from './documentQuery';
 
 export type { InvoiceFull, InvoiceLine, InvoiceTotals } from './invoiceMath';
 
@@ -236,7 +240,53 @@ export function createInvoiceDomain({ db, context }: DomainDeps) {
     });
   }
 
-  return { list, get, create, update, markPaid, remove };
+  /** One page, filtered in the database. For API v1; see documentQuery.ts. */
+  async function listPage(q: DocumentPageQuery): Promise<DocumentPage<InvoiceRecord>> {
+    requireCapability(context, 'invoices.read', 'see invoices');
+    const [from, to] = pageRange(q.page, q.pageSize);
+    const query = applyDocumentFilters(
+      db.from('invoices').select('*', { count: 'exact' }).in('shop_id', context.shopIds),
+      q,
+    );
+    // `number` is the primary key, so it is the tie-break.
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .order('number', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const rows = ((data ?? []) as Record<string, unknown>[]).map(toInvoiceRecord);
+    return { rows, total: typeof count === 'number' ? count : rows.length };
+  }
+
+  /** `get` plus provenance. Another shop's number returns null, like `get`. */
+  async function getRecord(invoiceNumber: string): Promise<InvoiceRecord | null> {
+    requireCapability(context, 'invoices.read', 'see invoices');
+    const { data, error } = await db
+      .from('invoices')
+      .select('*')
+      .eq('number', invoiceNumber)
+      .in('shop_id', context.shopIds)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toInvoiceRecord(data as Record<string, unknown>) : null;
+  }
+
+  return { list, get, create, update, markPaid, remove, listPage, getRecord };
+}
+
+/** An invoice with who created it and the estimate it was converted from. */
+export type InvoiceRecord = InvoiceFull & {
+  provenance: DocumentProvenance;
+  /** Set only by conversions recorded after the API v1 migration. */
+  sourceEstimateId: string | null;
+};
+
+function toInvoiceRecord(row: Record<string, unknown>): InvoiceRecord {
+  return {
+    ...mapInvoiceRow(row),
+    provenance: provenanceOf(row),
+    sourceEstimateId: typeof row.source_estimate_id === 'string' ? row.source_estimate_id : null,
+  };
 }
 
 export type InvoiceDomain = ReturnType<typeof createInvoiceDomain>;

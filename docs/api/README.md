@@ -43,6 +43,8 @@ npx tsx scripts/api-key.ts revoke --id <uuid>
 |---|---|
 | `customers:read` | list and read customers |
 | `customers:write` | create customers (includes read) |
+| `estimates:read` | list and read estimates (behind `api_v1_documents`) |
+| `invoices:read` | list and read invoices, with amount paid and balance (behind `api_v1_documents`) |
 
 Deny by default. A scope not listed on the key is refused, and scopes do not
 imply one another beyond the table above. `customers:write` deliberately does
@@ -148,9 +150,40 @@ curl -X POST https://www.redlined1.com/api/v1/customers \
   -d '{"name":"Somchai Vong","phone":"+856 20 5555 1234"}'
 ```
 
+## Estimates and invoices (bot access, read only)
+
+Plan: [`PLAN.md`](PLAN.md). Every endpoint below answers **404** unless the
+`api_v1_documents` feature flag is on for every shop the key covers. The flag
+is seeded off and is read on every request, so switching it off takes effect
+at once.
+
+| Endpoint | Scope |
+|---|---|
+| `GET /api/v1/me` | any one scope |
+| `GET /api/v1/estimates`, `GET /api/v1/estimates/{id}` | `estimates:read` |
+| `GET /api/v1/invoices`, `GET /api/v1/invoices/{number}` | `invoices:read` |
+
+- **Lists** are newest first. Filters: `status`, `customer_id`,
+  `created_since`. Paging: `page`, `page_size` (max 100). An unknown status
+  or a malformed filter is 422, never a silently wider list.
+- **`updated_since` is not supported yet.** The tables have no `updated_at`
+  column, so it is refused (422) rather than ignored. To see whether a
+  document changed, read it by id.
+- **Money** is decimal in the document's currency (USD, THB, LAK). Totals are
+  computed the same way the staff screens compute them. A line in another
+  currency is listed under `totals.line_totals_by_currency` and left out of the
+  subtotal.
+- **Never returned:** the shop's internal line `cost` and `markup`, parts
+  procurement data, and `shop_id`.
+- **Invoices** include `amount_paid` and `balance_due`, netted from the
+  payments ledger. A payment in a different currency is listed in
+  `currency_mismatches`. It is never converted.
+- There is no endpoint that sends, emails, approves, records a payment, voids
+  or deletes. Draft writes come in a later phase.
+
 ## What is not here yet
 
-Vehicles, repair orders, invoices, payments, appointments, inspections,
-inventory and reporting are not exposed. See
+Repair orders, payments, inspections, inventory and reporting are not exposed.
+Estimate and invoice writes are not exposed yet. See
 [`../m13-api-readiness.md`](../m13-api-readiness.md) for the state of each and
 why.

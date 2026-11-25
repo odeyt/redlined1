@@ -18,6 +18,10 @@ export const API_SCOPES = [
   'vehicles:write',
   'appointments:read',
   'appointments:write',
+  // Bot document access (docs/api/PLAN.md). Read only for now; the write
+  // scopes arrive with the draft endpoints, and only behind api_v1_documents.
+  'estimates:read',
+  'invoices:read',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -48,6 +52,13 @@ const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   // There is nothing to look up.
   'appointments:read':  ['appointments.read'],
   'appointments:write': ['appointments.read', 'appointments.manage'],
+
+  'estimates:read': ['estimates.read'],
+  // An invoice's amount_paid and balance_due are the net of its payments, so
+  // reading an invoice properly needs payments.read. That unlocks no payment
+  // endpoint (none exists) and never payments.record or payments.reverse:
+  // the API cannot move money.
+  'invoices:read':  ['invoices.read', 'payments.read'],
 };
 
 export function isApiScope(value: string): value is ApiScope {

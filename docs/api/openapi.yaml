@@ -34,6 +34,9 @@ tags:
   - name: Customers
   - name: Vehicles
   - name: Appointments
+  - name: Bot access
+  - name: Estimates
+  - name: Invoices
 
 paths:
   /api/v1/customers:
@@ -489,6 +492,174 @@ paths:
         '422': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /api/v1/me:
+    get:
+      tags: [Bot access]
+      summary: Describe this key
+      description: |
+        Which key this is, the shops it reaches and its scopes. Any key with at
+        least one scope may call it. Never returns the secret or its hash.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: getMe
+      responses:
+        '200':
+          description: The key.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Me' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/estimates:
+    get:
+      tags: [Estimates]
+      summary: List estimates
+      description: |
+        Newest first (created_at, then id). Scope `estimates:read`.
+        Statuses: draft, sent, approved, declined, converted, void.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: listEstimates
+      parameters:
+        - name: status
+          in: query
+          description: One of the statuses below for this resource. Anything else is 422.
+          schema: { type: string }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - name: created_since
+          in: query
+          description: ISO 8601 date or timestamp. Documents created at or after it.
+          schema: { type: string, format: date-time }
+        - name: updated_since
+          in: query
+          description: Not supported yet (no updated_at column). Sending it is **422**, so a poller is never silently handed the whole list.
+          schema: { type: string }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        '200':
+          description: One page of estimates.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Estimate' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /api/v1/estimates/{id}:
+    get:
+      tags: [Estimates]
+      summary: Get one estimate
+      description: |
+        Another tenant's estimate, or an id that is not a uuid, is **404**.
+        Scope `estimates:read`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: getEstimate
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The estimate.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Estimate' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      description: |
+        Newest first (created_at, then number). Scope `invoices:read`.
+        Statuses: draft, sent, paid, refunded, void.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: listInvoices
+      parameters:
+        - name: status
+          in: query
+          description: One of the statuses below for this resource. Anything else is 422.
+          schema: { type: string }
+        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - name: created_since
+          in: query
+          description: ISO 8601 date or timestamp. Documents created at or after it.
+          schema: { type: string, format: date-time }
+        - name: updated_since
+          in: query
+          description: Not supported yet (no updated_at column). Sending it is **422**, so a poller is never silently handed the whole list.
+          schema: { type: string }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        '200':
+          description: One page of invoices.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Invoice' } }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '422': { $ref: '#/components/responses/ValidationFailed' }
+
+  /api/v1/invoices/{number}:
+    get:
+      tags: [Invoices]
+      summary: Get one invoice
+      description: |
+        Invoices are keyed by number (`INV-0042`); there is no invoice id.
+        Another tenant's invoice is **404**. Scope `invoices:read`.
+
+        Behind the `api_v1_documents` feature flag: **404** while it is off
+        for any shop the key covers.
+      operationId: getInvoice
+      parameters:
+        - { name: number, in: path, required: true, schema: { type: string, example: INV-0042 } }
+      responses:
+        '200':
+          description: The invoice.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Invoice' }
+                  meta: { $ref: '#/components/schemas/Meta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -502,7 +673,8 @@ components:
         recovered, only replaced.
 
         Scopes: `customers:read`, `customers:write`, `vehicles:read`,
-        `vehicles:write`, `appointments:read`, `appointments:write`.
+        `vehicles:write`, `appointments:read`, `appointments:write`,
+        `estimates:read`, `invoices:read`.
 
   schemas:
     Customer:
@@ -656,6 +828,126 @@ components:
             timezone:
               type: string
               example: shop-local wall clock; date and time carry no offset
+
+    Me:
+      type: object
+      properties:
+        key:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        organization_id: { type: string, format: uuid }
+        shops:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        write_shop_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Null when the key spans several shops, so it cannot write.
+        scopes: { type: array, items: { type: string } }
+
+    DocumentLine:
+      type: object
+      description: Never includes the shop's internal cost or markup.
+      properties:
+        description: { type: string }
+        lao_description: { type: string }
+        note: { type: string }
+        qty: { type: number }
+        rate: { type: number }
+        currency:
+          type: string
+          enum: [USD, THB, LAK]
+          description: The line's own currency; the document currency when unset.
+        amount: { type: number, description: "qty × rate, two decimals." }
+
+    DocumentTotals:
+      type: object
+      description: |
+        Computed by Redlined1 exactly as the staff screens compute them. The
+        subtotal counts only lines in the document currency; lines in another
+        currency appear in `line_totals_by_currency`.
+      properties:
+        subtotal: { type: number }
+        discount: { type: number }
+        tax: { type: number }
+        total: { type: number }
+        line_totals_by_currency: { type: object, additionalProperties: { type: number } }
+
+    Estimate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, example: EST-0042 }
+        status: { type: string, enum: [draft, sent, approved, declined, converted, void] }
+        customer_id: { type: string, format: uuid, nullable: true }
+        customer_name: { type: string }
+        vehicle: { type: string, description: The vehicle label as written on the estimate. }
+        currency: { type: string, enum: [USD, THB, LAK] }
+        lines: { type: array, items: { $ref: '#/components/schemas/DocumentLine' } }
+        discount: { type: number }
+        tax_rate: { type: number, description: "A fraction: 0.07 is 7%." }
+        totals: { $ref: '#/components/schemas/DocumentTotals' }
+        notes: { type: string }
+        valid_until: { type: string, nullable: true }
+        approved_at: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        created_via: { type: string, enum: [app, api] }
+
+    Invoice:
+      type: object
+      properties:
+        number: { type: string, example: INV-0042 }
+        status: { type: string, enum: [draft, sent, paid, refunded, void] }
+        customer_id: { type: string, format: uuid, nullable: true }
+        customer_name: { type: string }
+        vehicle: { type: string }
+        currency: { type: string, enum: [USD, THB, LAK] }
+        lines: { type: array, items: { $ref: '#/components/schemas/DocumentLine' } }
+        discount: { type: number }
+        tax_rate: { type: number }
+        totals:
+          allOf:
+            - $ref: '#/components/schemas/DocumentTotals'
+            - type: object
+              properties:
+                shop_supplies: { type: number }
+        amount_due:
+          type: object
+          description: The single figure the staff screens show for this invoice.
+          properties:
+            amount: { type: number }
+            currency: { type: string }
+        amount_paid: { type: number, description: "Payments in the amount_due currency, net of reversals." }
+        balance_due:
+          type: number
+          description: "amount_due minus amount_paid, never negative. Computed for drafts too, though nobody owes a draft."
+        overpaid: { type: number }
+        currency_mismatches:
+          type: array
+          description: Payments in another currency. Not converted and not counted; a person should look.
+          items:
+            type: object
+            properties:
+              currency: { type: string }
+              amount: { type: number }
+        due_date: { type: string, nullable: true }
+        paid_date: { type: string, nullable: true }
+        notes: { type: string }
+        repair_order_id: { type: string, nullable: true }
+        estimate_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The estimate this was converted from, when recorded.
+        created_at: { type: string, format: date-time, nullable: true }
+        created_via: { type: string, enum: [app, api] }
 
     Meta:
       type: object

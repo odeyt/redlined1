@@ -23,6 +23,7 @@ import { getAdminDb } from '@/lib/supabaseServer';
 import { createDomainContext, type DomainContext } from '@/lib/domain/context';
 import { ApiError, API_ERRORS, type ApiErrorCode } from './errors';
 import { resolvePrincipal, requireScope, type ApiPrincipal } from './principal';
+import { isApiFlagOn, type ApiFlag } from './flags';
 
 /** Requests per key per window. Generous for a workshop integration. */
 const RATE_LIMIT = 120;
@@ -43,6 +44,14 @@ interface Options {
   scopes: string[];
   /** A write needs one unambiguous shop; a read does not. */
   requiresWriteShop?: boolean;
+  /**
+   * 'all' (the default): the caller needs every listed scope.
+   * 'any': at least one. Only for endpoints that describe the key itself,
+   * such as /me, which any working key may call.
+   */
+  scopeMode?: 'all' | 'any';
+  /** Answer 404 unless this flag is on for every shop the key covers. */
+  flag?: ApiFlag;
 }
 
 export function apiSuccess(data: unknown, requestId: string, meta?: Record<string, unknown>, status = 200) {
@@ -89,7 +98,19 @@ export function withApi(
         throw new ApiError('RATE_LIMITED', { limit: RATE_LIMIT, windowSeconds: RATE_WINDOW_SECONDS });
       }
 
-      for (const scope of options.scopes) requireScope(principal, scope);
+      // Before the scope check, so a disabled feature looks the same to every
+      // key: absent, not "you lack the scope for it".
+      if (options.flag && !(await isApiFlagOn(db, options.flag, principal.shopIds))) {
+        throw new ApiError('NOT_FOUND');
+      }
+
+      if (options.scopeMode === 'any') {
+        if (!options.scopes.some(scope => principal.scopes.includes(scope))) {
+          throw new ApiError('SCOPE_REQUIRED', { required_any: options.scopes });
+        }
+      } else {
+        for (const scope of options.scopes) requireScope(principal, scope);
+      }
 
       if (options.requiresWriteShop && !principal.writeShopId) {
         throw new ApiError('SHOP_NOT_ACCESSIBLE', {

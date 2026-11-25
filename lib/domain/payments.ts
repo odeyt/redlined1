@@ -319,7 +319,24 @@ export function createPaymentDomain({ db, context }: DomainDeps) {
     }
   }
 
-  return { list, get, create, reverse, correct };
+  /**
+   * Entries (payments and reversals) against the given invoices, for API v1's
+   * amount_paid and balance_due. Read only, and scoped like `list`.
+   */
+  async function listForInvoices(invoiceNumbers: readonly string[]): Promise<DomainPayment[]> {
+    requireCapability(context, 'payments.read', 'see payments');
+    const numbers = [...new Set(invoiceNumbers.filter(Boolean))];
+    if (numbers.length === 0) return [];
+    const { data, error } = await db
+      .from('payments')
+      .select('*')
+      .in('shop_id', context.shopIds)
+      .in('invoice_number', numbers);
+    if (error) throw error;
+    return (data ?? []).map(mapPaymentRow);
+  }
+
+  return { list, get, create, reverse, correct, listForInvoices };
 }
 
 /** Postgres constraint violations, in words a service advisor can act on. */

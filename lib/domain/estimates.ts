@@ -20,6 +20,10 @@ import type { DomainDb, DomainDeps } from './db';
 import { writeAuditEvent, AUDIT, type AuditEntry } from './audit';
 import { requireCapability, type DomainContext } from './context';
 import { emitDomainEvent, DOMAIN_EVENTS } from './events';
+import {
+  applyDocumentFilters, pageRange, provenanceOf,
+  type DocumentPage, type DocumentPageQuery, type DocumentProvenance,
+} from './documentQuery';
 
 /**
  * Estimate audit rows are recorded loudly but not fatally, exactly as the
@@ -254,7 +258,46 @@ export function createEstimateDomain({ db, context }: DomainDeps) {
     });
   }
 
-  return { list, get, create, update, approve, remove };
+  /** One page, filtered in the database. For API v1; see documentQuery.ts. */
+  async function listPage(q: DocumentPageQuery): Promise<DocumentPage<EstimateRecord>> {
+    requireCapability(context, 'estimates.read', 'see estimates');
+    const [from, to] = pageRange(q.page, q.pageSize);
+    const query = applyDocumentFilters(
+      db.from('estimates').select('*', { count: 'exact' }).in('shop_id', context.shopIds),
+      q,
+    );
+    // The id breaks created_at ties, so a page boundary cannot repeat or drop
+    // a row when two estimates were saved in the same instant.
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const rows = ((data ?? []) as Record<string, unknown>[]).map(toRecord);
+    return { rows, total: typeof count === 'number' ? count : rows.length };
+  }
+
+  /** `get` plus provenance. Another shop's id returns null, like `get`. */
+  async function getRecord(id: string): Promise<EstimateRecord | null> {
+    requireCapability(context, 'estimates.read', 'see estimates');
+    const { data, error } = await db
+      .from('estimates')
+      .select('*')
+      .eq('id', id)
+      .in('shop_id', context.shopIds)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toRecord(data as Record<string, unknown>) : null;
+  }
+
+  return { list, get, create, update, approve, remove, listPage, getRecord };
+}
+
+/** An estimate with who created it. */
+export type EstimateRecord = EstimateFull & { provenance: DocumentProvenance };
+
+function toRecord(row: Record<string, unknown>): EstimateRecord {
+  return { ...mapEstimateRow(row), provenance: provenanceOf(row) };
 }
 
 export type EstimateDomain = ReturnType<typeof createEstimateDomain>;

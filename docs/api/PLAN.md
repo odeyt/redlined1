@@ -2,8 +2,15 @@
 
 Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
 Phase 2 (migration + flag) is written, with numbering option A chosen on
-2026-11-25; the owner has not applied it yet. Phases 3–7 wait for the owner's
-go-ahead on each.
+2026-11-25; the owner has not applied it yet. Phase 3 (read endpoints) is
+built behind the flag. Phases 4–7 wait for the owner's go-ahead on each.
+
+**Deviation found in phase 3:** `updated_since` (agreed in Q3) cannot be
+built yet. Neither `estimates` nor `invoices` has an `updated_at` column in
+any schema file in the repo. Keeping one current would need a trigger or
+edits to every write path, staff screens included. Until the owner decides,
+the API offers `created_since` and refuses `updated_since` with a 422 that
+says so.
 
 ## Owner decisions (2026-11-24)
 
