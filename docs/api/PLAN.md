@@ -1,7 +1,9 @@
 # Machine API for bots: Phase 0 plan
 
-Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built;
-phases 2–7 wait for the owner's go-ahead on each.
+Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
+Phase 2 (migration + flag) is written, with numbering option A chosen on
+2026-11-25; the owner has not applied it yet. Phases 3–7 wait for the owner's
+go-ahead on each.
 
 ## Owner decisions (2026-11-24)
 
@@ -279,9 +281,14 @@ refuses any caller that isn't a `shop_users` member via `auth.uid()`. It is
 executable by `authenticated` only. An API request runs as `service_role` with
 no user, so it would get `not a member of shop` (or no EXECUTE at all).
 
-Proposed for the Phase 2 migration, to decide when we get there:
+**Decided 2026-11-25: option A.** Built in
+`supabase/migrations/2026-11-25_api_v1_documents.sql` and
+`allocateDocumentNumberForApi` in `lib/domain/documentNumbers.ts`. The API
+function checks that the shop exists instead of checking membership. The shop
+always comes from the key. `lib/__tests__/documentNumbering.test.ts` fails if
+the two counter bodies ever differ.
 
-- **Option A (recommended):** a new function `api_next_document_number(p_shop_id,
+- **Option A (chosen):** a new function `api_next_document_number(p_shop_id,
   p_doc_type)`, executable by `service_role` only, that runs the same counter
   logic. The existing function stays byte-for-byte unchanged, so staff saves
   carry no risk. The cost is that the counter body exists twice; a test pins
@@ -314,7 +321,7 @@ deferred.
 - `app/api/api-keys/route.ts` (owner session: list, create, revoke)
 - `features/settings/ApiKeysPanel.tsx`
 - `lib/api/__tests__/*`: new route and guard tests (§8)
-- `supabase/migrations/2026-11-xx_api_v1_documents.sql`
+- `supabase/migrations/2026-11-25_api_v1_documents.sql` and `_rollback.sql`
 
 **Modified**
 - `lib/api/scopes.ts`: adds `estimates:read|write`, `invoices:read|write`, `pdf:read`.

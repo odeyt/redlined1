@@ -29,9 +29,29 @@ export function formatDocumentNumber(docType: DocType, sequence: number | string
  * duplicate this exists to prevent, so a failure stops the save instead.
  */
 export async function allocateDocumentNumber(db: DomainDb, shopId: string, docType: DocType): Promise<string> {
+  return allocateVia(db, 'next_document_number', shopId, docType);
+}
+
+/**
+ * The same allocation for API v1, which runs as service_role with no signed-in
+ * user, so next_document_number's shop-membership check would refuse it.
+ * `api_next_document_number` is executable by service_role only and shares
+ * the same counters and invoice sequence, so staff and API documents number
+ * in one series. `shopId` must come from the API key, never the request body.
+ */
+export async function allocateDocumentNumberForApi(db: DomainDb, shopId: string, docType: DocType): Promise<string> {
+  return allocateVia(db, 'api_next_document_number', shopId, docType);
+}
+
+async function allocateVia(
+  db: DomainDb,
+  fn: 'next_document_number' | 'api_next_document_number',
+  shopId: string,
+  docType: DocType,
+): Promise<string> {
   if (!shopId) throw new Error('No active shop — cannot allocate a document number.');
 
-  const { data, error } = await db.rpc('next_document_number', {
+  const { data, error } = await db.rpc(fn, {
     p_shop_id: shopId,
     p_doc_type: docType,
   });
