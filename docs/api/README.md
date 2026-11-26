@@ -5,6 +5,10 @@ Base URL `https://www.redlined1.com` · all paths under `/api/v1`.
 The machine-readable contract is [`openapi.yaml`](./openapi.yaml). Only what is
 in that file exists.
 
+Bot access to estimates and invoices: design in [`PLAN.md`](./PLAN.md),
+go-live steps and the smoke test (`scripts/api-smoke.ts`) in
+[`ROLLOUT.md`](./ROLLOUT.md).
+
 ## Authentication
 
 ```

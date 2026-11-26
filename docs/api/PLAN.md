@@ -1,12 +1,27 @@
-# Machine API for bots: Phase 0 plan
+# Machine API for bots: plan and build record
 
 Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
 Phase 2 (migration + flag) is written, with numbering option A chosen on
 2026-11-25; the owner has not applied it yet. Phase 3 (read endpoints) is
 built behind the flag. Phase 4 (draft writes and convert) is built behind the
 flag. Phase 5 (PDFs) is built behind the flag. Phase 6 (owner API Keys
-screen and badge) is built behind the flag. Phase 7 waits for the owner's
-go-ahead.
+screen and badge) is built behind the flag. Phase 7 (docs, smoke-test script,
+rollout runbook) is done. **All build phases are complete.** What remains is
+the owner's rollout in [`ROLLOUT.md`](ROLLOUT.md): review and merge, apply the
+migration, test a read-only key on a preview, then switch on production.
+
+**Phase 7 notes:**
+- `scripts/api-smoke.ts` is the brief's Part 4 checklist, adapted to the real
+  API (`rl_live_` keys, the actual error codes, no finalize or webhooks). It is
+  read-only by default. `--write`, `--convert` and `--rate-limit` are opt-in.
+  `app/api/v1/__tests__/apiSmoke.test.ts` runs it against the real route
+  handlers, so a check that always passes would fail the suite.
+- **Brief items not built, on purpose:**
+  - `openapi.json` is not served: the contract lives in `openapi.yaml`.
+  - No `.env.example` additions: no new environment variables are needed.
+  - Finalize, webhooks and MCP are deferred (Q3).
+  - The idempotency cleanup job would delete production rows, which needs the
+    owner's approval.
 
 **Phase 6 notes:**
 - Settings → API Keys is for owners only and hidden while `api_v1_documents`
