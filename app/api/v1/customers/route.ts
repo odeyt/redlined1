@@ -68,12 +68,25 @@ export const GET = withApi({ scopes: ['customers:read'] }, async (ctx: ApiContex
   const page = Math.max(Number(url.searchParams.get('page') ?? 1) || 1, 1);
 
   const customers = createCustomerDomain({ db: ctx.db, context: ctx.domain });
-  // The domain scopes this by context.shopIds, which came from the key.
+  // The domain scopes this by context.shopIds, which came from the key (its
+  // shop plus any closed location merged into it).
   const all = await customers.list();
+
+  // ?search= matches name, phone or email, case-insensitively. Filtered in
+  // memory on fields the caller may already read, as vehicles do: a caller's
+  // string never becomes a SQL pattern.
+  const search = (url.searchParams.get('search') ?? '').trim().toLowerCase();
+  const digits = search.replace(/\D/g, '');
+  const matched = search
+    ? all.filter(c =>
+        c.name.toLowerCase().includes(search) ||
+        c.email.toLowerCase().includes(search) ||
+        (digits.length >= 3 && c.phone.replace(/\D/g, '').includes(digits)))
+    : all;
 
   // Ordering is by name inside the domain; the id break makes it total, so a
   // page boundary cannot drop or repeat a row when two customers share a name.
-  const ordered = [...all].sort((a, b) => (a.name === b.name ? a.id.localeCompare(b.id) : a.name.localeCompare(b.name)));
+  const ordered = [...matched].sort((a, b) => (a.name === b.name ? a.id.localeCompare(b.id) : a.name.localeCompare(b.name)));
   const start = (page - 1) * pageSize;
   const slice = ordered.slice(start, start + pageSize);
 

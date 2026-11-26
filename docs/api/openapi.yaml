@@ -48,6 +48,10 @@ paths:
         stable when two customers share a name. Archived customers are omitted.
       operationId: listCustomers
       parameters:
+        - name: search
+          in: query
+          description: Case-insensitive match on name, email, or phone digits (3 or more).
+          schema: { type: string }
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -534,7 +538,7 @@ paths:
           in: query
           description: One of the statuses below for this resource. Anything else is 422.
           schema: { type: string }
-        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: customer_id, in: query, schema: { type: string, example: C-1789703178771 } }
         - name: created_since
           in: query
           description: ISO 8601 date or timestamp. Documents created at or after it.
@@ -719,7 +723,7 @@ paths:
           in: query
           description: One of the statuses below for this resource. Anything else is 422.
           schema: { type: string }
-        - { name: customer_id, in: query, schema: { type: string, format: uuid } }
+        - { name: customer_id, in: query, schema: { type: string, example: C-1789703178771 } }
         - name: created_since
           in: query
           description: ISO 8601 date or timestamp. Documents created at or after it.
@@ -1090,6 +1094,14 @@ components:
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
+        merged_shops:
+          type: array
+          description: Closed locations merged into this key's shop (archived, mirrored both ways, same organization). Their records are read as part of the shop; new records always go to write_shop_id.
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
         write_shop_id:
           type: string
           format: uuid
@@ -1131,7 +1143,7 @@ components:
         id: { type: string, format: uuid }
         number: { type: string, example: EST-0042 }
         status: { type: string, enum: [draft, sent, approved, declined, converted, void] }
-        customer_id: { type: string, format: uuid, nullable: true }
+        customer_id: { type: string, nullable: true, example: C-1789703178771 }
         customer_name: { type: string }
         vehicle: { type: string, description: The vehicle label as written on the estimate. }
         currency: { type: string, enum: [USD, THB, LAK] }
@@ -1150,7 +1162,7 @@ components:
       properties:
         number: { type: string, example: INV-0042 }
         status: { type: string, enum: [draft, sent, paid, refunded, void] }
-        customer_id: { type: string, format: uuid, nullable: true }
+        customer_id: { type: string, nullable: true, example: C-1789703178771 }
         customer_name: { type: string }
         vehicle: { type: string }
         currency: { type: string, enum: [USD, THB, LAK] }
@@ -1211,7 +1223,7 @@ components:
       additionalProperties: false
       required: [customer_id, lines]
       properties:
-        customer_id: { type: string, format: uuid }
+        customer_id: { type: string, example: C-1789703178771, description: 'A customer id as the app makes them (C-…), not a uuid.' }
         vehicle_id: { type: string, format: uuid }
         currency: { type: string, enum: [LAK, THB, USD], description: "Default: THB for D1 shops, USD otherwise, as the staff forms." }
         lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
@@ -1223,7 +1235,7 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
-        customer_id: { type: string, format: uuid }
+        customer_id: { type: string, example: C-1789703178771, description: 'A customer id as the app makes them (C-…), not a uuid.' }
         vehicle_id: { type: string, format: uuid, nullable: true, description: null clears the vehicle. }
         currency: { type: string, enum: [LAK, THB, USD] }
         lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
@@ -1235,7 +1247,7 @@ components:
       additionalProperties: false
       required: [customer_id, lines]
       properties:
-        customer_id: { type: string, format: uuid }
+        customer_id: { type: string, example: C-1789703178771, description: 'A customer id as the app makes them (C-…), not a uuid.' }
         vehicle_id: { type: string, format: uuid }
         currency: { type: string, enum: [LAK, THB, USD] }
         lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }
@@ -1247,7 +1259,7 @@ components:
       additionalProperties: false
       minProperties: 1
       properties:
-        customer_id: { type: string, format: uuid }
+        customer_id: { type: string, example: C-1789703178771, description: 'A customer id as the app makes them (C-…), not a uuid.' }
         vehicle_id: { type: string, format: uuid, nullable: true }
         currency: { type: string, enum: [LAK, THB, USD] }
         lines: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/DraftLineInput' } }

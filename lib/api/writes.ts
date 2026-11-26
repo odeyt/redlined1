@@ -16,6 +16,7 @@ import { DocumentStateError } from '@/lib/domain/documentQuery';
 import { NotPermittedError } from '@/lib/domain/context';
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 import type { DraftLine, DraftPatch } from '@/lib/domain/documentDrafts';
+import { CUSTOMER_ID } from './documents';
 
 /** The currencies the staff estimate and invoice forms offer (owner Q4). */
 export const DOCUMENT_CURRENCIES = ['LAK', 'THB', 'USD'] as const;
@@ -30,6 +31,8 @@ export const THB_DEFAULT_SHOP_IDS: ReadonlySet<string> = new Set([
 ]);
 
 const uuid = z.string().uuid();
+// Customer ids are not uuids (C-1789703178771); see CUSTOMER_ID in ./documents.
+const customerIdField = z.string().regex(CUSTOMER_ID, 'Must be a customer id, such as C-1789703178771.');
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.');
 const currency = z.enum(DOCUMENT_CURRENCIES);
 
@@ -45,7 +48,7 @@ const line = z.object({
 const lines = z.array(line).min(1).max(200);
 
 export const estimateCreateBody = z.object({
-  customer_id: uuid,
+  customer_id: customerIdField,
   vehicle_id: uuid.optional(),
   currency: currency.optional(),
   lines,
@@ -54,7 +57,7 @@ export const estimateCreateBody = z.object({
 }).strict();
 
 export const estimatePatchBody = z.object({
-  customer_id: uuid.optional(),
+  customer_id: customerIdField.optional(),
   vehicle_id: uuid.nullable().optional(),
   currency: currency.optional(),
   lines: lines.optional(),
@@ -63,7 +66,7 @@ export const estimatePatchBody = z.object({
 }).strict().refine(b => Object.keys(b).length > 0, { message: 'Send at least one field to change.' });
 
 export const invoiceCreateBody = z.object({
-  customer_id: uuid,
+  customer_id: customerIdField,
   vehicle_id: uuid.optional(),
   currency: currency.optional(),
   lines,
@@ -72,7 +75,7 @@ export const invoiceCreateBody = z.object({
 }).strict();
 
 export const invoicePatchBody = z.object({
-  customer_id: uuid.optional(),
+  customer_id: customerIdField.optional(),
   vehicle_id: uuid.nullable().optional(),
   currency: currency.optional(),
   lines: lines.optional(),

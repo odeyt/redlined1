@@ -210,6 +210,27 @@ hidden while `api_v1_documents` is off.
 Estimates and invoices made by a key carry a **CREATED BY API** badge in the
 app, so staff can check a bot's draft before sending it.
 
+### A closed location's history (one shop)
+
+When a location closes and is merged into another, its records stay where
+they are. D1 Imports was merged into D1 Imports - Location 2 this way on
+2026-10-17. A key for the open shop reads them as part of it, as staff do.
+
+- A shop counts as merged into the key's shop only when it is archived,
+  mirrored in both directions with the key's shop, and in the key's
+  organization. An open sister location is never merged in.
+- `GET /me` lists such shops under `merged_shops`.
+- Customers, vehicles, estimates and invoices from a merged shop appear in
+  lists and searches, and can be read by their existing ids. They can be named
+  in a new draft (`customer_id`, `vehicle_id`).
+- New records always go to `write_shop_id`, using that shop's numbering. No
+  historical row is moved or renumbered.
+- The feature flag is checked on the key's own open shop only.
+
+Customer ids look like `C-1789703178771`. They are not uuids, so use them
+exactly as the API returns them. `GET /customers?search=` matches name,
+email, or phone digits.
+
 ### Writing drafts
 
 - **Always Draft.** A key cannot set a status, totals, discount or tax rate.

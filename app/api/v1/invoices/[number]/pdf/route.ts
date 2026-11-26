@@ -9,7 +9,7 @@ import { withApi, type ApiContext } from '@/lib/api/handler';
 import { ApiError } from '@/lib/api/errors';
 import { createInvoiceDomain } from '@/lib/domain/invoices';
 import { buildPdf } from '@/lib/documents/pdf';
-import { invoicePdfInput, shopHeader, trialWatermark, pdfFilename, pdfResponse } from '@/lib/api/pdf';
+import { invoicePdfInput, shopHeader, trialWatermark, pdfFilename, pdfResponse, documentShop } from '@/lib/api/pdf';
 
 export const GET = withApi(
   { scopes: ['invoices:read', 'pdf:read'], flag: 'api_v1_documents' },
@@ -26,7 +26,7 @@ export const GET = withApi(
     const invoice = await createInvoiceDomain({ db: ctx.db, context: ctx.domain }).getRecord(number);
     if (!invoice) throw new ApiError('NOT_FOUND');
 
-    const shopId = invoice.shopId ?? ctx.domain.shopId;
+    const shopId = documentShop(ctx, invoice.shopId);
     const [header, watermark] = await Promise.all([shopHeader(ctx, shopId), trialWatermark(ctx, shopId)]);
 
     const bytes = await buildPdf(invoicePdfInput(invoice, header, watermark));

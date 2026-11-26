@@ -13,6 +13,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 import { ApiError } from './errors';
 import { capabilitiesForScopes } from './scopes';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
 
 /** Issued secrets look like `rl_live_<32 hex>`; the prefix is not secret. */
 export const API_KEY_PREFIX = 'rl_live_';
@@ -21,9 +22,24 @@ export interface ApiPrincipal {
   keyId: string;
   name: string;
   organizationId: string;
-  /** Shops this key may touch. One entry when the key is shop-scoped. */
+  /**
+   * Shops this key may READ: its own shops plus any closed location merged
+   * into one of them (see `mergedShopIds`). Every domain read is scoped by
+   * this list.
+   */
   shopIds: string[];
-  /** The shop a write lands in — the scoped one, or the organization's only shop. */
+  /** The key's own shops: the scoped shop, or every shop in the organization. */
+  ownShopIds: string[];
+  /** `ownShopIds` that are not archived. Feature flags are evaluated on these. */
+  activeShopIds: string[];
+  /**
+   * Archived shops merged into one of the key's active shops: mirrored in
+   * both directions, archived, and in the key's organization (the rule in
+   * lib/shops/mergedScope.ts, plus the organization check). Read-only scope:
+   * D1 Imports' history inside Location 2 is the case this exists for.
+   */
+  mergedShopIds: string[];
+  /** The shop a write lands in: the key's only ACTIVE shop. Never an archived one. */
   writeShopId: string | null;
   scopes: string[];
   capabilities: string[];
@@ -87,22 +103,42 @@ export async function resolvePrincipal(db: Db, authorization: string | null): Pr
   // organization — a shop moved or deleted since issuance must not linger.
   const { data: shops } = await db
     .from('shops')
-    .select('id')
+    .select('id, archived_at')
     .eq('organization_id', key.organization_id);
 
-  const orgShopIds: string[] = (shops ?? []).map((s: { id: string }) => s.id);
+  const orgShops = (shops ?? []) as { id: string; archived_at: string | null }[];
+  const orgShopIds: string[] = orgShops.map(s => s.id);
+  const archived = new Set(orgShops.filter(s => s.archived_at).map(s => s.id));
 
-  let shopIds = orgShopIds;
+  let ownShopIds = orgShopIds;
   if (key.shop_id) {
     if (!orgShopIds.includes(key.shop_id)) throw new ApiError('SHOP_NOT_ACCESSIBLE');
-    shopIds = [key.shop_id];
+    ownShopIds = [key.shop_id];
   }
-  if (shopIds.length === 0) throw new ApiError('SHOP_NOT_ACCESSIBLE');
+  if (ownShopIds.length === 0) throw new ApiError('SHOP_NOT_ACCESSIBLE');
 
-  // A write needs exactly one shop. An organization-wide key over a
-  // multi-shop organization cannot pick one on the caller's behalf — that is
-  // an ambiguity the integration has to resolve by using a shop-scoped key.
-  const writeShopId = shopIds.length === 1 ? shopIds[0] : null;
+  const activeShopIds = ownShopIds.filter(id => !archived.has(id));
+
+  // A write needs exactly one shop, and never an archived one: a closed
+  // location takes no new records. An organization-wide key whose
+  // organization has one open shop (D1 Imports after the merge) writes there;
+  // over several open shops it cannot pick, and the integration has to use a
+  // shop-scoped key.
+  const writeShopId = activeShopIds.length === 1 ? activeShopIds[0] : null;
+
+  // Closed locations merged into the key's open shops are read as part of
+  // them, the way the staff app reads them through the mirror. The rule is
+  // mergedShopScope's (mirrored both ways AND archived), plus: same
+  // organization as the key. Never wider: mergedShopScope fails closed to
+  // the shop alone, and a live sister location is never archived.
+  const merged = new Set<string>();
+  for (const shopId of activeShopIds) {
+    for (const id of await mergedShopScope(db, shopId)) {
+      if (id !== shopId && orgShopIds.includes(id) && archived.has(id)) merged.add(id);
+    }
+  }
+  const mergedShopIds = [...merged].filter(id => !ownShopIds.includes(id)).sort();
+  const shopIds = [...ownShopIds, ...mergedShopIds];
 
   const scopes: string[] = Array.isArray(key.scopes) ? key.scopes : [];
 
@@ -111,6 +147,9 @@ export async function resolvePrincipal(db: Db, authorization: string | null): Pr
     name: key.name,
     organizationId: key.organization_id,
     shopIds,
+    ownShopIds,
+    activeShopIds,
+    mergedShopIds,
     writeShopId,
     scopes,
     capabilities: capabilitiesForScopes(scopes),

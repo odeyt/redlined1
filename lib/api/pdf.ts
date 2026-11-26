@@ -141,6 +141,16 @@ export async function trialWatermark(ctx: ApiContext, shopId: string): Promise<b
   }
 }
 
+/**
+ * Whose name goes on a document's PDF: the shop that holds it, except a
+ * closed location merged into the key's shop, whose old documents print as
+ * that shop. D1 Imports was folded into Location 2; it is one business.
+ */
+export function documentShop(ctx: ApiContext, documentShopId: string | undefined): string {
+  if (!documentShopId || ctx.principal.mergedShopIds.includes(documentShopId)) return ctx.domain.shopId;
+  return documentShopId;
+}
+
 /** A filename that says DRAFT when it is one. Letters, digits and dashes only. */
 export function pdfFilename(number: string, isDraft: boolean): string {
   const safe = (number || 'document').replace(/[^A-Za-z0-9-]/g, '');
