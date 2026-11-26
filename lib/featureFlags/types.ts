@@ -90,4 +90,6 @@ export type KnownFlagKey =
   // Redline AI prototype (read-only chat panel) — default OFF
   | 'redline_ai'
   // WhatsApp Business (Meta Cloud API, coexistence) — default OFF; pilot D1 Imports only
-  | 'whatsapp_business';
+  | 'whatsapp_business'
+  // API v1 bot access to draft estimates and invoices — default OFF
+  | 'api_v1_documents';

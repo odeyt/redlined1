@@ -18,6 +18,17 @@ export const API_SCOPES = [
   'vehicles:write',
   'appointments:read',
   'appointments:write',
+  // Bot document access (docs/api/PLAN.md), only behind api_v1_documents.
+  // Write means DRAFTS: create, edit a draft, convert an Approved estimate.
+  // No scope here sends, approves, records a payment, voids or deletes.
+  'estimates:read',
+  'estimates:write',
+  'invoices:read',
+  'invoices:write',
+  // Download a document as PDF. Needed IN ADDITION to estimates:read or
+  // invoices:read, so a key can be allowed the data but not the printable
+  // document a customer could be handed.
+  'pdf:read',
 ] as const;
 
 export type ApiScope = typeof API_SCOPES[number];
@@ -48,6 +59,23 @@ const SCOPE_CAPABILITIES: Record<ApiScope, readonly string[]> = {
   // There is nothing to look up.
   'appointments:read':  ['appointments.read'],
   'appointments:write': ['appointments.read', 'appointments.manage'],
+
+  'estimates:read': ['estimates.read'],
+  // An invoice's amount_paid and balance_due are the net of its payments, so
+  // reading an invoice properly needs payments.read. That unlocks no payment
+  // endpoint (none exists) and never payments.record or payments.reverse:
+  // the API cannot move money.
+  'invoices:read':  ['invoices.read', 'payments.read'],
+
+  // A draft names a customer and optionally a vehicle by id; both are checked
+  // to belong to this tenant before anything is written, which needs read
+  // (never manage) on each, as vehicles:write does for customers.
+  'estimates:write': ['estimates.read', 'estimates.manage', 'customers.read', 'vehicles.read'],
+  'invoices:write':  ['invoices.read', 'invoices.manage', 'payments.read', 'customers.read', 'vehicles.read'],
+
+  // No capability of its own: the document read is granted by estimates:read
+  // or invoices:read, which the PDF routes also require.
+  'pdf:read': [],
 };
 
 export function isApiScope(value: string): value is ApiScope {

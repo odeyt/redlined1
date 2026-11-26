@@ -50,6 +50,11 @@ export interface InvoiceFull {
   paidDate: string | null;
   createdAt: string;
   currency: string;
+  /**
+   * Set only on invoices an API key created (API v1), for the "Created by
+   * API" badge. Read-only: no write path takes it from here.
+   */
+  createdVia?: 'api';
 }
 
 export interface InvoiceTotals {
@@ -82,6 +87,7 @@ export function mapInvoiceRow(r: Record<string, unknown>): InvoiceFull {
     paidDate: (r.paid_date as string) || null,
     createdAt: (r.created_at as string) || '',
     currency: (r.currency as string) || 'USD',
+    ...(r.created_via === 'api' ? { createdVia: 'api' as const } : {}),
   };
 }
 

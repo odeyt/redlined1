@@ -18,6 +18,7 @@ import { useShop } from '@/lib/useShop';
 import { FeatureFlagsPanel } from './FeatureFlagsPanel';
 import { TrialTipsPanel } from './TrialTipsPanel';
 import { WhatsAppBusinessPanel } from './WhatsAppBusinessPanel';
+import { ApiKeysPanel } from './ApiKeysPanel';
 import { SHOP_PRICING_DEFAULTS } from '@/lib/shopPricingDefaults';
 import { taxRateToPercent, percentToTaxRate } from '@/lib/taxRate';
 
@@ -1070,6 +1071,9 @@ export function SettingsView() {
 
       {/* ── Integrations → WhatsApp Business (pilot; renders nothing unless flagged on for this shop) ── */}
       {shopId && <WhatsAppBusinessPanel shopId={shopId} role={role ?? ''} />}
+
+      {/* ── Integrations → API Keys (owner only; renders nothing unless api_v1_documents is on) ── */}
+      {shopId && <ApiKeysPanel shopId={shopId} role={role ?? ''} />}
 
       {/* ── Messaging Channels ── */}
       <Panel title="Messaging Channels" hint="Send estimates and invoices via SMS, WhatsApp, LINE, or Telegram — configure credentials and enable channels below">

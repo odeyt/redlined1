@@ -172,3 +172,38 @@ Until then: **no API-originated event reaches Sapelee, for any resource.**
 `DOMAIN_EVENTS` contains no appointment type and none was created. Appointment
 mutations produce an audit row and nothing on the outbox — the same as
 customers and vehicles.
+
+---
+
+## Update after the bot API (November 2026)
+
+**Estimates and invoices: SHIPPED behind the `api_v1_documents` flag, which
+is off by default.** Plan: [`api/PLAN.md`](api/PLAN.md). Rollout:
+[`api/ROLLOUT.md`](api/ROLLOUT.md). The owner approved external Grok bot
+agents drafting through the API on 2026-11-24 (CLAUDE.md rule 2).
+
+- Estimates were ported to `lib/domain/estimates.ts` first, which was the
+  blocker in "Needs hardening first". The staff screens run the same code.
+- **Read:** `GET` estimates and invoices (paged, filtered by `status`,
+  `customer_id` and `created_since`), plus `/me`. Invoices carry
+  `amount_paid` and `balance_due`, worked out by the receivables rule.
+- **Write, drafts only:** create and edit drafts, and convert an Approved
+  estimate once. These rules are in `lib/domain/documentDrafts.ts`, and only
+  API keys can reach that module.
+- **PDF:** the email route's layout, moved unchanged to `lib/documents/pdf.ts`.
+  Drafts are stamped DRAFT.
+- **Owner screen:** Settings → API Keys issues shop-scoped keys and shows
+  each key's activity. Bot-made documents carry a CREATED BY API badge.
+- **Never exposed:** send, email, approve, record or reverse a payment, void,
+  delete. The routes don't import that code, and tests fail if they ever do.
+
+This changes the order above. Invoices were exposed before repair orders,
+because the owner's bots draft estimates and invoices. Payments stay last and
+remain unexposed.
+
+**Entitlements:** the "plan invoice cap" this document anticipated does not
+exist. `unlimitedInvoices` is a yes/no flag with no number, and nothing in the
+app limits invoices. The API matches the staff screens and checks no cap.
+
+**Events:** an API-created draft invoice still queues `invoice.issued`, as the
+app does. As before, no API-originated event reaches Sapelee.

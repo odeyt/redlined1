@@ -21,7 +21,10 @@ const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
 const migration = read('supabase/migrations/2026-08-04_document_counters.sql');
 const selfSeed  = read('supabase/migrations/2026-08-04_document_counters_self_seed.sql');
-const helper    = read('services/documentNumberService.ts');
+// The allocator moved to lib/domain so server code (API v1) numbers documents
+// identically; the browser service is now a thin wrapper around it.
+const helper    = read('lib/domain/documentNumbers.ts');
+const wrapper   = read('services/documentNumberService.ts');
 const services  = {
   repairOrder: read('services/repairOrderService.ts'),
   estimate:    read('services/estimateService.ts'),
@@ -53,7 +56,9 @@ describe('nobody counts rows any more', () => {
 
 describe('the database allocates, atomically', () => {
   it('the helper calls the function rather than querying the table', () => {
-    expect(helper).toMatch(/supabase\.rpc\('next_document_number'/);
+    expect(helper).toMatch(/return allocateVia\(db, 'next_document_number', shopId, docType\)/);
+    expect(helper).toMatch(/db\.rpc\(fn, \{/);
+    expect(wrapper).toMatch(/return allocateDocumentNumber\(supabase, getShopId\(\), docType\)/);
     expect(helper).not.toMatch(/\.from\('document_counters'\)/);
   });
 
@@ -259,5 +264,113 @@ describe('invoice numbering is global', () => {
 
   it('reloads the API schema cache', () => {
     expect(seq).toMatch(/notify pgrst, 'reload schema'/);
+  });
+});
+
+/**
+ * API v1 numbering (PLAN.md option A, chosen 2026-11-25).
+ *
+ * API requests run as service_role with no signed-in user, so
+ * next_document_number's membership check refuses them. Instead of editing the
+ * function every staff save depends on, a second function serves the API.
+ * The cost is two copies of the counter body; these tests make drift fail.
+ */
+describe('API numbering shares one series with staff numbering', () => {
+  const staffSql = read('supabase/migrations/2026-08-11_invoice_number_global_sequence.sql');
+  const apiSql   = read('supabase/migrations/2026-11-25_api_v1_documents.sql');
+
+  // From the doc-type check to the end of the body: everything after the
+  // caller check. This is the part that must be identical.
+  const counterBody = (raw: string, fn: string) => {
+    const sql = raw.replace(/\r\n/g, '\n'); // the staff migration is CRLF
+    const start = sql.indexOf(`create or replace function public.${fn}(`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const from = sql.indexOf("if p_doc_type not in", start);
+    const to = sql.indexOf('end\n$$;', from);
+    expect(from).toBeGreaterThan(start);
+    expect(to).toBeGreaterThan(from);
+    return sql.slice(from, to);
+  };
+
+  it('the API function runs the exact same counter logic', () => {
+    expect(counterBody(apiSql, 'api_next_document_number'))
+      .toBe(counterBody(staffSql, 'next_document_number'));
+  });
+
+  it('the staff function is not redefined by the API migration', () => {
+    expect(apiSql).not.toMatch(/create or replace function public\.next_document_number\(/i);
+    expect(apiSql).not.toMatch(/grant\s+execute on function public\.next_document_number/i);
+    expect(apiSql).not.toMatch(/revoke\s+execute on function public\.next_document_number/i);
+  });
+
+  it('only service_role may call the API function', () => {
+    for (const role of ['public', 'anon', 'authenticated']) {
+      expect(apiSql).toMatch(new RegExp(
+        `revoke execute on function public\\.api_next_document_number\\(uuid, text\\) from ${role};`,
+      ));
+    }
+    expect(apiSql).toMatch(/grant  execute on function public\.api_next_document_number\(uuid, text\) to service_role;/);
+    expect(apiSql).not.toMatch(/api_next_document_number\(uuid, text\) to (anon|authenticated|public)/);
+  });
+
+  it('is definer-rights with a pinned search_path, like the staff function', () => {
+    const fn = apiSql.slice(apiSql.indexOf('create or replace function public.api_next_document_number('));
+    expect(fn).toMatch(/security definer\s*\n\s*set search_path = public/);
+  });
+
+  it('refuses a shop that does not exist before touching any counter', () => {
+    expect(apiSql.indexOf("raise exception 'unknown shop")).toBeGreaterThan(0);
+    expect(apiSql.indexOf("raise exception 'unknown shop"))
+      .toBeLessThan(apiSql.indexOf('insert into public.document_counters'));
+  });
+
+  it('the API helper calls the API function, the staff helper the staff one', () => {
+    expect(helper).toMatch(/allocateDocumentNumberForApi[\s\S]*?allocateVia\(db, 'api_next_document_number', shopId, docType\)/);
+    expect(wrapper).not.toMatch(/allocateDocumentNumberForApi/);
+  });
+
+  it('reloads the API schema cache', () => {
+    expect(apiSql).toMatch(/notify pgrst, 'reload schema'/);
+  });
+});
+
+describe('API v1 documents migration stays additive', () => {
+  const apiSql   = read('supabase/migrations/2026-11-25_api_v1_documents.sql');
+  const rollback = read('supabase/migrations/2026-11-25_api_v1_documents_rollback.sql');
+  const code = apiSql.replace(/--.*$/gm, '');
+  // Statements only: string literals (the flag's description says "delete")
+  // are not SQL.
+  const stmts = code.replace(/'[^']*'/g, "''");
+
+  it('drops, truncates and deletes nothing', () => {
+    expect(stmts).not.toMatch(/\bdrop\b/i);
+    expect(stmts).not.toMatch(/\btruncate\b/i);
+    expect(stmts).not.toMatch(/\bdelete\s+from\b/i); // ON DELETE SET NULL is an FK rule, not a delete
+    expect(stmts).not.toMatch(/\bupdate\s+public\./i);
+  });
+
+  it('adds no triggers and no pg_net calls (production security hold)', () => {
+    expect(stmts).not.toMatch(/create\s+(or\s+replace\s+)?trigger/i);
+    expect(stmts).not.toMatch(/pg_net|net\.http/i);
+  });
+
+  it('every new column is nullable', () => {
+    for (const line of code.split('\n').filter(l => /ADD COLUMN/i.test(l))) {
+      expect(line).not.toMatch(/not null|default/i);
+    }
+  });
+
+  it('one invoice per source estimate, enforced by the database', () => {
+    expect(code).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS invoices_one_per_source_estimate\s+ON public\.invoices \(source_estimate_id\) WHERE source_estimate_id IS NOT NULL/);
+  });
+
+  it('seeds the flag off', () => {
+    expect(code).toMatch(/\('api_v1_documents', [^;]*, false, 'global'\)\s*\nON CONFLICT DO NOTHING/);
+  });
+
+  it('the rollback refuses to drop columns that hold API records', () => {
+    expect(rollback.indexOf('RAISE EXCEPTION')).toBeLessThan(rollback.indexOf('DROP COLUMN'));
+    expect(rollback).not.toMatch(/[^_]next_document_number\(/); // staff function untouched
+    expect(rollback).not.toMatch(/DELETE FROM public\.(estimates|invoices)/i);
   });
 });
