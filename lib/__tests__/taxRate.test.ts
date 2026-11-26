@@ -47,10 +47,21 @@ describe('sanitizeDecimal', () => {
 });
 
 describe('emailed estimates and invoices', () => {
-  it('applies the stored fraction once, not divided by 100 again', () => {
+  // Totals moved to lib/documents/emailTotals.ts (the screens' arithmetic) on
+  // 2026-11-25, so mixed-currency documents total as the screens do.
+  it('take their totals from the shared module, once per document type', () => {
     const src = read('app/api/send-document/route.ts');
     expect(src).not.toMatch(/taxRate\s*\/\s*100/);
-    expect(src.match(/taxAmount\(subtotal - discount \+ shopSupplies, taxRate\)/g)).toHaveLength(2);
+    expect(src).toMatch(/estimateEmailTotals\(d\)/);
+    expect(src).toMatch(/invoiceEmailTotals\(d\)/);
+    expect(src).not.toMatch(/lines\.reduce\(\(s, l\) => s \+ l\.qty \* l\.rate/);
+  });
+
+  it('applies the stored fraction once, not divided by 100 again', async () => {
+    const { invoiceEmailTotals } = await import('@/lib/documents/emailTotals');
+    const t = invoiceEmailTotals({ currency: 'USD', tax_rate: 0.0635, discount: 0, shop_supplies: 0, lines: [{ qty: 1, rate: 635 }] });
+    expect(t.tax).toBe(40.32);
+    expect(read('lib/documents/emailTotals.ts')).not.toMatch(/tax_?rate[^\n]*\/\s*100\b/i);
   });
 });
 

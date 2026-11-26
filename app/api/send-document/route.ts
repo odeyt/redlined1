@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
 import { getServerDb, getAdminDb } from '@/lib/supabaseServer';
-import { taxAmount } from '@/lib/taxRate';
+// Totals as the staff screens compute them; see lib/documents/emailTotals.ts.
+import { estimateEmailTotals, invoiceEmailTotals } from '@/lib/documents/emailTotals';
 
 function money(amount: number, currency: string) {
   try {
@@ -220,16 +221,12 @@ export async function POST(req: NextRequest) {
         currency: (l.currency as string) || (d.currency as string) || 'USD',
         note: (l.note as string) || '',
       }));
-      const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-      const discount = Number(d.discount ?? 0);
-      const shopSupplies = Number(d.shop_supplies ?? 0);
-      const taxRate = Number(d.tax_rate ?? 0);
-      const tax = taxAmount(subtotal - discount + shopSupplies, taxRate);
+      const { subtotal, discount, tax, total, currency } = estimateEmailTotals(d);
       docData = {
         number: d.estimate_number as string, customerName: d.customer_name as string,
         vehicle: d.vehicle as string, date: new Date(d.created_at as string).toLocaleDateString(),
-        lines, subtotal, discount, tax, total: subtotal - discount + shopSupplies + tax,
-        currency: (d.currency as string) || 'USD', notes: (d.notes as string) || '',
+        lines, subtotal, discount, tax, total,
+        currency, notes: (d.notes as string) || '',
         validUntil: d.valid_until ? new Date(d.valid_until as string).toLocaleDateString() : '',
         status: d.status as string,
       };
@@ -244,16 +241,12 @@ export async function POST(req: NextRequest) {
         currency: (l.currency as string) || (d.currency as string) || 'USD',
         note: (l.note as string) || '',
       }));
-      const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-      const discount = Number(d.discount ?? 0);
-      const shopSupplies = Number(d.shop_supplies ?? 0);
-      const taxRate = Number(d.tax_rate ?? 0);
-      const tax = taxAmount(subtotal - discount + shopSupplies, taxRate);
+      const { subtotal, discount, tax, total, currency } = invoiceEmailTotals(d);
       docData = {
         number: d.number as string, customerName: d.customer as string,
         vehicle: d.vehicle as string, date: new Date(d.created_at as string).toLocaleDateString(),
-        lines, subtotal, discount, tax, total: subtotal - discount + shopSupplies + tax,
-        currency: (d.currency as string) || 'USD', notes: (d.notes as string) || '',
+        lines, subtotal, discount, tax, total,
+        currency, notes: (d.notes as string) || '',
         status: d.status as string,
       };
     }
