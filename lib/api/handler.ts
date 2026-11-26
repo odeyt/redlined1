@@ -100,7 +100,11 @@ export function withApi(
 
       // Before the scope check, so a disabled feature looks the same to every
       // key: absent, not "you lack the scope for it".
-      if (options.flag && !(await isApiFlagOn(db, options.flag, principal.shopIds))) {
+      //
+      // Evaluated on the key's own OPEN shops, not its read scope: a closed
+      // location merged into the shop (D1 Imports into Location 2) has no flag
+      // row of its own, and its history must not switch the feature off.
+      if (options.flag && !(await isApiFlagOn(db, options.flag, principal.activeShopIds))) {
         throw new ApiError('NOT_FOUND');
       }
 
@@ -114,15 +118,18 @@ export function withApi(
 
       if (options.requiresWriteShop && !principal.writeShopId) {
         throw new ApiError('SHOP_NOT_ACCESSIBLE', {
-          reason: 'This key covers several shops, so a write has no unambiguous target. Use a shop-scoped key.',
+          reason: principal.activeShopIds.length === 0
+            ? 'This key belongs to a closed shop, which takes no new records.'
+            : 'This key covers several shops, so a write has no unambiguous target. Use a shop-scoped key.',
         });
       }
 
       const domain = createDomainContext({
         organizationId: principal.organizationId,
-        // A read still needs a shopId on the context; the first permitted shop
-        // is only a default — every read is scoped by shopIds, not by this.
-        shopId: principal.writeShopId ?? principal.shopIds[0],
+        // Writes land in writeShopId (the key's one open shop). A read still
+        // needs a shopId on the context; it is only a default, since every
+        // read is scoped by shopIds, which include merged closed locations.
+        shopId: principal.writeShopId ?? principal.activeShopIds[0] ?? principal.ownShopIds[0],
         shopIds: principal.shopIds,
         actor: { userId: null, type: 'api', role: 'api_key', apiKey: { id: principal.keyId, name: principal.name } },
         capabilities: principal.capabilities,

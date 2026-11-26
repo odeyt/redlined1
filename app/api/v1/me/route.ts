@@ -37,7 +37,10 @@ export const GET = withApi(
     return apiSuccess({
       key: { id: principal.keyId, name: principal.name },
       organization_id: principal.organizationId,
-      shops: principal.shopIds.map(id => ({ id, name: names.get(id) ?? '' })),
+      shops: principal.ownShopIds.map(id => ({ id, name: names.get(id) ?? '' })),
+      // Closed locations whose records this key reads as part of its shop
+      // (read only; new records always go to write_shop_id).
+      merged_shops: principal.mergedShopIds.map(id => ({ id, name: names.get(id) ?? '' })),
       write_shop_id: principal.writeShopId,
       scopes: [...principal.scopes].sort(),
     }, ctx.requestId);

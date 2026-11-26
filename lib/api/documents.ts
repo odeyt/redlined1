@@ -51,6 +51,19 @@ export function isUuid(value: string): boolean {
   return UUID.test(value);
 }
 
+/**
+ * A customer id as the app makes them. NOT a uuid: lib/domain/customers.ts
+ * creates `C-${Date.now()}` (e.g. C-1789703178771), and demo and imported
+ * rows carry other text ids. Letters, digits, `-` and `_`, up to 64.
+ * Shape-checked only, so a malformed id is a 422 rather than a database
+ * error; whether it exists in the key's shop is the domain's question.
+ */
+export const CUSTOMER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+
+export function isCustomerId(value: string): boolean {
+  return CUSTOMER_ID.test(value);
+}
+
 function invalid(reason: string): never {
   throw new ApiError('VALIDATION_FAILED', { reason });
 }
@@ -96,7 +109,7 @@ export function parseDocumentListQuery(url: URL, statuses: Record<string, string
 
   const customerId = p.get('customer_id');
   if (customerId !== null) {
-    if (!isUuid(customerId.trim())) invalid('customer_id must be a customer id (uuid).');
+    if (!isCustomerId(customerId.trim())) invalid('customer_id must be a customer id, such as C-1789703178771.');
     out.customerId = customerId.trim();
   }
 

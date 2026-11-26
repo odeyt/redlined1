@@ -175,6 +175,7 @@ describe('with api_v1_documents on', () => {
       key: { id: 'k2', name: 'Contacts sync' },
       organization_id: ORG,
       shops: [{ id: SHOP_A, name: 'Location 2' }],
+      merged_shops: [],   // no closed location is merged into this test shop
       write_shop_id: SHOP_A,
       scopes: ['customers:read'],
     });

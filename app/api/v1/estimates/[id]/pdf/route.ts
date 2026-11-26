@@ -10,7 +10,7 @@ import { ApiError } from '@/lib/api/errors';
 import { createEstimateDomain } from '@/lib/domain/estimates';
 import { buildPdf } from '@/lib/documents/pdf';
 import { isUuid } from '@/lib/api/documents';
-import { estimatePdfInput, shopHeader, trialWatermark, pdfFilename, pdfResponse } from '@/lib/api/pdf';
+import { estimatePdfInput, shopHeader, trialWatermark, pdfFilename, pdfResponse, documentShop } from '@/lib/api/pdf';
 
 export const GET = withApi(
   { scopes: ['estimates:read', 'pdf:read'], flag: 'api_v1_documents' },
@@ -22,8 +22,9 @@ export const GET = withApi(
     const estimate = await createEstimateDomain({ db: ctx.db, context: ctx.domain }).getRecord(id);
     if (!estimate) throw new ApiError('NOT_FOUND');
 
-    // The estimate's own shop, which is one of the key's (getRecord scoped it).
-    const shopId = estimate.shopId ?? ctx.domain.shopId;
+    // The estimate's own shop (getRecord scoped it to the key). A closed
+    // location's old document prints as the shop it was merged into.
+    const shopId = documentShop(ctx, estimate.shopId);
     const [header, watermark] = await Promise.all([shopHeader(ctx, shopId), trialWatermark(ctx, shopId)]);
 
     const bytes = await buildPdf(estimatePdfInput(estimate, header, watermark));
