@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { CreatedByApiBadge } from '@/components/CreatedByApiBadge';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
 import { StorageImage } from '@/components/StorageImage';
@@ -1454,6 +1455,7 @@ export function InvoicesView() {
                       <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[inv.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {inv.status}{inv.status === 'Paid' && invoicePaymentLabel(inv.invoiceNumber, allPayments) ? ` · ${invoicePaymentLabel(inv.invoiceNumber, allPayments)}` : ''}
                       </span>
+                      <CreatedByApiBadge createdVia={inv.createdVia} />
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{inv.customerName}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{inv.vehicle}</div>
@@ -1874,6 +1876,7 @@ export function InvoicesView() {
                     <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: STATUS_COLORS[selected.status] + '22', color: STATUS_COLORS[selected.status] }}>
                       {selected.status.toUpperCase()}{selected.status === 'Paid' && invoicePaymentLabel(selected.invoiceNumber, invoicePayments) ? ` · ${invoicePaymentLabel(selected.invoiceNumber, invoicePayments).toUpperCase()}` : ''}
                     </span>
+                    <CreatedByApiBadge createdVia={selected.createdVia} />
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
                     Date: {fmt(selected.createdAt)}<br />

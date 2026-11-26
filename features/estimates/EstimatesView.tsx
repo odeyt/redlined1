@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { CreatedByApiBadge } from '@/components/CreatedByApiBadge';
 import { createPortal } from 'react-dom';
 import { useAlertFocus } from '@/lib/alerts/useAlertFocus';
 import { authedFetch, AuthSessionError } from '@/lib/apiClient';
@@ -1099,6 +1100,7 @@ export function EstimatesView() {
                     <div>
                       <strong style={{ fontSize: 14 }}>{est.estimateNumber}</strong>
                       <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[est.status] || '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{est.status}</span>
+                      <CreatedByApiBadge createdVia={est.createdVia} />
                       {isLatest && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'rgba(204,0,0,0.1)', padding: '1px 6px', borderRadius: 10 }}>LATEST</span>}
                       <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>{est.customerName}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)' }}>{est.vehicle}</div>
@@ -1178,6 +1180,7 @@ export function EstimatesView() {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 20, fontWeight: 700 }}>{selected.estimateNumber}</div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: (STATUS_COLORS[selected.status] || '#888') + '22', color: STATUS_COLORS[selected.status] || '#888' }}>{selected.status.toUpperCase()}</span>
+                  <CreatedByApiBadge createdVia={selected.createdVia} />
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.7 }}>
                     Created: {fmt(selected.createdAt)}<br />
                     {selected.validUntil && <>Valid until: {fmt(selected.validUntil)}<br /></>}

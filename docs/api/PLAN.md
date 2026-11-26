@@ -4,8 +4,29 @@ Status: **APPROVED 2026-11-24.** Phase 1 (estimate domain port) is built.
 Phase 2 (migration + flag) is written, with numbering option A chosen on
 2026-11-25; the owner has not applied it yet. Phase 3 (read endpoints) is
 built behind the flag. Phase 4 (draft writes and convert) is built behind the
-flag. Phase 5 (PDFs) is built behind the flag. Phases 6–7 wait for the
-owner's go-ahead on each.
+flag. Phase 5 (PDFs) is built behind the flag. Phase 6 (owner API Keys
+screen and badge) is built behind the flag. Phase 7 waits for the owner's
+go-ahead.
+
+**Phase 6 notes:**
+- Settings → API Keys is for owners only and hidden while `api_v1_documents`
+  is off (`features/settings/ApiKeysPanel.tsx`). The server side is
+  `app/api/api-keys/route.ts`.
+- Keys issued there are always limited to the owner's shop. The secret is
+  shown once. Only its hash and an 8-character prefix are stored.
+  Organization-wide keys (issued with `scripts/api-key.ts`) are listed but
+  can only be revoked by an operator.
+- Issuing and revoking are audited as `api_client.issued` and
+  `api_client.revoked`, through the owner's own session, so the row names the
+  owner. If the audit row can't be written, the new key is revoked and its
+  secret is never shown.
+- Each key shows its last 5 API actions in this shop, taken from the audit log.
+- The "Created by API" badge is on estimate and invoice list rows and detail
+  headers. It doesn't name the key: the browser can't read `api_keys`, by
+  design. Owners see key names in Settings.
+- Not checked in a browser against real data: the panel stays hidden until
+  the flag is on, and there is no staging database. It is covered by render
+  tests.
 
 **Phase 5 notes:**
 - `buildPdf` was moved verbatim to `lib/documents/pdf.ts`, and the email

@@ -136,6 +136,7 @@ export function createFakeDb(): FakeDb {
       delete: () => { op = 'delete'; return b; },
       eq: (c: string, v: unknown) => { filters.push(r => r[c] === v); return b; },
       in: (c: string, vs: unknown[]) => { filters.push(r => vs.includes(r[c])); return b; },
+      is: (c: string, v: null) => { filters.push(r => (r[c] ?? null) === v); return b; },
       gte: (c: string, v: string) => { filters.push(r => String(r[c] ?? '') >= v); return b; },
       order: (c: string, o?: { ascending?: boolean }) => { orders.push([c, o?.ascending !== false]); return b; },
       range: (from: number, to: number) => { range = [from, to]; return b; },

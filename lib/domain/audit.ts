@@ -138,6 +138,9 @@ export async function writeAuditEvent(
 
 /** Actions M1 emits. Named here so a typo is a compile error, not a lost row. */
 export const AUDIT = {
+  // API v1 keys, issued and revoked from Settings → API Keys (phase 6).
+  apiKeyIssued: 'api_client.issued',
+  apiKeyRevoked: 'api_client.revoked',
   customerCreated: 'customer.created',
   customerUpdated: 'customer.updated',
   customerArchived: 'customer.archived',

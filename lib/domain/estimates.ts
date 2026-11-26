@@ -84,6 +84,11 @@ export interface EstimateFull {
   approvedDate: string | null;
   currency: string;
   createdAt: string;
+  /**
+   * Set only on estimates an API key created (API v1), for the "Created by
+   * API" badge. Read-only: no write path takes it from here.
+   */
+  createdVia?: 'api';
 }
 
 export type EstimateInput = Omit<EstimateFull, 'id' | 'createdAt'>;
@@ -106,6 +111,7 @@ export function mapEstimateRow(r: Record<string, unknown>): EstimateFull {
     approvedDate: (r.approved_date as string) || null,
     currency: (r.currency as string) || 'USD',
     createdAt: (r.created_at as string) || '',
+    ...(r.created_via === 'api' ? { createdVia: 'api' as const } : {}),
   };
 }
 

@@ -191,6 +191,21 @@ at once.
   with 409 `SHOP_IDENTITY_INCOMPLETE`, the same as emailing a document.
 - Nothing is sent to anyone. The PDF is returned to the caller only.
 
+### Issuing keys
+
+Shop owners issue and revoke keys in **Settings → API Keys**. The screen is
+hidden while `api_v1_documents` is off.
+- It has two presets. **Read only** (Wally Bot) reads customers, vehicles,
+  estimates and invoices. **Read + write drafts** (CRM) adds draft writes and
+  PDFs.
+- The secret is shown once. A key issued there only reaches that shop.
+- Each key's recent actions are listed under it.
+- Organization-wide keys are still issued and revoked by an operator with
+  `npx tsx scripts/api-key.ts`.
+
+Estimates and invoices made by a key carry a **CREATED BY API** badge in the
+app, so staff can check a bot's draft before sending it.
+
 ### Writing drafts
 
 - **Always Draft.** A key cannot set a status, totals, discount or tax rate.
