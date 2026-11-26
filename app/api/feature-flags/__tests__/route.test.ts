@@ -52,7 +52,7 @@ jest.mock('@/lib/featureFlags/featureFlagService', () => ({
 // qualifying plan — lib/redline-ai/access), not the raw flag evaluation.
 // Mocked so these tests stay about roles and rows; the decision itself is
 // covered in lib/redline-ai/__tests__/access.test.ts.
-const mockRedlineAiEnabled = jest.fn(async () => false);
+const mockRedlineAiEnabled = jest.fn(async (..._args: unknown[]) => false);
 jest.mock('@/lib/redline-ai/access', () => ({
   isRedlineAiEnabled: (...a: unknown[]) => mockRedlineAiEnabled(...a),
 }));

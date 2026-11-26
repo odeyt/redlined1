@@ -129,7 +129,9 @@ Every recommendation must answer:
 4. **What revenue or risk impact** is expected?
 5. **What action** can the owner take next? (direct link or button)
 
-> **Do not implement SI-5 until explicitly instructed.**
+> **Phase 1 approved and built 2026-11-27**, behind `actionable_recommendations` (off by default).
+> See `docs/intelligence/SI5_ACTIONABLE_RECOMMENDATIONS.md`. Later AI phases still need
+> explicit per-feature approval.
 
 ---
 

@@ -1,13 +1,24 @@
 export const dynamic = 'force-dynamic';
 // SI-5: GET /api/intelligence/recommendations/[id]/evidence
-// Returns evidence bundle for a single recommendation.
+// Returns the evidence for a single recommendation.
 // Auth required. Owner/manager only. Technician blocked.
 // Safe fallback if evidence tables are not yet migrated.
+//
+// Two flags, both default OFF:
+//   evidence_engine             → `evidence`: summary evidence + why it matters
+//   actionable_recommendations  → `decision`: the actual records, what to do,
+//                                 the money involved, and where to do it
+// Either one turns the route on; each part is built only when its flag is on.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { getShopIds } from '@/lib/shopStore';
+import { resolveRequestShop } from '@/lib/shops/requestShop';
+import { mergedShopScope } from '@/lib/shops/mergedScope';
+import { isEnabled } from '@/lib/featureFlags/featureFlagService';
+import { getFeatureFlagEnvironment } from '@/lib/environment';
+
+const ALLOWED_ROLES = ['owner', 'manager'];
 
 async function getAuthCtx(req: NextRequest) {
   const cookieStore = await cookies();
@@ -18,19 +29,11 @@ async function getAuthCtx(req: NextRequest) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const shopId = req.headers.get('x-shop-id') ?? cookieStore.get('shopId')?.value ?? '';
-  const { data: suRow } = await supabase.from('shop_users').select('role').eq('user_id', user.id).eq('shop_id', shopId).maybeSingle();
-  const role = (suRow as { role?: string } | null)?.role ?? '';
-  return { userId: user.id, shopId, role };
-}
-
-async function isFlagEnabled(flagKey: string): Promise<boolean> {
-  try {
-    const { getAdminDb } = await import('@/lib/supabaseServer');
-    const db = getAdminDb();
-    const { data } = await db.from('feature_flags').select('enabled').eq('flag_key', flagKey).maybeSingle();
-    return (data as { enabled?: boolean } | null)?.enabled === true;
-  } catch { return false; }
+  // The header only chooses among the caller's own memberships; it never
+  // grants one. Without it, an active (not archived) shop is preferred.
+  const requested = req.headers.get('x-shop-id') ?? cookieStore.get('shopId')?.value ?? null;
+  const membership = await resolveRequestShop(supabase, user.id, requested);
+  return { userId: user.id, shopId: membership?.shop_id ?? '', role: membership?.role ?? '' };
 }
 
 export async function GET(
@@ -40,13 +43,17 @@ export async function GET(
   try {
     const ctx = await getAuthCtx(req);
     if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!['owner', 'manager'].includes(ctx.role)) {
+    if (!ALLOWED_ROLES.includes(ctx.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const flagOn = await isFlagEnabled('evidence_engine');
-    if (!flagOn) {
-      return NextResponse.json({ disabled: true, evidence: null, message: 'Evidence Engine is not enabled.' });
+    const flagCtx = { userId: ctx.userId, shopId: ctx.shopId, role: ctx.role, environment: getFeatureFlagEnvironment() };
+    const [evidenceOn, decisionsOn] = await Promise.all([
+      isEnabled('evidence_engine', flagCtx),
+      isEnabled('actionable_recommendations', flagCtx),
+    ]);
+    if (!evidenceOn && !decisionsOn) {
+      return NextResponse.json({ disabled: true, evidence: null, decision: null, message: 'Evidence Engine is not enabled.' });
     }
 
     const { id: recId } = await params;
@@ -65,7 +72,32 @@ export async function GET(
     if (recErr || !recRow) {
       return NextResponse.json({ error: 'Recommendation not found' }, { status: 404 });
     }
+    const recommendationKey = recRow.recommendation_key as string;
 
+    const [evidence, decision] = await Promise.all([
+      evidenceOn ? buildSummaryEvidence(db, recRow as Record<string, unknown>, shopId) : Promise.resolve(null),
+      decisionsOn
+        ? import('@/intelligence/evidence/DecisionEvidenceLoader')
+          .then(m => m.loadDecisionEvidence(recommendationKey, shopId))
+          .catch(() => null)
+        : Promise.resolve(null),
+    ]);
+
+    return NextResponse.json({ evidence, decision });
+  } catch (e) {
+    // Always return a safe empty response — never crash Command Center
+    return NextResponse.json({
+      evidence: null,
+      decision: null,
+      error: e instanceof Error ? e.message : 'Evidence unavailable',
+    });
+  }
+}
+
+type Db = ReturnType<typeof import('@/lib/supabaseServer').getAdminDb>;
+
+async function buildSummaryEvidence(db: Db, recRow: Record<string, unknown>, shopId: string) {
+  try {
     const { buildEvidenceForRecommendation, saveEvidenceBundle } = await import('@/intelligence/evidence/EvidenceEngine');
 
     // Get signals for revenue dip rule
@@ -78,7 +110,9 @@ export async function GET(
       .maybeSingle();
     const signals = (sigRow as { signals?: Record<string, unknown> } | null)?.signals ?? {};
 
-    const shopIds = getShopIds();
+    // The shop plus any location merged into it (D1 Imports into Location 2),
+    // the same scope the metrics behind each recommendation are counted over.
+    const shopIds = await mergedShopScope(db, shopId);
     const rec = {
       id: recRow.id as string,
       shopId: recRow.shop_id as string,
@@ -104,14 +138,9 @@ export async function GET(
     );
 
     // Persist evidence asynchronously (fire-and-forget)
-    saveEvidenceBundle(recId, shopId, bundle.items).catch(() => {});
-
-    return NextResponse.json({ evidence: bundle });
-  } catch (e) {
-    // Always return a safe empty response — never crash Command Center
-    return NextResponse.json({
-      evidence: null,
-      error: e instanceof Error ? e.message : 'Evidence unavailable',
-    });
+    saveEvidenceBundle(rec.id, shopId, bundle.items).catch(() => {});
+    return bundle;
+  } catch {
+    return null;
   }
 }
