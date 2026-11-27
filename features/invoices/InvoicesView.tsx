@@ -35,6 +35,8 @@ import { ShopIdentityCard } from '@/features/shops/ShopIdentityCard';
 import { ShopIdentityBlockedDialog } from '@/features/shops/ShopIdentityBlockedDialog';
 import { SHOP_IDENTITY_INCOMPLETE, type ShopIdentityField } from '@/lib/shops/shopIdentity';
 import { usePlan, } from '@/lib/usePlan';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { translateLineTexts } from '@/lib/ai/translateLine';
 import { needsWatermark } from '@/lib/planGate';
 import { FilterPills } from '@/components/FilterPills';
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
@@ -53,14 +55,6 @@ const STATUS_COLORS: Record<string, string> = {
 type FormLine = { note: string; description: string; laoDescription: string; qty: string; cost: string; markup: string; rate: string; currency: string };
 const EMPTY_LINE: FormLine = { note: '', description: '', laoDescription: '', qty: '1', cost: '', markup: '0', rate: '0', currency: '' };
 
-async function translateToLao(text: string): Promise<string> {
-  if (!text.trim()) return '';
-  try {
-    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|lo`);
-    const data = await res.json();
-    return data.responseData?.translatedText || text;
-  } catch { return text; }
-}
 
 const EMPTY_FORM = {
   invoiceNumber: '',
@@ -98,6 +92,8 @@ function calcFormEffectiveTotal(lines: typeof EMPTY_FORM['lines'], baseCurrency:
 }
 
 export function InvoicesView() {
+  // AI pilot (D1 shops only; the server checks too). Off → the 🌐 button works exactly as before.
+  const aiTranslation = useFeatureFlag('ai_translation');
   const dispatch = useAppDispatch();
   const { prefill } = useAppState();
   const { status: planStatus } = usePlan();
@@ -1252,11 +1248,11 @@ export function InvoicesView() {
                         <div style={{ display: 'flex', gap: 3 }}>
                           <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..."
                             style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', minWidth: 0 }} />
-                          <button type="button" title="Auto-translate to Lao"
+                          <button type="button" title={aiTranslation ? 'Translate English ⇄ Lao (AI)' : 'Auto-translate to Lao'}
                             onClick={async () => {
-                              if (!line.description) return;
-                              const lao = await translateToLao(line.description);
-                              setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                              const patch = await translateLineTexts(line, aiTranslation);
+                              if (!patch) return;
+                              setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, ...patch }) }));
                             }}
                             style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>🌐</button>
                         </div>
@@ -1633,11 +1629,11 @@ export function InvoicesView() {
                         <div style={{ display: 'flex', gap: 3 }}>
                           <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..."
                             style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)', minWidth: 0 }} />
-                          <button type="button" title="Auto-translate to Lao"
+                          <button type="button" title={aiTranslation ? 'Translate English ⇄ Lao (AI)' : 'Auto-translate to Lao'}
                             onClick={async () => {
-                              if (!line.description) return;
-                              const lao = await translateToLao(line.description);
-                              setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                              const patch = await translateLineTexts(line, aiTranslation);
+                              if (!patch) return;
+                              setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, ...patch }) }));
                             }}
                             style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>🌐</button>
                         </div>

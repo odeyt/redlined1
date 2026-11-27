@@ -112,7 +112,7 @@ These are non-negotiable. Never violate without explicit written approval from t
 - Commercial Creem billing: scaffolded, not live
 - Billing enforcement: disabled
 - Sapelee integration: not connected (provider abstraction ready)
-- AI/LLM in product code: not enabled
+- AI/LLM in product code: one owner-approved pilot only (2026-11-27) — English ⇄ Lao line translation via Grok, D1 shops only, behind `ai_translation` (off by default), $20/month cap. See `docs/ai/TRANSLATION_PILOT.md`. Every other AI feature still needs its own approval.
 
 ---
 
