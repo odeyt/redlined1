@@ -31,7 +31,12 @@ function inList(values: readonly string[]): string {
   return `(${values.map(v => `"${v}"`).join(',')})`;
 }
 
-async function unpaidInvoices(db: Db, scope: string[], now: Date): Promise<EvidenceRecord[]> {
+/**
+ * Unpaid invoices for `scope` (already widened by mergedShopScope), as records,
+ * using the Invoices screen's receivables rule. Throws on a read error.
+ * Also used by the Evidence Engine's summary builder.
+ */
+export async function unpaidInvoices(db: Db, scope: string[], now: Date): Promise<EvidenceRecord[]> {
   const { data, error } = await db
     .from('invoices')
     .select('*')

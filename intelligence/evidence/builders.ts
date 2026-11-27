@@ -36,30 +36,38 @@ function daysSince(dateStr: string | null | undefined): number | null {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Unpaid Invoices
 // ─────────────────────────────────────────────────────────────────────────────
+// Same rule as the Invoices screen, Money Owed and the unpaid-invoice count
+// (receivablesFrom: drafts are not owed; balance = total from lines − payments).
+// The previous query selected `total` and `id`, which are not invoice columns
+// (the key is `number`; totals come from lines), so it failed and this panel
+// was always empty. Money is per currency, never converted or shown as "$".
 export async function buildUnpaidInvoicesEvidence(shopId: string, shopIds: string[]): Promise<RecommendationEvidence[]> {
   try {
     const { getAdminDb } = await import('@/lib/supabaseServer');
-    const db = getAdminDb();
-    const { data } = await db
-      .from('invoices')
-      .select('id, total, created_at, status')
-      .in('shop_id', shopIds)
-      .in('status', ['Draft', 'Sent', 'Unpaid', 'Pending'])
-      .order('created_at', { ascending: true });
+    const { unpaidInvoices } = await import('./DecisionEvidenceLoader');
+    const { summarizeUnpaid } = await import('@/lib/intelligence/decisionEvidence');
+    const { formatMoney, formatMoneyTotals } = await import('@/lib/currencies');
 
-    const rows: Row[] = data ?? [];
-    if (rows.length === 0) return [];
-
-    const total = rows.reduce((s: number, r: Row) => s + Number(r.total ?? 0), 0);
-    const oldest = rows[0];
-    const largest = [...rows].sort((a: Row, b: Row) => Number(b.total ?? 0) - Number(a.total ?? 0))[0];
-    const oldestDays = daysSince(oldest?.created_at);
+    const records = await unpaidInvoices(getAdminDb(), shopIds, new Date());
+    if (records.length === 0) return [];
+    const s = summarizeUnpaid(records);
+    const currencies = Object.keys(s.totals);
+    const singleTotal = currencies.length === 1 ? s.totals[currencies[0]] : undefined;
 
     return [
-      item(shopId, 'invoice', 'Unpaid invoice count', { numeric: rows.length, sourceType: 'invoice', confidence: 1 }),
-      item(shopId, 'invoice', 'Total unpaid amount', { numeric: total, value: `$${total.toFixed(0)}`, sourceType: 'invoice', confidence: 1 }),
-      ...(oldestDays != null ? [item(shopId, 'invoice', 'Oldest unpaid invoice', { numeric: oldestDays, value: `${oldestDays} days ago`, sourceType: 'invoice', sourceId: oldest.id, confidence: 0.9 })] : []),
-      item(shopId, 'invoice', 'Largest unpaid invoice', { numeric: Number(largest?.total ?? 0), value: `$${Number(largest?.total ?? 0).toFixed(0)}`, sourceType: 'invoice', sourceId: largest?.id, confidence: 0.9 }),
+      item(shopId, 'invoice', 'Unpaid invoice count', { numeric: s.count, sourceType: 'invoice', confidence: 1 }),
+      item(shopId, 'invoice', 'Total unpaid amount', { numeric: singleTotal, value: formatMoneyTotals(s.totals), sourceType: 'invoice', confidence: 1 }),
+      item(shopId, 'invoice', 'Overdue invoices', { numeric: s.overdueCount, value: `${s.overdueCount} of ${s.count}`, sourceType: 'invoice', confidence: 1 }),
+      ...(s.oldestOverdue ? [item(shopId, 'invoice', 'Most overdue invoice', {
+        numeric: s.oldestOverdue.ageDays ?? undefined,
+        value: `${s.oldestOverdue.label}, ${s.oldestOverdue.ageDays} days overdue`,
+        sourceType: 'invoice', sourceId: s.oldestOverdue.label, confidence: 0.9,
+      })] : []),
+      ...s.largestByCurrency.map(r => item(shopId, 'invoice', 'Largest unpaid balance', {
+        numeric: r.amount ?? undefined,
+        value: `${r.label}, ${formatMoney(r.amount ?? 0, r.currency ?? undefined)}`,
+        sourceType: 'invoice', sourceId: r.label, confidence: 0.9,
+      })),
     ];
   } catch { return []; }
 }

@@ -273,6 +273,38 @@ export function selectUnpaidInvoices(
     }));
 }
 
+export interface UnpaidSummary {
+  count: number;
+  overdueCount: number;
+  /** Balances per currency, never converted. */
+  totals: MoneyTotals;
+  /** The most overdue invoice, or null when none is overdue. */
+  oldestOverdue: EvidenceRecord | null;
+  /** The largest balance in each currency, largest first within the list order. */
+  largestByCurrency: EvidenceRecord[];
+}
+
+/** Summary figures for the Evidence Engine's unpaid-invoice panel, from selectUnpaidInvoices() output. */
+export function summarizeUnpaid(records: readonly EvidenceRecord[]): UnpaidSummary {
+  const overdue = records.filter(r => (r.ageDays ?? 0) > 0);
+  const largest = new Map<string, EvidenceRecord>();
+  for (const r of records) {
+    const c = r.currency ?? DEFAULT_CURRENCY;
+    const best = largest.get(c);
+    if (!best || (r.amount ?? 0) > (best.amount ?? 0)) largest.set(c, r);
+  }
+  return {
+    count: records.length,
+    overdueCount: overdue.length,
+    totals: totalsOf(records),
+    oldestOverdue: overdue.reduce<EvidenceRecord | null>(
+      (a, r) => (!a || (r.ageDays ?? 0) > (a.ageDays ?? 0) ? r : a), null),
+    largestByCurrency: [...largest.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, r]) => r),
+  };
+}
+
 /** stale_estimates: open estimates created before the stale cutoff — oldest first. */
 export function selectStaleEstimates(rows: readonly EstimateRow[], now: Date): EvidenceRecord[] {
   const cutoff = daysAgoIso(now, STALE_ESTIMATE_DAYS);

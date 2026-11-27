@@ -48,9 +48,10 @@ email or address. Any VIN-shaped token is stripped from vehicle labels. Owner/ma
 - `evidence_engine` was read by code but never seeded; the migration seeds it OFF so it shows in
   Settings. An existing row is left unchanged.
 
-Known gap, not changed here: the summary builder for unpaid invoices selects `invoices.total`,
-a column that does not exist (totals come from lines), so its summary evidence is likely empty.
-The new decision view does not use it.
+- Follow-up (after #116): the summary builder for unpaid invoices selected `invoices.total` and
+  `invoices.id`, which are not columns, so that panel was always empty — and `evidence_engine` turned
+  out to be ON in production, so owners saw it. It now reads through the same receivables rule as
+  the new view, with money per currency.
 
 ## Rollout
 

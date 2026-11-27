@@ -2,7 +2,7 @@ import {
   buildDecision, isDecisionKey, vehicleLabel, estimateTotal, daysAgoIso,
   selectUnpaidInvoices, selectStaleEstimates, selectApprovedEstimates,
   selectDeclinedEstimates, selectCompletedNotInvoiced, selectStuckJobs,
-  selectLowInventory, MAX_RECORDS,
+  selectLowInventory, summarizeUnpaid, MAX_RECORDS,
 } from '../decisionEvidence';
 import { mapInvoiceRow } from '@/lib/domain/invoiceMath';
 import { mapPaymentRow } from '@/lib/domain/payments';
@@ -40,6 +40,34 @@ describe('selectUnpaidInvoices', () => {
     expect(records[0].note).toBe('20 days overdue');
     expect(records[2].note).toBe(`due ${TODAY}`);
     expect(records[0].currency).toBe('THB');
+  });
+});
+
+describe('summarizeUnpaid', () => {
+  it('counts, totals per currency, and finds the most overdue and the largest balance per currency', () => {
+    const records = selectUnpaidInvoices([
+      invoice('INV-1', 1000, { due_date: '2026-11-20' }),            // 600 owed after payment, 7 days overdue
+      invoice('INV-2', 500, { due_date: '2026-11-07' }),             // 20 days overdue
+      invoice('INV-3', 800),                                          // due today
+      invoice('INV-4', 40, { currency: 'USD', due_date: '2026-11-25' }),
+      invoice('INV-5', 900, { status: 'Draft' }),                     // never owed
+    ], [payment('INV-1', 400)], TODAY);
+
+    const s = summarizeUnpaid(records);
+    expect(s.count).toBe(4);
+    expect(s.overdueCount).toBe(3);
+    expect(s.totals).toEqual({ THB: 1900, USD: 40 });
+    expect(s.oldestOverdue?.label).toBe('INV-2');
+    expect(s.largestByCurrency.map(r => [r.label, r.amount, r.currency])).toEqual([
+      ['INV-3', 800, 'THB'],
+      ['INV-4', 40, 'USD'],
+    ]);
+  });
+
+  it('reports no overdue invoice when none is past due', () => {
+    const s = summarizeUnpaid(selectUnpaidInvoices([invoice('INV-1', 100)], [], TODAY));
+    expect(s.overdueCount).toBe(0);
+    expect(s.oldestOverdue).toBeNull();
   });
 });
 
