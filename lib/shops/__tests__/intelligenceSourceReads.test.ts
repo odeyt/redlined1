@@ -56,6 +56,7 @@ describe('intelligence source reads', () => {
     const engines = files(ROOT).filter(f => /mergedShopScope\(/.test(readFileSync(f, 'utf8')));
     expect(engines.map(f => relative(ROOT, f).replace(/\\/g, '/')).sort()).toEqual([
       'customer/CustomerContextBuilder.ts',
+      'evidence/DecisionEvidenceLoader.ts',
       'memory/BusinessMemoryEngine.ts',
       'metrics/MetricsBuilder.ts',
       'service-advisor/AdvisorContextBuilder.ts',

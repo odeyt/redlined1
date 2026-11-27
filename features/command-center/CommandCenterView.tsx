@@ -8,7 +8,9 @@ import { getShopId } from '@/lib/shopStore';
 import { MorningBriefModal } from './MorningBriefModal';
 import { Suspense } from 'react';
 import { LearningDashboardSection } from '@/features/intelligence-learning/LearningDashboardSection';
-import { FeatureGate } from '@/components/featureFlags/FeatureFlagProvider';
+import { FeatureGate, useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import type { DecisionEvidence } from '@/lib/intelligence/decisionEvidence';
+import { DecisionPanel } from './DecisionPanel';
 import { OperationalMetricsSection } from './OperationalMetricsSection';
 import { useOperationalStats } from '@/features/dashboard/shared/useOperationalStats';
 import { formatMoney, DEFAULT_CURRENCY } from '@/lib/currencies';
@@ -437,34 +439,43 @@ interface EvidenceBundle {
 
 // ── Recommendation Card ───────────────────────────────────────
 function RecCard({
-  rec, shopId, currency, onDone, onDismiss,
+  rec, shopId, currency, onDone, onDismiss, onNavigate,
 }: {
   rec: Recommendation;
   shopId: string;
   currency: string;
   onDone: (id: string) => void;
   onDismiss: (id: string) => void;
+  onNavigate: (module: string) => void;
 }) {
   const cfg = PRIORITY_CFG[rec.priority] ?? PRIORITY_CFG.medium;
   const icon = CATEGORY_ICON[rec.category] ?? '📌';
   const [expanded, setExpanded] = useState(false);
   const [evidence, setEvidence] = useState<EvidenceBundle | null>(null);
+  // SI-5: the records behind the recommendation and what to do (flag: actionable_recommendations)
+  const decisionsOn = useFeatureFlag('actionable_recommendations');
+  const [decision, setDecision] = useState<DecisionEvidence | null>(null);
+  const [evidenceLoaded, setEvidenceLoaded] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   async function loadEvidence() {
-    if (evidence || evidenceLoading) return;
+    if (evidenceLoaded || evidenceLoading) return;
     setEvidenceLoading(true);
     try {
       const res = await fetch(`/api/intelligence/recommendations/${rec.id}/evidence`, {
         headers: { 'x-shop-id': shopId },
       });
       if (res.ok) {
-        const body = await res.json() as { evidence?: EvidenceBundle };
+        const body = await res.json() as { evidence?: EvidenceBundle | null; decision?: DecisionEvidence | null };
         if (body.evidence) setEvidence(body.evidence);
+        if (body.decision) setDecision(body.decision);
       }
+      setEvidenceLoaded(true);
     } catch { /* fail silently */ }
     finally { setEvidenceLoading(false); }
   }
+
+  const showDecision = decisionsOn && decision !== null;
 
   function toggleExpand() {
     const next = !expanded;
@@ -511,7 +522,7 @@ function RecCard({
               fontSize: 11, color: cfg.accent, background: 'transparent', border: 'none',
               cursor: 'pointer', fontWeight: 600, padding: '2px 6px', borderRadius: 5,
             }}>
-            {expanded ? '▲ Less' : '▼ Evidence & Actions'}
+            {expanded ? '▲ Less' : decisionsOn ? '▼ What to do' : '▼ Evidence & Actions'}
           </button>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 7 }}>
             <button
@@ -544,8 +555,17 @@ function RecCard({
             </div>
           )}
 
+          {showDecision && decision && (
+            <DecisionPanel
+              decision={decision}
+              whyItMatters={evidence?.explanation?.whyItMatters ?? rec.reason ?? null}
+              accent={cfg.accent}
+              onNavigate={onNavigate}
+            />
+          )}
+
           {/* Evidence items */}
-          {evidence && evidence.items.length > 0 && (
+          {!showDecision && evidence && evidence.items.length > 0 && (
             <div>
               <div className="section-label" style={{ marginBottom: 8 }}>
                 📊 Evidence
@@ -568,21 +588,21 @@ function RecCard({
           )}
 
           {/* Why it matters */}
-          {evidence?.explanation?.whyItMatters && (
+          {!showDecision && evidence?.explanation?.whyItMatters && (
             <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6, background: `${cfg.accent}08`, borderRadius: 6, padding: '8px 11px', borderLeft: `3px solid ${cfg.accent}` }}>
               <strong>Why it matters:</strong> {evidence.explanation.whyItMatters}
             </div>
           )}
 
           {/* Expected impact */}
-          {evidence?.explanation?.expectedImpact && (
+          {!showDecision && evidence?.explanation?.expectedImpact && (
             <div style={{ fontSize: 11, color: '#059669', lineHeight: 1.5 }}>
               💡 {evidence.explanation.expectedImpact}
             </div>
           )}
 
           {/* Suggested actions */}
-          {evidence?.explanation?.suggestedActions && evidence.explanation.suggestedActions.length > 0 && (
+          {!showDecision && evidence?.explanation?.suggestedActions && evidence.explanation.suggestedActions.length > 0 && (
             <div>
               <div className="section-label" style={{ marginBottom: 7 }}>
                 ▶ Next Actions
@@ -602,7 +622,7 @@ function RecCard({
             </div>
           )}
 
-          {!evidenceLoading && !evidence && (
+          {!evidenceLoading && !evidence && !showDecision && (
             <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '4px 0' }}>
               Enable the evidence_engine feature flag for detailed evidence.
             </div>
@@ -1329,7 +1349,7 @@ export function CommandCenterView() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {top5.map(r => (
-                  <RecCard key={r.id} rec={r} shopId={shopId} currency={currency} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} />
+                  <RecCard key={r.id} rec={r} shopId={shopId} currency={currency} onDone={id => handleAction(id, 'complete')} onDismiss={id => handleAction(id, 'dismiss')} onNavigate={nav} />
                 ))}
                 {recList.length > 5 && (
                   <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', paddingTop: 4 }}>
