@@ -94,4 +94,6 @@ export type KnownFlagKey =
   // API v1 bot access to draft estimates and invoices — default OFF
   | 'api_v1_documents'
   // AI pilot: English ⇄ Lao line translation via the provider layer (Grok); D1 shops only — default OFF
-  | 'ai_translation';
+  | 'ai_translation'
+  // Estimate drafting from the shop's own past estimates (no AI) — default OFF
+  | 'estimate_drafting';
