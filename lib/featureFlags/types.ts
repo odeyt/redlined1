@@ -92,4 +92,6 @@ export type KnownFlagKey =
   // WhatsApp Business (Meta Cloud API, coexistence) — default OFF; pilot D1 Imports only
   | 'whatsapp_business'
   // API v1 bot access to draft estimates and invoices — default OFF
-  | 'api_v1_documents';
+  | 'api_v1_documents'
+  // AI pilot: English ⇄ Lao line translation via the provider layer (Grok); D1 shops only — default OFF
+  | 'ai_translation';

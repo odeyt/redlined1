@@ -31,6 +31,8 @@ import { fetchCustomers } from '@/services/customerService';
 import { supabase } from '@/lib/supabase';
 import { getShopId } from '@/lib/shopStore';
 import { usePlan } from '@/lib/usePlan';
+import { useFeatureFlag } from '@/components/featureFlags/FeatureFlagProvider';
+import { translateLineTexts } from '@/lib/ai/translateLine';
 import { needsWatermark } from '@/lib/planGate';
 
 const fmt = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
@@ -51,14 +53,6 @@ type FormLine = {
 };
 const EMPTY_LINE: FormLine = { description: '', laoDescription: '', qty: '1', cost: '', markup: '', rate: '0', currency: '' };
 
-async function translateToLao(text: string): Promise<string> {
-  if (!text.trim()) return '';
-  try {
-    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|lo`);
-    const data = await res.json();
-    return data.responseData?.translatedText || text;
-  } catch { return text; }
-}
 
 const LAO: Record<string, string> = {
   'Estimate': 'ໃບປະເມີນລາຄາ',
@@ -133,6 +127,8 @@ function LakConversionBox({ lakRate, updateLakRate, totalThb }: { lakRate: numbe
 }
 
 export function EstimatesView() {
+  // AI pilot (D1 shops only; the server checks too). Off → the 🌐 button works exactly as before.
+  const aiTranslation = useFeatureFlag('ai_translation');
   const { prefill } = useAppState();
   const dispatch = useAppDispatch();
   const [estimates, setEstimates] = useState<EstimateFull[]>([]);
@@ -960,11 +956,11 @@ export function EstimatesView() {
                     <input value={line.description} onChange={e => setLine(i, 'description', e.target.value)} placeholder="Part / service description" style={{ border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <div style={{ display: 'flex', gap: 3 }}>
                       <input value={line.laoDescription} onChange={e => setLine(i, 'laoDescription', e.target.value)} placeholder="ລາຍລະອຽດ..." style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 6, padding: '7px 8px', fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-                      <button type="button" title="Auto-translate to Lao"
+                      <button type="button" title={aiTranslation ? 'Translate English ⇄ Lao (AI)' : 'Auto-translate to Lao'}
                         onClick={async () => {
-                          if (!line.description) return;
-                          const lao = await translateToLao(line.description);
-                          setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, laoDescription: lao }) }));
+                          const patch = await translateLineTexts(line, aiTranslation);
+                          if (!patch) return;
+                          setForm(f => ({ ...f, lines: f.lines.map((l, idx) => idx !== i ? l : { ...l, ...patch }) }));
                         }}
                         style={{ padding: '4px 7px', borderRadius: 6, border: '1px solid var(--line)', background: 'var(--surface-soft)', cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', color: 'var(--muted)' }}>
                         🌐
