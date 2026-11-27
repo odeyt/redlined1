@@ -1,8 +1,14 @@
 # Customer portal — rollout runbook
 
-Status at time of writing (2026-10-13): **not live.** The code, migrations and
-tests are in the PR that adds this file. Nothing below has been run against
-production or staging. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
+Status (2026-10-13, after rollout): **Deployed; signed-out checks verified;
+test-customer walkthrough pending.** The portal is not marked complete. See the
+rollout record at the end of this file.
+
+**Update (2026-10-14):** the valid-link failure is fixed in production by #87
+(`b6fba37`), and the test-customer walkthrough passed its functional checks —
+see the 2026-10-14 entries below. **Not yet complete:** the vehicle heading is
+blank for vehicles named only in `label`; fix PR #88, not yet merged or
+deployed. Production project: `redlined1` / `ldjrlvjkmzrcdqhetqoh`;
 production Vercel project: `redlined1` under `redlined1-s-projects` (the
 `d1-imports` project is a duplicate — do not deploy there).
 
@@ -146,3 +152,120 @@ Do not rotate all customer tokens as a rollback.
 - `/status/[token]` and `/inspection/[token]` share links have the same
   login-redirect problem and stay gated: their handlers need review first
   (e.g. `inspection-share` returns `select('*')`, which may include VIN).
+
+## Rollout record (2026-10-13)
+
+Observed evidence only. Staging was skipped on the owner's instruction. This
+was a scoped exception for #85; it does **not** clear the wider production
+security hold (pg_net / push secret), which is unchanged.
+
+**Database** — both migrations were applied in production by the owner
+(Claude Code was not permitted production database access).
+
+- *Direct production verification (ChatGPT, as reported by the owner):* both
+  migrations were verified directly against production — backup confirmed,
+  pre-check, Verify 1 (token migration) and Verify 2 (TRUNCATE revoke) passed.
+  The raw query output was not provided to Claude Code and is not reproduced
+  here.
+- *Verification SQL:* the pre-check / Verify 1 / Verify 2 queries handed over
+  for this rollout were first run against the exact migration files from
+  `529ee55` in a throwaway local container. Both verifications passed there,
+  and a negative control (a deliberate PUBLIC grant on the token table,
+  generator and `customers` TRUNCATE) was caught by both.
+- *Independent read-only re-check by Claude Code, from the API, after rollout:*
+
+| Check | Result |
+|-------|--------|
+| `customers` / `customer_portal_tokens` row counts (HEAD count only) | 185 / 185 |
+| Token table and generator visible in the **anon** API schema | no / no |
+| anon `GET /rest/v1/customer_portal_tokens` | 401, Postgres 42501 (permission denied) |
+| anon `POST /rest/v1/rpc/new_customer_portal_token` | 401 |
+
+**Code** — PR #85 merged by the owner 2026-10-13T06:51:00Z, merge
+`68a1209b0d3b5cab66ebede494307f3c8129ea14`. `main`'s tree is identical to the
+reviewed head `529ee55b7f6a156f312042f6df4f7582c6f06f85`.
+
+**Deploy** — `redlined1-s-projects/redlined1` production deployment
+`redlined1-i9g6hny5i`, built from `githubCommitSha=68a1209…`, Ready, aliased to
+`www.redlined1.com` and `redlined1.com`. `d1-imports` not touched.
+
+**Signed-out checks on www.redlined1.com** (synthetic tokens only):
+
+| Request | Result |
+|---------|--------|
+| `GET /portal/<64 zeroes>`, `GET /portal/not-a-token` | 200 "Portal Not Found"; `private, no-store`; `no-referrer`; `noindex, nofollow` |
+| `POST /api/portal/estimate-action` — unknown token; malformed token/id | 404 `Estimate not found.` (identical) |
+| same — bad action; non-JSON body | 400 |
+| `/portal`, `/portal/a/b`, `/portals/x`, `/status/x`, `/inspection/x`, `/customers`, `/settings`, `/dashboard` | 307 → /login |
+| `/api/portal`, `/api/portal/other`, `/api/portal/estimate-action/x`, `POST /api/customers/portal-link`, `POST /api/inspection-approve` | 401 |
+
+**Pending** — authenticated walkthrough with a clearly labeled synthetic test
+customer (staff Portal Link → open signed out → own documents and totals →
+approve one synthetic estimate → replay refused). Not run: needs a staff
+session and writes to production.
+
+## 2026-10-14 — valid links fail on the #85 deployment
+
+**Reported by ChatGPT (direct observation, not repeated by Claude Code):** on
+production build `68a1209`, a 64-hex link copied through the staff Portal Link
+button for a synthetic customer opened "Portal Not Found" after sign-out; both
+synthetic customers have exactly one token; reproducing the portal's vehicles
+SELECT in production returned SQLSTATE 42703, `column "license_plate" does not
+exist`.
+
+**Observed by Claude Code (read-only API schema metadata, column names only):**
+`public.vehicles` has `plate` and no `license_plate` or `color`. Every other
+column the portal names explicitly — customers, shops, shop_settings, invoices,
+estimates, inspections, repair_orders, payments, customer_portal_tokens —
+exists. `inspections.technician_name` is also absent, but is only read from a
+`select('*')` row, so it shows blank rather than failing.
+
+**Cause:** #85 replaced the vehicles `select('*')` with an explicit list naming
+`license_plate, color`; the query error made the fail-closed loader return
+null for every valid link.
+
+**Fix:** PR #87 (`f77eb74`) selects `plate`, drops `color`, and adds a loader
+test against production's column names (restoring #85's columns fails it).
+Full suite 5,254 tests passing; typecheck, lint and build pass.
+**Not yet merged or deployed** as of this entry; the merge could not be run
+from Claude Code's session (permission guard), and the test-customer
+walkthrough still needs a signed-in staff session.
+
+Status unchanged otherwise: not complete; the pg_net security hold remains open.
+
+## 2026-10-14 — #87 deployed; test-customer walkthrough
+
+**Deploy (observed by Claude Code):** PR #87 merged 2026-10-14T02:04:51Z as
+`b6fba37` (tree identical to reviewed `f77eb74`).
+`redlined1-s-projects/redlined1` production deployment `redlined1-auxgirx3f`,
+built from `b6fba37`, Ready, aliased to `www.redlined1.com` and
+`redlined1.com`. Signed-out checks re-run on it: synthetic token → 200 "Portal
+Not Found" with `private, no-store` / `no-referrer` / `noindex, nofollow`;
+estimate-action 404 for unknown/malformed token, 400 for a bad action;
+`/portal`, nested paths, `/status`, `/inspection`, staff pages and the staff
+link route still gated. `redlined1.com/portal/…` 308-redirects to `www`.
+
+**Walkthrough** — synthetic fixtures only, shop `38d55fae…` (Location 1):
+customer A `C-1791936075575` (vehicle plate QA-A-1014, INV-0201, EST-0041),
+customer B `C-1791936259074` (EST-0042).
+
+| Check | Result | Source |
+|-------|--------|--------|
+| Real link (copied via staff Portal Link) loads signed out | passed — portal GET with a real 64-hex token answered 200 at 03:20:19Z and 03:21:30Z, after the #87 deploy | owner; request log (token masked) |
+| INV-0201 total $106.35 | passed | owner (screenshot) |
+| B's EST-0042 absent from A's portal | passed; EST-0042 still `Sent` | owner; database |
+| EST-0041 approved from the portal | passed — `status = Approved`, `approved_date = 2026-10-14T03:20:54Z`; exactly one `POST /api/portal/estimate-action` → 200 at 03:20:54Z | owner; database; request log |
+| Approval audited | `estimate.approved`, actor `system`, role `customer`, metadata `{"source":"customer_portal"}`, 03:20:57Z | audit_events |
+| Refresh keeps Approved, no buttons | passed | owner |
+| Vehicle heading | **failed (display only)** — plate shows, heading blank; the vehicle's name is in `label`, the portal used empty year/make/model | owner; fix PR #88 |
+
+A repeat approve was not attempted live (no button after refresh); the
+server-side repeat/concurrency protection is covered by unit tests and the
+local Postgres race test.
+
+An earlier real-token portal request at 01:21:58Z predates the #87 deploy
+(02:04:54Z) and does not count toward this walkthrough.
+
+**Status:** not complete until #88 is deployed and the vehicle heading is
+confirmed. Fixture cleanup (customers A/B, INV-0201, EST-0041, EST-0042) is
+outstanding. The pg_net security hold remains open.
