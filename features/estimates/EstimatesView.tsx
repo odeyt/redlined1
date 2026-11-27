@@ -21,6 +21,8 @@ import {
 import { createInvoice, nextInvoiceNumber } from '@/services/invoiceService';
 import { fetchCustomerNames, fetchVehicles } from '@/services/vehicleService';
 import { PartsSearchLauncher } from './PartsSearchLauncher';
+import { DraftFromHistoryLauncher } from './DraftFromHistoryLauncher';
+import type { SuggestedLine } from '@/lib/estimates/draftFromHistory';
 import type { AddPartPayload } from './PartsSearchModal';
 import { buildEstimateLineFromPart, type PartsSourceSnapshot } from '@/lib/parts/snapshot';
 import { fetchJobCards, type JobCardFull } from '@/services/jobCardService';
@@ -392,6 +394,39 @@ export function EstimatesView() {
    * qty, cost, markup, rate — so from here on it behaves like any other line
    * and the existing totals math applies unchanged.
    */
+  /**
+   * Lines picked in "Draft from past jobs". Same placement rules as a searched
+   * part: fill the form's blank default row first, keep Labor last. A past
+   * Labor line replaces the form's unpriced Labor placeholder rather than
+   * adding a second Labor row.
+   */
+  function handleAddDraftLines(picked: SuggestedLine[]) {
+    setForm(f => {
+      let ls = [...f.lines];
+      for (const s of picked) {
+        const newLine: FormLine = {
+          description: s.description,
+          laoDescription: s.laoDescription,
+          qty: String(s.qty),
+          cost: s.cost == null ? '' : String(s.cost),
+          markup: s.markup == null ? '' : String(s.markup),
+          rate: String(s.rate),
+          currency: s.currency === f.currency ? '' : s.currency,
+          ...(s.note ? { note: s.note } : {}),
+        };
+        const isLabor = s.description.trim().toLowerCase() === 'labor';
+        const placeholderLabor = ls.findIndex(l => l.description === 'Labor' && (l.rate === '0' || l.rate === ''));
+        if (isLabor && placeholderLabor !== -1) { ls[placeholderLabor] = newLine; continue; }
+        const blankIdx = ls.findIndex(l => !l.description.trim() && (!l.cost || l.cost === '') && l.rate === '0');
+        if (blankIdx !== -1) { ls[blankIdx] = newLine; continue; }
+        const lastIsLabor = ls.length > 0 && ls[ls.length - 1].description === 'Labor';
+        if (lastIsLabor && !isLabor) ls.splice(ls.length - 1, 0, newLine);
+        else ls = [...ls, newLine];
+      }
+      return { ...f, lines: ls };
+    });
+  }
+
   function handleAddSearchedPart(payload: AddPartPayload) {
     const built = buildEstimateLineFromPart({
       part: payload.part,
@@ -931,6 +966,14 @@ export function EstimatesView() {
                       vehicle={searchVehicle.vehicle}
                       vehicleLabel={searchVehicle.label}
                       onAdd={handleAddSearchedPart}
+                    />
+                    {/* Renders nothing unless estimate_drafting is on. */}
+                    <DraftFromHistoryLauncher
+                      className="mini-btn"
+                      vehicle={form.vehicle}
+                      jobCardId={form.jobCardId}
+                      excludeId={editingId}
+                      onAdd={handleAddDraftLines}
                     />
                     <button type="button" className="mini-btn primary" onClick={() => setForm(f => {
                       const ls = [...f.lines];
